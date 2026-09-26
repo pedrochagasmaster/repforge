@@ -108,8 +108,32 @@ try {
     await page.waitForSelector("#onbBody");
   }
 
+  async function assertPrimaryRebuildRole(route) {
+    const colors = await page.evaluate(() => {
+      const token = (property, name) => {
+        const probe = document.createElement("span");
+        probe.style.setProperty(property, `var(${name})`);
+        document.body.append(probe);
+        const value = getComputedStyle(probe).getPropertyValue(property);
+        probe.remove();
+        return value;
+      };
+      const button = getComputedStyle(document.querySelector("#entryRebuildRules"));
+      return {
+        actual: [button.backgroundColor, button.color, button.borderColor],
+        expected: [
+          token("background-color", "--control-primary-bg"),
+          token("color", "--control-primary-ink"),
+          token("border-color", "--control-primary-boundary"),
+        ],
+      };
+    });
+    assert.deepEqual(colors.actual, colors.expected, `${route} Rebuild rules uses primary control tokens`);
+  }
+
   for (const route of ["recommend", "custom"]) {
     await stage(route);
+    await assertPrimaryRebuildRole(route);
     const before = await page.evaluate(() => structuredClone(window.__repforgeEntryState().result));
     await page.click("#entryRebuildRules");
     await page.waitForFunction(() => window.__repforgeEntryState().result?.fingerprint?.startsWith("current-"), undefined, { timeout: 5000 });
@@ -137,6 +161,7 @@ try {
   assert.equal(missing.calls.some((call) => call.startsWith("compile:")), false, "Browse recovery never invokes the generator");
 
   await stage("build");
+  await assertPrimaryRebuildRole("build");
   const buildBefore = await page.evaluate(() => structuredClone(window.__repforgeEntryState().result));
   await page.click("#entryRebuildRules");
   await page.waitForTimeout(100);

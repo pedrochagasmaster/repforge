@@ -651,14 +651,14 @@
       "flow": "onboarding-recovery",
       "label": "Resume setup",
       "scenario": "The resumable notice after reload: route, step, recency, Resume, Start over.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "rules-drift",
       "flow": "onboarding-recovery",
       "label": "Rules changed",
       "scenario": "A draft whose compiler rules are stale. Rebuild is required before activation.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "no-program",

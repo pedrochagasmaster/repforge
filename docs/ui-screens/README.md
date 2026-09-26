@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 143 screens,
-843 frames. This folder is the visual reference for UI and Brand Designers.
+851 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -126,8 +126,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Resume setup](screens/onboarding-recovery/resume__phone-390-light-en.png) | 3 | The resumable notice after reload: route, step, recency, Resume, Start over. |
-| [Rules changed](screens/onboarding-recovery/rules-drift__phone-390-light-en.png) | 3 | A draft whose compiler rules are stale. Rebuild is required before activation. |
+| [Resume setup](screens/onboarding-recovery/resume__phone-390-light-en.png) | 7 | The resumable notice after reload: route, step, recency, Resume, Start over. |
+| [Rules changed](screens/onboarding-recovery/rules-drift__phone-390-light-en.png) | 7 | A draft whose compiler rules are stale. Rebuild is required before activation. |
 
 ### Today
 

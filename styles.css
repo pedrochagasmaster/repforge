@@ -3245,17 +3245,27 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 /* Resume: recovery gets its own legible composition — a single bounded
    surface, the route/step context, and the real saved location. */
 .entry__resume{
-  margin:0 0 16px;border:1px solid var(--rule);border-radius:12px;background:var(--surface);overflow:hidden
+  margin:0 0 16px;border:1px solid var(--boundary-decorative);
+  border-radius:var(--radius-surface);background:var(--color-surface);color:var(--color-ink);overflow:hidden
 }
 .entry__resume-head{display:flex;gap:14px;align-items:flex-start;padding:18px 16px}
-.entry__resume-head .entry__resume-ico{color:var(--ink-soft)}
-.entry__resume-copy strong{display:block;font-size:1.1875rem;line-height:1.2;color:var(--ink);margin-bottom:6px}
-.entry__resume-copy p{margin:0;font-size:.875rem;line-height:1.45;color:var(--ink-soft)}
-.entry__resume-loc{
-  display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-top:1px solid var(--rule)
+.entry__resume-head .entry__resume-ico{color:var(--color-ink-secondary)}
+.entry__resume-copy strong{
+  display:block;margin-bottom:6px;color:var(--color-ink);font-family:var(--font-language);
+  font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight)
 }
-.entry__resume-loc .entry__resume-ico{color:var(--accent)}
-.entry__resume-loc p{margin:0;font-size:.84375rem;line-height:1.5;color:var(--ink-soft);overflow-wrap:anywhere}
+.entry__resume-copy p{
+  margin:0;color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-body);line-height:var(--line-reading)
+}
+.entry__resume-loc{
+  display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-top:1px solid var(--boundary-decorative)
+}
+.entry__resume-loc .entry__resume-ico{color:var(--color-action)}
+.entry__resume-loc p{
+  margin:0;color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-body-small);line-height:var(--line-reading);overflow-wrap:anywhere
+}
 .entry__resume-ico{flex:none;width:24px;height:24px;margin-top:1px}
 
 /* Numbered day badge in the weekly-structure list. The facts line already
@@ -4980,6 +4990,77 @@ body.is-entry-editor #entryProgramName,
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-label);font-weight:var(--weight-semibold);
   line-height:var(--line-standard)
+}
+
+/* Resume is a standalone recovery notice, not a rendered entry step. Keep its
+   existing surface and hierarchy while mapping its content and actions to the
+   frozen entry surface, type, and control roles. */
+#onboarding:has(.entry__resume) #onbCancel{
+  min-height:var(--control-target);border-color:var(--control-quiet-boundary);
+  border-radius:var(--radius-control);background:var(--control-quiet-bg);
+  color:var(--control-quiet-ink);font-family:var(--font-language);
+  font-size:var(--font-size-control);font-weight:var(--weight-medium);
+  line-height:var(--line-standard)
+}
+#onboarding:has(.entry__resume) #onbCancel:hover:not(:disabled),
+#onboarding:has(.entry__resume) #onbCancel:active:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);
+  border-color:var(--control-quiet-boundary)
+}
+#onboarding:has(.entry__resume) #onbCancel:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onboarding:has(.entry__resume) #onbCancel:focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px
+}
+#onboarding:has(.entry__resume) #onbCancel:disabled{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody:has(.entry__resume) #entryResumeContinue{
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+#onbBody:has(.entry__resume) #entryResumeContinue:is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+#onbBody:has(.entry__resume) #entryResumeContinue:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody:has(.entry__resume) #entryResumeContinue:focus-visible,
+#onbBody:has(.entry__resume) #entryResumeRestart:focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px
+}
+#onbBody:has(.entry__resume) #entryResumeContinue:disabled{
+  background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody:has(.entry__resume) #entryResumeRestart{
+  background:var(--control-destructive-bg);color:var(--control-destructive-ink);
+  border-color:var(--control-destructive-boundary)
+}
+#onbBody:has(.entry__resume) #entryResumeRestart:is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--well);color:var(--control-destructive-ink);
+  border-color:var(--control-destructive-boundary)
+}
+#onbBody:has(.entry__resume) #entryResumeRestart:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody:has(.entry__resume) #entryResumeRestart:disabled{
+  background:var(--control-destructive-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody #entryRebuildRules{
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+#onbBody #entryRebuildRules:hover:not(:disabled),
+#onbBody #entryRebuildRules:active:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+#onbBody #entryRebuildRules:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody #entryRebuildRules:focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px
+}
+#onbBody #entryRebuildRules:disabled{
+  background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
 
 /* Import follows the same frozen control roles as the other Plan 054 routes.

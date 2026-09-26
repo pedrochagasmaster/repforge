@@ -48500,6 +48500,63 @@
       ]
     },
     {
+      "key": "onboarding-recovery/resume__phone-320-light-en",
+      "flow": "onboarding-recovery",
+      "screen": "resume",
+      "label": "Resume setup",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "Resume setup?You have an unfinished program setup on this device.Left off at Recommend · Priorities and constraints, saved Aug 31."
+        },
+        {
+          "tag": "strong",
+          "text": "Resume setup?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "You have an unfinished program setup on this device."
+        },
+        {
+          "tag": "p",
+          "text": "Left off at Recommend · Priorities and constraints, saved Aug 31."
+        },
+        {
+          "tag": "button",
+          "text": "Resume setup",
+          "name": "Resume setup",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recovery/resume__phone-390-dark-en",
       "flow": "onboarding-recovery",
       "screen": "resume",
@@ -48614,6 +48671,120 @@
       ]
     },
     {
+      "key": "onboarding-recovery/resume__phone-390-light-en-reduced",
+      "flow": "onboarding-recovery",
+      "screen": "resume",
+      "label": "Resume setup",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "Resume setup?You have an unfinished program setup on this device.Left off at Recommend · Priorities and constraints, saved Aug 31."
+        },
+        {
+          "tag": "strong",
+          "text": "Resume setup?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "You have an unfinished program setup on this device."
+        },
+        {
+          "tag": "p",
+          "text": "Left off at Recommend · Priorities and constraints, saved Aug 31."
+        },
+        {
+          "tag": "button",
+          "text": "Resume setup",
+          "name": "Resume setup",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recovery/resume__phone-390-light-en-text200",
+      "flow": "onboarding-recovery",
+      "screen": "resume",
+      "label": "Resume setup",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "Resume setup?You have an unfinished program setup on this device.Left off at Recommend · Priorities and constraints, saved Aug 31."
+        },
+        {
+          "tag": "strong",
+          "text": "Resume setup?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "You have an unfinished program setup on this device."
+        },
+        {
+          "tag": "p",
+          "text": "Left off at Recommend · Priorities and constraints, saved Aug 31."
+        },
+        {
+          "tag": "button",
+          "text": "Resume setup",
+          "name": "Resume setup",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recovery/resume__phone-390-light-pt",
       "flow": "onboarding-recovery",
       "screen": "resume",
@@ -48666,6 +48837,190 @@
           "tag": "button",
           "text": "Começar de novo",
           "name": "Começar de novo",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recovery/resume__phone-430-light-en",
+      "flow": "onboarding-recovery",
+      "screen": "resume",
+      "label": "Resume setup",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "Resume setup?You have an unfinished program setup on this device.Left off at Recommend · Priorities and constraints, saved Aug 31."
+        },
+        {
+          "tag": "strong",
+          "text": "Resume setup?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "You have an unfinished program setup on this device."
+        },
+        {
+          "tag": "p",
+          "text": "Left off at Recommend · Priorities and constraints, saved Aug 31."
+        },
+        {
+          "tag": "button",
+          "text": "Resume setup",
+          "name": "Resume setup",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recovery/rules-drift__phone-320-light-en",
+      "flow": "onboarding-recovery",
+      "screen": "rules-drift",
+      "label": "Rules changed",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "p",
+          "text": "Section 1 of 5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "Program rules have changedTaurifer changed how programs are built since you saved this one. Rebuild it to use the current rules.Rebuild with current rules"
+        },
+        {
+          "tag": "strong",
+          "text": "Program rules have changed"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer changed how programs are built since you saved this one. Rebuild it to use the current rules."
+        },
+        {
+          "tag": "button",
+          "text": "Rebuild with current rules",
+          "name": "Rebuild with current rules",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "What do you want from this program?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose what this program should prioritize."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "What do you want from this program?",
+          "label": "What do you want from this program?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Prioritize muscle growthMore volume for building muscle",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize muscle growth"
+        },
+        {
+          "tag": "span",
+          "text": "More volume for building muscle"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Balance muscle and strength"
+        },
+        {
+          "tag": "span",
+          "text": "Build muscle while keeping heavy compound exercises"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize strength"
+        },
+        {
+          "tag": "span",
+          "text": "Heavier primary exercises with supporting volume"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         }
       ]
@@ -48925,6 +49280,260 @@
       ]
     },
     {
+      "key": "onboarding-recovery/rules-drift__phone-390-light-en-reduced",
+      "flow": "onboarding-recovery",
+      "screen": "rules-drift",
+      "label": "Rules changed",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "p",
+          "text": "Section 1 of 5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "Program rules have changedTaurifer changed how programs are built since you saved this one. Rebuild it to use the current rules.Rebuild with current rules"
+        },
+        {
+          "tag": "strong",
+          "text": "Program rules have changed"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer changed how programs are built since you saved this one. Rebuild it to use the current rules."
+        },
+        {
+          "tag": "button",
+          "text": "Rebuild with current rules",
+          "name": "Rebuild with current rules",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "What do you want from this program?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose what this program should prioritize."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "What do you want from this program?",
+          "label": "What do you want from this program?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Prioritize muscle growthMore volume for building muscle",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize muscle growth"
+        },
+        {
+          "tag": "span",
+          "text": "More volume for building muscle"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Balance muscle and strength"
+        },
+        {
+          "tag": "span",
+          "text": "Build muscle while keeping heavy compound exercises"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize strength"
+        },
+        {
+          "tag": "span",
+          "text": "Heavier primary exercises with supporting volume"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recovery/rules-drift__phone-390-light-en-text200",
+      "flow": "onboarding-recovery",
+      "screen": "rules-drift",
+      "label": "Rules changed",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "p",
+          "text": "Section 1 of 5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "Program rules have changedTaurifer changed how programs are built since you saved this one. Rebuild it to use the current rules.Rebuild with current rules"
+        },
+        {
+          "tag": "strong",
+          "text": "Program rules have changed"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer changed how programs are built since you saved this one. Rebuild it to use the current rules."
+        },
+        {
+          "tag": "button",
+          "text": "Rebuild with current rules",
+          "name": "Rebuild with current rules",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "What do you want from this program?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose what this program should prioritize."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "What do you want from this program?",
+          "label": "What do you want from this program?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Prioritize muscle growthMore volume for building muscle",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize muscle growth"
+        },
+        {
+          "tag": "span",
+          "text": "More volume for building muscle"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Balance muscle and strength"
+        },
+        {
+          "tag": "span",
+          "text": "Build muscle while keeping heavy compound exercises"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize strength"
+        },
+        {
+          "tag": "span",
+          "text": "Heavier primary exercises with supporting volume"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recovery/rules-drift__phone-390-light-pt",
       "flow": "onboarding-recovery",
       "screen": "rules-drift",
@@ -49047,6 +49656,133 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recovery/rules-drift__phone-430-light-en",
+      "flow": "onboarding-recovery",
+      "screen": "rules-drift",
+      "label": "Rules changed",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "p",
+          "text": "Section 1 of 5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "Program rules have changedTaurifer changed how programs are built since you saved this one. Rebuild it to use the current rules.Rebuild with current rules"
+        },
+        {
+          "tag": "strong",
+          "text": "Program rules have changed"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer changed how programs are built since you saved this one. Rebuild it to use the current rules."
+        },
+        {
+          "tag": "button",
+          "text": "Rebuild with current rules",
+          "name": "Rebuild with current rules",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "What do you want from this program?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose what this program should prioritize."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "What do you want from this program?",
+          "label": "What do you want from this program?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Prioritize muscle growthMore volume for building muscle",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize muscle growth"
+        },
+        {
+          "tag": "span",
+          "text": "More volume for building muscle"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Balance muscle and strength"
+        },
+        {
+          "tag": "span",
+          "text": "Build muscle while keeping heavy compound exercises"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize strength"
+        },
+        {
+          "tag": "span",
+          "text": "Heavier primary exercises with supporting volume"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         }
       ]
