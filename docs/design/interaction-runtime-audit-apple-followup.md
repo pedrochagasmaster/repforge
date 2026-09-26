@@ -18,6 +18,6 @@ The existing page-zoom policy is not changed by this follow-up, per owner direct
 
 ## Verification
 
-`test/apple-design-followup.mjs` mechanically guards the projection model, sheet presentation-value takeover, Focus retargeting, the two additional accessibility media queries, install-banner semantics, and the deliberate non-change to the zoom policy. `test/runtime-budget.mjs` guards the runtime split, offline availability and payload ceilings. The existing interaction-runtime contract remains the architecture gate around Motion, dnd-kit and native dialog usage.
+Production-backed `test/motion-integration.mjs` and `test/sheet-swipe-dismiss.mjs` cover projection, presentation-value takeover and Focus/sheet interruption behavior; `test/accessibility.mjs` owns rendered accessibility semantics. `test/runtime-budget.mjs` remains a repository/runtime constraint for the bundle split, offline availability and payload ceilings. The earlier source-shape follow-up test was retired once these stronger owners existed; the deliberate zoom-policy non-change remains a documented owner decision rather than a regex over implementation text.
 
 Physical-device checks are intentionally not represented as automated success: their evidence belongs in `interaction-runtime-device-matrix.md`, because CI cannot validate touch feel, one-handed edge ergonomics, or real VoiceOver/TalkBack pacing.

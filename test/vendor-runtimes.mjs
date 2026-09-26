@@ -113,6 +113,14 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   assert(JSON.stringify(reformatted.api.vocabulary) === JSON.stringify(vocabulary), "equivalent declaration formatting does not change the contract");
 }
 {
+  assert(layer.includes("@media (prefers-reduced-transparency: reduce)") &&
+    /--dock-glass: var\(--dock-glass-opaque\)/.test(layer) &&
+    /backdrop-filter: none !important/.test(layer),
+  "reduced transparency swaps glass for the opaque dock material");
+  assert(layer.includes("@media (prefers-contrast: more)") &&
+    /--rule: var\(--ink-faint\)/.test(layer) &&
+    /--dock-edge: var\(--ink-soft\)/.test(layer),
+  "increased contrast strengthens shared boundaries");
   assert(motion.mediaCalls() === 1, "the layer asks the reduced-motion question once");
   assert(motion.api.reducedMotion() === false, "the initial preference is read");
   motion.query.matches = true;

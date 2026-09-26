@@ -28,6 +28,9 @@ export function parseArgs(argv, env = process.env) {
     args[name.slice(2)] = value;
   }
   if (!Object.hasOwn(PROFILES, args.profile)) throw new Error(`Unknown profile: ${args.profile}`);
+  if (args.seed === undefined && /^[0-9a-f]{40}$/i.test(env.CI_SOURCE_SHA || "")) {
+    args.seed = fnv1a(env.CI_SOURCE_SHA);
+  }
   if (args.seed !== undefined) {
     if (!/^-?\d+$/.test(String(args.seed)) || Number(args.seed) < -2147483648 || Number(args.seed) > 4294967295) throw new Error("Seed must be a 32-bit integer");
     args.seed = Number(args.seed) >>> 0;

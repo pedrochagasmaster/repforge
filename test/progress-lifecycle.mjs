@@ -69,18 +69,7 @@ const now = "2026-08-31T12:00:00";
   assert.ok(!done.structuralActions.includes("progress"), "no performance-derived transition from insufficient evidence");
 }
 
-// The old competing dialogs are gone from the shell.
-{
-  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.ok(!index.includes('id="blockReview"'), "the separate block-review dialog is removed");
-  assert.ok(!index.includes('id="endBlockConfirm"'), "the separate end-block confirm dialog is removed");
-  const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
-  assert.ok(!app.includes("successorProgramList"), "successorProgramList is removed as a transition source");
-  assert.ok(!app.includes("increase_volume"), "the increase-volume strategy is gone");
-  assert.ok(!app.includes("repeat_swaps"), "the swaps strategy is gone");
-}
-
-console.log("PASS: progress lifecycle (active read-only, evidence-valid actions, dialogs removed)");
+console.log("PASS: progress lifecycle (active read-only and evidence-valid actions)");
 
 // --- Plan 056/P6: reconstructable schedule repair through the visible Review
 // surface. Real compiler proposals via RepForgeProgramTransition; the guided

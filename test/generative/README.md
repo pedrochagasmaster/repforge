@@ -32,9 +32,12 @@ node generative/run.mjs --filter "setup links" --seed 12345
 ```
 
 Profiles: `REPFORGE_GENERATIVE_PROFILE` selects the default;
-`REPFORGE_GENERATIVE_SEED` pins the master seed. Every suite derives its own
-seed from `(masterSeed ^ fnv1a(suiteName))` so runs are reproducible and
-suites stay independent.
+`REPFORGE_GENERATIVE_SEED` pins the master seed. In required CI, when no
+explicit seed is supplied, the runner deterministically derives the master seed
+from the exact `CI_SOURCE_SHA`; the same candidate therefore exercises the
+same sample on replay. Ordinary local runs without either value remain
+randomized for exploration. Every suite derives its own seed from
+`(masterSeed ^ fnv1a(suiteName))` so suites stay independent.
 
 Everything here is pure Node: no browser, no static server, no `python3`.
 
