@@ -401,6 +401,14 @@ async function main() {
       ink: resolve(root.getPropertyValue("--ink")),
       soft: resolve(root.getPropertyValue("--ink-soft")),
     };
+    const selection = {
+      background: resolve(root.getPropertyValue("--control-selection-bg")),
+      ink: resolve(root.getPropertyValue("--control-selection-ink")),
+      boundary: resolve(root.getPropertyValue("--control-selection-boundary")),
+      hoverBackground: resolve(root.getPropertyValue("--well")),
+      activeBackground: resolve(root.getPropertyValue("--control-selection-active-bg")),
+      selectedBoundary: resolve(root.getPropertyValue("--control-selected-boundary")),
+    };
     return {
       state: [...document.querySelector("#restSheet").classList].filter((name) => name.startsWith("is-")).sort(),
       clock: document.querySelector("#restSheetClock").textContent.trim(),
@@ -409,6 +417,7 @@ async function main() {
       primary: {
         background: color("#restPlayPause", "backgroundColor"),
         foreground: color("#restPlayPause", "color"),
+        border: color("#restPlayPause", "borderTopColor"),
       },
       secondary: ["#restMinus", "#restPlus", "#restReset", "#restStop"].map((selector) => ({
         selector,
@@ -423,18 +432,20 @@ async function main() {
       icons: ["#restMinus .icon-mask", "#restPlus .icon-mask", "#restReset .icon-mask", "#woRest .icon-mask"]
         .map((selector) => getComputedStyle(document.querySelector(selector)).webkitMaskImage || ""),
       neutral,
+      selection,
     };
   });
   const runningAppearance = await timerAppearance();
   assert(runningAppearance.arc === runningAppearance.neutral.accent &&
-    runningAppearance.primary.background === runningAppearance.neutral.cta &&
+    runningAppearance.primary.background === runningAppearance.selection.activeBackground &&
+    runningAppearance.primary.foreground === runningAppearance.selection.ink &&
     runningAppearance.primary.background !== runningAppearance.neutral.accent &&
     runningAppearance.primary.foreground !== runningAppearance.neutral.accent &&
     runningAppearance.secondary.every((control) => control.foreground !== runningAppearance.neutral.accent) &&
     runningAppearance.chipDot !== runningAppearance.neutral.accent &&
     runningAppearance.selectedPreset.foreground === runningAppearance.neutral.ink &&
     runningAppearance.selectedPreset.border !== runningAppearance.neutral.accent,
-  "running timer reserves accent for the live arc and keeps controls neutral", JSON.stringify(runningAppearance));
+  "running timer reserves accent for the live arc and uses the selected selection recipe", JSON.stringify(runningAppearance));
   assert(runningAppearance.icons.every((mask) => /stroke-width(?:%3D|=)['"]1\.75/.test(mask)),
     "timer outline masks share the 1.75 glyph weight", JSON.stringify(runningAppearance.icons));
   await page.click("#restPlayPause");
@@ -459,10 +470,13 @@ async function main() {
   assert(heldOnce.clock === heldTwice.clock && /held/i.test(heldTwice.chip),
     "the hold freezes the clock and the chip says so", `${heldOnce.clock} → ${JSON.stringify(heldTwice)}`);
   const pausedAppearance = await timerAppearance();
-  assert(pausedAppearance.state.includes("is-paused") && pausedAppearance.primary.background === pausedAppearance.neutral.cta &&
+  assert(pausedAppearance.state.includes("is-paused") &&
+    [pausedAppearance.selection.background, pausedAppearance.selection.hoverBackground].includes(pausedAppearance.primary.background) &&
+    pausedAppearance.primary.foreground === pausedAppearance.selection.ink &&
+    pausedAppearance.primary.border === pausedAppearance.selection.boundary &&
     pausedAppearance.secondary.every((control) => control.foreground !== pausedAppearance.neutral.accent) &&
     pausedAppearance.chipDot !== pausedAppearance.neutral.accent,
-  "paused timer keeps the neutral control roles while the deadline is frozen", JSON.stringify(pausedAppearance));
+  "paused timer uses the default selection recipe while the deadline is frozen", JSON.stringify(pausedAppearance));
   await page.click("#restPlayPause");
   await page.waitForFunction((clock) => {
     const sheet = document.querySelector("#restSheet");
@@ -497,10 +511,13 @@ async function main() {
   await page.evaluate(() => document.querySelector("#restBar").click());
   await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-idle"));
   const idleAppearance = await timerAppearance();
-  assert(idleAppearance.state.includes("is-idle") && idleAppearance.primary.background === idleAppearance.neutral.cta &&
+  assert(idleAppearance.state.includes("is-idle") &&
+    [idleAppearance.selection.background, idleAppearance.selection.hoverBackground].includes(idleAppearance.primary.background) &&
+    idleAppearance.primary.foreground === idleAppearance.selection.ink &&
+    idleAppearance.primary.border === idleAppearance.selection.boundary &&
     idleAppearance.secondary.every((control) => control.foreground !== idleAppearance.neutral.accent) &&
     idleAppearance.chipDot !== idleAppearance.neutral.accent,
-  "idle timer keeps the same neutral control roles", JSON.stringify(idleAppearance));
+  "idle timer uses the default selection recipe", JSON.stringify(idleAppearance));
   await page.click("#restSheetClose");
   await page.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
   await page.click("#woRest");
@@ -517,10 +534,11 @@ async function main() {
     /^-\d+:\d\d$/.test(document.querySelector("#restSheetClock")?.textContent.trim() || ""));
   const overtimeAppearance = await timerAppearance();
   assert(overtimeAppearance.state.includes("is-over") && /^-\d+:\d\d$/.test(overtimeAppearance.clock) &&
-    overtimeAppearance.primary.background === overtimeAppearance.neutral.cta &&
+    overtimeAppearance.primary.background === overtimeAppearance.selection.activeBackground &&
+    overtimeAppearance.primary.foreground === overtimeAppearance.selection.ink &&
     overtimeAppearance.secondary.every((control) => control.foreground !== overtimeAppearance.neutral.accent) &&
     overtimeAppearance.chipDot !== overtimeAppearance.neutral.accent,
-  "overtime changes only the timer state treatment, not the neutral control roles", JSON.stringify(overtimeAppearance));
+  "overtime keeps the selected selection recipe while changing timer state", JSON.stringify(overtimeAppearance));
   await page.click("#restStop");
   await page.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
   await page.evaluate(() => window.stopRest());
@@ -693,11 +711,18 @@ async function main() {
     "effort mode replaces the RIR column everywhere", JSON.stringify(effort));
   assert(/^(easy|hard|max)$/i.test(effort.rowEffort) && effort.hint,
     "a logged set reads back as the word that was tapped", JSON.stringify(effort));
+  await page.click('#workout .term[data-term="Effort"]');
+  await page.waitForSelector("#glossary:not(.hidden)");
+  const effortTerm = await page.locator("#glossary .glossary__body").textContent();
+  assert(/RIR 0|≈ 0|reps in reserve/i.test(effortTerm || ""),
+    "the Effort glossary target stays clickable above the word field", effortTerm || "empty glossary");
+  await page.click("#glossary .glossary__close");
+  await page.waitForFunction(() => document.querySelector("#glossary")?.classList.contains("hidden"));
   const wellAlign = await page.evaluate(() => {
     const cells = [...document.querySelectorAll("#workout .exercise.is-current .focus-well .curset__cell")];
     const band = (sel) => cells.map((c) => {
       const el = c.querySelector(sel);
-      return el ? Math.round(el.getBoundingClientRect().top) : null;
+      return el ? Number(el.getBoundingClientRect().top.toFixed(3)) : null;
     });
     const spread = (arr) => Math.max(...arr) - Math.min(...arr);
     const lines = band(".curset__underline");
@@ -914,7 +939,7 @@ async function main() {
     const card = root.matches(".exercise--focus") ? root : root.querySelector(".exercise--focus");
     const box = (sel) => {
       const el = card.querySelector(sel);
-      return el ? Math.round(el.getBoundingClientRect().height) : 0;
+      return el ? Number(el.getBoundingClientRect().height.toFixed(3)) : 0;
     };
     return {
       name: card.querySelector(".focus-ex__name")?.textContent?.trim() || "",

@@ -87,6 +87,79 @@ assert.equal(roleOf(".prog-day__head:not([id])"), "disclosure", "Program day che
 assert.equal(roleOf(".prog-ex:not([id])"), "quiet-navigation", "Program exercise row with a chevron drills in");
 assert.equal(roleOf("#entryFreeformStartOver"), "destructive", "Start over discards staged work");
 
+const focusSkipSelectors = ["#exActionSkipBtn", ".focus-tool.ex__skip:not([id])"];
+const focusSkipStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
+function focusSkipContractErrors(candidate) {
+  const errors = [];
+  const expected = [
+    ["#exActionSkipBtn", "selection", null, []],
+    [".focus-tool.ex__skip:not([id])", "selection", "focus-icon", ["icon-only"]],
+  ];
+  for (const [selector, role, variant, facets] of expected) {
+    const members = candidate.components.filter((item) => item.selector === selector);
+    const item = members[0];
+    if (members.length !== 1 || item.roles.control !== role || item.variant !== variant ||
+        JSON.stringify(item.facets) !== JSON.stringify(facets) ||
+        JSON.stringify(item.states) !== JSON.stringify(focusSkipStates)) {
+      errors.push(`${selector} must remain an unselected Skip/Restore control with its frozen role and variant`);
+    }
+  }
+  return errors;
+}
+assert.deepEqual(focusSkipContractErrors(inventory), [], "Focus Skip/Restore controls have no selected state");
+for (const selector of focusSkipSelectors) {
+  const selectedFocusSkip = structuredClone(inventory);
+  selectedFocusSkip.components.find((item) => item.selector === selector).states.push("selected");
+  assert.ok(focusSkipContractErrors(selectedFocusSkip).some((error) => error.includes(selector)),
+    `${selector} cannot claim a selected state after activation rerenders or closes its owner`);
+}
+
+const focusAdjustmentSelectors = [".stepbtn:not([id])", "#restMinus", "#restPlus"];
+const focusAdjustmentStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
+function focusAdjustmentContractErrors(candidate) {
+  const errors = [];
+  const expected = [
+    [".stepbtn:not([id])", "rapid-workout-stepper"],
+    ["#restMinus", null],
+    ["#restPlus", null],
+  ];
+  for (const [selector, variant] of expected) {
+    const members = candidate.components.filter((item) => item.selector === selector);
+    const item = members[0];
+    if (members.length !== 1 || item.roles.control !== "adjustment" || item.variant !== variant ||
+        item.facets.length !== 0 || JSON.stringify(item.states) !== JSON.stringify(focusAdjustmentStates)) {
+      errors.push(`${selector} must remain an unselected numeric adjustment with its frozen variant`);
+    }
+  }
+  return errors;
+}
+assert.deepEqual(focusAdjustmentContractErrors(inventory), [], "Focus adjustment controls have no selected state");
+for (const selector of focusAdjustmentSelectors) {
+  const selectedFocusAdjustment = structuredClone(inventory);
+  selectedFocusAdjustment.components.find((item) => item.selector === selector).states.push("selected");
+  assert.ok(focusAdjustmentContractErrors(selectedFocusAdjustment).some((error) => error.includes(selector)),
+    `${selector} cannot claim a selected state after changing a number`);
+}
+assert.ok(inventory.components.find((item) => item.selector === "#restPlayPause").states.includes("selected"),
+  "rest play/pause retains its timer-running state");
+
+const whyCloseStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
+function whyCloseContractErrors(candidate) {
+  const members = candidate.components.filter((item) => item.selector === "#whyClose");
+  const item = members[0];
+  if (members.length !== 1 || item.roles.control !== "quiet-navigation" || item.variant !== null ||
+      JSON.stringify(item.facets) !== JSON.stringify(["icon-only"]) ||
+      JSON.stringify(item.states) !== JSON.stringify(whyCloseStates)) {
+    return ["#whyClose must remain an icon-only quiet-navigation control without a selected state"];
+  }
+  return [];
+}
+assert.deepEqual(whyCloseContractErrors(inventory), [], "Why-sheet close declares its frozen icon-only recipe");
+const whyCloseWithoutIconFacet = structuredClone(inventory);
+whyCloseWithoutIconFacet.components.find((item) => item.selector === "#whyClose").facets = [];
+assert.ok(whyCloseContractErrors(whyCloseWithoutIconFacet).some((error) => error.includes("#whyClose")),
+  "a glyph-only close action cannot omit its icon-only facet");
+
 const importDoorSelectors = ["#entryFreeformStart", ".entry-card.entry-card--secondary:not([id])"];
 const importDoorStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
 function importDoorContractErrors(candidate) {

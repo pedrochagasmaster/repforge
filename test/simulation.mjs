@@ -10702,8 +10702,8 @@ async function main() {
     "Inspect .btn:disabled vs .iconbtn:disabled"
   );
   assert(
-    contrastAudit.focusnavDisabled.every((c) => c.includes("var(--ink-faint)")),
-    "C1: disabled Focus navigation uses the passing faint token",
+    contrastAudit.focusnavDisabled.every((c) => c.includes("var(--color-disabled-reason)")),
+    "C1: disabled Focus navigation uses the frozen disabled-reason token",
     JSON.stringify(contrastAudit.focusnavDisabled),
     "Inspect .focusnav:disabled color"
   );
