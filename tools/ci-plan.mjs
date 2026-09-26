@@ -25,16 +25,17 @@ export function makeCiPlan({ event, draft = false, requestedMode, baseSha, headS
   if (mode === "feedback" && (!SHA.test(baseSha || "") || !files)) {
     throw new Error("Feedback requires a resolved base SHA and changed-file list");
   }
+  const selectionContext = { cwd, base: baseSha };
   const selected = mode === "candidate"
     ? Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })))
-    : selectPacket(files, { cwd }).entries;
+    : selectPacket(files, selectionContext).entries;
   const tests = Object.fromEntries(Object.keys(SUITES).map((lane) =>
     [lane, selected.filter((entry) => entry.lane === lane).map(({ suite }) => suiteId(suite))]));
   const visual = event === "push"
     ? selectVisuals([], manifest, { force: true })
     : selectVisuals(files, manifest, { cwd, base: baseSha });
   const browser = [...BROWSER_LANES].filter((lane) => tests[lane].length);
-  const legacyIds = mode === "feedback" ? selectBranch(files, { cwd }).entries.map(({ suite }) => suiteId(suite)) : [];
+  const legacyIds = mode === "feedback" ? selectBranch(files, selectionContext).entries.map(({ suite }) => suiteId(suite)) : [];
   const selectedIds = new Set(Object.values(tests).flat());
   return {
     schemaVersion: 1, mode, event, baseSha: baseSha || null, headSha, tests,
@@ -45,7 +46,7 @@ export function makeCiPlan({ event, draft = false, requestedMode, baseSha, headS
       reason: "Candidate-tier commands remain in the exhaustive candidate/main gate unless directly changed or high-risk-owned." } : null,
     reasons: mode === "candidate"
       ? ["Exhaustive exact-SHA contract gate; visual evidence is change-proportional on PR candidates and widens to full on unknown ownership."]
-      : selectPacket(files, { cwd }).reasons,
+      : selectPacket(files, selectionContext).reasons,
   };
 }
 

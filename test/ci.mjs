@@ -10,7 +10,7 @@ import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
 import { makeCiPlan, requireSelectedCiResults, resolveCiInputs } from "../tools/ci-plan.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
-import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit } from "../tools/test-selection.mjs";
+import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane } from "../tools/run-tests.mjs";
 
 const manifest = { screens: [{ flow: "app", id: "today" }, { flow: "onboarding", id: "start" }] };
@@ -19,6 +19,26 @@ const scratch = (t) => {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 };
+function serviceWorkerFixture(t) {
+  const cwd = scratch(t);
+  const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  git("init", "--quiet");
+  git("config", "user.name", "CI fixture");
+  git("config", "user.email", "ci-fixture@example.invalid");
+  const source = readFileSync(join(process.cwd(), "sw.js"), "utf8");
+  writeFileSync(join(cwd, "sw.js"), source);
+  git("add", "sw.js");
+  git("commit", "-qm", "service worker baseline");
+  return { cwd, base: git("rev-parse", "HEAD").trim(), source,
+    write: (next) => writeFileSync(join(cwd, "sw.js"), next) };
+}
+function replaceOnce(source, before, after) {
+  assert.ok(source.includes(before), `fixture contains ${before}`);
+  return source.replace(before, after);
+}
+const suiteFiles = (plan) => [...new Set(plan.entries.map(({ suite }) => suite.file))].sort();
+const lanes = (plan) => [...new Set(plan.entries.map(({ lane }) => lane))].sort();
+const commandKeys = (plan) => plan.entries.map(({ lane, suite }) => `${lane}:${JSON.stringify(commandArgs(suite))}`).sort();
 
 test("inventory schedules each command once and classifies support explicitly", () => {
   const files = [...new Set(Object.values(SUITES).flat().map((s) => s.file))];
@@ -83,8 +103,74 @@ test("annotated app hunks select visual domains and unknown regions widen", () =
   assert.deepEqual([...domainsForAppDiff(source, "@@ -1 +1 @@\n-const boot = 0;\n+const boot = 1;\n")], ["global"]);
   assert.deepEqual([...domainsForAppDiff(source, "@@ -3 +3 @@\n-old\n+new\n@@ -5 +5 @@\n-old\n+new\n")].sort(), ["history", "progress"]);
   assert.throws(() => domainsForAppDiff("// @ci-domain imaginary\n", "@@ -1 +1 @@\n-old\n+new\n"), /invalid/);
+  assert.deepEqual([...domainsForAppDiff(source, "@@ -5 +5 @@\n-// @ci-domain history\n+// @ci-domain progress\n")], ["global"]);
   const sample = { screens: [{ flow: "history", id: "edit" }, { flow: "progress", id: "overview" }] };
   assert.deepEqual(selectVisuals(["app.js"], sample, { appSource: source, appDiff: "@@ -5 +5 @@\n-old\n+new\n" }).screens, ["history/edit"]);
+});
+
+test("app.js hunks after the reviewed History block widen instead of inheriting History", () => {
+  const source = readFileSync(join(process.cwd(), "app.js"), "utf8");
+  for (const marker of ["function exerciseSessionsDetail", "function renderProgramOverview", "function renderCatalogueStep", "function init()"]){
+    const line = source.split("\n").findIndex((value) => value.startsWith(marker)) + 1;
+    assert.ok(line > 0, `production app contains ${marker}`);
+    const diff = `@@ -${line} +${line} @@\n-old\n+new\n`;
+    assert.deepEqual([...domainsForAppDiff(source, diff)], ["global"], marker);
+    assert.equal(selectVisuals(["app.js"], manifest, { appSource: source, appDiff: diff }).mode, "full", marker);
+  }
+});
+
+test("pure service-worker cache revision selects only cache relationship contracts", (t) => {
+  const fixture = serviceWorkerFixture(t);
+  const context = { cwd: fixture.cwd, base: fixture.base };
+  const cache = fixture.source.match(/^const CACHE = "repforge-v(\d+)";$/m);
+  assert.ok(cache, "baseline worker has one canonical cache declaration");
+  const bumped = fixture.source.replace(cache[0], cache[0].replace(cache[1], String(Number(cache[1]) + 1)));
+  fixture.write(bumped);
+
+  const packet = selectPacket(["sw.js"], context);
+  const owners = ["test/exercise-library.mjs", "test/sw-upgrade.mjs", "test/vendor-runtimes.mjs"];
+  assert.deepEqual(suiteFiles(packet), owners);
+  assert.deepEqual(lanes(packet), ["fast", "state"]);
+  assert.deepEqual(suiteFiles(selectEdit(["sw.js"], context)), owners);
+  assert.match(packet.reasons.join(" "), /cache revision/i);
+  assert.equal(selectVisuals(["sw.js"], manifest, context).mode, "none");
+
+  const uiPacket = selectPacket(["styles.css"], context);
+  const combined = selectPacket(["styles.css", "sw.js"], context);
+  assert.deepEqual(commandKeys(combined), [...new Set([...commandKeys(uiPacket), ...commandKeys(packet)])].sort());
+  const uiEdit = selectEdit(["styles.css"], context);
+  const combinedEdit = selectEdit(["styles.css", "sw.js"], context);
+  const revisionEdit = selectEdit(["sw.js"], context);
+  assert.deepEqual(commandKeys(combinedEdit), [...new Set([...commandKeys(uiEdit), ...commandKeys(revisionEdit)])].sort());
+  assert.ok(combined.entries.length < Object.values(SUITES).flat().length);
+});
+
+test("substantive or unprovable service-worker changes retain the full SW owner set", (t) => {
+  const fixture = serviceWorkerFixture(t);
+  const context = { cwd: fixture.cwd, base: fixture.base };
+  const cache = fixture.source.match(/^const CACHE = "repforge-v(\d+)";$/m);
+  assert.ok(cache, "baseline worker has one canonical cache declaration");
+  const appQuery = fixture.source.match(/"\.\/app\.js\?v=(\d+)"/);
+  assert.ok(appQuery, "baseline worker has a protected app.js query revision");
+  const substantive = [
+    ["SHELL", replaceOnce(fixture.source, '"/program-editor.js"', '"/program-editor.js", "/new-shell.js"')],
+    ["ASSETS", replaceOnce(fixture.source, '"./styles.css"', '"./styles.css", "./new.css"')],
+    ["install behavior", replaceOnce(fixture.source, ".then(() => self.skipWaiting())", ".then(() => self.clients.claim())")],
+    ["activate behavior", replaceOnce(fixture.source, ".then(() => self.clients.claim())", ".then(() => self.skipWaiting())")],
+    ["fetch behavior", replaceOnce(fixture.source, 'if (event.request.method !== "GET") return;', 'if (event.request.method !== "GET") { event.respondWith(fetch(event.request)); return; }')],
+    ["protected runtime query", replaceOnce(fixture.source, appQuery[0], appQuery[0].replace(appQuery[1], String(Number(appQuery[1]) + 1)))],
+    ["malformed cache declaration", replaceOnce(fixture.source, cache[0], cache[0].replace(cache[1], "X"))],
+    ["cache downgrade", replaceOnce(fixture.source, cache[0], cache[0].replace(cache[1], "120"))],
+  ];
+  const expectedLanes = ["fast", "state", "workout"];
+  for (const [name, next] of substantive) {
+    fixture.write(next);
+    const plan = selectPacket(["sw.js"], context);
+    assert.deepEqual(lanes(plan), expectedLanes, name);
+    assert.ok(suiteFiles(plan).includes("test/exercise-library.mjs"), name);
+    assert.ok(suiteFiles(plan).includes("test/vendor-runtimes.mjs"), name);
+    assert.equal(selectVisuals(["sw.js"], manifest, context).mode, "full", name);
+  }
 });
 
 test("baseline-only selection recaptures whole screens, never isolated variants", () => {

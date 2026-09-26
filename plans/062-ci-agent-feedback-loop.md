@@ -2005,13 +2005,20 @@ Do not treat “generated” as either automatically cheap or automatically glob
 
 ## S6. Cache revision changes
 
-A pure revision-number bump caused by an already-selected cached source change
-should not independently expand the entire test universe.
+A `sw.js` change is revision-only only when the base and current files are
+byte-identical after replacing the digits in the one canonical
+`const CACHE = "repforge-vN";` declaration and the new revision is greater.
+That proven change selects the cache/revision contracts in
+`test/exercise-library.mjs`, `test/sw-upgrade.mjs`, and
+`test/vendor-runtimes.mjs`; it does not select unrelated service-worker
+behavior suites. The visual selector uses the same strict comparison and
+skips capture for that case.
 
-However service-worker compatibility and cache-inventory proofs must remain
-selected.
-
-The selector may recognize cache-lockstep files as a coupled group.
+Any `ASSETS` or `SHELL` change, protected query URL change, change to
+fetch/install/activate behavior, malformed declaration, or unavailable
+comparison base retains the full service-worker owner set and full visual
+capture. Unknown diffs widen; neither selector normalizes arbitrary
+`repforge-vNNN` strings or query parameters.
 
 ## S7. Changed tests and fixtures
 

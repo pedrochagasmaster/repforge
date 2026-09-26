@@ -200,9 +200,10 @@ async function main() {
       : target === "packet" ? changedFilesForPacket({ cwd: ROOT, base: base || process.env.REPFORGE_PACKET_BASE })
       : target === "candidate" ? { base: "HEAD", files: null }
       : changedFilesForTests({ cwd: ROOT, base });
+    const selectionBase = changed.base === "HEAD (working tree)" ? "HEAD" : changed.base;
     const plan = target === "candidate"
       ? { mode: "all", entries: Object.entries(SUITES).filter(([lane]) => lane !== "service").flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite }))), files: [], reasons: ["Complete local candidate gate; service requires its external environment."] }
-      : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT });
+      : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT, base: selectionBase });
     const selectionDurationMs = Date.now() - invocationStarted;
     console.log(`${target} base: ${changed.base || "unavailable"}`);
     console.log(formatAffected(plan));

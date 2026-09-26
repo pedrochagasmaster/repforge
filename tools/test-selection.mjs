@@ -5,10 +5,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, extname, normalize, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SUITES, commandArgs } from "../test/suites.mjs";
+import { isCacheRevisionOnlyServiceWorkerChange } from "./revision-diff.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ALL = Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
 const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.(md|html)$/;
+const CACHE_REVISION_SUITES = ["test/exercise-library.mjs", "test/sw-upgrade.mjs", "test/vendor-runtimes.mjs"];
 
 function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -73,6 +75,17 @@ function listedCodeFiles(cwd) {
     return zlist(git(["ls-files", "-z", "--", "test", "tools", "scripts"], cwd))
       .filter((file) => [".js", ".mjs"].includes(extname(file)));
   } catch { return []; }
+}
+
+function isCacheRevisionOnlyWorker(cwd, base) {
+  const requested = base === "HEAD (working tree)" ? "HEAD" : base;
+  const resolved = requested ? resolveAffectedBase(cwd, requested) : resolveAffectedBase(cwd);
+  if (!resolved) return false;
+  try {
+    const before = git(["show", `${resolved}:sw.js`], cwd);
+    const after = readFileSync(resolve(cwd, "sw.js"), "utf8");
+    return isCacheRevisionOnlyServiceWorkerChange(before, after);
+  } catch { return false; }
 }
 
 function resolveImport(fromFile, specifier, cwd) {
@@ -143,7 +156,7 @@ const EXPLICIT_INPUT_RULES = [
     why: "generative property input",
   },
   {
-    match: /^\.github\/workflows\/simulation\.yml$|^tools\/(?:ci-plan|visual-domains)\.mjs$|^test\/suites\.mjs$/,
+    match: /^\.github\/workflows\/simulation\.yml$|^tools\/(?:ci-plan|revision-diff|visual-domains)\.mjs$|^test\/suites\.mjs$/,
     suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
   },
   {
@@ -191,10 +204,11 @@ const DOMAIN_RULES = [
   { match: /^(app\.js|index\.html)$/, lanes: ["fast", "state", "entry", "workout", "privacy"], why: "shared application shell" },
 ];
 
-export function selectAffected(files, { cwd = ROOT } = {}) {
+export function selectAffected(files, { cwd = ROOT, base } = {}) {
   if (!files) return { mode: "all", entries: ALL, files: [], reasons: ["Diff base unavailable; run everything rather than guess."] };
   const changed = [...new Set(files)].sort();
   if (!changed.length) return { mode: "none", entries: [], files: [], reasons: ["No changes from the selected base or working tree."] };
+  const cacheRevisionOnlySw = changed.includes("sw.js") && isCacheRevisionOnlyWorker(cwd, base);
   const code = changed.filter((file) => !PROSE.test(file));
   if (!code.length) return { mode: "none", entries: [], files: changed, reasons: ["Only allowlisted prose changed."] };
 
@@ -232,6 +246,11 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
       }
       continue;
     }
+    if (file === "sw.js" && cacheRevisionOnlySw) {
+      addEntries(chosen, entriesForSuiteFiles(new Set(CACHE_REVISION_SUITES)));
+      reasons.push("sw.js: only the CACHE revision token changed → cache/revision relationship contracts");
+      continue;
+    }
     const rule = DOMAIN_RULES.find(({ match }) => match.test(file));
     if (!rule) return { mode: "all", entries: ALL, files: changed, reasons: [`Unmapped executable/input path: ${file}`] };
     addEntries(chosen, entriesForLanes(new Set(rule.lanes)));
@@ -239,14 +258,19 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
   }
 
   const entries = [...chosen.values()];
-  return { mode: entries.length ? "selected" : "none", entries, files: changed, reasons: reasons.length ? reasons : ["No executable consumer selected."] };
+  return { mode: entries.length ? "selected" : "none", entries, files: changed,
+    ...(cacheRevisionOnlySw ? { cacheRevisionOnlySw: true } : {}),
+    reasons: reasons.length ? reasons : ["No executable consumer selected."] };
 }
 
 export const selectBranch = selectAffected;
 const HIGH_RISK = /^(durable-state|workout-draft|shared-setup|program-compiler|program-transition|sw|telemetry|posthog-adapter)\.js$/;
+function hasHighRiskOwner(files, plan) {
+  return files.some((file) => HIGH_RISK.test(file) && !(file === "sw.js" && plan.cacheRevisionOnlySw));
+}
 export function selectPacket(files, context = {}) {
   const plan = selectBranch(files, context);
-  if (!files || plan.mode === "all" || files.some((file) => HIGH_RISK.test(file))) return plan;
+  if (!files || plan.mode === "all" || hasHighRiskOwner(files, plan)) return plan;
   const entries = plan.entries.filter(({ suite }) => suite.tier !== "candidate" || files.includes(suite.file));
   return { ...plan, entries, reasons: [...plan.reasons, "Candidate-tier contracts run at the final gate unless directly changed or required by a high-risk owner."] };
 }
@@ -258,7 +282,7 @@ export function selectEdit(files, context = {}) {
   const otherFiles = files.filter((file) => !direct.has(file));
   if (!directFiles.length) {
     const selected = selectPacket(otherFiles, context);
-    if (!files.some((file) => HIGH_RISK.test(file)) && selected.mode !== "all")
+    if (!hasHighRiskOwner(files, selected) && selected.mode !== "all")
       return { ...selected, entries: selected.entries.filter(({ suite }) => suite.tier === "feedback") };
     return selected;
   }
