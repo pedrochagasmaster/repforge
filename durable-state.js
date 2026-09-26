@@ -1709,13 +1709,21 @@
           // Keep crash recovery pointed at the proposal that survived the
           // lock-held semantic rebase, not the stale copy written before it.
           if(pendingRecord&&!pendingRecord.journal.customMutationIntent){
+            let rebasedRecord=null;
             try{
-              const journal=JSON.parse(pendingRecord.raw);
-              journal.proposal=unversionedSnapshot(workingProposal);
-              const raw=JSON.stringify(journal);
-              localStorage.setItem(pendingRecord.key,raw);
-              pendingRecord=decodePendingJournal(pendingRecord.key,raw)||pendingRecord;
-            }catch{}
+              if(localStorage.getItem(pendingRecord.key)===pendingRecord.raw){
+                const journal=JSON.parse(pendingRecord.raw);
+                journal.proposal=unversionedSnapshot(workingProposal);
+                const raw=JSON.stringify(journal);
+                localStorage.setItem(pendingRecord.key,raw);
+                if(localStorage.getItem(pendingRecord.key)===raw)
+                  rebasedRecord=decodePendingJournal(pendingRecord.key,raw);
+              }
+            }catch(e){console.warn("pending rebase journal failed",e)}
+            if(!rebasedRecord){
+              return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+                journalFailed:true})}
+            pendingRecord=rebasedRecord;
           }
         }
         if(checked?.reject){
