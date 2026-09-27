@@ -692,17 +692,23 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
    read as one: 34px above a caption against 8px below it. */
 .settings-group{margin-bottom:34px}
 .settings-group__summary{
-  margin:0 var(--settings-inset) 8px;color:var(--ink-soft);font-size:13px;line-height:1.4;
+  margin:0 var(--settings-inset) 8px;color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-body-small);line-height:var(--line-reading)
 }
-.settings-group > .lede{font-size:12px;text-transform:none;letter-spacing:0;font-weight:400;padding:0 0 12px;margin:0;color:var(--ink-soft)}
+.settings-group > .lede{
+  font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);
+  line-height:var(--line-reading);text-transform:none;letter-spacing:0;padding:0 0 12px;margin:0;color:var(--color-ink-secondary)
+}
 .settings-group__label{
-  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink-faint);display:block;line-height:1.2;margin:0 0 8px var(--settings-inset);
+  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
+  display:block;line-height:var(--line-standard);margin:0 0 8px var(--settings-inset)
 }
 .settings-row{
   position:relative;
   display:flex;align-items:center;gap:12px;min-height:56px;padding:12px var(--settings-inset);
-  border:0;background:transparent;
+  border:0;background:transparent;color:var(--color-ink);font-family:var(--font-language);
+  font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
   width:100%;text-align:left;appearance:none;cursor:pointer;
 }
 /* The rule goes above each row rather than below it, and starts where the row's
@@ -712,32 +718,62 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
    toggle, and the panel under a disclosure, are the tail of that row, so the
    next rule falls after them where the next row begins. */
 .settings-row::before{
-  content:"";position:absolute;left:var(--settings-inset);right:0;top:0;height:1px;background:var(--rule);
+  content:"";position:absolute;left:var(--settings-inset);right:0;top:0;height:1px;background:var(--boundary-decorative)
 }
 div.settings-row{cursor:default}
 .settings-row:first-child::before{display:none}
-.settings-row__label{flex:1;min-width:0;font-size:16px;font-weight:500;color:var(--ink)}
-.settings-row__cap{display:block;font-size:12px;color:var(--ink-soft);font-weight:400;margin-top:2px}
-.settings-row__value{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:8px;color:var(--ink-soft);font-size:15px}
-.settings-row__chev,.settings-row .chevron{color:var(--ink-faint);flex:none}
-.settings-row--danger .settings-row__label,.settings-row.is-danger .settings-row__label{color:var(--danger)}
+.settings-row__label{flex:1;min-width:0;font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
+.settings-row__cap{display:block;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);font-weight:var(--weight-regular);margin-top:2px}
+.settings-row__value{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:8px;color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-standard)}
+.settings-row__chev,.settings-row .chevron{color:var(--color-ink-secondary);flex:none}
+.settings-row--danger .settings-row__label,.settings-row.is-danger .settings-row__label{color:var(--control-destructive-ink)}
 /* The one row that is still a box: a destructive action is not part of the
    list above it, and the outline is what says so. */
 .settings-row.is-danger,#reset.settings-row{
-  margin-top:24px;border:1px solid var(--rule);border-radius:var(--radius);
+  margin-top:24px;border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
+  background:var(--control-destructive-bg);color:var(--control-destructive-ink);
   min-height:56px;
 }
 .settings-row.is-danger::before,#reset.settings-row::before{display:none}
-.settings-row select,.select-flat{
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle){
+  background:var(--control-disclosure-bg);color:var(--control-disclosure-ink)
+}
+#settings :is(#createProgram,#privacyDetails){
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink)
+}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle):hover:not(:disabled){
+  background:var(--well);color:var(--control-disclosure-ink)
+}
+#settings :is(#createProgram,#privacyDetails):hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink)
+}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):active:not(:disabled){
+  transform:var(--control-pressed-transform)
+}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)
+}
+#settings #reset:hover:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
+#settings #reset:active:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled{
+  background:transparent;color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
+  opacity:1;cursor:not-allowed;transform:none
+}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled :is(.settings-row__label,.settings-row__value,.chevron){
+  color:var(--color-disabled-reason)
+}
+#settings .settings-row.is-danger:disabled .settings-row__label{color:var(--color-disabled-reason)}
+#settings :is(.settings-row select,.select-flat){
   appearance:none;-webkit-appearance:none;border:0;background-color:transparent;
-  margin:0;padding:0 18px 0 0;width:auto;min-width:0;text-align:right;color:var(--ink);
-  font-size:16px;border-radius:0;box-shadow:none;
+  margin:0;padding:0 18px 0 0;width:auto;min-width:0;text-align:right;color:var(--control-selection-ink);
+  font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);
+  line-height:var(--line-standard);border-radius:var(--radius-none);box-shadow:none;
   background-image:var(--select-caret);
   background-position:right center;background-size:14px 14px;background-repeat:no-repeat;
 }
-.settings-row select:focus,.select-flat:focus{box-shadow:none;border:0}
-.settings-row select:focus-visible,.select-flat:focus-visible{
-  outline:2px solid var(--accent);outline-offset:2px}
+#settings :is(.settings-row select,.select-flat):focus{box-shadow:none;border:0}
+#settings :is(.settings-row select,.select-flat):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#settings :is(.settings-row select,.select-flat):disabled{color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
 .settings-profile{
   display:flex;align-items:center;gap:14px;padding:8px 0 18px;
 }
@@ -3387,14 +3423,14 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .is-hidden{display:none!important}
 .card--plain{background:transparent;border:0;padding:0;margin:0;overflow:visible}
 .section-label--row{display:flex;align-items:center;justify-content:space-between}
-.settings-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:44px;margin-bottom:18px}
+.settings-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:var(--control-target);margin-bottom:18px}
 .settings-head .back-link{position:absolute;left:0}
-.settings-head__title{font-size:17px;font-weight:600}
+.settings-head__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 .settings-identity{display:flex;align-items:center;gap:14px;padding:8px 0 18px}
 .settings-identity__mark{width:52px;height:52px;border-radius:14px;overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
-.settings-identity__name{font-size:17px;font-weight:600}
-.settings-identity__cap{font-size:13px;color:var(--ink-soft);margin-top:2px}
+.settings-identity__name{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+.settings-identity__cap{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:2px}
 /* A panel is the tail of the row that opened it: it shares that row's text
    column, and the rule that closes it is the next row's. */
 .settings-panel{display:none;padding:4px var(--settings-inset) 14px;background:transparent}
@@ -4619,10 +4655,10 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    transfer exception to local-first, so it wraps instead of eliding (ADR 0013). */
 .privacy-sheet .sheet__head{align-items:flex-start;grid-template-columns:1fr auto}
 .privacy-sheet .sheet__titles{text-align:left}
-.privacy-sheet .sheet__sub{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}
+.privacy-sheet .sheet__sub{white-space:normal;overflow:visible;text-overflow:clip;line-height:var(--line-reading)}
 .privacy-sheet__body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:8px 2px 24px}
-.privacy-sheet__body h3{margin:14px 0 8px;font-size:18px;color:var(--ink)}
-.privacy-sheet__body p{margin:0 0 14px;font-size:14px;line-height:1.55;color:var(--ink-soft)}
+.privacy-sheet__body h3{margin:14px 0 8px;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+.privacy-sheet__body p{margin:0 0 14px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 
 /* "Why this weight?" — the arithmetic behind one recommendation, opened on tap.
    Rows are a hairline-separated stack so each fact reads as its own line: last
