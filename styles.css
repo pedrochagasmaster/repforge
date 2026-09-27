@@ -830,7 +830,7 @@ div.settings-row{cursor:default}
 .wo-rest:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 .wo-rest:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .wo-rest:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-.wo-rest__dot{display:none;width:8px;height:8px;border-radius:50%;background:var(--ink-soft);flex:none}
+.wo-rest__dot{display:none;width:8px;height:8px;border-radius:50%;background:var(--color-ink-secondary);flex:none}
 .wo-rest__time{display:none;font-variant-numeric:tabular-nums}
 .wo-rest.is-running{width:auto;min-width:88px;padding:0 14px;border-radius:999px}
 .wo-rest.is-running .wo-rest__dot,.wo-rest.is-running .wo-rest__time{display:block}
@@ -1166,14 +1166,14 @@ article.exercise--focus.is-peek{box-shadow:var(--elevation-focus-shadow)}
   position:fixed;right:max(14px,env(safe-area-inset-right));
   bottom:calc(var(--nav) + 16px + env(safe-area-inset-bottom));z-index:28;
   display:inline-flex;align-items:center;gap:6px;
-  border:1px solid var(--rule);background:var(--surface);color:var(--ink);
-  border-radius:12px;padding:8px 12px;cursor:pointer;
-  font-family:var(--mono);font-size:13px;line-height:1;min-height:44px;
-  box-shadow:0 4px 16px rgba(0,0,0,.08);
+  border:1px solid var(--boundary-persistent);background:var(--color-surface);color:var(--color-ink);
+  border-radius:var(--radius-surface);padding:8px 12px;cursor:pointer;
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);min-height:44px;
+  box-shadow:var(--elevation-persistent-shadow);
 }
 .restbar.hidden{display:none!important}
-.restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--ink-soft)}
-.restbar.is-done{border-color:var(--rule-strong);color:var(--ink)}
+.restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--color-ink-secondary)}
+.restbar.is-done{border-color:var(--boundary-persistent);color:var(--color-ink)}
 .restbar__time{min-width:2.5em;text-align:center}
 
 /* Overtime — the clock has passed zero and is counting up in the negative.
@@ -1931,7 +1931,7 @@ body.is-sheet-open{overflow:hidden}
 .restdial__svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
 .restdial__track{fill:none;stroke:var(--boundary-decorative);stroke-width:7}
 .restdial__arc{
-  fill:none;stroke:var(--accent);stroke-width:7;stroke-linecap:round;
+  fill:none;stroke:var(--color-action);stroke-width:7;stroke-linecap:round;
   transition:stroke-dashoffset .25s linear,stroke .2s ease;
 }
 .restdial__clock{
@@ -1940,7 +1940,7 @@ body.is-sheet-open{overflow:hidden}
   font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--color-ink);
 }
 /* Held: the ring goes quiet so a frozen clock never reads as a running one. */
-.sheet--rest.is-paused .restdial__arc{stroke:var(--rule-strong)}
+.sheet--rest.is-paused .restdial__arc{stroke:var(--boundary-modal)}
 .sheet--rest.is-paused .restdial__clock{color:var(--color-maintained)}
 /* Past the bell, the same red the chip and the bar use for overtime. */
 .sheet--rest.is-over .restdial__arc{stroke:var(--danger)}
