@@ -57,6 +57,12 @@ the current day has a lift with an add-load recommendation and opens Focus on
 the first such lift, creating or resuming its reversible workout draft. The
 primary Start workout action remains the screen commitment.
 
+In the setup-link Share sheet, `#shareSetupShare` is `primary`: after a valid
+link exists, it advances the main sharing task by opening the user-mediated
+system Share sheet. The lifter can cancel there without changing Taurifer
+state; that cancellation does not make the task action secondary. `#shareSetupCopy`
+remains `secondary` as the reversible supporting path.
+
 The inventory assigns every visible control a role in its catalog state.
 Exceptions and variants are selector-exact; they are not blanket style
 exemptions. P4 may apply shared role tokens to consumers, but may not map a

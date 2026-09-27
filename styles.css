@@ -4531,26 +4531,28 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .sheet--setup{height:auto;max-height:min(74dvh,660px)}
 .sheet--setup .sheet__title{overflow-wrap:anywhere}
 .sheet--setup .sheet__foot--actions{flex-wrap:wrap}
-.sheet--setup .sheet__foot--actions .btn{flex:1 1 140px}
+/* The side-by-side actions grow into separate rows with the user's text scale. */
+.sheet--setup .sheet__foot--actions .btn{flex:1 1 8.75em}
 .share-setup{
   flex-direction:column;gap:14px;overflow:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding-bottom:8px;
 }
 .share-setup__link{
-  margin:0;min-width:0;padding:12px;background:var(--well);border:1px solid var(--rule);border-radius:12px;
+  margin:0;min-width:0;padding:12px;background:var(--control-field-bg);border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
   overflow:auto;overflow-wrap:anywhere;word-break:break-all;max-height:12em;
-  font-family:var(--mono);font-size:13px;line-height:1.45;color:var(--ink);
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-reading);color:var(--control-field-ink);
   -webkit-user-select:text;user-select:text;
 }
 .share-setup__link:empty{display:none}
-.share-setup__blocker-summary{margin:0;font-size:15px;line-height:1.4;font-weight:650;color:var(--ink);overflow-wrap:anywhere}
-.share-setup__blockers{display:flex;flex-direction:column;gap:10px}
-.share-setup__blocker{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;background:var(--well);border:1px solid var(--rule);border-radius:12px}
-.share-setup__blocker-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:3px;line-height:1.35}
-.share-setup__blocker-copy strong{font-size:15px;overflow-wrap:anywhere}
-.share-setup__blocker-copy span{font-size:13px;color:var(--ink-soft);overflow-wrap:anywhere}
-.share-setup__repair{flex:none;min-height:40px;padding-inline:14px}
-.share-setup__status{margin:0;font-size:14px;line-height:1.4;color:var(--ink-soft);overflow-wrap:anywhere}
+.share-setup__blocker-summary{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);font-weight:var(--weight-semibold);color:var(--color-warning);overflow-wrap:anywhere}
+.share-setup__blockers{display:flex;flex-direction:column;gap:0;border-block:1px solid var(--boundary-decorative)}
+.share-setup__blocker{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
+.share-setup__blocker+.share-setup__blocker{border-top:1px solid var(--boundary-decorative)}
+.share-setup__blocker-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:3px;line-height:var(--line-reading)}
+.share-setup__blocker-copy strong{font-size:var(--font-size-body);line-height:var(--line-standard);font-weight:var(--weight-semibold);color:var(--color-ink);overflow-wrap:anywhere}
+.share-setup__blocker-copy span{font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.share-setup__repair{flex:none;min-height:var(--control-target);padding-inline:14px}
+.share-setup__status{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
 .share-setup__status:empty{display:none}
 .installsheet{
   display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
@@ -5801,3 +5803,63 @@ body.is-entry-editor #entryProgramName,
   #history .edrow__name{grid-column:1/-1}
   #history .edrow__in{padding-left:2px;padding-right:2px}
 }
+
+/* P4d Share keeps the modal's task heading readable at enlarged text while
+   retaining the close action first in both DOM and visual order. */
+#shareSetupSheet{
+  background:var(--color-surface);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;
+  box-shadow:var(--elevation-modal-shadow);
+}
+#shareSetupSheet .sheet__head{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"close spacer" "title title";
+  align-items:center;border-bottom-color:var(--boundary-decorative);
+}
+#shareSetupClose{
+  grid-area:close;justify-self:start;width:auto;min-width:var(--control-target);min-height:var(--control-target);
+  border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+  white-space:nowrap;overflow-wrap:normal;word-break:normal;
+}
+#shareSetupSheet .sheet__spacer{grid-area:spacer}
+#shareSetupSheet .sheet__titles{grid-area:title;text-align:center}
+#shareSetupSheet .sheet__title{
+  font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);
+  line-height:var(--line-tight);color:var(--color-ink);
+}
+#shareSetupSheet .sheet__sub{
+  margin-top:4px;overflow:visible;overflow-wrap:anywhere;text-overflow:clip;white-space:normal;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
+}
+#shareSetupBody{
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);
+}
+#shareSetupSheet .sheet__foot--actions{border-top-color:var(--boundary-decorative)}
+#shareSetupClose:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+#shareSetupClose:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+#shareSetupClose:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#shareSetupClose:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+#shareSetupCopy,.share-setup__repair{
+  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  background:var(--control-secondary-bg);color:var(--control-secondary-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+}
+#shareSetupCopy:hover:not(:disabled),.share-setup__repair:hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+#shareSetupCopy:active:not(:disabled),.share-setup__repair:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+#shareSetupCopy:focus-visible,.share-setup__repair:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#shareSetupCopy:disabled,.share-setup__repair:disabled{
+  background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);
+  opacity:1;cursor:not-allowed;transform:none;
+}
+#shareSetupShare{
+  min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+}
+#shareSetupShare:hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+#shareSetupShare:active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
+#shareSetupShare:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#shareSetupShare:disabled{
+  background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);
+  opacity:1;cursor:not-allowed;transform:none;
+}
+#shareSetupLink:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}

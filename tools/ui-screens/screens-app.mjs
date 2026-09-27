@@ -925,8 +925,12 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "program/share-ready": async (page) => {
+    await page.evaluate(() => Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async () => {},
+    }));
     await openShare(page);
-    await page.waitForSelector("#shareSetupCopy:not(.hidden)", { timeout: 20000 });
+    await page.waitForSelector("#shareSetupShare:not(.hidden):not(:disabled)", { timeout: 20000 });
     await stabilizeShareLink(page);
     await sleep(page, 400);
   },

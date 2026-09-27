@@ -4817,6 +4817,27 @@
       ]
     },
     {
+      "id": "sharesetupshare",
+      "selector": "#shareSetupShare",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Advances the setup-sharing task by opening the user-mediated system Share sheet; Copy remains the reversible supporting action.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "program/share-ready"
+      ]
+    },
+    {
       "id": "sharesetupscrim",
       "selector": "#shareSetupScrim",
       "roles": {
