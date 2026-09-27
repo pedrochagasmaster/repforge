@@ -2331,9 +2331,7 @@
         "control": "secondary"
       },
       "variant": null,
-      "facets": [
-        "icon-only"
-      ],
+      "facets": [],
       "states": [
         "default",
         "hover",
@@ -4393,9 +4391,7 @@
         "control": "primary"
       },
       "variant": null,
-      "facets": [
-        "icon-only"
-      ],
+      "facets": [],
       "states": [
         "default",
         "hover",
@@ -6309,9 +6305,7 @@
         "boundary": "required"
       },
       "variant": null,
-      "facets": [
-        "icon-only"
-      ],
+      "facets": [],
       "states": [
         "default",
         "hover",
@@ -6333,9 +6327,7 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [
-        "icon-only"
-      ],
+      "facets": [],
       "states": [
         "default",
         "hover",

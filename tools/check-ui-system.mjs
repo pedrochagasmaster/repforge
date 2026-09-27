@@ -7,6 +7,7 @@ import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-ap
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
+import { measureRenderedRoles, renderedRoleProblems } from "./ui-system-rendered.mjs";
 import { join } from "node:path";
 
 export function inspectRoleCoverage({ key, components, exceptions, progressCandidateSelectors, allowProgressDebt = false }) {
@@ -14,6 +15,9 @@ export function inspectRoleCoverage({ key, components, exceptions, progressCandi
   const visible = (node) => {
     const style = getComputedStyle(node);
     const rect = node.getBoundingClientRect();
+    for (let current = node; current; current = current.parentElement) {
+      if (Number.parseFloat(getComputedStyle(current).opacity) === 0) return false;
+    }
     return rect.width > 1 && rect.height > 1 && style.display !== "none" && style.visibility !== "hidden"
       && !node.matches(".visually-hidden") && !node.closest("[inert],.visually-hidden");
   };
@@ -110,7 +114,90 @@ export function inspectRoleCoverage({ key, components, exceptions, progressCandi
   return { key, problems, observed, matched: [...matched], matchedExceptions: [...matchedExceptions] };
 }
 
-export async function auditCatalog({ allowProgressDebt = false, flow = null, stateKey = null, onProgress = () => {} } = {}) {
+export async function auditFocusRoles(page, { key, components, pixels }) {
+  const targets = await page.evaluate((items) => {
+    const visible = (node) => {
+      const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+      for (let current = node; current; current = current.parentElement) {
+        if (Number.parseFloat(getComputedStyle(current).opacity) === 0) return false;
+      }
+      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden"
+        && !node.closest("[inert],.visually-hidden");
+    };
+    const uniqueSelector = (node) => {
+      const parts = [];
+      for (let current = node; current && current.nodeType === Node.ELEMENT_NODE; current = current.parentElement) {
+        if (current.id) {
+          const idSelector = `#${CSS.escape(current.id)}`;
+          if (document.querySelectorAll(idSelector).length === 1) { parts.unshift(idSelector); break; }
+        }
+        if (!current.parentElement) { parts.unshift(current.localName); break; }
+        const siblings = [...current.parentElement?.children || []].filter((item) => item.localName === current.localName);
+        parts.unshift(`${current.localName}:nth-of-type(${siblings.indexOf(current) + 1})`);
+      }
+      return parts.join(" > ");
+    };
+    const result = new Map();
+    for (const item of items) {
+      if (!item.roles?.control || !item.states?.includes("focus-visible")) continue;
+      let nodes;
+      try { nodes = [...document.querySelectorAll(item.selector)]; } catch { continue; }
+      for (const node of nodes) {
+        if (!visible(node) || node.matches(":disabled,[aria-disabled='true'],.is-disabled")) continue;
+        const selector = uniqueSelector(node);
+        result.set(selector, { selector, owner: item.selector, label: node.id ? `#${node.id}` : node.localName });
+      }
+    }
+    return [...result.values()];
+  }, components);
+  const problems = [];
+  const measurements = { total: 0, pass: 0, fail: 0, unsupported: 0, missing: 0, exempt: 0 };
+  if (!targets.length) return { problems, measurements };
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("DOM.enable");
+    await session.send("CSS.enable");
+    const { root } = await session.send("DOM.getDocument");
+    const resolvedTargets = await Promise.all(targets.map(async (target) => ({
+      target,
+      ...await session.send("DOM.querySelector", { nodeId: root.nodeId, selector: target.selector }),
+    })));
+    const focusTargets = [];
+    for (const { target, nodeId } of resolvedTargets) {
+      if (!nodeId) {
+        const missing = [{ selector: `${target.owner}:${target.label}`, kind: "focus", status: "missing" }];
+        measurements.missing += 1;
+        measurements.total += 1;
+        problems.push(...renderedRoleProblems(`${key} [focus-visible]`, missing));
+      } else {
+        focusTargets.push({ target, nodeId });
+      }
+    }
+    if (focusTargets.length) {
+      await Promise.all(focusTargets.map(({ nodeId }) => session.send("CSS.forcePseudoState", {
+        nodeId, forcedPseudoClasses: ["focus-visible"],
+      })));
+      let rendered;
+      try {
+        rendered = await page.evaluate(measureRenderedRoles, {
+          requests: focusTargets.map(({ target }) => ({ selector: target.selector, kind: "focus" })), pixels,
+        });
+      } finally {
+        await Promise.allSettled(focusTargets.map(({ nodeId }) => session.send("CSS.forcePseudoState", {
+          nodeId, forcedPseudoClasses: [],
+        })));
+      }
+      for (const item of rendered) measurements[item.status] = (measurements[item.status] || 0) + 1;
+      measurements.total += rendered.length;
+      problems.push(...renderedRoleProblems(`${key} [focus-visible]`, rendered));
+    }
+  } finally {
+    await session.detach();
+  }
+  return { problems, measurements };
+}
+
+export async function auditCatalog({ allowProgressDebt = false, flow = null, stateKey = null, theme = null, locale = null, onProgress = () => {} } = {}) {
   const manifest = loadManifest();
   const inventory = loadRoleInventory();
   const problems = validateRoleInventory(inventory, manifest);
@@ -118,14 +205,22 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
   if (flow && !manifest.screens.some((screen) => screen.flow === flow)) problems.push(`unknown catalog flow ${flow}`);
   if (stateKey && !manifest.screens.some((screen) => `${screen.flow}/${screen.id}` === stateKey)) problems.push(`unknown catalog state ${stateKey}`);
   if (flow && stateKey && !stateKey.startsWith(`${flow}/`)) problems.push(`catalog state ${stateKey} is outside flow ${flow}`);
+  const locales = locale ? [locale] : Object.keys(manifest.locales);
+  const themes = theme ? [theme] : ["light", "dark"];
+  for (const value of locales) if (!manifest.locales[value]) problems.push(`unknown catalog locale ${value}`);
+  for (const value of themes) if (!["light", "dark"].includes(value)) problems.push(`unknown catalog theme ${value}`);
   if (problems.length) return { problems, screens: 0, matched: [] };
   const scenarios = { ...APP_SCENARIOS, ...ONBOARDING_SCENARIOS };
   const captures = manifest.screens.filter((screen) => (!flow || screen.flow === flow) && (!stateKey || `${screen.flow}/${screen.id}` === stateKey))
-    .map((screen) => ({ flow: screen.flow, screen: screen.id, viewport: "phone-390", theme: "light", locale: "en", text: "normal", motion: "normal" }));
+    .flatMap((screen) => themes.flatMap((captureTheme) => locales.map((captureLocale) => ({
+      flow: screen.flow, screen: screen.id, viewport: "phone-390", theme: captureTheme, locale: captureLocale,
+      text: "normal", motion: "normal",
+    }))));
   const preview = await maybeStartLocalPreview([{ lane: "state" }], { cwd: ROOT });
   setCaptureBase(preview.env.REPFORGE_URL);
   let browser = await launchChromium();
   const matched = new Set(), matchedExceptions = new Set();
+  const measurements = { total: 0, pass: 0, fail: 0, unsupported: 0, missing: 0, exempt: 0 };
   try {
     for (let index = 0; index < captures.length; index++) {
       const capture = captures[index], key = screenKey(capture), isOnboarding = key.startsWith("onboarding-");
@@ -133,11 +228,12 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
       try {
         if (!scenarios[key]) throw new Error("missing production catalog scenario");
         const opened = await openPage(browser, manifest, capture,
-          isOnboarding ? onboardingState(key, "en") : appState(key, "en"), { userAgent: APP_USER_AGENT[key] });
+          isOnboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale), { userAgent: APP_USER_AGENT[key] });
         context = opened.context;
         if (!isOnboarding) await dismissChrome(opened.page);
         await scenarios[key](opened.page);
         await settle(opened.page);
+        const renderedImage = await opened.page.screenshot({ animations: "disabled" });
         const result = await opened.page.evaluate(inspectRoleCoverage, {
           key, components: inventory.components, exceptions: inventory.exceptions,
           progressCandidateSelectors: inventory.progressCandidateSelectors, allowProgressDebt,
@@ -145,6 +241,14 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
         problems.push(...result.problems);
         for (const id of result.matched) matched.add(id);
         for (const selector of result.matchedExceptions) matchedExceptions.add(selector);
+        const pixels = renderedImage.toString("base64");
+        const focus = await auditFocusRoles(opened.page, { key: `${key} [${capture.locale}/${capture.theme}]`, components: inventory.components, pixels });
+        problems.push(...focus.problems);
+        for (const [status, count] of Object.entries(focus.measurements)) measurements[status] = (measurements[status] || 0) + count;
+        const rendered = await opened.page.evaluate(measureRenderedRoles, { components: inventory.components, pixels });
+        for (const item of rendered) measurements[item.status] = (measurements[item.status] || 0) + 1;
+        measurements.total += rendered.length;
+        problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, rendered));
       } catch (error) {
         problems.push(`${key}: scenario failed: ${error.stack || error.message}`);
       } finally { await context?.close(); }
@@ -158,7 +262,7 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
   if (!flow && !stateKey) for (const item of inventory.exceptions) {
     if (!matchedExceptions.has(item.selector) && !item.sourceOnlyReason) problems.push(`inventory exception never rendered: ${item.selector}`);
   }
-  return { problems, screens: captures.length, matched: [...matched], matchedExceptions: [...matchedExceptions] };
+  return { problems, screens: captures.length, matched: [...matched], matchedExceptions: [...matchedExceptions], measurements };
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
@@ -179,8 +283,15 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
     const stateArgument = process.argv.indexOf("--state");
     const stateKey = stateArgument < 0 ? null : process.argv[stateArgument + 1];
     if (stateArgument >= 0 && !stateKey) throw new Error("--state needs a manifest state key");
-    const result = await auditCatalog({ allowProgressDebt: process.argv.includes("--allow-progress-debt"), flow, stateKey,
+    const themeArgument = process.argv.indexOf("--theme");
+    const theme = themeArgument < 0 ? null : process.argv[themeArgument + 1];
+    if (themeArgument >= 0 && !theme) throw new Error("--theme needs light or dark");
+    const localeArgument = process.argv.indexOf("--locale");
+    const locale = localeArgument < 0 ? null : process.argv[localeArgument + 1];
+    if (localeArgument >= 0 && !locale) throw new Error("--locale needs a manifest locale");
+    const result = await auditCatalog({ allowProgressDebt: process.argv.includes("--allow-progress-debt"), flow, stateKey, theme, locale,
       onProgress: (done, total) => { if (done % 25 === 0 || done === total) console.log(`  rendered ${done}/${total}`); } });
+    console.log(`Rendered-role checks: ${result.measurements?.total || 0}; passes ${result.measurements?.pass || 0}; failures ${result.measurements?.fail || 0}; unsupported ${result.measurements?.unsupported || 0}; missing ${result.measurements?.missing || 0}; exempt ${result.measurements?.exempt || 0}.`);
     metadata.push(...result.problems);
   }
   const shown = process.argv.includes("--verbose") ? metadata : metadata.slice(0, 40);

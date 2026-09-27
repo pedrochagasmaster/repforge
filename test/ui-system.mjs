@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, contrastRatio } from "../tools/ui-system-core.mjs";
-import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
-import { inspectRoleCoverage } from "../tools/check-ui-system.mjs";
+import { measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
+import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
 import { setCaptureBase, launchChromium, openPage, settle } from "../tools/ui-screens/session.mjs";
 import { onboardingState, ONBOARDING_SCENARIOS } from "../tools/ui-screens/screens-onboarding.mjs";
@@ -543,15 +543,21 @@ try {
       <p id="uiBadText" style="font-size:16px;color:#808080;background:#fff">Bad body text</p>
       <span id="uiBadIcon" style="display:block;width:24px;height:24px;background:#aaa;mask:linear-gradient(#000,#000)"></span>
       <button id="uiBadBoundary" style="display:block;border:1px solid #ddd;background:#fff;color:#111">Boundary</button>
+      <button id="uiDecorativeSide" style="display:block;border:0;border-bottom:1px solid var(--boundary-decorative);border-left:3px solid #111;background:#fff;color:#111">Required edge</button>
       <button id="uiBadFocus" style="display:block;outline:2px solid #ddd;background:#fff;color:#111">Focus</button>
+      <button id="uiDuplicateFocus" style="display:block;background:#fff;color:#111">First duplicate</button>
+      <button id="uiDuplicateFocus" style="display:block;background:#fff;color:#111">Second duplicate</button>
       <button id="uiThinFocus" style="display:block;outline:1px solid #111;background:#fff;color:#111">Thin focus</button>
+      <style>#uiDuplicateFocus:focus-visible{outline:2px solid #111}</style>
       <p id="uiUnsupported" style="background:linear-gradient(#fff,#eee);color:#333">Gradient</p>
       <button id="uiDisabled" disabled style="color:#aaa;background:#fff">Unavailable</button>
       <p id="uiDisabledReason" style="color:#808080;background:#fff">Why unavailable</p>
+      <div style="opacity:0"><span id="uiTransparentText">Closed layer</span></div>
     </div>`));
   const measured = await opened.page.evaluate(measureRenderedRoles, [
     { selector: "#uiBadText", kind: "text" }, { selector: "#uiBadIcon", kind: "icon" },
     { selector: "#uiBadBoundary", kind: "boundary" }, { selector: "#uiBadFocus", kind: "focus" },
+    { selector: "#uiDecorativeSide", kind: "boundary" },
     { selector: "#uiThinFocus", kind: "focus" },
     { selector: "#uiUnsupported", kind: "text" }, { selector: "#uiDisabled", kind: "disabled-control" },
     { selector: "#uiDisabledReason", kind: "disabled-reason" },
@@ -560,7 +566,61 @@ try {
     assert.equal(measured.find((item) => item.selector === selector)?.status, "fail", `${selector} deliberate rendered-role failure is rejected: ${JSON.stringify(measured)}`);
   }
   assert.equal(measured.find((item) => item.selector === "#uiUnsupported")?.status, "unsupported", "unresolved effective background blocks rather than passing");
+  assert.equal(measured.find((item) => item.selector === "#uiDecorativeSide")?.status, "pass",
+    `a decorative separator cannot fail a separate required control edge: ${JSON.stringify(measured)}`);
   assert.equal(measured.find((item) => item.selector === "#uiDisabled")?.status, "exempt", "disabled control mass is exempt without exempting its reason");
+  const visibleMeasurements = await opened.page.evaluate(measureRenderedRoles, { components: [] });
+  assert.ok(!visibleMeasurements.some((item) => item.selector === "text:#uiTransparentText"),
+    "fully transparent content is not treated as a live rendered role");
+  const duplicateFocus = await auditFocusRoles(opened.page, {
+    key: "onboarding-start/first-run [duplicate-id fixture]",
+    components: [{ selector: "#uiDuplicateFocus", roles: { control: "secondary" }, states: ["focus-visible"] }],
+    pixels: (await opened.page.screenshot({ animations: "disabled" })).toString("base64"),
+  });
+  assert.equal(duplicateFocus.measurements.total, 2, "duplicate-ID controls each receive an independent focus measurement");
+  assert.equal(duplicateFocus.measurements.pass, 2, `both duplicate-ID focus outlines are measured: ${JSON.stringify(duplicateFocus)}`);
+  const auditProblems = renderedRoleProblems("onboarding-start/first-run [en/light]", [
+    ...measured,
+    { selector: "#uiMissing", kind: "boundary", status: "missing" },
+  ]);
+  assert.ok(auditProblems.some((item) => item.includes("#uiBadText fail")), "the catalog audit turns low rendered text contrast into a blocking finding");
+  assert.ok(auditProblems.some((item) => item.includes("#uiUnsupported unsupported")), "the catalog audit blocks unresolved rendered backgrounds");
+  assert.ok(auditProblems.some((item) => item.includes("#uiMissing missing")), "the catalog audit blocks a missing required role measurement");
+  assert.ok(!auditProblems.some((item) => item.includes("disabled-control #uiDisabled")), "an inactive control exemption does not become a catalog failure");
+  await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `
+    <div id="uiRadioContexts" style="position:fixed;top:180px;left:20px;z-index:1000">
+      <div class="onb__opts onb__list" style="display:block;width:220px;padding:8px;background:#fff;border:2px solid #6e6a63">
+        <button class="radio-card" id="uiRadioGood" style="display:flex;border:0;background:transparent;color:#111">
+          <span class="radio-card__mark" style="display:block;width:16px;height:16px;border:2px solid #6e6a63;background:#fff"></span>Good choice
+        </button>
+        <button class="radio-card" id="uiRadioBad" style="display:flex;border:0;background:transparent;color:#111">
+          <span class="radio-card__mark" style="display:block;width:16px;height:16px;border:2px solid #ddd;background:#fff"></span>Bad choice
+        </button>
+      </div>
+      <button id="uiSelectedMark" aria-pressed="true" style="position:relative;display:block;width:60px;height:32px;background:#fff;color:#111">
+        <span>Selected</span>
+      </button>
+      <button id="uiRequiredSelectedMark" aria-pressed="true" style="position:relative;display:block;width:60px;height:32px;border:2px solid #111;background:#fff;color:#111">
+        <span>Selected with required boundary</span>
+      </button>
+      <style>
+        #uiSelectedMark::before,#uiRequiredSelectedMark::before{content:"";position:absolute;left:0;top:0;width:4px;height:100%;background:#111}
+      </style>
+    </div>`));
+  const contextualRoles = await opened.page.evaluate(measureRenderedRoles, { components: [
+    { selector: ".radio-card", roles: { control: "selection", boundary: "required" } },
+    { selector: "#uiSelectedMark", roles: { control: "selection" } },
+    { selector: "#uiRequiredSelectedMark", roles: { control: "selection", boundary: "required" } },
+  ] });
+  const groupedMarks = contextualRoles.filter((item) => item.selector.includes("radio-card__mark"));
+  assert.deepEqual(groupedMarks.map((item) => item.status).sort(), ["fail", "pass"],
+    `grouped choices measure their actual marks without treating transparent rows as boundaries: ${JSON.stringify(contextualRoles)}`);
+  assert.ok(contextualRoles.some((item) => item.kind === "boundary" && item.selector.includes("onb__opts.onb__list") && item.status === "pass"),
+    "the grouped choice boundary is measured at its visible owner");
+  assert.equal(contextualRoles.find((item) => item.kind === "state-mark" && item.selector.includes("uiSelectedMark"))?.status, "pass",
+    "selected state measures its visible stripe rather than its quiet background wash");
+  assert.equal(contextualRoles.find((item) => item.kind === "state-mark" && item.selector.includes("uiRequiredSelectedMark"))?.status, "pass",
+    "a required control boundary does not suppress selected state-mark contrast");
   await opened.page.evaluate(() => document.querySelector("#uiSystemFaults")?.remove());
   await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `
     <div id="uiSystemFaults" style="position:fixed;top:100px;left:20px;background:#fff;z-index:999">
