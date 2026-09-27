@@ -920,7 +920,11 @@ export const APP_SCENARIOS = {
         const node = document.querySelector(selector);
         return !!node && !node.classList.contains("hidden") && !node.hidden;
       };
-      return visible("#shareSetupSheet") && !visible("#exPickSheet") && !visible("#exCustomSheet");
+      const repairFocus = document.activeElement?.matches("#shareSetupBlockers [data-share-repair]") ||
+        document.activeElement?.id === "shareSetupBlockerSummary";
+      return document.querySelector("#shareSetupSheet.is-open") && visible("#shareSetupBlockers") &&
+        visible("#shareSetupBlockers [data-share-repair]") && !visible("#exPickSheet") &&
+        !visible("#exCustomSheet") && repairFocus;
     }, undefined, { timeout: 20000 });
     await sleep(page, 400);
   },
