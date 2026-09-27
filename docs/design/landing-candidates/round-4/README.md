@@ -7,7 +7,7 @@ Serve the repo root (`python3 -m http.server 8000`) and open
 
 | | Candidate | Concept |
 | --- | --- | --- |
-| N | O próximo número | The page is the anatomy of one number, the weight for next time. It rolls up from 60 to 62,5 in the hero. Scrolling builds it from the sets, the target, the RIR and the rule; three keys morph the same diagram into holding and lowering; a spotlight walks the real workout screen. Ledger world: paper, ink, orange only on what changed. |
+| N | O próximo número | The page is the anatomy of one number, the weight for next time. It rolls up from 60 to 62,5 in the hero. Scrolling builds it from the sets, the target, the RIR and the rule; three keys morph the same diagram into holding and lowering; the real workout screen zooms to each control in turn. Ledger world: paper, ink, orange only on what changed. |
 | P | Perguntas | The page is a first-time visitor's questions, in the order they come up. Each question owns a full orange field. Its answer is paper that slides over it, and the question recedes as it is answered. Visitors log three sets with one tap each, drag the RIR, and watch Taurifer fill the spreadsheet cell a spreadsheet leaves empty. |
 
 Both keep a persistent "Montar meu treino" CTA on screen from the first frame to the last.
@@ -44,7 +44,7 @@ It checks:
   follow the page language.
 - **Interactions:**
   - N: the hero lands on 62,5; the dissection advances with scroll; the outcome keys work by
-    touch and keyboard and switch the band; the spotlight reaches its last hotspot.
+    touch and keyboard and switch the band; the workout-screen zoom visits all seven stops.
   - P: three taps log the session; redo resets it; the RIR slider responds to the keyboard; the
     spreadsheet cell fills; a question recedes under its answer.
 - **Harness:** reduced motion shows the final number; deep links and back/forward work;

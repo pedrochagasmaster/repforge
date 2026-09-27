@@ -188,7 +188,7 @@ for (const id of IDS) for (const lang of LANGS) {
   {
     const { ctx, page } = await open(tag, { reduced: true });
     const big = await page.evaluate(() => (document.querySelector("#nNum .swap, #pBig .swap") || {}).textContent);
-    if (big !== fmt(lang, 62.5)) fail(tag + " reduced-motion", "hero number is " + big);
+    if (!big || !big.startsWith(fmt(lang, 62.5)) || /\b(60|10)\b/.test(big)) fail(tag + " reduced-motion", "hero number is " + big);
     await ctx.close();
   }
 }
@@ -222,10 +222,13 @@ for (const lang of LANGS) {
     if (!t.includes("100 kg") || !t.includes(cat[lang]["rec.hold_add_reps.text"])) fail(w, "ArrowLeft did not select hold: " + t);
     await focusRing(page, '#nKeys [aria-checked="true"]', w);
     if (!(await page.getAttribute("#nFlipBand img", "src")).includes("focus-hold-" + lang)) fail(w, "app band did not follow the case");
-    const g = await page.evaluate(() => { const s = document.getElementById("nGym"); return s.getBoundingClientRect().top + scrollY + s.offsetHeight - innerHeight - 10; });
-    await page.evaluate((y) => scrollTo(0, y), g); await page.waitForTimeout(200);
-    const hy = await page.evaluate(() => document.getElementById("nSpot").style.getPropertyValue("--hy"));
-    if (hy !== (lang === "pt" ? "39.3%" : "36.1%")) fail(w, "spotlight did not reach the last hotspot (" + hy + ")");
+    // the zoom walks every stop: whole screen, five controls, whole screen again
+    const gb = await page.evaluate(() => { const s = document.getElementById("nGym"); return { top: s.getBoundingClientRect().top + scrollY, h: s.offsetHeight }; });
+    const stops = new Set();
+    for (let y = gb.top; y < gb.top + gb.h - 600; y += 120) { await page.evaluate((y) => scrollTo(0, y), y); await page.waitForTimeout(50); stops.add(await page.getAttribute("#nSpot", "data-stop")); }
+    if (stops.size !== 7) fail(w, "workout-screen zoom did not visit all seven stops: " + [...stops].join(","));
+    const zoomed = await page.evaluate(() => { const r = document.getElementById("nSpot").getBoundingClientRect(), wn = document.getElementById("nSpotWin").getBoundingClientRect(); return r.width / wn.width; });
+    if (!(zoomed > .3)) fail(w, "zoom state unreadable (" + zoomed + ")");
     const btn = page.locator("#nHandBtn"); await btn.focus(); await page.keyboard.press("Enter"); await page.waitForTimeout(200);
     if ((await btn.getAttribute("aria-expanded")) !== "true") fail(w, "paste disclosure did not open by keyboard");
     await focusRing(page, "#nHandBtn", w);
