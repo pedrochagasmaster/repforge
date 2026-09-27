@@ -162,7 +162,7 @@ ol,ul{margin:0;padding:0}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 max(var(--g),env(safe-area-inset-left))}
-.has-dock{padding-bottom:calc(var(--dockH) + var(--s3) + env(safe-area-inset-bottom))}
+.has-dock{padding-bottom:env(safe-area-inset-bottom)}
 
 /* ---------- review chrome (not part of any candidate) ---------- */
 .rv{position:fixed;inset:0 0 auto 0;z-index:100;background:#1B1A17;color:#F4F2EF;padding:6px max(10px,env(safe-area-inset-left));padding-top:max(6px,env(safe-area-inset-top));font-size:12px}
@@ -273,8 +273,8 @@ details.faq b{color:var(--ink);font-weight:600}
 .phone__screen picture.on{opacity:1}
 .phone__screen img{width:100%;height:100%;object-fit:cover}
 .ring{position:absolute;left:0;top:0;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:2px solid var(--accent);opacity:0;pointer-events:none;transition:transform .9s var(--out),opacity .3s var(--out)}
-.captions{position:relative;min-height:7.4em}
-.cap{position:absolute;inset:0 0 auto 0;opacity:0;transform:translateY(8px);transition:opacity .3s var(--out),transform .5s var(--out)}
+.captions{display:grid;align-items:start}
+.cap{grid-area:1/1;position:relative;opacity:0;transform:translateY(8px);transition:opacity .3s var(--out),transform .5s var(--out)}
 .cap.on{opacity:1;transform:none}
 .cap b{font-weight:600}
 .cap .n{display:block;font:500 12px/1 var(--mono);letter-spacing:.04em;color:var(--ink-faint);margin-bottom:var(--s1)}
@@ -300,8 +300,7 @@ details.faq b{color:var(--ink);font-weight:600}
 .slip__load{display:flex;justify-content:space-between;align-items:baseline;margin:var(--s1) 0;font:600 22px/1.2 var(--mono)}
 .slip__load small{font:500 14px/1 var(--mono);color:var(--ink-soft)}
 .slip p{font-size:15px;line-height:1.5}
-.A .cap--slip{inset:auto 0 0 0}
-.A .captions{min-height:7.4em}
+.A .cap--slip{align-self:end}
 .A .compare .rows h3{display:flex;justify-content:space-between;gap:var(--s2)}
 .A .close .h2{font-size:clamp(2.25rem,10vw,2.75rem);line-height:1.02}
 
@@ -337,7 +336,7 @@ details.faq b{color:var(--ink);font-weight:600}
 .C .band.hero{background:var(--field);color:var(--field-ink);padding:0 0 var(--s6)}
 .C .hero .brand img{background:var(--knob);padding:2px}
 .C .hero .pill{border-color:rgba(var(--field-ink-rgb),.55);color:var(--field-ink)}
-.C .hero .h1{margin-top:var(--s4);font-weight:700;letter-spacing:-.035em;font-size:clamp(2.375rem,10.6vw,3rem);line-height:.98}
+.C .hero .h1{margin-top:var(--s4);font-weight:700;letter-spacing:-.035em;font-size:clamp(2.25rem,9.8vw,2.75rem);line-height:1}
 .C .hero .sub{margin-top:var(--s3);color:var(--field-ink);opacity:.92}
 .C .hero .track{color:var(--field-ink);text-decoration-color:rgba(var(--field-ink-rgb),.55)}
 .C .hero .meta{color:var(--field-ink);opacity:.9}
@@ -351,28 +350,69 @@ details.faq b{color:var(--ink);font-weight:600}
 .C .band.well{background:var(--well)}
 .C .h2{font-weight:700;letter-spacing:-.03em}
 .C .demo .wt__stage{position:relative;top:auto;height:auto;padding:0}
-.C .phone{height:min(58svh,520px);flex:none}
+.C .phone{height:min(42svh,380px);flex:none}
 .C .phone__glass{border-radius:30px;box-shadow:0 0 0 1px var(--ink),0 0 0 6px var(--ink)}
 .C .ring{border-width:2.5px}
-.deck{display:grid;grid-auto-flow:column;grid-auto-columns:86%;gap:var(--s1);overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;padding:var(--s1) max(var(--g),env(safe-area-inset-left)) var(--s2);margin:0 calc(-1 * max(var(--g),env(safe-area-inset-left)));scrollbar-width:none;scroll-padding:0 max(var(--g),env(safe-area-inset-left))}
+.deck{display:grid;grid-auto-flow:column;grid-auto-columns:86%;align-items:start;gap:var(--s1);overflow-x:auto;overflow-y:hidden;transition:height .35s var(--out);scroll-snap-type:x mandatory;overscroll-behavior-x:contain;padding:var(--s1) max(var(--g),env(safe-area-inset-left)) var(--s2);margin:0 calc(-1 * max(var(--g),env(safe-area-inset-left)));scrollbar-width:none;scroll-padding:0 max(var(--g),env(safe-area-inset-left))}
 .deck::-webkit-scrollbar{display:none}
-.card{scroll-snap-align:start;scroll-snap-stop:always;background:var(--surface);border:1.5px solid var(--ink);border-radius:4px;padding:var(--s2);min-height:136px;display:flex;flex-direction:column;gap:var(--s1);transition:transform .35s var(--out),box-shadow .35s var(--out)}
-.card.on{border-color:var(--accent);box-shadow:inset 0 4px 0 var(--accent)}
-.card .n{font:600 12px/1 var(--mono);letter-spacing:.04em;color:var(--accent-deep)}
+.card{scroll-snap-align:start;scroll-snap-stop:always;background:var(--surface);border:1.5px solid var(--ink);border-radius:4px;padding:var(--s2);display:flex;flex-direction:column;gap:var(--s1);transition:transform .35s var(--out),box-shadow .35s var(--out)}
+.card.on{border-color:var(--accent)}
+.card .n{display:block;font:600 12px/1 var(--mono);letter-spacing:.04em;color:var(--accent-deep)}
 .card p{font-size:15.5px;line-height:1.5}
 .deck__nav{display:flex;align-items:center;gap:var(--s1)}
-.deck__nav .count{flex:1;font:500 13px/1 var(--mono);color:var(--ink-soft)}
+.deck__nav{justify-content:flex-end}
+.deck__nav .count{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .step-btn{appearance:none;display:grid;place-items:center;width:52px;height:52px;border:1.5px solid var(--ink);border-radius:4px;background:var(--surface);color:var(--ink);cursor:pointer;transition:transform .1s var(--press),background-color .2s var(--out),color .2s var(--out)}
 .step-btn svg{width:22px;height:22px}
 .step-btn:active{transform:translateY(2px)}
 @media (hover:hover){.step-btn:hover{background:var(--ink);color:var(--bg)}}
 .step-btn[aria-disabled="true"]{border-color:var(--rule-strong);color:var(--ink-faint);background:var(--well);cursor:default}
 .C .close{background:var(--field);color:var(--field-ink)}
-.C .close .h2{font-size:clamp(2.375rem,10.6vw,3rem);line-height:.98}
+.C .close .h2{font-size:clamp(2.25rem,9.8vw,2.75rem);line-height:1}
 .C .close .track{color:var(--field-ink);text-decoration-color:rgba(var(--field-ink-rgb),.55)}
 .C .close :focus-visible{outline-color:var(--field-ink)}
 
-.foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:var(--s3) 0;color:var(--ink-faint);font-size:13px}
+/* A: the lower bands are the same receipt — dashed rules, mono keys, a total line */
+.ledger{list-style:none;border-top:1px solid var(--ink)}
+.ledger li{display:grid;grid-template-columns:112px 1fr;gap:var(--s2);padding:var(--s2) 0;border-bottom:1px dashed var(--rule-strong);align-items:baseline}
+.ledger .k{font:500 12px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.ledger .v{font-size:16px}
+.ledger li.total{border-top:3px double var(--ink);border-bottom:0;margin-top:-1px}
+.ledger li.total .k,.ledger li.total .v{color:var(--ink);font-weight:600}
+.A .rows>li{border-bottom-style:dashed;border-bottom-color:var(--rule-strong)}
+.A .band.close{background:var(--surface);border-top:0;
+  -webkit-mask:radial-gradient(circle 6px at 10px 0,transparent 98%,#000) 0 0/20px 100% repeat-x;mask:radial-gradient(circle 6px at 10px 0,transparent 98%,#000) 0 0/20px 100% repeat-x}
+.A .foot{border-top:1px dashed var(--rule-strong)}
+.cap .readout,.card .readout{font:600 16px/1.35 var(--mono);color:var(--ink);margin-bottom:var(--s1)}
+
+/* B: instrument panels, a lighter display voice, one lit indicator per band */
+.B .h1{font-weight:500;font-size:clamp(2.25rem,10vw,2.875rem);letter-spacing:-.035em;line-height:1.02}
+.B .h2{font-weight:500;font-size:clamp(1.875rem,8.4vw,2.375rem);letter-spacing:-.03em}
+.B .rows,.B .faqs .wrap>div{background:var(--bg);border:1px solid var(--rule);border-radius:20px;padding:0 var(--s2)}
+.B .band:nth-of-type(odd) .rows,.B .band:nth-of-type(odd) .faqs .wrap>div{background:var(--surface)}
+.B .rows>li:last-child{border-bottom:0}
+.B .faqs details.faq:first-of-type{border-top:0}
+.B .faqs details.faq:last-of-type{border-bottom:0}
+.B .rows h3{display:flex;align-items:center;gap:10px}
+.B .rows h3::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--rule-strong)}
+.B .compare .rows>li:last-child h3::before,.B .start .rows>li:first-child h3::before,.B .data .rows>li:first-child h3::before{background:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.18)}
+.B .compare .rows>li:last-child h3{color:var(--accent-deep)}
+.B .readout{color:var(--accent-deep)}
+.B .hero .sub{color:var(--ink-soft)}
+
+/* C: every band a hard-edged field; the ways are three full-bleed stripes */
+.C .h2{font-size:clamp(2.125rem,9.4vw,2.625rem);line-height:1;font-weight:700;letter-spacing:-.03em}
+.C .start .rows{border-top:0}
+.C .start .rows>li{margin:0 calc(-1 * max(var(--g),env(safe-area-inset-left)));padding:var(--s4) max(var(--g),env(safe-area-inset-left));border-bottom:0}
+.C .start .rows>li:nth-child(1){background:var(--field);color:var(--field-ink)}
+.C .start .rows>li:nth-child(2){background:var(--ink);color:var(--bg)}
+.C .start .rows>li:nth-child(1) p,.C .start .rows>li:nth-child(2) p{color:inherit;opacity:.9}
+.C .start .rows>li:nth-child(3){background:var(--surface)}
+.C .start .rows h3{font-size:22px;font-weight:700;letter-spacing:-.015em}
+.C .close .sub{color:var(--field-ink);opacity:.92}
+.C .readout{color:var(--accent-deep)}
+
+.foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:var(--s3);color:var(--ink-faint);font-size:13px}
 .foot nav{display:flex;gap:var(--s2)}
 .foot a{min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;text-decoration:none}
 
@@ -521,11 +561,11 @@ function steps(){
   return [
     { scene: "focus", spot: null, t: L("<b>Uma tela por exercício.</b> Tudo o que você precisa entre uma série e outra fica aqui. RIR (repetições em reserva: quantas você ainda conseguiria fazer) aparece ao lado das repetições.", "<b>One screen per exercise.</b> Everything you need between sets lives here. RIR (reps in reserve: how many more you could still do) sits next to the reps.") },
     { scene: "focus", spot: "now", t: L("<b>Já vem preenchido.</b> O peso e as repetições da meta já aparecem na tela.", "<b>Already filled in.</b> Your target weight and reps are already on screen.") },
-    { scene: "focus", spot: "log", t: L("<b>Fez? Toque em " + k("today.log_set") + ".</b> Leva um segundo, bem antes de o descanso acabar.", "<b>Done? Tap " + k("today.log_set") + ".</b> It takes a second, well before your rest is over.") },
-    { scene: "rest", spot: null, t: L("<b>Descanso.</b> Ao registrar a série, o timer começa a contar o intervalo e avisa quando acabar.", "<b>Rest.</b> Log the set and the timer starts counting your rest, then tells you when it's up.") },
+    { scene: "focus", spot: "log", t: L("<b>Fez? Toque em " + k("today.log_set") + ".</b> Um toque, e o descanso começa a contar.", "<b>Done? Tap " + k("today.log_set") + ".</b> One tap, and your rest starts counting.") },
+    { scene: "rest", spot: null, t: L("<b>Descanso.</b> O timer conta o intervalo e avisa quando acabar.", "<b>Rest.</b> The timer counts your rest and tells you when it's up.") },
     { scene: "actions", spot: "swap", t: L("<b>Troca.</b> Equipamento ocupado? Nas ações do exercício, toque em " + ui("ex.actions.substitute") + ". O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado.", "<b>Swap.</b> Equipment taken? In the exercise actions, tap " + ui("ex.actions.substitute") + ". Taurifer records the one you actually did instead of the planned one.") },
     { scene: "note", spot: "top", t: L("<b>Notas.</b> Anote altura do banco, pegada, ajuste. Você registra uma vez e a nota aparece sempre que for fazer esse exercício.", "<b>Notes.</b> Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise.") },
-    { scene: "focus", spot: "why", last: true, t: L("Você fez " + n(reps) + " repetições com " + kg(load0) + " nas três séries, o máximo da sua meta (" + n(c.repMin) + " a " + n(c.repMax) + "). Por isso o peso sobe: na próxima sessão, use " + kg(c.load) + " e busque " + n(c.reps) + " repetições por série. É o que aparece em Agora.", "You did " + n(reps) + " reps at " + kg(load0) + " on all three sets, the most your target allows (" + n(c.repMin) + " to " + n(c.repMax) + "). So the weight goes up: next session, use " + kg(c.load) + " and aim for " + n(c.reps) + " reps per set. That's what Now shows.") }
+    { scene: "focus", spot: "why", last: true, head: L("Próxima sessão", "Next session") + ": " + kg(c.load) + " × " + n(c.reps) + " · " + n(c.sets) + " " + L("séries", "sets"), t: L("Você fez " + n(reps) + " repetições com " + kg(load0) + " nas três séries, o máximo da sua meta (" + n(c.repMin) + " a " + n(c.repMax) + "). Por isso o peso sobe: na próxima sessão, use " + kg(c.load) + " e busque " + n(c.reps) + " repetições por série. É o que aparece em Agora.", "You did " + n(reps) + " reps at " + kg(load0) + " on all three sets, the most your target allows (" + n(c.repMin) + " to " + n(c.repMax) + "). So the weight goes up: next session, use " + kg(c.load) + " and aim for " + n(c.reps) + " reps per set. That's what Now shows.") }
   ];
 }
 var SCENES = ["focus", "rest", "actions", "note"];
@@ -536,11 +576,13 @@ var SCENES = ["focus", "rest", "actions", "note"];
 function spotOf(st){
   if (!st.spot) return null;
   var f = SHOTS.spots.focus[lang], now = f.now, nowTop = now[1] - now[3] / 2, agora = nowTop + 3.2;
-  if (st.spot === "now") return { zoom: { x: 50, y: nowTop + 9, z: 1.12 }, lens: { x: 50, y: agora, w: 92, h: 5.2 } };
-  if (st.spot === "log") { var b = f.log; return { zoom: { x: b[0], y: b[1], z: 1.9, ring: [b[0], b[1]] }, lens: { x: b[0], y: b[1], w: b[2] + 6, h: b[3] + 3 } }; }
-  if (st.spot === "swap") { var w = SHOTS.spots.actions[lang].swap; return { zoom: { x: w[0], y: w[1], z: 1.5 }, lens: { x: w[0], y: w[1], w: w[2] + 4, h: w[3] + 3 } }; }
-  if (st.spot === "top") { var t = SHOTS.spots.note[lang].text, ty = t[1] - t[3] / 2 + 3; return { zoom: { x: 50, y: ty + 6, z: 1.45 }, lens: { x: 50, y: ty, w: 94, h: 6 } }; }
-  if (st.spot === "why") return { zoom: { x: 50, y: nowTop + 1, z: 1.24, ring: [58, agora] }, lens: { x: 50, y: nowTop - 1.5, w: 94, h: 12.5 } };
+  /* zoom: whole bbox inside the glass (z <= 95 / width%); ring: where the eye goes.
+     lens: the text segment it reads (the Agora cue sits at 33-87% of the width). */
+  if (st.spot === "now") return { zoom: { x: 50, y: nowTop + 9, z: 1.1, ring: [60, agora] }, lens: { x: 60, y: agora, w: 54, h: 4.4, m: 1.55 } };
+  if (st.spot === "log") { var b = f.log; return { zoom: { x: b[0], y: b[1], z: Math.min(1.9, 95 / b[2]), ring: [b[0], b[1]] }, lens: { x: b[0], y: b[1], w: 34, h: b[3] + 1, m: 2 } }; }
+  if (st.spot === "swap") { var w = SHOTS.spots.actions[lang].swap; return { zoom: { x: w[0], y: w[1], z: Math.min(1.6, 95 / w[2]), ring: [w[0], w[1]] }, lens: { x: w[0], y: w[1], w: 38, h: w[3] + 1, m: 1.9 } }; }
+  if (st.spot === "top") { var t = SHOTS.spots.note[lang].text, ty = t[1] - t[3] / 2 + 3; return { zoom: { x: 50, y: ty + 4, z: 1.15, ring: [50, ty] }, lens: null }; }
+  if (st.spot === "why") return { zoom: { x: 50, y: nowTop + 1, z: 1.1, ring: [65, agora] }, lens: { x: 69, y: agora, w: 37, h: 4.4, m: 1.7 } };
   return null;
 }
 function screens(forceDark){
@@ -564,14 +606,16 @@ function bridge(){
     '<p class="sub">' + L("Esta é a tela de treino do app, no meio de uma sessão de supino. Role e veja o que cada parte faz.", "This is the app's workout screen, in the middle of a bench press session. Scroll to see what each part does.") + '</p>';
 }
 
-function compare(){
+function compare(v){
   var rows = [
     [L("Caderno", "Notebook"), L("Guarda o que você escreveu.", "Keeps what you wrote.")],
     [L("Planilha", "Spreadsheet"), L("Guarda números. A conta da próxima vez é com você.", "Stores numbers. Working out next time is up to you.")],
     ["Taurifer", L("Guarda cada série e diz o peso e as repetições da próxima vez, com o motivo.", "Keeps every set and tells you the weight and reps for next time, with the reason.")]
   ];
   return '<section class="band compare ink" aria-labelledby="cmpH"><div class="wrap"><h2 class="h2" id="cmpH">' + L("Um caderno guarda. O Taurifer responde.", "A notebook keeps it. Taurifer answers.") + '</h2>' +
-    '<ul class="rows">' + rows.map(function(r){ return '<li><h3>' + r[0] + '</h3><p>' + r[1] + '</p></li>'; }).join("") + '</ul></div></section>';
+    (v === "ledger"
+      ? '<ul class="ledger">' + rows.map(function(r, i){ return '<li' + (i === 2 ? ' class="total"' : "") + '><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></li>'; }).join("") + '</ul>'
+      : '<ul class="rows">' + rows.map(function(r){ return '<li><h3>' + r[0] + '</h3><p>' + r[1] + '</p></li>'; }).join("") + '</ul>') + '</div></section>';
 }
 function routes(){
   return [
@@ -650,7 +694,8 @@ function stickyDock(root){
   var gone = false, closeSeen = false;
   function paint(){ var show = gone && !closeSeen; bar.classList.toggle("on", show); bar.setAttribute("aria-hidden", show ? "false" : "true"); bar.querySelector("a").tabIndex = show ? 0 : -1; }
   watch(new IntersectionObserver(function(es){ var e = es[es.length - 1]; gone = !e.isIntersecting && e.boundingClientRect.bottom < (e.rootBounds ? e.rootBounds.top : 0) + 1; paint(); }, { rootMargin: "-" + rvH() + "px 0px 0px 0px" })).observe(heroCta);
-  watch(new IntersectionObserver(function(es){ closeSeen = es[es.length - 1].isIntersecting; paint(); })).observe(closeCta);
+  /* seen, or already scrolled past: the page ends in its own CTA */
+  watch(new IntersectionObserver(function(es){ var e = es[es.length - 1]; closeSeen = e.isIntersecting || e.boundingClientRect.top < 0; paint(); })).observe(closeCta);
   paint();
 }
 
@@ -660,7 +705,7 @@ function wtMarkup(opts){
   return '<div class="phone" id="wtPhone"><div class="phone__glass" id="wtGlass"><div class="phone__screen" id="wtScreen">' + screens(opts.dark) + '</div>' +
       (opts.lens ? "" : '<span class="ring" id="wtRing" aria-hidden="true"></span>') + '</div>' + (opts.lens ? '<span class="lens" id="wtLens" aria-hidden="true"></span>' : "") + '</div>';
 }
-function capText(s, i, count){ return '<span class="n">' + n(i + 1) + " / " + n(count) + '</span><p>' + s.t + '</p>'; }
+function capText(s, i, count){ return '<span class="n">' + n(i + 1) + " / " + n(count) + '</span>' + (s.head ? '<p class="readout">' + s.head + '</p>' : "") + '<p>' + s.t + '</p>'; }
 /* Frame the screen on a step: zoom toward its spot, or show the whole screen. */
 function frameStep(root, i, opts){
   var st = steps()[i], glass = root.querySelector("#wtGlass"), scr = root.querySelector("#wtScreen");
@@ -670,19 +715,20 @@ function frameStep(root, i, opts){
   if (opts.lens){
     var lens = root.querySelector("#wtLens"), phone = root.querySelector("#wtPhone");
     scr.style.transform = "none";
-    phone.classList.toggle("lensing", !!sp);
-    lens.classList.toggle("on", !!sp);
-    if (sp){
+    var ln = sp && sp.lens;
+    phone.classList.toggle("lensing", !!ln);
+    lens.classList.toggle("on", !!ln);
+    if (ln){
       /* The lens reads a whole line or control at 1.8x; it is a pill sized to what it reads. */
-      var M = 1.8, ln = sp.lens, LW = Math.min(glass.parentNode.clientWidth - 8, ln.w / 100 * W * M + 16), LH = ln.h / 100 * H * M + 16;
+      var M = ln.m, LW = Math.min(W - 12, ln.w / 100 * W * M + 20), LH = ln.h / 100 * H * M + 18;
       lens.style.setProperty("--LW", LW + "px"); lens.style.setProperty("--LH", LH + "px");
       var gx = glass.offsetLeft, gy = glass.offsetTop, cx = gx + ln.x / 100 * W, cy = gy + ln.y / 100 * H;
-      cx = Math.max(LW / 2 + 4, Math.min(glass.parentNode.clientWidth - LW / 2 - 4, cx));
+      cx = Math.max(gx + LW / 2 + 6, Math.min(gx + W - LW / 2 - 6, cx));
       lens.style.left = cx + "px"; lens.style.top = cy + "px";
       lens.style.backgroundImage = "url(" + root.querySelector("#wtScreen picture.on img").currentSrc + ")";
       lens.style.backgroundSize = (W * M) + "px " + (H * M) + "px";
-      var ox = (cx - gx) / W * 100;
-      lens.style.backgroundPosition = (LW / 2 - ox / 100 * W * M) + "px " + (LH / 2 - ln.y / 100 * H * M) + "px";
+      /* the lens stays inside the glass; its image stays centred on the segment it reads */
+      lens.style.backgroundPosition = (LW / 2 - ln.x / 100 * W * M) + "px " + (LH / 2 - ln.y / 100 * H * M) + "px";
     }
     return;
   }
@@ -733,7 +779,7 @@ function initScrub(root, opts){
 function A(){
   return '<div class="A has-dock">' + hero() +
     scrubDemo("", { slip: true, progress: function(c){ var s = ""; for (var i = 0; i < c; i++) s += '<i data-tick></i>'; return '<div class="rail" aria-hidden="true">' + s + '</div>'; } }) +
-    compare() + start() + data() + faq() + close() + footer() + dock() + '</div>';
+    compare("ledger") + start() + data() + faq() + close() + footer() + dock() + '</div>';
 }
 function initA(root){ initScrub(root, { fill: true }); disclosure(root); stickyDock(root); startScroll(); }
 
@@ -753,7 +799,7 @@ function C(){
       '<h2 class="h2" id="demoH">' + L("Veja na prática.", "See it in practice.") + '</h2>' +
       '<p class="sub">' + L("Esta é a tela de treino do app, no meio de uma sessão de supino. Deslize os cartões e veja o que cada parte faz.", "This is the app's workout screen, in the middle of a bench press session. Swipe the cards to see what each part does.") + '</p>' +
       '<div class="wt"><div class="wt__stage">' + wtMarkup({}) +
-        '<div class="deck" id="deck" tabindex="0" aria-label="' + L("Passos da tela de treino", "Workout screen steps") + '">' + st.map(function(s, i){ return '<article class="card' + (i ? "" : " on") + '" data-card="' + i + '"><span class="n">' + n(i + 1) + " / " + n(st.length) + '</span><p>' + s.t + '</p></article>'; }).join("") + '</div>' +
+        '<div class="deck" id="deck" tabindex="0" aria-label="' + L("Passos da tela de treino", "Workout screen steps") + '">' + st.map(function(s, i){ return '<article class="card' + (i ? "" : " on") + '" data-card="' + i + '">' + capText(s, i, st.length) + '</article>'; }).join("") + '</div>' +
         '<div class="deck__nav"><span class="count" id="deckCount" aria-live="polite"></span><button type="button" class="step-btn" id="deckPrev" aria-label="' + L("Passo anterior", "Previous step") + '">' + I.prev + '</button><button type="button" class="step-btn" id="deckNext" aria-label="' + L("Próximo passo", "Next step") + '">' + I.next + '</button></div>' +
       '</div></div></div></section>' +
     compare() + start("well") + data() + faq("well") + close() + footer() + dock() + '</div>';
@@ -766,6 +812,7 @@ function initC(root){
     cards.forEach(function(c, j){ c.classList.toggle("on", j === i); });
     count.textContent = L("Passo ", "Step ") + n(i + 1) + L(" de ", " of ") + n(cards.length);
     prev.setAttribute("aria-disabled", i === 0); next.setAttribute("aria-disabled", i === cards.length - 1);
+    deck.style.height = (cards[i].offsetHeight + 24) + "px";
     frameStep(root, i, {});
   }
   var io = watch(new IntersectionObserver(function(es){
