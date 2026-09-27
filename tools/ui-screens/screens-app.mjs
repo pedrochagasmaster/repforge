@@ -927,6 +927,23 @@ export const APP_SCENARIOS = {
         !visible("#exCustomSheet") && repairFocus;
     }, undefined, { timeout: 20000 });
     await sleep(page, 400);
+    const scrollReturn = await page.evaluate(() => {
+      const body = document.querySelector("#shareSetupSheet .sheet__body");
+      const target = document.activeElement;
+      if (!body || !target?.matches("[data-share-repair]")) return null;
+      const bodyRect = body.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const bodyTop = bodyRect.top + body.clientTop;
+      const bodyBottom = bodyTop + body.clientHeight;
+      return {
+        scrollTop: body.scrollTop,
+        maxScroll: Math.max(0, body.scrollHeight - body.clientHeight),
+        repairVisible: targetRect.top >= bodyTop && targetRect.bottom <= bodyBottom,
+      };
+    });
+    if (!scrollReturn || scrollReturn.scrollTop !== scrollReturn.maxScroll || !scrollReturn.repairVisible) {
+      throw new Error(`Share repair return should keep its focused blocker visible at the sheet body's end: ${JSON.stringify(scrollReturn)}`);
+    }
   },
   "program/share-ready": async (page) => {
     await page.evaluate(() => Object.defineProperty(navigator, "share", {

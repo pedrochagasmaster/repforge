@@ -10661,7 +10661,22 @@ function focusShareSetupRepair(token){
   const remaining=$$("#shareSetupBlockers [data-share-repair]");
   const exact=token?.exerciseInstanceId?shareSetupRepairButton(token.exerciseInstanceId):null;
   const target=[exact,...remaining,$("#shareSetupBlockerSummary"),$("#shareSetupStatus"),$("#shareSetupCopy"),$("#shareSetupClose")].find(canTakeFocus);
-  if(canTakeFocus(target)){try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}}
+  if(canTakeFocus(target)){
+    try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}
+    if(target.matches("[data-share-repair]")){
+      const body=$("#shareSetupSheet .sheet__body");
+      if(body){
+        const maxScroll=Math.max(0,body.scrollHeight-body.clientHeight);
+        body.scrollTop=maxScroll;
+        const bodyRect=body.getBoundingClientRect(),targetRect=target.getBoundingClientRect();
+        const bodyTop=bodyRect.top+body.clientTop,bodyBottom=bodyTop+body.clientHeight;
+        if(targetRect.top<bodyTop||targetRect.bottom>bodyBottom){
+          const targetCenter=targetRect.top-bodyTop+body.scrollTop+targetRect.height/2;
+          body.scrollTop=Math.max(0,Math.min(maxScroll,targetCenter-body.clientHeight/2))
+        }
+      }
+    }
+  }}
 function reopenShareAfterRepair(){
   const token=shareRepairReturn;
   shareRepairReturn=null;
