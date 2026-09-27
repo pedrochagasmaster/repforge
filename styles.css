@@ -2383,38 +2383,52 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 /* Installed Program keeps the same editor grammar while matching the compact
    phone reference: the page title carries the weight, the week context sits
    close to the name field, and the sets control spans the exercise card. */
-.program-editor-installed .page-title{font-size:40px;letter-spacing:-.035em}
 .program-editor-installed .pagehead{margin-top:24px;margin-bottom:24px}
 .program-editor-installed .program-editor{gap:14px}
 .program-editor-installed .program-editor__meta{gap:8px}
-.program-editor-installed .program-editor__program-name input{font-size:18px;padding:10px 16px}
-.program-editor-installed .program-editor__context{margin-top:8px;font-size:16px}
+.program-editor-installed .program-editor__program-name input{font-size:var(--font-size-control);padding:10px 16px}
+.program-editor-installed .program-editor__context{margin-top:8px;font-size:var(--font-size-body)}
 .program-editor-installed .program-editor__days{gap:10px}
-.program-editor-installed .program-editor__day-head{min-height:58px;padding:7px 16px}
-.program-editor-installed .program-editor__exercise-head{min-height:56px;padding:5px 16px}
-.program-editor-installed .program-editor__exercise-head{flex-wrap:wrap;align-items:flex-start}
-.program-editor-installed .program-editor__exercise-name{flex:1 1 calc(100% - 52px);white-space:normal;overflow-wrap:anywhere;line-height:1.25}
-.program-editor-installed .program-editor__summary{margin-left:auto;align-self:center}
+.program-editor-installed .program-editor__day{
+  overflow:visible;padding:0 0 14px;background:transparent;border:0;
+  border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none)
+}
+.program-editor-installed .program-editor__day-head{
+  min-height:var(--control-target);margin:0 0 10px;padding:0;background:transparent;border:0
+}
+.program-editor-installed .program-editor__day-name{
+  font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)
+}
+.program-editor-installed .program-editor__day-count{
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard)
+}
+.program-editor-installed .program-editor__exercise{
+  background:transparent;border:0;border-bottom:1px solid var(--boundary-decorative);
+  border-radius:var(--radius-none)
+}
+.program-editor-installed .program-editor__exercise:last-of-type{border-bottom:0}
+.program-editor-installed .program-editor__exercise-head{min-height:var(--control-target);padding:5px 16px;background:transparent;flex-wrap:wrap;align-items:flex-start}
+.program-editor-installed .program-editor__exercise-name{
+  flex:1 1 calc(100% - 52px);font-size:var(--font-size-control);line-height:var(--line-standard);
+}
+.program-editor-installed .program-editor__summary{margin-left:auto;align-self:center;font-size:var(--font-size-control)}
 .program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-installed .program-editor__sets{display:block;min-height:0}
 .program-editor-installed .program-editor__sets .program-editor__field-label{display:block;margin-bottom:8px}
-.program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:48px}
-.program-editor-installed .program-editor__stepper button,.program-editor-installed .program-editor__stepper output{min-height:46px}
+.program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:var(--control-target)}
+.program-editor-installed .program-editor__stepper button{min-height:var(--control-target)}
+.program-editor-installed .program-editor__stepper output{min-height:var(--control-target);font-size:var(--font-size-metric)}
 .program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
 .program-editor-installed .program-editor__range{row-gap:12px}
-.program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px}
+.program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px;font-size:var(--font-size-control)}
 .program-editor-installed .program-editor__exercise-actions{flex-wrap:wrap;margin-top:10px}
-.program-editor-installed .program-editor__exercise-actions button{flex:1 1 8rem;min-width:0;min-height:46px;white-space:normal}
-.program-editor-installed .program-editor__add{
-  min-height:44px;margin:0;padding:6px 16px;border:1px solid var(--rule-strong);border-radius:9px;
-  background:var(--surface);color:var(--ink);font-size:17px
-}
-.program-editor-installed .program-editor__add:hover{background:var(--well)}
+.program-editor-installed .program-editor__exercise-actions button{flex:1 1 8rem;min-width:0;min-height:var(--control-target);white-space:normal}
 .program-ready__head{display:flex;flex-direction:column;gap:18px;margin-bottom:12px}
-.program-ready__title{font-size:28px;font-weight:650;letter-spacing:-.02em}
+.program-ready__title{font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight)}
 .program-ready__list{border-top:1px solid var(--rule)}
-.program-ready__row{min-height:64px}
-.program-ready__row .listrow__sub{margin-top:3px}
+.program-ready__row{min-height:var(--control-target)}
+.program-ready__row .listrow__title{font-size:var(--font-size-control);line-height:var(--line-standard)}
+.program-ready__row .listrow__sub{margin-top:3px;font-size:var(--font-size-body-small);line-height:var(--line-standard)}
 .program-ready-link{margin-top:16px}
 
 /* The installed editor reference is a full-width bottom bar. It deliberately
@@ -2424,18 +2438,26 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 body:has(#program.program-editor-installed) nav{
   left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;height:calc(var(--dock-h) + env(safe-area-inset-bottom));
   padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
-  border:0;border-top:1px solid var(--dock-edge);border-radius:0;background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;
-  box-shadow:inset 0 1px 0 var(--dock-sheen),0 -4px 14px var(--dock-edge)
+  border:0;border-top:1px solid var(--boundary-persistent);border-radius:0;background:var(--color-surface);backdrop-filter:none;-webkit-backdrop-filter:none;
+  box-shadow:var(--elevation-program-dock-shadow)
 }
 body:has(#program.program-editor-installed) #programEditor{padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom))}
 body:has(#program.program-editor-installed) nav button,
 body:has(#program.program-editor-installed) nav button.active{border-radius:0;background:transparent;box-shadow:none}
+body:has(#program.program-editor-installed) nav button.active{
+  border-radius:var(--radius-pill);background:var(--control-selection-active-bg);
+  box-shadow:var(--elevation-selected-shadow)
+}
 body:has(#program.program-editor-installed) nav::before{display:none}
 
-.program-editor-leave{width:min(calc(100% - 32px),420px);padding:24px;border:1px solid var(--rule);border-radius:14px;background:var(--surface);color:var(--ink)}
+.program-editor-leave{
+  width:min(calc(100% - 32px),420px);padding:24px;border:1px solid var(--boundary-modal);
+  border-radius:var(--radius-prominent);background:var(--color-surface);color:var(--color-ink);
+  box-shadow:var(--elevation-dialog-shadow)
+}
 .program-editor-leave::backdrop{background:var(--scrim)}
-.program-editor-leave h2{font-size:22px;line-height:1.2;margin:0 0 8px}
-.program-editor-leave p{margin:0 0 18px;color:var(--ink-soft);font-size:14px;line-height:1.45}
+.program-editor-leave h2{font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);margin:0 0 8px}
+.program-editor-leave p{margin:0 0 18px;color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
 .program-editor-leave__actions{display:flex;flex-direction:column;gap:8px}
 .program-editor-leave__actions .btn,.program-editor-leave__actions .text-link{width:100%}
 
@@ -4090,26 +4112,38 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #history .hist-row__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 .ready-row__delta{color:var(--accent-deep);font-weight:600;flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .coach-dest{font-size:13px;font-weight:600;color:var(--ink-soft);flex:none;white-space:nowrap}
-/* Program overview day accordion (mock 05) */
-.prog-day{border-bottom:1px solid var(--rule)}
+/* Program overview day accordion */
+.prog-day{border-bottom:1px solid var(--boundary-decorative)}
 .prog-day__head{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%;min-width:0;
   min-height:56px;padding:14px 0;background:none;border:0;cursor:pointer;text-align:left;font:inherit;color:inherit;
 }
-.prog-day__title{font-size:16px;font-weight:600;color:var(--ink)}
-.prog-day__muscles{font-size:13px;color:var(--ink-soft);margin-top:2px}
-.prog-day__right{flex:none;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft)}
+.prog-day__head>div:first-child{min-width:0}
+.prog-day__title{font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.prog-day__muscles{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);margin-top:2px}
+.prog-day__right{
+  flex:0 1 auto;min-width:0;max-width:100%;display:flex;align-items:center;gap:6px;font-family:var(--font-training-data);
+  font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)
+}
 .prog-day__body{padding:0 0 12px}
 .prog-ex{
   display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
-  padding:10px 0;background:none;border:0;border-top:1px solid var(--rule);cursor:pointer;
-  text-align:left;font:inherit;color:var(--ink);font-size:15px;
+  padding:10px 0;background:none;border:0;border-top:1px solid var(--boundary-decorative);cursor:pointer;
+  text-align:left;font-family:var(--font-language);font-size:var(--font-size-control);
+  line-height:var(--line-standard);color:var(--color-ink)
 }
-.prog-ex__sets{flex:none;color:var(--ink-soft);font-variant-numeric:tabular-nums}
-.prog-overview__name{font-size:28px;font-weight:650;letter-spacing:-0.02em;margin:4px 0 4px}
-.prog-overview__meta{font-size:14px;color:var(--ink-soft);margin-bottom:12px}
-.prog-overview__week{font-size:14px;font-weight:600;margin-top:8px}
-.prog-overview__started{font-size:13px;color:var(--ink-soft);margin:8px 0 4px}
+.prog-ex__sets{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
+.prog-overview__name{
+  font-family:var(--font-language);font-size:var(--font-size-feature-title);
+  font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);
+  letter-spacing:-0.02em;margin:4px 0 4px
+}
+.prog-overview__meta{font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-bottom:12px}
+.prog-overview__week{
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);
+  font-weight:var(--weight-semibold);line-height:var(--line-standard);margin-top:8px
+}
+.prog-overview__started{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);margin:8px 0 4px}
 
 /* ---- First-run setup: install, then choose a program ----
    The screen is one layout; only its install section changes, and it is written
@@ -5034,9 +5068,8 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 
 
-/* Build uses the shared editor only in the onboarding draft. Keep these
-   semantic consumers scoped to that host; Program owns the installed editor
-   in P4d. */
+/* The onboarding draft and installed Program share editor controls. Keep their
+   semantic treatments scoped to each host because their page layouts differ. */
 body.is-entry-editor .pmeta{
   border-bottom-color:var(--boundary-decorative)
 }
@@ -5051,71 +5084,112 @@ body.is-entry-editor .pday{
 body.is-entry-editor .pday__empty{border-top-color:var(--boundary-decorative)}
 body.is-entry-editor .program-editor__exercise,
 body.is-entry-editor .program-editor__exercise-body,
-body.is-entry-editor .program-editor__exercise-actions{
+body.is-entry-editor .program-editor__exercise-actions,
+#program.program-editor-installed .program-editor__exercise,
+#program.program-editor-installed .program-editor__exercise-body,
+#program.program-editor-installed .program-editor__exercise-actions{
   border-color:var(--boundary-decorative)
 }
-body.is-entry-editor .program-editor__rep-rule{background:var(--boundary-decorative)}
+body.is-entry-editor .program-editor__rep-rule,
+#program.program-editor-installed .program-editor__rep-rule{background:var(--boundary-decorative)}
 body.is-entry-editor .program-editor__program-name,
 body.is-entry-editor .program-editor__field-label,
 body.is-entry-editor .program-editor__range legend,
 body.is-entry-editor .program-editor__range label,
-body.is-entry-editor .program-editor__more label{
+body.is-entry-editor .program-editor__more label,
+#program.program-editor-installed .program-editor__program-name,
+#program.program-editor-installed .program-editor__field-label,
+#program.program-editor-installed .program-editor__range legend,
+#program.program-editor-installed .program-editor__range label,
+#program.program-editor-installed .program-editor__more label{
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-label);font-weight:var(--weight-medium);
   line-height:var(--line-standard)
 }
-body.is-entry-editor .program-editor__context{
+body.is-entry-editor .program-editor__context,
+#program.program-editor-installed .program-editor__context{
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-body);line-height:var(--line-reading)
 }
 body.is-entry-editor .program-editor__status,
-body.is-entry-editor .program-editor__empty{
+body.is-entry-editor .program-editor__empty,
+#program.program-editor-installed .program-editor__status,
+#program.program-editor-installed .program-editor__empty{
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-body-small);line-height:var(--line-reading)
 }
-body.is-entry-editor .program-editor__status.is-error{color:var(--color-destructive)}
+body.is-entry-editor .program-editor__status.is-error,
+#program.program-editor-installed .program-editor__status.is-error{color:var(--color-destructive)}
 body.is-entry-editor .program-editor__day-count,
 body.is-entry-editor .program-editor__summary,
 body.is-entry-editor .program-editor__stepper output,
 body.is-entry-editor .program-editor__range input[data-field="min"],
-body.is-entry-editor .program-editor__range input[data-field="max"]{
+body.is-entry-editor .program-editor__range input[data-field="max"],
+#program.program-editor-installed .program-editor__day-count,
+#program.program-editor-installed .program-editor__summary,
+#program.program-editor-installed .program-editor__stepper output,
+#program.program-editor-installed .program-editor__range input[data-field="min"],
+#program.program-editor-installed .program-editor__range input[data-field="max"]{
   font-family:var(--font-training-data);font-variant-numeric:tabular-nums
 }
-body.is-entry-editor .program-editor__day-count{
+body.is-entry-editor .program-editor__day-count,
+#program.program-editor-installed .program-editor__day-count{
   color:var(--color-ink-secondary);font-size:var(--font-size-label);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
-body.is-entry-editor .program-editor__summary{
+body.is-entry-editor .program-editor__summary,
+#program.program-editor-installed .program-editor__summary{
   color:var(--color-ink);font-family:var(--font-training-data);
   font-variant-numeric:tabular-nums
 }
-body.is-entry-editor .program-editor__stepper{
+body.is-entry-editor .program-editor__stepper,
+#program.program-editor-installed .program-editor__stepper{
   overflow:visible;border-color:var(--control-adjustment-boundary);
   border-radius:var(--radius-control);background:var(--control-adjustment-bg)
 }
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]{
+body.is-entry-editor .program-editor__stepper button[data-role="adjust"],
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]{
   background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);
   border-color:var(--control-adjustment-boundary);font-size:var(--control-icon-size)
 }
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:first-child{
+body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:first-child,
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:first-child{
   border-radius:var(--radius-control) var(--radius-none) var(--radius-none) var(--radius-control)
 }
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:last-child{
+body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:last-child,
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:last-child{
   border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled),
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:active:not(:disabled){
+body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:active:not(:disabled),
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled),
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:active:not(:disabled){
   background:var(--well);color:var(--control-adjustment-ink);
   border-color:var(--control-adjustment-boundary)
 }
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:active:not(:disabled){
+body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:active:not(:disabled),
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:active:not(:disabled){
   transform:var(--control-pressed-transform)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:focus-visible,
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:focus-visible,
 body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   .program-editor__add.pday__add:not([id]),
+  .program-editor__add-day:not([id]),
+  .program-editor__day-menu:not([id]),
+  .program-editor__day-toggle.pday__caret:not([id]),
+  .program-editor__exercise-toggle:not([id]),
+  .program-editor__replace:not([id]),
+  .program-editor__remove:not([id]),
+  input:not([id]):not([class])
+):focus-visible,
+#program.program-editor-installed :is(
+  .program-editor__day-name.pday__name:not([id]),
+  .program-editor__exercise-name.pex__name:not([id]),
+  .program-editor__add.pday__add:not([id]),
+  .program-editor__add-day:not([id]),
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id]),
@@ -5125,11 +5199,17 @@ body.is-entry-editor :is(
 ):focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
 }
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:disabled{
+body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:disabled,
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:disabled{
   background:var(--control-adjustment-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
 body.is-entry-editor :is(
+  .program-editor__day-name.pday__name:not([id]),
+  .program-editor__exercise-name.pex__name:not([id]),
+  input:not([id]):not([class])
+),
+#program.program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
@@ -5142,9 +5222,16 @@ body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class]):not([data-field="min"]):not([data-field="max"])
+),
+#program.program-editor-installed :is(
+  .program-editor__day-name.pday__name:not([id]),
+  .program-editor__exercise-name.pex__name:not([id]),
+  input:not([id]):not([class]):not([data-field="min"]):not([data-field="max"])
 ){font-family:var(--font-language)}
 body.is-entry-editor input[data-field="min"],
-body.is-entry-editor input[data-field="max"]{
+body.is-entry-editor input[data-field="max"],
+#program.program-editor-installed input[data-field="min"],
+#program.program-editor-installed input[data-field="max"]{
   font-family:var(--font-training-data);font-variant-numeric:tabular-nums
 }
 body.is-entry-editor :is(
@@ -5152,7 +5239,17 @@ body.is-entry-editor :is(
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
 ):hover:not(:disabled),
+#program.program-editor-installed :is(
+  .program-editor__day-name.pday__name:not([id]),
+  .program-editor__exercise-name.pex__name:not([id]),
+  input:not([id]):not([class])
+):hover:not(:disabled),
 body.is-entry-editor :is(
+  .program-editor__day-name.pday__name:not([id]),
+  .program-editor__exercise-name.pex__name:not([id]),
+  input:not([id]):not([class])
+):active:not(:disabled),
+#program.program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
@@ -5164,10 +5261,20 @@ body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
+):is([aria-invalid="true"],.is-invalid),
+#program.program-editor-installed :is(
+  .program-editor__day-name.pday__name:not([id]),
+  .program-editor__exercise-name.pex__name:not([id]),
+  input:not([id]):not([class])
 ):is([aria-invalid="true"],.is-invalid){
   border-color:var(--control-error-boundary);box-shadow:none
 }
 body.is-entry-editor :is(
+  .program-editor__day-name.pday__name:not([id]),
+  .program-editor__exercise-name.pex__name:not([id]),
+  input:not([id]):not([class])
+):disabled,
+#program.program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
@@ -5176,6 +5283,11 @@ body.is-entry-editor :is(
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed
 }
 body.is-entry-editor :is(
+  .program-editor__day-menu:not([id]),
+  .program-editor__day-toggle.pday__caret:not([id]),
+  .program-editor__exercise-toggle:not([id])
+),
+#program.program-editor-installed :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
@@ -5188,7 +5300,17 @@ body.is-entry-editor :is(
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
 ):hover:not(:disabled),
+#program.program-editor-installed :is(
+  .program-editor__day-menu:not([id]),
+  .program-editor__day-toggle.pday__caret:not([id]),
+  .program-editor__exercise-toggle:not([id])
+):hover:not(:disabled),
 body.is-entry-editor :is(
+  .program-editor__day-menu:not([id]),
+  .program-editor__day-toggle.pday__caret:not([id]),
+  .program-editor__exercise-toggle:not([id])
+):active:not(:disabled),
+#program.program-editor-installed :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
@@ -5200,8 +5322,18 @@ body.is-entry-editor :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
+):active:not(:disabled),
+#program.program-editor-installed :is(
+  .program-editor__day-menu:not([id]),
+  .program-editor__day-toggle.pday__caret:not([id]),
+  .program-editor__exercise-toggle:not([id])
 ):active:not(:disabled){transform:var(--control-pressed-transform)}
 body.is-entry-editor :is(
+  .program-editor__day-menu:not([id]),
+  .program-editor__day-toggle.pday__caret:not([id]),
+  .program-editor__exercise-toggle:not([id])
+):disabled,
+#program.program-editor-installed :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
@@ -5211,6 +5343,11 @@ body.is-entry-editor :is(
 }
 body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
+  .program-editor__replace:not([id])
+),
+#program.program-editor-installed :is(
+  .program-editor__add.pday__add:not([id]),
+  .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
 ){
   min-height:var(--control-target);padding:8px 12px;
@@ -5223,8 +5360,18 @@ body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
 ):hover:not(:disabled),
+#program.program-editor-installed :is(
+  .program-editor__add.pday__add:not([id]),
+  .program-editor__add-day:not([id]),
+  .program-editor__replace:not([id])
+):hover:not(:disabled),
 body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
+  .program-editor__replace:not([id])
+):active:not(:disabled),
+#program.program-editor-installed :is(
+  .program-editor__add.pday__add:not([id]),
+  .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
 ):active:not(:disabled){
   background:var(--well);color:var(--control-secondary-ink);
@@ -5233,15 +5380,26 @@ body.is-entry-editor :is(
 body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
+):active:not(:disabled),
+#program.program-editor-installed :is(
+  .program-editor__add.pday__add:not([id]),
+  .program-editor__add-day:not([id]),
+  .program-editor__replace:not([id])
 ):active:not(:disabled){transform:var(--control-pressed-transform)}
 body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
+  .program-editor__replace:not([id])
+):disabled,
+#program.program-editor-installed :is(
+  .program-editor__add.pday__add:not([id]),
+  .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
 ):disabled{
   background:var(--control-secondary-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
-body.is-entry-editor .program-editor__remove:not([id]){
+body.is-entry-editor .program-editor__remove:not([id]),
+#program.program-editor-installed .program-editor__remove:not([id]){
   min-height:var(--control-target);padding:8px 12px;
   border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);
@@ -5249,14 +5407,18 @@ body.is-entry-editor .program-editor__remove:not([id]){
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
 body.is-entry-editor .program-editor__remove:not([id]):hover:not(:disabled),
-body.is-entry-editor .program-editor__remove:not([id]):active:not(:disabled){
+body.is-entry-editor .program-editor__remove:not([id]):active:not(:disabled),
+#program.program-editor-installed .program-editor__remove:not([id]):hover:not(:disabled),
+#program.program-editor-installed .program-editor__remove:not([id]):active:not(:disabled){
   background:var(--well);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
-body.is-entry-editor .program-editor__remove:not([id]):active:not(:disabled){
+body.is-entry-editor .program-editor__remove:not([id]):active:not(:disabled),
+#program.program-editor-installed .program-editor__remove:not([id]):active:not(:disabled){
   transform:var(--control-pressed-transform)
 }
-body.is-entry-editor .program-editor__remove:not([id]):disabled{
+body.is-entry-editor .program-editor__remove:not([id]):disabled,
+#program.program-editor-installed .program-editor__remove:not([id]):disabled{
   background:var(--control-destructive-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
