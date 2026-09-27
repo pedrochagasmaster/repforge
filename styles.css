@@ -3070,7 +3070,7 @@ body.is-sheet-open .installbanner{display:none}
 .installbanner__close:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .installbanner__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .installbanner__close:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
-.installbanner__icon{width:34px;height:34px;border-radius:var(--radius-control);background:var(--color-ink) url("icons/icon-192.png") center/cover no-repeat}
+.installbanner__icon{width:34px;height:34px;border-radius:var(--radius-control);background:#161513 url("icons/icon-192.png") center/cover no-repeat}
 /* The corner the ✕ is drawn in belongs to the copy row alone, so the action
    below it still sits square in the card. */
 .installbanner__text{min-width:0;padding-right:50px}
