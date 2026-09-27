@@ -10585,6 +10585,12 @@ async function main() {
     };
     const root = getComputedStyle(document.documentElement);
     const token = (n) => root.getPropertyValue(n).trim();
+    const resolveToken = (name, seen = []) => {
+      if (seen.includes(name)) return "";
+      const value = token(name);
+      const alias = /^var\((--[\w-]+)\)$/.exec(value);
+      return alias ? resolveToken(alias[1], [...seen, name]) : value;
+    };
     const rules = [];
     for (const sheet of document.styleSheets) {
       let cssRules;
@@ -10612,6 +10618,7 @@ async function main() {
     return {
       accent: token("--accent"),
       accentText: token("--accent-deep"),
+      actionText: resolveToken("--color-action-text"),
       inkFaint: token("--ink-faint"),
       bg: token("--bg"),
       surface: token("--surface"),
@@ -10672,21 +10679,23 @@ async function main() {
     "Inspect .btn--cta::after, nav icon, .vrow__fill, :focus-visible"
   );
   assert(
-    contrastAudit.backLink.filter(Boolean).every((c) => c.includes("var(--accent-deep)")) &&
-      contrastAudit.backLink.some((c) => c.includes("var(--accent-deep)")) &&
-      contrastAudit.linkAccent.every((c) => c.includes("var(--accent-deep)")) &&
-      contrastAudit.textBtnAccent.every((c) => c.includes("var(--accent-deep)")) &&
-      contrastAudit.vrowStatus.every((c) => c.includes("var(--accent-deep)")) &&
+    contrastAudit.actionText === contrastAudit.accentText &&
+      contrastAudit.backLink.filter(Boolean).every((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
+      contrastAudit.backLink.some((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
+      contrastAudit.linkAccent.every((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
+      contrastAudit.textBtnAccent.every((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
+      contrastAudit.vrowStatus.every((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
       contrastAudit.accentTextSels.length >= 8,
-    "C1: accent foreground text on light surfaces uses --accent-deep",
+    "C1: accent foreground text uses --accent-deep or its semantic action-text token",
     JSON.stringify({
       backLink: contrastAudit.backLink,
       linkAccent: contrastAudit.linkAccent,
       textBtnAccent: contrastAudit.textBtnAccent,
       vrowStatus: contrastAudit.vrowStatus,
+      actionText: contrastAudit.actionText,
       n: contrastAudit.accentTextSels.length,
     }),
-    "Inspect .back-link, .link-accent, .text-btn--accent, .vrow__status"
+    "Inspect .back-link, .link-accent, .text-btn--accent, .vrow__status, and --color-action-text"
   );
   assert(
     contrastAudit.vrowFill.every((v) => !v.minWidth || v.minWidth === "0px" || v.minWidth === "0"),
