@@ -1,0 +1,485 @@
+✓ _example landing [1] pt/light/390/100
+✓ _example route-choice [1] pt/light/390/100
+✓ _example route-help [1] pt/light/390/100
+✓ _example rec-goal [1] pt/light/390/100
+✓ _example rec-background [1] pt/light/390/100
+✓ _example rec-schedule [1] pt/light/390/100
+✓ _example rec-environment [1] pt/light/390/100
+✓ _example rec-priorities [1] pt/light/390/100
+✓ _example rec-result [1] pt/light/390/100
+✓ _example rec-env-correction [1] pt/light/390/100
+✓ _example rec-result-corrected [1] pt/light/390/100
+✓ _example rec-avoid-pain [1] pt/light/390/100
+✓ _example rec-result-avoided [1] pt/light/390/100
+✓ _example browse-filters [1] pt/light/390/100
+✓ _example browse-list [1] pt/light/390/100
+✓ _example browse-preview [1] pt/light/390/100
+✓ _example custom-priorities [1] pt/light/390/100
+✓ _example custom-exercises [1] pt/light/390/100
+✓ _example custom-shape [1] pt/light/390/100
+✓ _example custom-result [1] pt/light/390/100
+✓ _example build-setup [1] pt/light/390/100
+✓ _example build-empty [1] pt/light/390/100
+✓ _example build-partial [1] pt/light/390/100
+✓ _example build-ready [1] pt/light/390/100
+✓ _example ff-empty [1] pt/light/390/100
+✓ _example ff-filled [1] pt/light/390/100
+✓ _example ff-handoff [1] pt/light/390/100
+✓ _example ff-reply [1] pt/light/390/100
+✓ _example ff-gaps [1] pt/light/390/100
+✓ _example ff-gaps-invalid [1] pt/light/390/100
+✓ _example ff-unreadable [1] pt/light/390/100
+✓ _example import-source [1] pt/light/390/100
+✓ _example import-review [1] pt/light/390/100
+✓ _example import-preview [1] pt/light/390/100
+✓ _example shared-gate [1] pt/light/390/100
+✓ _example shared-preview [1] pt/light/390/100
+✓ _example shared-invalid [1] pt/light/390/100
+✓ _example hub-existing [1] pt/light/390/100
+✓ _example replace-confirm [1] pt/light/390/100
+✓ _example activation-conflict [1] pt/light/390/100
+✓ _example resume [1] pt/light/390/100
+✓ _example rules-changed [1] pt/light/390/100
+✓ _example cancel-confirm [1] pt/light/390/100
+✓ _example activate [1] pt/light/390/100
+✓ _example activated-today [1] pt/light/390/100
+✓ _example landing [2] en/dark/390/100
+✓ _example route-choice [2] en/dark/390/100
+✓ _example route-help [2] en/dark/390/100
+✓ _example rec-goal [2] en/dark/390/100
+✓ _example rec-background [2] en/dark/390/100
+✓ _example rec-schedule [2] en/dark/390/100
+✓ _example rec-environment [2] en/dark/390/100
+✓ _example rec-priorities [2] en/dark/390/100
+✓ _example rec-result [2] en/dark/390/100
+✓ _example rec-env-correction [2] en/dark/390/100
+✓ _example rec-result-corrected [2] en/dark/390/100
+✓ _example rec-avoid-pain [2] en/dark/390/100
+✓ _example rec-result-avoided [2] en/dark/390/100
+✓ _example browse-filters [2] en/dark/390/100
+✓ _example browse-list [2] en/dark/390/100
+✓ _example browse-preview [2] en/dark/390/100
+✓ _example custom-priorities [2] en/dark/390/100
+✓ _example custom-exercises [2] en/dark/390/100
+✓ _example custom-shape [2] en/dark/390/100
+✓ _example custom-result [2] en/dark/390/100
+✓ _example build-setup [2] en/dark/390/100
+✓ _example build-empty [2] en/dark/390/100
+✓ _example build-partial [2] en/dark/390/100
+✓ _example build-ready [2] en/dark/390/100
+✓ _example ff-empty [2] en/dark/390/100
+✓ _example ff-filled [2] en/dark/390/100
+✓ _example ff-handoff [2] en/dark/390/100
+✓ _example ff-reply [2] en/dark/390/100
+✓ _example ff-gaps [2] en/dark/390/100
+✓ _example ff-gaps-invalid [2] en/dark/390/100
+✓ _example ff-unreadable [2] en/dark/390/100
+✓ _example import-source [2] en/dark/390/100
+✓ _example import-review [2] en/dark/390/100
+✓ _example import-preview [2] en/dark/390/100
+✓ _example shared-gate [2] en/dark/390/100
+✓ _example shared-preview [2] en/dark/390/100
+✓ _example shared-invalid [2] en/dark/390/100
+✓ _example hub-existing [2] en/dark/390/100
+✓ _example replace-confirm [2] en/dark/390/100
+✓ _example activation-conflict [2] en/dark/390/100
+✓ _example resume [2] en/dark/390/100
+✓ _example rules-changed [2] en/dark/390/100
+✓ _example cancel-confirm [2] en/dark/390/100
+✓ _example activate [2] en/dark/390/100
+✓ _example activated-today [2] en/dark/390/100
+✓ _example landing [3] pt/light/320/100
+✓ _example route-choice [3] pt/light/320/100
+✓ _example route-help [3] pt/light/320/100
+✓ _example rec-goal [3] pt/light/320/100
+✓ _example rec-background [3] pt/light/320/100
+✓ _example rec-schedule [3] pt/light/320/100
+✓ _example rec-environment [3] pt/light/320/100
+✓ _example rec-priorities [3] pt/light/320/100
+✓ _example rec-result [3] pt/light/320/100
+✓ _example rec-env-correction [3] pt/light/320/100
+✓ _example rec-result-corrected [3] pt/light/320/100
+✓ _example rec-avoid-pain [3] pt/light/320/100
+✓ _example rec-result-avoided [3] pt/light/320/100
+✓ _example browse-filters [3] pt/light/320/100
+✓ _example browse-list [3] pt/light/320/100
+✓ _example browse-preview [3] pt/light/320/100
+✓ _example custom-priorities [3] pt/light/320/100
+✓ _example custom-exercises [3] pt/light/320/100
+✓ _example custom-shape [3] pt/light/320/100
+✓ _example custom-result [3] pt/light/320/100
+✓ _example build-setup [3] pt/light/320/100
+✓ _example build-empty [3] pt/light/320/100
+✓ _example build-partial [3] pt/light/320/100
+✓ _example build-ready [3] pt/light/320/100
+✓ _example ff-empty [3] pt/light/320/100
+✓ _example ff-filled [3] pt/light/320/100
+✓ _example ff-handoff [3] pt/light/320/100
+✓ _example ff-reply [3] pt/light/320/100
+✓ _example ff-gaps [3] pt/light/320/100
+✓ _example ff-gaps-invalid [3] pt/light/320/100
+✓ _example ff-unreadable [3] pt/light/320/100
+✓ _example import-source [3] pt/light/320/100
+✓ _example import-review [3] pt/light/320/100
+✓ _example import-preview [3] pt/light/320/100
+✓ _example shared-gate [3] pt/light/320/100
+✓ _example shared-preview [3] pt/light/320/100
+✓ _example shared-invalid [3] pt/light/320/100
+✓ _example hub-existing [3] pt/light/320/100
+✓ _example replace-confirm [3] pt/light/320/100
+✓ _example activation-conflict [3] pt/light/320/100
+✓ _example resume [3] pt/light/320/100
+✓ _example rules-changed [3] pt/light/320/100
+✓ _example cancel-confirm [3] pt/light/320/100
+✓ _example activate [3] pt/light/320/100
+✓ _example activated-today [3] pt/light/320/100
+✓ _example landing [4] pt/light/390/200
+✓ _example route-choice [4] pt/light/390/200
+✓ _example route-help [4] pt/light/390/200
+✓ _example rec-goal [4] pt/light/390/200
+✓ _example rec-background [4] pt/light/390/200
+✓ _example rec-schedule [4] pt/light/390/200
+✓ _example rec-environment [4] pt/light/390/200
+✓ _example rec-priorities [4] pt/light/390/200
+✓ _example rec-result [4] pt/light/390/200
+✓ _example rec-env-correction [4] pt/light/390/200
+✓ _example rec-result-corrected [4] pt/light/390/200
+✓ _example rec-avoid-pain [4] pt/light/390/200
+✓ _example rec-result-avoided [4] pt/light/390/200
+✓ _example browse-filters [4] pt/light/390/200
+✓ _example browse-list [4] pt/light/390/200
+✓ _example browse-preview [4] pt/light/390/200
+✓ _example custom-priorities [4] pt/light/390/200
+✓ _example custom-exercises [4] pt/light/390/200
+✓ _example custom-shape [4] pt/light/390/200
+✓ _example custom-result [4] pt/light/390/200
+✓ _example build-setup [4] pt/light/390/200
+✓ _example build-empty [4] pt/light/390/200
+✓ _example build-partial [4] pt/light/390/200
+✓ _example build-ready [4] pt/light/390/200
+✓ _example ff-empty [4] pt/light/390/200
+✓ _example ff-filled [4] pt/light/390/200
+✓ _example ff-handoff [4] pt/light/390/200
+✓ _example ff-reply [4] pt/light/390/200
+✓ _example ff-gaps [4] pt/light/390/200
+✓ _example ff-gaps-invalid [4] pt/light/390/200
+✓ _example ff-unreadable [4] pt/light/390/200
+✓ _example import-source [4] pt/light/390/200
+✓ _example import-review [4] pt/light/390/200
+✓ _example import-preview [4] pt/light/390/200
+✓ _example shared-gate [4] pt/light/390/200
+✓ _example shared-preview [4] pt/light/390/200
+✓ _example shared-invalid [4] pt/light/390/200
+✓ _example hub-existing [4] pt/light/390/200
+✓ _example replace-confirm [4] pt/light/390/200
+✓ _example activation-conflict [4] pt/light/390/200
+✓ _example resume [4] pt/light/390/200
+✓ _example rules-changed [4] pt/light/390/200
+✓ _example cancel-confirm [4] pt/light/390/200
+✓ _example activate [4] pt/light/390/200
+✓ _example activated-today [4] pt/light/390/200
+✓ _example landing [5] en/light/430/100/reduced
+✓ _example route-choice [5] en/light/430/100/reduced
+✓ _example route-help [5] en/light/430/100/reduced
+✓ _example rec-goal [5] en/light/430/100/reduced
+✓ _example rec-background [5] en/light/430/100/reduced
+✓ _example rec-schedule [5] en/light/430/100/reduced
+✓ _example rec-environment [5] en/light/430/100/reduced
+✓ _example rec-priorities [5] en/light/430/100/reduced
+✓ _example rec-result [5] en/light/430/100/reduced
+✓ _example rec-env-correction [5] en/light/430/100/reduced
+✓ _example rec-result-corrected [5] en/light/430/100/reduced
+✓ _example rec-avoid-pain [5] en/light/430/100/reduced
+✓ _example rec-result-avoided [5] en/light/430/100/reduced
+✓ _example browse-filters [5] en/light/430/100/reduced
+✓ _example browse-list [5] en/light/430/100/reduced
+✓ _example browse-preview [5] en/light/430/100/reduced
+✓ _example custom-priorities [5] en/light/430/100/reduced
+✓ _example custom-exercises [5] en/light/430/100/reduced
+✓ _example custom-shape [5] en/light/430/100/reduced
+✓ _example custom-result [5] en/light/430/100/reduced
+✓ _example build-setup [5] en/light/430/100/reduced
+✓ _example build-empty [5] en/light/430/100/reduced
+✓ _example build-partial [5] en/light/430/100/reduced
+✓ _example build-ready [5] en/light/430/100/reduced
+✓ _example ff-empty [5] en/light/430/100/reduced
+✓ _example ff-filled [5] en/light/430/100/reduced
+✓ _example ff-handoff [5] en/light/430/100/reduced
+✓ _example ff-reply [5] en/light/430/100/reduced
+✓ _example ff-gaps [5] en/light/430/100/reduced
+✓ _example ff-gaps-invalid [5] en/light/430/100/reduced
+✓ _example ff-unreadable [5] en/light/430/100/reduced
+✓ _example import-source [5] en/light/430/100/reduced
+✓ _example import-review [5] en/light/430/100/reduced
+✓ _example import-preview [5] en/light/430/100/reduced
+✓ _example shared-gate [5] en/light/430/100/reduced
+✓ _example shared-preview [5] en/light/430/100/reduced
+✓ _example shared-invalid [5] en/light/430/100/reduced
+✓ _example hub-existing [5] en/light/430/100/reduced
+✓ _example replace-confirm [5] en/light/430/100/reduced
+✓ _example activation-conflict [5] en/light/430/100/reduced
+✓ _example resume [5] en/light/430/100/reduced
+✓ _example rules-changed [5] en/light/430/100/reduced
+✓ _example cancel-confirm [5] en/light/430/100/reduced
+✓ _example activate [5] en/light/430/100/reduced
+✓ _example activated-today [5] en/light/430/100/reduced
+✓ _example landing [6] pt/light/320/200
+✓ _example route-choice [6] pt/light/320/200
+✓ _example route-help [6] pt/light/320/200
+✗ _example rec-goal [6] pt/light/320/200  K-11 persistent-action region footer.pinned is 35% of the viewport (199px of 568px)
+✗ _example rec-background [6] pt/light/320/200  K-11 persistent-action region footer.pinned is 35% of the viewport (199px of 568px)
+✗ _example rec-schedule [6] pt/light/320/200  K-11 persistent-action region footer.pinned is 35% of the viewport (199px of 568px)
+✓ _example rec-environment [6] pt/light/320/200
+✓ _example rec-priorities [6] pt/light/320/200
+✓ _example rec-result [6] pt/light/320/200
+✓ _example rec-env-correction [6] pt/light/320/200
+✓ _example rec-result-corrected [6] pt/light/320/200
+✓ _example rec-avoid-pain [6] pt/light/320/200
+✓ _example rec-result-avoided [6] pt/light/320/200
+✗ _example browse-filters [6] pt/light/320/200  K-11 persistent-action region footer.pinned is 35% of the viewport (199px of 568px)
+✓ _example browse-list [6] pt/light/320/200
+✓ _example browse-preview [6] pt/light/320/200
+✓ _example custom-priorities [6] pt/light/320/200
+✓ _example custom-exercises [6] pt/light/320/200
+✓ _example custom-shape [6] pt/light/320/200
+✓ _example custom-result [6] pt/light/320/200
+✓ _example build-setup [6] pt/light/320/200
+✓ _example build-empty [6] pt/light/320/200
+✓ _example build-partial [6] pt/light/320/200
+✓ _example build-ready [6] pt/light/320/200
+✓ _example ff-empty [6] pt/light/320/200
+✓ _example ff-filled [6] pt/light/320/200
+✓ _example ff-handoff [6] pt/light/320/200
+✓ _example ff-reply [6] pt/light/320/200
+✓ _example ff-gaps [6] pt/light/320/200
+✓ _example ff-gaps-invalid [6] pt/light/320/200
+✓ _example ff-unreadable [6] pt/light/320/200
+✓ _example import-source [6] pt/light/320/200
+✓ _example import-review [6] pt/light/320/200
+✓ _example import-preview [6] pt/light/320/200
+✓ _example shared-gate [6] pt/light/320/200
+✓ _example shared-preview [6] pt/light/320/200
+✓ _example shared-invalid [6] pt/light/320/200
+✓ _example hub-existing [6] pt/light/320/200
+✗ _example replace-confirm [6] pt/light/320/200  K-11 persistent-action region footer.pinned is 44% of the viewport (250px of 568px)
+✓ _example activation-conflict [6] pt/light/320/200
+✓ _example resume [6] pt/light/320/200
+✓ _example rules-changed [6] pt/light/320/200
+✗ _example cancel-confirm [6] pt/light/320/200  K-11 persistent-action region footer.pinned is 35% of the viewport (199px of 568px)
+✓ _example activate [6] pt/light/320/200
+✓ _example activated-today [6] pt/light/320/200
+✓ _example landing [7] pt/light/430/100
+✓ _example route-choice [7] pt/light/430/100
+✓ _example route-help [7] pt/light/430/100
+✓ _example rec-goal [7] pt/light/430/100
+✓ _example rec-background [7] pt/light/430/100
+✓ _example rec-schedule [7] pt/light/430/100
+✓ _example rec-environment [7] pt/light/430/100
+✓ _example rec-priorities [7] pt/light/430/100
+✓ _example rec-result [7] pt/light/430/100
+✓ _example rec-env-correction [7] pt/light/430/100
+✓ _example rec-result-corrected [7] pt/light/430/100
+✓ _example rec-avoid-pain [7] pt/light/430/100
+✓ _example rec-result-avoided [7] pt/light/430/100
+✓ _example browse-filters [7] pt/light/430/100
+✓ _example browse-list [7] pt/light/430/100
+✓ _example browse-preview [7] pt/light/430/100
+✓ _example custom-priorities [7] pt/light/430/100
+✓ _example custom-exercises [7] pt/light/430/100
+✓ _example custom-shape [7] pt/light/430/100
+✓ _example custom-result [7] pt/light/430/100
+✓ _example build-setup [7] pt/light/430/100
+✓ _example build-empty [7] pt/light/430/100
+✓ _example build-partial [7] pt/light/430/100
+✓ _example build-ready [7] pt/light/430/100
+✓ _example ff-empty [7] pt/light/430/100
+✓ _example ff-filled [7] pt/light/430/100
+✓ _example ff-handoff [7] pt/light/430/100
+✓ _example ff-reply [7] pt/light/430/100
+✓ _example ff-gaps [7] pt/light/430/100
+✓ _example ff-gaps-invalid [7] pt/light/430/100
+✓ _example ff-unreadable [7] pt/light/430/100
+✓ _example import-source [7] pt/light/430/100
+✓ _example import-review [7] pt/light/430/100
+✓ _example import-preview [7] pt/light/430/100
+✓ _example shared-gate [7] pt/light/430/100
+✓ _example shared-preview [7] pt/light/430/100
+✓ _example shared-invalid [7] pt/light/430/100
+✓ _example hub-existing [7] pt/light/430/100
+✓ _example replace-confirm [7] pt/light/430/100
+✓ _example activation-conflict [7] pt/light/430/100
+✓ _example resume [7] pt/light/430/100
+✓ _example rules-changed [7] pt/light/430/100
+✓ _example cancel-confirm [7] pt/light/430/100
+✓ _example activate [7] pt/light/430/100
+✓ _example activated-today [7] pt/light/430/100
+✓ _example landing [8] en/dark/320/200/reduced
+✓ _example route-choice [8] en/dark/320/200/reduced
+✓ _example route-help [8] en/dark/320/200/reduced
+✓ _example rec-goal [8] en/dark/320/200/reduced
+✓ _example rec-background [8] en/dark/320/200/reduced
+✓ _example rec-schedule [8] en/dark/320/200/reduced
+✓ _example rec-environment [8] en/dark/320/200/reduced
+✓ _example rec-priorities [8] en/dark/320/200/reduced
+✓ _example rec-result [8] en/dark/320/200/reduced
+✓ _example rec-env-correction [8] en/dark/320/200/reduced
+✓ _example rec-result-corrected [8] en/dark/320/200/reduced
+✓ _example rec-avoid-pain [8] en/dark/320/200/reduced
+✓ _example rec-result-avoided [8] en/dark/320/200/reduced
+✓ _example browse-filters [8] en/dark/320/200/reduced
+✓ _example browse-list [8] en/dark/320/200/reduced
+✓ _example browse-preview [8] en/dark/320/200/reduced
+✓ _example custom-priorities [8] en/dark/320/200/reduced
+✓ _example custom-exercises [8] en/dark/320/200/reduced
+✓ _example custom-shape [8] en/dark/320/200/reduced
+✓ _example custom-result [8] en/dark/320/200/reduced
+✓ _example build-setup [8] en/dark/320/200/reduced
+✓ _example build-empty [8] en/dark/320/200/reduced
+✓ _example build-partial [8] en/dark/320/200/reduced
+✓ _example build-ready [8] en/dark/320/200/reduced
+✓ _example ff-empty [8] en/dark/320/200/reduced
+✓ _example ff-filled [8] en/dark/320/200/reduced
+✓ _example ff-handoff [8] en/dark/320/200/reduced
+✓ _example ff-reply [8] en/dark/320/200/reduced
+✓ _example ff-gaps [8] en/dark/320/200/reduced
+✓ _example ff-gaps-invalid [8] en/dark/320/200/reduced
+✓ _example ff-unreadable [8] en/dark/320/200/reduced
+✓ _example import-source [8] en/dark/320/200/reduced
+✓ _example import-review [8] en/dark/320/200/reduced
+✓ _example import-preview [8] en/dark/320/200/reduced
+✓ _example shared-gate [8] en/dark/320/200/reduced
+✓ _example shared-preview [8] en/dark/320/200/reduced
+✓ _example shared-invalid [8] en/dark/320/200/reduced
+✓ _example hub-existing [8] en/dark/320/200/reduced
+✗ _example replace-confirm [8] en/dark/320/200/reduced  K-11 persistent-action region footer.pinned is 53% of the viewport (300px of 568px)
+✓ _example activation-conflict [8] en/dark/320/200/reduced
+✓ _example resume [8] en/dark/320/200/reduced
+✓ _example rules-changed [8] en/dark/320/200/reduced
+✓ _example cancel-confirm [8] en/dark/320/200/reduced
+✓ _example activate [8] en/dark/320/200/reduced
+✓ _example activated-today [8] en/dark/320/200/reduced
+✓ _example journey activate.recommend [1] ok taps=15
+✓ _example journey activate.recommend [6] ok taps=15
+✗ _example journey activate.custom [1] not-implemented taps=0
+✗ _example journey activate.custom [6] not-implemented taps=0
+✗ _example journey activate.browse [1] not-implemented taps=0
+✗ _example journey activate.browse [6] not-implemented taps=0
+✓ _example journey activate.build [1] ok taps=21
+✓ _example journey activate.build [6] ok taps=21
+✓ _example journey activate.import-file [1] ok taps=7
+✓ _example journey activate.import-file [6] ok taps=7
+✓ _example journey activate.import-paste [1] ok taps=14
+✓ _example journey activate.import-paste [6] ok taps=14
+✓ _example journey activate.shared [1] ok taps=2
+✓ _example journey activate.shared [6] ok taps=2
+✓ _example journey edit.roundtrip [1] ok taps=3
+✓ _example journey edit.roundtrip [6] ok taps=3
+✓ _example journey edit.remove-two.editor [1] ok taps=4
+✓ _example journey edit.remove-two.editor [6] ok taps=4
+✓ _example journey edit.remove-two.review [1] ok taps=5
+✓ _example journey edit.remove-two.review [6] ok taps=5
+✓ _example journey build.gating [1] ok taps=13
+✓ _example journey build.gating [6] ok taps=13
+✓ _example journey cancel @rec-goal [1] ok taps=1
+✓ _example journey cancel @rec-goal [6] ok taps=1
+✓ _example journey cancel @rec-background [1] ok taps=1
+✓ _example journey cancel @rec-background [6] ok taps=1
+✓ _example journey cancel @rec-schedule [1] ok taps=1
+✓ _example journey cancel @rec-schedule [6] ok taps=1
+✓ _example journey cancel @rec-environment [1] ok taps=1
+✓ _example journey cancel @rec-environment [6] ok taps=1
+✓ _example journey cancel @rec-priorities [1] ok taps=1
+✓ _example journey cancel @rec-priorities [6] ok taps=1
+✓ _example journey cancel @rec-result [1] ok taps=1
+✓ _example journey cancel @rec-result [6] ok taps=1
+✓ _example journey cancel @custom-priorities [1] ok taps=1
+✓ _example journey cancel @custom-priorities [6] ok taps=1
+✓ _example journey cancel @custom-exercises [1] ok taps=1
+✓ _example journey cancel @custom-exercises [6] ok taps=1
+✓ _example journey cancel @custom-shape [1] ok taps=1
+✓ _example journey cancel @custom-shape [6] ok taps=1
+✓ _example journey cancel @custom-result [1] ok taps=1
+✓ _example journey cancel @custom-result [6] ok taps=1
+✓ _example journey cancel @browse-filters [1] ok taps=1
+✓ _example journey cancel @browse-filters [6] ok taps=1
+✓ _example journey cancel @browse-list [1] ok taps=1
+✓ _example journey cancel @browse-list [6] ok taps=1
+✓ _example journey cancel @browse-preview [1] ok taps=1
+✓ _example journey cancel @browse-preview [6] ok taps=1
+✓ _example journey cancel @build-setup [1] ok taps=1
+✓ _example journey cancel @build-setup [6] ok taps=1
+✓ _example journey cancel @build-empty [1] ok taps=1
+✓ _example journey cancel @build-empty [6] ok taps=1
+✓ _example journey cancel @build-ready [1] ok taps=1
+✓ _example journey cancel @build-ready [6] ok taps=1
+✓ _example journey cancel @ff-empty [1] ok taps=1
+✓ _example journey cancel @ff-empty [6] ok taps=1
+✓ _example journey cancel @ff-reply [1] ok taps=1
+✓ _example journey cancel @ff-reply [6] ok taps=1
+✓ _example journey cancel @ff-gaps [1] ok taps=1
+✓ _example journey cancel @ff-gaps [6] ok taps=1
+✓ _example journey cancel @ff-unreadable [1] ok taps=1
+✓ _example journey cancel @ff-unreadable [6] ok taps=1
+✓ _example journey cancel @import-source [1] ok taps=1
+✓ _example journey cancel @import-source [6] ok taps=1
+✓ _example journey cancel @import-review [1] ok taps=1
+✓ _example journey cancel @import-review [6] ok taps=1
+✓ _example journey cancel @import-preview [1] ok taps=1
+✓ _example journey cancel @import-preview [6] ok taps=1
+✓ _example journey cancel @shared-preview [1] ok taps=1
+✓ _example journey cancel @shared-preview [6] ok taps=1
+✓ _example journey cancel.keep-resume [1] ok taps=5
+✓ _example journey cancel.keep-resume [6] ok taps=5
+✗ _example journey back.recommend [1] not-implemented taps=0
+✗ _example journey back.recommend [6] not-implemented taps=0
+✗ _example journey back.custom [1] not-implemented taps=0
+✗ _example journey back.custom [6] not-implemented taps=0
+✗ _example journey back.browse [1] not-implemented taps=0
+✗ _example journey back.browse [6] not-implemented taps=0
+✓ _example journey back.import [1] ok taps=6
+✓ _example journey back.import [6] ok taps=6
+✓ _example journey back.shared [1] ok taps=1
+✓ _example journey back.shared [6] ok taps=1
+✓ _example journey destroy.review-start-over [1] ok taps=2
+✓ _example journey destroy.review-start-over [6] ok taps=2
+✓ _example journey destroy.paste-restart [1] ok taps=2
+✓ _example journey destroy.paste-restart [6] ok taps=2
+✗ _example journey destroy.discard-draft [1] not-implemented taps=0
+✗ _example journey destroy.discard-draft [6] not-implemented taps=0
+✓ _example journey existing.back [1] ok taps=1
+✓ _example journey existing.back [6] ok taps=1
+✗ _example journey existing.cancel-keep [1] not-implemented taps=0
+✗ _example journey existing.cancel-keep [6] not-implemented taps=0
+✗ _example journey existing.cancel-discard [1] not-implemented taps=0
+✗ _example journey existing.cancel-discard [6] not-implemented taps=0
+✓ _example journey existing.replace-cancel [1] ok taps=1
+✓ _example journey existing.replace-cancel [6] ok taps=1
+✗ _example journey existing.conflict [1] not-implemented taps=0
+✗ _example journey existing.conflict [6] not-implemented taps=0
+✓ _example journey avoid.pain [1] ok taps=5
+✓ _example journey avoid.pain [6] ok taps=5
+✗ _example journey overlays [1] fail taps=4  overlay "env": confirm not fully visible above the pinned region (top 979 bottom 1033 limit 844 viewport 844 covered)
+✗ _example journey overlays [6] fail taps=4  overlay "days": confirm not fully visible above the pinned region (top 794 bottom 922 limit 568 viewport 568 covered) | overlay "env": confirm not fully visible above the pinned region (top 2467 bottom 2596 limit 568 viewport 568 covered)
+✓ _example journey change.days [1] ok taps=3
+✓ _example journey change.days [6] ok taps=3
+✓ _example journey correct.environment [1] ok taps=6
+✓ _example journey correct.environment [6] ok taps=6
+✗ _example journey avoid.from-review [1] not-implemented taps=0
+✗ _example journey avoid.from-review [6] not-implemented taps=0
+✓ _example journey recommend.required [1] ok taps=12
+✓ _example journey recommend.required [6] ok taps=12
+✓ _example journey chooser.doors [1] ok taps=11
+✓ _example journey chooser.doors [6] ok taps=11
+✗ _example journey help.recommend [1] not-implemented taps=0
+✗ _example journey help.recommend [6] not-implemented taps=0
+✗ _example journey help.custom [1] not-implemented taps=0
+✗ _example journey help.custom [6] not-implemented taps=0
+✓ _example journey help.browse [1] ok taps=3
+✓ _example journey help.browse [6] ok taps=3
+✗ _example journey help.build [1] not-implemented taps=0
+✗ _example journey help.build [6] not-implemented taps=0
+✗ _example journey help.import [1] not-implemented taps=0
+✗ _example journey help.import [6] not-implemented taps=0
+
+wrote /home/user/repforge/docs/design/onboarding-tournament/round-2/harness-proof/acceptance/summary.md
+exit 0

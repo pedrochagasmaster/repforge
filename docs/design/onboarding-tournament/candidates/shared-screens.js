@@ -6,6 +6,11 @@
   "use strict";
   const { esc } = TF;
   const T = {};
+  /* H-11: door facts derived from ROUTE_STEPS (sections before the first
+     result/catalogue/editor/preview step), never minutes. */
+  const STOP_STEPS = new Set(["result", "catalogue", "editor", "preview"]);
+  T.routeSections = (route) => { const steps = TF.Entry.ROUTE_STEPS[route] || []; let n = 0; for (const s of steps) { if (STOP_STEPS.has(s)) break; n++; } return n; };
+  const SEC = { recommend: T.routeSections("recommend"), custom: T.routeSections("custom"), browse: T.routeSections("browse") };
 
   /* ---------- copy shared by all candidates (both catalogs), used only where the
      production catalog has no string. Every key is new copy for the tournament. */
@@ -41,19 +46,37 @@
       "x.today.first": "Your first session is ready.",
       "x.assumed": "Assumed",
       "x.change": "Change",
-      "x.cost.recommend": "5 short sections · about 2 minutes",
-      "x.cost.custom": "7 sections · about 5 minutes",
-      "x.cost.browse": "2 questions, then pick from a list",
-      "x.cost.build": "You type every exercise · 10 to 20 minutes",
+      "x.cost.recommend": `${SEC.recommend} short sections`,
+      "x.cost.custom": `${SEC.custom} sections`,
+      "x.cost.browse": `${SEC.browse} questions, then pick from a list`,
+      "x.cost.build": "You type every exercise",
       "x.cost.paste": "Paste text, tap ChatGPT or Claude, paste the reply",
       "x.cost.file": "A Taurifer program file from another device",
       "x.get.generated": "A complete, editable program with progression built in",
-      "x.get.browse": "One of 20 released Taurifer programs",
+      "x.get.browse": "A ready-made Taurifer program, chosen by purpose and schedule",
       "x.get.build": "Exactly what you write; you set each target",
       "x.get.import": "Your own program, reviewed exercise by exercise",
       "x.shared.what": "What arrives with the link: the program, its settings and the app language. No workout history.",
       "x.shared.nothing_saved": "Nothing is saved until you start it.",
       "x.privacy.line": "Works offline. No account. Your training stays on this device.",
+      "x.restart.title": "Start over?",
+      "x.restart.body": "Your answers and this unused program will be discarded. Nothing that is already active changes.",
+      "x.restart.body_shared": "The program received by link will be discarded from this device. To see it again, open the link again.",
+      "x.restart.confirm": "Discard and start over",
+      "x.restart.cancel": "Back to the program",
+      "x.change.none": "No exercise changed.",
+      "x.change.one": "1 of {total} exercises changed.",
+      "x.change.many": "{n} of {total} exercises changed.",
+      "x.ff.restart_confirm": "Discard and start over",
+      "x.ff.restart_cancel": "Keep the text and reply",
+      "x.issue.generic": "This program cannot be used right now. Review it and try again.",
+      "x.issue.review_first": "Review the program before using it.",
+      "x.issue.program_name": "Give the program a name.",
+      "x.issue.compile": "Taurifer could not build a program from these answers. Change an answer and try again.",
+      "x.issue.time_ceiling": "The program does not fit the session time you chose. Allow more time or drop a priority.",
+      "x.issue.ignored_required": "A muscle marked as ignored is needed by this structure. Change its emphasis.",
+      "x.issue.include_avoid": "An exercise cannot be both included and avoided.",
+      "x.issue.muscles": "Choose at most two priorities and keep each muscle in one state.",
     },
     pt: {
       "x.limit.home.pull_capability_unavailable": "Sem puxada vertical: neste espaço não há onde se pendurar ou puxar.",
@@ -86,21 +109,97 @@
       "x.today.first": "Sua primeira sessão está pronta.",
       "x.assumed": "Suposto",
       "x.change": "Alterar",
-      "x.cost.recommend": "5 seções curtas · cerca de 2 minutos",
-      "x.cost.custom": "7 seções · cerca de 5 minutos",
-      "x.cost.browse": "2 perguntas, depois escolha numa lista",
-      "x.cost.build": "Você digita cada exercício · 10 a 20 minutos",
+      "x.cost.recommend": `${SEC.recommend} seções curtas`,
+      "x.cost.custom": `${SEC.custom} seções`,
+      "x.cost.browse": `${SEC.browse} perguntas, depois você escolhe em uma lista`,
+      "x.cost.build": "Você digita cada exercício",
       "x.cost.paste": "Cole o texto, toque em ChatGPT ou Claude, cole a resposta",
-      "x.cost.file": "Um arquivo de programa Taurifer de outro aparelho",
+      "x.cost.file": "Um arquivo de programa Taurifer de outro dispositivo",
       "x.get.generated": "Um programa completo e editável, com progressão incluída",
-      "x.get.browse": "Um dos 20 programas Taurifer já publicados",
+      "x.get.browse": "Um programa Taurifer pronto, escolhido por objetivo e frequência",
       "x.get.build": "Exatamente o que você escrever; você define cada meta",
       "x.get.import": "Seu próprio programa, revisado exercício por exercício",
       "x.shared.what": "O que chega com o link: o programa, os ajustes e o idioma do app. Sem histórico de treinos.",
       "x.shared.nothing_saved": "Nada é salvo até você começar.",
-      "x.privacy.line": "Funciona sem conexão. Sem conta. Seu treino fica neste aparelho.",
+      "x.privacy.line": "Funciona sem conexão. Sem conta. Seu treino fica neste dispositivo.",
+      "x.restart.title": "Começar de novo?",
+      "x.restart.body": "Suas respostas e este programa ainda não usado serão descartados. O que já está ativo não muda.",
+      "x.restart.body_shared": "O programa recebido pelo link será descartado deste dispositivo. Para vê-lo de novo, abra o link outra vez.",
+      "x.restart.confirm": "Descartar e começar de novo",
+      "x.restart.cancel": "Voltar ao programa",
+      "x.change.none": "Nenhum exercício mudou.",
+      "x.change.one": "1 dos {total} exercícios mudou.",
+      "x.change.many": "{n} dos {total} exercícios mudaram.",
+      "x.ff.restart_confirm": "Descartar e recomeçar",
+      "x.ff.restart_cancel": "Manter o texto e a resposta",
+      "x.issue.generic": "Não foi possível usar este programa agora. Revise o programa e tente de novo.",
+      "x.issue.review_first": "Revise o programa antes de usá-lo.",
+      "x.issue.program_name": "Dê um nome ao programa.",
+      "x.issue.compile": "O Taurifer não conseguiu montar um programa com estas respostas. Altere uma resposta e tente de novo.",
+      "x.issue.time_ceiling": "O programa não cabe no tempo por sessão que você escolheu. Aumente o tempo ou tire uma prioridade.",
+      "x.issue.ignored_required": "Um músculo marcado como ignorado é necessário nesta estrutura. Mude a ênfase dele.",
+      "x.issue.include_avoid": "Um exercício não pode estar em Incluir e em Evitar ao mesmo tempo.",
+      "x.issue.muscles": "Escolha no máximo duas prioridades e deixe cada músculo em um só estado.",
     },
   };
+
+  /* ---------- H-10: every engine code to copy ---------- */
+  /* code: a string ("day_empty:manual_d1", "active_program_changed") or an
+     object with { code, issues, conflicts }. ctx: { preview, lang } lets
+     day and exercise codes name the day or exercise. Never returns a code;
+     the only fallback is x.issue.generic. */
+  const ISSUE_KEYS = {
+    active_program_changed: "entry.conflict.body", rules_changed_rebuild_required: "entry.rules_changed.body_rebuild",
+    preview_not_ready: "x.issue.review_first", live_revision_required: "x.issue.generic", state_invalid: "x.issue.generic",
+    program_exercises_required: "entry.editor.incomplete", program_days_required: "entry.editor.incomplete",
+    exercise_invalid: "entry.editor.exercise_invalid", progression_incompatible: "entry.preview.activation_blocked",
+    program_name_required: "x.issue.program_name",
+    route_required: "entry.error.summary", desired_result_required: "entry.error.summary", structured_experience_required: "entry.error.summary",
+    recent_consistency_required: "entry.error.summary", days_per_week_required: "entry.error.summary", session_minutes_required: "entry.error.summary",
+    preferred_rest_required: "entry.error.summary", environment_required: "entry.error.summary", split_preference_required: "entry.error.summary",
+    catalogue_selection_required: "entry.error.summary", catalogue_preview_required: "x.issue.review_first",
+    import_source_required: "x.issue.review_first", import_preview_required: "x.issue.review_first",
+    shared_review_required: "x.issue.review_first", shared_preview_required: "x.issue.review_first",
+    result_required: "x.issue.review_first", preview_required: "x.issue.review_first",
+    too_many: "x.issue.muscles", primary_deemphasized_overlap: "x.issue.muscles", primary_ignored_overlap: "x.issue.muscles", deemphasized_ignored_overlap: "x.issue.muscles",
+    compile_threw: "x.issue.compile", invalid_context: "x.issue.compile", family_unresolved: "x.issue.compile", incomplete_answers: "x.issue.compile",
+    unsupported_blueprint: "x.issue.compile", invalid_instance: "x.issue.compile", invalid_customization: "x.issue.compile", unknown_slot: "x.issue.compile",
+    substitution_unknown: "x.issue.compile", substitution_incompatible: "x.issue.compile", substitution_prescription_incompatible: "x.issue.compile",
+    build_setup_incomplete: "x.issue.program_name",
+    time_ceiling_conflict: "x.issue.time_ceiling", ignored_muscle_required: "x.issue.ignored_required", required_slot_unresolved: "x.limit.required_slot_unresolved",
+    exercise_preference_conflict: "x.issue.include_avoid", must_have_avoided: "x.issue.include_avoid",
+    "home.pull_capability_unavailable": "x.limit.home.pull_capability_unavailable", conditional_slot_unresolved: "x.limit.conditional_slot_unresolved",
+    optional_slot_unresolved: "x.limit.optional_slot_unresolved", deemphasized_optional_omitted: "x.limit.deemphasized_optional_omitted",
+    ignored_direct_work_omitted: "x.limit.ignored_direct_work_omitted",
+    remove_optional: "x.reduce.remove_optional", efficient_two_set: "x.reduce.efficient_two_set", trim_reducible_assistance: "x.reduce.trim_reducible_assistance",
+  };
+  /* Exact code, then its head ("exercise_invalid:<id>"), then its tail
+     ("$.answers.muscles:primary_ignored_overlap"). */
+  const issueKey = (s) => ISSUE_KEYS[s] || ISSUE_KEYS[s.split(":")[0]] || ISSUE_KEYS[s.slice(s.lastIndexOf(":") + 1)] || (/_required$/.test(s) ? "entry.error.summary" : "x.issue.generic");
+  const dayNameFor = (t, preview, id) => { const days = preview?.programStructure?.days || preview?.days || []; const i = days.findIndex((d) => d.dayId === id || d.label === id); return i >= 0 ? TF.dayName(t, days[i], preview.programStructure, i) : TF.dayName(t, { label: id }, null, 0); };
+  T.issueTexts = function (t, codes, ctx = {}) {
+    const flat = [];
+    for (const c of Array.isArray(codes) ? codes : [codes]) {
+      if (c && typeof c === "object") {
+        if (Array.isArray(c.issues) && c.issues.length && (c.code === "candidate_incomplete" || !ISSUE_KEYS[c.code])) flat.push(...c.issues);
+        else if (Array.isArray(c.conflicts) && c.conflicts.length) flat.push(...c.conflicts.map((x) => ({ ...x, parent: c.code })));
+        else flat.push(c.code);
+      } else flat.push(c);
+    }
+    const out = []; const emptyDays = []; let mustUnavailable = [];
+    for (const c of flat) {
+      const code = c && typeof c === "object" ? c.code : c;
+      const s = String(code || "");
+      if (s.startsWith("day_empty:")) { emptyDays.push(dayNameFor(t, ctx.preview, s.slice(10))); continue; }
+      if (s === "must_have_unavailable") { if (c.exerciseId) { const e = TF.libraryEntry(c.exerciseId); mustUnavailable.push(e ? TF.libraryName(e, t.lang) : c.exerciseId); } else mustUnavailable.push(""); continue; }
+      if (s.startsWith("shared:")) { out.push(t(TF.sharedErrorKey(s.slice(7)))); continue; }
+      out.push(t(issueKey(s)));
+    }
+    if (emptyDays.length) { const generic = t("entry.editor.incomplete"); for (let i = out.length - 1; i >= 0; i--) if (out[i] === generic) out.splice(i, 1); out.unshift(t("entry.editor.empty_days", { days: emptyDays.join(", ") })); }
+    if (mustUnavailable.length) out.push(mustUnavailable.some(Boolean) ? t("entry.result.must_unavailable_body", { exercises: mustUnavailable.filter(Boolean).join(", ") }) : t("entry.result.must_unavailable_title"));
+    return [...new Set(out)];
+  };
+  T.issueText = (t, code, ctx) => T.issueTexts(t, code, ctx).join(" ") || t("x.issue.generic");
 
   /* ---------- reasons and adjustments, computed once from the real result ---------- */
   T.reasons = function (t, lang, result, answers, { custom = false } = {}) {
@@ -132,9 +231,32 @@
   };
   T.adjustments = function (t, preview) {
     const out = [];
-    for (const l of preview?.limitations || []) out.push({ kind: "limitation", code: l.code, text: t(`x.limit.${l.code}`, undefined, l.code), slotId: l.slotId });
-    for (const r of preview?.reductions || []) out.push({ kind: "reduction", code: r.step, text: t(`x.reduce.${r.step}`, undefined, r.step), slotId: r.slotId });
+    for (const l of preview?.limitations || []) out.push({ kind: "limitation", code: l.code, text: T.issueText(t, l.code), slotId: l.slotId });
+    for (const r of preview?.reductions || []) out.push({ kind: "reduction", code: r.step, text: T.issueText(t, r.step), slotId: r.slotId });
     return out;
+  };
+
+  /* ---------- change statements (C-5, O-5 default) ---------- */
+  /* before/after: previews (or program arrays). Identity diff from
+     TF.identityDiff; n <= total always. The element carries the numbers so
+     acceptance can check them (data-change-statement, data-changed,
+     data-total); E/F may rephrase the text but keep the attributes. */
+  T.changeText = (t, d) => (d.n === 0 ? t("x.change.none") : d.n === 1 ? t("x.change.one", { total: d.total }) : t("x.change.many", { n: d.n, total: d.total }));
+  T.changeStatement = function (t, before, after, { cls = "" } = {}) {
+    const d = TF.identityDiff(before, after);
+    return `<p class="status-line change-line ${cls}" role="status" aria-live="polite" data-change-statement data-changed="${d.n}" data-total="${d.total}">${esc(T.changeText(t, d))}</p>`;
+  };
+
+  /* ---------- names for routes, steps and the resume card ---------- */
+  const STEP_TITLE = { desired_result: "entry.desired_result.title", background: "entry.background.title", schedule: "entry.schedule.title", environment: "entry.environment.title", priorities: "entry.priorities.title", exercise_preferences: "entry.exercise_preferences.title", custom_shape: "entry.custom_shape.title", result: "entry.result.title", catalogue: "entry.catalogue.title", build_setup: "entry.build_setup.title", editor: "entry.editor.title", import_source: "entry.import_source.title", preview: "entry.preview.title", shared_review: "setup.shared.title", activation_conflict: "entry.conflict.title" };
+  T.routeName = (t, route) => t(`entry.route.${route}`);
+  T.stepName = (t, route, step) => (STEP_TITLE[step] ? t(STEP_TITLE[step]) : T.routeName(t, route));
+  /* info: TF.loadDraft() output. */
+  T.resumeFacts = function (t, lang, info) {
+    if (!info) return null;
+    const when = info.savedAt ? new Date(info.savedAt).toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US", { day: "numeric", month: "long" }) : "";
+    const route = T.routeName(t, info.route), step = T.stepName(t, info.route, info.step);
+    return { route, step, when, status: info.status, detail: t("entry.resume.detail", { where: `${route} · ${step}`, when }) };
   };
 
   /* ---------- program days ---------- */
@@ -256,7 +378,10 @@
         case "edit-source": if (n.reply.trim()) { n.reply = ""; n.invalidated = true; } n.stage = 1; n.status = null; return n;
         case "reply": n.reply = String(payload || ""); n.status = null; n.failReason = null; return n;
         case "try-another": n.stage = 2; n.status = null; return n;
-        case "start-over": return T.freeform.create();
+        /* H-6: Recomeçar asks entry.freeform.confirm_start_over first. */
+        case "start-over": n.confirmStartOver = true; return n;
+        case "start-over-cancel": n.confirmStartOver = false; return n;
+        case "start-over-confirm": return T.freeform.create();
         case "review": {
           const r = TF.parseFreeformReply(n.reply);
           if (r.status === "unreadable") { n.status = "unreadable"; n.failReason = r.reason; return n; }
@@ -294,8 +419,9 @@
         <p class="t-caption" style="text-align:center">${esc(t("entry.freeform.clipboard_or"))}</p>
         <label class="field"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span><textarea id="ffOut" rows="${compact ? 5 : 7}" spellcheck="false" autocapitalize="off" data-field="ffReply" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(ff.reply)}</textarea></label>
         <button type="button" class="btn btn--primary" data-act="ff" data-ff="review">${esc(t("entry.freeform.review"))}</button>
-        <div class="btnrow"><button type="button" class="btn" data-act="ff" data-ff="try-another">${esc(t("entry.freeform.try_another"))}</button><button type="button" class="btn btn--quiet btn--destructive" data-act="ff" data-ff="start-over">${esc(t("entry.freeform.start_over"))}</button></div></div>`;
+        <div class="btnrow"><button type="button" class="btn" data-act="ff" data-ff="try-another">${esc(t("entry.freeform.try_another"))}</button><button type="button" class="btn btn--quiet btn--destructive" data-act="ff" data-ff="start-over" aria-haspopup="dialog">${esc(t("entry.freeform.start_over"))}</button></div></div>` + (ff.confirmStartOver ? T.freeform.restartDialog(t) : "");
     },
+    restartDialog: (t) => `<div class="sheet-scrim" data-act="ff" data-ff="start-over-cancel"></div><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="ffRestartTitle" data-confirm="ff-start-over"><h2 id="ffRestartTitle">${esc(t("entry.freeform.confirm_start_over"))}</h2><div class="stack stack--tight"><button type="button" class="btn btn--destructive" data-act="ff" data-ff="start-over-confirm">${esc(t("x.ff.restart_confirm"))}</button><button type="button" class="btn" data-act="ff" data-ff="start-over-cancel">${esc(t("x.ff.restart_cancel"))}</button></div></div>`,
     gaps(t, lang, ff) {
       const g = ff.gap; const ni = g.notImported.length ? `<p class="notice notice--info" role="status">${esc(t("entry.freeform.not_imported_notice", { items: g.notImported.map((c) => t(`entry.freeform.not_imported.${c}`)).join(", ") }))}</p>` : "";
       const err = ff.gapErrors.size ? `<p class="notice notice--error" role="alert">${esc(t("entry.freeform.gap_error"))}</p>` : "";
@@ -332,7 +458,7 @@
         return `<div class="improw${row.reviewed ? "" : " is-open"}" data-imp-row="${row.key}"><p class="improw__from">${esc(row.raw.name || "")}</p><span class="improw__arrow" aria-hidden="true">→</span>${art}<div class="improw__to"><p class="improw__name">${esc(target)}</p>${badge}</div><div class="improw__acts">${acts}</div>${pickerHtml}</div>`;
       }).join("")}</div></div>`;
     },
-    counts(t, draft) { const c = TF.importCounts(draft); return `<div class="metrics"><div class="metric"><span class="metric__value">${c.linked}</span><span class="t-caption">${esc(t("import.count_linked"))}</span></div><div class="metric"><span class="metric__value">${c.review}</span><span class="t-caption">${esc(t("import.count_review"))}</span></div><div class="metric"><span class="metric__value">${c.custom}</span><span class="t-caption">${esc(t("import.count_custom"))}</span></div></div>`; },
+    counts(t, draft) { const c = TF.importCounts(draft); return `<div class="metrics"><div class="metric" data-metric="linked"><span class="metric__value">${c.linked}</span><span class="t-caption metric__label">${esc(t("import.count_linked"))}</span></div><div class="metric" data-metric="review"><span class="metric__value">${c.review}</span><span class="t-caption metric__label">${esc(t("import.count_review"))}</span></div><div class="metric" data-metric="custom"><span class="metric__value">${c.custom}</span><span class="t-caption metric__label">${esc(t("import.count_custom"))}</span></div></div>`; },
   };
   T.pickerBody = function (t, lang, query, { limit = 8, all = false, exclude = new Set() } = {}) {
     const results = TF.searchLibrary(query, lang, { limit, all, exclude });
@@ -340,16 +466,102 @@
       <div class="stack stack--tight" role="listbox">${results.map((e) => `<button type="button" class="choice choice--compact" role="option" data-act="pick-exercise" data-id="${esc(e.id)}"><span class="choice__body"><span class="choice__title">${esc(TF.libraryName(e, lang))}</span><span class="choice__cap">${esc(t(`entry.muscle.${String(e.primary).toLowerCase().replace(/[^a-z]+/g, "_")}`, undefined, e.primary))} · ${esc((e.equipment || []).map((k) => t(`entry.equip.${k}`, undefined, k)).join(", "))}</span></span><span class="icon-mask icon-mask--plus" aria-hidden="true" style="color:var(--ink-soft)"></span></button>`).join("")}</div>`;
   };
 
-  /* ---------- build model (manual program) ---------- */
+  /* ---------- build model (manual program, and Edit before using) ---------- */
+  /* One editor model for Build and for editing any reviewed program.
+     H-2: fromPreview/toPreview round-trip a preview. An exercise that came
+     from the preview keeps its `origin` id; on the way back it is emitted as
+     a clone of the original program row (id, slotId, dayId, day, progression,
+     prescription, primary/secondary, notes and every engine field), and only
+     a changed sets/min/max is written back, into both the row and the
+     matching progression params. New exercises get a range progression.
+     Day identity (dayId, label, displayNameKey) never changes; a renamed day
+     gets programStructure.days[].nameOverride. Nothing emitted is undefined.
+     H-3: commit(result, build) returns the edited result; activate that.
+     H-4: result(build) is the Build route's result; status() reads
+     TF.readiness so "ready" is only claimed when activation would pass. */
+  const rangeProgression = (e) => ({ schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: e.sets, repMin: e.min, repMax: e.max, targetRirMin: 1, targetRirMax: 3 } }, modifiers: [] });
+  const cloneJ = (v) => JSON.parse(JSON.stringify(v));
+  function syncProgression(progression, e) {
+    const p = cloneJ(progression || rangeProgression(e)); const s = p.strategy || {}; const params = s.params || (s.params = {});
+    if (s.id === "range") Object.assign(params, { workingSets: e.sets, repMin: e.min, repMax: e.max });
+    else if (s.id === "rep_goal") { Object.assign(params, { workingSets: e.sets, repFloor: e.min, repCeiling: e.max }); if (Number.isFinite(params.repGoal)) params.repGoal = Math.min(e.sets * e.max, Math.max(e.sets * e.min, params.repGoal)); }
+    else if (s.id === "effort_target" && e.min === e.max) Object.assign(params, { workingSets: e.sets, targetReps: e.min });
+    return p;
+  }
+  const sameRx = (a, b) => a.sets === b.sets && a.min === b.min && a.max === b.max;
   T.build = {
-    create: (name, days) => ({ name: name || "", days: Array.from({ length: days }, (_, i) => ({ dayId: `manual_d${i + 1}`, label: `Day ${i + 1}`, exercises: [] })), picker: null, query: "" }),
-    preview(b, t) {
-      const program = []; b.days.forEach((d) => d.exercises.forEach((e, i) => program.push({ id: e.id, day: d.label, dayId: d.dayId, order: i + 1, name: e.name, libraryId: e.libraryId, sets: e.sets, min: e.min, max: e.max, primary: e.primary, secondary: e.secondary, progression: { schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: e.sets, repMin: e.min, repMax: e.max, targetRirMin: 1, targetRirMax: 3 } }, modifiers: [] } })));
-      return { source: "manual_build", frequency: b.days.length, program, days: b.days.map((d) => ({ dayId: d.dayId, label: d.label, exercises: d.exercises.map((e) => ({ id: e.id, name: e.name, libraryId: e.libraryId, sets: e.sets, min: e.min, max: e.max })) })), programStructure: { schemaVersion: 1, days: b.days.map((d, i) => ({ dayId: d.dayId, label: d.label, order: i + 1 })) }, limitations: [], reductions: [], primaryMuscles: [] };
+    create: (name, days) => ({ name: name || "", baseName: null, days: Array.from({ length: days }, (_, i) => ({ dayId: `manual_d${i + 1}`, label: `Day ${i + 1}`, exercises: [] })), picker: null, query: "" }),
+    fromPreview(preview, { name = "" } = {}) {
+      const program = Array.isArray(preview?.program) ? preview.program : [];
+      const struct = Array.isArray(preview?.programStructure?.days) && preview.programStructure.days.length ? preview.programStructure.days : (preview?.days || []);
+      const days = struct.map((d) => {
+        const rows = program.filter((e) => (d.dayId && e.dayId === d.dayId) || e.day === d.label || (!e.dayId && e.day === d.dayId)).sort((a, b) => (a.order || 0) - (b.order || 0));
+        return TF.jsonClean({ dayId: d.dayId || d.label, label: d.label || d.dayId, displayNameKey: d.displayNameKey, nameOverride: d.nameOverride, exercises: rows.map((e) => ({ id: e.id, origin: e.id, libraryId: e.libraryId, name: e.name, sets: e.sets, min: e.min, max: e.max, primary: e.primary, secondary: e.secondary, notes: e.notes })) });
+      });
+      return { name, baseName: name, days, picker: null, query: "" };
+    },
+    toPreview(b, base = null) {
+      const baseRows = new Map((base?.program || []).map((e) => [e.id, e]));
+      const baseDays = new Map((base?.days || []).map((d) => [d.dayId || d.label, d]));
+      const baseStruct = new Map((base?.programStructure?.days || []).map((d) => [d.dayId || d.label, d]));
+      const program = [];
+      const days = b.days.map((d, di) => {
+        /* An untouched row keeps its original order value (so it stays
+           byte-identical after a removal); a new row is numbered after the
+           rows before it. */
+        let lastOrder = 0;
+        const rows = d.exercises.map((e) => {
+          const orig = e.origin ? baseRows.get(e.origin) : null;
+          if (orig) {
+            const row = cloneJ(orig); if (!Number.isFinite(row.order)) row.order = lastOrder + 1; lastOrder = row.order;
+            if (!sameRx(orig, e)) { row.sets = e.sets; row.min = e.min; row.max = e.max; row.progression = syncProgression(orig.progression, e); }
+            return TF.jsonClean(row);
+          }
+          lastOrder += 1;
+          return TF.jsonClean({ id: e.id, day: d.label, dayId: d.dayId, order: lastOrder, name: e.name, libraryId: e.libraryId, sets: e.sets, min: e.min, max: e.max, primary: e.primary, secondary: e.secondary, notes: e.notes || "", progression: rangeProgression(e) });
+        });
+        program.push(...rows);
+        const bd = baseDays.get(d.dayId);
+        const unchanged = bd && Array.isArray(bd.exercises) && bd.exercises.length === rows.length && bd.exercises.every((x, i) => x.id === rows[i].id && sameRx(x, rows[i]));
+        const day = unchanged ? cloneJ(bd) : TF.jsonClean({ dayId: d.dayId, label: d.label, displayNameKey: d.displayNameKey });
+        day.exercises = rows.map((e) => TF.jsonClean({ id: e.id, name: e.name, libraryId: e.libraryId, sets: e.sets, min: e.min, max: e.max }));
+        return day;
+      });
+      const structure = base?.programStructure ? cloneJ(base.programStructure) : { schemaVersion: 1 };
+      structure.days = b.days.map((d, i) => { const s = baseStruct.has(d.dayId) ? cloneJ(baseStruct.get(d.dayId)) : TF.jsonClean({ dayId: d.dayId, label: d.label, order: i + 1, displayNameKey: d.displayNameKey }); if (typeof d.nameOverride === "string" && d.nameOverride.trim()) s.nameOverride = d.nameOverride.trim(); else delete s.nameOverride; return s; });
+      const ids = new Set(program.map((e) => e.id));
+      const out = base ? cloneJ(base) : { source: "manual_build", limitations: [], reductions: [], primaryMuscles: [] };
+      Object.assign(out, { frequency: b.days.length, program, days, programStructure: structure });
+      if (Array.isArray(out.progressionRelations)) out.progressionRelations = out.progressionRelations.filter((r) => (r.members || []).every((m) => ids.has(m.exerciseId)));
+      return TF.jsonClean(out);
+    },
+    /* Backward-compatible name (Round 1 candidates): a preview without a base. */
+    preview(b) { return T.build.toPreview(b, null); },
+    result(b) {
+      const preview = T.build.toPreview(b, null);
+      return { fingerprint: `manual_build:${preview.program.map((e) => `${e.libraryId || e.name}/${e.sets}/${e.min}/${e.max}`).join("|")}`, name: b.name || "", selected: { id: "manual_build", source: "manual_build" }, preview };
+    },
+    commit(result, b) {
+      const next = { ...cloneJ(result), preview: T.build.toPreview(b, result.preview) };
+      if (b.baseName !== null && b.baseName !== undefined && b.name && b.name !== b.baseName) { next.name = b.name; delete next.namePt; }
+      return TF.jsonClean(next);
+    },
+    /* H-4. opts: { route = "build", result (for an edited review), answers,
+       revAtStart, preview }. Returns { ready, text, codes }. */
+    status(t, b, { route = "build", result = null, answers = null, revAtStart } = {}) {
+      const res = result ? T.build.commit(result, b) : T.build.result(b);
+      let state, ready;
+      try {
+        state = TF.entryState({ route, answers: answers || (route === "build" ? { programName: b.name || "", daysPerWeek: b.days.length } : {}), result: res, step: route === "build" ? "editor" : "preview", activeProgramRevisionAtStart: revAtStart ?? TF.liveRevision() });
+        ready = TF.readiness(state);
+      } catch (e) { ready = { ok: false, code: "state_invalid" }; }
+      if (ready.ok) return { ready: true, text: t("entry.editor.ready"), codes: [] };
+      const codes = ready.issues || [ready.code];
+      return { ready: false, text: T.issueText(t, ready, { preview: res.preview }), codes };
     },
     issues(b, t) {
       const out = []; const empty = b.days.filter((d) => !d.exercises.length);
-      if (empty.length) out.push(t("entry.editor.empty_days", { days: empty.map((d) => T.dayLabel(t, d)).join(", ") }));
+      if (empty.length) out.push(t("entry.editor.empty_days", { days: empty.map((d) => T.dayLabel(t, d, b.days.indexOf(d))).join(", ") }));
       if (b.days.some((d) => d.exercises.some((e) => !(Number.isInteger(e.sets) && e.sets >= 1 && Number.isInteger(e.min) && e.min >= 1 && Number.isInteger(e.max) && e.max >= e.min)))) out.push(t("entry.editor.exercise_invalid"));
       return out;
     },
@@ -362,28 +574,34 @@
       if (act === "remove") { const d = n.days.find((x) => x.dayId === p.dayId); if (d) d.exercises = d.exercises.filter((e) => e.id !== p.id); return n; }
       if (act === "field") { const d = n.days.find((x) => x.dayId === p.dayId); const e = d && d.exercises.find((x) => x.id === p.id); if (e) { const v = parseInt(p.value, 10); e[p.field] = Number.isFinite(v) ? v : NaN; } return n; }
       if (act === "step") { const d = n.days.find((x) => x.dayId === p.dayId); const e = d && d.exercises.find((x) => x.id === p.id); if (e) e.sets = Math.min(10, Math.max(1, (e.sets || 0) + p.delta)); return n; }
-      if (act === "day-name") { const d = n.days.find((x) => x.dayId === p.dayId); if (d) d.label = p.value; return n; }
+      if (act === "day-name") { const d = n.days.find((x) => x.dayId === p.dayId); if (d) d.nameOverride = String(p.value ?? ""); return n; }
       if (act === "name") { n.name = p; return n; }
       return n;
     },
     editor(t, lang, b) {
-      return `<div class="stack">${b.days.map((d) => `<div class="card" data-day="${d.dayId}"><div class="card__body stack stack--tight">
-        <label class="field"><span>${esc(t("x.build.day_name"))}</span><input type="text" data-field="dayName" data-day="${d.dayId}" value="${esc(T.dayLabel(t, d))}" aria-label="${esc(t("program.day.name_aria"))}"></label>
+      return `<div class="stack">${b.days.map((d, di) => `<div class="card" data-day="${d.dayId}"><div class="card__body stack stack--tight">
+        <label class="field"><span>${esc(t("x.build.day_name"))}</span><input type="text" data-field="dayName" data-day="${d.dayId}" value="${esc(T.dayLabel(t, d, di))}" aria-label="${esc(t("program.day.name_aria"))}"></label>
         ${d.exercises.length ? d.exercises.map((e) => { const bad = !(Number.isInteger(e.sets) && e.sets >= 1 && Number.isInteger(e.min) && e.min >= 1 && Number.isInteger(e.max) && e.max >= e.min); return `<div class="well stack stack--tight" data-ex="${e.id}"><div class="row row--between"><strong class="t-small">${esc(T.exName(e, lang))}</strong><button type="button" class="btn btn--link btn--destructive" style="border:0" data-act="build" data-build="remove" data-day="${d.dayId}" data-id="${e.id}">${esc(t("x.build.remove"))}</button></div>
-          <div class="row" style="flex-wrap:wrap;gap:10px"><span class="stack stack--tight"><span class="t-label">${esc(t("x.build.sets"))}</span><span class="stepper"><button type="button" data-act="build" data-build="step" data-day="${d.dayId}" data-id="${e.id}" data-delta="-1" aria-label="−">−</button><output aria-live="polite">${Number.isFinite(e.sets) ? e.sets : "–"}</output><button type="button" data-act="build" data-build="step" data-day="${d.dayId}" data-id="${e.id}" data-delta="1" aria-label="+">+</button></span></span>
+          <div class="row" style="flex-wrap:wrap;gap:10px"><span class="stack stack--tight"><span class="t-label">${esc(t("x.build.sets"))}</span><span class="stepper"><button type="button" data-act="build" data-build="step" data-day="${d.dayId}" data-id="${e.id}" data-delta="-1" aria-label="${esc(t("x.build.sets"))} −1">−</button><output aria-live="polite">${Number.isFinite(e.sets) ? e.sets : "–"}</output><button type="button" data-act="build" data-build="step" data-day="${d.dayId}" data-id="${e.id}" data-delta="1" aria-label="${esc(t("x.build.sets"))} +1">+</button></span></span>
           <label class="field" style="width:76px"><span>${esc(t("x.build.min"))}</span><input type="number" inputmode="numeric" min="1" data-field="rx" data-rx="min" data-day="${d.dayId}" data-id="${e.id}" value="${Number.isFinite(e.min) ? e.min : ""}"${bad ? ' aria-invalid="true" class="is-invalid"' : ""}></label>
           <label class="field" style="width:76px"><span>${esc(t("x.build.max"))}</span><input type="number" inputmode="numeric" min="1" data-field="rx" data-rx="max" data-day="${d.dayId}" data-id="${e.id}" value="${Number.isFinite(e.max) ? e.max : ""}"${bad ? ' aria-invalid="true" class="is-invalid"' : ""}></label></div>${bad ? `<span class="field__error">${esc(t("x.build.rx_invalid"))}</span>` : ""}</div>`; }).join("") : `<p class="t-caption">${esc(t("program.empty.exercises"))}</p>`}
         ${b.picker === d.dayId ? `<div class="stack stack--tight">${T.pickerBody(t, lang, b.query, { limit: 6, all: true })}<button type="button" class="btn btn--quiet" data-act="build" data-build="close-picker">${esc(t("x.build.done"))}</button></div>` : `<button type="button" class="btn" data-act="build" data-build="open-picker" data-day="${d.dayId}"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span>${esc(t("x.build.add"))}</button>`}
       </div></div>`).join("")}</div>`;
     },
   };
-  T.dayLabel = (t, d) => { const m = /^Day (\d+)$/i.exec(String(d.label || "").trim()); return m ? t("program.default.day", { n: +m[1] }) : d.label; };
+  /* A build day's display name: nameOverride, catalog displayNameKey, or the
+     localized "Day N" (TF.dayName rules). */
+  T.dayLabel = (t, d, i) => TF.dayName(t, d, null, i ?? 0);
+  /* The status line for an editor (H-4, A-7): neutral while incomplete,
+     linked from the activation control with aria-describedby="<id>". */
+  T.build.statusLine = (st, { id = "editorStatus" } = {}) => `<p class="status-line editor-status${st.ready ? " is-ready" : ""}" id="${esc(id)}" role="status" aria-live="polite">${esc(st.text)}</p>`;
 
   /* ---------- delegated event wiring ---------- */
   T.wire = function (root, on) {
     root.onclick = (ev) => {
       const el = ev.target.closest("[data-act]"); if (!el || el.disabled) return;
       if (el.tagName === "A" && el.dataset.act === "ff") ev.preventDefault();
+      if (el.dataset.act === "privacy-open") { T.openPrivacy(el); return; }
       on(el.dataset.act, el.dataset, el, ev);
     };
     root.oninput = (ev) => { const el = ev.target.closest("[data-field]"); if (el) on("field:" + el.dataset.field, { ...el.dataset, value: el.value }, el, ev); };
@@ -399,21 +617,40 @@
   T.conflictNotice = (t) => `<div class="notice notice--error" role="alert" data-checkpoint="activation-conflict"><strong><span class="icon-mask icon-mask--alert icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p><div class="btnrow"><button type="button" class="btn" data-act="conflict-review">${esc(t("entry.conflict.review"))}</button></div></div>`;
   T.rulesNotice = (t, { keep = false, keepReady = true } = {}) => `<div class="notice notice--warn" role="status" data-checkpoint="rules-changed"><strong><span class="icon-mask icon-mask--alert icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t(keep ? "entry.rules_changed.body_keep" : "entry.rules_changed.body_rebuild"))}</p><div class="btnrow">${keep ? `<button type="button" class="btn" data-act="rules-keep"${keepReady ? "" : " disabled"}>${esc(t("entry.rules_changed.keep"))}</button>` : `<button type="button" class="btn" data-act="rules-rebuild">${esc(t("entry.rules_changed.rebuild"))}</button>`}</div></div>`;
   T.activeNotice = (t) => `<p class="notice notice--quiet" role="status">${esc(t("entry.active_notice"))}</p>`;
+  /* Whole-draft Start over on a review (C-7, §5.3 x.restart.*). */
+  T.restartSheet = (t, { shared = false } = {}) => `<div class="sheet-scrim" data-act="restart-cancel"></div><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="restartTitle" aria-describedby="restartBody" data-confirm="restart"><h2 id="restartTitle">${esc(t("x.restart.title"))}</h2><p id="restartBody">${esc(t(shared ? "x.restart.body_shared" : "x.restart.body"))}</p><div class="stack stack--tight"><button type="button" class="btn btn--destructive" data-act="restart-confirm">${esc(t("x.restart.confirm"))}</button><button type="button" class="btn" data-act="restart-cancel">${esc(t("x.restart.cancel"))}</button></div></div>`;
 
-  /* Seeds shared by every candidate for the recovery/conflict checkpoints. */
-  T.seeds = {
-    interruptedDraft(lang) {
-      const u = TF.F.users.rafael.answers;
-      const answers = { desiredResult: u.desiredResult, structuredExperience: u.structuredExperience, recentConsistency: u.recentConsistency, daysPerWeek: u.daysPerWeek, sessionMinutes: u.sessionMinutes, preferredRestSeconds: u.preferredRestSeconds, environment: TF.env(u.environmentKind) };
-      const state = TF.entryState({ route: "recommend", answers, step: "priorities", draftId: "11111111-1111-4111-8111-111111111111", now: new Date(Date.now() - 86400000).toISOString() });
-      return { schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "harness", state: { ...state, updatedAt: new Date(Date.now() - 86400000).toISOString() } };
-    },
-    rulesDriftDraft() {
-      const u = TF.F.users.rafael.answers;
-      const answers = { desiredResult: u.desiredResult };
-      const state = TF.entryState({ route: "recommend", answers, step: "desired_result", draftId: "22222222-2222-4222-8222-222222222222", versions: { ...TF.versions(), rules: "old-rules" } });
-      return { schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "harness", state };
-    },
+  /* ---------- H-8: the owner-selected landing proof ---------- */
+  T.landingProof = (t, lang, theme) => { const th = theme || (document.documentElement.dataset.theme === "dark" ? "dark" : "light"); return `<figure class="landing-proof" data-landing-proof><img src="${esc(TF.asset(`vendor/brand/today-ready-${lang === "pt" ? "pt" : "en"}-${th}.webp`))}" width="903" height="1832" decoding="async" alt="${esc(t("landing.shot.today_ready.alt"))}"></figure>`; };
+
+  /* ---------- H-15: shared Privacy stub ---------- */
+  /* TS.privacyButton renders the landing control; TS.wire opens the stub for
+     any [data-act="privacy-open"], so every candidate gets the same surface.
+     The stub is appended to <body> (outside the candidate root) and returns
+     focus to its opener on close or Escape. */
+  const pageT = () => { const lang = document.documentElement.lang === "pt-BR" ? "pt" : "en"; return TF.makeT(lang, T.COPY[lang]); };
+  T.privacyButton = (t, { cls = "btn--link" } = {}) => `<button type="button" class="btn ${cls}" data-act="privacy-open" data-privacy-open aria-haspopup="dialog">${esc(t("privacy.title"))}</button>`;
+  T.privacySheet = (t) => `<div class="sheet-scrim" data-privacy-close></div><div class="sheet privacy-sheet" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" data-privacy-stub><span class="sheet__grab" aria-hidden="true"></span><div class="stack">
+    <h2 class="t-section" id="privacyTitle" tabindex="-1">${esc(t("privacy.title"))}</h2><p class="t-small">${esc(t("privacy.local_first"))}</p>
+    ${["setup", "telemetry", "controls", "limitations"].map((k) => `<section class="stack stack--tight"><h3 class="t-subtitle">${esc(t(`privacy.${k}.title`))}</h3><p class="t-small t-soft">${esc(t(`privacy.${k}.body`))}</p></section>`).join("")}
+    <button type="button" class="btn btn--primary btn--noarrow" data-privacy-close>${esc(t("entry.editor.close"))}</button></div></div>`;
+  T.openPrivacy = function (opener) {
+    T.closePrivacy(false);
+    const host = document.createElement("div"); host.id = "tfPrivacy"; host.innerHTML = T.privacySheet(pageT()); document.body.appendChild(host);
+    host._opener = opener || null;
+    host.addEventListener("click", (ev) => { if (ev.target.closest("[data-privacy-close]")) T.closePrivacy(true); });
+    host.addEventListener("keydown", (ev) => { if (ev.key === "Escape") T.closePrivacy(true); });
+    const h = host.querySelector("#privacyTitle"); try { h.focus({ preventScroll: true }); } catch {}
   };
+  T.closePrivacy = function (restore) {
+    const host = document.getElementById("tfPrivacy"); if (!host) return;
+    const opener = host._opener; host.remove();
+    if (restore) { const target = opener && opener.isConnected ? opener : document.querySelector("[data-privacy-open]"); if (target) try { target.focus({ preventScroll: true }); } catch {} }
+  };
+
+  /* Seeds shared by every candidate for the recovery/conflict checkpoints
+     (now built in runtime.js; TF.seedDevice("interrupted" | "rules-drift")
+     also writes them into device.draft). */
+  T.seeds = { interruptedDraft: () => TF.seeds.interruptedDraft(), rulesDriftDraft: () => TF.seeds.rulesDriftDraft() };
   window.TS = T;
 })();

@@ -16,7 +16,14 @@
  *   - the device store (active program, revision, setup draft) and the
  *     activation transaction, so every candidate faces the same replacement,
  *     conflict, resume and rules-drift conditions;
+ *   - the setup-draft API (saveDraft / loadDraft / clearDraft): a draft kept
+ *     from the cancel dialog lives in memory for the document's lifetime and
+ *     is read back through the real Entry.resumeSetupDraft;
  *   - the Today boundary screen after activation.
+ * COPY OVERRIDES (harness only, production follow-up PD-5): OVERRIDES below
+ * replace a small set of production catalog strings that break the brand
+ * rules at the baseline (synthesis spec §5.3, H-7). Every candidate gets them
+ * through makeT; candidate copy may still override a key.
  */
 (function () {
   "use strict";
@@ -30,12 +37,36 @@
   const services = Adapter.createProductionServices({ Compiler, catalogue: LIB });
   const BUILT_IN_IDS = LIB.map((e) => e.id);
   const byId = new Map(LIB.map((e) => [e.id, e]));
+  /* Absolute URLs for shared assets, so a document at any depth (app.html,
+     round-2/app.html) resolves the same files. HARNESS_BASE is this
+     directory (docs/design/onboarding-tournament/). */
+  const HARNESS_BASE = (() => { try { return new URL(".", document.currentScript.src).href; } catch { return new URL(".", location.href).href; } })();
+  const asset = (path) => new URL(path, HARNESS_BASE).href;
 
   /* ---------- text ---------- */
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fold = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  /* H-7: shared copy override layer (synthesis spec §5.3). Production catalog
+     strings that break the brand rules at the baseline, replaced for every
+     candidate. Where the spec keeps the production EN, only PT is listed. */
+  const OVERRIDES = {
+    pt: {
+      "entry.result.why_goal": "Objetivo: {goal}.",
+      "entry.freeform.gap_error": "Informe valores válidos nos campos destacados.",
+      "entry.freeform.privacy": "O texto colado fica só nesta aba e só para esta importação. Ele nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer o descarta quando o fluxo termina.",
+      "entry.freeform.not_imported_notice": "Não importado: {items}. O Taurifer registra séries de trabalho e repetições.",
+      "entry.freeform.lede": "Cole do jeito que estiver: mensagem do treinador, suas notas, uma planilha ou outro lugar. O Taurifer monta um comando para o ChatGPT ou o Claude, que devolve o programa no formato do app.",
+      "entry.build_setup.name_placeholder": "Meu programa",
+      "entry.priorities.avoid_reason": "Por que evitar {exercise}?",
+      "entry.rules_changed.body_rebuild": "O Taurifer mudou a forma de montar programas desde que você salvou este. Monte de novo para usar as regras atuais.",
+    },
+    en: {
+      "entry.result.why_goal": "Goal: {goal}.",
+      "entry.freeform.gap_error": "Please enter valid numbers for the highlighted fields.",
+    },
+  };
   function makeT(lang, copy) {
-    const dict = Object.assign({}, F.i18n[lang] || F.i18n.en, copy || {});
+    const dict = Object.assign({}, F.i18n[lang] || F.i18n.en, OVERRIDES[lang] || {}, copy || {});
     const t = (key, params, fallback) => {
       let s = dict[key];
       if (s === undefined) s = (F.i18n.en || {})[key];
@@ -63,7 +94,14 @@
       .sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50) || libraryName(a, lang).localeCompare(libraryName(b, lang)))
       .slice(0, limit);
   }
-  const mediaFor = (e) => (e && typeof e.media === "string" && e.media ? "../../../" + e.media : null);
+  const mediaFor = (e) => (e && typeof e.media === "string" && e.media ? asset("../../../" + e.media) : null);
+  /* H-5: every muscle token, compiled (snake_case) or library (display), maps
+     to catalog copy; comma-joined values are split first. */
+  const MUSCLE_KEYS = new Map(Object.keys(F.i18n.en).filter((k) => k.startsWith("muscle.") || k.startsWith("entry.muscle.")).map((k) => [fold(k.replace(/^(entry\.)?muscle\./, "")).replace(/[^a-z]/g, ""), k]));
+  const muscleKey = (token) => MUSCLE_KEYS.get(fold(token).replace(/[^a-z]/g, "")) || null;
+  function muscleLabels(t, raw) {
+    return String(raw ?? "").split(",").map((s) => s.trim()).filter(Boolean).map((token) => { const k = muscleKey(token); return k ? t(k) : token; });
+  }
 
   /* ---------- day names ---------- */
   const DEFAULT_DAY = /^Day (\d+)$/i;
@@ -135,6 +173,38 @@
   }
   const equipmentLabel = (t, envValue) => [...new Set((envValue?.equipment || []))].map((k) => t(`entry.equip.${k}`, undefined, k)).join(", ");
 
+  /* ---------- JSON hygiene (H-1) ---------- */
+  /* Drops undefined fields and non-finite numbers so a result passes
+     Entry.setResult's inspectJson, exactly as a JSON round trip through the
+     production setup-draft store would. Arrays keep their length (undefined
+     entries become null, as JSON.stringify does). */
+  function jsonClean(value) {
+    if (value === undefined || typeof value === "function" || typeof value === "symbol") return undefined;
+    if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+    if (typeof value === "number") return Number.isFinite(value) ? value : null;
+    if (Array.isArray(value)) return value.map((v) => { const c = jsonClean(v); return c === undefined ? null : c; });
+    const out = {};
+    for (const [k, v] of Object.entries(value)) { const c = jsonClean(v); if (c !== undefined) out[k] = c; }
+    return out;
+  }
+
+  /* ---------- change statements by identity (C-5) ---------- */
+  /* Identity of an exercise = its library id (or folded name for a row that
+     is not linked to the library). Multiset difference, so a duplicated
+     movement counts twice. n = max(added, removed) capped at the new total,
+     so n <= total always; n = 0 means no exercise changed. */
+  const exerciseIdentity = (e) => (e && e.libraryId ? `lib:${e.libraryId}` : `name:${fold(e?.name || "")}`);
+  function identityDiff(before, after) {
+    const list = (p) => (Array.isArray(p?.program) ? p.program : Array.isArray(p) ? p : []);
+    const count = (arr) => { const m = new Map(); for (const e of arr) { const k = exerciseIdentity(e); m.set(k, (m.get(k) || 0) + 1); } return m; };
+    const a = count(list(before)), b = count(list(after));
+    let added = 0, removed = 0;
+    for (const [k, n] of b) added += Math.max(0, n - (a.get(k) || 0));
+    for (const [k, n] of a) removed += Math.max(0, n - (b.get(k) || 0));
+    const total = list(after).length;
+    return { added, removed, n: Math.min(total, Math.max(added, removed)), total };
+  }
+
   /* ---------- import matching (ported from app.js @ PR #256 head) ---------- */
   const MATCH_STOPWORDS = new Set(["com", "sem", "para", "por", "dos", "das", "nos", "nas", "que", "seu", "sua", "pes", "the", "and", "for", "with", "your", "from", "into"]);
   const MATCH_EQUIPMENT = new Set(["barra", "halteres", "haltere", "maquina", "polia", "cabo", "smith", "banco", "cadeira", "mesa", "corda", "anilha", "barbell", "dumbbell", "machine", "cable", "bar", "bench", "rope", "plate"]);
@@ -178,15 +248,24 @@
     return { fileName: String(fileName || ""), sourceType: sourceType || "file", meta: source.meta || null, notImported: source.notImported || [], originalText: source.originalText || "", rows };
   }
   const importCounts = (d) => ({ linked: d.rows.filter((r) => r.decision === "link").length, review: d.rows.filter((r) => !r.reviewed).length, custom: d.rows.filter((r) => r.decision === "custom").length, total: d.rows.length });
+  /* H-1: JSON-clean. A raw (unlinked) row has no libraryId/primary/secondary,
+     and those keys are now absent instead of undefined; min/max come from
+     min/max or repLow/repHigh. Entry.setResult accepts the result. */
   function importPreview(draft, t) {
     const program = draft.rows.map((r, i) => {
-      const base = { id: r.raw.id || `imp_${i}`, day: r.raw.day, order: r.raw.order || i + 1, name: r.raw.name, sets: r.raw.sets, min: r.raw.min ?? r.raw.repLow, max: r.raw.max ?? r.raw.repHigh, progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] } };
+      const base = { id: r.raw.id || `imp_${i}`, day: r.raw.day, order: r.raw.order || i + 1, name: r.raw.name, sets: r.raw.sets, min: r.raw.min ?? r.raw.repLow, max: r.raw.max ?? r.raw.repHigh, notes: "", progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] } };
       if (r.decision === "link" && r.match) Object.assign(base, { name: r.match.name, libraryId: r.match.id, primary: r.match.primary, secondary: r.match.secondary });
-      return base;
+      if (r.decision === "custom" && r.createdCustom) base.customId = r.createdCustom.id;
+      return jsonClean(base);
     });
     const labels = [...new Set(program.map((e) => e.day))];
-    const days = labels.map((label) => ({ dayId: label, label, exercises: program.filter((e) => e.day === label).map((e) => ({ id: e.id, name: e.name, libraryId: e.libraryId, sets: e.sets, min: e.min, max: e.max })) }));
-    return { source: draft.sourceType === "freeform" ? "freeform" : "import", name: draft.meta?.name || t("untitled_program"), program, days, programStructure: { schemaVersion: 1, days: labels.map((label, i) => ({ dayId: label, label, order: i + 1 })) }, limitations: [], reductions: [], primaryMuscles: [] };
+    const days = labels.map((label) => ({ dayId: label, label, exercises: program.filter((e) => e.day === label).map((e) => jsonClean({ id: e.id, name: e.name, libraryId: e.libraryId, sets: e.sets, min: e.min, max: e.max })) }));
+    return jsonClean({ source: draft.sourceType === "freeform" ? "freeform" : "import", name: draft.meta?.name || t("untitled_program"), frequency: labels.length, program, days, programStructure: { schemaVersion: 1, days: labels.map((label, i) => ({ dayId: label, label, order: i + 1 })) }, limitations: [], reductions: [], primaryMuscles: [] });
+  }
+  /* The result object for the import route (file or paste door). */
+  function importResult(draft, t) {
+    const preview = importPreview(draft, t);
+    return { fingerprint: `import:${preview.source}:${preview.program.length}`, name: preview.name, selected: { id: preview.source, source: preview.source }, preview };
   }
 
   /* ---------- free-form reply (ported) ---------- */
@@ -282,22 +361,54 @@
       if (time && Number.isFinite(rest)) { let sub = 0; for (const ex of exercises) sub += ex.sets * time.workingSetSeconds + Math.max(0, ex.sets - 1) * rest; est = Math.ceil((sub + Math.max(time.bufferMinimumSeconds, Math.ceil(sub * time.bufferPercent / 100))) / 60); }
       return { dayId: label, label, exercises: exercises.map((e) => ({ id: e.id, name: e.name, libraryId: e.libraryId, sets: e.sets, min: e.min, max: e.max })), ...(est ? { estimateMinutes: est } : {}) };
     });
-    return { source: "shared", name: meta.name, frequency: meta.daysPerWeek, program, days, programStructure: { schemaVersion: 1, days: labels.map((l, i) => ({ dayId: l, label: l, order: i + 1 })) }, sharedMeta: { goal: meta.goal, experience: meta.experience, daysPerWeek: meta.daysPerWeek, splitType: meta.splitType, equipment: meta.equipment, priorityMuscles: meta.priorityMuscles, sessionLength: meta.sessionLength, mesocycleLengthWeeks: meta.mesocycleLengthWeeks }, sharedSettings: settings, limitations: [], reductions: [], primaryMuscles: [] };
+    return jsonClean({ source: "shared", name: meta.name, frequency: meta.daysPerWeek, program, days, programStructure: { schemaVersion: 1, days: labels.map((l, i) => ({ dayId: l, label: l, order: i + 1 })) }, sharedMeta: { goal: meta.goal, experience: meta.experience, daysPerWeek: meta.daysPerWeek, splitType: meta.splitType, equipment: meta.equipment, priorityMuscles: meta.priorityMuscles, sessionLength: meta.sessionLength, mesocycleLengthWeeks: meta.mesocycleLengthWeeks }, sharedSettings: settings, limitations: [], reductions: [], primaryMuscles: [] });
+  }
+  /* The result object for the shared route (after Start). */
+  function sharedResult(payload) {
+    const preview = sharedPreview(payload);
+    return { fingerprint: "shared", name: preview.name, selected: { id: "shared", source: "shared" }, preview };
+  }
+
+  /* ---------- fixture answer sets (same for every candidate) ---------- */
+  function fixtureAnswers(name) {
+    const u = F.users[name]?.answers; if (!u) throw new Error(`unknown fixture user ${name}`);
+    const out = { ...u, environment: env(u.environmentKind) }; delete out.environmentKind;
+    return JSON.parse(JSON.stringify(out));
   }
 
   /* ---------- device store (simulated) ---------- */
-  const device = { active: null, revision: 0, draft: null, sessions: 0, landingSeen: false, sharedFragment: null, uiPrefs: { importSourceMode: "file" } };
+  const device = { active: null, revision: 0, draft: null, draftUi: null, draftSavedAt: null, sessions: 0, landingSeen: false, sharedFragment: null, uiPrefs: { importSourceMode: "file" } };
   function seedExisting() {
     const p = F.users.existing.program;
     const labels = [...new Set(p.exercises.map((e) => e.day))];
-    device.active = { name: p.name, program: p.exercises.map((e, i) => ({ ...e, id: `act_${i}` })), programStructure: { days: labels.map((l, i) => ({ dayId: l, label: l, order: i + 1 })) }, daysPerWeek: p.daysPerWeek };
+    device.active = { name: p.name, namePt: null, program: p.exercises.map((e, i) => ({ ...e, id: `act_${i}` })), programStructure: { days: labels.map((l, i) => ({ dayId: l, label: l, order: i + 1 })) }, daysPerWeek: p.daysPerWeek };
     device.revision = 1; device.sessions = p.sessions; device.landingSeen = true;
   }
+  /* Seeds: fresh | existing | interrupted | rules-drift | shared | shared-invalid.
+     "interrupted" and "rules-drift" write the shared recovery drafts into
+     device.draft so resume reads them through the same draft API. */
   function seedDevice(seed) {
-    device.active = null; device.revision = 0; device.draft = null; device.sessions = 0; device.landingSeen = false; device.sharedFragment = null;
+    device.active = null; device.revision = 0; device.draft = null; device.draftUi = null; device.draftSavedAt = null; device.sessions = 0; device.landingSeen = false; device.sharedFragment = null;
     if (!seed || seed === "fresh") return;
     if (seed === "existing") seedExisting();
+    if (seed === "interrupted") { device.draft = seeds.interruptedDraft(); device.draftSavedAt = device.draft.state.updatedAt; device.landingSeen = true; }
+    if (seed === "rules-drift") { device.draft = seeds.rulesDriftDraft(); device.draftSavedAt = device.draft.state.updatedAt; device.landingSeen = true; }
   }
+  /* Recovery drafts shared by every candidate (resume / rules-changed). */
+  const seeds = {
+    interruptedDraft() {
+      const a = fixtureAnswers("rafael");
+      const answers = { desiredResult: a.desiredResult, structuredExperience: a.structuredExperience, recentConsistency: a.recentConsistency, daysPerWeek: a.daysPerWeek, sessionMinutes: a.sessionMinutes, preferredRestSeconds: a.preferredRestSeconds, environment: a.environment };
+      const when = new Date(Date.now() - 86400000).toISOString();
+      const state = entryState({ route: "recommend", answers, step: "priorities", draftId: "11111111-1111-4111-8111-111111111111", now: when });
+      return { schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "harness", state: { ...state, updatedAt: when } };
+    },
+    rulesDriftDraft() {
+      const a = fixtureAnswers("rafael");
+      const state = entryState({ route: "recommend", answers: { desiredResult: a.desiredResult }, step: "desired_result", draftId: "22222222-2222-4222-8222-222222222222", versions: { ...versions(), rules: "old-rules" } });
+      return { schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "harness", state };
+    },
+  };
   const hasActiveProgram = () => !!device.active;
   const liveRevision = () => device.revision;
   const uid = () => "xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx".replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
@@ -316,19 +427,54 @@
     return Entry.activationReadiness(state, { liveActiveProgramRevision: liveRevision(), currentVersions: versions(), pinnedVersionsExecutable });
   }
   function activationIssues(state) { try { return Entry.candidateActivationIssues(state); } catch (e) { return ["state_invalid"]; } }
+  /* Accepts a setup-draft envelope ({ schemaVersion, draftId, revision,
+     ownerId, state }) or a bare entry state. */
   function resumeStatus(draft) {
-    const r = Entry.resumeSetupDraft(draft, { currentVersions: versions(), liveActiveProgramRevision: liveRevision(), pinnedVersionsExecutable: false });
+    const input = draft && typeof draft === "object" && draft.state && Object.prototype.hasOwnProperty.call(draft, "revision") ? draft.state : draft;
+    const r = Entry.resumeSetupDraft(input, { currentVersions: versions(), liveActiveProgramRevision: liveRevision(), pinnedVersionsExecutable: false });
     return r.ok ? r.value : { status: "corrupt" };
   }
-  /* Simulated activation transaction. Runs the real readiness checks first. */
+  /* H-9: simulated setup-draft API. saveDraft takes a production-shaped entry
+     state (TF.entryState or Entry.* output); the envelope is validated by the
+     real Entry.normalizeSetupDraftEnvelope before it is stored, so a draft
+     the product could not persist is refused here too. `ui` is an optional,
+     JSON-clean, harness-only blob for view state the entry state does not
+     carry (for example a build model or import row decisions); it is
+     returned unchanged by loadDraft. Nothing survives a reload. */
+  function saveDraft(state, { ui = null, now } = {}) {
+    let s;
+    try { s = Entry.updateTimestamp(state, now || new Date(Math.max(Date.now(), Date.parse(state?.updatedAt || 0) || 0)).toISOString()); }
+    catch (e) { return { ok: false, code: "state_invalid", error: String(e && e.message || e) }; }
+    const envelope = { schemaVersion: 1, draftId: s.draftId || uid(), revision: (device.draft?.revision || 0) + 1, ownerId: "harness", state: { ...s, draftId: s.draftId || device.draft?.draftId } };
+    if (!envelope.state.draftId) envelope.state.draftId = envelope.draftId;
+    const checked = Entry.normalizeSetupDraftEnvelope(envelope);
+    if (!checked.ok) return { ok: false, code: "draft_invalid", issues: checked.issues };
+    device.draft = checked.value.envelope; device.draftUi = ui == null ? null : jsonClean(ui); device.draftSavedAt = envelope.state.updatedAt;
+    return { ok: true, draft: device.draft };
+  }
+  /* Reads the kept draft back through the real resume rules. Returns null
+     when nothing is kept; otherwise { status: resumable | rules_changed |
+     activation_conflict | corrupt, state, ui, savedAt, route, step }. */
+  function loadDraft() {
+    if (!device.draft) return null;
+    const r = resumeStatus(device.draft);
+    return { ...r, ui: device.draftUi, savedAt: device.draftSavedAt || r.state?.updatedAt || null, route: r.state?.route || null, step: r.state?.step || null };
+  }
+  function clearDraft() { device.draft = null; device.draftUi = null; device.draftSavedAt = null; }
+  /* Simulated activation transaction. Runs the real readiness checks first.
+     H-5: stores both names so Today renders the localized one. */
   function activate(state, { pinnedVersionsExecutable = false } = {}) {
     const ready = readiness(state, { pinnedVersionsExecutable });
     if (!ready.ok) return { ok: false, ...ready };
     const preview = state.result.preview;
-    device.active = { name: state.result.name || state.answers.programName || "", program: preview.program.map((e) => ({ ...e })), programStructure: preview.programStructure, daysPerWeek: preview.frequency || (preview.days || []).length, route: state.route };
-    device.revision += 1; device.draft = null; device.landingSeen = true;
+    device.active = { name: state.result.name || state.answers.programName || "", namePt: state.result.namePt || null, program: preview.program.map((e) => JSON.parse(JSON.stringify(e))), programStructure: JSON.parse(JSON.stringify(preview.programStructure || {})), daysPerWeek: preview.frequency || (preview.days || []).length, route: state.route };
+    device.revision += 1; clearDraft(); device.landingSeen = true;
     return { ok: true, revision: device.revision };
   }
+  /* The active program's name in the document language. */
+  const activeName = (lang) => { const a = device.active; if (!a) return ""; return (lang === "pt" && a.namePt) || a.name || ""; };
+  /* A result's name in the document language (compiled results carry namePt). */
+  const resultName = (result, lang) => (result ? ((lang === "pt" && result.namePt) || result.name || "") : "");
 
   /* ---------- Today boundary (shared, minimal) ---------- */
   function renderToday(t, lang) {
@@ -336,10 +482,10 @@
     const days = (a.programStructure?.days || []).map((d, i) => ({ ...d, exercises: a.program.filter((e) => e.day === d.label || e.dayId === d.dayId) }));
     const first = days[0] || { label: "Day 1", exercises: [] };
     const date = new Date().toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US", { weekday: "long", month: "long", day: "numeric" });
-    const muscles = [...new Set(first.exercises.map((e) => e.primary).filter(Boolean))].slice(0, 3).map((m) => t(`entry.muscle.${String(m).toLowerCase().replace(/[^a-z]+/g, "_")}`, undefined, m)).join(" · ");
+    const muscles = [...new Set(first.exercises.flatMap((e) => muscleLabels(t, e.primary)))].slice(0, 3).join(" · ");
     return `<div class="today" data-checkpoint="activated-today">
       <div class="today__head"><div><h1 class="t-title">${esc(t("nav.log"))}</h1><p class="t-caption">${esc(date)}</p></div><span class="icon-mask icon-mask--gear" aria-hidden="true"></span></div>
-      <div class="today__prog"><p class="t-subtitle">${esc(a.name)}</p><p class="t-caption">${esc(t("today.week_of", { n: 1, total: 6 }))}</p><div class="today__week" aria-hidden="true">${Array.from({ length: a.daysPerWeek || days.length }, () => "<span></span>").join("")}</div><p class="t-caption">${esc(t("today.sessions_done", { done: 0, planned: a.daysPerWeek || days.length }))}</p></div>
+      <div class="today__prog"><p class="t-subtitle" data-today-program>${esc(activeName(lang))}</p><p class="t-caption">${esc(t("today.week_of", { n: 1, total: 6 }))}</p><div class="today__week" aria-hidden="true">${Array.from({ length: a.daysPerWeek || days.length }, () => "<span></span>").join("")}</div><p class="t-caption">${esc(t("today.sessions_done", { done: 0, planned: a.daysPerWeek || days.length }))}</p></div>
       <p class="t-label">${esc(t("today.session_label"))}</p>
       <div class="today__session"><h2 class="t-section">${esc(dayName(t, first, a.programStructure, 0))}</h2><p class="t-small t-soft">${esc(muscles)}${muscles ? " · " : ""}${esc(t("today.exercise_count", { n: first.exercises.length }))}</p>
       <div class="card" style="margin-top:10px"><div class="day__list" style="border-top:0">${first.exercises.map((e) => `<div class="ex"><span class="ex__name">${esc(lang === "pt" && e.libraryId && byId.get(e.libraryId) ? byId.get(e.libraryId).namePt : e.name)}</span><span class="ex__rx">${e.sets} × ${e.min}–${e.max}</span></div>`).join("")}</div></div></div>
@@ -399,16 +545,17 @@
   const SCENARIOS = { 1: "Brand-new user, first open", 2: "Uncertain which route", 3: "Recommend through result", 4: "Recommendation needs a correction", 5: "Exercise avoidance (pain)", 6: "Browse path", 7: "Custom path", 8: "Build your own", 9: "Freeform / import", 10: "Shared program gate and preview", 11: "Invalid shared link", 12: "Existing program / replacement", 13: "Interrupted onboarding / recovery", 14: "Activation and hand-off" };
 
   window.TF = Object.freeze({
-    F, Entry, Adapter, Compiler, SharedSetup, LIB, services, byId, BUILT_IN_IDS,
-    esc, fold, makeT, tp, nf,
-    libraryEntry, libraryName, searchLibrary, mediaFor, dayName,
-    env, normalizeAnswers, versions, compile, splitChoices, browseCards, buildEmpty,
+    F, Entry, Adapter, Compiler, SharedSetup, LIB, services, byId, BUILT_IN_IDS, HARNESS_BASE, asset,
+    esc, fold, makeT, tp, nf, OVERRIDES,
+    libraryEntry, libraryName, searchLibrary, mediaFor, dayName, muscleKey, muscleLabels,
+    env, normalizeAnswers, versions, compile, splitChoices, browseCards, buildEmpty, fixtureAnswers,
     previewFacts, durationLabel, progressionLabel, progressionIssue, progressionCopyKey, equipmentLabel,
-    classifyRow, buildImportDraft, importCounts, importPreview,
+    jsonClean, exerciseIdentity, identityDiff,
+    classifyRow, buildImportDraft, importCounts, importPreview, importResult,
     parseSets, parseReps, parseFreeformReply, assembleGaps, freeformPrompt, FREEFORM_MAX_CHARS, NOT_IMPORTED,
-    decodeShared, sharedErrorKey, sharedPreview,
-    device, seedDevice, seedExisting, hasActiveProgram, liveRevision, uid,
-    entryState, readiness, activationIssues, resumeStatus, activate,
+    decodeShared, sharedErrorKey, sharedPreview, sharedResult,
+    device, seedDevice, seedExisting, seeds, hasActiveProgram, liveRevision, uid,
+    entryState, readiness, activationIssues, resumeStatus, saveDraft, loadDraft, clearDraft, activate, activeName, resultName,
     renderToday, CHECKPOINTS, SCENARIOS,
   });
 })();

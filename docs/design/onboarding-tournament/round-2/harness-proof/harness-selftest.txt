@@ -1,0 +1,25 @@
+PASS H-1 importResult has no undefined fields (raw row 'Zerbulator 9000' has no libraryId key) — {"id":"r5","day":"Dia 2","order":5,"name":"Zerbulator 9000","sets":3,"min":10,"max":15,"notes":"","progression":{"schemaVersion":1,"strategy":{"id":"manual","version":1,"params":{"authored":true}},"modifiers":[]}}
+PASS H-1 file import activates and Today shows it — activate={"ok":true,"revision":1}; active exercises=6
+PASS H-1 paste door (gaps repaired) activates and Today shows it — activate={"ok":true,"revision":1}; active exercises=6
+PASS H-2 fromPreview → commit with no change is byte-identical to the reviewed result — strategies before range,rep_goal after range,rep_goal
+PASS H-2 every exercise keeps its progression id — 4 rep_goal, 14 range
+PASS H-2 the round-tripped result activates (Round 1 threw here) — {"ok":true,"revision":1}
+PASS H-3 removing two exercises activates exactly 16, each identical to the reviewed row — 18 → 16; removed growth_3_d1_s1, growth_3_d2_s1
+PASS C-5 change statement by identity — 2 dos 16 exercícios mudaram.
+PASS H-4 status reads TF.readiness — "Adicione um exercício a Dia 1, Dia 2, Dia 3." / "Adicione um exercício a Dia 2, Dia 3." / "Pronto para ativar."
+PASS H-4 Build activates its own draft (not a stale compile) — pd_bw,rw_bb,sq_lp
+PASS H-5 Today shows the localized program name — Ganhar massa
+PASS H-5 muscle tokens on the session line are localized and split — Quadríceps · Peito · Costas · 6 exercícios
+PASS H-9 Keep (TF.saveDraft) then resume (TF.loadDraft) restores the step and answers — resumable recommend/schedule; Recomendação · Encaixe o treino na sua semana
+PASS H-9 Discard (TF.clearDraft) leaves nothing to resume
+PASS H-9 seed 'interrupted' is read through the same API — resumable
+PASS H-9 seed 'rules-drift' reports rules_changed
+PASS H-6 Recomeçar asks entry.freeform.confirm_start_over before discarding
+PASS H-6 confirming discards
+PASS H-10 issueText maps codes to copy; unknown code → generic sentence — Adicione um exercício a Dia 1. | Revise o programa antes de usá-lo. | Corrija os dados inválidos do exercício antes de usar este programa. | O Taurifer não conseguiu montar um programa com estas respostas. Altere uma resposta e tente de novo. | Não foi possível usar este programa agora. Revise o programa e tente de novo.
+PASS H-11 door facts have no minutes; counts come from ROUTE_STEPS — recommend 5, custom 7, browse 2
+PASS H-15 the Privacy stub opens and takes focus
+PASS H-15 closing returns focus to the opener
+PASS H-7 override layer and §5.3 strings are live
+all harness self-tests passed
+exit 0

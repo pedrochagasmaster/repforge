@@ -51,8 +51,13 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 .section-gap{margin-top:26px}
 
 /* ---- buttons (control intents) ---- */
+/* H-12: control labels wrap only between words. overflow-wrap:normal, not
+   break-word: in a min-width:0 flex item break-word still splits a word
+   that does not fit (verified in Chromium 1194, see round-2/harness-proof.md),
+   whereas normal lets it overflow, where acceptance (K-12) catches it.
+   Exercise names and user text keep overflow-wrap:anywhere. */
 .btn{
-  min-width:0;overflow-wrap:anywhere;
+  min-width:0;overflow-wrap:normal;
   display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--control-target);
   border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);
@@ -102,7 +107,7 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 .choice.is-selected{border-color:var(--control-selected-boundary);box-shadow:var(--elevation-selected-shadow);background:var(--control-selection-active-bg)}
 .choice:disabled{cursor:default;color:var(--color-disabled-reason);border-color:var(--boundary-decorative)}
 .choice__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.choice__title{font-size:var(--font-size-control);font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+.choice__title{font-size:var(--font-size-control);font-weight:600;line-height:1.25;overflow-wrap:normal}
 .choice__cap{font-size:var(--font-size-body-small);line-height:1.35;color:var(--ink-soft)}
 .choice:disabled .choice__cap{color:inherit}
 .choice__mark{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--control-selection-boundary);background:transparent}
@@ -188,6 +193,16 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 .dialog h2{font-size:var(--font-size-subtitle);font-weight:600;margin-bottom:6px}
 .dialog p{font-size:var(--font-size-body-small);color:var(--ink-soft);margin-bottom:14px;line-height:var(--line-standard)}
 .pinned{position:sticky;bottom:0;padding:10px 0 calc(10px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:5}
+/* H-15: shared Privacy stub */
+.privacy-sheet h3{margin-top:4px}
+.privacy-sheet .btn--primary{margin-top:8px}
+/* H-8: the owner-selected landing proof (baseline .firstrun-hero__figure) */
+.landing-proof{display:flex;justify-content:center;margin:8px 0 0}
+.landing-proof img{display:block;width:100%;height:auto;max-width:min(420px,calc(100vw - 20px))}
+/* Change statement and editor status (neutral; SM-5, SM-6) */
+.change-line{color:var(--ink)}
+.change-line::before{content:"";flex:none;width:6px;height:6px;margin-top:.55em;border-radius:50%;background:var(--accent)}
+.editor-status{color:var(--ink-soft)}
 
 /* ---- program preview primitives ---- */
 .day{border:1px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface)}
@@ -215,6 +230,7 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 .metric:first-child{border-left:0}
 .metric .icon-mask{width:18px;height:18px;color:var(--accent)}
 .metric__value{font-family:var(--font-training-data);font-weight:500;font-size:var(--font-size-control);line-height:1.3}
+.metric__label{overflow-wrap:normal}
 @media (max-width:340px){.metrics{grid-template-columns:1fr 1fr}.metric:nth-child(3){grid-column:1/-1;border-left:0;border-top:1px solid var(--rule)}}
 
 /* ---- import review row ---- */
@@ -295,4 +311,10 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 :root[style*="200%"] .btnrow .btn{flex:1 1 100%}
 
 :root[style*="200%"] .improw{grid-template-columns:minmax(0,1fr) auto 36px minmax(0,1fr)}
+/* H-13: import metrics become one row per metric (value then label) at
+   200% text, so "vinculados" / "personalizados" never clip or split. */
+:root[style*="200%"] .metrics{grid-template-columns:1fr}
+:root[style*="200%"] .metric{flex-direction:row;align-items:baseline;flex-wrap:wrap;gap:4px 10px;border-left:0;border-top:1px solid var(--rule)}
+:root[style*="200%"] .metric:first-child{border-top:0}
+:root[style*="200%"] .metric:nth-child(3){grid-column:auto}
 :root[style*="200%"] .dock{grid-template-columns:repeat(2,1fr);height:auto;border-radius:var(--radius-prominent)}

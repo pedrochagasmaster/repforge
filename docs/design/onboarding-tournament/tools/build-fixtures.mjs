@@ -27,7 +27,9 @@ const en = JSON.parse(readFileSync(join(root, "i18n-en.json"), "utf8"));
 const pt = JSON.parse(readFileSync(join(root, "i18n-pt.json"), "utf8"));
 function flat(d, p = "") { const out = {}; for (const [k, v] of Object.entries(d)) { if (v && typeof v === "object" && !Array.isArray(v)) Object.assign(out, flat(v, p + k + ".")); else out[p + k] = v; } return out; }
 const fe = flat(en), fp = flat(pt);
-const PREFIXES = ["entry.", "setup.", "landing.", "import.", "program.day.", "program.progression.strategy.", "program.default.day", "plural.", "today.", "untitled_program", "privacy.title", "nav.", "program.no_program", "program.empty.", "onb.cancel", "onb.back", "onb.next", "toast.freeform", "toast.import"];
+// Round 2 (H-5, H-15): "privacy." for the shared Privacy stub and "muscle."
+// for localizing every muscle token on the Today session line.
+const PREFIXES = ["entry.", "setup.", "landing.", "import.", "program.day.", "program.progression.strategy.", "program.default.day", "plural.", "today.", "untitled_program", "privacy.", "muscle.", "nav.", "program.no_program", "program.empty.", "onb.cancel", "onb.back", "onb.next", "toast.freeform", "toast.import"];
 const i18n = { en: {}, pt: {} };
 for (const k of Object.keys(fe)) if (PREFIXES.some((p) => k.startsWith(p))) { i18n.en[k] = fe[k]; i18n.pt[k] = fp[k]; }
 

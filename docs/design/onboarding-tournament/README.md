@@ -48,7 +48,15 @@ Acceptance run (writes `round-N/acceptance/{results.json,summary.md,shots/}`):
 
 ```bash
 node docs/design/onboarding-tournament/tools/verify.mjs --base http://127.0.0.1:8000/docs/design/onboarding-tournament/ --round 1
+node docs/design/onboarding-tournament/tools/verify.mjs --base http://127.0.0.1:8000/docs/design/onboarding-tournament/ --round 2 --candidates d,e,f
 ```
+
+Round 2 runs the eight §12.1 cells per checkpoint with the generic §12.2
+checks, then the candidate journeys defined in `round-2/JOURNEYS.md`. Two
+self-tests prove the tooling and the shared helpers:
+`tools/audit-selftest.mjs` (injects one defect per generic check) and
+`tools/harness-selftest.mjs` (calls the shared helpers directly). The proof
+record is `round-2/harness-proof.md`.
 
 ## What is real, what is ported, what is simulated
 
@@ -60,17 +68,27 @@ runtime (`runtime.js`) draws the line explicitly:
 | Program compilation, browse catalogue, split choices, explanations, versions | **Real**: `vendor/program-compiler.js`, `vendor/program-entry-adapter.js`, `vendor/exercises.js` (verbatim from the baseline SHA) | Every program shown by any candidate is compiled live from the same answers; no program is hand-written. |
 | Entry state, validation, resume/rules-drift status, activation readiness, candidate activation issues | **Real**: `vendor/program-entry.js` | Candidates may lay steps out differently, but activation gating and conflict detection are the production checks. |
 | Setup-link decode/validate (incl. invalid link) | **Real**: `vendor/shared-setup.js` with the built-in id allowlist | The valid fragments in `data/fixtures.js` are `v1.` envelopes; `v1.not+base64` is the invalid one. |
-| Import review classification (exact / other language / likely with a 3-entry shortlist / no match, 0.35 floor) | **Ported** from `app.js` at the baseline | Same scoring, ordering and decision defaults; `pickableExercises` is the whole library. |
-| Free-form reply reading (complete / gaps / unreadable), gap validation and assembly, the hand-off prompt | **Ported**; the prompt is the reviewed `entry.freeform.prompt` string | The reply and pasted text are fixtures (`data/fixtures.js`); the assistant links are real URLs and are not followed by the harness. |
-| Device store (active program, revision, setup draft), activation transaction, replacement, cross-tab conflict, Today boundary | **Simulated** | Same rules for every candidate: activation runs `activationReadiness` first; replacement always confirms; a revision bump behind the draft produces the conflict state. Nothing persists across reloads. |
-| Program editor for Build / Edit before using | **Simulated** shared widget (`candidates/shared-screens.js`) | Day list, library search, sets/min/max, remove; activation gating mirrors `candidateActivationIssues` (every day non-empty, valid prescriptions). No drag reorder. |
+| Import review classification (exact / other language / likely with a 3-entry shortlist / no match, 0.35 floor) | **Ported** from `app.js` at the baseline | Same scoring, ordering and decision defaults; `pickableExercises` is the whole library. `TF.importPreview` / `TF.importResult` emit JSON-clean results (H-1), so `Entry.setResult` accepts them and activation reaches Today. |
+| Free-form reply reading (complete / gaps / unreadable), gap validation and assembly, the hand-off prompt | **Ported**; the prompt is the reviewed `entry.freeform.prompt` string | The reply and pasted text are fixtures (`data/fixtures.js`); the assistant links are real URLs and are not followed by the harness. "Recomeçar" asks the production `entry.freeform.confirm_start_over` first (H-6). |
+| Device store (active program, revision, setup draft), activation transaction, replacement, cross-tab conflict, Today boundary | **Simulated** | Same rules for every candidate: activation runs `activationReadiness` first; replacement always confirms; a revision bump behind the draft produces the conflict state. Nothing persists across reloads. The active program stores `name` and `namePt`; Today renders the localized name and localizes every muscle token (H-5). |
+| Setup-draft API (`TF.saveDraft`, `TF.loadDraft`, `TF.clearDraft`) | **Simulated** store, **real** rules | Keep in the cancel dialog and "Salvar rascunho" write `device.draft`; the envelope is validated by the real `Entry.normalizeSetupDraftEnvelope`, and `loadDraft` reads it back through the real `Entry.resumeSetupDraft` (resumable / rules_changed / activation_conflict). Seeds `interrupted` and `rules-drift` write their drafts the same way (H-9). In memory only. |
+| Program editor for Build / Edit before using | **Simulated** shared widget (`candidates/shared-screens.js`) | Day list, library search, sets/min/max, remove. One model for both uses: `TS.build.fromPreview` / `toPreview` round-trip a reviewed preview keeping every untouched row byte-identical (progression, prescription, ids, day identity) and syncing progression params only for a changed prescription (H-2); `TS.build.commit(result, build)` is the edited result that activation commits (H-3); `TS.build.result(build)` is the Build route's result and `TS.build.status` reads the real `activationReadiness` (H-4). No drag reorder. |
+| Engine codes to copy | **Shared** mapping (`TS.issueText` / `TS.issueTexts`) | Every activation, validation, compile and limitation code maps to catalog or `x.*` copy; the only fallback is a generic sentence (H-10). |
+| Privacy page | **Simulated** stub (`TS.privacySheet`) | A sheet with the production `privacy.*` strings (local-first, setup links, telemetry, export/delete, limitations). `TS.wire` opens it for any `[data-act="privacy-open"]` (H-15). |
+| Landing proof | **Real** asset | `vendor/brand/today-ready-{pt,en}-{light,dark}.webp` from the baseline with `landing.shot.today_ready.alt` (`TS.landingProof`, H-8). |
 | File picker and clipboard | **Simulated** | "Choose file" loads the import fixture; "Import from clipboard" pastes the gaps reply fixture. |
 
 Copy: production strings come from the two catalogs at the baseline
-(`data/fixtures.js`, 663 keys). Strings a candidate adds are in its own file
-under `candidates/` (both languages, keys prefixed `a.`/`b.`/`c.`), plus a small
-shared set (`x.*` in `shared-screens.js`) for conditions the production
-catalog never names (limitation codes, replacement dialog, route cost lines).
+(`data/fixtures.js`, 703 keys, including `privacy.*` and `muscle.*`). A
+shared **copy override layer** (`OVERRIDES` in `runtime.js`, applied by
+`TF.makeT` for every candidate) replaces the baseline strings that break the
+brand rules, with the settled replacements of synthesis spec §5.3 (H-7; the
+catalog fix itself is production follow-up PD-5). Strings a candidate adds
+are in its own file under `candidates/` or `round-2/candidates/` (both
+languages, keys prefixed with the candidate id), plus a shared set (`x.*` in
+`shared-screens.js`) for conditions the production catalog never names
+(limitation codes, replacement and restart dialogs, change statements, issue
+sentences, route facts derived from `ROUTE_STEPS`, never minutes, H-11).
 Copy is written PT-BR first; brand rules apply (sentence case, no exclamation
 marks, no em dashes in app prose, no theme words).
 
@@ -140,7 +158,11 @@ colour; light/dark parity; reduced motion as one decision.
 | Path | Role |
 | --- | --- |
 | `index.html`, `harness.js`, `harness.css` | Review control surface |
-| `app.html` | One candidate document per phone; reads `?c=&cp=&lang=&theme=&text=&motion=` |
+| `app.html` | Round 1 candidate document per phone; reads `?c=&cp=&lang=&theme=&text=&motion=` |
+| `round-2/app.html` | Round 2 candidate document; shared files from `../`, the candidate from `round-2/candidates/<c>.{js,css}` (loaded on demand) |
+| `round-2/JOURNEYS.md` | The Round 2 candidate journey interface (exports, markup, api, every journey and its assertions) |
+| `round-2/candidates/_example.{js,css}` | Placeholder candidate that proves the Round 2 tooling end to end (not a design) |
+| `round-2/harness-proof.md` | Proof of H-1 to H-15 and the Round 2 tooling, with commands and output |
 | `tokens.css` | Semantic tokens vendored verbatim from `styles.css` at the baseline SHA |
 | `base.css` | Shared control/surface recipes derived from the Plan 058 contract |
 | `runtime.js` | Real/ported/simulated logic boundary, checkpoint contract, device store |
@@ -148,6 +170,8 @@ colour; light/dark parity; reduced motion as one decision.
 | `candidates/{a,b,c}.{js,css}` | The three directions |
 | `data/fixtures.js` | Generated by `tools/build-fixtures.mjs <pr256-checkout>`; i18n subset, shared fragments, import/free-form fixtures, example users |
 | `vendor/` | Verbatim modules from the baseline SHA, Plex fonts, brand mark (see `vendor/README.md`) |
-| `tools/verify.mjs` | Acceptance run |
+| `tools/verify.mjs` | Acceptance run (Round 1 frozen contract; Round 2 cells, generic checks and journeys) |
+| `tools/audit-page.js`, `tools/journey-api.js`, `tools/journey-checks.js` | In-page Round 2 audit, journey api and engine-backed journey checks (injected by `verify.mjs`) |
+| `tools/audit-selftest.mjs`, `tools/harness-selftest.mjs` | Self-tests: one injected defect per generic check; the shared helpers called directly |
 | `round-1/` | Manifest, acceptance results, judge reports, synthesis spec |
 | `round-2/` | Second-round candidates, acceptance, judge reports, final comparison |

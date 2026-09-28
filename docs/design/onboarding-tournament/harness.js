@@ -12,6 +12,8 @@
         c: { name: "C · Programa primeiro", thesis: { en: "Show a real, trainable program before asking anything, and let the lifter correct the facts it was built from directly on the program until it is theirs.", pt: "Mostre um programa real e treinável antes de perguntar qualquer coisa, e deixe o praticante corrigir os fatos que o geraram diretamente no programa até ele ser dele." }, axis: "Immediate preview · preview-and-edit · facts as editable chips · requires a product decision (default answers before the user answers)" },
       },
     },
+    /* Round 2: the generator registers d, e, f here (name, thesis, axis).
+       round-2/app.html loads round-2/candidates/<id>.{js,css} on demand. */
     2: { doc: "round-2/app.html", candidates: {} },
   };
   const $ = (s) => document.querySelector(s);
@@ -25,7 +27,8 @@
     // The checkpoint list lives in runtime.js; read it through a throwaway frame
     // so the harness never carries a second copy of the contract.
     return new Promise((resolve) => {
-      const f = document.createElement("iframe"); f.style.display = "none"; f.src = (ROUNDS[state.round] || ROUNDS[1]).doc + "?c=a&cp=none";
+      const round = ROUNDS[state.round] || ROUNDS[1];
+      const f = document.createElement("iframe"); f.style.display = "none"; f.src = round.doc + "?c=" + (Object.keys(round.candidates)[0] || "") + "&cp=none";
       f.onload = () => { try { CHECKPOINTS = f.contentWindow.TF.CHECKPOINTS; SCENARIOS = f.contentWindow.TF.SCENARIOS; } catch (e) { CHECKPOINTS = []; } f.remove(); resolve(); };
       document.body.appendChild(f);
     });

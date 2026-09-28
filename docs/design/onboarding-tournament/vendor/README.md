@@ -15,6 +15,7 @@ baseline moves.
 | `shared-setup.js` | `RepForgeSharedSetup` | Setup-link decode / validate |
 | `fonts/plexsans.woff2`, `fonts/plexmono-{400,500,600}.woff2` | — | Self-hosted Plex, as in production |
 | `brand/mark.png` | — | The ground-free mark used on the landing |
+| `brand/today-ready-{pt,en}-{light,dark}.webp` | — | The owner-selected landing proof (baseline `assets/brand/`, shown by `TS.landingProof` with `landing.shot.today_ready.alt`; H-8) |
 
 Exercise illustrations are referenced from the repository's own
 `assets/exercises/` directory and are not copied.

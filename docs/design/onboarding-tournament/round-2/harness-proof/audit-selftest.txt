@@ -1,0 +1,19 @@
+PASS K-10 @build-empty: clean 0, injected 1 → K-10 raw code "day_empty" in text: "day_empty:manual_d1"
+PASS K-10 @rec-result: clean 0, injected 1 → K-10 raw code "preview_not_ready" in aria-label of button.btn.btn--primary: "preview_not_ready"
+PASS K-11 @rec-result: clean 0, injected 1 → K-11 2 persistent-action regions: footer.pinned, div
+PASS K-11 @rec-result: clean 0, injected 1 → K-11 persistent-action region footer.pinned is 38% of the viewport (320px of 844px)
+PASS K-12 @rec-result: clean 0, injected 1 → K-12 word split across lines: "Desenvolvimento" in button.btn "Desenvolvimento"
+PASS K-12 @rec-result: clean 0, injected 1 → K-12 control label overflows its box: button.btn "Desenvolvimento" (108>88)
+PASS K-13 @rec-schedule: clean 0, injected 5 → K-13 numeric option "30" renders on 2 lines in button.choice.choice--seg
+PASS K-15 @landing: clean 0, injected 1 → K-15 banned or EU-PT word "aparelho": "acidade Seu treino fica neste aparelho. A tela de Hoje: Corp"
+PASS K-15 @landing: clean 0, injected 1 → K-15 English fallback label "Close" on button.btn
+PASS K-15 @landing: clean 0, injected 1 → K-15 banned or EU-PT word "Porquê": "este dispositivo. Privacidade Porquê evitar? A tela de Hoje:"
+PASS K-16 @route-choice: clean 0, injected 1 → K-16 unmeasured claim "maioria": "ama Não sabe qual escolher? A maioria começa por aqui"
+PASS K-16 @route-choice: clean 0, injected 1 → K-16 minutes on the route chooser: "cerca de 2 minutos"
+PASS K-21 @landing: clean 0, injected 1 → K-21 button#firstRunCreate.btn.btn--primary  transition 0.3s
+PASS K-23 @landing: clean 0, injected 1 → K-23 Privacy control ([data-privacy-open]) missing
+PASS K-23 @landing: clean 0, injected 1 → K-23 landing proof image with landing.shot.today_ready.alt missing
+PASS clipped @landing: clean 0, injected 1 → clipped text: p "personalizados"
+PASS clipped @landing (H-14: the same clipped text inside .visually-hidden is ignored): clean 0, injected 0
+all self-test cases behaved as expected
+exit 0

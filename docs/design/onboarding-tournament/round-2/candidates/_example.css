@@ -1,0 +1,6 @@
+/* _example: placeholder candidate, deliberately plain (shared recipes only). */
+.ex-page main{padding-bottom:12px}
+.ex-head{margin:0 -4px 6px}
+.ex-landing{padding-top:28px}
+.choice.is-featured{border-color:var(--accent)}
+.ex-num .choice__title{white-space:nowrap}
