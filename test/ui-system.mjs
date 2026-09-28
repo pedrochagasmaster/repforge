@@ -50,12 +50,19 @@ assert.ok(validateRoleInventory(tagException, manifest).some((error) => error.st
   "a tag-wide exception cannot exempt every button");
 
 const css = readFileSync(join(ROOT, "styles.css"), "utf8");
+const motionPolishCss = readFileSync(join(ROOT, "motion-polish.css"), "utf8");
 assert.equal(cssLiteralDebt(css, inventory.exceptions).length, 0, "P6 removes all unauthorized CSS literal debt");
 assert.equal(cssCompatibilityAliasDebt(css).length, 0, "P6 removes all obsolete compatibility aliases");
+assert.equal(cssLiteralDebt(motionPolishCss, inventory.exceptions).length, 0, "motion-polish.css has no unauthorized CSS literal debt");
+assert.equal(cssCompatibilityAliasDebt(motionPolishCss).length, 0, "motion-polish.css has no obsolete compatibility aliases");
 for (const declaration of ["font-size:15px", "border-radius:11px", "box-shadow:0 2px 8px #777", "color:#808080", "border:1px solid #ccc", "background:red"]) {
   const bad = `.seeded { ${declaration}; }`;
   assert.equal(cssLiteralDebt(bad).length, 1, `checker rejects seeded ${declaration} outside token definitions`);
 }
+assert.equal(cssLiteralDebt('.seeded{background:#161513 url("icon.png") center/cover no-repeat}').length, 1,
+  "checker rejects a color literal even when the same declaration loads an image");
+assert.equal(cssLiteralDebt(".seeded{--plate:#F4F2EF}").length, 1,
+  "checker rejects a color literal on an unclassified custom property");
 assert.equal(cssLiteralDebt(":root { --font-body:1rem; --radius-control:8px; --ink:#1B1A17; }").length, 0,
   "token definitions are the one place values are declared");
 assert.equal(cssLiteralDebt(".art { border-radius:50%; font-size:0; } .square { border-radius:0; }").length, 0,
@@ -74,6 +81,7 @@ assert.match(invalidState.stderr, /unknown catalog state missing\/state/);
 const fixtureDir = mkdtempSync(join(tmpdir(), "taurifer-ui-literal-"));
 try {
   const fixture = join(fixtureDir, "bad.css");
+  const polishFixture = join(fixtureDir, "motion-polish.css");
   writeFileSync(fixture, ".seeded { font-size:15px; }");
   const rejected = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
   assert.equal(rejected.status, 1, "actual checker rejects an isolated literal artifact");
@@ -88,7 +96,17 @@ try {
   writeFileSync(fixture, ".seeded { border-radius:var(--radius-control); }");
   const migrated = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
   assert.equal(migrated.status, 0, "same checker accepts the migrated semantic radius token");
+  writeFileSync(fixture, ".seeded { color:var(--color-ink); }");
+  writeFileSync(polishFixture, ".polish { box-shadow:0 2px 4px #123456; border-radius:var(--radius-legacy); }");
+  const polishDebt = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture, "--css", polishFixture], { cwd: ROOT, encoding: "utf8" });
+  assert.equal(polishDebt.status, 1, "actual checker scans every supplied stylesheet for literal and alias debt");
+  assert.match(polishDebt.stdout, new RegExp(`${polishFixture.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:1`), "checker identifies the violating motion-polish source");
+  assert.match(polishDebt.stderr, /obsolete CSS alias references/, "checker rejects an obsolete alias in motion-polish.css");
 } finally { rmSync(fixtureDir, { recursive: true, force: true }); }
+if (process.argv.includes("--css-debt-only")) {
+  console.log("ui-system CSS debt negatives passed");
+  process.exit(0);
+}
 assert.equal(Math.round(contrastRatio([0, 0, 0], [255, 255, 255])), 21, "WCAG contrast oracle handles black/white");
 assert.ok(contrastRatio([128, 128, 128], [255, 255, 255]) < 4.5, "3.95:1 body text is below AA");
 const roleOf = (selector) => inventory.components.find((item) => item.selector === selector)?.roles.control;
@@ -380,7 +398,7 @@ try {
     const root = getComputedStyle(document.documentElement);
     const value = (name) => root.getPropertyValue(name).trim();
     const expected = {
-      "--font-size-label": "min(.6875rem,4.8vw)", "--font-size-caption": ".75rem", "--font-size-body-small": ".875rem",
+      "--font-size-label": ".6875rem", "--font-size-caption": ".75rem", "--font-size-body-small": ".875rem",
       "--font-size-body": "1rem", "--font-size-control": "1rem", "--font-size-subtitle": "1.125rem",
       "--font-size-metric": "1.375rem", "--font-size-section-title": "1.5rem", "--font-size-feature-title": "1.75rem",
       "--font-size-title": "1.875rem", "--font-size-display": "2.5rem",

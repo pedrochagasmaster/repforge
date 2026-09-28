@@ -3109,7 +3109,7 @@ body.is-sheet-open .installbanner{display:none}
 .installbanner__close:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .installbanner__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .installbanner__close:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
-.installbanner__icon{width:34px;height:34px;border-radius:var(--radius-control);background:#161513 url("icons/icon-192.png") center/cover no-repeat}
+.installbanner__icon{width:34px;height:34px;border-radius:var(--radius-control);background:url("icons/icon-192.png") center/cover no-repeat}
 /* The corner the ✕ is drawn in belongs to the copy row alone, so the action
    below it still sits square in the card. */
 .installbanner__text{min-width:0;padding-right:50px}
@@ -4300,10 +4300,6 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-pad:clamp(18px,5vw,34px);
   max-width:1120px;margin:0 auto;padding:0 var(--firstrun-pad);
 }
-/* The paper both brand images were painted on. It is a property of the files,
-   not of the theme, which is why it is one constant rather than a palette
-   entry: light lets the page be it, dark hands it back as a plate. */
-.firstrun{--brand-paper:#F4F2EF}
 .firstrun__brand{
   display:flex;align-items:center;justify-content:center;
   gap:clamp(17px,4.5vw,22px);margin-bottom:clamp(28px,7vw,44px);
@@ -4315,6 +4311,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    plate (see the dark block near the top of this file), because the ground is
    what the rendering's pale edge was drawn against. */
 .firstrun__logo{
+  --brand-paper:#F4F2EF;
   display:block;flex:none;width:clamp(62px,16vw,76px);height:clamp(62px,16vw,76px);object-fit:contain;
 }
 /* Tracking adds a letter-space after the last R that nothing fills, so the row

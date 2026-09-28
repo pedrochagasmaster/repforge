@@ -93,8 +93,9 @@ export function cssLiteralDebt(css, exceptions = []) {
     const isRadius = property === "border-radius" || property.startsWith("border-") && property.endsWith("-radius");
     const isShadow = property === "box-shadow" || property === "text-shadow";
     const isColor = /^(?:color|background(?:-color)?|border(?:-(?:top|bottom|left|right))?(?:-color)?|outline(?:-color)?|fill|stroke|caret-color|accent-color|text-decoration-color)$/.test(property);
+    const isCustomProperty = property.startsWith("--");
     const isLocalRoleToken = property.startsWith("--") && /(?:font|radius|shadow|color|ink|bg|boundary|surface|accent|rule)/.test(property);
-    if (!isType && !isRadius && !isShadow && !isColor && !isLocalRoleToken) continue;
+    if (!isType && !isRadius && !isShadow && !isColor && !isLocalRoleToken && !isCustomProperty) continue;
     let literal = false;
     if (isType) literal = /(?:^|[\s,(])(?:-?\d*\.?\d+)(?:px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/.test(value)
       && !/^(?:var\([^)]*\)|inherit|initial|unset|revert|normal|0)$/.test(value);
@@ -103,10 +104,12 @@ export function cssLiteralDebt(css, exceptions = []) {
       literal = measures.some((measure) => Number(measure[1]) !== 0) && value !== "50%";
     }
     if (isShadow) literal = value !== "none" && !/^var\([^)]*\)$/.test(value);
-    if (isColor) literal = !/url\(/i.test(value) && (/#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})\b/i.test(value)
-      || /\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch)\s*\((?!\s*var\()/i.test(value)
-      || /\b(?:black|white|red|orange|green|blue|gray|grey)\b/i.test(value));
-    if (isLocalRoleToken) literal = /#[\da-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch)\s*\((?!\s*var\()|\b\d+(?:\.\d+)?(?:px|rem|em)\b/i.test(value);
+    const colorValue = value.replace(/url\([^)]*\)/gi, " ");
+    const hasColorLiteral = /#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})\b/i.test(colorValue)
+      || /\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch)\s*\((?!\s*var\()/i.test(colorValue)
+      || /\b(?:black|white|red|orange|green|blue|gray|grey)\b/i.test(colorValue);
+    if (isColor || isCustomProperty) literal = hasColorLiteral;
+    if (isLocalRoleToken) literal ||= /#[\da-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch)\s*\((?!\s*var\()|\b\d+(?:\.\d+)?(?:px|rem|em)\b/i.test(value);
     if (!literal) continue;
     const line = css.slice(0, match.index).split("\n").length;
     if (exceptions.some((item) => item.selector === selector && item.cssLiterals?.some((literal) => literal.property === property && literal.value === value))) continue;

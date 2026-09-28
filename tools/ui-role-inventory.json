@@ -7670,6 +7670,12 @@
         "onboarding-shared/preview",
         "onboarding-shared/gate",
         "onboarding-shared/invalid"
+      ],
+      "cssLiterals": [
+        {
+          "property": "--brand-paper",
+          "value": "#F4F2EF"
+        }
       ]
     },
     {

@@ -8,7 +8,7 @@ import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onbo
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
 import { measureRenderedRoles, renderedRoleProblems } from "./ui-system-rendered.mjs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export function inspectRoleCoverage({ key, components, exceptions, progressCandidateSelectors, allowProgressDebt = false }) {
   const progressSelectors = [...new Set([...progressCandidateSelectors, "progress", "[role='progressbar']"])];
@@ -268,15 +268,21 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
   const manifest = loadManifest(), inventory = loadRoleInventory();
   const metadata = validateRoleInventory(inventory, manifest);
-  const cssArgument = process.argv.indexOf("--css");
-  const cssPath = cssArgument < 0 ? join(ROOT, "styles.css") : process.argv[cssArgument + 1];
-  if (!cssPath) throw new Error("--css needs a path");
-  const css = readFileSync(cssPath, "utf8");
-  const debt = cssLiteralDebt(css, inventory.exceptions);
-  const aliases = cssCompatibilityAliasDebt(css);
+  const args = process.argv.slice(2), requestedCss = [];
+  for (let index = 0; index < args.length; index++) {
+    if (args[index] !== "--css") continue;
+    const path = args[index + 1];
+    if (!path || path.startsWith("--")) throw new Error("--css needs a path");
+    requestedCss.push(path);
+    index++;
+  }
+  const cssPaths = requestedCss.length ? requestedCss : ["styles.css", "motion-polish.css"];
+  const cssFiles = cssPaths.map((path) => ({ path, css: readFileSync(resolve(ROOT, path), "utf8") }));
+  const debt = cssFiles.flatMap(({ path, css }) => cssLiteralDebt(css, inventory.exceptions).map((item) => ({ ...item, path })));
+  const aliases = cssFiles.flatMap(({ path, css }) => cssCompatibilityAliasDebt(css).map((item) => ({ ...item, path })));
   console.log(`UI system: ${manifest.screens.length} live states, ${inventory.components.length} selectors, ${inventory.exceptions.length} exceptions; ${debt.length} CSS literal declarations and ${aliases.length} obsolete alias references remain for P4–P6.`);
-  for (const item of debt.slice(0, 8)) console.log(`  debt ${item.line}: ${item.selector} { ${item.property}: ${item.value} }`);
-  for (const item of aliases.slice(0, 8)) console.log(`  alias ${item.line}: ${item.alias}`);
+  for (const item of debt.slice(0, 8)) console.log(`  debt ${item.path}:${item.line}: ${item.selector} { ${item.property}: ${item.value} }`);
+  for (const item of aliases.slice(0, 8)) console.log(`  alias ${item.path}:${item.line}: ${item.alias}`);
   if (process.argv.includes("--strict-css") && debt.length) metadata.push(`${debt.length} unapproved CSS literals`);
   if (process.argv.includes("--strict-css") && aliases.length) metadata.push(`${aliases.length} obsolete CSS alias references`);
   if (!process.argv.includes("--metadata")) {
