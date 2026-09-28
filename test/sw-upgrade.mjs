@@ -111,6 +111,19 @@ try {
   assert.equal(await page.locator("#dayTabs").count(), 1, "updated worker boots the entry shell");
   assert.equal(await page.evaluate(() => !!window.RepForgeProgramEntry), true, "updated shell includes program entry code");
 
+  await context.setOffline(true);
+  try {
+    const offlineNavigation = await page.reload({ waitUntil: "domcontentloaded" });
+    assert.equal(offlineNavigation?.fromServiceWorker(), true, "cached offline navigation is served by the updated worker");
+    await waitForAppBoot(page, { base });
+    assert.equal(await page.evaluate(() => !navigator.onLine && !!navigator.serviceWorker.controller), true,
+      "the installed shell remains controlled while offline");
+    assert.equal(await page.evaluate(() => window.__repforgeBooted === true && !!window.RepForgeProgramEntry), true,
+      "the cached offline shell loads required code and cold-boots the entry application");
+  } finally {
+    await context.setOffline(false);
+  }
+
   const requiredContext = await browser.newContext();
   try {
     mode = "required-html";
@@ -175,7 +188,7 @@ try {
   } finally {
     await optionalContext.close();
   }
-  console.log(`service-worker upgrade: ${oldCache} controls first, ${currentCache} activates, old cache is deleted, entry shell boots`);
+  console.log(`service-worker upgrade: ${oldCache} controls first, ${currentCache} activates, old cache is deleted, cached offline entry shell boots`);
 } finally {
   await context.close();
   await browser.close();
