@@ -179,7 +179,8 @@
      safe area, inset --dock-inset from each edge. --nav stays the single
      "space the dock claims at the bottom" token every other floating element
      (rest bar, toast, tour, FAB) already measures itself against. */
-  --dock-h:62px;
+  /* The text-scaled dock uses two columns so every enlarged tab label stays whole. */
+  --dock-h:max(62px,calc(40px + var(--font-size-label) + var(--font-size-label)));
   --dock-gap:10px;
   --dock-inset:14px;
   --nav:calc(var(--dock-h) + var(--dock-gap));
@@ -2568,7 +2569,7 @@ nav{
     var(--maxw)
   );
   height:var(--dock-h);
-  display:grid;grid-template-columns:repeat(4,1fr);
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
   padding:6px;gap:2px;
   border:1px solid var(--dock-edge);border-radius:calc(var(--dock-h)/2);
   background:var(--dock-glass);
@@ -2585,8 +2586,9 @@ nav button{
   background:transparent;border:1px solid transparent;color:var(--ink-soft);cursor:pointer;
   border-radius:var(--radius-pill);
   font-weight:500;letter-spacing:0;font-size:var(--font-size-label);text-transform:none;
-  transition:color .2s ease,transform .18s ease;min-height:44px;
+  transition:color .2s ease,transform .18s ease;min-height:44px;min-width:0;
 }
+nav button > [data-i18n]{min-width:0;max-width:100%;text-align:center;line-height:1;overflow-wrap:normal}
 nav button:active{transform:scale(.93)}
 nav button:focus-visible{outline:var(--control-focus-outline);outline-offset:-3px}
 /* The selected tab sits in a lighter lens. This one is painted on the button
@@ -2617,7 +2619,25 @@ nav button.active{
   nav:has(button:nth-child(3).active){--dock-i:2}
   nav:has(button:nth-child(4).active){--dock-i:3}
 }
-.nav__icon{width:22px;height:22px;background:currentColor;
+/* A true 200% root text size makes four short dock columns break primary tab
+   names inside words. Reflow to a two-by-two dock and give each selected lens
+   one row, keeping all four actions visible without reducing label size. */
+:root[style*="font-size: 200%"]{
+  --dock-h:calc(70px + 2 * var(--font-size-label));
+  --nav:calc(var(--dock-h) + var(--dock-gap));
+}
+:root[style*="font-size: 200%"] nav{grid-template-columns:repeat(2,minmax(0,1fr))}
+:root[style*="font-size: 200%"] nav::before{
+  bottom:auto;
+  width:calc((100% - 12px - 2px)/2);
+  height:calc((100% - 12px - 2px)/2);
+  transform:translateX(calc(var(--dock-col,0) * (100% + 2px))) translateY(calc(var(--dock-row,0) * (100% + 2px)));
+}
+:root[style*="font-size: 200%"] nav:has(button:nth-child(1).active){--dock-col:0;--dock-row:0}
+:root[style*="font-size: 200%"] nav:has(button:nth-child(2).active){--dock-col:1;--dock-row:0}
+:root[style*="font-size: 200%"] nav:has(button:nth-child(3).active){--dock-col:0;--dock-row:1}
+:root[style*="font-size: 200%"] nav:has(button:nth-child(4).active){--dock-col:1;--dock-row:1}
+.nav__icon{width:22px;height:22px;flex:none;background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain}
 nav button.active .nav__icon{background:var(--accent)}
 .nav__icon[data-i=log]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1V10.5z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1V10.5z'/%3E%3C/svg%3E")}
