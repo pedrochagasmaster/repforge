@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#141310">
+<title>Taurifer · landing</title>
+<link rel="icon" href="../../../../icons/favicon-32.png">
+<link rel="preload" href="../../../../fonts/plexsans.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Plex Sans";src:url("../../../../fonts/plexsans.woff2") format("woff2");font-weight:100 700;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url("../../../../fonts/plexmono-400.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url("../../../../fonts/plexmono-500.woff2") format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url("../../../../fonts/plexmono-600.woff2") format("woff2");font-weight:600;font-display:swap}
+
+/* ---- Tokens: copied verbatim from styles.css (:root and :root[data-theme="dark"]). ---- */
+:root{
+  color-scheme:light;
+  /* `color-scheme` is a keyword property, so the few rules that pin a native
+     control to one appearance read it from here instead of hard-coding it and
+     stranding that control in the light palette. */
+  --scheme:light;
+  --bg:#F4F2EF;
+  --surface:#FFFFFF;
+  --ink:#1B1A17;
+  --ink-soft:#6E6A63;
+  --ink-faint:#716D66;
+  --rule:#E4E1DA;
+  --rule-strong:#D9D5CD;
+  --accent:#E04E14;
+  --accent-deep:#B8410E;
+  --positive:#2F7D33;
+  --cta:#161513;
+  --well:#FAF8F5;
+  --cta-ink:#FFFFFF;
+  /* Ink for copy sitting on a filled --accent-deep ground. It is not --cta-ink:
+     in dark the CTA inverts to a light pill while the orange stays orange, so
+     the two inks move in opposite directions. */
+  --accent-ink:#FFFFFF;
+  --danger:#C93A2B;
+  /* Channel triplets for the tints, focus rings and washes that need the theme
+     colour at partial alpha. Keeping them beside the hex means a theme swap
+     carries the translucent surfaces with it. */
+  --accent-rgb:224,78,20;
+  --positive-rgb:47,125,51;
+  --danger-rgb:201,58,43;
+  --ink-rgb:27,26,23;
+  --bg-rgb:244,242,239;
+  /* The wash behind a selected program-entry choice: warm copper at a low
+     alpha so a bounded white card gains a tint without a second surface
+     colour. Defined per theme so dark lifts it enough to register. */
+  --entry-tint:rgba(224,78,20,.06);
+  --knob:#FFFFFF;
+  /* Scrims stay dark in both themes: they exist to push the page back. */
+  --scrim:rgba(27,26,23,.42);
+  --radius:14px;
+  /* Settings is one text column: the caption of a group, the label of every row
+     in it, and the rule between those rows all begin at this inset. */
+  --settings-inset:16px;
+  /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
+     safe area, inset --dock-inset from each edge. --nav stays the single
+     "space the dock claims at the bottom" token every other floating element
+     (rest bar, toast, tour, FAB) already measures itself against. */
+  --dock-h:62px;
+  --dock-gap:10px;
+  --dock-inset:14px;
+  --nav:calc(var(--dock-h) + var(--dock-gap));
+  --dock-glass:rgba(250,248,245,.8);
+  --dock-glass-opaque:rgba(250,248,245,.97);
+  --dock-edge:rgba(27,26,23,.10);
+  --dock-sheen:rgba(255,255,255,.7);
+  --dock-pill:rgba(255,255,255,.82);
+  --dock-pill-sheen:rgba(255,255,255,.82);
+  --maxw:560px;
+
+  --display:"Plex Sans",system-ui,sans-serif;
+  --body:"Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --mono:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:var(--radius);
+  --shadow:none;
+  --check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 12.5 9.5 18 20 6.5'/%3E%3C/svg%3E");
+  --bolt:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M13.6 2 4 13.4h6.1L9.4 22 20 10.2h-6.6z'/%3E%3C/svg%3E");
+  /* The forward arrow is drawn, not typed. U+2192 is not in the Plex Sans
+   * subset we ship, so a "→" in `content` falls through to whatever the
+   * platform hands us: SF Pro on iOS draws a proper arrow, while Android
+   * lands on a symbol fallback that ignores our weight and sits off-centre
+   * against the label. A mask renders identically everywhere. */
+  /* A <select> cannot carry a pseudo-element, so its chevron is a background
+     image rather than a mask, and the ink has to be baked into the SVG. That
+     is why this one glyph exists twice instead of following currentColor. */
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  --arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15'/%3E%3Cpolyline points='13.2 6.2 19 12 13.2 17.8'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme:dark){
+:root{
+  color-scheme:dark;
+  --scheme:dark;
+  --bg:#141310;
+  --surface:#1E1C18;
+  --ink:#F2EFE9;
+  --ink-soft:#ADA79D;
+  --ink-faint:#99938A;
+  --rule:#2E2B26;
+  --rule-strong:#4A453D;
+  --accent:#F2703B;
+  /* Text emphasis stays in the same burnt-orange family as the mark. The
+     first dark pass was lighter but too peach beside the red danger action. */
+  --accent-deep:#FF8A3D;
+  --positive:#63C267;
+  /* A quiet parchment rather than a lit white card. Scale and placement make
+     the CTA primary; maximum luminance does not need to. */
+  --cta:#DED7CC;
+  --well:#191713;
+  --cta-ink:#161513;
+  --accent-ink:#231A14;
+  --danger:#FF6670;
+  --accent-rgb:242,112,59;
+  --positive-rgb:99,194,103;
+  --danger-rgb:255,102,112;
+  --ink-rgb:242,239,233;
+  --bg-rgb:20,19,16;
+  --entry-tint:rgba(242,112,59,.12);
+  --knob:#F7F5F1;
+  --scrim:rgba(0,0,0,.62);
+  /* Dark content showing through glass becomes visual noise around the nav
+     labels. Keep the material, but make it read as smoked glass, not a lens. */
+  --dock-glass:rgba(30,28,24,.92);
+  --dock-glass-opaque:rgba(24,22,19,.97);
+  --dock-edge:rgba(255,255,255,.10);
+  --dock-sheen:rgba(255,255,255,.04);
+  --dock-pill:rgba(255,255,255,.07);
+  --dock-pill-sheen:rgba(255,255,255,.05);
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+}
+
+/* ---------- the final page: one 8px rhythm, physical easing ---------- */
+:root{
+  --s1:8px;--s2:16px;--s3:24px;--s4:32px;--s5:40px;--s6:48px;--s8:64px;--s10:80px;
+  --out:cubic-bezier(.16,1,.3,1);          /* settle: a weight set down */
+  --spring:cubic-bezier(.34,1.26,.44,1);   /* a small overshoot, then rest */
+  --press:cubic-bezier(.3,0,.5,1);
+  /* Orange fields always carry ink: #141310 on #E04E14 is 4.66:1, on #F2703B 6.33:1. */
+  --field:var(--accent);--field-ink:#141310;--field-ink-rgb:20,19,16;
+  --rv:0px;--g:16px;--dockH:56px;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--rv) + var(--s2));background:#141310}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 var(--body);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;padding-top:var(--rv);overflow-x:hidden;caret-color:var(--accent)}
+::selection{background:rgba(var(--accent-rgb),.24);color:inherit}
+img{display:block;max-width:100%;height:auto}
+picture{display:block}
+a{color:inherit;text-underline-offset:4px;text-decoration-thickness:1px}
+button{font:inherit;color:inherit}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{text-wrap:pretty;margin:0}
+ol,ul{margin:0;padding:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 max(var(--g),env(safe-area-inset-left))}
+.ui{font-weight:600;color:var(--ink)}
+figure{margin:0}
+
+/* ---------- review chrome (not part of the page) ---------- */
+.rv{position:fixed;inset:0 0 auto 0;z-index:100;background:#1B1A17;color:#F4F2EF;padding:6px max(10px,env(safe-area-inset-left));padding-top:max(6px,env(safe-area-inset-top));font-size:12px;box-shadow:0 1px 0 rgba(255,255,255,.08)}
+.rv__in{max-width:720px;margin:0 auto}
+.rv__head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.rv__badge{font:600 12px/1 var(--mono);opacity:.78}
+.rv__collapse{appearance:none;border:0;background:transparent;color:inherit;opacity:.86;display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 6px;cursor:pointer;font:500 12px/1 var(--body);border-radius:9px}
+.rv__collapse i{flex:none;width:14px;height:14px;position:relative}
+.rv__collapse i::before,.rv__collapse i::after{content:"";position:absolute;left:1px;right:1px;top:6px;height:1.75px;background:currentColor;border-radius:2px;transition:transform .2s var(--out)}
+.rv__collapse i::after{transform:rotate(90deg)}
+.rv__collapse[aria-expanded="true"] i::after{transform:rotate(0)}
+.rv :focus-visible{outline-color:#F4F2EF}
+.rv--collapsed .rv__body{display:none}
+.rv__row{display:flex;align-items:center;gap:10px;min-height:44px}
+.rv__note{flex:1;margin:0;line-height:1.35;opacity:.86}
+.rv__note strong{font-weight:600;opacity:1}
+.rv__seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:rgba(244,242,239,.12)}
+.rv__seg button{appearance:none;border:0;background:transparent;color:inherit;opacity:.78;border-radius:9px;min-height:44px;min-width:44px;padding:0 6px;cursor:pointer;font:500 12px/1.1 var(--body)}
+.rv__seg button[aria-pressed="true"]{background:#F4F2EF;color:#1B1A17;opacity:1}
+.rv__links{display:flex;gap:4px 14px;flex-wrap:wrap}
+.rv__r1{display:inline-flex;align-items:center;min-height:44px;padding:0 2px;font-weight:600}
+.bare .rv{display:none}
+
+/* ---------- bands: every section is its own field of color ---------- */
+.band{padding:var(--s8) 0;background:var(--bg);color:var(--ink)}
+.band>.wrap>*+*{margin-top:var(--s3)}
+.h1{font:500 clamp(2.25rem,10vw,2.875rem)/1.02 var(--display);letter-spacing:-.035em}
+.h2{font:500 clamp(1.875rem,8.4vw,2.375rem)/1.06 var(--display);letter-spacing:-.03em}
+.sub{font-size:17px;line-height:1.5;color:var(--ink-soft)}
+.lbl{font:600 11px/1.3 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.seeing{font:500 14px/1.45 var(--body);color:var(--ink-soft)}
+
+/* the night: hero and proof are always dark, the way the phone is used */
+.night{--bg:#141310;--surface:#1E1C18;--ink:#F2EFE9;--ink-soft:#ADA79D;--ink-faint:#99938A;--rule:#2E2B26;--rule-strong:#4A453D;--accent:#F2703B;--accent-deep:#FF8A3D;--cta:#DED7CC;--cta-ink:#161513;--well:#191713;--accent-rgb:242,112,59;--ink-rgb:242,239,233;--bg-rgb:20,19,16;--knob:#F7F5F1;color-scheme:dark}
+.night.band{background:var(--bg);color:var(--ink)}
+
+.top{display:flex;align-items:center;justify-content:space-between;min-height:64px}
+.brand{display:flex;align-items:center;gap:10px;min-height:44px;text-decoration:none;font:650 18px/1 var(--display);letter-spacing:-.01em}
+.brand img{width:32px;height:32px;border-radius:8px;background:var(--knob);padding:2px}
+.pill{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--rule-strong);font-weight:600;font-size:14px;text-decoration:none;transition:transform .14s var(--press),border-color .2s var(--out),background-color .2s var(--out)}
+.pill:active{transform:scale(.96)}
+@media (hover:hover){.pill:hover{border-color:var(--ink-faint)}}
+.cta{display:flex;align-items:center;justify-content:center;position:relative;width:100%;min-height:56px;padding:0 56px;border:0;border-radius:14px;background:var(--cta);color:var(--cta-ink);font:600 17px/1.2 var(--body);text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s var(--press),background-color .3s var(--out),color .3s var(--out),box-shadow .3s var(--out)}
+.cta::after{content:"";position:absolute;right:20px;top:50%;width:22px;height:22px;margin-top:-11px;background:var(--accent);-webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;transition:transform .3s var(--out)}
+.cta:active{transform:translateY(1px) scale(.985)}
+.cta:active::after{transform:translateX(3px)}
+@media (hover:hover){.cta:hover::after{transform:translateX(3px)}}
+.track{display:inline-flex;align-items:center;min-height:44px;font-weight:600;font-size:15px;text-decoration:underline;text-decoration-color:var(--rule-strong);transition:text-decoration-color .2s var(--out)}
+@media (hover:hover){.track:hover{text-decoration-color:currentColor}}
+.meta{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 0;list-style:none;font:500 13px/1.3 var(--body);color:var(--ink-soft)}
+.meta li+li::before{content:"·";margin:0 var(--s1);color:var(--ink-faint)}
+.actions{display:grid;gap:var(--s1)}
+.actions .track{justify-self:center}
+
+.hero{padding:0 0 var(--s8)}
+.hero .h1{margin-top:var(--s4)}
+.hero .sub{margin-top:var(--s2)}
+.hero .actions{margin-top:var(--s4)}
+.hero .meta{margin-top:0}
+
+/* ---------- the proof: a lens reads the real screen ---------- */
+.proof{--bg:#1A1815;padding-bottom:0}
+.wt{position:relative;margin-top:var(--s2)}
+.wt__stage{position:sticky;top:var(--rv);height:calc(100svh - var(--rv));display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:var(--s1);padding:var(--s2) 0 calc(var(--dockH) + 26px + env(safe-area-inset-bottom))}
+.phone{position:relative;min-height:0;display:flex;justify-content:center}
+.phone__glass{position:relative;height:100%;aspect-ratio:780/1688;max-width:100%;border-radius:clamp(26px,9.5%,40px)/clamp(26px,4.4%,40px);overflow:hidden;isolation:isolate;background:#0B0A09;
+  box-shadow:0 0 0 1px #3A362F,0 0 0 7px #0B0A09,0 0 0 8px #2B2824,0 30px 60px -24px rgba(0,0,0,.8)}
+.phone__screen{position:absolute;inset:0;transition:filter .6s var(--out)}
+.phone__screen picture{position:absolute;inset:0;opacity:0;transition:opacity .5s var(--out)}
+.phone__screen picture.on{opacity:1}
+.phone__screen img{width:100%;height:100%;object-fit:cover}
+.phone.reading .phone__screen{filter:brightness(.4) saturate(.7)}
+/* The lens: an exact crop of what it reads, magnified, sized to that element. */
+.lens{position:absolute;left:0;top:0;width:var(--LW,0px);height:var(--LH,0px);margin:calc(var(--LH,0px) / -2) 0 0 calc(var(--LW,0px) / -2);border-radius:var(--LR,16px);z-index:2;pointer-events:none;opacity:0;transform:scale(.94);
+  background-color:#0B0A09;background-repeat:no-repeat;
+  box-shadow:0 0 0 1px rgba(242,239,233,.72),0 0 0 5px rgba(20,19,16,.55),0 28px 56px -16px rgba(0,0,0,.85),0 10px 20px -10px rgba(0,0,0,.6);
+  transition:left .75s var(--spring),top .75s var(--spring),width .75s var(--spring),height .75s var(--spring),margin .75s var(--spring),border-radius .75s var(--spring),background-position .75s var(--spring),background-size .75s var(--spring),opacity .35s var(--out),transform .5s var(--spring)}
+.lens::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 38%);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+.lens.on{opacity:1;transform:none}
+.caps{display:grid;align-items:start;min-height:0}
+.cap{grid-area:1/1;opacity:0;transform:translateY(6px);transition:opacity .28s var(--out),transform .5s var(--out);pointer-events:none}
+.cap.on{opacity:1;transform:none;pointer-events:auto;transition-delay:.08s}
+.cap h3{font:600 18px/1.3 var(--body);letter-spacing:-.005em}
+.cap p{margin-top:6px;font-size:16px;line-height:1.5;color:var(--ink-soft)}
+.cap p b{color:var(--ink);font-weight:600}
+.result{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 10px;margin-top:6px}
+.result__v{font:500 26px/1.15 var(--mono);letter-spacing:-.02em;color:var(--accent-deep);white-space:nowrap}
+.result__s{font:500 14px/1.3 var(--mono);color:var(--ink-soft);white-space:nowrap}
+/* the rail: seven detents you can also tap */
+.rail{display:flex;margin:0 -4px}
+.rail button{appearance:none;flex:1;min-width:0;height:44px;padding:0 4px;border:0;background:none;cursor:pointer;display:flex;align-items:center;-webkit-tap-highlight-color:transparent}
+.rail i{display:block;width:100%;height:3px;border-radius:2px;background:var(--rule-strong);transition:background-color .35s var(--out),transform .35s var(--out)}
+.rail button.done i{background:rgba(var(--accent-rgb),.45)}
+.rail button[aria-current="step"] i{background:var(--accent);transform:scaleY(1.34)}
+@media (hover:hover){.rail button:hover i{background:var(--ink-faint)}.rail button[aria-current="step"]:hover i{background:var(--accent)}}
+.rail button:focus-visible{outline-offset:-2px}
+
+/* ---------- start: three full-bleed stripes ---------- */
+.start{padding-bottom:0}
+.ways{list-style:none;margin:var(--s4) calc(-1 * max(var(--g),env(safe-area-inset-left))) 0}
+.ways>li{padding:var(--s5) max(var(--g),env(safe-area-inset-left)) var(--s5)}
+.ways h3{font:600 22px/1.25 var(--display);letter-spacing:-.015em}
+.ways p{margin-top:var(--s1);font-size:16px;line-height:1.5}
+.ways .w1{background:var(--field);color:var(--field-ink)}
+.ways .w2{background:var(--surface);color:var(--ink)}
+.ways .w2 p{color:var(--ink-soft)}
+.ways .w3{background:var(--ink);color:var(--bg);--rule:rgba(var(--bg-rgb),.22);--rule-strong:rgba(var(--bg-rgb),.4)}
+.ways .w3>p{color:rgba(var(--bg-rgb),.78)}
+.ways .w1 :focus-visible{outline-color:var(--field-ink)}
+.ways .w3 :focus-visible{outline-color:var(--bg)}
+.disc{appearance:none;display:flex;align-items:center;justify-content:space-between;gap:var(--s2);width:100%;min-height:48px;margin-top:var(--s2);padding:0 0 0 0;border:0;border-top:1px solid rgba(var(--bg-rgb),.22);background:none;font-weight:600;font-size:15px;text-align:left;cursor:pointer;padding-top:var(--s1)}
+.disc i,details.faq summary i{flex:none;width:20px;height:20px;position:relative}
+.disc i::before,.disc i::after,details.faq summary i::before,details.faq summary i::after{content:"";position:absolute;left:3px;right:3px;top:9px;height:1.75px;background:currentColor;border-radius:2px;transition:transform .3s var(--out)}
+.disc i::after,details.faq summary i::after{transform:rotate(90deg)}
+.disc[aria-expanded="true"] i::after,details.faq[open] summary i::after{transform:rotate(0)}
+/* the paste hand-off, opened inside the ink stripe */
+.hand{display:grid;gap:var(--s2);padding:var(--s2) 0 0}
+.msg{background:#FFFFFF;color:#1B1A17;border-radius:18px 18px 18px 6px;padding:12px 14px;max-width:92%;font-size:14.5px}
+.msg__who{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#716D66;margin-bottom:6px}
+.msg__who b{color:#1B1A17;font-weight:600}
+.msg pre{margin:0;font:400 14.5px/1.5 var(--body);white-space:pre-wrap}
+.hand p{font-size:15px;color:rgba(var(--bg-rgb),.86)}
+.hand .seeing{color:rgba(var(--bg-rgb),.72)}
+.hand .ui{color:var(--bg)}
+.hand .note{display:flex;gap:10px;font-size:14px}
+.hand .note svg{width:18px;height:18px;flex:none;margin-top:2px}
+.bandimg{display:block;margin:0 auto;max-width:420px;border-radius:14px;overflow:hidden}
+
+/* ---------- track: what the next target does with each session ---------- */
+.outs{list-style:none}
+.outs>li{padding:var(--s3) 0;border-top:1px solid var(--rule)}
+.outs>li:last-child{border-bottom:1px solid var(--rule)}
+.oc{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s2)}
+.oc__v{display:flex;align-items:center;gap:8px;font:600 17px/1.3 var(--body)}
+.oc__v svg{width:18px;height:18px;flex:none;color:var(--accent-deep);align-self:center}
+.oc__n{font:500 17px/1.3 var(--mono);white-space:nowrap}
+.oc__ex{margin-top:2px;font-size:14px;color:var(--ink-faint)}
+.outs p{margin-top:var(--s1);font-size:15.5px;color:var(--ink-soft)}
+.chart{margin-top:var(--s5)}
+.chart__img{margin:0 auto;width:min(72%,280px)}
+.chart figcaption{margin-top:var(--s2);font-size:15px;color:var(--ink-soft)}
+.tip{display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--ink)}
+.tip::before{content:"";flex:none;width:16px;height:16px;margin-top:3px;background:var(--accent);-webkit-mask:var(--bolt) no-repeat center/contain;mask:var(--bolt) no-repeat center/contain}
+
+/* ---------- data: an ink band ---------- */
+.data{background:var(--ink);color:var(--bg);--rule:rgba(var(--bg-rgb),.2)}
+.data :focus-visible{outline-color:var(--bg)}
+.rows{list-style:none}
+.rows>li{padding:var(--s3) 0;border-top:1px solid var(--rule)}
+.rows>li:last-child{border-bottom:1px solid var(--rule)}
+.rows h3{font:600 18px/1.3 var(--body)}
+.rows p{margin-top:var(--s1);font-size:15.5px;color:rgba(var(--bg-rgb),.76)}
+.data .seeing{color:rgba(var(--bg-rgb),.76)}
+.data .seeing .ui{color:var(--bg)}
+
+/* ---------- questions ---------- */
+.faqs{background:var(--well)}
+details.faq{border-top:1px solid var(--rule)}
+details.faq:last-of-type{border-bottom:1px solid var(--rule)}
+details.faq summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:var(--s2);min-height:56px;padding:var(--s1) 0;font-weight:600;font-size:17px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+details.faq summary::-webkit-details-marker{display:none}
+details.faq .ans{padding:0 0 var(--s3);color:var(--ink-soft)}
+details.faq .ans>*+*{margin-top:var(--s1)}
+details.faq ol{padding-left:20px}
+details.faq b{color:var(--ink);font-weight:600}
+.share{margin:var(--s2) 0;background:var(--surface);border:1px solid var(--rule);border-radius:14px;overflow:hidden;color:var(--ink)}
+.share__row{display:flex;gap:12px;align-items:center;padding:14px;font-weight:600}
+.share__row svg{width:22px;height:22px;flex:none}
+.share__cols{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--rule)}
+.share__cols div{padding:12px 14px}
+.share__cols div+div{border-left:1px solid var(--rule)}
+.share__cols ul{margin-top:6px;list-style:none;font-size:14px}
+
+/* ---------- close: the orange field ---------- */
+.close{background:var(--field);color:var(--field-ink)}
+.close .h2{font-size:clamp(2.25rem,10vw,2.875rem);line-height:1.02}
+.close .sub{color:var(--field-ink)}
+.close .cta{background:#141310;color:#F4F2EF}
+.close .cta::after{background:#F2703B}
+.close .track{text-decoration-color:rgba(var(--field-ink-rgb),.5)}
+.close :focus-visible{outline-color:var(--field-ink)}
+.close .actions{margin-top:var(--s4)}
+.foot{background:var(--bg)}
+.foot .wrap{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:var(--s3);color:var(--ink-faint);font-size:13px}
+.foot nav{display:flex;gap:var(--s2)}
+.foot a{min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;text-decoration:none}
+
+/* ---------- the persistent CTA: one floating button, inked against the band beneath it ---------- */
+.dock{position:fixed;left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));bottom:calc(14px + env(safe-area-inset-bottom));z-index:50;max-width:528px;margin:0 auto;transform:translateY(calc(100% + 28px));visibility:hidden;transition:transform .45s var(--out),visibility 0s .45s}
+.dock.on{transform:none;visibility:visible;transition:transform .45s var(--out),visibility 0s}
+.dock .cta{box-shadow:0 14px 34px -10px rgba(0,0,0,.5),0 4px 10px -4px rgba(0,0,0,.35)}
+.dock.over-dark .cta{background:#DED7CC;color:#161513}
+.dock.over-light .cta{background:#161513;color:#FFFFFF}
+.dock.over-dark .cta::after{background:#C4460F}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;transition-delay:0s!important;animation:none!important;scroll-behavior:auto!important}
+}
+</style>
+</head>
+<body>
+
+<div class="rv" id="rv" role="region" aria-label="Review bar">
+  <div class="rv__in">
+    <div class="rv__head">
+      <span class="rv__badge" id="rvBadge" aria-hidden="true"></span>
+      <button type="button" class="rv__collapse" id="rvCollapse" aria-expanded="true" aria-controls="rvBody">
+        <span id="rvCollapseLabel"></span><i aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="rv__body" id="rvBody">
+      <div class="rv__row">
+        <p class="rv__note" id="note"></p>
+        <div class="rv__seg" role="group" aria-label="Language" id="langs">
+          <button type="button" data-lang="pt" aria-pressed="true">PT</button>
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+      <div class="rv__links">
+        <a class="rv__r1" id="rS" href="../round-3/#S-pt">S, rodada 3</a>
+        <a class="rv__r1" id="rB" href="../round-5/#B-pt">B, rodada 5</a>
+        <a class="rv__r1" id="rC" href="../round-5/#C-pt">C, rodada 5</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main id="stage" tabindex="-1"></main>
+
+<script>
+(function(){
+"use strict";
+/* Every CTA points at the app's first-run screen, which offers
+   "Montar meu programa" and "Acompanhar meu programa atual". */
+var APP = "https://pedrochagasmaster.github.io/repforge/";
+var ROOT = "../../../../";
+var lang = "pt";
+var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function L(pt, en){ return lang === "pt" ? pt : en; }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+var NF = {};
+function n(x){ var loc = lang === "pt" ? "pt-BR" : "en"; if (!NF[loc]) NF[loc] = new Intl.NumberFormat(loc, { maximumFractionDigits: 1 }); return NF[loc].format(x); }
+function kg(x){ return n(x) + " kg"; }
+function list(xs){ return xs.slice(0, -1).map(n).join(", ") + L(" e ", " and ") + n(xs[xs.length - 1]); }
+
+/* ---------- app strings, copied verbatim from i18n-pt.json / i18n-en.json ---------- */
+var K = {
+  "landing.track": ["Acompanhar meu programa atual", "Track my current program"],
+  "today.log_set": ["Registrar série", "Log set"],
+  "ex.actions.substitute": ["Substituir exercício", "Substitute exercise"],
+  "rec.add.label": ["Aumentar carga", "Add load"],
+  "rec.add.text": ["Você chegou ao máximo de repetições da sua meta. Aumente o peso.", "You reached the most reps in your target. Add weight."],
+  "rec.hold_add_reps.label": ["Manter · somar reps", "Hold · add reps"],
+  "rec.hold_add_reps.text": ["Mantenha o peso e busque mais repetições, dentro do RIR da sua meta.", "Keep the weight and aim for more reps, within your target RIR."],
+  "rec.reduce.label": ["Reduzir", "Back off"],
+  "rec.reduce.text": ["Na maioria das séries você fez menos de {min} repetições, o mínimo da sua meta. Reduza o peso até conseguir pelo menos {min} em cada série.", "On most sets you did fewer than {min} reps, the minimum of your target. Lower the weight until you can do at least {min} on every set."],
+  "entry.hub.title": ["Criar um programa", "Create a program"],
+  "entry.hub.group.own": ["Traga ou monte o seu", "Bring or build your own"],
+  "entry.hub.own.title": ["Usar meu próprio programa", "Use my own program"],
+  "entry.hub.freeform.title": ["Colar de qualquer lugar", "Paste from anywhere"],
+  "entry.freeform.privacy": ["O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina.", "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."],
+  "program.share_setup": ["Compartilhar link de configuração", "Share setup link"],
+  "install.ios.step1": ["Toque em ••• à direita da barra de endereço e escolha <b>Compartilhar</b>.", "Tap ••• at the right of the address bar, then choose <b>Share</b>."],
+  "install.ios.step2": ["No menu de compartilhamento, toque em <b>Ver Mais</b>, no fim da linha de ações.", "In the share sheet, tap <b>View More</b> at the end of the actions row."],
+  "install.ios.step3": ["Escolha <b>Adicionar à Tela de Início</b>.", "Choose <b>Add to Home Screen</b>."],
+  "install.ios.step4": ["Deixe <b>Abrir como Web App</b> ativado e toque em <b>Adicionar</b>.", "Leave <b>Open as Web App</b> on and tap <b>Add</b>."],
+  "install.browser_instructions": ["Abra o menu do navegador e escolha <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.", "Open your browser menu and choose <b>Install app</b> or <b>Add to Home Screen</b>."],
+  "nav.settings": ["Ajustes", "Settings"],
+  "privacy.open": ["Detalhes de privacidade", "Privacy details"],
+  "settings.analytics.title": ["Ajude a melhorar o Taurifer", "Help improve Taurifer"]
+};
+/* Page wording that runs ahead of the app: "treino" where the app still says
+   "programa" (issue #274). `from` is the catalog value each one replaces, so
+   verify.mjs notices if the app moves first. */
+var P = {
+  "landing.build": { pt: "Montar meu treino", en: "Build my program", from: ["Montar meu programa", "Build my program"] },
+  "landing.track": { pt: "Acompanhar meu treino atual", en: "Track my current program", from: ["Acompanhar meu programa atual", "Track my current program"] },
+  "entry.hub.group.written": { pt: "O Taurifer monta seu treino", en: "Taurifer builds your program", from: ["O Taurifer monta o programa", "Taurifer builds the program"] },
+  "entry.hub.group.browse": { pt: "Escolha um treino pronto", en: "Choose a ready-made program", from: ["Escolha um programa pronto", "Choose a ready-made program"] }
+};
+/* entry.freeform.privacy ships in European Portuguese in i18n-pt.json; the page
+   renders the same claim in PT-BR and checks the catalog value as its source. */
+var FREEFORM_PRIVACY_PT_BR = "O texto que você cola fica nesta aba só durante esta importação. Ele nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina.";
+function k(key, vars){
+  var s = K[key][lang === "pt" ? 0 : 1];
+  if (vars) Object.keys(vars).forEach(function(v){ s = s.split("{" + v + "}").join(vars[v]); });
+  return s;
+}
+function p(key){ return P[key][lang]; }
+function ui(key){ return '<b class="ui">' + k(key) + '</b>'; }
+/* Exercise names, exactly as exercises.js has them (namePt / name). */
+var EX = { bench: ["Supino com barra", "Barbell bench press"], squat: ["Agachamento livre com barra", "Barbell back squat"] };
+function ex(id){ return EX[id][lang === "pt" ? 0 : 1]; }
+
+/* ---------- engine output and captured screens, generated beside this file ---------- */
+/* node final/engine-cases.mjs --write */
+/*@CASES*/var CASES = {"add":{"ex":"bench","sets":3,"repMin":8,"repMax":10,"logged":[[60,10,2],[60,10,2],[60,10,2]],"status":"advance","reason":"range.performed_top","load":62.5,"reps":8},"hold":{"ex":"squat","sets":3,"repMin":5,"repMax":8,"logged":[[100,8,1],[100,7,0],[100,6,0]],"status":"hold","reason":"range.room_in_range","load":100,"reps":8},"reduce":{"ex":"bench","sets":3,"repMin":8,"repMax":10,"logged":[[70,7,0],[70,6,0],[70,6,0]],"status":"reduce","reason":"range.below_floor","load":67.5,"reps":8}};/*@end*/
+/* node final/render/capture.mjs (from test/) */
+/*@SHOTS*/var SHOTS = {"size":[780,1688],"spots":{"focus":{"pt":{"cue":[50,67.07,81.03,2.25],"cueText":[59.69,67.07,54.09,2.24],"log":[50,89.57,81.03,6.4],"last":[56.46,57.76,68.1,9.12],"note":[58.21,42.51,11.28,5.21],"actions":[71.54,42.51,11.28,5.21]},"en":{"cue":[50,67.07,81.03,2.25],"cueText":[54.48,67.07,51.55,2.24],"log":[50,89.57,81.03,6.4],"last":[56.46,57.76,68.1,9.12],"note":[58.21,42.51,11.28,5.21],"actions":[71.54,42.51,11.28,5.21]}},"rest":{"pt":{"dial":[50,59.12,53.85,24.88]},"en":{"dial":[50,59.12,53.85,24.88]}},"actions":{"pt":{"swap":[50,65.86,91.79,5.57]},"en":{"swap":[50,65.86,91.79,5.57]}},"note":{"pt":{"text":[50,38.18,91.79,3.02]},"en":{"text":[50,38.18,91.79,3.02]}}}};/*@end*/
+var ASSETS = {"paste-review":{"pt":[720,644],"en":[720,612]}};
+
+/* ---------- registry: everything the page starts, cleared on re-render ---------- */
+var REG;
+function resetReg(){ REG = { timers: new Set(), frames: new Set(), obs: [], offs: [] }; }
+resetReg();
+function later(fn, ms){ var id = setTimeout(function(){ REG.timers.delete(id); fn(); }, ms); REG.timers.add(id); return id; }
+function watch(io){ REG.obs.push(io); return io; }
+function on(t, ev, fn, o){ t.addEventListener(ev, fn, o); REG.offs.push(function(){ t.removeEventListener(ev, fn, o); }); }
+function clearAll(){
+  REG.timers.forEach(clearTimeout); REG.frames.forEach(cancelAnimationFrame);
+  REG.obs.forEach(function(o){ o.disconnect(); }); REG.offs.forEach(function(f){ f(); });
+  resetReg(); ticks = [];
+}
+window.__final = { live: function(){ return { timers: REG.timers.size, frames: REG.frames.size, observers: REG.obs.length, listeners: REG.offs.length }; } };
+var ticks = [];
+function onScroll(fn){ ticks.push(fn); }
+function startScroll(){
+  var pending = false;
+  function run(){ pending = false; ticks.forEach(function(f){ f(); }); }
+  function req(){ if (pending) return; pending = true; var id = requestAnimationFrame(function(){ REG.frames.delete(id); run(); }); REG.frames.add(id); }
+  on(window, "scroll", req, { passive: true }); on(window, "resize", req); run();
+}
+function rvH(){ return parseInt(getComputedStyle(document.documentElement).getPropertyValue("--rv"), 10) || 0; }
+function clamp(x, a, b){ return x < a ? a : x > b ? b : x; }
+
+/* ---------- icons ---------- */
+var I = {
+  add: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  hold: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>',
+  reduce: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>',
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7.3l3-3a4 4 0 0 0-5.7-5.6l-1.2 1.1"/><path d="M14 10a4 4 0 0 0-5.7-.3l-3 3a4 4 0 0 0 5.7 5.6l1.2-1.1"/></svg>'
+};
+
+/* ---------- shared pieces ---------- */
+function top(){ return '<header class="top"><a class="brand" href="' + APP + '"><img src="' + ROOT + 'assets/brand/mark.png" alt="" width="32" height="32">Taurifer</a><a class="pill" href="' + APP + '">' + L("Abrir o app", "Open the app") + '</a></header>'; }
+function cta(id){ return '<a class="cta" id="' + id + '" href="' + APP + '">' + p("landing.build") + '</a>'; }
+function track(){ return '<a class="track" href="' + APP + '">' + p("landing.track") + '</a>'; }
+function meta(){ return '<ul class="meta" aria-label="' + L("Sem riscos", "No risk") + '"><li>' + L("Sem conta", "No account") + '</li><li>' + L("Funciona sem internet", "Works offline") + '</li><li>' + L("Gratuito", "Free") + '</li></ul>'; }
+
+function hero(){
+  return '<section class="band night hero" aria-labelledby="h1"><div class="wrap">' + top() +
+    '<h1 class="h1" id="h1">' + L("Chegue na academia sabendo exatamente o que fazer.", "Walk into the gym knowing exactly what to do.") + '</h1>' +
+    '<p class="sub">' + L("Você registra cada série em segundos. O Taurifer olha o que você fez e diz o peso e as repetições da próxima vez, com o motivo explicado. Uma planilha só guarda números; o Taurifer diz o que fazer com eles.", "You log each set in seconds. Taurifer looks at what you did and tells you the weight and reps for next time, with the reason spelled out. A spreadsheet only stores numbers; Taurifer tells you what to do with them.") + '</p>' +
+    '<div class="actions">' + cta("heroCta") + track() + meta() + '</div>' +
+  '</div></section>';
+}
+
+/* ---------- the proof ---------- */
+/* Seven steps over real screens from one bench session (final/render). `read`
+   names the measured element the lens reads; the last step reads two in turn:
+   what you did, then what comes next. */
+function steps(){
+  var c = CASES.add, reps = c.logged[0][1], load0 = c.logged[0][0];
+  return [
+    { scene: "focus", read: null, h: L("Uma tela por exercício.", "One screen per exercise."), t: L("Tudo o que você precisa entre uma série e outra fica aqui. RIR (repetições em reserva: quantas você ainda conseguiria fazer) aparece ao lado das repetições.", "Everything you need between sets lives here. RIR (reps in reserve: how many more you could still do) sits next to the reps.") },
+    { scene: "focus", read: ["cueText"], h: L("Já vem preenchido.", "Already filled in."), t: L("A meta de hoje aparece em Agora, e o peso e as repetições já vêm preenchidos logo abaixo.", "Today's target shows under Now, and the weight and reps are already filled in below it.") },
+    { scene: "focus", read: ["log"], h: L("Fez? Toque em " + k("today.log_set") + ".", "Done? Tap " + k("today.log_set") + "."), t: L("Um toque, e o descanso começa a contar.", "One tap, and your rest starts counting.") },
+    { scene: "rest", read: ["dial"], h: L("Descanso.", "Rest."), t: L("O timer conta o intervalo e avisa quando acabar.", "The timer counts your rest and tells you when it's up.") },
+    { scene: "actions", read: ["swap"], h: L("Troca.", "Swap."), t: L("Equipamento ocupado? Nas ações do exercício, toque em " + ui("ex.actions.substitute") + ". O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado.", "Equipment taken? In the exercise actions, tap " + ui("ex.actions.substitute") + ". Taurifer records the one you actually did instead of the planned one.") },
+    { scene: "note", read: ["text"], h: L("Notas.", "Notes."), t: L("Anote altura do banco, pegada, ajuste. Você registra uma vez e a nota aparece sempre que for fazer esse exercício.", "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise.") },
+    { scene: "focus", read: ["last", "cueText"], last: true, h: L("Próxima sessão", "Next session"),
+      result: [kg(c.load) + " × " + n(c.reps), n(c.sets) + " " + L("séries", "sets")],
+      t: L("Você fez " + n(reps) + " repetições com " + kg(load0) + " nas três séries, o máximo da sua meta (" + n(c.repMin) + " a " + n(c.repMax) + "). Por isso o peso sobe: na próxima sessão, use " + kg(c.load) + " e busque " + n(c.reps) + " repetições por série. É o que aparece em Agora.", "You did " + n(reps) + " reps at " + kg(load0) + " on all three sets, the most your target allows (" + n(c.repMin) + " to " + n(c.repMax) + "). So the weight goes up: next session, use " + kg(c.load) + " and aim for " + n(c.reps) + " reps per set. That's what Now shows.") }
+  ];
+}
+/* How the lens reads each measured element: magnification, shape, padding and,
+   for a button read edge to edge, the app's corner radius (styles.css --radius). */
+var READ = {
+  cueText: { scene: "focus", m: 1.95, shape: "pill", pad: 10 },
+  log: { scene: "focus", m: 1.5, shape: "rect", pad: 0, r: 14 },
+  dial: { scene: "rest", m: 1.3, shape: "round", pad: 6 },
+  swap: { scene: "actions", m: 1.5, shape: "rect", pad: 0, r: 14 },
+  text: { scene: "note", m: 1.4, shape: "pill", pad: 8 },
+  last: { scene: "focus", m: 1.55, shape: "rect", pad: 10 }
+};
+var SCENES = ["focus", "rest", "actions", "note"];
+function sceneAlt(sc){
+  var c = CASES.add;
+  return {
+    focus: L("A tela de treino do Taurifer: " + ex("bench") + ", série 1 de 3, alvo de " + n(c.repMin) + " a " + n(c.repMax) + " reps. Última sessão " + kg(c.logged[0][0]) + " para " + n(c.logged[0][1]) + " reps com RIR " + n(c.logged[0][2]) + ". A linha Agora diz Subir para " + kg(c.load) + ", buscar " + n(c.reps) + " reps, acima do botão Registrar série.", "Taurifer's workout screen: " + ex("bench") + ", set 1 of 3, target " + n(c.repMin) + " to " + n(c.repMax) + " reps. Last session " + kg(c.logged[0][0]) + " for " + n(c.logged[0][1]) + " reps at RIR " + n(c.logged[0][2]) + ". The Now line says Go up to " + kg(c.load) + ", aim for " + n(c.reps) + " reps, above the Log set button."),
+    rest: L("O timer de descanso do app, aberto depois de registrar a série.", "The app's rest timer, open after logging the set."),
+    actions: L("As ações do exercício no app, com o botão Substituir exercício.", "The exercise actions in the app, with the Substitute exercise button."),
+    note: L("A nota do exercício no app, com a altura do banco e a pegada anotadas.", "The exercise note in the app, with bench height and grip written down.")
+  }[sc];
+}
+function screens(){
+  /* The proof sits on the night field in both themes, so it shows the dark screens. */
+  return SCENES.map(function(sc, i){
+    return '<picture data-scene="' + sc + '"' + (i ? "" : ' class="on"') + '><img src="assets/wt-' + sc + "-" + lang + '-dark.webp" width="780" height="1688" alt="' + esc(sceneAlt(sc)) + '"' + (i ? ' loading="lazy"' : "") + ' decoding="async"></picture>';
+  }).join("");
+}
+function capHtml(s, i){
+  return '<h3>' + s.h + '</h3>' +
+    (s.result ? '<p class="result"><span class="result__v">' + s.result[0] + '</span><span class="result__s">' + s.result[1] + '</span></p>' : "") +
+    '<p>' + s.t + '</p>';
+}
+function proof(){
+  var st = steps();
+  return '<section class="band night proof" aria-labelledby="demoH"><div class="wrap">' +
+    '<h2 class="h2" id="demoH">' + L("Veja na prática.", "See it in practice.") + '</h2>' +
+    '<p class="sub">' + L("Esta é a tela de treino do app, no meio de uma sessão de supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz.", "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does.") + '</p>' +
+    '<div class="wt" id="wt" style="height:' + (st.length * 64 + 100) + 'svh"><div class="wt__stage">' +
+      '<div class="phone" id="wtPhone" data-step="0"><div class="phone__glass" id="wtGlass"><div class="phone__screen" id="wtScreen">' + screens() + '</div></div><span class="lens" id="wtLens" aria-hidden="true"></span></div>' +
+      '<nav class="rail" aria-label="' + L("Passos", "Steps") + '">' + st.map(function(s, i){ return '<button type="button" data-go="' + i + '" aria-label="' + L("Passo ", "Step ") + n(i + 1) + L(" de ", " of ") + n(st.length) + '"' + (i ? "" : ' aria-current="step"') + '><i></i></button>'; }).join("") + '</nav>' +
+      '<div class="caps">' + st.map(function(s, i){ return '<div class="cap' + (i ? "" : " on") + '" aria-hidden="' + (i ? "true" : "false") + '">' + capHtml(s, i) + '</div>'; }).join("") + '</div>' +
+    '</div></div></div></section>';
+}
+/* Place the lens over one measured element: an exact crop of it, magnified,
+   centred on the element and kept inside the column. */
+function lensTo(root, name){
+  var phone = root.querySelector("#wtPhone"), glass = root.querySelector("#wtGlass"), lens = root.querySelector("#wtLens");
+  var r = READ[name], sp = SHOTS.spots[r.scene][lang][name];
+  var PW = phone.clientWidth, GW = glass.clientWidth, GH = glass.clientHeight, gx = glass.offsetLeft, gy = glass.offsetTop;
+  var tw = sp[2] / 100 * GW, th = sp[3] / 100 * GH;
+  var M = Math.min(r.m, (PW - 16 - 2 * r.pad) / tw);
+  var LW = tw * M + 2 * r.pad, LH = th * M + 2 * r.pad;
+  if (r.shape === "round") LW = LH = Math.max(LW, LH);
+  var cx = clamp(gx + sp[0] / 100 * GW, LW / 2 + 8, PW - LW / 2 - 8), cy = gy + sp[1] / 100 * GH;
+  lens.style.setProperty("--LW", LW + "px"); lens.style.setProperty("--LH", LH + "px");
+  /* a button is read edge to edge, so the lens takes the app's own corner, magnified */
+  lens.style.setProperty("--LR", r.shape === "round" ? "50%" : r.shape === "pill" ? Math.min(LH / 2, 22) + "px" : (r.r ? r.r * GW / 390 * M : 14) + "px");
+  lens.style.left = cx + "px"; lens.style.top = cy + "px";
+  var img = root.querySelector('#wtScreen picture[data-scene="' + r.scene + '"] img');
+  lens.style.backgroundImage = "url(" + (img.currentSrc || img.src) + ")";
+  lens.style.backgroundSize = (GW * M) + "px " + (GH * M) + "px";
+  lens.style.backgroundPosition = (LW / 2 - sp[0] / 100 * GW * M) + "px " + (LH / 2 - sp[1] / 100 * GH * M) + "px";
+  lens.dataset.read = name;
+  lens.classList.add("on");
+}
+var seqTimer = null;
+function frameStep(root, i){
+  var st = steps()[i], phone = root.querySelector("#wtPhone"), lens = root.querySelector("#wtLens");
+  root.querySelectorAll("#wtScreen picture").forEach(function(pc){ pc.classList.toggle("on", pc.dataset.scene === st.scene); });
+  phone.setAttribute("data-step", i);
+  if (seqTimer){ clearTimeout(seqTimer); REG.timers.delete(seqTimer); seqTimer = null; }
+  phone.classList.toggle("reading", !!st.read);
+  if (!st.read){ lens.classList.remove("on"); lens.dataset.read = ""; return; }
+  /* two readings in turn; with reduced motion the lens goes straight to the result */
+  if (st.read.length > 1 && !reduce){
+    lensTo(root, st.read[0]);
+    seqTimer = later(function(){ seqTimer = null; lensTo(root, st.read[1]); }, 1500);
+  } else lensTo(root, st.read[st.read.length - 1]);
+}
+function initProof(root){
+  var wt = root.querySelector("#wt"), count = steps().length, cur = -1;
+  var caps = [].slice.call(root.querySelectorAll(".cap")), rail = [].slice.call(root.querySelectorAll(".rail button"));
+  function set(i){
+    if (i === cur) return; cur = i;
+    caps.forEach(function(c, j){ c.classList.toggle("on", j === i); c.setAttribute("aria-hidden", j === i ? "false" : "true"); });
+    rail.forEach(function(b, j){ b.classList.toggle("done", j < i); if (j === i) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current"); });
+    frameStep(root, i);
+  }
+  function span(){ var vh = innerHeight - rvH(); return wt.offsetHeight - vh; }
+  onScroll(function(){
+    var r = wt.getBoundingClientRect(), s = span(); if (s <= 0) return;
+    var prog = clamp((rvH() - r.top) / s, 0, 1);
+    set(Math.min(count - 1, Math.floor(prog * count * .999 + .0001)));
+  });
+  /* a detent on the rail scrolls to the middle of its step */
+  rail.forEach(function(b, j){ on(b, "click", function(){
+    var y = wt.getBoundingClientRect().top + scrollY - rvH() + span() * (j + .5) / count;
+    scrollTo({ top: y, behavior: reduce ? "auto" : "smooth" });
+  }); });
+  on(window, "resize", function(){ var c = cur; cur = -1; set(c < 0 ? 0 : c); });
+  root.querySelectorAll("#wtScreen img").forEach(function(im){ on(im, "load", function(){ var c = cur; cur = -1; set(c < 0 ? 0 : c); }); });
+  set(0);
+}
+
+/* ---------- start ---------- */
+function routes(){
+  return [
+    [p("entry.hub.group.written"), L("Responda algumas perguntas ou escolha os músculos que quer priorizar. O Taurifer monta um treino de seis semanas para os dias em que você pode treinar.", "Answer a few questions or pick the muscles you want to prioritise. Taurifer builds a six-week program around the days you can train.")],
+    [p("entry.hub.group.browse"), L("Treinos Taurifer completos, organizados por objetivo e por quantos dias você treina na semana.", "Complete Taurifer programs, sorted by goal and by how many days a week you train.")],
+    [k("entry.hub.group.own"), L("Comece com dias vazios, cole seu treino atual ou importe um arquivo do Taurifer.", "Start with empty days, paste your current program, or import a Taurifer file.")]
+  ];
+}
+function whereToPaste(){
+  return L('Na primeira tela do app, toque em ' + ui("landing.track") + ' e a tela de colar abre. No app, seu treino ainda aparece como <span class="ui">programa</span>. A mesma tela também fica em ' + ui("entry.hub.title") + ', dentro de ' + ui("entry.hub.own.title") + ', como ' + ui("entry.hub.freeform.title") + '.',
+    'On the app\'s first screen, tap ' + ui("landing.track") + ' and the paste screen opens. It also lives in ' + ui("entry.hub.title") + ', under ' + ui("entry.hub.own.title") + ', as ' + ui("entry.hub.freeform.title") + '.');
+}
+function handoff(){
+  var d = ASSETS["paste-review"][lang], base = "assets/paste-review-" + lang + "-";
+  return '<div class="hand">' +
+    '<div class="msg"><div class="msg__who"><b>' + L("Mensagem do personal", "Message from your coach") + '</b><span>' + L("07:42", "7:42 AM") + '</span></div>' +
+    '<pre>' + L("DIA A · peito e tríceps\nSupino reto 3x8-10\nSupino inclinado halter 3x10-12\nCrucifixo polia 3x12-15\nTríceps polia 3x12-15", "DAY A · chest and triceps\nBench press 3x8-10\nIncline DB press 3x10-12\nCable fly 3x12-15\nTriceps pushdown 3x12-15") + '</pre></div>' +
+    '<p>' + L("Você copia o comando do Taurifer, cola no ChatGPT ou no Claude junto com seu treino e traz a resposta de volta. Antes de salvar, você confere cada exercício.", "You copy Taurifer's prompt, paste it into ChatGPT or Claude along with your program, and bring the reply back. Before anything is saved, you check every exercise.") + '</p>' +
+    '<p class="seeing">' + L("Abaixo, a tela do app onde você confere os exercícios.", "Below, the app screen where you check the exercises.") + '</p>' +
+    '<figure><picture class="bandimg"><source media="(prefers-color-scheme: dark)" srcset="' + base + 'dark.webp"><img src="' + base + 'light.webp" width="' + d[0] + '" height="' + d[1] + '" alt="' + esc(L("A tela Revise os exercícios: " + n(0) + " vinculados e " + n(4) + " para revisar, com Supino reto sugerido como " + ex("bench") + ", marcado Provável.", "The Review the exercises screen: " + n(1) + " linked and " + n(3) + " to review, with Bench press suggested as " + ex("bench") + ", marked Likely.")) + '" loading="lazy" decoding="async"></picture></figure>' +
+    '<p class="note">' + I.lock + '<span>' + L(FREEFORM_PRIVACY_PT_BR, k("entry.freeform.privacy")) + '</span></p>' +
+    '<p class="where">' + whereToPaste() + '</p></div>';
+}
+function start(){
+  var r = routes();
+  return '<section class="band start" aria-labelledby="waysH"><div class="wrap"><h2 class="h2" id="waysH">' + L("Três jeitos de começar seu treino.", "Three ways to start your program.") + '</h2>' +
+    '<ol class="ways">' +
+      '<li class="w1"><h3>' + r[0][0] + '</h3><p>' + r[0][1] + '</p></li>' +
+      '<li class="w2"><h3>' + r[1][0] + '</h3><p>' + r[1][1] + '</p></li>' +
+      '<li class="w3"><h3>' + r[2][0] + '</h3><p>' + r[2][1] + '</p>' +
+        '<button type="button" class="disc" aria-expanded="false" aria-controls="hand" id="handBtn">' + L("Ver como colar um treino", "See how pasting a program works") + '<i aria-hidden="true"></i></button><div id="hand" hidden>' + handoff() + '</div></li>' +
+    '</ol></div></section>';
+}
+
+/* ---------- track: the three answers the engine gives ---------- */
+var ORDER = ["add", "hold", "reduce"], VERDICT = { add: "rec.add.label", hold: "rec.hold_add_reps.label", reduce: "rec.reduce.label" };
+/* What you did against your target (page, second person), then the app's own
+   rule line (rec.*.text, verbatim). The next target sits beside the verdict. */
+function explain(id){
+  var c = CASES[id], reps = c.logged.map(function(s){ return s[1]; }), load0 = kg(c.logged[0][0]);
+  var same = reps.every(function(r){ return r === reps[0]; });
+  var did = same
+    ? L("Você fez " + n(reps[0]) + " repetições com " + load0 + " nas três séries, e sua meta vai de " + n(c.repMin) + " a " + n(c.repMax) + ".", "You did " + n(reps[0]) + " reps at " + load0 + " on all three sets, and your target is " + n(c.repMin) + " to " + n(c.repMax) + ".")
+    : L("Você fez " + list(reps) + " repetições com " + load0 + ", e sua meta vai de " + n(c.repMin) + " a " + n(c.repMax) + ".", "You did " + list(reps) + " reps at " + load0 + ", and your target is " + n(c.repMin) + " to " + n(c.repMax) + ".");
+  var rule = { add: k("rec.add.text"), hold: k("rec.hold_add_reps.text"), reduce: k("rec.reduce.text", { min: n(c.repMin) }) }[id];
+  return did + " " + rule;
+}
+function trackBand(){
+  return '<section class="band trackband" aria-labelledby="trackH"><div class="wrap"><h2 class="h2" id="trackH">' + L("A próxima meta segue o que você fez.", "Your next target follows what you did.") + '</h2>' +
+    '<p class="sub">' + L("O peso nem sempre sobe. Estas são as três respostas que o Taurifer dá depois de uma sessão.", "The weight doesn't always go up. These are the three answers Taurifer gives after a session.") + '</p>' +
+    '<ul class="outs">' + ORDER.map(function(id){
+      var c = CASES[id], v = { add: "add", hold: "hold", reduce: "reduce" }[id];
+      return '<li><div class="oc"><span class="oc__v">' + I[v] + k(VERDICT[id]) + '</span><span class="oc__n"><span class="sr">' + L("Próxima sessão: ", "Next session: ") + '</span>' + kg(c.load) + ' × ' + n(c.reps) + '</span></div>' +
+        '<div class="oc__ex">' + ex(c.ex) + '</div><p>' + explain(id) + '</p></li>';
+    }).join("") + '</ul>' +
+    '<figure class="chart"><picture class="chart__img"><source media="(prefers-color-scheme: dark)" srcset="' + ROOT + 'assets/brand/exercise-chart-' + lang + '-dark.webp"><img src="' + ROOT + 'assets/brand/exercise-chart-' + lang + '-light.webp" width="903" height="1832" alt="' + esc(L("A tendência de força do " + ex("squat") + ": maior carga de " + n(92.5) + " para " + kg(100) + " ao longo de " + n(4) + " sessões, com a tabela das sessões e o gráfico.", "The strength trend for the " + ex("squat") + ": top load from " + n(92.5) + " to " + kg(100) + " across " + n(4) + " sessions, with the session table and chart.")) + '" loading="lazy" decoding="async"></picture>' +
+    '<figcaption>' + L("Seu progresso vira um gráfico: aqui, de " + n(92.5) + " para " + kg(100) + " em " + n(4) + " sessões. O e1RM do gráfico é a carga que você levantaria uma única vez, estimada pelas suas séries.", "Your progress becomes a chart: here, " + n(92.5) + " to " + kg(100) + " over " + n(4) + " sessions. The e1RM on the chart is the load you could lift for a single rep, estimated from your sets.") + '</figcaption></figure>' +
+    '<p class="tip">' + L("Cada série registrada entra no cálculo da próxima meta.", "Every set you log goes into working out your next target.") + '</p>' +
+  '</div></section>';
+}
+
+/* ---------- data ---------- */
+function data(){
+  var rows = [
+    [L("Você não precisa criar uma conta.", "You don't need to create an account."), L("Tudo fica salvo no seu celular.", "Everything is saved on your phone.")],
+    [L("Uma cópia é sua quando quiser.", "A copy is yours whenever you want."), L("Para guardar ou levar seu treino e seu histórico para outro lugar, exporte em JSON, CSV (abre em qualquer planilha) ou texto.", "To keep them, or take your program and history somewhere else, export as JSON, CSV (opens in any spreadsheet) or text.")],
+    [L("Funciona sem internet.", "Works without a connection."), L("Depois de aberto uma vez, registrar séries e ver a próxima meta não dependem de sinal.", "Once it has been opened, logging sets and seeing the next target don't need a signal.")]
+  ];
+  return '<section class="band data" id="' + L("dados", "data") + '" tabindex="-1" aria-labelledby="dataH"><div class="wrap"><h2 class="h2" id="dataH">' + L("Seu histórico fica no seu celular.", "Your history stays on your phone.") + '</h2>' +
+    '<ul class="rows">' + rows.map(function(r){ return '<li><h3>' + r[0] + '</h3><p>' + r[1] + '</p></li>'; }).join("") + '</ul>' +
+    '<p class="seeing">' + L('No app, abra <b class="ui">' + k("nav.settings") + '</b> e toque em <b class="ui">' + k("privacy.open") + '</b> para ler tudo.', 'In the app, open <b class="ui">' + k("nav.settings") + '</b> and tap <b class="ui">' + k("privacy.open") + '</b> for the full details.') + '</p></div></section>';
+}
+
+/* ---------- questions ---------- */
+function faqItem(q, a){ return '<details class="faq"><summary>' + q + '<i aria-hidden="true"></i></summary><div class="ans">' + a + '</div></details>'; }
+function faq(){
+  var c = CASES.add;
+  return '<section class="band faqs" aria-labelledby="faqH"><div class="wrap"><h2 class="h2" id="faqH">' + L("Perguntas", "Questions") + '</h2><div>' +
+    faqItem(L("É grátis?", "Is it free?"), '<p>' + L("Montar seu treino, registrar as sessões e receber a próxima meta é gratuito, sem conta e sem cadastro.", "Building your program, logging sessions and getting the next target are free, with no account and no sign-up.") + '</p>') +
+    faqItem(L("Preciso de loja de apps?", "Do I need an app store?"),
+      '<p>' + L("Não. O Taurifer abre no navegador. Para ter o ícone na tela de início:", "No. Taurifer opens in the browser. To put its icon on your home screen:") + '</p>' +
+      '<p><b>' + L("iPhone, no Safari", "iPhone, in Safari") + '</b></p><ol><li>' + k("install.ios.step1") + '</li><li>' + k("install.ios.step2") + '</li><li>' + k("install.ios.step3") + '</li><li>' + k("install.ios.step4") + '</li></ol>' +
+      '<p><b>' + L("Android, no Chrome", "Android, in Chrome") + '</b></p><p>' + k("install.browser_instructions") + '</p>' +
+      /* install-transfer.js: COOKIE_MAX_AGE = 3600 */
+      '<p>' + L("Se você já registrou sessões no navegador, pode passar esses dados para o app instalado. A transferência só acontece se você pedir e expira em até uma hora.", "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour.") + '</p>') +
+    faqItem(L("O que é RIR?", "What is RIR?"), '<p>' + L("Repetições em reserva: quantas você ainda faria ao terminar a série. Parou em " + n(c.logged[0][1]) + " e daria mais " + n(c.logged[0][2]) + ", é RIR " + n(c.logged[0][2]) + ".", "Reps in reserve: how many more you could have done when you stopped. Stopped at " + n(c.logged[0][1]) + " with " + n(c.logged[0][2]) + " left, that's RIR " + n(c.logged[0][2]) + ".") + '</p>') +
+    faqItem(L("Meu treinador pode me mandar um treino?", "Can my coach send me a program?"),
+      '<p>' + L("Pode. O treinador monta seu treino no Taurifer e toca em " + k("program.share_setup") + ". Você abre o link, confere seu treino e começa no seu celular.", "Yes. They build your program in Taurifer and tap " + k("program.share_setup") + ". You open the link, review your program and start on your own phone.") + '</p>' +
+      '<div class="share"><div class="share__row">' + I.link + '<span>' + k("program.share_setup") + '</span></div><div class="share__cols"><div><span class="lbl">' + L("Vai no link", "In the link") + '</span><ul><li>' + L("Treino", "Program") + '</li><li>' + L("Ajustes", "Settings") + '</li><li>' + L("Idioma", "Language") + '</li></ul></div><div><span class="lbl">' + L("Não vai", "Not in the link") + '</span><ul><li>' + L("Sessões registradas", "Logged sessions") + '</li><li>' + L("Cargas e repetições feitas", "Loads and reps you did") + '</li></ul></div></div></div>' +
+      '<p>' + L("O link não é criptografado: quem o receber pode ler seu treino.", "The link isn't encrypted: anyone who gets it can read your program.") + '</p>') +
+    /* telemetry.js readEnabled() defaults to true; claims follow settings.analytics.disclosure */
+    faqItem(L("O Taurifer coleta algum dado?", "Does Taurifer collect any data?"),
+      '<p>' + L("Coleta dados de uso, e essa opção já vem ligada: eventos de uso pseudônimos e gravações da tela com todo o conteúdo mascarado. Cargas e repetições registradas, nomes de exercícios, anotações, texto livre, links de configuração e backups ficam de fora.", "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out.") + '</p>' +
+      '<p>' + L("Para desligar, abra <b>" + k("nav.settings") + "</b> e desative <b>" + k("settings.analytics.title") + "</b>.", "To turn it off, open <b>" + k("nav.settings") + "</b> and switch off <b>" + k("settings.analytics.title") + "</b>.") + '</p>') +
+  '</div></div></section>';
+}
+function close(){
+  return '<section class="band close" aria-labelledby="closeH"><div class="wrap"><h2 class="h2" id="closeH">' + L("Comece de onde você está.", "Start where you are.") + '</h2>' +
+    '<p class="sub">' + L("Um toque por série. O Taurifer faz a conta da próxima.", "One tap per set. Taurifer works out the next one.") + '</p>' +
+    '<div class="actions">' + cta("closeCta") + track() + '</div></div></section>';
+}
+function footer(){ return '<footer class="foot"><div class="wrap"><span>Taurifer</span><nav aria-label="' + L("Rodapé", "Footer") + '"><a href="#' + L("dados", "data") + '">' + L("Privacidade", "Privacy") + '</a><a href="' + APP + '">' + L("Abrir o app", "Open the app") + '</a></nav></div></footer>'; }
+function dock(){ return '<div class="dock" id="dock" aria-hidden="true">' + cta("dockCta") + '</div>'; }
+
+function disclosure(root){
+  var btn = root.querySelector("#handBtn"), body = root.querySelector("#hand");
+  on(btn, "click", function(){ var open = btn.getAttribute("aria-expanded") !== "true"; btn.setAttribute("aria-expanded", open); body.hidden = !open; });
+}
+/* The sticky CTA shows once the hero's own CTA has scrolled above the screen and
+   steps aside at the closing CTA. It takes the ink that contrasts with the band
+   beneath it, so it never sinks into a dark field. */
+function stickyDock(root){
+  var bar = root.querySelector("#dock"), heroCta = root.querySelector("#heroCta"), closeCta = root.querySelector("#closeCta");
+  var gone = false, closeSeen = false, bands = [].slice.call(root.querySelectorAll(".band, .foot"));
+  function paint(){ var show = gone && !closeSeen; bar.classList.toggle("on", show); bar.setAttribute("aria-hidden", show ? "false" : "true"); bar.querySelector("a").tabIndex = show ? 0 : -1; }
+  watch(new IntersectionObserver(function(es){ var e = es[es.length - 1]; gone = !e.isIntersecting && e.boundingClientRect.bottom < (e.rootBounds ? e.rootBounds.top : 0) + 1; paint(); }, { rootMargin: "-" + rvH() + "px 0px 0px 0px" })).observe(heroCta);
+  watch(new IntersectionObserver(function(es){ var e = es[es.length - 1]; closeSeen = e.isIntersecting || e.boundingClientRect.top < 0; paint(); })).observe(closeCta);
+  function lum(el){ var m = /(\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).backgroundColor); return m ? (.2126 * m[1] + .7152 * m[2] + .0722 * m[3]) / 255 : 1; }
+  onScroll(function(){
+    var y = innerHeight - 40, dark = false;
+    for (var i = 0; i < bands.length; i++){ var r = bands[i].getBoundingClientRect(); if (r.top <= y && r.bottom > y){ dark = lum(bands[i]) < .4; break; } }
+    bar.classList.toggle("over-dark", dark); bar.classList.toggle("over-light", !dark);
+  });
+  paint();
+}
+
+function page(){ return '<div class="page">' + hero() + proof() + start() + trackBand() + data() + faq() + close() + footer() + dock() + '</div>'; }
+function init(root){ initProof(root); disclosure(root); stickyDock(root); startScroll(); }
+
+/* ============================ review bar ============================ */
+var stage = document.getElementById("stage"), note = document.getElementById("note");
+var rvBadge = document.getElementById("rvBadge"), rvCollapse = document.getElementById("rvCollapse"), rvCollapseLabel = document.getElementById("rvCollapseLabel");
+function parse(h){ var m = /^#(pt|en)$/.exec(h || ""); return m ? m[1] : null; }
+function render(){
+  clearAll();
+  document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+  note.innerHTML = L("<strong>Versão final.</strong> Base S da rodada 3, título e tipografia de B, a lupa de B refeita e as faixas de C.", "<strong>Final version.</strong> Round 3's S as the base, B's title and type, B's lens rebuilt, and C's bands.");
+  document.getElementById("rS").textContent = L("S, rodada 3", "S, round 3"); document.getElementById("rS").href = "../round-3/#S-" + lang;
+  document.getElementById("rB").textContent = L("B, rodada 5", "B, round 5"); document.getElementById("rB").href = "../round-5/#B-" + lang;
+  document.getElementById("rC").textContent = L("C, rodada 5", "C, round 5"); document.getElementById("rC").href = "../round-5/#C-" + lang;
+  rvBadge.textContent = L("final", "final") + " · " + lang.toUpperCase();
+  rvCollapseLabel.textContent = rvCollapse.getAttribute("aria-expanded") === "true" ? L("Ocultar", "Hide") : L("Mostrar", "Show");
+  document.querySelectorAll("[data-lang]").forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.lang === lang); });
+  document.title = L("Taurifer · chegue sabendo o que fazer", "Taurifer · walk in knowing what to do");
+  stage.innerHTML = page();
+  init(stage);
+}
+function go(l, push){ lang = l; if (push) history.pushState(null, "", "#" + lang); else history.replaceState(null, "", "#" + lang); render(); window.scrollTo(0, 0); }
+document.querySelectorAll("[data-lang]").forEach(function(b){ b.addEventListener("click", function(){ if (b.dataset.lang !== lang) go(b.dataset.lang, true); }); });
+window.addEventListener("popstate", function(){ var l = parse(location.hash); if (l){ lang = l; render(); window.scrollTo(0, 0); } });
+stage.addEventListener("click", function(e){
+  var a = e.target.closest('a[href^="#"]'); if (!a) return;
+  var t = stage.querySelector(a.getAttribute("href")); if (!t) return;
+  e.preventDefault(); t.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" }); t.focus({ preventScroll: true });
+});
+var rv = document.getElementById("rv");
+if (/[?&]bare\b/.test(location.search)) document.documentElement.classList.add("bare");
+function fit(){ document.documentElement.style.setProperty("--rv", (document.documentElement.classList.contains("bare") ? 0 : rv.offsetHeight) + "px"); }
+function setCollapsed(collapsed){
+  rv.classList.toggle("rv--collapsed", collapsed); rvCollapse.setAttribute("aria-expanded", !collapsed);
+  rvCollapseLabel.textContent = collapsed ? L("Mostrar", "Show") : L("Ocultar", "Hide");
+  try { sessionStorage.setItem("final-rv-collapsed", collapsed ? "1" : "0"); } catch (e) {}
+  fit();
+}
+rvCollapse.addEventListener("click", function(){ setCollapsed(!rv.classList.contains("rv--collapsed")); });
+var startCollapsed = false;
+try { startCollapsed = sessionStorage.getItem("final-rv-collapsed") === "1"; } catch (e) {}
+setCollapsed(startCollapsed);
+new ResizeObserver(fit).observe(rv);
+fit();
+var l0 = parse(location.hash);
+if (l0) lang = l0;
+history.replaceState(null, "", location.pathname + location.search + "#" + lang);
+render();
+})();
+</script>
+</body>
+</html>
