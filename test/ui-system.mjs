@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, contrastRatio } from "../tools/ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio } from "../tools/ui-system-core.mjs";
 import { measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
@@ -50,7 +50,8 @@ assert.ok(validateRoleInventory(tagException, manifest).some((error) => error.st
   "a tag-wide exception cannot exempt every button");
 
 const css = readFileSync(join(ROOT, "styles.css"), "utf8");
-assert.ok(cssLiteralDebt(css, inventory.exceptions).length > 0, "pre-migration literal debt remains visible");
+assert.equal(cssLiteralDebt(css, inventory.exceptions).length, 0, "P6 removes all unauthorized CSS literal debt");
+assert.equal(cssCompatibilityAliasDebt(css).length, 0, "P6 removes all obsolete compatibility aliases");
 for (const declaration of ["font-size:15px", "border-radius:11px", "box-shadow:0 2px 8px #777", "color:#808080", "border:1px solid #ccc", "background:red"]) {
   const bad = `.seeded { ${declaration}; }`;
   assert.equal(cssLiteralDebt(bad).length, 1, `checker rejects seeded ${declaration} outside token definitions`);
@@ -59,6 +60,12 @@ assert.equal(cssLiteralDebt(":root { --font-body:1rem; --radius-control:8px; --i
   "token definitions are the one place values are declared");
 assert.equal(cssLiteralDebt(".art { border-radius:50%; font-size:0; } .square { border-radius:0; }").length, 0,
   "intrinsic circles, squares and glyph-free icon boxes are not migration debt");
+assert.equal(cssLiteralDebt(".sheet { border-radius:var(--radius-prominent) var(--radius-prominent) 0 0; }").length, 0,
+  "tokenized sheet corners can keep square edges without creating radius debt");
+assert.equal(cssLiteralDebt(".round { border-radius:50%; }").length, 0,
+  "the existing intrinsic-circle radius allowance remains exact");
+assert.equal(cssLiteralDebt(".semicircle { border-radius:50% 50% 0 0; }").length, 1,
+  "a partial raw percentage shape does not inherit the circle allowance");
 assert.equal(cssLiteralDebt(".settings-identity__mark { background:#eee; }", inventory.exceptions).length, 1,
   "a documented artwork exception cannot hide a different color at the same selector");
 const invalidState = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--state", "missing/state"], { cwd: ROOT, encoding: "utf8" });
@@ -74,6 +81,13 @@ try {
   writeFileSync(fixture, ".seeded { font-size:var(--font-size-body); }");
   const repaired = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
   assert.equal(repaired.status, 0, "same checker accepts the repaired token declaration");
+  writeFileSync(fixture, ".seeded { border-radius:var(--radius); }");
+  const compatibility = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
+  assert.equal(compatibility.status, 1, "actual checker rejects a consumer left on a retired compatibility alias");
+  assert.match(compatibility.stderr, /obsolete CSS alias references/, "checker names the compatibility violation");
+  writeFileSync(fixture, ".seeded { border-radius:var(--radius-control); }");
+  const migrated = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
+  assert.equal(migrated.status, 0, "same checker accepts the migrated semantic radius token");
 } finally { rmSync(fixtureDir, { recursive: true, force: true }); }
 assert.equal(Math.round(contrastRatio([0, 0, 0], [255, 255, 255])), 21, "WCAG contrast oracle handles black/white");
 assert.ok(contrastRatio([128, 128, 128], [255, 255, 255]) < 4.5, "3.95:1 body text is below AA");
@@ -366,7 +380,7 @@ try {
     const root = getComputedStyle(document.documentElement);
     const value = (name) => root.getPropertyValue(name).trim();
     const expected = {
-      "--font-size-label": ".6875rem", "--font-size-caption": ".75rem", "--font-size-body-small": ".875rem",
+      "--font-size-label": "min(.6875rem,4.8vw)", "--font-size-caption": ".75rem", "--font-size-body-small": ".875rem",
       "--font-size-body": "1rem", "--font-size-control": "1rem", "--font-size-subtitle": "1.125rem",
       "--font-size-metric": "1.375rem", "--font-size-section-title": "1.5rem", "--font-size-feature-title": "1.75rem",
       "--font-size-title": "1.875rem", "--font-size-display": "2.5rem",
@@ -377,17 +391,17 @@ try {
       "--weight-regular": "400", "--weight-medium": "500", "--weight-semibold": "600",
       "--radius-none": "0", "--radius-compact": "4px", "--radius-control": "8px",
       "--radius-surface": "12px", "--radius-prominent": "16px", "--radius-pill": "999px",
-      "--radius-round": "50%", "--radius-legacy": "14px",
+      "--radius-round": "50%",
       "--radius-landing-stage": "24px", "--radius-landing-stage-compact": "20px", "--radius-landing-crop": "14px",
       "--control-target": "44px", "--control-icon-size": "24px", "--control-disabled-opacity": ".4",
     };
     const errors = Object.entries(expected).filter(([name, wanted]) => value(name) !== wanted)
       .map(([name, wanted]) => `${name}: ${value(name)} != ${wanted}`);
-    for (const [alias, target] of [["--radius", "--radius-legacy"], ["--r", "--radius-legacy"],
-      ["--shadow", "--elevation-flat-shadow"], ["--body", "--font-language"],
-      ["--display", "--font-language"], ["--mono", "--font-training-data"],
-      ["--font-size-focal-data", "--font-size-feature-title"]]) {
-      if (value(alias) !== value(target)) errors.push(`${alias} no longer resolves to ${target}`);
+    for (const alias of ["--radius-legacy", "--radius", "--r", "--shadow", "--display", "--body", "--mono"]) {
+      if (value(alias)) errors.push(`${alias} must remain absent`);
+    }
+    if (value("--font-size-focal-data") !== value("--font-size-feature-title")) {
+      errors.push("--font-size-focal-data no longer resolves to --font-size-feature-title");
     }
     for (const name of ["--elevation-selected-shadow", "--elevation-floating-shadow", "--elevation-focus-shadow",
       "--elevation-modal-shadow", "--elevation-dialog-shadow", "--elevation-persistent-shadow",
@@ -427,7 +441,7 @@ try {
   for (const theme of ["light", "dark"]) {
     await opened.page.evaluate((next) => document.documentElement.setAttribute("data-theme", next), theme);
     const contract = await tokenContract();
-    assert.deepEqual(contract.errors, [], `${theme} semantic token values and compatibility aliases resolve`);
+    assert.deepEqual(contract.errors, [], `${theme} semantic token values resolve and retired aliases stay absent`);
     assert.match(contract.language, /Plex Sans/, "language family remains Plex Sans");
     assert.match(contract.data, /Plex Mono/, "training data family remains Plex Mono");
     assert.match(contract.shadow, theme === "dark" ? /rgba\(0,0,0/ : /rgba\(27,26,23/,
@@ -518,7 +532,7 @@ try {
     await cdp.detach();
   }
   await opened.page.evaluate(() => document.documentElement.style.setProperty("--r", "var(--radius-control)"));
-  assert.ok((await tokenContract()).errors.some((error) => error.includes("--r no longer resolves")), "wrong alias step is rejected");
+  assert.ok((await tokenContract()).errors.some((error) => error.includes("--r must remain absent")), "a retired compatibility alias cannot be reintroduced");
   await opened.page.evaluate(() => {
     document.documentElement.style.removeProperty("--r");
     document.documentElement.style.setProperty("--radius-landing-crop", "16px");

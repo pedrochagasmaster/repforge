@@ -96,9 +96,12 @@ export function cssLiteralDebt(css, exceptions = []) {
     const isLocalRoleToken = property.startsWith("--") && /(?:font|radius|shadow|color|ink|bg|boundary|surface|accent|rule)/.test(property);
     if (!isType && !isRadius && !isShadow && !isColor && !isLocalRoleToken) continue;
     let literal = false;
-    if (isType || isRadius) literal = /(?:^|[\s,(])(?:-?\d*\.?\d+)(?:px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/.test(value)
-      && !/^(?:var\([^)]*\)|inherit|initial|unset|revert|normal|0)$/.test(value)
-      && !(isRadius && value === "50%");
+    if (isType) literal = /(?:^|[\s,(])(?:-?\d*\.?\d+)(?:px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/.test(value)
+      && !/^(?:var\([^)]*\)|inherit|initial|unset|revert|normal|0)$/.test(value);
+    if (isRadius) {
+      const measures = [...value.matchAll(/(?:^|[\s,(])(-?\d*\.?\d+)(px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/g)];
+      literal = measures.some((measure) => Number(measure[1]) !== 0) && value !== "50%";
+    }
     if (isShadow) literal = value !== "none" && !/^var\([^)]*\)$/.test(value);
     if (isColor) literal = !/url\(/i.test(value) && (/#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})\b/i.test(value)
       || /\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch)\s*\((?!\s*var\()/i.test(value)
@@ -110,6 +113,18 @@ export function cssLiteralDebt(css, exceptions = []) {
     debt.push({ selector, property, value, line });
   }
   return debt;
+}
+
+const OBSOLETE_CSS_ALIASES = ["--radius-legacy", "--radius", "--r", "--shadow", "--display", "--body", "--mono"];
+
+/** Compatibility aliases are dead once their real consumers have moved. */
+export function cssCompatibilityAliasDebt(css) {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, (comment) => " ".repeat(comment.length));
+  const pattern = new RegExp(`(?<![\\w-])(?:${OBSOLETE_CSS_ALIASES.join("|")})(?![\\w-])`, "g");
+  return [...clean.matchAll(pattern)].map((match) => ({
+    alias: match[0],
+    line: css.slice(0, match.index).split("\n").length,
+  }));
 }
 
 const linear = (v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;

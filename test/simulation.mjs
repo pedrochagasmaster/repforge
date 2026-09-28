@@ -3104,14 +3104,14 @@ async function main() {
     "History tab → Every set table"
   );
 
-  // Volume audit renders
+  // Program retains the effective-set audit action in its overview.
   await nav(page, "program");
-  const volRows = await page.locator(".vrow").count();
+  const auditAction = await page.locator("#programOverview #seeVolumeAudit").count();
   assert(
-    volRows > 0,
-    "Volume audit renders muscle rows",
-    `vrow count: ${volRows}`,
-    "Program tab → Weekly volume audit"
+    auditAction === 1,
+    "Program overview exposes the effective-set audit action",
+    `action count: ${auditAction}`,
+    "Program tab → planned effective sets"
   );
 
   // Delete log (reset) — test then stop (wipes data for clean exit)

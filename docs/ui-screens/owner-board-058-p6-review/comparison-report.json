@@ -1,0 +1,832 @@
+{
+  "baseline": {
+    "board": "owner-board-058-p5",
+    "sourceAppSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
+    "comparator": "tools/compare-ui-screens.mjs comparePngBuffers with default thresholds",
+    "framesWithPerceptualDelta": 43,
+    "framesExceedingComparatorThresholds": 9
+  },
+  "frames": [
+    {
+      "key": "onboarding-start/first-run phone-390-light-en",
+      "path": "screens/onboarding-start/first-run__phone-390-light-en.png",
+      "sourceSha256": "9788250d280da40f460acc7af09d5555b633d2e5b32ecad55235d36fba48dc6b",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "onboarding-start/first-run phone-390-dark-en",
+      "path": "screens/onboarding-start/first-run__phone-390-dark-en.png",
+      "sourceSha256": "8a3066e8fd323d1c3cd31a04b73fd10635e58ddb324ddb55dacc090f9a06c9c3",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "onboarding-start/first-run phone-390-light-pt",
+      "path": "screens/onboarding-start/first-run__phone-390-light-pt.png",
+      "sourceSha256": "aceafc4137200ba3efbe65caf9d1c21db2f2a3045694fb1505a19c6e20e03a0b",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "onboarding-start/first-run phone-320-light-en",
+      "path": "screens/onboarding-start/first-run__phone-320-light-en.png",
+      "sourceSha256": "4e839d1e86e00a8eda2a7d1b70161704d13df0e3aa50c81c90974f6b449be406",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "onboarding-start/first-run phone-390-light-en-text200",
+      "path": "screens/onboarding-start/first-run__phone-390-light-en-text200.png",
+      "sourceSha256": "bcc675167ef87eae3b31d7545efb2896b3ff33792922986c1c58c97fd27a7dfa",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "onboarding-start/hub phone-390-light-en",
+      "path": "screens/onboarding-start/hub__phone-390-light-en.png",
+      "sourceSha256": "92448eb83f3e9110e15df7667314bdecdbfa2e6ab0b68ea9531d7a734c5c898c",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.09407552083333333,
+        "meanCellDelta": 0.021725894890175058,
+        "meanEdgeDelta": 0.026708654719729188,
+        "changedEdgeRatio": 0.11740308804204994,
+        "histogramDelta": 0.02742514491546899,
+        "reasons": [
+          "changed-cell ratio 9.41% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      }
+    },
+    {
+      "key": "onboarding-start/hub phone-390-dark-en",
+      "path": "screens/onboarding-start/hub__phone-390-dark-en.png",
+      "sourceSha256": "74c5696e2d91b1ddbc30b50a1aa9fd7ab9696a1c445836fbe6d7cf73461084db",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.09578450520833333,
+        "meanCellDelta": 0.022440631057500438,
+        "meanEdgeDelta": 0.026963715888217152,
+        "changedEdgeRatio": 0.1176494743758213,
+        "histogramDelta": 0.025390618066012394,
+        "reasons": [
+          "changed-cell ratio 9.58% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      }
+    },
+    {
+      "key": "onboarding-start/hub phone-390-light-pt",
+      "path": "screens/onboarding-start/hub__phone-390-light-pt.png",
+      "sourceSha256": "2085a210931887d24fabe2c5e256c2e67c3216e737da80396555e4f13f768af3",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.10758463541666667,
+        "meanCellDelta": 0.024642307008312613,
+        "meanEdgeDelta": 0.029758380118356076,
+        "changedEdgeRatio": 0.1324326544021025,
+        "histogramDelta": 0.02913411657937104,
+        "reasons": [
+          "changed-cell ratio 10.76% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      }
+    },
+    {
+      "key": "today/no-program phone-390-light-en",
+      "path": "screens/today/no-program__phone-390-light-en.png",
+      "sourceSha256": "671eaaef39111d4aeadf140b5949c336bc0ecb088f72dcf295809b8edb3c6b57",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "today/ready phone-390-light-en",
+      "path": "screens/today/ready__phone-390-light-en.png",
+      "sourceSha256": "d5e77c65ecd04d33ce2ed21c1b68e718adc7a26c7f5960251cd2f69ac90fadb5",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "today/ready phone-390-dark-en",
+      "path": "screens/today/ready__phone-390-dark-en.png",
+      "sourceSha256": "f3bd474d8cc27acb8b7989893f8442e34b7ec14e354b475430d6ee3a760be46f",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0.00007068908297212285,
+        "meanEdgeDelta": 0.000030849531596421256,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "today/ready phone-390-light-pt-text200",
+      "path": "screens/today/ready__phone-390-light-pt-text200.png",
+      "sourceSha256": "bd608737d9efc6b8b97dbf7bf5d2bcb335d014e92f7580a37dfa1339581dc26f",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.19783528645833334,
+        "meanCellDelta": 0.06957867239943953,
+        "meanEdgeDelta": 0.06758413981504337,
+        "changedEdgeRatio": 0.23115144546649147,
+        "histogramDelta": 0.009684254502644762,
+        "reasons": [
+          "mean colour delta 6.96% exceeds 3.50%",
+          "changed-cell ratio 19.78% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      }
+    },
+    {
+      "key": "workout/focus phone-390-light-en",
+      "path": "screens/workout/focus__phone-390-light-en.png",
+      "sourceSha256": "6a67f0829a24e4efbdda47b14fd4d8fb22714f1905ba3a64c823d905b5730692",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.000244140625,
+        "meanCellDelta": 0.00005212243012118383,
+        "meanEdgeDelta": 0.0000817388609423744,
+        "changedEdgeRatio": 0.00036957950065703024,
+        "histogramDelta": 0.00032552098855376244,
+        "reasons": []
+      }
+    },
+    {
+      "key": "workout/focus phone-390-dark-en",
+      "path": "screens/workout/focus__phone-390-dark-en.png",
+      "sourceSha256": "9d8111323b1004e1d426ab756688be55bb7f243027093e28dc2ba48650897f0d",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.000244140625,
+        "meanCellDelta": 0.000047048871216778245,
+        "meanEdgeDelta": 0.00007522567303829218,
+        "changedEdgeRatio": 0.00036957950065703024,
+        "histogramDelta": 0.00024413922801613808,
+        "reasons": []
+      }
+    },
+    {
+      "key": "workout/focus phone-320-light-en",
+      "path": "screens/workout/focus__phone-320-light-en.png",
+      "sourceSha256": "f81aed3904d7e3bae2ff26baae89d94f1bea7ea9d7e29a0efe78f7d7dafe8b7a",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0006510416666666666,
+        "meanCellDelta": 0.00013468351909307354,
+        "meanEdgeDelta": 0.00017455355331556243,
+        "changedEdgeRatio": 0.0007802233902759526,
+        "histogramDelta": 0.00048828095896169543,
+        "reasons": []
+      }
+    },
+    {
+      "key": "workout/focus phone-390-light-pt-text200",
+      "path": "screens/workout/focus__phone-390-light-pt-text200.png",
+      "sourceSha256": "49e69fc958d89bf30a1973b9cf23d39463546803314f8d637df8c733d319774a",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.10416666666666667,
+        "meanCellDelta": 0.03200953198998941,
+        "meanEdgeDelta": 0.03352540815200133,
+        "changedEdgeRatio": 0.1197026938239159,
+        "histogramDelta": 0.01920571841765195,
+        "reasons": [
+          "changed-cell ratio 10.42% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      }
+    },
+    {
+      "key": "workout/rest-timer phone-390-dark-en",
+      "path": "screens/workout/rest-timer__phone-390-dark-en.png",
+      "sourceSha256": "1e30b500518eeee3e5288deebd4c7a0734632e38896e6a4b93345fefccde66f2",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.00016276041666666666,
+        "meanCellDelta": 0.00001740487779801169,
+        "meanEdgeDelta": 0.00003069252297086409,
+        "changedEdgeRatio": 0.00024638633377135346,
+        "histogramDelta": 0.0001627691090106964,
+        "reasons": []
+      }
+    },
+    {
+      "key": "workout/rest-timer phone-390-light-pt-text200",
+      "path": "screens/workout/rest-timer__phone-390-light-pt-text200.png",
+      "sourceSha256": "156cc262f1b00092feebf11e5e098a5f6edae0b31d8982c0dd489a5c14aa5ba8",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0006510416666666666,
+        "meanCellDelta": 0.00011303542530937431,
+        "meanEdgeDelta": 0.00013113488123780325,
+        "changedEdgeRatio": 0.0008212877792378449,
+        "histogramDelta": 0.0004069040296599269,
+        "reasons": []
+      }
+    },
+    {
+      "key": "session/summary phone-390-light-en",
+      "path": "screens/session/summary__phone-390-light-en.png",
+      "sourceSha256": "8fb1013ee3d6a066169e1d85ef8a1e31da68d6ae58f7855cf46130ed9771f527",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "session/summary phone-390-dark-en",
+      "path": "screens/session/summary__phone-390-dark-en.png",
+      "sourceSha256": "2366fd7a4b11322c4fbf16273f9fe50fe64210c794fd887c4e9d6a962810cf5c",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "session/summary-declined phone-390-light-en",
+      "path": "screens/session/summary-declined__phone-390-light-en.png",
+      "sourceSha256": "8fb1013ee3d6a066169e1d85ef8a1e31da68d6ae58f7855cf46130ed9771f527",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "session/summary-declined phone-390-light-pt-text200",
+      "path": "screens/session/summary-declined__phone-390-light-pt-text200.png",
+      "sourceSha256": "12ed9d34d1687d316cae38e7db94a19ac3af46941a299cb4a3a474785c9d95b5",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.10335286458333333,
+        "meanCellDelta": 0.03039917218410593,
+        "meanEdgeDelta": 0.03456529499669211,
+        "changedEdgeRatio": 0.12516425755584756,
+        "histogramDelta": 0.015055339026730508,
+        "reasons": [
+          "changed-cell ratio 10.34% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      }
+    },
+    {
+      "key": "progress/overview-action phone-390-light-en",
+      "path": "screens/progress/overview-action__phone-390-light-en.png",
+      "sourceSha256": "556b08348c01e6ff9fd938df7d71adea06b67f4d805398566becf2a4a92186ab",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.000244140625,
+        "meanCellDelta": 0.00003948100045042365,
+        "meanEdgeDelta": 0.00006257492250979495,
+        "changedEdgeRatio": 0.00036957950065703024,
+        "histogramDelta": 0.00032552279299125075,
+        "reasons": []
+      }
+    },
+    {
+      "key": "progress/overview-action phone-390-dark-en",
+      "path": "screens/progress/overview-action__phone-390-dark-en.png",
+      "sourceSha256": "667440c47fe26eb7f6b54a953030b39ba9cf5bd8a0a6e23d071881815595a9ee",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0003255208333333333,
+        "meanCellDelta": 0.00011273904225190432,
+        "meanEdgeDelta": 0.0000991028600155759,
+        "changedEdgeRatio": 0.0004927726675427069,
+        "histogramDelta": 0.0003255190094932914,
+        "reasons": []
+      }
+    },
+    {
+      "key": "progress/recovery-preview phone-390-light-en",
+      "path": "screens/progress/recovery-preview__phone-390-light-en.png",
+      "sourceSha256": "78ad8b335cdd1054ae6862cf4a29a84bca77bacae72a67e545668e2b5787565a",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.000244140625,
+        "meanCellDelta": 0.00003948100045042365,
+        "meanEdgeDelta": 0.00006257492250979495,
+        "changedEdgeRatio": 0.00036957950065703024,
+        "histogramDelta": 0.000325522618368268,
+        "reasons": []
+      }
+    },
+    {
+      "key": "progress/recovery-preview phone-320-light-en",
+      "path": "screens/progress/recovery-preview__phone-320-light-en.png",
+      "sourceSha256": "09e9836addd8340f50e9dcb8bba8311e9a8df54b9a039c0a7ffad0416ca41033",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0006510416666666666,
+        "meanCellDelta": 0.00013468277088528856,
+        "meanEdgeDelta": 0.00019166820270159868,
+        "changedEdgeRatio": 0.0007802233902759526,
+        "histogramDelta": 0.0005696571097359993,
+        "reasons": []
+      }
+    },
+    {
+      "key": "progress/recovery-preview phone-390-light-pt-text200",
+      "path": "screens/progress/recovery-preview__phone-390-light-pt-text200.png",
+      "sourceSha256": "f43c8f8332f0e7b54187bd55a79fc56d32373ce076d24da6057825efc885187d",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.18440755208333334,
+        "meanCellDelta": 0.05221366330622083,
+        "meanEdgeDelta": 0.059841758427155084,
+        "changedEdgeRatio": 0.224088370565046,
+        "histogramDelta": 0.011962912438320927,
+        "reasons": [
+          "mean colour delta 5.22% exceeds 3.50%",
+          "changed-cell ratio 18.44% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      }
+    },
+    {
+      "key": "history/list phone-390-light-en",
+      "path": "screens/history/list__phone-390-light-en.png",
+      "sourceSha256": "148f300d3b15933bb123bea630a098bf0f602092cf55c8effffc4f0234df0add",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "history/list phone-390-dark-en",
+      "path": "screens/history/list__phone-390-dark-en.png",
+      "sourceSha256": "19e4ebe2d4e8142f08d1541c1b4199b59d861fc02497cd37948ddf0747852d21",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0.00007068908189103626,
+        "meanEdgeDelta": 0.00003093005000135119,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "history/list phone-390-light-pt",
+      "path": "screens/history/list__phone-390-light-pt.png",
+      "sourceSha256": "7aa77510da4a1770edd7e9ee6c5fe3f104d9651a2b9f7a80c65f02167a12bc44",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "history/edit-invalid phone-390-light-en",
+      "path": "screens/history/edit-invalid__phone-390-light-en.png",
+      "sourceSha256": "77058d5045ceb137231db3453ec841c7d6f19d1674fac1086543cf212172e8d3",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0,
+        "meanCellDelta": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      }
+    },
+    {
+      "key": "history/edit-invalid phone-390-light-pt-text200",
+      "path": "screens/history/edit-invalid__phone-390-light-pt-text200.png",
+      "sourceSha256": "b9ca8e0f438f131f7bab534c2d27afbd634f0631dada59b76988fae9b4276669",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.084716796875,
+        "meanCellDelta": 0.020353758404587984,
+        "meanEdgeDelta": 0.02361228602293404,
+        "changedEdgeRatio": 0.10274310118265441,
+        "histogramDelta": 0.0032551977928960696,
+        "reasons": [
+          "changed-cell ratio 8.47% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise"
+        ]
+      }
+    },
+    {
+      "key": "program/overview phone-390-light-en",
+      "path": "screens/program/overview__phone-390-light-en.png",
+      "sourceSha256": "85bee457bcb3047075cc04e9cf6149b28e17e8955ced6efaca84993cad4be70e",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0037434895833333335,
+        "meanCellDelta": 0.0007502767476144733,
+        "meanEdgeDelta": 0.000977591069295278,
+        "changedEdgeRatio": 0.004517082785808147,
+        "histogramDelta": 0.0019531255966285244,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/overview phone-390-dark-en",
+      "path": "screens/program/overview__phone-390-dark-en.png",
+      "sourceSha256": "d7bb01d3d565d72365816ad6cbfc4e685b445f9da369c3aa96a5a3bf414a519b",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0037434895833333335,
+        "meanCellDelta": 0.0008588964237962834,
+        "meanEdgeDelta": 0.001031733192038403,
+        "changedEdgeRatio": 0.004352825229960578,
+        "histogramDelta": 0.001383473732857965,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/progression-editor phone-390-light-en",
+      "path": "screens/program/progression-editor__phone-390-light-en.png",
+      "sourceSha256": "4740c47eb78d7db3cfdbb579ac5b0a4e398dd8d42c0fd6d3051442297f1e9680",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0008951822916666666,
+        "meanCellDelta": 0.0001365208537374125,
+        "meanEdgeDelta": 0.00023383070542213951,
+        "changedEdgeRatio": 0.001355124835742444,
+        "histogramDelta": 0.0005696613807231188,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/progression-editor phone-390-light-pt",
+      "path": "screens/program/progression-editor__phone-390-light-pt.png",
+      "sourceSha256": "a4b04b99174f3dce5323e6e611352004b3dede709a5f897e424ccd7726eb7f5f",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0013834635416666667,
+        "meanCellDelta": 0.00026540928540282575,
+        "meanEdgeDelta": 0.0002978663504828605,
+        "changedEdgeRatio": 0.0016015111695137977,
+        "histogramDelta": 0.0006510401144623756,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/exercise-picker phone-390-light-en",
+      "path": "screens/program/exercise-picker__phone-390-light-en.png",
+      "sourceSha256": "8ea0aaece31e3fd91931a67be29379339a26ba2970af4f0e5e21ad7295bbf369",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0087890625,
+        "meanCellDelta": 0.0021901161066037464,
+        "meanEdgeDelta": 0.002643723567059256,
+        "changedEdgeRatio": 0.010799934296977662,
+        "histogramDelta": 0.0021972659742459655,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/share-ready phone-390-light-en",
+      "path": "screens/program/share-ready__phone-390-light-en.png",
+      "sourceSha256": "58f77f0440ecea69990a5321c2afd5e0242dd3b47d7728561a0e1f89e84e9bed",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.018473307291666668,
+        "meanCellDelta": 0.004345979774618986,
+        "meanEdgeDelta": 0.005453550305741297,
+        "changedEdgeRatio": 0.02361202365308804,
+        "histogramDelta": 0.00276692739862483,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/share-ready phone-390-dark-en",
+      "path": "screens/program/share-ready__phone-390-dark-en.png",
+      "sourceSha256": "01cf1d24210acaaad532d9d2e560efb1323ed1472ab6af68527a02a54e78b815",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.012532552083333334,
+        "meanCellDelta": 0.0030382842663841405,
+        "meanEdgeDelta": 0.003796881951425964,
+        "changedEdgeRatio": 0.01646681997371879,
+        "histogramDelta": 0.0034993551671504974,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/share-ready phone-390-light-pt-text200",
+      "path": "screens/program/share-ready__phone-390-light-pt-text200.png",
+      "sourceSha256": "833ff807227e408ae58bda6c396e6671b894863f52daa633abdefc9a531fd492",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.043294270833333336,
+        "meanCellDelta": 0.008991825633306992,
+        "meanEdgeDelta": 0.010051124356564687,
+        "changedEdgeRatio": 0.04673127463863338,
+        "histogramDelta": 0.01025390625,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/share-one-blocker phone-390-light-en",
+      "path": "screens/program/share-one-blocker__phone-390-light-en.png",
+      "sourceSha256": "e4f88a9778abe5b796be1e318dc65a7f9cc53cb5e332836798b72cd141d1ca1a",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.021809895833333332,
+        "meanCellDelta": 0.005271069852664504,
+        "meanEdgeDelta": 0.006669639866143152,
+        "changedEdgeRatio": 0.028170170827858082,
+        "histogramDelta": 0.003824859086307697,
+        "reasons": []
+      }
+    },
+    {
+      "key": "program/share-one-blocker phone-390-light-pt-text200",
+      "path": "screens/program/share-one-blocker__phone-390-light-pt-text200.png",
+      "sourceSha256": "a33af5649c24c212caae070ecaedb8c78669ade5fd7de883706c479d6d5d3d3b",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.042317708333333336,
+        "meanCellDelta": 0.008738037391473222,
+        "meanEdgeDelta": 0.009786799678556944,
+        "changedEdgeRatio": 0.04566360052562418,
+        "histogramDelta": 0.009114583081100136,
+        "reasons": []
+      }
+    },
+    {
+      "key": "settings/main phone-390-light-en",
+      "path": "screens/settings/main__phone-390-light-en.png",
+      "sourceSha256": "d8c9e0eeb923f3986dcb3d33e3ce62ae5656d65da50584fd7c1efd5320d08765",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.000732421875,
+        "meanCellDelta": 0.00017647363980490764,
+        "meanEdgeDelta": 0.00023961099508400816,
+        "changedEdgeRatio": 0.0011087385019710907,
+        "histogramDelta": 0.000569650437682867,
+        "reasons": []
+      }
+    },
+    {
+      "key": "settings/main phone-390-dark-en",
+      "path": "screens/settings/main__phone-390-dark-en.png",
+      "sourceSha256": "923c8351b06b0e96f636b2e8347f3f8125f1d56e1926e5e1dae096968e23f6c9",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0010579427083333333,
+        "meanCellDelta": 0.0002515240750183624,
+        "meanEdgeDelta": 0.00035804924867195465,
+        "changedEdgeRatio": 0.0016836399474375822,
+        "histogramDelta": 0.0008951626150519587,
+        "reasons": []
+      }
+    },
+    {
+      "key": "settings/main phone-390-light-pt",
+      "path": "screens/settings/main__phone-390-light-pt.png",
+      "sourceSha256": "457bce80bfd211e804c2ff22a1ffe074660ad2cd7768b468fc3896e1b115d96e",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.000244140625,
+        "meanCellDelta": 0.00006583616457476367,
+        "meanEdgeDelta": 0.00011396185836403504,
+        "changedEdgeRatio": 0.0004927726675427069,
+        "histogramDelta": 0.0004069097340106964,
+        "reasons": []
+      }
+    },
+    {
+      "key": "settings/guides-replay phone-390-light-en",
+      "path": "screens/settings/guides-replay__phone-390-light-en.png",
+      "sourceSha256": "adee77ac6a7c23b4cf05977122d589a1a1aa4b8a3980a1b3dad566f0c4d8ba8a",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.000244140625,
+        "meanCellDelta": 0.00003193252597099704,
+        "meanEdgeDelta": 0.00005630104656915001,
+        "changedEdgeRatio": 0.00041064388961892245,
+        "histogramDelta": 0.00016275979578495026,
+        "reasons": []
+      }
+    },
+    {
+      "key": "settings/guides-replay phone-390-light-pt",
+      "path": "screens/settings/guides-replay__phone-390-light-pt.png",
+      "sourceSha256": "7b1d21d19a1940c7714f5201add7495e3b352e790c9a571bff9d339672e2b2ba",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.000244140625,
+        "meanCellDelta": 0.00003193252597099704,
+        "meanEdgeDelta": 0.00005630104656915001,
+        "changedEdgeRatio": 0.00041064388961892245,
+        "histogramDelta": 0.00016275886446237564,
+        "reasons": []
+      }
+    },
+    {
+      "key": "settings/privacy-disclosure phone-390-light-pt-text200",
+      "path": "screens/settings/privacy-disclosure__phone-390-light-pt-text200.png",
+      "sourceSha256": "a061eac785d10e9adccd6bd1fe19bddc26e4861e3bfd543a1377b2f526272075",
+      "comparator": {
+        "ok": false,
+        "changedCellRatio": 0.11946614583333333,
+        "meanCellDelta": 0.026148563517439355,
+        "meanEdgeDelta": 0.033115105593329815,
+        "changedEdgeRatio": 0.1541557161629435,
+        "histogramDelta": 0.016601550538325682,
+        "reasons": [
+          "changed-cell ratio 11.95% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      }
+    },
+    {
+      "key": "library/list phone-390-light-en",
+      "path": "screens/library/list__phone-390-light-en.png",
+      "sourceSha256": "d88fdc68033a40851c78332ab20e2d36f978dbff11f7425167ad1d43406e0e99",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0035807291666666665,
+        "meanCellDelta": 0.0008574910972272182,
+        "meanEdgeDelta": 0.0011208822752462894,
+        "changedEdgeRatio": 0.004352825229960578,
+        "histogramDelta": 0.002115895098540932,
+        "reasons": []
+      }
+    },
+    {
+      "key": "library/list phone-390-dark-en",
+      "path": "screens/library/list__phone-390-dark-en.png",
+      "sourceSha256": "fa7e10c78eb77445540d388d2aa9d361fe472603432a9bf8fe1e701779d64a0c",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.003662109375,
+        "meanCellDelta": 0.0009172367921812041,
+        "meanEdgeDelta": 0.0011751589000606898,
+        "changedEdgeRatio": 0.004352825229960578,
+        "histogramDelta": 0.001790364971384406,
+        "reasons": []
+      }
+    },
+    {
+      "key": "library/list phone-390-light-pt",
+      "path": "screens/library/list__phone-390-light-pt.png",
+      "sourceSha256": "4d0b9739322bed5adaf5c662484a375102e2dd5bad774f66d53c1d8ce51bef6a",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.004801432291666667,
+        "meanCellDelta": 0.0012070725733511801,
+        "meanEdgeDelta": 0.0014980671347244966,
+        "changedEdgeRatio": 0.006241787122207621,
+        "histogramDelta": 0.002360010170377791,
+        "reasons": []
+      }
+    },
+    {
+      "key": "library/exercise-detail phone-390-light-en",
+      "path": "screens/library/exercise-detail__phone-390-light-en.png",
+      "sourceSha256": "2541d1c6cbe60593467205d4ad0c8c5c7e7f18a3b329775b3de2ad7ec7f8a068",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.00439453125,
+        "meanCellDelta": 0.0010356327952059051,
+        "meanEdgeDelta": 0.001277619189583989,
+        "changedEdgeRatio": 0.005954336399474376,
+        "histogramDelta": 0.0012207027757540345,
+        "reasons": []
+      }
+    },
+    {
+      "key": "library/exercise-detail phone-390-light-pt",
+      "path": "screens/library/exercise-detail__phone-390-light-pt.png",
+      "sourceSha256": "35f8086adf39fafd1e0c512e4f7dbfb3456a4c04edd1b97a616fd4a12d9fa479",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.004231770833333333,
+        "meanCellDelta": 0.0008704599273722879,
+        "meanEdgeDelta": 0.0011046821944190387,
+        "changedEdgeRatio": 0.005543692509855453,
+        "histogramDelta": 0.0020344903459772468,
+        "reasons": []
+      }
+    },
+    {
+      "key": "install/transfer-ready phone-390-light-en",
+      "path": "screens/install/transfer-ready__phone-390-light-en.png",
+      "sourceSha256": "9a68b84b6aef9b84d6edf9df6eb8074b7ace93da71e8ed53bf4edbcb01ad071a",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0030924479166666665,
+        "meanCellDelta": 0.0008686813048495081,
+        "meanEdgeDelta": 0.0011078604514148875,
+        "changedEdgeRatio": 0.004681340341655716,
+        "histogramDelta": 0.008056641177972779,
+        "reasons": []
+      }
+    },
+    {
+      "key": "install/transfer-ready phone-390-dark-en",
+      "path": "screens/install/transfer-ready__phone-390-dark-en.png",
+      "sourceSha256": "cee39c99c0cee93e28c2bf5a33a183e71e5be239c8cfda504a3e320ef5032c6b",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.0026041666666666665,
+        "meanCellDelta": 0.0005472973860170922,
+        "meanEdgeDelta": 0.0008000581664169078,
+        "changedEdgeRatio": 0.003818988173455979,
+        "histogramDelta": 0.0018717561033554375,
+        "reasons": []
+      }
+    },
+    {
+      "key": "install/transfer-ready phone-390-light-pt-text200",
+      "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png",
+      "sourceSha256": "11a47a2aab8856b5ba8975373c6ad59ed7ee13465a28dd8150ebf7ae47bcb091",
+      "comparator": {
+        "ok": true,
+        "changedCellRatio": 0.004720052083333333,
+        "meanCellDelta": 0.0014593091517630817,
+        "meanEdgeDelta": 0.0016182682032693232,
+        "changedEdgeRatio": 0.0056258212877792375,
+        "histogramDelta": 0.002685544721316546,
+        "reasons": []
+      }
+    }
+  ]
+}

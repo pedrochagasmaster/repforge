@@ -9635,13 +9635,13 @@ function renderProgram(){
   // seam, but leaves it out of the visual layout like the prior editor did.
   setProgramMetadataHidden(programEditMode||programReadyView,{inert:programReadyView});
   if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
-  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
+  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
   // Advanced remains part of the installed editor. It is inside the editor
   // host, so hiding the disclosure here would strand the raw import/export
   // controls whenever the visual editor is open.
-  [end,lede,addDay,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
+  [end,lede,addDay].forEach(el=>el?.classList.toggle("hidden",programEditMode));
   if(programEditMode){if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
-  renderProgramHeader();renderProgramEditor();renderVolume();
+  renderProgramHeader();renderProgramEditor();
   // Candidate edits can invalidate a paired relation while the exercise picker
   // is closing. Focus after the editor DOM has been rebuilt, rather than racing
   // the picker animation's one-shot focus attempt.
@@ -9721,7 +9721,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
   $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
   const readyLink=$("#programReadyLink");if(readyLink)readyLink.onclick=()=>{captureEvent("program_readiness_navigated",{ready_count_bucket:coarseCountBucket(ready.length)});programReadyView=true;renderProgram();window.scrollTo({top:0})};
-  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
+  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram()};
   const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
@@ -10051,7 +10051,7 @@ function bindEditor(){
         return}
       if(!isText&&(inp.value===captured||inp.value===priorValue))
         inp.value=String(programEditorProgram().find(inp.dataset.id)?.[field]??captured);
-      renderVolume();updateGauge();updateSaveMeta()};
+      updateGauge();updateSaveMeta()};
     if(inp.type==="number"){
       inp.onfocus=()=>inp.select();
       inp.onchange=()=>{const e=programEditorProgram().find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
@@ -10078,7 +10078,7 @@ function bindEditor(){
         const shown=editorFieldText(e,field);
         if(inp.value!==shown)inp.value=shown;
         onFocusText=null;
-        renderVolume();updateGauge();updateSaveMeta()};
+        updateGauge();updateSaveMeta()};
     }
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
@@ -10183,13 +10183,6 @@ async function editorAction(act,ds){
     if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
-function renderVolume(){
-  const arr=[...programEditorProgram().volume().entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff);
-  const max=Math.max(...arr.map(x=>x.eff),1);
-  $("#volume").innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(x.name))}</span>`+
-    `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
-    `<span class="vrow__num"><b>${fmt(x.eff)}</b> ${esc(tp(x.eff,"set"))}</span></div>`).join(""):`<div class="table"><div class="empty">${esc(t("program.empty.no_program_exercises"))}</div></div>`;
-}
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
 function persistProgram(nextProgram=programEditorProgram()){

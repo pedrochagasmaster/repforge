@@ -2,7 +2,7 @@
 /** Live Plan 058 role inventory. Existing CSS literals are debt until P6. */
 import { readFileSync } from "node:fs";
 import { ROOT, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt } from "./ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt } from "./ui-system-core.mjs";
 import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
@@ -273,9 +273,12 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
   if (!cssPath) throw new Error("--css needs a path");
   const css = readFileSync(cssPath, "utf8");
   const debt = cssLiteralDebt(css, inventory.exceptions);
-  console.log(`UI system: ${manifest.screens.length} live states, ${inventory.components.length} selectors, ${inventory.exceptions.length} exceptions; ${debt.length} CSS literal declarations remain for P4–P6.`);
+  const aliases = cssCompatibilityAliasDebt(css);
+  console.log(`UI system: ${manifest.screens.length} live states, ${inventory.components.length} selectors, ${inventory.exceptions.length} exceptions; ${debt.length} CSS literal declarations and ${aliases.length} obsolete alias references remain for P4–P6.`);
   for (const item of debt.slice(0, 8)) console.log(`  debt ${item.line}: ${item.selector} { ${item.property}: ${item.value} }`);
+  for (const item of aliases.slice(0, 8)) console.log(`  alias ${item.line}: ${item.alias}`);
   if (process.argv.includes("--strict-css") && debt.length) metadata.push(`${debt.length} unapproved CSS literals`);
+  if (process.argv.includes("--strict-css") && aliases.length) metadata.push(`${aliases.length} obsolete CSS alias references`);
   if (!process.argv.includes("--metadata")) {
     const flowArgument = process.argv.indexOf("--flow");
     const flow = flowArgument < 0 ? null : process.argv[flowArgument + 1];
