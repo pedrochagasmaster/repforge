@@ -2493,7 +2493,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-installed .program-editor__exercise:last-of-type{border-bottom:0}
 .program-editor-installed .program-editor__exercise-head{min-height:var(--control-target);padding:5px 16px;background:transparent;flex-wrap:wrap;align-items:flex-start}
 .program-editor-installed .program-editor__exercise-name{
-  flex:1 1 min(11em,100%);min-width:min(11em,100%);
+  flex:1 1 100%;min-width:0;
   font-size:var(--font-size-control);line-height:var(--line-standard);
 }
 .program-editor-installed .program-editor__summary{margin-left:auto;align-self:center;font-size:var(--font-size-control)}
