@@ -403,29 +403,16 @@ literal debt; P7 regenerates/reviews the entire catalog and required device
 matrix. This document and the inventory are the role authority until an
 explicit P2/P3 contract review changes them.
 
-## Luna Max execution handoff
+## Execution reference
 
-The foundation starts with 704 reported CSS literal declarations. This is
-P4–P6 migration debt, not an allowlist; `--strict-css` is expected to fail
-until P6. Use `node tools/check-ui-system.mjs --metadata` for a quick contract
-check, `node test/ui-system.mjs` for deliberate failure and token proofs,
-`node tools/check-ui-system.mjs` for all 143 live states, and
-`node tools/check-ui-screens.mjs` for the 819-frame catalog. Run
-`node tools/check-ui-system.mjs --state <flow/screen> --verbose` to reproduce
-a single catalog failure without re-rendering the whole catalog. Run
-`node tools/run-tests.mjs affected --base origin/main` after each coherent
-slice, then the final plan-required CI gate. The exact affected state and
-selector lists are in `tools/ui-role-inventory.json`; update them only after
-rendered evidence proves the live ownership changed.
+This file freezes the semantic roles. Current Plan 058 status, source and
+catalog SHAs, live counts, owner decision, matrix, and proof results are
+recorded in [the Plan 058 checkpoint](../../plans/058-design-system-convergence.md)
+and draft PR #256. The former “Luna Max execution handoff” has been removed:
+its 704-literal and 819-frame figures and older command guidance were initial
+baseline facts, not current P6/P7 results.
 
-Proceed in Plan 058 order: P4a entry/landing, P4b Today/Focus/summary, P4c
-Progress, P4d History/Share/Program/Settings/library/install/help. Migrate
-consumers to the named roles while keeping each Plan 054–057 interaction and
-state contract. P5 extends the computed-role AA check to every relevant
-theme, locale, and state. P6 removes the legacy aliases, the old hidden
-`#volume` presentation path, dead selectors, and remaining literal debt;
-`node tools/check-ui-system.mjs --strict-css` must then pass. P6 also needs the
-owner visual board approval specified in the plan. P7 regenerates and reviews
-the complete catalog and responsive/theme/text/reduced/installed matrix.
-The PR for this foundation remains separate from those migrations and is not
-merge authorization.
+Use `node tools/check-ui-system.mjs --state <flow/screen> --verbose` to
+reproduce one rendered state. For selection inspection use
+`node tools/run-tests.mjs affected --list --base <slice-base>`; the Plan 058
+checkpoint records the current broad selection and local cutoff.

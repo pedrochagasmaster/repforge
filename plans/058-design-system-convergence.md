@@ -7,9 +7,9 @@ and owner gates only.
 
 - **Plan number:** 058
 - **Phase:** 7 — System convergence
-- **Status:** P1–P6 complete; P7 has not started
-- **P6 feedback:** Run `36480745082` on source SHA `51b43f732f7e25588f72c7e1c22b95a04f4d061c` passed plan, install-transfer, interaction-runtime, verification, and all browser lanes. The visual lane's only failure is the old pixel baseline: it recaptured all 143 screens / 866 frames, catalog geometry and semantic comparison passed, and 649/866 frames perceptually match (217 differ). This expected migration drift is superseded by P7's required complete catalog regeneration.
-- **Owner approval state:** Pedro approved the P5 representative board as the intended Taurifer visual direction; P6 corrections must preserve that direction, and P7 engineering evidence remains open
+- **Status:** P1–P6 complete; P7 catalog regenerated and local evidence green; automatic P7 feedback, final review, and exact-SHA candidate pending
+- **P6 feedback:** Run [`36485657349`](https://github.com/pedrochagasmaster/repforge/actions/runs/36485657349) completed at source SHA `363e3a0dad2769dbb9d9cf672f351203a549b5a9`. Plan, install-transfer, interaction-runtime, verification, and all browser lanes passed. `visual-evidence` failed only against the pre-P7 catalog; 649/866 frames perceptually match and 217 exceed thresholds. `simulation-feedback` aggregated that visual-lane failure. P7 replaces the stale pixel baseline.
+- **Owner approval state:** Pedro approved the P5 representative board at production source SHA `dd70f11ad0e6a4bca8a491c7f37b3296d83c3166` as the intended Taurifer direction. The P7 representative evidence is refreshed from source SHA `363e3a0dad2769dbb9d9cf672f351203a549b5a9`; its P5 comparison records dispositions for all six threshold exceedances, and no hierarchy or system-direction change requires renewed approval.
 - **Depends on:** Plans 049–057 and the durable-state bridge merged, including the accepted architecture outputs of 054–057; principal public surfaces and interaction structure must have stopped moving.
 - **Blocks:** Plan 059 public-launch validation
 - **Governing G decisions:** G-13–G-14, G-28, G-57–G-60, G-67, G-74, G-80–G-81
@@ -18,6 +18,24 @@ and owner gates only.
 - **Affected surfaces:** Every public app/landing/sheet/dialog/toast/navigation/control/chart/catalog surface
 - **Complexity:** Very high
 - **Risk:** High — broad CSS/markup migration can regress strong task-specific hierarchy
+
+## Current P6/P7 checkpoint
+
+P6 production cleanup is frozen at SHA `51b43f732f7e25588f72c7e1c22b95a04f4d061c` and has no production UI/CSS/token/markup change between that SHA and the P7 capture source `363e3a0dad2769dbb9d9cf672f351203a549b5a9`. CSS literal debt went from 334 declarations to zero; obsolete compatibility-alias references are zero. The P6 cleanup removes the old token aliases and proven-dead selector families, retains no accidental nested-surface tunnel, and leaves only the six exact inventory exceptions. [PR239 adoption and dead-selector evidence](../docs/design/plan-058-pr239-adoption-evidence.md) records the runtime/cache contract, historical-client behavior, live generated-selector candidates, and retained owners.
+
+The unfiltered production capture `env -u REPFORGE_URL node tools/capture-ui-screens.mjs` regenerated the full 143-screen / 866-frame catalog from source SHA `363e3a0dad2769dbb9d9cf672f351203a549b5a9`. Screen/frame counts remain 143/866. Exactly 791 PNGs changed and 75 are byte-identical to the committed pre-P7 catalog; semantic output is exact. All changed frames have source/reason and before/after hashes in [the P7 change inventory](../docs/ui-screens/owner-board-058-p7/catalog-change-inventory.json): 634 shared semantic-recipe changes, 156 full-scale text-reflow changes, and one Build 200% reflow. Against the pre-P7 pixels, 649 frames meet the perceptual thresholds and 217 exceed them; these are the documented migration delta P7 is replacing.
+
+The capture matrix includes EN/PT-BR, light/dark, phone widths 320/390/430, normal/200% text including demanding PT-BR + 200%, and reduced motion. Desktop is not applicable because the canonical catalog is mobile-only. Installed/browser behavior remains covered by the production install-mode and cache-upgrade proofs; this is not physical-device validation. The [P7 representative board](../docs/ui-screens/owner-board-058-p7/) contains 59 unmodified catalog frames from the exact capture source across 13 surface groups. It refreshes Pedro's approved P5 visual direction and requires no renewed owner decision.
+
+Focused P7 proof at source SHA `363e3a0dad2769dbb9d9cf672f351203a549b5a9`:
+
+- `node tools/check-ui-system.mjs --locale en --strict-css`: 286 rendered variants; 23,120 role checks passed; zero failures, unsupported, missing, or exempt.
+- `node tools/check-ui-system.mjs --locale pt --strict-css`: 286 rendered variants; 23,120 role checks passed; zero failures, unsupported, missing, or exempt.
+- `node test/ui-system.mjs --css-debt-only`: URL-bearing declaration, arbitrary-name custom-property, `motion-polish.css`, and obsolete-alias negative controls passed.
+- `node tools/check-ui-screens.mjs`: 143 screens / 866 frames complete; production capture geometry/scroll contracts passed 866/866.
+- The complete P7 frame inventory reconciles exactly against the pre-P7 snapshot: 791 changed, 75 unchanged, no missing paths, no unreasoned change.
+
+`node tools/run-tests.mjs affected --list --base 363e3a0dad2769dbb9d9cf672f351203a549b5a9` selected 156 commands across the generic packet because catalog images and the unmapped board capture manifest widen visual ownership. That exceeds the local cutoff; broad regression is delegated to GitHub automatic feedback. The P6 run above passed all source/behavior lanes; only its expected pre-P7 visual baseline comparison failed. The next gate is green automatic feedback on the P7 commit, followed by one independent GPT-6 Sol XHigh review and one final exact-SHA candidate.
 
 ## Problem statement
 
