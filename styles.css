@@ -54,7 +54,7 @@
   /* Plan 058 semantic scales. Consumers migrate by role in P4–P6. */
   --font-language:"Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
   --font-training-data:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --font-size-label:min(.6875rem,4.8vw);
+  --font-size-label:.6875rem;
   --font-size-caption:.75rem;
   --font-size-body-small:.875rem;
   --font-size-body:1rem;
@@ -2415,10 +2415,10 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 
 /* Build is a setup workspace, so its title and actions are part of the same
    scroll flow and the installed dock remains absent. */
-.program-editor-onboarding .onb__head{display:grid;grid-template-columns:1fr auto;align-items:start;gap:10px;margin-bottom:20px}
+.program-editor-onboarding .onb__head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;margin-bottom:20px}
 .program-editor-onboarding .onb{padding-top:28px}
-.program-editor-onboarding .onb__head #onbCancel{grid-column:2;grid-row:1;justify-self:end;margin:0}
-.program-editor-onboarding .onb__editor-title{display:block;grid-column:1;grid-row:1;margin:0;font-size:var(--font-size-display);font-weight:650;line-height:1.05;letter-spacing:-.035em}
+.program-editor-onboarding .onb__head #onbCancel{order:2;flex:0 0 auto;margin:0 0 0 auto}
+.program-editor-onboarding .onb__editor-title{display:block;order:1;flex:1 1 0;min-width:min-content;margin:0;font-size:var(--font-size-display);font-weight:650;line-height:1.05;letter-spacing:-.035em}
 .program-editor-onboarding .onb__head #onbEyebrow,.program-editor-onboarding .onb__head #onbStepLabel,.program-editor-onboarding .onb__head #onbSegbar{display:none}
 .program-editor-onboarding #onbTitle{display:none}
 .program-editor-onboarding .onb__body{margin-bottom:20px}
@@ -2437,7 +2437,8 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
   border:1.5px solid var(--ink-soft);border-radius:50%;background:var(--surface) var(--check) center/13px 13px no-repeat
 }
 .program-editor-onboarding .program-editor__add-day{display:none}
-.program-editor-onboarding .program-editor__exercise-head{min-height:50px;padding:4px 16px;gap:6px}
+.program-editor-onboarding .program-editor__exercise-head{min-height:50px;padding:4px 16px;gap:6px;flex-wrap:wrap}
+.program-editor-onboarding .program-editor__exercise-name{flex:1 1 min(11em,100%);min-width:min(11em,100%)}
 .program-editor-onboarding .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-onboarding .program-editor__sets{min-height:58px}
 .program-editor-onboarding .program-editor__stepper{width:160px;grid-template-columns:44px 1fr 44px;min-height:58px}
@@ -2491,7 +2492,8 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-installed .program-editor__exercise:last-of-type{border-bottom:0}
 .program-editor-installed .program-editor__exercise-head{min-height:var(--control-target);padding:5px 16px;background:transparent;flex-wrap:wrap;align-items:flex-start}
 .program-editor-installed .program-editor__exercise-name{
-  flex:1 1 calc(100% - 52px);font-size:var(--font-size-control);line-height:var(--line-standard);
+  flex:1 1 min(11em,100%);min-width:min(11em,100%);
+  font-size:var(--font-size-control);line-height:var(--line-standard);
 }
 .program-editor-installed .program-editor__summary{margin-left:auto;align-self:center;font-size:var(--font-size-control)}
 .program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
@@ -2505,6 +2507,14 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px;font-size:var(--font-size-control)}
 .program-editor-installed .program-editor__exercise-actions{flex-wrap:wrap;margin-top:10px}
 .program-editor-installed .program-editor__exercise-actions button{flex:1 1 8rem;min-width:0;min-height:var(--control-target);white-space:normal}
+/* Keep long editable names visible as their type scales up; at normal size the
+   existing 16px inline inset remains unchanged. */
+.program-editor-onboarding .program-editor__program-name input,
+.program-editor-installed .program-editor__program-name input,
+.program-editor-onboarding .program-editor__exercise-head,
+.program-editor-installed .program-editor__exercise-head{
+  padding-inline:clamp(4px,calc(28px - .75em),16px)
+}
 .program-ready__head{display:flex;flex-direction:column;gap:18px;margin-bottom:12px}
 .program-ready__title{font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight)}
 .program-ready__list{border-top:1px solid var(--rule)}

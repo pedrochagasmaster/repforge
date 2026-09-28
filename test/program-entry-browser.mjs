@@ -242,8 +242,8 @@ async function onboardingControlGeometry(page) {
 
 function textMetricsMatchScale(metrics, scale) {
   const expected = scale === 2
-    ? { eyebrow: 34, step: 22, heading: 60, explain: 32, option: 32, back: 30, next: 34 }
-    : { eyebrow: 17, step: 11, heading: 30, explain: 16, option: 16, back: 15, next: 17 };
+    ? { eyebrow: 36, step: 22, heading: 60, explain: 32, option: 32, back: 32, next: 36 }
+    : { eyebrow: 18, step: 11, heading: 30, explain: 16, option: 16, back: 16, next: 18 };
   return Object.entries(expected).every(([key, value]) =>
     Number.isFinite(metrics[key]) && Math.abs(metrics[key] - value) < 0.1);
 }
@@ -1447,6 +1447,31 @@ try {
     assert(built.statusNode && built.saveVisible, "Build visibly identifies the editable draft and Save draft action", JSON.stringify(built));
     assert(built.activateDisabled && /Add an exercise to/i.test(built.statusText) && !/day_empty:|manual_d\d/.test(built.statusText) && built.statusAdjacent,
       "Build names incompleteness adjacent to its disabled activation", JSON.stringify(built));
+    const priorViewport = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    const buildHeader200 = await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+      const title = document.querySelector("#onbEditorTitle");
+      const cancel = document.querySelector("#onbCancel");
+      const root = document.querySelector("#onboarding");
+      const titleRect = title.getBoundingClientRect();
+      const cancelRect = cancel.getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        clippedTitle: title.scrollWidth > title.clientWidth + 1,
+        cancelClipped: cancel.scrollWidth > cancel.clientWidth + 1,
+        inBounds: titleRect.left >= rootRect.left - 1 && titleRect.right <= rootRect.right + 1 &&
+          cancelRect.left >= rootRect.left - 1 && cancelRect.right <= rootRect.right + 1,
+        noOverlap: titleRect.bottom <= cancelRect.top + 1 || cancelRect.bottom <= titleRect.top + 1 ||
+          titleRect.right <= cancelRect.left + 1 || cancelRect.right <= titleRect.left + 1,
+      };
+    });
+    assert(buildHeader200.overflow <= 0 && !buildHeader200.clippedTitle && !buildHeader200.cancelClipped &&
+      buildHeader200.inBounds && buildHeader200.noOverlap,
+      "Build title and Cancel reflow without clipping at 200% text", JSON.stringify(buildHeader200));
+    await page.evaluate(() => { document.documentElement.style.fontSize = "100%"; });
+    await page.setViewportSize(priorViewport);
     const buildGeometry = await page.evaluate(() => {
       const action = document.querySelector("#entryEditorActivate");
       const status = document.querySelector('#onbProgramEditor [data-role="editor-status"]');

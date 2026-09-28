@@ -139,8 +139,6 @@ async function checkContrast(page, label) {
 // Shadows are black in both themes because their job is to darken what is
 // behind them, and the two plates carry the app icon's own warm ground.
 const LITERAL_ALLOWLIST = [
-  { re: /rgba\(0,0,0,[.\d]+\)/g, why: "shadow" },
-  { re: /rgba\(27,26,23,[.\d]+\)/g, why: "shadow" },
   { re: /rgba\(23,23,25,[.\d]+\)/g, why: "shadow" },
   { re: /#161513(?=\s+url)/g, why: "install-banner icon plate" },
   { re: /#efe5df/g, why: "settings identity icon plate" },
