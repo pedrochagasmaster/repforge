@@ -2,19 +2,19 @@
 
 - **Source base SHA:** 9ebab797829feaa4a84a35e604f6757aa9fd76c2
 - **P6 production diff SHA-256:** 764aa6acd6fd03869ea37f8b0920ec2d9b5b05af2174328e9edfef6716c5d3b0 (app.js, index.html, styles.css; exact method and base are in `capture-manifest.json`)
-- **Production capture source SHA:** `f5939f6d5e695d6982ec12f1cd1eddc64a2ac838`; the registered Today 200% scenario change and later CSS-only P6 cleanup are separately recorded in `capture-manifest.json`.
+- **Production capture sources:** the original 57 frames use `f5939f6d5e695d6982ec12f1cd1eddc64a2ac838`; two Build 200% frames were recaptured from the exact P6 SHA `51b43f732f7e25588f72c7e1c22b95a04f4d061c`. Provenance is recorded in `capture-manifest.json`.
 - **Generated:** 2026-09-28
-- **Capture:** production scenarios from `tools/capture-ui-screens.mjs`; 57 representative frames from 23 selected screens. The registered Today-ready EN/PT-BR 200% states scroll the first exercise row into view, verify full 32px names, set values and dock clearance, then capture. All 57 passed catalog capture contracts.
+- **Capture:** production scenarios from `tools/capture-ui-screens.mjs`; 59 representative frames from 25 selected screens. The registered Today-ready EN/PT-BR 200% states verify full 32px names, set values and dock clearance. The two added Build 200% states verify title/Cancel separation and the scaled editor fields/actions. All 59 board frames passed catalog capture contracts; all eight variants of each Build screen were recaptured from the current P6 source.
 
-**Board size:** 57 raw production PNGs across 12 surface groups. Screenshots are unmodified captures.
+**Board size:** 59 raw production PNGs across 13 surface groups. Screenshots are unmodified captures.
 
 ## Review lens
 
 Please assess Taurifer identity, hierarchy, density, semantic consistency, action hierarchy, card/elevation restraint, selected and disabled treatment, outcome semantics, and responsive/localized coherence.
 
-The selection covers first-run and program entry, Today, Focus and rest, Summary, Progress, History, Program, Share, Settings and guides, the exercise library, and install transfer. It includes light and dark themes, 320px and 390px phones, PT-BR, 200% text and PT-BR at 200%, plus empty, success, disabled, warning, invalid, and outcome states.
+The selection covers first-run and program entry, Build, Today, Focus and rest, Summary, Progress, History, Program, Share, Settings and guides, the exercise library, and install transfer. It includes light and dark themes, 320px and 390px phones, PT-BR, 200% text and PT-BR at 200%, plus empty, success, disabled, warning, invalid, and outcome states.
 
-The approved P5 board remains preserved at [owner-board-058-p5](../owner-board-058-p5/). This P6 board differs perceptually in 43 of the 56 frames comparable with P5; 9 exceed the catalog comparator's material thresholds. The added Today EN 200% frame has no matching P5 frame. See `comparison-report.json` for per-frame metrics. The larger differences are concentrated in type-scale/reflow states. Both Today 200% locale frames now show the complete exercise name and prescribed values above the floating dock. The exhaustive 866-frame catalog regeneration remains P7 work.
+The approved P5 board remains preserved at [owner-board-058-p5](../owner-board-058-p5/). This P6 board differs perceptually in 43 of the 56 frames comparable with P5; 9 exceed the catalog comparator's material thresholds. Three frames have no matching P5 capture: Today EN 200% and the two Build 200% repairs. See `comparison-report.json` for per-frame metrics. The larger differences are concentrated in type-scale/reflow states. Both Today 200% locale frames show the complete exercise name and prescribed values above the floating dock. The Build EN 200% frame shows the title and Cancel on separate lines; the PT-BR 200% editor frame shows the scaled fields and actions without clipping. The exhaustive 866-frame catalog regeneration remains P7 work.
 
 ## Frames
 
@@ -29,6 +29,12 @@ The approved P5 board remains preserved at [owner-board-058-p5](../owner-board-0
 
 <table>
 <tr><td align="center"><a href="screens/onboarding-start/hub__phone-390-light-en.png"><img src="screens/onboarding-start/hub__phone-390-light-en.png" width="230" alt="onboarding-start/hub, 390px · light · EN · standard text"></a><br><sub>390px · light · EN · standard text</sub></td><td align="center"><a href="screens/onboarding-start/hub__phone-390-dark-en.png"><img src="screens/onboarding-start/hub__phone-390-dark-en.png" width="230" alt="onboarding-start/hub, 390px · dark · EN · standard text"></a><br><sub>390px · dark · EN · standard text</sub></td><td align="center"><a href="screens/onboarding-start/hub__phone-390-light-pt.png"><img src="screens/onboarding-start/hub__phone-390-light-pt.png" width="230" alt="onboarding-start/hub, 390px · light · PT-BR · standard text"></a><br><sub>390px · light · PT-BR · standard text</sub></td></tr>
+</table>
+
+### Build editor
+
+<table>
+<tr><td align="center"><a href="screens/onboarding-build/editor-empty__phone-390-light-en-text200.png"><img src="screens/onboarding-build/editor-empty__phone-390-light-en-text200.png" width="230" alt="onboarding-build/editor-empty, 390px · light · EN · 200% text; title and Cancel remain separate"></a><br><sub>390px · light · EN · 200% text</sub></td><td align="center"><a href="screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png"><img src="screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png" width="230" alt="onboarding-build/editor-ready, 390px · light · PT-BR · 200% text; fields and actions visible"></a><br><sub>390px · light · PT-BR · 200% text</sub></td><td></td></tr>
 </table>
 
 ### Today
@@ -102,4 +108,4 @@ The approved P5 board remains preserved at [owner-board-058-p5](../owner-board-0
 
 ---
 
-Pedro's recorded approval applies to the P5 board at [owner-board-058-p5](../owner-board-058-p5/), which establishes the intended Taurifer visual direction and authorizes P6. This P6 board is refreshed representative evidence, not a separate owner approval. It contains 57 unmodified production captures from the source and registered scenario SHAs recorded in `capture-manifest.json`; the additional frame is Today-ready EN at 200% text. The two Today 200% captures verify complete exercise names and values above the floating dock. P6 corrections preserve the approved hierarchy and system direction; no renewed owner review is requested for these reflow/clearance fixes.
+Pedro's recorded approval applies to the P5 board at [owner-board-058-p5](../owner-board-058-p5/), which establishes the intended Taurifer visual direction and authorizes P6. This P6 board is refreshed representative evidence, not a separate owner approval. It contains 59 unmodified production captures with source and registered-scenario provenance in `capture-manifest.json`. The Today and Build 200% frames verify the targeted reflow, field, action and dock-clearance repairs. P6 corrections preserve the approved hierarchy and system direction; no renewed owner review is requested for these fixes.

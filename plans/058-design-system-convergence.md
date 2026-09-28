@@ -7,7 +7,8 @@ and owner gates only.
 
 - **Plan number:** 058
 - **Phase:** 7 — System convergence
-- **Status:** P1–P5 complete; P6 implementation is in progress on PR #256; P7 has not started
+- **Status:** P1–P6 complete; P7 has not started
+- **P6 feedback:** Run `36480745082` on source SHA `51b43f732f7e25588f72c7e1c22b95a04f4d061c` passed plan, install-transfer, interaction-runtime, verification, and all browser lanes. The visual lane's only failure is the old pixel baseline: it recaptured all 143 screens / 866 frames, catalog geometry and semantic comparison passed, and 649/866 frames perceptually match (217 differ). This expected migration drift is superseded by P7's required complete catalog regeneration.
 - **Owner approval state:** Pedro approved the P5 representative board as the intended Taurifer visual direction; P6 corrections must preserve that direction, and P7 engineering evidence remains open
 - **Depends on:** Plans 049–057 and the durable-state bridge merged, including the accepted architecture outputs of 054–057; principal public surfaces and interaction structure must have stopped moving.
 - **Blocks:** Plan 059 public-launch validation

@@ -4,7 +4,7 @@
     "sourceAppSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
     "comparator": "tools/compare-ui-screens.mjs comparePngBuffers with default thresholds",
     "comparedFrameCount": 56,
-    "addedFrameCount": 1,
+    "addedFrameCount": 3,
     "framesWithPerceptualDelta": 43,
     "framesExceedingComparatorThresholds": 9
   },
@@ -148,6 +148,16 @@
           "edge structure changed across the capture"
         ]
       }
+    },
+    {
+      "key": "onboarding-build/editor-empty phone-390-light-en-text200",
+      "path": "screens/onboarding-build/editor-empty__phone-390-light-en-text200.png",
+      "sourceSha256": "de548ea6f014ae2f4569eb86204dc003cbcc377c13f43e3f5211fdef71e33cb3"
+    },
+    {
+      "key": "onboarding-build/editor-ready phone-390-light-pt-text200",
+      "path": "screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png",
+      "sourceSha256": "bf430db5ff2a6e02210c33c99d487731cebd07e17283bcd07b1227b30db7af9d"
     },
     {
       "key": "today/no-program phone-390-light-en",
