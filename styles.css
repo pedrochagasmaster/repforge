@@ -3291,6 +3291,17 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .today-ex:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .today-ex__name{min-width:0;flex:1;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .today-ex__value{flex:none;display:inline-flex;align-items:center;gap:10px;font-family:var(--font-training-data);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+/* At 200%, give the exercise name its own line so every locale can wrap at
+   word boundaries while the prescribed volume stays visible as the next line. */
+:root[style*="font-size: 200%"] .today-ex{
+  flex-wrap:wrap;align-items:flex-start
+}
+:root[style*="font-size: 200%"] .today-ex__name{
+  flex:1 0 100%;overflow:visible;overflow-wrap:anywhere;text-overflow:clip;white-space:normal
+}
+:root[style*="font-size: 200%"] .today-ex__value{
+  margin-left:auto
+}
 .today-exmore{
   display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
   min-height:var(--control-target);padding:12px 0;background:var(--control-disclosure-bg);border:0;
