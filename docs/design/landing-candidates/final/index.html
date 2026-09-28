@@ -219,18 +219,19 @@ figure{margin:0}
 
 .hero{padding:0 0 var(--s8)}
 .hero .h1{margin-top:var(--s4)}
-.hero .sub{margin-top:var(--s2)}
+.hero .sub{margin-top:var(--s3)}
 .hero .actions{margin-top:var(--s4)}
 .hero .meta{margin-top:0}
 
 /* ---------- the proof: a lens reads the real screen ---------- */
-.proof{--bg:#1A1815;padding-bottom:0}
+.proof{--bg:#1E1C18;padding-bottom:0}
 .wt{position:relative;margin-top:var(--s2)}
 .wt__stage{position:sticky;top:var(--rv);height:calc(100svh - var(--rv));display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:var(--s1);padding:var(--s2) 0 calc(var(--dockH) + 26px + env(safe-area-inset-bottom))}
 .phone{position:relative;min-height:0;display:flex;justify-content:center}
 .phone__glass{position:relative;height:100%;aspect-ratio:780/1688;max-width:100%;border-radius:clamp(26px,9.5%,40px)/clamp(26px,4.4%,40px);overflow:hidden;isolation:isolate;background:#0B0A09;
   box-shadow:0 0 0 1px #3A362F,0 0 0 7px #0B0A09,0 0 0 8px #2B2824,0 30px 60px -24px rgba(0,0,0,.8)}
 .phone__screen{position:absolute;inset:0;transition:filter .6s var(--out)}
+.phone__glass::after{content:"";position:absolute;z-index:1;left:50%;top:1.35%;width:29%;height:1.95%;min-height:12px;border-radius:999px;background:#000;transform:translateX(-50%);pointer-events:none}
 .phone__screen picture{position:absolute;inset:0;opacity:0;transition:opacity .5s var(--out)}
 .phone__screen picture.on{opacity:1}
 .phone__screen img{width:100%;height:100%;object-fit:cover}
@@ -302,7 +303,7 @@ figure{margin:0}
 .oc__ex{margin-top:2px;font-size:14px;color:var(--ink-faint)}
 .outs p{margin-top:var(--s1);font-size:15.5px;color:var(--ink-soft)}
 .chart{margin-top:var(--s5)}
-.chart__img{margin:0 auto;width:min(72%,280px)}
+.chart__img{margin:0 auto;width:min(58%,230px)}
 .chart figcaption{margin-top:var(--s2);font-size:15px;color:var(--ink-soft)}
 .tip{display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--ink)}
 .tip::before{content:"";flex:none;width:16px;height:16px;margin-top:3px;background:var(--accent);-webkit-mask:var(--bolt) no-repeat center/contain;mask:var(--bolt) no-repeat center/contain}
@@ -324,6 +325,9 @@ details.faq{border-top:1px solid var(--rule)}
 details.faq:last-of-type{border-bottom:1px solid var(--rule)}
 details.faq summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:var(--s2);min-height:56px;padding:var(--s1) 0;font-weight:600;font-size:17px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 details.faq summary::-webkit-details-marker{display:none}
+details.faq summary:active,.disc:active{opacity:.72}
+@media (hover:hover){details.faq summary:hover i,.disc:hover i{transform:rotate(90deg)}}
+details.faq summary i,.disc i{transition:transform .35s var(--out)}
 details.faq .ans{padding:0 0 var(--s3);color:var(--ink-soft)}
 details.faq .ans>*+*{margin-top:var(--s1)}
 details.faq ol{padding-left:20px}
@@ -345,7 +349,8 @@ details.faq b{color:var(--ink);font-weight:600}
 .close .track{text-decoration-color:rgba(var(--field-ink-rgb),.5)}
 .close :focus-visible{outline-color:var(--field-ink)}
 .close .actions{margin-top:var(--s4)}
-.foot{background:var(--bg)}
+.foot{background:#141310;color:#99938A}
+.foot :focus-visible{outline-color:#F2703B}
 .foot .wrap{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:var(--s3);color:var(--ink-faint);font-size:13px}
 .foot nav{display:flex;gap:var(--s2)}
 .foot a{min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;text-decoration:none}
@@ -461,7 +466,7 @@ function ex(id){ return EX[id][lang === "pt" ? 0 : 1]; }
 /* node final/engine-cases.mjs --write */
 /*@CASES*/var CASES = {"add":{"ex":"bench","sets":3,"repMin":8,"repMax":10,"logged":[[60,10,2],[60,10,2],[60,10,2]],"status":"advance","reason":"range.performed_top","load":62.5,"reps":8},"hold":{"ex":"squat","sets":3,"repMin":5,"repMax":8,"logged":[[100,8,1],[100,7,0],[100,6,0]],"status":"hold","reason":"range.room_in_range","load":100,"reps":8},"reduce":{"ex":"bench","sets":3,"repMin":8,"repMax":10,"logged":[[70,7,0],[70,6,0],[70,6,0]],"status":"reduce","reason":"range.below_floor","load":67.5,"reps":8}};/*@end*/
 /* node final/render/capture.mjs (from test/) */
-/*@SHOTS*/var SHOTS = {"size":[780,1688],"spots":{"focus":{"pt":{"cue":[50,67.07,81.03,2.25],"cueText":[59.69,67.07,54.09,2.24],"log":[50,89.57,81.03,6.4],"last":[56.46,57.76,68.1,9.12],"note":[58.21,42.51,11.28,5.21],"actions":[71.54,42.51,11.28,5.21]},"en":{"cue":[50,67.07,81.03,2.25],"cueText":[54.48,67.07,51.55,2.24],"log":[50,89.57,81.03,6.4],"last":[56.46,57.76,68.1,9.12],"note":[58.21,42.51,11.28,5.21],"actions":[71.54,42.51,11.28,5.21]}},"rest":{"pt":{"dial":[50,59.12,53.85,24.88]},"en":{"dial":[50,59.12,53.85,24.88]}},"actions":{"pt":{"swap":[50,65.86,91.79,5.57]},"en":{"swap":[50,65.86,91.79,5.57]}},"note":{"pt":{"text":[50,38.18,91.79,3.02]},"en":{"text":[50,38.18,91.79,3.02]}}}};/*@end*/
+/*@SHOTS*/var SHOTS = {"size":[780,1688],"spots":{"focus":{"pt":{"cue":[50,67.07,81.03,2.25],"log":[50,89.57,81.03,6.4],"last":[56.46,57.76,68.1,9.12]},"en":{"cue":[50,67.07,81.03,2.25],"log":[50,89.57,81.03,6.4],"last":[56.46,57.76,68.1,9.12]}},"rest":{"pt":{"dial":[50,59.12,53.85,24.88]},"en":{"dial":[50,59.12,53.85,24.88]}},"actions":{"pt":{"swap":[50,65.86,91.79,5.57]},"en":{"swap":[50,65.86,91.79,5.57]}},"note":{"pt":{"text":[50,38.18,91.79,3.02]},"en":{"text":[50,38.18,91.79,3.02]}}}};/*@end*/
 var ASSETS = {"paste-review":{"pt":[720,644],"en":[720,612]}};
 
 /* ---------- registry: everything the page starts, cleared on re-render ---------- */
@@ -519,12 +524,12 @@ function steps(){
   var c = CASES.add, reps = c.logged[0][1], load0 = c.logged[0][0];
   return [
     { scene: "focus", read: null, h: L("Uma tela por exercício.", "One screen per exercise."), t: L("Tudo o que você precisa entre uma série e outra fica aqui. RIR (repetições em reserva: quantas você ainda conseguiria fazer) aparece ao lado das repetições.", "Everything you need between sets lives here. RIR (reps in reserve: how many more you could still do) sits next to the reps.") },
-    { scene: "focus", read: ["cueText"], h: L("Já vem preenchido.", "Already filled in."), t: L("A meta de hoje aparece em Agora, e o peso e as repetições já vêm preenchidos logo abaixo.", "Today's target shows under Now, and the weight and reps are already filled in below it.") },
+    { scene: "focus", read: ["cue"], h: L("Já vem preenchido.", "Already filled in."), t: L("A meta de hoje aparece em Agora, e o peso e as repetições já vêm preenchidos logo abaixo.", "Today's target shows under Now, and the weight and reps are already filled in below it.") },
     { scene: "focus", read: ["log"], h: L("Fez? Toque em " + k("today.log_set") + ".", "Done? Tap " + k("today.log_set") + "."), t: L("Um toque, e o descanso começa a contar.", "One tap, and your rest starts counting.") },
     { scene: "rest", read: ["dial"], h: L("Descanso.", "Rest."), t: L("O timer conta o intervalo e avisa quando acabar.", "The timer counts your rest and tells you when it's up.") },
     { scene: "actions", read: ["swap"], h: L("Troca.", "Swap."), t: L("Equipamento ocupado? Nas ações do exercício, toque em " + ui("ex.actions.substitute") + ". O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado.", "Equipment taken? In the exercise actions, tap " + ui("ex.actions.substitute") + ". Taurifer records the one you actually did instead of the planned one.") },
     { scene: "note", read: ["text"], h: L("Notas.", "Notes."), t: L("Anote altura do banco, pegada, ajuste. Você registra uma vez e a nota aparece sempre que for fazer esse exercício.", "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise.") },
-    { scene: "focus", read: ["last", "cueText"], last: true, h: L("Próxima sessão", "Next session"),
+    { scene: "focus", read: ["last", "cue"], last: true, h: L("Próxima sessão", "Next session"),
       result: [kg(c.load) + " × " + n(c.reps), n(c.sets) + " " + L("séries", "sets")],
       t: L("Você fez " + n(reps) + " repetições com " + kg(load0) + " nas três séries, o máximo da sua meta (" + n(c.repMin) + " a " + n(c.repMax) + "). Por isso o peso sobe: na próxima sessão, use " + kg(c.load) + " e busque " + n(c.reps) + " repetições por série. É o que aparece em Agora.", "You did " + n(reps) + " reps at " + kg(load0) + " on all three sets, the most your target allows (" + n(c.repMin) + " to " + n(c.repMax) + "). So the weight goes up: next session, use " + kg(c.load) + " and aim for " + n(c.reps) + " reps per set. That's what Now shows.") }
   ];
@@ -532,7 +537,7 @@ function steps(){
 /* How the lens reads each measured element: magnification, shape, padding and,
    for a button read edge to edge, the app's corner radius (styles.css --radius). */
 var READ = {
-  cueText: { scene: "focus", m: 1.95, shape: "pill", pad: 10 },
+  cue: { scene: "focus", m: 1.95, shape: "pill", pad: 10 },
   log: { scene: "focus", m: 1.5, shape: "rect", pad: 0, r: 14 },
   dial: { scene: "rest", m: 1.3, shape: "round", pad: 6 },
   swap: { scene: "actions", m: 1.5, shape: "rect", pad: 0, r: 14 },
@@ -596,7 +601,7 @@ function lensTo(root, name){
 var seqTimer = null;
 function frameStep(root, i){
   var st = steps()[i], phone = root.querySelector("#wtPhone"), lens = root.querySelector("#wtLens");
-  root.querySelectorAll("#wtScreen picture").forEach(function(pc){ pc.classList.toggle("on", pc.dataset.scene === st.scene); });
+  root.querySelectorAll("#wtScreen picture").forEach(function(pc){ var onp = pc.dataset.scene === st.scene; pc.classList.toggle("on", onp); pc.setAttribute("aria-hidden", onp ? "false" : "true"); });
   phone.setAttribute("data-step", i);
   if (seqTimer){ clearTimeout(seqTimer); REG.timers.delete(seqTimer); seqTimer = null; }
   phone.classList.toggle("reading", !!st.read);
@@ -733,7 +738,7 @@ function close(){
     '<p class="sub">' + L("Um toque por série. O Taurifer faz a conta da próxima.", "One tap per set. Taurifer works out the next one.") + '</p>' +
     '<div class="actions">' + cta("closeCta") + track() + '</div></div></section>';
 }
-function footer(){ return '<footer class="foot"><div class="wrap"><span>Taurifer</span><nav aria-label="' + L("Rodapé", "Footer") + '"><a href="#' + L("dados", "data") + '">' + L("Privacidade", "Privacy") + '</a><a href="' + APP + '">' + L("Abrir o app", "Open the app") + '</a></nav></div></footer>'; }
+function footer(){ return '<footer class="foot night"><div class="wrap"><span>Taurifer</span><nav aria-label="' + L("Rodapé", "Footer") + '"><a href="#' + L("dados", "data") + '">' + L("Privacidade", "Privacy") + '</a><a href="' + APP + '">' + L("Abrir o app", "Open the app") + '</a></nav></div></footer>'; }
 function dock(){ return '<div class="dock" id="dock" aria-hidden="true">' + cta("dockCta") + '</div>'; }
 
 function disclosure(root){
@@ -745,14 +750,25 @@ function disclosure(root){
    beneath it, so it never sinks into a dark field. */
 function stickyDock(root){
   var bar = root.querySelector("#dock"), heroCta = root.querySelector("#heroCta"), closeCta = root.querySelector("#closeCta");
-  var gone = false, closeSeen = false, bands = [].slice.call(root.querySelectorAll(".band, .foot"));
+  var gone = false, closeSeen = false;
   function paint(){ var show = gone && !closeSeen; bar.classList.toggle("on", show); bar.setAttribute("aria-hidden", show ? "false" : "true"); bar.querySelector("a").tabIndex = show ? 0 : -1; }
   watch(new IntersectionObserver(function(es){ var e = es[es.length - 1]; gone = !e.isIntersecting && e.boundingClientRect.bottom < (e.rootBounds ? e.rootBounds.top : 0) + 1; paint(); }, { rootMargin: "-" + rvH() + "px 0px 0px 0px" })).observe(heroCta);
   watch(new IntersectionObserver(function(es){ var e = es[es.length - 1]; closeSeen = e.isIntersecting || e.boundingClientRect.top < 0; paint(); })).observe(closeCta);
-  function lum(el){ var m = /(\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).backgroundColor); return m ? (.2126 * m[1] + .7152 * m[2] + .0722 * m[3]) / 255 : 1; }
+  /* the first painted background beneath the dock's centre: a band, a stripe or a card */
+  function ground(x, y){
+    var hits = document.elementsFromPoint(x, y);
+    for (var i = 0; i < hits.length; i++){
+      if (bar.contains(hits[i])) continue;
+      for (var e = hits[i]; e && e !== document.documentElement; e = e.parentElement){
+        var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(getComputedStyle(e).backgroundColor);
+        if (m && (m[4] === undefined || +m[4] > .5)) return (.2126 * m[1] + .7152 * m[2] + .0722 * m[3]) / 255;
+      }
+    }
+    return 1;
+  }
   onScroll(function(){
-    var y = innerHeight - 40, dark = false;
-    for (var i = 0; i < bands.length; i++){ var r = bands[i].getBoundingClientRect(); if (r.top <= y && r.bottom > y){ dark = lum(bands[i]) < .4; break; } }
+    /* the dock's resting place, not its transformed box, so it is inked before it slides in */
+    var dark = ground(innerWidth / 2, bar.offsetTop + bar.offsetHeight / 2) < .4;
     bar.classList.toggle("over-dark", dark); bar.classList.toggle("over-light", !dark);
   });
   paint();

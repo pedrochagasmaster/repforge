@@ -72,11 +72,11 @@ const MEASURE = `(${(() => {
   };
   return {
     focus: () => {
-      const card = vis("#workout .is-current"), cue = card.querySelector(".focus-cue.is-now"), text = cue.querySelector(".focus-cue__text");
+      const card = vis("#workout .is-current"), cue = card.querySelector(".focus-cue.is-now");
       const head = card.querySelectorAll(".ledger__head > span"), row = card.querySelector(".ledger__row");
       const cells = [...row.children], a = rect(head[1]), b = rect(cells[cells.length - 1]);
-      return { cue: of(cue), cueText: of(text), log: of([...card.querySelectorAll("button")].find((x) => /^\s*(registrar série|log set)\s*$/i.test(x.textContent))),
-        last: pct(a.left, a.top, b.right, rect(row).bottom), note: of(card.querySelector("[data-exnote-open]")), actions: of(card.querySelector("[data-exactions-open]")) };
+      return { cue: of(cue), log: of([...card.querySelectorAll("button")].find((x) => /^\s*(registrar série|log set)\s*$/i.test(x.textContent))),
+        last: pct(a.left, a.top, b.right, rect(row).bottom) };
     },
     rest: () => ({ dial: of(vis("#restSheet .restdial")) }),
     actions: () => ({ swap: of(vis("#exActionSubstBtn")) }),

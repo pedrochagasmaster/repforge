@@ -11,7 +11,7 @@ The definitive landing page, assembled from the rounds before it. Serve the repo
 | Base: copy, order, rules | S, round 3 | Everything below the proof is S's content: three ways to start, the three answers the engine gives, your data, questions, the close. Round 3's copy fixes all hold ("treino", "seu treino", RIR explained where it appears, "Você não precisa criar uma conta", usage data only in the FAQ). |
 | Hero title and typography | B, round 5 | The live headline, "Chegue na academia sabendo exatamente o que fazer.", in B's night field and lighter display voice (Plex Sans 500, tight tracking). Every heading on the page uses B's scale. |
 | Proof ("Veja na prática") | B's lens, round 5, rebuilt | See below. |
-| Section structure | C, round 5 | Each section is its own field of color instead of hairlines on one background: night hero and proof, three full-bleed stripes for the ways to start (orange, paper, ink), a paper band, an ink band for your data, a light band for questions, an orange close. |
+| Section structure | C, round 5 | Each section is its own field of color instead of hairlines on one background: night hero and proof, three full-bleed stripes for the ways to start (orange, paper, ink), a paper band, an ink band for your data, a light band for questions, an orange close, and a night footer that bookends the hero. |
 
 ## The lens, rebuilt
 
@@ -19,7 +19,7 @@ Round 5's lens guessed where things were and magnified whatever sat nearby, so i
 neighboring rows, clipped the Now line against the frame, and skipped the notes step. This version:
 
 - **Reads exact elements.** `render/capture.mjs` measures each target from the app's own DOM (the
-  Now line's text, the Registrar série button, the rest dial, Substituir exercício, the note's
+  whole Agora line with its label, the Registrar série button, the rest dial, Substituir exercício, the note's
   first line, the last-session row) and writes the boxes into `SHOTS`. The lens is a crop of that
   box, nothing more.
 - **Takes the shape of what it reads.** A pill for a line of text, a circle for the rest dial, and
@@ -28,17 +28,19 @@ neighboring rows, clipped the Now line against the frame, and skipped the notes 
 - **Can overhang the phone.** Magnification is limited by the page column, not the phone frame, so
   a whole line reads at up to 1.95x without clipping.
 - **Tells the last step as cause and effect.** Step 7 first reads the last-session row (60 kg × 10,
-  RIR 2), then glides to the Now line (Subir para 62,5 kg · buscar 8 reps) while the caption
+  RIR 2), then glides to the Agora line (Subir para 62,5 kg · buscar 8 reps) while the caption
   explains why. With reduced motion it goes straight to the Now line.
 - **Has a rail you can tap.** Seven detents under the phone show progress and jump to a step.
+- The phone carries its island, so the captured status-bar space reads as hardware.
 - The screen dims under the lens. The phone shows the dark captures because the proof sits on the
   night field in both themes.
 
 ## The persistent CTA
 
 "Montar meu treino" appears once the hero's CTA has left the screen and steps aside at the closing
-CTA. It is a single floating button, with no glass plate, and it takes the ink that contrasts with
-the band beneath it (parchment over the night and ink bands, dark over paper), so it never sinks
+CTA. It is a single floating button, with no glass plate. It samples the color painted beneath its
+resting place and takes the contrasting ink: parchment over the night bands, the ink band and the
+ink stripe, dark over paper. A dark stripe inside a light band counts, so the button never sinks
 into a dark field.
 
 ## Truth

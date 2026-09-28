@@ -128,6 +128,9 @@ for (const lang of LANGS) {
     const d1 = await page.evaluate(() => ({ on: document.getElementById("dock").classList.contains("on"), dark: document.getElementById("dock").classList.contains("over-dark") }));
     if (!d1.on) fail(where, "sticky CTA did not appear after the hero CTA left");
     if (!d1.dark) fail(where, "sticky CTA over the night band is not inked for a dark field");
+    // a dark stripe inside a light band still gets the light ink
+    await page.evaluate(() => { const s = document.querySelector(".ways .w3"), d = document.getElementById("dock"); scrollTo(0, s.getBoundingClientRect().top + scrollY - (d.offsetTop + d.offsetHeight / 2) + s.offsetHeight / 2); }); await page.waitForTimeout(400);
+    if (!(await page.evaluate(() => document.getElementById("dock").classList.contains("over-dark")))) fail(where, "sticky CTA over the ink stripe is not inked for a dark field");
     await page.evaluate(() => document.getElementById("trackH").scrollIntoView({ block: "start" })); await page.waitForTimeout(400);
     if (!(await page.evaluate(() => document.getElementById("dock").classList.contains("over-light")))) fail(where, "sticky CTA over a light band is not inked for a light field");
     await page.evaluate(() => document.getElementById("closeCta").scrollIntoView({ block: "center" })); await page.waitForTimeout(500);
@@ -216,14 +219,14 @@ for (const lang of LANGS) {
       steps.push(s.step); if (s.read) reads.add(s.read);
     }
     if (new Set(steps).size !== 7 || steps.some((s, i) => i && s < steps[i - 1])) fail(w, "steps did not advance through all seven with scroll: " + [...new Set(steps)].join(","));
-    for (const r of ["cueText", "log", "dial", "swap", "text"]) if (!reads.has(r)) fail(w, "the lens never read " + r);
+    for (const r of ["cue", "log", "dial", "swap", "text"]) if (!reads.has(r)) fail(w, "the lens never read " + r);
     // the last step reads what you did, then glides to what comes next
     await toStep(page, 6); await page.waitForTimeout(reduced ? 150 : 400);
     const first = await page.evaluate(() => document.getElementById("wtLens").dataset.read);
     if (!reduced && first !== "last") fail(w, "last step did not start on the last session (" + first + ")");
     await page.waitForTimeout(reduced ? 100 : 1900);
     const end = await page.evaluate(() => { const c = document.querySelector("#stage .cap.on"); return { read: document.getElementById("wtLens").dataset.read, text: c && c.textContent, visible: c && getComputedStyle(c).opacity }; });
-    if (end.read !== "cueText") fail(w, "last step did not land on the Now line (" + end.read + ")");
+    if (end.read !== "cue") fail(w, "last step did not land on the Now line (" + end.read + ")");
     if (!end.text || !/Você fez|You did/.test(end.text) || end.visible !== "1") fail(w, "last step not shown: " + JSON.stringify(end));
     // the lens is an exact crop: its image is the screen it reads
     const img = await page.evaluate(() => { const l = document.getElementById("wtLens"); return { bg: l.style.backgroundImage, src: document.querySelector('#wtScreen picture[data-scene="focus"] img').currentSrc }; });
