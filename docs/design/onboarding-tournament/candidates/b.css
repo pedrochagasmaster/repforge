@@ -1,0 +1,59 @@
+/* Candidate B · Cinco portas honestas — composition only; recipes come from base.css */
+.b-page{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+.b-head{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin-bottom:6px;flex-wrap:wrap}
+.b-head__route{font-size:var(--font-size-body-small);font-weight:600;color:var(--ink-soft)}
+.b-progress{margin:0 0 14px}
+.b-rail{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.b-rail::-webkit-scrollbar{display:none}
+.b-rail__chip{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:var(--control-target);padding:6px 10px;border-radius:var(--radius-pill);border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink);font-size:var(--font-size-body-small);font-weight:500;white-space:nowrap}
+.b-rail__chip .icon-mask{color:var(--accent-deep)}
+.b-q{margin:6px 0 4px}
+.b-lede{margin:4px 0 16px}
+.b-body{display:block}
+.b-nav{margin-top:18px}
+.b-nav .row{gap:10px}
+.b-seg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+@media (max-width:340px){.b-seg{grid-template-columns:repeat(3,minmax(0,1fr))}}
+:root[style*="200%"] .b-seg{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+/* landing */
+.b-land{padding-top:calc(16px + env(safe-area-inset-top));min-height:100vh}
+.b-land__brand{display:flex;align-items:center;gap:10px;margin-bottom:34px;flex-wrap:wrap}
+.b-land__mark{width:40px;height:40px}
+.b-land__word{font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:var(--font-size-body-small)}
+.b-land__head{font-size:var(--font-size-landing-headline);font-weight:650;letter-spacing:-.02em;line-height:1.05;margin-bottom:12px}
+.b-door{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:64px;padding:14px 16px;border-radius:var(--radius-surface);border:1px solid var(--color-action-text);background:var(--bg);color:var(--color-ink);font:inherit;cursor:pointer;transition:transform .12s ease,background .2s ease}
+.b-door:hover{background:var(--well)}
+.b-door:active{transform:var(--control-pressed-transform)}
+.b-door--primary{background:var(--color-action-text);color:var(--color-action-on-fill);border-color:var(--color-action-text)}
+.b-door--primary:hover{background:var(--color-action-text)}
+.b-door__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.b-door__title{font-weight:600;font-size:var(--font-size-subtitle)}
+.b-door__cap{font-size:var(--font-size-body-small);opacity:.85}
+.b-door .icon-mask{width:22px;height:22px}
+.b-shared{margin:14px 0 12px}
+
+/* hub: routes as honest doors */
+.b-route{display:flex;flex-direction:column;gap:8px;width:100%;text-align:left;padding:14px 16px;border-radius:var(--radius-surface);border:1px solid var(--control-selection-boundary);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;transition:background .2s ease}
+.b-route:hover{background:var(--well)}
+.b-route--featured{border-color:var(--accent);box-shadow:var(--control-accent-keyline-shadow)}
+.b-route__flag{margin-bottom:-2px}
+.b-route__title{flex:1;min-width:0;font-weight:600;font-size:var(--font-size-control)}
+.b-route .icon-mask{color:var(--ink-soft)}
+.b-route--featured .icon-mask{color:var(--accent-deep)}
+.b-route__facts{display:grid;grid-template-columns:1fr;gap:4px;font-size:var(--font-size-body-small);color:var(--ink-soft);line-height:var(--line-standard)}
+.b-route__facts b{color:var(--ink-faint);font-weight:600;font-size:var(--font-size-label);letter-spacing:.06em;text-transform:uppercase;margin-right:6px}
+.disclosure .b-route{border-color:var(--rule)}
+.b-help{margin-top:4px}
+.b-resume{margin:12px 0 4px;border-left:3px solid var(--accent)}
+
+/* result */
+.b-ident{margin:8px 0 12px}
+.b-reasons{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.b-confirm{margin-top:22px}
+.b-prog{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;padding:14px 0;border:0;border-top:1px solid var(--rule);background:transparent;color:var(--ink);font:inherit;cursor:pointer}
+.b-prog:first-child{border-top:0}
+.b-prog:hover{background:var(--well)}
+
+.b-facts{padding:10px 0 2px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:2px 0 4px}
+.b-facts>span:not(:last-child)::after{content:"·";margin-left:12px;color:var(--ink-faint)}

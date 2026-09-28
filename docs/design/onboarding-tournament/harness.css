@@ -1,0 +1,26 @@
+:root{--h-bg:#ECE9E3;--h-ink:#1B1A17;--h-soft:#6A665F;--h-rule:#D9D5CD;--h-surface:#fff}
+@media (prefers-color-scheme:dark){:root{--h-bg:#1a1916;--h-ink:#F2EFE9;--h-soft:#ADA79D;--h-rule:#3a362f;--h-surface:#24221e}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--h-bg);color:var(--h-ink)}
+.hd{padding:12px 16px 6px;display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}
+.hd__brand{font-size:16px}
+.hd__round{margin-left:8px;padding:2px 8px;border-radius:999px;background:var(--h-surface);border:1px solid var(--h-rule);font-size:12px}
+.hd__note{color:var(--h-soft);font-size:12px}
+code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.ctl{display:flex;flex-wrap:wrap;gap:8px 12px;padding:8px 16px;border-top:1px solid var(--h-rule);border-bottom:1px solid var(--h-rule);background:var(--h-surface);position:sticky;top:0;z-index:10;align-items:center}
+.ctl label{display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--h-soft);text-transform:uppercase;letter-spacing:.06em}
+.ctl select,.ctl button{font:13px system-ui,sans-serif;padding:6px 8px;border:1px solid var(--h-rule);border-radius:6px;background:var(--h-bg);color:var(--h-ink);min-height:32px}
+.ctl button{cursor:pointer;align-self:flex-end}
+.desc{margin:10px 16px 0;color:var(--h-soft);font-size:13px;max-width:900px}
+.frames{display:flex;gap:20px;padding:14px 16px 24px;overflow-x:auto;align-items:flex-start}
+.frame{flex:none;display:flex;flex-direction:column;gap:8px}
+.frame__label{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px}
+.frame__label b{font-size:14px}
+.frame__label a{color:var(--h-soft);font-size:12px}
+.frame__phone{border:10px solid #111;border-radius:38px;background:#111;box-shadow:0 12px 30px rgba(0,0,0,.25);overflow:hidden}
+.frame__phone iframe{display:block;border:0;background:#F4F2EF}
+.theses{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;padding:0 16px 30px}
+.thesis{background:var(--h-surface);border:1px solid var(--h-rule);border-radius:10px;padding:12px 14px}
+.thesis h3{margin:0 0 4px;font-size:14px}
+.thesis p{margin:0;color:var(--h-soft);font-size:13px}
+.thesis .axis{margin-top:6px;font-size:12px}

@@ -1,0 +1,47 @@
+/* Candidate C · Programa primeiro — composition only; recipes come from base.css */
+.c-page{padding-bottom:calc(140px + env(safe-area-inset-bottom))}
+.c-top{display:flex;align-items:center;min-height:44px;margin-bottom:8px;flex-wrap:wrap}
+.c-top__brand{display:inline-flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:var(--font-size-label)}
+.c-head{font-size:var(--font-size-title);font-weight:650;letter-spacing:-.02em;line-height:1.08;margin:4px 0 8px}
+.c-land{padding-top:calc(16px + env(safe-area-inset-top));min-height:100vh}
+.c-shared{display:flex;flex-direction:column;gap:4px;padding:12px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:14px 0 14px}
+.c-resume{margin:4px 0 14px;border-left:3px solid var(--accent)}
+.c-confirm{margin-top:22px}
+
+/* assumptions: a fact strip edited in place */
+.c-assume{margin-top:12px;padding:12px 14px;border-radius:var(--radius-surface);background:var(--well)}
+.c-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.c-chip{display:inline-flex;align-items:center;gap:8px;min-height:var(--control-target);padding:6px 12px 6px 8px;border-radius:var(--radius-pill);border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink);font:inherit;font-size:var(--font-size-body-small);font-weight:500;text-align:left;cursor:pointer}
+.c-chip:hover{background:var(--well)}
+.c-chip.is-open{border-color:var(--control-selected-boundary);box-shadow:var(--elevation-selected-shadow)}
+.c-chip__mark{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px dashed var(--accent);display:inline-flex;align-items:center;justify-content:center;color:var(--positive)}
+.c-chip.is-confirmed .c-chip__mark{border:1.5px solid var(--positive)}
+.c-chip__mark .icon-mask{width:14px;height:14px}
+.c-editor{margin-top:10px;padding:12px 0 4px;border-top:1px solid var(--rule)}
+.c-seg{display:flex;flex-wrap:wrap;gap:8px}
+
+/* panels replace the assumption block, never the program */
+.c-panel{margin-top:14px;padding:12px 14px;border:1px solid var(--boundary-floating);border-radius:var(--radius-surface);background:var(--surface);box-shadow:var(--elevation-floating-shadow)}
+.c-door{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:56px;padding:12px 14px;border-radius:var(--radius-surface);border:1px solid var(--control-selection-boundary);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.c-door:hover{background:var(--well)}
+.c-door .icon-mask{color:var(--ink-soft)}
+.c-door__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.c-door__title{font-weight:600;font-size:var(--font-size-control)}
+.c-door__cap{font-size:var(--font-size-body-small);color:var(--ink-soft);line-height:1.35}
+.c-tabs{display:flex;gap:6px;overflow-x:auto;margin-top:8px;scrollbar-width:none}
+.c-tab{flex:none;min-height:var(--control-target);padding:8px 12px;border-radius:var(--radius-pill);border:1px solid var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--ink);font:inherit;font-size:var(--font-size-body-small);font-weight:500}
+.c-tab.is-selected{border-color:var(--control-selected-boundary);box-shadow:var(--elevation-selected-shadow);background:var(--control-selection-active-bg)}
+
+/* program */
+.c-day{border:1px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface);overflow:hidden}
+.c-day__h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--rule);font-size:var(--font-size-control);font-weight:600}
+.c-day__h .day__meta{margin-left:auto;font-weight:400;text-align:right}
+.c-day__list{padding:0 14px}
+.c-ex{border-top:1px solid var(--rule)}
+.c-ex:first-child{border-top:0}
+.c-ex__row{display:flex;align-items:center;gap:8px;padding:6px 0;min-height:48px}
+.c-ex__row .ex__name{flex:1;min-width:0;font-size:var(--font-size-body-small);font-weight:500}
+.c-ex__row .ex__rx{font-size:var(--font-size-body-small);font-family:var(--font-training-data);color:var(--ink-soft)}
+.c-ex__btn{flex:none;color:var(--color-action-text);padding:6px 8px}
+.c-ex__editor{padding:4px 0 12px}
+.c-reasons{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}

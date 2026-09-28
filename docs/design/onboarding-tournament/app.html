@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-motion="normal">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Taurifer onboarding tournament — candidate document</title>
+<!-- One candidate, one checkpoint, one locale/theme/text-scale per document.
+     Query: ?c=a|b|c&cp=<checkpoint>&lang=en|pt&theme=light|dark&text=100|200&motion=normal|reduced
+     The harness (index.html) embeds this document in phone frames. -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<script>
+(function(){
+  const q=new URLSearchParams(location.search);
+  const lang=q.get("lang")==="pt"?"pt":"en", theme=q.get("theme")==="dark"?"dark":"light";
+  const html=document.documentElement;
+  html.lang=lang==="pt"?"pt-BR":"en"; html.dataset.theme=theme; html.dataset.motion=q.get("motion")==="reduced"?"reduced":"normal";
+  if(q.get("text")==="200") html.style.fontSize="200%";
+  window.__tq={candidate:q.get("c")||"a",checkpoint:q.get("cp")||"landing",lang,theme,text:q.get("text")==="200"?"200":"100",motion:html.dataset.motion};
+  document.write('<link rel="stylesheet" href="candidates/'+window.__tq.candidate+'.css">');
+})();
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script src="vendor/exercises.js"></script>
+<script src="vendor/program-compiler.js"></script>
+<script src="vendor/program-entry.js"></script>
+<script src="vendor/program-entry-adapter.js"></script>
+<script src="vendor/shared-setup.js"></script>
+<script src="data/fixtures.js"></script>
+<script src="runtime.js"></script>
+<script src="candidates/shared-screens.js"></script>
+<script src="candidates/a.js"></script>
+<script src="candidates/b.js"></script>
+<script src="candidates/c.js"></script>
+<script>
+(async function(){
+  const q=window.__tq;
+  const cand=(window.__tournamentCandidates||{})[q.candidate];
+  if(!cand){document.getElementById("root").textContent="Unknown candidate "+q.candidate;return}
+  const cp=TF.CHECKPOINTS.find(c=>c.id===q.checkpoint);
+  window.__tournamentErrors=[];
+  window.addEventListener("error",e=>window.__tournamentErrors.push(String(e.message||e)));
+  const ctx={lang:q.lang,theme:q.theme,checkpoint:q.checkpoint,seed:cp?cp.seed:"fresh",root:document.getElementById("root")};
+  try{ await cand.mount(ctx); if(cp) await cand.reach(q.checkpoint); }
+  catch(e){ window.__tournamentErrors.push(String(e&&e.stack||e)); console.error(e); }
+  window.__tournamentReady=true;
+  document.documentElement.dataset.ready="true";
+})();
+</script>
+</body>
+</html>
