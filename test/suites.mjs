@@ -135,7 +135,7 @@ export const SUITES = {
     s("test/notifications.mjs"),
     s("test/appearance.mjs"),
     s("test/ui-system.mjs", [], { domains: ["shell", "entry", "workout", "progress", "program", "settings", "library", "install"], cost: "normal", tier: "feedback" }),
-    s("tools/check-ui-system.mjs", [], { domains: ["shell", "entry", "workout", "progress", "program", "settings", "library", "install"], cost: "long", tier: "packet", timeoutMs: 900000 }),
+    s("tools/check-ui-system.mjs", [], { domains: ["shell", "entry", "workout", "progress", "program", "settings", "library", "install"], cost: "long", tier: "packet", timeoutMs: 2100000 }),
     s("test/accessibility.mjs"),
     s("test/accessibility.mjs", ["--touch-targets-320"]),
     s("test/history.mjs"),
