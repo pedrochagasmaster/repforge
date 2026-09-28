@@ -7436,9 +7436,21 @@
         "onboarding-start/first-run"
       ],
       "radiusRecipes": [
-        { "selector": ".firstrun-stage", "condition": "default", "token": "--radius-landing-stage" },
-        { "selector": ".firstrun-stage--signature-crop", "condition": "min-width:341px", "token": "--radius-landing-crop" },
-        { "selector": ".firstrun-stage", "condition": "max-width:340px", "token": "--radius-landing-stage-compact" }
+        {
+          "selector": ".firstrun-stage",
+          "condition": "default",
+          "token": "--radius-landing-stage"
+        },
+        {
+          "selector": ".firstrun-stage--signature-crop",
+          "condition": "min-width:341px",
+          "token": "--radius-landing-crop"
+        },
+        {
+          "selector": ".firstrun-stage",
+          "condition": "max-width:340px",
+          "token": "--radius-landing-stage-compact"
+        }
       ]
     },
     {
@@ -7728,6 +7740,434 @@
           "value": "#ECE0CF"
         }
       ]
+    }
+  ],
+  "rootRecipeOwners": [
+    {
+      "id": "focal-data-responsive-input",
+      "token": "--font-size-focal-data-max",
+      "selectors": [
+        ".curset__cell input.curset__val"
+      ],
+      "role": "focal-data",
+      "rationale": "The current-set input is workout focal data. This viewport-fit maximum belongs only to that responsive field; it does not cap the shared focal-data role or any other text role.",
+      "owner": "plan-055/058",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "anchored-popover-elevation",
+      "token": "--elevation-popover-shadow",
+      "selectors": [
+        ".glossary",
+        ".wo-overflow"
+      ],
+      "role": "floating",
+      "rationale": "Anchored definitions and the workout overflow menu are local tools. Their lighter floating depth preserves the approved distinction from the Focus card and modal sheets.",
+      "owner": "plan-055/058",
+      "catalogStates": [
+        "library/exercise-detail",
+        "workout/correction",
+        "workout/focus",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "The glossary and overflow panel open after a tap; canonical frames show their owner screens with the popovers closed."
+    },
+    {
+      "id": "effort-explainer-elevation",
+      "token": "--elevation-tooltip-shadow",
+      "selectors": [
+        ".effortpop__hint"
+      ],
+      "role": "floating",
+      "rationale": "The effort explanation is a local floating popover. Its current shadow recipe matches the modal recipe numerically, but its semantic owner remains the anchored explanation rather than a blocking modal.",
+      "owner": "plan-055/058",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "The effort explanation opens after tapping the current-set value; canonical Focus frames keep it closed."
+    },
+    {
+      "id": "bottom-sheet-elevation",
+      "token": "--elevation-sheet-shadow",
+      "selectors": [
+        ".sheet"
+      ],
+      "role": "modal",
+      "rationale": "The upward shadow belongs to the shared bottom-sheet family, whose modal surface rises from the viewport edge while preserving its separate scrim and keyboard-aware geometry.",
+      "owner": "plan-054/055/057/058",
+      "catalogStates": [
+        "install/ios-sheet",
+        "install/transfer-claimed-expired",
+        "install/transfer-claiming",
+        "install/transfer-cleanup",
+        "install/transfer-creating",
+        "install/transfer-destination",
+        "install/transfer-eligible",
+        "install/transfer-importing",
+        "install/transfer-interrupted",
+        "install/transfer-ready",
+        "install/transfer-retryable",
+        "install/transfer-success",
+        "install/transfer-terminal",
+        "install/transfer-unknown",
+        "program/custom-exercise",
+        "program/custom-exercise-archiving",
+        "program/custom-exercise-deleting",
+        "program/custom-exercise-recovery",
+        "program/custom-exercise-saving",
+        "program/exercise-picker",
+        "program/share-one-blocker",
+        "program/share-ready",
+        "program/share-repair-return",
+        "program/share-setup",
+        "program/text-export",
+        "settings/privacy-disclosure",
+        "today/day-picker",
+        "today/preview",
+        "workout/early-finish",
+        "workout/exercise-actions",
+        "workout/exercise-note",
+        "workout/reorder",
+        "workout/rest-timer",
+        "workout/session",
+        "workout/skipped-actions",
+        "workout/substituted-actions",
+        "workout/warmup-actions",
+        "workout/why-this-weight"
+      ]
+    },
+    {
+      "id": "dragged-exercise-elevation",
+      "token": "--elevation-drag-shadow",
+      "selectors": [
+        ".program-editor__exercise[data-dnd-dragging]"
+      ],
+      "role": "floating",
+      "rationale": "Only the exercise row carried during an active reorder gains temporary floating depth; the resting editor rows remain flat.",
+      "owner": "plan-054/057/058",
+      "catalogStates": [
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/progression-editor"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "Canonical editor frames show the reorder owner with no row actively dragged."
+    },
+    {
+      "id": "nav-selected-fallback-elevation",
+      "token": "--elevation-nav-selected-shadow",
+      "selectors": [
+        "nav button.active"
+      ],
+      "role": "selected",
+      "rationale": "The selected button paints its own lens when :has is unavailable. Its inset sheen and restrained edge keep the selected destination legible without outward elevation.",
+      "owner": "plan-057/058",
+      "catalogStates": [
+        "today/no-program",
+        "today/ready",
+        "today/done",
+        "workout/invalid-draft",
+        "progress/overview",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "history/list",
+        "history/session",
+        "history/edit-dirty",
+        "history/edit-invalid",
+        "history/delete-confirm",
+        "history/conflict",
+        "program/no-program",
+        "program/overview",
+        "program/progression-editor",
+        "program/readiness",
+        "install/banner",
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "nav-selected-indicator-elevation",
+      "token": "--elevation-nav-indicator-shadow",
+      "selectors": [
+        "nav::before"
+      ],
+      "role": "selected",
+      "rationale": "Where :has is supported, the sliding indicator paints the same selected lens behind the buttons. Its slightly adjusted inset opacity compensates for the different paint layer and keeps the approved selection treatment consistent.",
+      "owner": "plan-057/058",
+      "catalogStates": [
+        "today/no-program",
+        "today/ready",
+        "today/done",
+        "workout/invalid-draft",
+        "progress/overview",
+        "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/guided-repair",
+        "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "history/list",
+        "history/session",
+        "history/edit-dirty",
+        "history/edit-invalid",
+        "history/delete-confirm",
+        "history/conflict",
+        "program/no-program",
+        "program/overview",
+        "program/progression-editor",
+        "program/readiness",
+        "install/banner",
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "field-focus-halo",
+      "token": "--control-focus-halo-shadow",
+      "selectors": [
+        ".kg:focus-within"
+      ],
+      "role": "focus-visible",
+      "rationale": "The field halo is a focus-visible facet of the existing field role; the required boundary remains on the field while the translucent ring adds the separate focus cue.",
+      "owner": "plan-055/058",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "switch-track-inset",
+      "token": "--control-toggle-track-shadow",
+      "selectors": [
+        ".toggle::before"
+      ],
+      "role": "selection",
+      "rationale": "The inset track edge preserves the switch boundary in its unselected state. The selected track uses the existing accent fill and intentionally removes this resting inset.",
+      "owner": "plan-054/055/057/058",
+      "catalogStates": [
+        "onboarding-start/hub",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-own-open",
+        "program/overview",
+        "program/progression-editor",
+        "program/readiness",
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/main",
+        "settings/privacy"
+      ]
+    },
+    {
+      "id": "switch-thumb-depth",
+      "token": "--control-toggle-thumb-shadow",
+      "selectors": [
+        ".toggle::after"
+      ],
+      "role": "selection",
+      "rationale": "The small thumb shadow separates the movable switch affordance from its track; it is part of the existing reversible selection control.",
+      "owner": "plan-054/055/057/058",
+      "catalogStates": [
+        "onboarding-start/hub",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-own-open",
+        "program/overview",
+        "program/progression-editor",
+        "program/readiness",
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/main",
+        "settings/privacy"
+      ]
+    },
+    {
+      "id": "accent-keyline-required-boundary",
+      "token": "--control-accent-keyline-shadow",
+      "selectors": [
+        ".entry-card--primary",
+        ".entry-body .radio-card.is-selected"
+      ],
+      "role": "required boundary",
+      "boundary": "required",
+      "rationale": "One inset keyline reinforces the existing accent boundary on the featured primary card and selected radio choice. Both consumers keep their distinct primary or selection role; the shared token expresses only their common required boundary and does not alter dimensions or add elevation.",
+      "owner": "plan-054/058",
+      "catalogStates": [
+        "onboarding-browse/environment",
+        "onboarding-browse/schedule",
+        "onboarding-build/setup",
+        "onboarding-custom/background",
+        "onboarding-custom/desired-result",
+        "onboarding-custom/environment",
+        "onboarding-custom/exercise-preferences",
+        "onboarding-custom/priorities",
+        "onboarding-custom/schedule",
+        "onboarding-recommend/avoidance-pain",
+        "onboarding-recommend/background",
+        "onboarding-recommend/desired-result",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/environment-correction",
+        "onboarding-recommend/priorities",
+        "onboarding-recommend/schedule",
+        "onboarding-recovery/rules-drift",
+        "onboarding-start/hub",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-own-open",
+        "progress/schedule-diagnosis"
+      ]
+    },
+    {
+      "id": "grouped-selection-rail",
+      "token": "--control-selection-rail-shadow",
+      "selectors": [
+        ".entry-body .onb__opts.onb__list .radio-card.is-selected"
+      ],
+      "role": "selection",
+      "boundary": "required",
+      "rationale": "A leading inset rail marks the chosen row inside grouped option lists where every row shares one outer surface.",
+      "owner": "plan-054/058",
+      "catalogStates": [
+        "onboarding-browse/environment",
+        "onboarding-browse/schedule",
+        "onboarding-build/setup",
+        "onboarding-custom/background",
+        "onboarding-custom/desired-result",
+        "onboarding-custom/environment",
+        "onboarding-custom/exercise-preferences",
+        "onboarding-custom/priorities",
+        "onboarding-custom/schedule",
+        "onboarding-recommend/avoidance-pain",
+        "onboarding-recommend/background",
+        "onboarding-recommend/desired-result",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/environment-correction",
+        "onboarding-recommend/priorities",
+        "onboarding-recommend/schedule",
+        "onboarding-recovery/rules-drift",
+        "progress/schedule-diagnosis"
+      ]
+    },
+    {
+      "id": "segmented-selection-underline",
+      "token": "--control-selection-underline-shadow",
+      "selectors": [
+        ".entry-body .onb__opts.onb__seg .radio-card.is-selected"
+      ],
+      "role": "selection",
+      "boundary": "required",
+      "rationale": "A bottom inset underline preserves the selected segment cue inside the bounded numeric choice band.",
+      "owner": "plan-054/058",
+      "catalogStates": [
+        "onboarding-browse/environment",
+        "onboarding-browse/schedule",
+        "onboarding-build/setup",
+        "onboarding-custom/background",
+        "onboarding-custom/desired-result",
+        "onboarding-custom/environment",
+        "onboarding-custom/exercise-preferences",
+        "onboarding-custom/priorities",
+        "onboarding-custom/schedule",
+        "onboarding-recommend/avoidance-pain",
+        "onboarding-recommend/background",
+        "onboarding-recommend/desired-result",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/environment-correction",
+        "onboarding-recommend/priorities",
+        "onboarding-recommend/schedule",
+        "onboarding-recovery/rules-drift",
+        "progress/schedule-diagnosis"
+      ]
+    },
+    {
+      "id": "rest-overtime-rest-shadow",
+      "token": "--status-restover-shadow-rest",
+      "selectors": [
+        "@keyframes restover-ring",
+        ".wo-rest.is-over",
+        ".restbar.is-over"
+      ],
+      "role": "warning",
+      "rationale": "The zero-shadow animation endpoints make overtime pulse from and return to the stable warning state without leaving an unintended glow.",
+      "owner": "plan-055/058",
+      "catalogStates": [
+        "workout/rest-timer"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "The canonical timer frame captures a running countdown; overtime occurs only after it passes zero."
+    },
+    {
+      "id": "rest-overtime-alert-shadow",
+      "token": "--status-restover-shadow-alert",
+      "selectors": [
+        "@keyframes restover-ring",
+        ".wo-rest.is-over",
+        ".restbar.is-over"
+      ],
+      "role": "warning",
+      "rationale": "The alert ring is a motion-only overtime cue paired with the danger color and timer text; reduced motion keeps the same status through non-motion signals.",
+      "owner": "plan-055/058",
+      "catalogStates": [
+        "workout/rest-timer"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "The canonical timer frame captures a running countdown; overtime occurs only after it passes zero."
     }
   ],
   "progressCandidateSelectors": [

@@ -11924,8 +11924,8 @@ async function commitLibrarySelection(){
   setDayCollapsed(target,false);
   closeLibrary({toProgram:true});
   if(editorScope&&setupEditorOpen){
-    // The full-library detour commits through the legacy library controller,
-    // while the shared editor still owns its private in-memory document. Pull
+    // The full-library detour commits through the shared program-editor
+    // transaction, while the setup editor still owns its private document. Pull
     // the committed candidate back into that editor before the next action.
     // Every edit made before the detour was already staged in this same setup
     // draft, so discard here is a synchronization operation, not user-facing
@@ -14959,10 +14959,6 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   render();toast(t("toast.onboarding_saved"));
   maybeShowInstallBanner();
   return result}
-function saveOnboardingProgram(io){
-  return activateEntryPreview({destination:"log"})}
-function editOnboardingProgram(io){
-  return activateEntryPreview({destination:"program-edit"})}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----

@@ -73,6 +73,16 @@ export function validateRoleInventory(inventory, manifest) {
     }
     for (const key of item.catalogStates || []) if (!expected.has(key)) errors.push(`contextual variant ${item.id} names stale catalog state ${key}`);
   }
+  const recipeIds = new Set();
+  for (const item of inventory.rootRecipeOwners || []) {
+    if (!item.id || recipeIds.has(item.id) || !item.token?.startsWith("--") || !Array.isArray(item.selectors) || !item.selectors.length
+      || !item.role || !item.rationale || !item.owner || !Array.isArray(item.catalogStates) || !item.catalogStates.length) {
+      errors.push(`root recipe ${item.id || "?"} needs a unique id, token, selectors, semantic role, rationale, owner and catalog states`);
+    }
+    recipeIds.add(item.id);
+    if (item.sourceOnly && !item.sourceOnlyReason) errors.push(`root recipe ${item.id} needs a reason for not rendering in canonical catalog states`);
+    for (const key of item.catalogStates || []) if (!expected.has(key)) errors.push(`root recipe ${item.id} names stale catalog state ${key}`);
+  }
   return errors;
 }
 

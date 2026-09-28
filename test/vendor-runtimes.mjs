@@ -73,11 +73,48 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
 
 {
   const layerRevision = index.match(/src="motion-layer\.js\?v=(\d+)"/)?.[1] || "";
-  assert(sw.includes('"./vendor/motion/motion.js"') && sw.includes('"./motion-layer.js"'), "the runtime and layer are atomically precached");
+  const rawAssets = sw.match(/\bASSETS\s*=\s*(\[[\s\S]*?\n\])/)?.[1] || "[]";
+  const assets = vm.runInNewContext(rawAssets, {}, { timeout: 1000 });
+  const entries = assets.map(entry => typeof entry === "string" ? { url: entry, required: true } : entry);
+  const asset = (path) => entries.find(entry => entry.url === `./${path}`);
+  const releaseKeys = entries.map(entry => {
+    const resolved = new URL(entry.url, "https://taurifer.invalid/");
+    return `${resolved.pathname}${resolved.search}`;
+  });
+  assert(new Set(releaseKeys).size === releaseKeys.length, "each release URL has one cache-policy owner");
+  const scriptTags = [...index.matchAll(/<script\b([^>]*?)src="([^"]+)"([^>]*)>/g)];
+  const unownedScripts = scriptTags.flatMap(([, before, src, after]) => {
+    const url = new URL(src, "https://taurifer.invalid/");
+    const key = `${url.pathname}${url.search}`;
+    const contract = entries.find(entry => {
+      const assetUrl = new URL(entry.url, "https://taurifer.invalid/");
+      return `${assetUrl.pathname}${assetUrl.search}` === key;
+    });
+    const optionalOwner = `${before} ${after}`.match(/data-optional-runtime="([^"]+)"/)?.[1] || "";
+    if (!contract) return [src];
+    if (optionalOwner && (contract.required !== false || contract.owner !== optionalOwner)) return [src];
+    if (!optionalOwner && contract.required === false) return [src];
+    return [];
+  });
+  assert(unownedScripts.length === 0, "every document script URL has one matching required/optional precache owner", unownedScripts.join(", "));
+  const motionAsset = asset("vendor/motion/motion.js");
+  const dndBootstrap = asset("vendor/dnd-kit/dnd-kit.js");
+  const dndRuntimeAsset = asset("vendor/dnd-kit/dnd-kit.runtime.js");
+  const telemetryConfig = asset("posthog-config.js");
+  assert(sw.includes('"./motion-layer.js"') && entries.some(entry => entry.url === "./vendor/motion/motion.js"), "the runtime and layer are atomically precached");
   assert(layerRevision && sw.includes(`"./motion-layer.js?v=${layerRevision}"`), "the layer query revision matches its precached URL", layerRevision);
-  const shell = sw.match(/\bSHELL\s*=\s*new\s+Set\s*\(\s*(\[[\s\S]*?\])\s*\)/)?.[1] || "[]";
-  const paths = vm.runInNewContext(shell, {}, { timeout: 1000 });
-  assert(paths.includes("/vendor/motion/motion.js") && paths.includes("/motion-layer.js"), "both files belong to the installed offline shell");
+  assert(motionAsset?.owner === "RepForgeMotion" && motionAsset.required === false && motionAsset.immutable === true,
+    "Motion is optional immutable code owned by the Motion integration layer");
+  assert(dndBootstrap?.owner === "RepForgeDndRuntime" && dndBootstrap.required === false &&
+    dndRuntimeAsset?.owner === "RepForgeDndRuntime" && dndRuntimeAsset.required === false && dndRuntimeAsset.immutable === true,
+    "both dnd runtime layers are optional and share their guarded caller owner");
+  assert(telemetryConfig?.owner === "RepForgeTelemetry" && telemetryConfig.required === false,
+    "deploy-generated PostHog config is an optional owned runtime asset");
+  assert(index.includes('src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"') &&
+    index.includes('src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"'),
+  "document runtime tags record the optional owners used by the release inventory");
+  assert(!/const\s+SHELL\s*=|const\s+IMMUTABLE_RUNTIMES\s*=/.test(sw) && /APP_SHELL_PATHS\s*=\s*new Set\(RELEASE_ASSETS/.test(sw),
+    "shell routing and immutable behavior derive from the release inventory");
   const runtimeAt = index.indexOf('src="vendor/motion/motion.js"');
   const layerAt = index.indexOf('src="motion-layer.js?v=');
   const editorAt = index.indexOf('src="program-editor.js?v=');

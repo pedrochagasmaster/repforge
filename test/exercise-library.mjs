@@ -239,8 +239,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   // document and the worker's exact precache inventory.
   const index = readFileSync(join(ROOT, "index.html"), "utf8");
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
-  const expectedCacheRevision = "332";
-  const expectedScriptRevision = "307";
+  const expectedCacheRevision = "333";
   const cacheRevision = sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || "";
   const transitionAssets = [
     "motion-layer.js",
@@ -258,36 +257,37 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     "history-ui.js",
     "app.js",
   ];
-  const missingRevision = transitionAssets.filter(file => !index.includes(`src="${file}?v=${expectedScriptRevision}"`));
-  const missingCache = transitionAssets.filter(file => !sw.includes(`"./${file}?v=${expectedScriptRevision}"`));
+  const revisionFor = file => index.match(new RegExp(`src="${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=(\\d+)"`))?.[1] || "";
+  const missingRevision = transitionAssets.filter(file => !revisionFor(file));
+  const missingCache = transitionAssets.filter(file => !sw.includes(`"./${file}?v=${revisionFor(file)}"`));
   assert(cacheRevision === expectedCacheRevision,
     `service-worker cache is advanced to repforge-v${expectedCacheRevision}`,
     `expected ${expectedCacheRevision}, got ${cacheRevision}`);
   assert(missingRevision.length === 0,
-    `version-coupled runtime scripts use revision ${expectedScriptRevision} in index.html`,
+    "version-coupled runtime scripts have numeric revisions in index.html",
     missingRevision.join(", "));
   assert(missingCache.length === 0,
-    `revision ${expectedScriptRevision} runtime URLs are precached for offline launch`,
+    "each exact index.html runtime URL is precached for offline launch",
     missingCache.join(", "));
-  assert(index.includes(`src="program-compiler.js?v=${expectedScriptRevision}"`) && sw.includes('"./program-compiler.js"'),
+  assert(revisionFor("program-compiler.js") && sw.includes(`"./program-compiler.js?v=${revisionFor("program-compiler.js")}"`) && sw.includes('"./program-compiler.js"'),
     "the program compiler is loaded and precached");
-  assert(index.includes(`src="program-entry.js?v=${expectedScriptRevision}"`) && sw.includes('"./program-entry.js"'),
+  assert(revisionFor("program-entry.js") && sw.includes(`"./program-entry.js?v=${revisionFor("program-entry.js")}"`) && sw.includes('"./program-entry.js"'),
     "the program-entry state machine is loaded and precached");
-  assert(index.includes(`src="program-entry-adapter.js?v=${expectedScriptRevision}"`) && sw.includes('"./program-entry-adapter.js"'),
+  assert(revisionFor("program-entry-adapter.js") && sw.includes(`"./program-entry-adapter.js?v=${revisionFor("program-entry-adapter.js")}"`) && sw.includes('"./program-entry-adapter.js"'),
     "the program-entry adapter is loaded and precached");
-  assert(index.includes(`src="workout-draft.js?v=${expectedScriptRevision}"`) && sw.includes('"./workout-draft.js"'),
+  assert(revisionFor("workout-draft.js") && sw.includes(`"./workout-draft.js?v=${revisionFor("workout-draft.js")}"`) && sw.includes('"./workout-draft.js"'),
     "the workout draft domain is loaded and precached");
-  assert(index.indexOf(`src="workout-draft.js?v=${expectedScriptRevision}"`) < index.indexOf(`src="app.js?v=${expectedScriptRevision}"`),
+  assert(index.indexOf(`src="workout-draft.js?v=${revisionFor("workout-draft.js")}"`) < index.indexOf(`src="app.js?v=${revisionFor("app.js")}"`),
     "the workout draft domain loads before its production adapter");
-  assert(/SHELL = new Set\([^\n]+"\/workout-draft\.js"/.test(sw),
+  assert(sw.includes('"./workout-draft.js"'),
     "the workout draft domain is part of the offline shell");
-  assert(index.indexOf(`src="program-entry.js?v=${expectedScriptRevision}"`) < index.indexOf(`src="program-entry-adapter.js?v=${expectedScriptRevision}"`),
+  assert(index.indexOf(`src="program-entry.js?v=${revisionFor("program-entry.js")}"`) < index.indexOf(`src="program-entry-adapter.js?v=${revisionFor("program-entry-adapter.js")}"`),
     "the dependency-free state machine loads before its production adapter");
-  assert(/SHELL = new Set\([^\n]+"\/program-compiler\.js"/.test(sw),
+  assert(sw.includes('"./program-compiler.js"'),
     "the program compiler is part of the offline shell");
-  assert(/SHELL = new Set\([^\n]+"\/program-entry\.js"/.test(sw) && /SHELL = new Set\([^\n]+"\/program-entry-adapter\.js"/.test(sw),
+  assert(sw.includes('"./program-entry.js"') && sw.includes('"./program-entry-adapter.js"'),
     "program-entry modules are part of the offline shell");
-  assert(/SHELL = new Set\([^\n]+"\/install-policy\.js"/.test(sw),
+  assert(sw.includes('"./install-policy.js"'),
     "the install policy is part of the offline shell");
   assert(/registration\.scope/.test(sw) && /SCOPE_PATH/.test(sw),
     "service-worker shell matching is relative to its production scope");

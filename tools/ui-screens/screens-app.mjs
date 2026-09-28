@@ -497,6 +497,43 @@ export const APP_SCENARIOS = {
       if (document.body.classList.contains("is-settings")) document.querySelector("#settingsBack")?.click();
     });
     await sleep(page, 600);
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      const clearance = await page.evaluate(() => {
+        const dock = document.querySelector("nav");
+        const label = document.querySelector("#todaySessionLabel");
+        const review = document.querySelector("#reviewTodaySession");
+        const another = document.querySelector("#logAnotherSession");
+        if (!dock || !label || !review || !another) return { error: "Today recap heading, actions, or dock are missing" };
+        const labelTop = label.getBoundingClientRect().top;
+        window.scrollBy({ top: Math.max(0, labelTop - 24), behavior: "instant" });
+        const dockRect = dock.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        const reviewRect = review.getBoundingClientRect();
+        const anotherRect = another.getBoundingClientRect();
+        const labelFits = (button) => {
+          const range = document.createRange();
+          range.selectNodeContents(button);
+          return [...range.getClientRects()].filter((rect) => rect.width && rect.height).every((rect) =>
+            rect.left >= button.getBoundingClientRect().left - 1
+            && rect.right <= button.getBoundingClientRect().right + 1
+            && rect.top >= button.getBoundingClientRect().top - 1
+            && rect.bottom <= button.getBoundingClientRect().bottom + 1);
+        };
+        return {
+          labelTop: labelRect.top,
+          dockTop: dockRect.top,
+          reviewBottom: reviewRect.bottom,
+          anotherBottom: anotherRect.bottom,
+          reviewLabelFits: labelFits(review),
+          anotherLabelFits: labelFits(another),
+        };
+      });
+      if (clearance.error || clearance.labelTop < 0 || clearance.reviewBottom > clearance.dockTop - 8
+        || clearance.anotherBottom > clearance.dockTop - 8
+        || !clearance.reviewLabelFits || !clearance.anotherLabelFits) {
+        throw new Error(`200% Today recap actions do not clear the floating dock: ${JSON.stringify(clearance)}`);
+      }
+    }
   },
 
   "workout/focus": focusMode,

@@ -273,6 +273,39 @@ summary keep their interaction role without being forced into card depth.
 New rules use semantic tokens; P4–P6 remove literal debt and the legacy aliases
 after consumers move.
 
+P6's focused root helper recipes do not add semantic roles. The inventory's
+`rootRecipeOwners` maps each one to its existing typography, floating, modal,
+selected, focus-visible, selection, required-boundary, or warning role and its
+catalog owners. Keep the lighter anchored popover and the stronger effort
+explanation as floating contexts even where a shadow value matches another
+role; keep the two nav lens recipes separate because their paint layers differ.
+The same required-boundary keyline serves both the featured primary card and a
+selected choice without merging those controls' roles.
+
+Interaction timing and motion ownership remain governed by
+[`docs/design/interaction-runtime-audit.md`](interaction-runtime-audit.md).
+Its CSS-retained entries name the task or surface owner and explain why these
+high-frequency acknowledgements, transitions, hover corrections, and reduced-
+motion paths stay stylesheet-driven. `motion-polish.css` implements those
+existing interaction owners; it does not define a second palette, type scale,
+elevation system, or control role. P6's strict debt proof scans it alongside
+`styles.css`. The selector families below make that ownership concrete without
+creating another role inventory:
+
+| `motion-polish.css` selectors | Existing semantic owner | Interaction evidence |
+| --- | --- | --- |
+| `.view`, `.btn`, `.btn:active`, `nav button:active`, `.curset__val--word[data-effspin]:active` | Navigation, action-control and current-set affordance roles | Navigation and button feedback in the interaction audit |
+| `.ledger__row.is-fresh`, `.ledger__row.is-fresh .ledger__check`, `.ledger__tick.is-fresh`, `.focus-ex__setof.is-fresh b`, `.focus-well.is-fresh .focus-cue`, `.focus-well.is-fresh .curset`, `.focus-well.is-fresh.is-done .focus-done__mark`, `.focus-well.is-fresh.is-done .focus-done__text` | Workout set acknowledgement and exercise-completion outcome | Set completion rows in the interaction audit |
+| `.effortpop`, `.effortpop.is-open`, `.effortpop.is-closing`, `.effortpop.is-open .effortpop__arrow`, `.effortpop.is-bump .effortpop__hint` | Floating effort explanation | Effort/RIR explainer row in the interaction audit |
+| `.toast`, `.toast.hidden`, `.tour`, `.tour.hidden`, `.installbanner`, `.installbanner.hidden`, `@starting-style` for `.toast:not(.hidden)`, `.tour:not(.hidden)`, and `.installbanner:not(.hidden)` | Status notice, coach overlay and install action | Transient runtime UI rows in the interaction audit |
+| `.toggle::after` and its selected/pressed facets | Reversible selection control | Toggle owner in the UI-role inventory; reduced-motion alternate remains in the interaction audit |
+| `.sumsheet.is-played .sum-crest__mark`, `.sumsheet.is-played .sum-crest__mark::before` | Successful session outcome | Session-summary milestone row in the interaction audit |
+| The selectors inside `(hover:none), (pointer:coarse)` | Their existing button, selection, destructive, navigation, and disclosure roles | Per-control hover corrections in the interaction audit; this media rule restores the registered resting treatment on touch devices |
+
+The reduced-motion selector list follows the same owners: it removes animation
+from their motion facets and leaves the semantic state, contrast, and control
+geometry in the owning `styles.css` recipe.
+
 The owner-directed Plan 054 composition has one exact
 `landing-device-stage-radius` recipe outside the reusable radius scale. Large
 product-render plates use `--radius-landing-stage:24px`. At

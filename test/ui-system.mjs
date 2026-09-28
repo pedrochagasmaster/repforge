@@ -40,6 +40,14 @@ assert.ok(validateRoleInventory(missingDisabled, manifest).some((error) => error
 const badException = structuredClone(inventory);
 badException.exceptions.push({ selector: ".bad" });
 assert.ok(validateRoleInventory(badException, manifest).some((error) => error.startsWith("exception .bad needs")), "an unowned exception cannot suppress a failure");
+const missingRecipeOwner = structuredClone(inventory);
+delete missingRecipeOwner.rootRecipeOwners[0].rationale;
+assert.ok(validateRoleInventory(missingRecipeOwner, manifest).some((error) => error.startsWith("root recipe focal-data-responsive-input needs")),
+  "a root helper recipe cannot escape semantic ownership");
+const staleRecipeState = structuredClone(inventory);
+staleRecipeState.rootRecipeOwners[0].catalogStates.push("workout/not-a-live-state");
+assert.ok(validateRoleInventory(staleRecipeState, manifest).some((error) => error.includes("root recipe focal-data-responsive-input names stale catalog state")),
+  "root recipe ownership must point at live catalog states");
 const broadException = structuredClone(inventory);
 broadException.exceptions.push({ ...inventory.exceptions[0], selector: "body *" });
 assert.ok(validateRoleInventory(broadException, manifest).some((error) => error.startsWith("exception body * needs")),
@@ -51,6 +59,14 @@ assert.ok(validateRoleInventory(tagException, manifest).some((error) => error.st
 
 const css = readFileSync(join(ROOT, "styles.css"), "utf8");
 const motionPolishCss = readFileSync(join(ROOT, "motion-polish.css"), "utf8");
+const rootCss = [...css.matchAll(/(?:^|\})\s*:root(?:\[data-theme="dark"\])?\s*\{([^}]*)\}/g)].map((match) => match[1]).join("\n");
+assert.equal(new Set(inventory.rootRecipeOwners.map((item) => item.token)).size, inventory.rootRecipeOwners.length,
+  "each P6 root helper recipe has one semantic owner, even when it serves multiple contexts");
+for (const recipe of inventory.rootRecipeOwners) {
+  assert(rootCss.includes(`${recipe.token}:`), `${recipe.token} is a declared root helper token`);
+  assert(css.includes(`var(${recipe.token})`), `${recipe.token} has a live CSS consumer`);
+  for (const selector of recipe.selectors) assert(css.includes(selector), `${recipe.id} records its rendered consumer ${selector}`);
+}
 assert.equal(cssLiteralDebt(css, inventory.exceptions).length, 0, "P6 removes all unauthorized CSS literal debt");
 assert.equal(cssCompatibilityAliasDebt(css).length, 0, "P6 removes all obsolete compatibility aliases");
 assert.equal(cssLiteralDebt(motionPolishCss, inventory.exceptions).length, 0, "motion-polish.css has no unauthorized CSS literal debt");
