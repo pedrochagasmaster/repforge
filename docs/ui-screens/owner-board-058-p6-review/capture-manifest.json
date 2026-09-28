@@ -1,13 +1,13 @@
 {
   "sourceBaseSha": "9ebab797829feaa4a84a35e604f6757aa9fd76c2",
-  "sourceProductionDiffSha256": "723708ef5625e6eae94725469b6873b825c8a4edef0cad570b4710756df89482",
-  "sourceStatus": "Production screenshots regenerated from this P6 source fingerprint after excluding the unrelated local PostHog script and synchronizing cache/query revisions; no screenshot bytes changed.",
+  "sourceProductionDiffSha256": "764aa6acd6fd03869ea37f8b0920ec2d9b5b05af2174328e9edfef6716c5d3b0",
+  "sourceStatus": "The direct production PNGs were captured from productionSourceHeadSha; captureScenarioDiffSha256 records the registered Today 200% scenario change. sourceProductionDiffSha256 identifies the final P6 app.js/index.html/styles.css diff from sourceBaseSha. Later CSS-only P6 cleanup is described in postCaptureVisualStatus and has no registered current-screen consumers. The unrelated local PostHog insertion is excluded.",
   "generatedDate": "2026-09-28",
-  "captureTool": "tools/capture-ui-screens.mjs; production scenarios, exact 56-frame selection from the approved P5 board manifest",
-  "captureContracts": "56/56 passed",
+  "captureTool": "tools/capture-ui-screens.mjs; original 56-frame selection from the approved P5 board plus the registered Today-ready EN text200 frame; Today-ready EN/PT-BR text200 frames recaptured from the exact production head after row-wrap repair.",
+  "captureContracts": "57/57 passed",
   "selectedScreenCount": 23,
-  "generatedFrameCount": 56,
-  "boardFrameCount": 56,
+  "generatedFrameCount": 57,
+  "boardFrameCount": 57,
   "surfaceGroupCount": 12,
   "comparisonBaseline": {
     "board": "owner-board-058-p5",
@@ -71,6 +71,11 @@
       "key": "today/ready",
       "variant": "phone-390-dark-en",
       "path": "screens/today/ready__phone-390-dark-en.png"
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-light-en-text200",
+      "path": "screens/today/ready__phone-390-light-en-text200.png"
     },
     {
       "key": "today/ready",
@@ -299,12 +304,18 @@
     }
   ],
   "sourceProductionDiffHashMethod": "SHA-256 of `git diff --binary <sourceBaseSha> -- app.js index.html styles.css`",
-  "pngSetSha256": "30645ba164e9316f6b97534f8fc96cd543b9b429c18a84011553de6cde4998b9",
-  "ownerApproval": {
+  "pngSetSha256": "e4e99ab33bbaca7d6a04c0c8952556027d34feaecc6b1107a056cf4a8de3ea2b",
+  "pngSetHashMethod": "SHA-256 over sorted UTF-8 lines `<relative board PNG path><TAB><PNG file SHA-256>`, followed by a final newline.",
+  "priorOwnerApproval": {
     "owner": "Pedro",
     "decision": "approved",
     "date": "2026-09-28",
-    "scope": "This representative board is the intended Taurifer visual direction and satisfies the Plan 058 owner visual-board gate.",
-    "provenance": "Direct owner message after review: “I reviewed and approved it.”"
-  }
+    "approvedArtifact": "../owner-board-058-p5/",
+    "scope": "The owner approved the P5 representative board as the intended Taurifer visual direction. This P6 refresh is corrective evidence and does not claim a separate owner review.",
+    "provenance": "Direct owner message after P5 board review: “I reviewed and approved it.”"
+  },
+  "captureProcedure": "The registered Today-ready text200 scenario scrolls its live first exercise row to 420 CSS px from the viewport top, verifies 32px text, full-name fit, set values, and clearance above the floating dock, then captures the production screen.",
+  "productionSourceHeadSha": "f5939f6d5e695d6982ec12f1cd1eddc64a2ac838",
+  "captureScenarioDiffSha256": "3d1f0fbef370f0e3dd52388096da082b123c5e2f9afa1a0130bb40eb5a8095e3",
+  "postCaptureVisualStatus": "After these captures, motion-polish.css restored two coarse-pointer hover rules used only by pinned pre-058 app 3fbae92f. P6 also removed the unconsumed current-app selectors .blockreview, .tag-rec, .attn--add, and #blockStrategies; the registered current app does not render them. These changes do not alter the captured frames. sw.js cache revision 335 is not a rendering change."
 }

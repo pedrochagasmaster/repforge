@@ -1,12 +1,12 @@
 # Plan 058 representative P6 visual board
 
 - **Source base SHA:** 9ebab797829feaa4a84a35e604f6757aa9fd76c2
-- **Candidate production diff SHA-256:** 723708ef5625e6eae94725469b6873b825c8a4edef0cad570b4710756df89482 (app.js, index.html, styles.css)
-- **Source fingerprint:** SHA-256 of `git diff --binary 9ebab797829feaa4a84a35e604f6757aa9fd76c2 -- app.js index.html styles.css`; PNG set SHA-256 `30645ba164e9316f6b97534f8fc96cd543b9b429c18a84011553de6cde4998b9`
+- **P6 production diff SHA-256:** 764aa6acd6fd03869ea37f8b0920ec2d9b5b05af2174328e9edfef6716c5d3b0 (app.js, index.html, styles.css; exact method and base are in `capture-manifest.json`)
+- **Production capture source SHA:** `f5939f6d5e695d6982ec12f1cd1eddc64a2ac838`; the registered Today 200% scenario change and later CSS-only P6 cleanup are separately recorded in `capture-manifest.json`.
 - **Generated:** 2026-09-28
-- **Capture:** production scenarios from `tools/capture-ui-screens.mjs`; regenerated exactly these 56 representative frames from 23 selected screens. All 56 passed catalog capture contracts.
+- **Capture:** production scenarios from `tools/capture-ui-screens.mjs`; 57 representative frames from 23 selected screens. The registered Today-ready EN/PT-BR 200% states scroll the first exercise row into view, verify full 32px names, set values and dock clearance, then capture. All 57 passed catalog capture contracts.
 
-**Board size:** 56 raw production PNGs across 12 surface groups. Screenshots are unmodified captures.
+**Board size:** 57 raw production PNGs across 12 surface groups. Screenshots are unmodified captures.
 
 ## Review lens
 
@@ -14,7 +14,7 @@ Please assess Taurifer identity, hierarchy, density, semantic consistency, actio
 
 The selection covers first-run and program entry, Today, Focus and rest, Summary, Progress, History, Program, Share, Settings and guides, the exercise library, and install transfer. It includes light and dark themes, 320px and 390px phones, PT-BR, 200% text and PT-BR at 200%, plus empty, success, disabled, warning, invalid, and outcome states.
 
-The approved P5 board remains preserved at [owner-board-058-p5](../owner-board-058-p5/). This P6 candidate differs perceptually in 43 of 56 frames; 9 exceed the catalog comparator's material thresholds. See `comparison-report.json` for per-frame metrics. The larger differences are concentrated in type-scale/reflow states. The three PT-BR/200% dock-label clipping states found during focused capture were corrected before this board was regenerated. The exhaustive canonical catalog regeneration remains P7 work.
+The approved P5 board remains preserved at [owner-board-058-p5](../owner-board-058-p5/). This P6 board differs perceptually in 43 of the 56 frames comparable with P5; 9 exceed the catalog comparator's material thresholds. The added Today EN 200% frame has no matching P5 frame. See `comparison-report.json` for per-frame metrics. The larger differences are concentrated in type-scale/reflow states. Both Today 200% locale frames now show the complete exercise name and prescribed values above the floating dock. The exhaustive 866-frame catalog regeneration remains P7 work.
 
 ## Frames
 
@@ -35,7 +35,7 @@ The approved P5 board remains preserved at [owner-board-058-p5](../owner-board-0
 
 <table>
 <tr><td align="center"><a href="screens/today/no-program__phone-390-light-en.png"><img src="screens/today/no-program__phone-390-light-en.png" width="230" alt="today/no-program, 390px · light · EN · standard text"></a><br><sub>390px · light · EN · standard text</sub></td><td align="center"><a href="screens/today/ready__phone-390-light-en.png"><img src="screens/today/ready__phone-390-light-en.png" width="230" alt="today/ready, 390px · light · EN · standard text"></a><br><sub>390px · light · EN · standard text</sub></td><td align="center"><a href="screens/today/ready__phone-390-dark-en.png"><img src="screens/today/ready__phone-390-dark-en.png" width="230" alt="today/ready, 390px · dark · EN · standard text"></a><br><sub>390px · dark · EN · standard text</sub></td></tr>
-<tr><td align="center"><a href="screens/today/ready__phone-390-light-pt-text200.png"><img src="screens/today/ready__phone-390-light-pt-text200.png" width="230" alt="today/ready, 390px · light · PT-BR · 200% text"></a><br><sub>390px · light · PT-BR · 200% text</sub></td><td></td><td></td></tr>
+<tr><td align="center"><a href="screens/today/ready__phone-390-light-en-text200.png"><img src="screens/today/ready__phone-390-light-en-text200.png" width="230" alt="today/ready, 390px · light · EN · 200% text; exercise rows visible"></a><br><sub>390px · light · EN · 200% text</sub></td><td align="center"><a href="screens/today/ready__phone-390-light-pt-text200.png"><img src="screens/today/ready__phone-390-light-pt-text200.png" width="230" alt="today/ready, 390px · light · PT-BR · 200% text; exercise rows visible"></a><br><sub>390px · light · PT-BR · 200% text</sub></td><td></td></tr>
 </table>
 
 ### Focus and rest timer
@@ -102,4 +102,4 @@ The approved P5 board remains preserved at [owner-board-058-p5](../owner-board-0
 
 ---
 
-Pedro approved this representative P6 board on 2026-09-28 after review in the Plan 058 execution conversation. This satisfies the owner visual-board gate. The 56 frames were regenerated from the clean P6 source after excluding the unrelated local PostHog script and aligning cache/query revisions; the PNG set hash is unchanged, so those provenance updates did not change the approved visuals. The approval is recorded in the P6 checkpoint on PR #256.
+Pedro's recorded approval applies to the P5 board at [owner-board-058-p5](../owner-board-058-p5/), which establishes the intended Taurifer visual direction and authorizes P6. This P6 board is refreshed representative evidence, not a separate owner approval. It contains 57 unmodified production captures from the source and registered scenario SHAs recorded in `capture-manifest.json`; the additional frame is Today-ready EN at 200% text. The two Today 200% captures verify complete exercise names and values above the floating dock. P6 corrections preserve the approved hierarchy and system direction; no renewed owner review is requested for these reflow/clearance fixes.

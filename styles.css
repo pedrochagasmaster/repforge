@@ -636,11 +636,6 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M4.5 8.5L2 6l.7-.7 1.8 1.8 4-4 .7.7z'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:center;background-size:12px;
 }
-.tag-rec{
-  display:inline-block;margin-left:6px;font-size:var(--font-size-label);font-weight:700;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--accent-deep);vertical-align:middle;
-}
-#blockStrategies{display:flex;flex-direction:column;gap:10px;margin:0 0 16px}
 
 /* ---- Cards (rare — settings groups) ---- */
 .card{
@@ -2653,21 +2648,6 @@ body.is-focus-wo #glossary .glossary__close:focus-visible{outline:var(--control-
 body.is-focus-wo #glossary .glossary__term{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 
-/* Block review — full-screen sheet */
-/* A native <dialog>, like the storage-recovery and leave-editor dialogs. The
-   browser gives it the top layer, the focus trap and the Escape default; the
-   resets below undo the UA sizing so it still fills the screen exactly as it
-   did as a positioned div. The scrim behind it is invisible today — this panel
-   is opaque and covers the viewport — but it is set for the same reason the
-   others are, so the dialogs agree if this one ever stops being full-bleed. */
-.blockreview{
-  position:fixed;inset:0;z-index:70;margin:0;
-  width:auto;height:auto;max-width:none;max-height:none;
-  background:var(--bg);border:0;border-radius:0;color:var(--ink);
-  padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
-  overflow:auto;
-}
-.blockreview::backdrop{background:var(--scrim)}
 .blockprogress{margin:0 0 16px;padding:12px 0;border:0;border-radius:0;background:transparent}
 .blockprogress__title{font-weight:600;font-size:var(--font-size-caption);margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint)}
 .review__summary{margin:0;font-size:var(--font-size-body-small);line-height:1.55;color:var(--ink)}
@@ -2881,8 +2861,6 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);margin-top:2px;line-height:var(--line-reading);
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
 }
-.attn--add{display:none} /* ready list owns add signals */
-.attn--add .attn__lead{color:var(--accent-deep)}
 /* This week reads as a headline: verdict, then the arithmetic, then the session bar.
    Rules live in .statrow under it, so this block stays flat. */
 .ov-week-status{font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);letter-spacing:-0.02em;line-height:var(--line-tight);color:var(--color-ink);margin:0}

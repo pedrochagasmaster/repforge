@@ -240,6 +240,10 @@ nav button:active{transform:scale(.975)}
   .entry__muscle-state:not(.is-selected):hover{border-color:var(--rule);color:var(--ink-soft)}
   .entry__muscle-state.is-selected:hover{border-color:var(--accent);color:var(--accent-deep)}
   .entry__exercise-action:hover{background:var(--entry-tint);color:var(--accent-deep)}
+  /* The pinned pre-058 app still emits these two task-specific controls in
+     retained old-client scenarios; keep their existing semantic treatments. */
+  .exercise:not(.is-skipped) .ex__topend .ex__skip:hover{color:var(--ink-soft)}
+  .entry__exercise-action--avoid:hover{background:var(--surface);color:var(--ink-soft)}
   .entry-prog:hover{background:transparent}
   .entry__remove:hover{text-decoration:none}
 }

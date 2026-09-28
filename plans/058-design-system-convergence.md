@@ -7,8 +7,8 @@ and owner gates only.
 
 - **Plan number:** 058
 - **Phase:** 7 — System convergence
-- **Status:** Semantic foundation P1–P3 implemented from `78492da2` for review; P4–P7 have not started
-- **Owner approval state:** Semantic direction is approved; rendered results require owner visual review
+- **Status:** P1–P5 complete; P6 implementation is in progress on PR #256; P7 has not started
+- **Owner approval state:** Pedro approved the P5 representative board as the intended Taurifer visual direction; P6 corrections must preserve that direction, and P7 engineering evidence remains open
 - **Depends on:** Plans 049–057 and the durable-state bridge merged, including the accepted architecture outputs of 054–057; principal public surfaces and interaction structure must have stopped moving.
 - **Blocks:** Plan 059 public-launch validation
 - **Governing G decisions:** G-13–G-14, G-28, G-57–G-60, G-67, G-74, G-80–G-81
@@ -73,6 +73,9 @@ a separate engineering queue or permission to implement this plan early.
 5. Remove obsolete durable/entry/workout compatibility delegates only after Plans 054/055/057 have migrated every caller and the old-scenario → replacement-proof map is green. No duplicate durable settlement, replay, activation, workout store, gesture owner, or semantically identical historical calculation may remain as an alternative authority.
 6. Preserve legacy readers, durable formats/keys/locks, progression semantics, exact exercise identity, backup/setup/transfer scope, and all accepted Plan 051–053 invariants. Historical compatibility is not an obsolete path merely because current UI no longer writes its format.
 7. Record every retained delegate/exception with its real consumer, reason and existing plan owner; a broad allowlist or unowned deferral does not satisfy convergence. Plan 059 verifies the final authority and executable-release result on its candidate SHA.
+
+P6's concrete adoption evidence and retained-consumer register are recorded in
+[`docs/design/plan-058-pr239-adoption-evidence.md`](../docs/design/plan-058-pr239-adoption-evidence.md).
 
 ### Re-runnable role inventory
 

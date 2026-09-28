@@ -218,8 +218,7 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   for (const id of ["importChoice", "storageRecovery", "programEditorLeave"]) assert(dialog(id), `#${id} is a native dialog`);
   assert(!/<dialog[^>]*\bclass="[^"]*\bhidden\b/.test(index), "no hidden class fights the native dialog display rule");
   for (const id of ["importChoice"]) assert(!new RegExp(`<dialog id="${id}"[^>]*(aria-modal=|role="dialog")`).test(index), `#${id} does not restate native semantics`);
-  assert(/\.blockreview::backdrop\{background:var\(--scrim\)\}/.test(styles) && /\.importchoice::backdrop\{background:var\(--scrim\)\}/.test(styles) && /\.storage-recovery::backdrop\{background:var\(--scrim\)\}/.test(styles), "native dialogs share the scrim token");
-  assert(/\.blockreview\{[\s\S]*?max-width:none;max-height:none/.test(styles), "full-bleed dialog overrides UA sizing");
+  assert(/\.importchoice::backdrop\{background:var\(--scrim\)\}/.test(styles) && /\.storage-recovery::backdrop\{background:var\(--scrim\)\}/.test(styles) && /\.program-editor-leave::backdrop\{background:var\(--scrim\)\}/.test(styles), "live native dialogs share the scrim token");
   for (const id of ["whySheet", "exNoteSheet", "dayPickSheet", "programTextSheet", "shareSetupSheet", "exPickSheet", "exCustomSheet", "restSheet", "iosInstallSheet", "sessionSummary", "firstRun", "glossary"]) assert(divDialog(id), `#${id} retains its deliberately custom dialog behavior`);
   assert(divDialog("installBanner") && /banner\.setAttribute\("role", "region"\)/.test(layer), "install banner becomes a region at runtime");
   assert(/hideModalElement[\s\S]{0,400}el\.tagName==="DIALOG"/.test(app) && /if\(el\.tagName==="DIALOG"\)\{if\(typeof el\.showModal==="function"/.test(app), "one lifecycle covers both modal types");

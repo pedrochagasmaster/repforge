@@ -482,6 +482,40 @@ export const APP_SCENARIOS = {
     const label = (await ready.innerText()).trim();
     if (!label) throw new Error("Today readiness shortcut has no accessible text");
     await sleep(page, 300);
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await page.evaluate(() => {
+        const row = document.querySelector(".today-ex");
+        if (!row) throw new Error("Today 200% exercise row is missing");
+        const top = row.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: Math.max(0, top - 420), behavior: "instant" });
+      });
+      const clearance = await page.evaluate(() => {
+        const row = document.querySelector(".today-ex");
+        const name = row?.querySelector(".today-ex__name");
+        const value = row?.querySelector(".today-ex__value");
+        const dock = document.querySelector("nav");
+        if (!row || !name || !value || !dock) return { error: "Today row, value, or dock is missing" };
+        const nameStyle = getComputedStyle(name);
+        const rowRect = row.getBoundingClientRect();
+        const valueRect = value.getBoundingClientRect();
+        const dockRect = dock.getBoundingClientRect();
+        return {
+          fontSize: nameStyle.fontSize,
+          whiteSpace: nameStyle.whiteSpace,
+          textOverflow: nameStyle.textOverflow,
+          nameFits: name.scrollWidth <= name.clientWidth,
+          rowTop: rowRect.top,
+          rowBottom: rowRect.bottom,
+          valueBottom: valueRect.bottom,
+          dockTop: dockRect.top,
+        };
+      });
+      if (clearance.error || clearance.fontSize !== "32px" || clearance.whiteSpace !== "normal"
+        || clearance.textOverflow === "ellipsis" || !clearance.nameFits || clearance.rowTop < 0
+        || clearance.rowBottom > clearance.dockTop - 8 || clearance.valueBottom > clearance.dockTop - 8) {
+        throw new Error(`200% Today exercise row does not fit above the floating dock: ${JSON.stringify(clearance)}`);
+      }
+    }
   },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
