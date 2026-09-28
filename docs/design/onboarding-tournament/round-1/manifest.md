@@ -5,8 +5,10 @@ unless a factual defect prevents evaluation; if that happens, judging restarts
 from the corrected commit.
 
 - Repository: `pedrochagasmaster/repforge`, branch `ccr-15c50ac8-pki40i`
-- Artifact commit: **`<ROUND1_SHA>`** (filled at freeze; see the commit that
-  introduces this file)
+- Artifact commit: **`31a37b9758ec84237191a8e781e9411aae37db16`** (candidates and harness);
+  freeze commit: the commit that records this SHA here. Judges evaluate the
+  tree at the freeze commit, which differs from the artifact commit only by
+  this manifest and the acceptance note below.
 - Redesign baseline: PR #256 head `f61ce44b05b1b6717abb4ef00b2395204e9c9636`
 - Harness entry: `docs/design/onboarding-tournament/index.html` (served from the
   repository root); candidate documents: `app.html?c={a|b|c}&cp=<checkpoint>&lang={pt|en}&theme={light|dark}&text={100|200}&motion={normal|reduced}`
@@ -55,3 +57,11 @@ editor field, stepper, dialog and CTA is live. Compilation, browse filtering,
 avoidance, import row decisions, gap validation, activation gating, replacement
 and conflict all run the shared logic. The harness switches candidate, scenario,
 state, locale, theme, width, text scale and motion without changing data.
+
+## Acceptance at freeze
+
+`round-1/acceptance/summary.md`: 225 cells per candidate (45 checkpoints × 5
+matrix cells), 225/225 hard passes for A, B and C. The ten remaining warnings
+per candidate are one false positive: the visually hidden `<label>` text of the
+reply textarea (`Colar a resposta do assistente` / `Paste the assistant's
+reply`) is reported as clipped because it is intentionally 1 px wide.
