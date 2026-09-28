@@ -10283,10 +10283,18 @@ async function main() {
       offlineShell.push({ path, fromSW: resp?.fromServiceWorker?.() === true, status: result.status, type: result.type, isHtml: result.isHtml });
     }
     const optionalOffline = offlineShell.find((r) => r.path === OPTIONAL_DEPLOYMENT_SHELL_ASSET);
+    const optionalConfigWasAvailable = optionalDeploymentAsset?.netOk === true;
+    const optionalOfflineExpectedStatus = optionalConfigWasAvailable ? 200 : 503;
+    const optionalOfflineHasExpectedType = optionalConfigWasAvailable
+      ? /^(?:application|text)\/(?:javascript|ecmascript|x-javascript)\b/i.test(optionalOffline?.type || "")
+      : /^text\/plain\b/i.test(optionalOffline?.type || "");
     assert(
-      optionalOffline?.fromSW === true && optionalOffline.status === 503 && !optionalOffline.isHtml,
-      "Service worker reports the absent PostHog config offline without returning HTML as JavaScript",
-      JSON.stringify(optionalOffline),
+      optionalOffline?.fromSW === true && optionalOffline.status === optionalOfflineExpectedStatus &&
+        !optionalOffline.isHtml && optionalOfflineHasExpectedType,
+      optionalConfigWasAvailable
+        ? "Service worker serves the available PostHog config from cache offline as JavaScript"
+        : "Service worker reports the absent PostHog config offline without returning HTML as JavaScript",
+      JSON.stringify({ ...optionalOffline, expectedStatus: optionalOfflineExpectedStatus }),
       "Go offline → fetch /posthog-config.js"
     );
     assert(
