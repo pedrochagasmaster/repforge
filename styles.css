@@ -2619,14 +2619,16 @@ nav button.active{
   nav:has(button:nth-child(3).active){--dock-i:2}
   nav:has(button:nth-child(4).active){--dock-i:3}
 }
-/* A true 200% root text size makes four short dock columns break primary tab
-   names inside words. Reflow to a two-by-two dock and give each selected lens
-   one row, keeping all four actions visible without reducing label size. */
+/* At true 200% text, four short dock columns break primary names inside words.
+   Reflow to two columns. The 22px label glyphs extend past their line boxes, so
+   reserve full rows for each icon and label without reducing either size. */
 :root[style*="font-size: 200%"]{
-  --dock-h:calc(70px + 2 * var(--font-size-label));
+  --dock-h:calc(82px + 2 * var(--font-size-label));
+  --dock-gap:2px;
   --nav:calc(var(--dock-h) + var(--dock-gap));
 }
 :root[style*="font-size: 200%"] nav{grid-template-columns:repeat(2,minmax(0,1fr))}
+:root[style*="font-size: 200%"] nav button{gap:3px}
 :root[style*="font-size: 200%"] nav::before{
   bottom:auto;
   width:calc((100% - 12px - 2px)/2);
