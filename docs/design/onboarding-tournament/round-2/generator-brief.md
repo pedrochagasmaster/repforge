@@ -66,3 +66,44 @@ spacing and typography; real controls and states; no placeholder text; no
 impossible engine output; no generic dashboard styling; no gratuitous cards,
 gradients, glass, pills or hero type; no unexplained removal of difficult
 states.
+
+## Execution (added after the harness commit `af79658`)
+
+The shared harness fixes H-1–H-15 and the Round 2 acceptance tooling are in
+place. Read `round-2/JOURNEYS.md` (the candidate interface: `mount`, `reach`,
+`entry`, `policy`, `journeys`) and `round-2/harness-proof.md` before writing
+code; `round-2/candidates/_example.js` is a working reference of the interface,
+not a design. Use the shared helpers (`TS.build.fromPreview/toPreview/commit/
+result/status`, `TF.importResult`, `TF.saveDraft/loadDraft/clearDraft`,
+`TS.issueText`, `TS.landingProof`, the Privacy stub, the H-7 copy layer)
+instead of hand-rolling them.
+
+Three generators run in parallel, one candidate each, so the open-item
+positions below are allocated up front to guarantee the divergence §9 of the
+spec requires. Within its allocation each generator owns its thesis,
+composition, copy and craft.
+
+| Open item (spec §9) | D · control | E | F |
+| --- | --- | --- | --- |
+| Route choice | Up-front chooser (default) | **PD-1**: Start goes straight into Recommend's questions; Custom, Browse, Build and Import are offered as refinements from the questions and the review. Flag PD-1. Keep every job reachable and Custom as its own route with its own provenance. | Up-front chooser made materially cheaper **without** a product decision (O-4): the chooser's first door starts Recommend's first question in place; the helper ends at each of the five jobs |
+| O-1 grouping | B's five sections | One question per screen | Hybrid: goal + background together, schedule alone, environment alone |
+| O-2 priorities/avoid | Before the result, visible Skip | Offered from the review as an optional refinement before activation (proactive search kept) | Before the result (default) |
+| O-3 facts on the review | "Montado com" list after first day | Inline fact list at the top of the review | Chips |
+| O-5 change statement | Status line | Inline highlight of changed rows plus a polite status | Before/after count |
+| O-6 routes from the review | Chooser only | Yes (PD-1 consequence) | Chooser only |
+| O-7 shared-gate decline | Start only | Start only | Quiet "Agora não" that saves nothing |
+| O-8 landing | Default | Default | Proof figure above the actions (both actions still in the first viewport) |
+| O-9 answer editing | Bottom sheet | Inline expansion | Bottom sheet |
+| O-10 resume card | Chooser | Landing | Both |
+| O-11 Build from import | Quiet link | Quiet link | Third door |
+
+D, E and F all ask minutes and rest (no PD-2/PD-3) and show no pre-answer
+program (no PD-4). E depends on PD-1 only.
+
+Each generator writes only `round-2/candidates/<id>.js`, `<id>.css` and
+`<id>.notes.md` (thesis, axis, allocation followed, any deviation with its
+reason, verification result). It verifies with
+`node tools/verify.mjs --round 2 --candidates <id> --out /tmp/…/verify-<id>`
+until there are zero hard failures, and does not commit. The orchestrator
+registers the three in `harness.js`, writes `round-2/manifest.md`, runs the
+combined acceptance, and commits.
