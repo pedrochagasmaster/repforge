@@ -12,9 +12,15 @@
         c: { name: "C · Programa primeiro", thesis: { en: "Show a real, trainable program before asking anything, and let the lifter correct the facts it was built from directly on the program until it is theirs.", pt: "Mostre um programa real e treinável antes de perguntar qualquer coisa, e deixe o praticante corrigir os fatos que o geraram diretamente no programa até ele ser dele." }, axis: "Immediate preview · preview-and-edit · facts as editable chips · requires a product decision (default answers before the user answers)" },
       },
     },
-    /* Round 2: the generator registers d, e, f here (name, thesis, axis).
-       round-2/app.html loads round-2/candidates/<id>.{js,css} on demand. */
-    2: { doc: "round-2/app.html", candidates: {} },
+    /* Round 2: round-2/app.html loads round-2/candidates/<id>.{js,css}. */
+    2: {
+      doc: "round-2/app.html",
+      candidates: {
+        d: { name: "D · Cinco portas, uma revisão", thesis: { en: "The synthesis spec built as written: five honest doors up front, the required answers in five grouped sections, and one review that is the result, where every answer is corrected in place with a true statement of what changed.", pt: "A especificação de síntese construída como escrita: cinco portas honestas logo no início, as respostas obrigatórias em cinco seções agrupadas e uma revisão que é o resultado, onde cada resposta é corrigida no lugar com uma frase verdadeira sobre o que mudou." }, axis: "Control · every open item takes the spec's default · up-front chooser · no product decision" },
+        e: { name: "E · Uma pergunta por vez", thesis: { en: "Start is a conversation, not a menu: Taurifer asks one thing at a time and builds the program, and every other way to get a program stays one explicit, named, reversible step away from the question you are on and from the program you are looking at.", pt: "Começar é uma conversa, não um menu: o Taurifer pergunta uma coisa de cada vez e monta o programa, e todas as outras formas de ter um programa ficam a um passo explícito, nomeado e reversível da pergunta em que você está e do programa que você está vendo." }, axis: "Deferred route choice · one question per screen · the review is the hub, edited inline · requires a product decision (PD-1)" },
+        f: { name: "F · A primeira pergunta", thesis: { en: "Choosing a route should cost nothing extra, so the chooser opens on Recommend's first question (answering it is choosing Recommend), and every screen after that keeps the program in view: answers as chips, each corrected in a bottom sheet and followed by a before/after count.", pt: "Escolher um caminho não deve custar nada a mais: o seletor abre na primeira pergunta da recomendação (responder já é escolher Recomendar), e cada tela depois disso mantém o programa à vista: respostas como chips, cada uma corrigida numa folha inferior e seguida de uma contagem de antes e depois." }, axis: "Cheaper up-front chooser without a product decision · hybrid grouping · chips and before/after counts · Build as the third import door" },
+      },
+    },
   };
   const $ = (s) => document.querySelector(s);
   const params = new URLSearchParams(location.search);
