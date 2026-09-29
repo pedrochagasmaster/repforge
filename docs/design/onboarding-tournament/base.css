@@ -215,6 +215,10 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 .ex{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--rule);font-size:var(--font-size-body-small)}
 .ex:first-child{border-top:0}
 .ex__name{flex:1;min-width:0;color:var(--ink);font-weight:500;overflow-wrap:anywhere}
+/* 200% text: the name takes its own line and breaks only between words, so
+   narrow rows never split a movement name mid-word (Round 2 F report). */
+:root[style*="200%"] .ex{flex-wrap:wrap;gap:2px 12px}
+:root[style*="200%"] .ex__name{flex-basis:100%;overflow-wrap:break-word}
 .ex__rx{flex:none;font-family:var(--font-training-data);color:var(--ink-soft)}
 .facts{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:var(--font-size-body-small);color:var(--ink-soft)}
 .facts .t-data{color:var(--ink)}

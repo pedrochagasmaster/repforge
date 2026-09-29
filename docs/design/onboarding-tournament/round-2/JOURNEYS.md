@@ -73,7 +73,7 @@ it must not change state except through taps and typing.
 | Member | Meaning |
 | --- | --- |
 | `lang`, `cell` (`{ vw, text, lang }`), `journey`, `params` | context; `params.checkpoint` for the per-view `cancel` journey |
-| `t(key, params)` | production catalog + overrides + shared `x.*` copy for `lang` |
+| `t(key, params)` | production catalog + overrides + shared `x.*` copy for `lang`. It does **not** include the candidate's own copy: a journey matching its own labels uses the candidate's `t` (`TF.makeT(lang, <candidate COPY>)`) |
 | `await tap(target, { label, first })` | tap one visible element. `target`: a CSS selector, an `Element`, or `{ text, selector?, within?, exact? }` (text matches the accessible name or text). Fails if nothing or more than one element matches (unless `first: true`). Counts 1 tap |
 | `await type(target, text)` | fill a field (fires `input`). Counts 1 tap |
 | `find(target)`, `findAll(target)` | visible elements, no action |
