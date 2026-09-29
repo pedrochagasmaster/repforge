@@ -14,8 +14,7 @@
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
-import { loadRoleInventory } from "../tools/ui-system-core.mjs";
-import { requiredBoundaryExceptionRequests } from "../tools/check-ui-system.mjs";
+import { loadRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
 import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";

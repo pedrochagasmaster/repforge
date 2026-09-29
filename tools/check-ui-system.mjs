@@ -2,7 +2,7 @@
 /** Live Plan 058 role inventory. Existing CSS literals are debt until P6. */
 import { readFileSync } from "node:fs";
 import { ROOT, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt } from "./ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests } from "./ui-system-core.mjs";
 import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
@@ -112,12 +112,6 @@ export function inspectRoleCoverage({ key, components, exceptions, progressCandi
     try { document.querySelector(item.selector); } catch { problems.push(`${key}: invalid selector ${item.selector}`); }
   }
   return { key, problems, observed, matched: [...matched], matchedExceptions: [...matchedExceptions] };
-}
-
-export function requiredBoundaryExceptionRequests(exceptions, key) {
-  return exceptions
-    .filter((item) => item.boundary === "required" && item.catalogStates.includes(key))
-    .map((item) => ({ selector: item.selector, kind: "boundary" }));
 }
 
 export async function auditFocusRoles(page, { key, components, pixels }) {

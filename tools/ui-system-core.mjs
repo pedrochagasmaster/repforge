@@ -14,6 +14,12 @@ export function loadRoleInventory(path = join(ROOT, "tools", "ui-role-inventory.
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+export function requiredBoundaryExceptionRequests(exceptions, key) {
+  return exceptions
+    .filter((item) => item.boundary === "required" && item.catalogStates.includes(key))
+    .map((item) => ({ selector: item.selector, kind: "boundary" }));
+}
+
 export function validateRoleInventory(inventory, manifest) {
   const errors = [];
   const expected = new Set(manifest.screens.map(({ flow, id }) => `${flow}/${id}`));
