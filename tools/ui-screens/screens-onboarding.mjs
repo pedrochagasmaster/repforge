@@ -239,7 +239,11 @@ async function importTo(page, step) {
       buffer: Buffer.from(JSON.stringify(program)),
     });
     await page.waitForSelector("#importReview.active", { timeout: 25000 });
-    const more = page.locator(".improw:nth-child(2) details.improw__more summary");
+    const candidate = page.locator("#importRows .improw.is-open [data-imp-act='pick']").first();
+    if (await candidate.count()) await candidate.click();
+    else await page.locator("#importRows .improw.is-open [data-imp-act='raw']").first().click();
+    await page.waitForSelector("#importRows .improw.is-folded .improw__btn--change", { timeout: 20000 });
+    const more = page.locator("#importRows .improw.is-open details.improw__more summary").first();
     if (await more.count()) await more.click();
     return;
   }
@@ -299,13 +303,33 @@ async function freeformTo(page, step) {
   if (step === "stage2") return;
   await page.click("#entryFreeformCopy");
   await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
+  await page.waitForFunction(
+    () => document.querySelector("#toast")?.classList.contains("hidden") === false,
+    undefined,
+    { timeout: 5000 }
+  );
   if (step === "stage3") return;
+  await page.waitForFunction(
+    () => document.querySelector("#toast")?.classList.contains("hidden") === true,
+    undefined,
+    { timeout: 5000 }
+  );
   if (step === "unreadable") {
     await page.fill("#entryFreeformOut", portuguese
       ? "Desculpe, não consegui entender este formato de treino."
       : "Sorry, I could not parse this workout format.");
     await page.click("#entryFreeformReview");
     await page.waitForSelector("#entryFreeformCopyRepair", { timeout: 20000 });
+    await page.waitForFunction(
+      () => document.querySelector("#toast")?.classList.contains("hidden") === false,
+      undefined,
+      { timeout: 5000 }
+    );
+    await page.waitForFunction(
+      () => document.querySelector("#toast")?.classList.contains("hidden") === true,
+      undefined,
+      { timeout: 5000 }
+    );
     return;
   }
   const gapReply = JSON.stringify({

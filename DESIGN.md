@@ -97,6 +97,8 @@ components:
     typography: "{typography.label}"
 ---
 
+> **Implementation status:** This document remains a creative-direction baseline. For current semantic roles, tokens, elevation, contrast, and exceptions, use the [UI-system semantic contract](docs/design/ui-system-semantic-contract.md). Its legacy `--radius` and `--shadow` examples below do not describe live CSS aliases; P6 removed those compatibility paths.
+
 # Design System: Taurifer
 
 ## Overview

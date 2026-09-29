@@ -222,6 +222,29 @@ try {
   } finally {
     await pt.context.close();
   }
+
+  const transferCapture = { flow: "install", screen: "transfer-ready", viewport: "phone-390", theme: "light", locale: "pt", text: "text200", motion: "normal" };
+  const transfer = await openPage(browser, manifest, transferCapture, appState("install/transfer-ready", manifest.locales.pt.lang));
+  try {
+    await dismissChrome(transfer.page);
+    await APP_SCENARIOS["install/transfer-ready"](transfer.page);
+    await settle(transfer.page);
+    const transferConfig = configForCapture(manifest, transferCapture);
+    const transferEvidence = await transfer.page.evaluate(collectCatalogEvidence, transferConfig);
+    const transferFailures = validate(transferEvidence, transferConfig);
+    assert.deepEqual(transferFailures, [],
+      `PT-BR 200% transfer title wraps inside its sheet: ${transferFailures.join(" | ")}`);
+    assert.ok(transferEvidence.overflow.every((item) => item.locator !== "#iosInstallTitle"),
+      "the install-transfer title is measured by the catalog layout oracle and does not overflow");
+
+    await transfer.page.evaluate(() => { document.querySelector("#iosInstallTitle").style.overflowWrap = "normal"; });
+    const regressed = validate(await transfer.page.evaluate(collectCatalogEvidence, transferConfig), transferConfig);
+    assert.ok(regressed.some((failure) => failure.startsWith("clipped p #iosInstallTitle") && failure.includes("axes=x")),
+      `removing the long-word wrap safeguard is rejected by the catalog oracle: ${regressed.join(" | ")}`);
+    console.log(`deliberate install-title clipping rejection: ${regressed.find((failure) => failure.startsWith("clipped p #iosInstallTitle"))}`);
+  } finally {
+    await transfer.context.close();
+  }
 } finally {
   await browser.close();
 }

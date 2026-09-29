@@ -38,6 +38,221 @@ function isoDaysAgo(n) {
   return date.toISOString().slice(0, 10);
 }
 
+async function assertGlossaryViewport(page, label) {
+  const bounds = await page.locator("#glossary").evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    const close = node.querySelector(".glossary__close").getBoundingClientRect();
+    return {
+      left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+      closeLeft: close.left, closeRight: close.right, closeTop: close.top, closeBottom: close.bottom,
+      viewportWidth: document.documentElement.clientWidth,
+      viewportHeight: document.documentElement.clientHeight,
+    };
+  });
+  if (bounds.left < 0 || bounds.right > bounds.viewportWidth || bounds.top < 0 || bounds.bottom > bounds.viewportHeight
+    || bounds.closeLeft < 0 || bounds.closeRight > bounds.viewportWidth
+    || bounds.closeTop < 0 || bounds.closeBottom > bounds.viewportHeight) {
+    throw new Error(`${label} glossary or close control escapes the viewport: ${JSON.stringify(bounds)}`);
+  }
+}
+
+async function withExternalTextScale(page, verify) {
+  const inlineFontSize = await page.evaluate(() => {
+    const root = document.documentElement;
+    const value = root.style.fontSize;
+    root.style.removeProperty("font-size");
+    const style = document.createElement("style");
+    style.id = "plan058-external-text-scale-proof";
+    style.textContent = "html { font-size: 32px !important; }";
+    document.head.append(style);
+    return value;
+  });
+  try {
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    const rootScale = await page.evaluate(() => ({
+      fontSize: getComputedStyle(document.documentElement).fontSize,
+      inlineFontSize: document.documentElement.style.fontSize,
+    }));
+    if (rootScale.fontSize !== "32px" || rootScale.inlineFontSize !== "") {
+      throw new Error(`External text-scale fixture did not produce a 32px root without inline sizing: ${JSON.stringify(rootScale)}`);
+    }
+    await verify();
+  } finally {
+    await page.evaluate((fontSize) => {
+      document.getElementById("plan058-external-text-scale-proof")?.remove();
+      if (fontSize) document.documentElement.style.fontSize = fontSize;
+    }, inlineFontSize);
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+  }
+}
+
+async function assertDockFitsExternalTextScale(page) {
+  await withExternalTextScale(page, async () => {
+    const layout = await page.evaluate(() => {
+      const root = document.documentElement;
+      const nav = document.querySelector("nav");
+      if (!nav) return { error: "the production dock is missing" };
+      const navRect = nav.getBoundingClientRect();
+      const labels = [...nav.querySelectorAll(":scope > button")].map((button) => {
+        const label = button.querySelector("[data-i18n]");
+        const buttonRect = button.getBoundingClientRect();
+        const labelRect = label?.getBoundingClientRect();
+        const range = document.createRange();
+        if (label) range.selectNodeContents(label);
+        const textRects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+        return {
+          view: button.dataset.view,
+          text: label?.textContent.trim() || "",
+          visible: buttonRect.width > 0 && buttonRect.height > 0 && getComputedStyle(button).display !== "none",
+          fits: !!label && label.scrollWidth <= label.clientWidth + 1
+            && textRects.length > 0 && textRects.every((rect) => rect.left >= labelRect.left - 1
+              && rect.right <= labelRect.right + 1 && rect.top >= buttonRect.top - 1 && rect.bottom <= buttonRect.bottom + 1),
+          rect: { left: buttonRect.left, right: buttonRect.right, top: buttonRect.top, bottom: buttonRect.bottom },
+        };
+      });
+      const columns = getComputedStyle(nav).gridTemplateColumns.trim().split(/\s+/).length;
+      const overlap = labels.some((label, index) => labels.slice(index + 1).some((other) =>
+        label.rect.left < other.rect.right - 1 && other.rect.left < label.rect.right - 1
+        && label.rect.top < other.rect.bottom - 1 && other.rect.top < label.rect.bottom - 1));
+      const lang = root.lang.toLowerCase();
+      const expectedLabels = lang.startsWith("pt")
+        ? ["Hoje", "Progresso", "Histórico", "Programa"]
+        : ["Today", "Progress", "History", "Program"];
+      return {
+        rootFontSize: getComputedStyle(root).fontSize,
+        rootInlineFontSize: root.style.fontSize,
+        columns,
+        expectedLabels,
+        labels,
+        overlap,
+        dockInViewport: navRect.left >= 0 && navRect.right <= root.clientWidth
+          && navRect.top >= 0 && navRect.bottom <= root.clientHeight,
+      };
+    });
+    if (layout.error || layout.rootFontSize !== "32px" || layout.rootInlineFontSize !== ""
+      || layout.columns !== 2 || layout.labels.length !== 4
+      || layout.labels.some((label, index) => !label.visible || !label.fits || label.text !== layout.expectedLabels[index])
+      || layout.overlap || !layout.dockInViewport) {
+      throw new Error(`The production dock does not reflow for an external 32px root font: ${JSON.stringify(layout)}`);
+    }
+  });
+}
+
+async function assertTodayExerciseFitsExternalTextScale(page) {
+  await withExternalTextScale(page, async () => {
+    await page.evaluate(() => {
+      const row = document.querySelector(".today-ex");
+      const dock = document.querySelector("nav");
+      if (!row || !dock) throw new Error("Today external-scale proof is missing the exercise row or dock");
+      const rowBottom = row.getBoundingClientRect().bottom;
+      const dockTop = dock.getBoundingClientRect().top;
+      window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
+    });
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    const clearance = await page.evaluate(() => {
+      const root = document.documentElement;
+      const row = document.querySelector(".today-ex");
+      const name = row?.querySelector(".today-ex__name");
+      const value = row?.querySelector(".today-ex__value");
+      const dock = document.querySelector("nav");
+      if (!row || !name || !value || !dock) return { error: "Today row, value, or dock is missing" };
+      const style = getComputedStyle(name);
+      const nameRect = name.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(name);
+      const textRects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+      const rowRect = row.getBoundingClientRect();
+      const valueRect = value.getBoundingClientRect();
+      const dockRect = dock.getBoundingClientRect();
+      return {
+        rootFontSize: getComputedStyle(root).fontSize,
+        rootInlineFontSize: root.style.fontSize,
+        name: name.textContent.trim(),
+        whiteSpace: style.whiteSpace,
+        textOverflow: style.textOverflow,
+        nameFits: name.scrollWidth <= name.clientWidth + 1 && textRects.length > 0
+          && textRects.every((rect) => rect.left >= nameRect.left - 1 && rect.right <= nameRect.right + 1
+            && rect.top >= nameRect.top - 1 && rect.bottom <= nameRect.bottom + 1),
+        rowTop: rowRect.top,
+        rowBottom: rowRect.bottom,
+        valueBottom: valueRect.bottom,
+        dockTop: dockRect.top,
+      };
+    });
+    if (clearance.error || clearance.rootFontSize !== "32px" || clearance.rootInlineFontSize !== ""
+      || !clearance.name || clearance.whiteSpace !== "normal" || clearance.textOverflow === "ellipsis"
+      || !clearance.nameFits || clearance.rowTop < 0 || clearance.rowBottom > clearance.dockTop - 8
+      || clearance.valueBottom > clearance.dockTop - 8) {
+      throw new Error(`The Today exercise row does not reflow for an external 32px root font: ${JSON.stringify(clearance)}`);
+    }
+  });
+}
+
+async function assertLibraryTabsFitExternalTextScale(page) {
+  await withExternalTextScale(page, async () => {
+    const layout = await page.evaluate(() => {
+      const bar = document.querySelector("#library #libTabs");
+      const header = document.querySelector("#library .exview-head");
+      if (!bar || !header) return { error: "the production library tabs or header are missing" };
+      const barRect = bar.getBoundingClientRect();
+      const headerItems = ["#libBack", "#libTitle", "#libClose"].map((selector) => {
+        const element = document.querySelector(selector);
+        const rect = element?.getBoundingClientRect();
+        const range = document.createRange();
+        if (element) range.selectNodeContents(element);
+        const textRects = [...range.getClientRects()].filter((item) => item.width > 0 && item.height > 0);
+        return {
+          selector,
+          visible: !!element && rect.width > 0 && rect.height > 0,
+          fits: !!element && element.scrollWidth <= element.clientWidth + 1 && textRects.length > 0
+            && textRects.every((item) => item.left >= rect.left - 1 && item.right <= rect.right + 1
+              && item.top >= rect.top - 1 && item.bottom <= rect.bottom + 1),
+          rect: rect && { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+        };
+      });
+      const headerOverlap = headerItems.some((item, index) => headerItems.slice(index + 1).some((other) =>
+        item.rect && other.rect && item.rect.left < other.rect.right - 1 && item.rect.right > other.rect.left + 1
+        && item.rect.top < other.rect.bottom - 1 && item.rect.bottom > other.rect.top + 1));
+      const tabs = [...bar.querySelectorAll(".picktab")].map((tab) => {
+        const rect = tab.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(tab);
+        const textRects = [...range.getClientRects()].filter((item) => item.width > 0 && item.height > 0);
+        return {
+          text: tab.textContent.trim(),
+          rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+          fits: tab.scrollWidth <= tab.clientWidth + 1 && textRects.length > 0
+            && textRects.every((item) => item.left >= rect.left - 1 && item.right <= rect.right + 1
+              && item.top >= rect.top - 1 && item.bottom <= rect.bottom + 1),
+        };
+      });
+      const rows = [...new Set(tabs.map((tab) => Math.round(tab.rect.top)))];
+      const overlap = tabs.some((tab, index) => tabs.slice(index + 1).some((other) =>
+        tab.rect.left < other.rect.right - 1 && other.rect.left < tab.rect.right - 1
+        && tab.rect.top < other.rect.bottom - 1 && other.rect.top < tab.rect.bottom - 1));
+      return {
+        rootFontSize: getComputedStyle(document.documentElement).fontSize,
+        rootInlineFontSize: document.documentElement.style.fontSize,
+        headerDisplay: getComputedStyle(header).display,
+        headerItems,
+        headerOverlap,
+        flexWrap: getComputedStyle(bar).flexWrap,
+        barInViewport: barRect.left >= 0 && barRect.right <= document.documentElement.clientWidth,
+        tabs,
+        rows,
+        overlap,
+      };
+    });
+    if (layout.error || layout.rootFontSize !== "32px" || layout.rootInlineFontSize !== ""
+      || layout.headerDisplay !== "grid" || layout.headerItems.some((item) => !item.visible || !item.fits)
+      || layout.headerOverlap
+      || layout.flexWrap !== "wrap" || layout.tabs.length !== 3 || layout.rows.length < 2
+      || layout.tabs.some((tab) => !tab.fits) || layout.overlap || !layout.barInViewport) {
+      throw new Error(`The library tabs do not reflow for an external 32px root font: ${JSON.stringify(layout)}`);
+    }
+  });
+}
+
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
@@ -47,6 +262,28 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   const state = catalogState();
+  if (key === "today/ready") {
+    const exercise = state.program.find((item) => item.name === "Barbell bench press");
+    const date = isoDaysAgo(1);
+    if (!exercise) throw new Error("Today hot-readiness fixture is missing its bench press");
+    state.log.push(...Array.from({ length: exercise.sets }, (_, index) => ({
+      session: "today-ready-hot",
+      date,
+      day: exercise.day,
+      name: exercise.name,
+      exerciseId: exercise.id,
+      set: index + 1,
+      load: 90,
+      reps: exercise.max,
+      rir: 1,
+      work: true,
+      notes: "",
+      created: `${date}T12:${String(index).padStart(2, "0")}:00.000Z`,
+      primary: exercise.primary,
+      secondary: exercise.secondary,
+      performedLibraryId: exercise.libraryId || undefined,
+    })));
+  }
   if (key.startsWith("session/summary-")) {
     const dayExercises = state.program.filter((exercise) => exercise.day === "Day 1");
     const loads = dayExercises.map((_, index) => 80 + index * 5);
@@ -451,13 +688,118 @@ async function createInUseCustomExercise(page) {
   return result;
 }
 
+async function showRestTimer(page, paused = false) {
+  await focusMode(page);
+  await logCurrentSet(page);
+  await page.waitForFunction(
+    () => document.querySelector("#woRest")?.classList.contains("is-running"),
+    undefined, { timeout: 20000 }
+  );
+  await page.click("#woRest");
+  await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
+  if (paused) {
+    await page.click("#restPlayPause");
+    await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-paused"));
+  }
+  await sleep(page, 400);
+}
+
 export const APP_SCENARIOS = {
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
-  "today/ready": async (page) => { await dismissChrome(page); await sleep(page, 300); },
+  "today/ready": async (page) => {
+    await dismissChrome(page);
+    const ready = page.locator("#readyLine");
+    await ready.waitFor({ state: "visible", timeout: 20000 });
+    const label = (await ready.innerText()).trim();
+    if (!label) throw new Error("Today readiness shortcut has no accessible text");
+    await sleep(page, 300);
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await page.evaluate(() => {
+        const row = document.querySelector(".today-ex");
+        const dock = document.querySelector("nav");
+        if (!row || !dock) throw new Error("Today 200% exercise row or dock is missing");
+        const rowBottom = row.getBoundingClientRect().bottom;
+        const dockTop = dock.getBoundingClientRect().top;
+        window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
+      });
+      const clearance = await page.evaluate(() => {
+        const row = document.querySelector(".today-ex");
+        const name = row?.querySelector(".today-ex__name");
+        const value = row?.querySelector(".today-ex__value");
+        const dock = document.querySelector("nav");
+        if (!row || !name || !value || !dock) return { error: "Today row, value, or dock is missing" };
+        const nameStyle = getComputedStyle(name);
+        const rowRect = row.getBoundingClientRect();
+        const valueRect = value.getBoundingClientRect();
+        const dockRect = dock.getBoundingClientRect();
+        return {
+          fontSize: nameStyle.fontSize,
+          whiteSpace: nameStyle.whiteSpace,
+          textOverflow: nameStyle.textOverflow,
+          nameFits: name.scrollWidth <= name.clientWidth,
+          rowTop: rowRect.top,
+          rowBottom: rowRect.bottom,
+          valueBottom: valueRect.bottom,
+          dockTop: dockRect.top,
+        };
+      });
+      if (clearance.error || clearance.fontSize !== "32px" || clearance.whiteSpace !== "normal"
+        || clearance.textOverflow === "ellipsis" || !clearance.nameFits || clearance.rowTop < 0
+        || clearance.rowBottom > clearance.dockTop - 8 || clearance.valueBottom > clearance.dockTop - 8) {
+        throw new Error(`200% Today exercise row does not fit above the floating dock: ${JSON.stringify(clearance)}`);
+      }
+      await assertDockFitsExternalTextScale(page);
+      await assertTodayExerciseFitsExternalTextScale(page);
+    }
+  },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
     await page.waitForSelector("#dayPickSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await withExternalTextScale(page, async () => {
+        const layout = await page.evaluate(() => {
+          const textFits = (node) => {
+            const box = node.getBoundingClientRect(), range = document.createRange();
+            range.selectNodeContents(node);
+            return [...range.getClientRects()].filter((rect) => rect.width && rect.height).every((rect) =>
+              rect.left >= box.left - 1 && rect.right <= box.right + 1
+                && rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1);
+          };
+          const clippedLabels = [...document.querySelectorAll("#dayPickList .daypick__title, #dayPickList .daypick__sub")]
+            .filter((label) => {
+              const style = getComputedStyle(label);
+              return style.whiteSpace !== "normal" || style.textOverflow === "ellipsis"
+                || label.scrollWidth > label.clientWidth + 1
+                || !textFits(label);
+            }).map((label) => ({ selector: label.className, text: label.textContent.trim() }));
+          const actions = ["#dayPickConfirm", "#dayPickCancel"].map((selector) => {
+            const button = document.querySelector(selector);
+            if (!button) return { selector, visible: false, labelFits: false, inViewport: false };
+            const box = button.getBoundingClientRect();
+            const style = getComputedStyle(button);
+            return { selector, visible: style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0,
+              labelFits: textFits(button), inViewport: box.top >= -1 && box.bottom <= innerHeight + 1 };
+          });
+          const list = document.querySelector("#dayPickList");
+          const rows = [...(list?.querySelectorAll(".daypick__row") || [])];
+          let lastChoiceReachable = false;
+          if (list && rows.length && ["auto", "scroll", "overlay"].includes(getComputedStyle(list).overflowY)) {
+            const originalTop = list.scrollTop;
+            list.scrollTop = list.scrollHeight;
+            const listBox = list.getBoundingClientRect(), lastBox = rows.at(-1).getBoundingClientRect();
+            lastChoiceReachable = list.scrollHeight > list.clientHeight
+              && lastBox.top >= listBox.top - 1 && lastBox.bottom <= listBox.bottom + 1;
+            list.scrollTop = originalTop;
+          }
+          return { clippedLabels, actions, lastChoiceReachable };
+        });
+        if (layout.clippedLabels.length || layout.actions.some((action) => !action.visible || !action.labelFits || !action.inViewport)
+          || !layout.lastChoiceReachable) {
+          throw new Error(`200% day-picker labels/actions do not fit and remain reachable: ${JSON.stringify(layout)}`);
+        }
+      });
+    }
   },
   "today/done": async (page) => {
     await saveWholeSession(page);
@@ -468,9 +810,55 @@ export const APP_SCENARIOS = {
       if (document.body.classList.contains("is-settings")) document.querySelector("#settingsBack")?.click();
     });
     await sleep(page, 600);
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      const clearance = await page.evaluate(() => {
+        const dock = document.querySelector("nav");
+        const label = document.querySelector("#todaySessionLabel");
+        const review = document.querySelector("#reviewTodaySession");
+        const another = document.querySelector("#logAnotherSession");
+        if (!dock || !label || !review || !another) return { error: "Today recap heading, actions, or dock are missing" };
+        const labelTop = label.getBoundingClientRect().top;
+        window.scrollBy({ top: Math.max(0, labelTop - 24), behavior: "instant" });
+        const dockRect = dock.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        const reviewRect = review.getBoundingClientRect();
+        const anotherRect = another.getBoundingClientRect();
+        const labelFits = (button) => {
+          const range = document.createRange();
+          range.selectNodeContents(button);
+          return [...range.getClientRects()].filter((rect) => rect.width && rect.height).every((rect) =>
+            rect.left >= button.getBoundingClientRect().left - 1
+            && rect.right <= button.getBoundingClientRect().right + 1
+            && rect.top >= button.getBoundingClientRect().top - 1
+            && rect.bottom <= button.getBoundingClientRect().bottom + 1);
+        };
+        return {
+          labelTop: labelRect.top,
+          dockTop: dockRect.top,
+          reviewBottom: reviewRect.bottom,
+          anotherBottom: anotherRect.bottom,
+          reviewLabelFits: labelFits(review),
+          anotherLabelFits: labelFits(another),
+        };
+      });
+      if (clearance.error || clearance.labelTop < 0 || clearance.reviewBottom > clearance.dockTop - 8
+        || clearance.anotherBottom > clearance.dockTop - 8
+        || !clearance.reviewLabelFits || !clearance.anotherLabelFits) {
+        throw new Error(`200% Today recap actions do not clear the floating dock: ${JSON.stringify(clearance)}`);
+      }
+    }
   },
 
   "workout/focus": focusMode,
+  "workout/focus-glossary": async (page) => {
+    await focusMode(page);
+    const term = page.locator("#workout [data-term]").first();
+    await term.waitFor({ state: "visible", timeout: 20000 });
+    await term.click();
+    await page.waitForSelector("#glossary:not(.hidden)", { timeout: 10000 });
+    await assertGlossaryViewport(page, "Focus");
+    await sleep(page, 400);
+  },
   "today/preview": async page => { await page.click("#previewSession"); await page.waitForSelector("#previewSessionSheet.is-open"); },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); },
@@ -587,14 +975,23 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "workout/rest-timer": async (page) => {
+    await showRestTimer(page);
+  },
+  "workout/rest-timer-paused": async (page) => {
+    await showRestTimer(page, true);
+  },
+  "today/rest-bar": async (page) => {
     await focusMode(page);
     await logCurrentSet(page);
-    await page.waitForFunction(
-      () => document.querySelector("#woRest")?.classList.contains("is-running"),
-      undefined, { timeout: 20000 }
-    );
-    await page.click("#woRest");
-    await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
+    await page.click("#leaveWorkout");
+    await page.waitForFunction(() => {
+      const timer = document.querySelector("#woRest");
+      const bar = document.querySelector("#restBar");
+      const rect = bar?.getBoundingClientRect();
+      return !document.body.classList.contains("is-focus-wo") && timer?.classList.contains("is-running")
+        && rect?.width > 1 && rect?.height > 1
+        && getComputedStyle(bar).display !== "none" && !document.querySelector("#restSheet.is-open");
+    }, undefined, { timeout: 20000 });
     await sleep(page, 400);
   },
   "workout/exercise-note": async (page) => {
@@ -736,7 +1133,59 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
 
-  "library/list": openLibrary,
+  "library/list": async (page) => {
+    await openLibrary(page);
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await assertLibraryTabsFitExternalTextScale(page);
+    }
+  },
+  "library/list-selected": async (page) => {
+    await openLibrary(page);
+    const choice = page.locator("#libList [data-lib-toggle]").first();
+    await choice.waitFor({ state: "visible", timeout: 20000 });
+    await choice.click();
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await assertLibraryTabsFitExternalTextScale(page);
+    }
+    await page.waitForFunction(() => {
+      const bar = document.querySelector("#libBar");
+      const rect = bar?.getBoundingClientRect();
+      return rect?.width > 1 && rect?.height > 1 && getComputedStyle(bar).display !== "none";
+    }, undefined, { timeout: 10000 });
+    const header = await page.evaluate(() => {
+      const selectors = ["#libBack", "#libTitle", "#libClose"];
+      const items = selectors.map(selector => {
+        const element = document.querySelector(selector);
+        const rect = element?.getBoundingClientRect();
+        return { selector, left: rect?.left, top: rect?.top, right: rect?.right, bottom: rect?.bottom };
+      });
+      const overlaps = [];
+      for (let i = 0; i < items.length; i += 1) for (let j = i + 1; j < items.length; j += 1) {
+        const a = items[i], b = items[j];
+        if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) {
+          overlaps.push([a.selector, b.selector]);
+        }
+      }
+      const viewport = document.documentElement.clientWidth;
+      const outside = items.filter(item => item.left < 0 || item.right > viewport).map(item => item.selector);
+      return { items, overlaps, outside };
+    });
+    if (header.overlaps.length || header.outside.length) {
+      throw new Error(`Selected library header overlaps or escapes the viewport: ${JSON.stringify(header)}`);
+    }
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await sleep(page, 100);
+    const clearance = await page.evaluate(() => {
+      const end = document.querySelector("#libCustom").getBoundingClientRect();
+      const bar = document.querySelector("#libBar").getBoundingClientRect();
+      return { contentBottom: end.bottom, actionTop: bar.top, gap: bar.top - end.bottom };
+    });
+    if (clearance.gap < 8) {
+      throw new Error(`Selected library content is hidden behind its persistent action: ${JSON.stringify(clearance)}`);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await sleep(page, 400);
+  },
   "library/exercise-preview": async (page) => {
     await openLibrary(page);
     const preview = page.locator('#libList [data-lib-preview="sq_bb"]');
@@ -752,6 +1201,19 @@ export const APP_SCENARIOS = {
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await sleep(page, 800);
+  },
+  "library/exercise-detail-glossary": async (page) => {
+    await enterWorkout(page);
+    const row = page.locator("#workout [data-exopen]").first();
+    await row.scrollIntoViewIfNeeded({ timeout: 20000 });
+    await row.click({ timeout: 20000 });
+    await page.waitForSelector("#exDetail:not(.hidden)", { timeout: 20000 });
+    const term = page.locator("#exDetail [data-term]").first();
+    await term.waitFor({ state: "visible", timeout: 20000 });
+    await term.click();
+    await page.waitForSelector("#glossary:not(.hidden)", { timeout: 10000 });
+    await assertGlossaryViewport(page, "Exercise detail");
+    await sleep(page, 400);
   },
 
   "program/no-program": async (page) => { await dismissChrome(page); await openProgram(page); },
@@ -891,13 +1353,38 @@ export const APP_SCENARIOS = {
         const node = document.querySelector(selector);
         return !!node && !node.classList.contains("hidden") && !node.hidden;
       };
-      return visible("#shareSetupSheet") && !visible("#exPickSheet") && !visible("#exCustomSheet");
+      const repairFocus = document.activeElement?.matches("#shareSetupBlockers [data-share-repair]") ||
+        document.activeElement?.id === "shareSetupBlockerSummary";
+      return document.querySelector("#shareSetupSheet.is-open") && visible("#shareSetupBlockers") &&
+        visible("#shareSetupBlockers [data-share-repair]") && !visible("#exPickSheet") &&
+        !visible("#exCustomSheet") && repairFocus;
     }, undefined, { timeout: 20000 });
     await sleep(page, 400);
+    const scrollReturn = await page.evaluate(() => {
+      const body = document.querySelector("#shareSetupSheet .sheet__body");
+      const target = document.activeElement;
+      if (!body || !target?.matches("[data-share-repair]")) return null;
+      const bodyRect = body.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const bodyTop = bodyRect.top + body.clientTop;
+      const bodyBottom = bodyTop + body.clientHeight;
+      return {
+        scrollTop: body.scrollTop,
+        maxScroll: Math.max(0, body.scrollHeight - body.clientHeight),
+        repairVisible: targetRect.top >= bodyTop && targetRect.bottom <= bodyBottom,
+      };
+    });
+    if (!scrollReturn || scrollReturn.scrollTop !== scrollReturn.maxScroll || !scrollReturn.repairVisible) {
+      throw new Error(`Share repair return should keep its focused blocker visible at the sheet body's end: ${JSON.stringify(scrollReturn)}`);
+    }
   },
   "program/share-ready": async (page) => {
+    await page.evaluate(() => Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async () => {},
+    }));
     await openShare(page);
-    await page.waitForSelector("#shareSetupCopy:not(.hidden)", { timeout: 20000 });
+    await page.waitForSelector("#shareSetupShare:not(.hidden):not(:disabled)", { timeout: 20000 });
     await stabilizeShareLink(page);
     await sleep(page, 400);
   },

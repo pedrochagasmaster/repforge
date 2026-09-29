@@ -22,9 +22,11 @@ export { launchChromium };
 export const sleep = (page, ms = 300) => page.waitForTimeout(ms);
 
 export function waitForApp(page) {
+  // Hooks mount before durable state has loaded; a scenario may read state.
   return page.waitForFunction(
     () => typeof window.__repforgeStorage?.flush === "function"
-      && typeof window.__repforgeUi?.setTheme === "function",
+      && typeof window.__repforgeUi?.setTheme === "function"
+      && window.__repforgeBooted === true,
     undefined,
     { timeout: 20000 }
   );
