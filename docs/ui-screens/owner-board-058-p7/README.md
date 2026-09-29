@@ -1,19 +1,19 @@
 # Plan 058 representative P7 visual board
 
-- **Production source SHA:** 65edbc6d428bfa18bd77eabe8bde789e26737580
+- **Production source SHA:** 4b61d990fe8b7ee765d0eac701a69546bb0402bd
 - **Generated:** 2026-09-29 from the complete P7 catalog.
-- **Catalog:** 147 screens / 898 registered frames; semantic snapshot ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa.
-- **Board:** 63 production frames across 29 screens. Each PNG is a byte-for-byte copy from the catalog; no screenshot editing.
+- **Catalog:** 148 screens / 906 registered frames; semantic snapshot ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa.
+- **Board:** 65 production frames across 30 screens. Each PNG is a byte-for-byte copy from the catalog; no screenshot editing.
 - **Owner approval:** Pedro approved the P5 board at source SHA `dd70f11ad0e6a4bca8a491c7f37b3296d83c3166` as the intended visual direction.
-- **Full-catalog delta:** 647 byte-identical frames; 251 byte-changed frames, all 898/898 within fixed perceptual thresholds; zero added/missing frames; exact semantic catalog.
-- **P5 comparison:** 56 comparable frames, 7 without a P5 match; 50 within thresholds and 6 reviewed exceedances. See [comparison-report.json](comparison-report.json).
+- **Full-catalog delta:** among the 898 frames present at the P6 baseline, 647 are byte-identical and 251 are byte-changed; all 898 pass fixed perceptual thresholds. The final catalog adds eight production-generated paused-rest-timer frames and removes none. Against the exact-source pre-capture snapshot, 898/906 frames remain byte-identical; the other eight change only their production-generated proposal digest. All 906 pass perceptual comparison and the semantic catalog matches exactly.
+- **P5 comparison:** 56 comparable frames, 9 representative frames without a P5 match (seven existing P7 additions plus two paused-timer variants); 50 are within thresholds and 6 exceedances were reviewed. See [comparison-report.json](comparison-report.json).
 - **Exact frame delta:** [catalog-change-inventory.json](catalog-change-inventory.json).
 
 ## Review lens
 
 Assess Taurifer identity, hierarchy, density, semantic consistency, action hierarchy, card/elevation restraint, selected and disabled treatment, outcome semantics, and responsive/localized coherence. This selection is representative; P7 records every frame-level delta. Coverage includes EN/PT-BR, light/dark, 320/390/430 px phones, normal/200% text, reduced motion, and registered install/transfer states. Service-worker/cache behavior is separately covered by upgrade/offline evidence. Desktop is outside the mobile-only catalog.
 
-The program-entry threshold exceedances preserve the approved title, four-route order, featured action, and action hierarchy. The PT-BR 200% Today, Progress, and privacy frames show corrected reflow with content and actions reachable. The P5 approval remains the visual-direction decision; no renewed approval was needed.
+The program-entry threshold exceedances preserve the approved title, four-route order, featured action, and action hierarchy. The PT-BR 200% Today, Progress, and privacy frames show corrected reflow with content and actions reachable. The two added paused-timer frames show the required boundary in dark mode and the PT-BR 200% layout with all timer actions visible. The P5 approval remains the visual-direction decision; no renewed approval was needed.
 
 ## Landing and program entry
 
@@ -53,6 +53,10 @@ The program-entry threshold exceedances preserve the approved title, four-route 
 
 <table>
 <tr><td align="center"><a href="screens/workout/focus__phone-390-light-pt-text200.png"><img src="screens/workout/focus__phone-390-light-pt-text200.png" width="230" alt="workout/focus, 390 px · light · PT-BR · 200% text"></a><br><sub>workout/focus · 390 px · light · PT-BR · 200% text</sub></td><td align="center"><a href="screens/workout/rest-timer__phone-390-dark-en.png"><img src="screens/workout/rest-timer__phone-390-dark-en.png" width="230" alt="workout/rest-timer, 390 px · dark · EN"></a><br><sub>workout/rest-timer · 390 px · dark · EN</sub></td><td align="center"><a href="screens/workout/rest-timer__phone-390-light-pt-text200.png"><img src="screens/workout/rest-timer__phone-390-light-pt-text200.png" width="230" alt="workout/rest-timer, 390 px · light · PT-BR · 200% text"></a><br><sub>workout/rest-timer · 390 px · light · PT-BR · 200% text</sub></td></tr>
+</table>
+
+<table>
+<tr><td align="center"><a href="screens/workout/rest-timer-paused__phone-390-dark-en.png"><img src="screens/workout/rest-timer-paused__phone-390-dark-en.png" width="230" alt="workout/rest-timer-paused, 390 px · dark · EN"></a><br><sub>workout/rest-timer-paused · 390 px · dark · EN</sub></td><td align="center"><a href="screens/workout/rest-timer-paused__phone-390-light-pt-text200.png"><img src="screens/workout/rest-timer-paused__phone-390-light-pt-text200.png" width="230" alt="workout/rest-timer-paused, 390 px · light · PT-BR · 200% text"></a><br><sub>workout/rest-timer-paused · 390 px · light · PT-BR · 200% text</sub></td></tr>
 </table>
 
 <table>

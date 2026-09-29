@@ -3,7 +3,7 @@
   "baselineBoard": "owner-board-058-p5",
   "baselineBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
   "currentBoard": "owner-board-058-p7",
-  "currentProductionSourceSha": "65edbc6d428bfa18bd77eabe8bde789e26737580",
+  "currentProductionSourceSha": "4b61d990fe8b7ee765d0eac701a69546bb0402bd",
   "comparator": "tools/compare-ui-screens.mjs comparePngFiles; measured from production PNG artifacts at this source SHA",
   "thresholds": {
     "changedCellDelta": 0.08,
@@ -51,6 +51,18 @@
       "key": "library/exercise-detail-glossary",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/library/exercise-detail-glossary__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "workout/rest-timer-paused",
+      "variant": "phone-390-dark-en",
+      "path": "screens/workout/rest-timer-paused__phone-390-dark-en.png",
+      "reason": "New paused-timer state added for the required non-text boundary proof; no equivalent P5 frame exists."
+    },
+    {
+      "key": "workout/rest-timer-paused",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/rest-timer-paused__phone-390-light-pt-text200.png",
+      "reason": "New paused-timer state added for the required non-text boundary proof; no equivalent P5 frame exists."
     }
   ],
   "passCount": 50,
@@ -1276,8 +1288,8 @@
   "reviewNotes": {
     "reviewedAt": "2026-09-29",
     "reviewer": "Luna parent implementation owner",
-    "semanticCatalog": "Exact across the full 147-screen / 898-frame P7 catalog.",
-    "materialDirection": "All six threshold exceedances were individually reviewed. The three program-entry frames preserve the visible title, route order, featured card, and action hierarchy. The three PT-BR 200% frames show the required repaired reflow with content and actions reachable. No material change to Taurifer identity, semantic selection, outcome treatment, or surface hierarchy was found.",
-    "ownerApproval": "Pedro approved the P5 representative board at production source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. P6 repairs preserve that direction; this evidence refresh does not create a new owner approval."
+    "semanticCatalog": "Exact across the full 148-screen / 906-frame final P7 catalog.",
+    "materialDirection": "All six P5 comparison threshold exceedances were individually reviewed. The three program-entry frames preserve the visible title, route order, featured card, and action hierarchy; the three PT-BR 200% frames show repaired reflow with content and actions reachable. The added paused-timer dark and PT-BR 200% frames preserve the approved rest-sheet hierarchy while exposing the required-boundary state. No material change to Taurifer identity, semantic selection, outcome treatment, or surface hierarchy was found.",
+    "ownerApproval": "Pedro approved the P5 representative board at production source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. P6 corrections and the final P7 evidence refresh preserve that direction; this evidence refresh does not create a new owner approval."
   }
 }

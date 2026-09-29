@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "plan": "058-P7",
-  "sourceSha": "65edbc6d428bfa18bd77eabe8bde789e26737580",
+  "sourceSha": "4b61d990fe8b7ee765d0eac701a69546bb0402bd",
   "catalogSource": "docs/ui-screens/screens/",
   "captureCommand": "env -u REPFORGE_URL node tools/capture-ui-screens.mjs",
   "captureGeneratedAt": "2026-09-29",
-  "sourceBoundary": "The full catalog was generated from frozen P6 production source SHA 65edbc6d428bfa18bd77eabe8bde789e26737580; no production UI, CSS, token, or markup changes occurred during P7 evidence preparation.",
+  "sourceBoundary": "Final full catalog and representative board were generated from frozen Plan 058 production source SHA 4b61d990fe8b7ee765d0eac701a69546bb0402bd; no application UI, CSS, token, markup, or behavior source changed during the final P7 capture and board preparation.",
   "catalog": {
-    "screenCount": 147,
-    "frameCount": 898,
+    "screenCount": 148,
+    "frameCount": 906,
     "semanticSha256": "ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa"
   },
-  "selectedScreenCount": 29,
-  "boardFrameCount": 63,
+  "selectedScreenCount": 30,
+  "boardFrameCount": 65,
   "provenance": "Each board PNG is an unmodified byte-for-byte copy of its corresponding production-generated frame from the complete P7 catalog at sourceSha.",
   "ownerGate": {
     "approval": "Pedro explicitly approved the representative P5 board as the intended Taurifer visual direction; the approval covers the production visual system represented there.",
@@ -20,7 +20,7 @@
     "sourceBoardManifest": "docs/ui-screens/owner-board-058-p5/capture-manifest.json",
     "approvedBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
     "approvedBoardFrameCount": 56,
-    "continuation": "The P6 200% text repairs preserve the approved hierarchy and system direction. The P7 comparison report records and explains all six representative threshold exceedances; none materially changes the approved direction.",
+    "continuation": "Pedro explicitly approved the P5 board at source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. P6 reflow fixes and the paused-timer required-boundary correction preserve that hierarchy and direction. The final P7 comparison records the six earlier reviewed exceedances and adds paused timer states for dark and PT-BR at 200% text; no material change to the approved direction was found, so renewed owner approval is not required.",
     "renewedApprovalRequired": false
   },
   "selected": [
@@ -464,6 +464,20 @@
       "path": "screens/library/exercise-detail-glossary__phone-390-light-pt-text200.png",
       "sha256": "f3ecb2945ca2328ea58e777d8af9428f623c4dd1efe25e8d8f8e0638e6e5f6a0",
       "sourcePath": "docs/ui-screens/screens/library/exercise-detail-glossary__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "workout/rest-timer-paused",
+      "variant": "phone-390-dark-en",
+      "path": "screens/workout/rest-timer-paused__phone-390-dark-en.png",
+      "sha256": "f67cb4aae79fbb13b27637edbec7a369214011dc3612b617e41156327fbecf57",
+      "sourcePath": "docs/ui-screens/screens/workout/rest-timer-paused__phone-390-dark-en.png"
+    },
+    {
+      "key": "workout/rest-timer-paused",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/rest-timer-paused__phone-390-light-pt-text200.png",
+      "sha256": "69133b77a3fe767103ce149883e9251e9f4bda3d379ad1bea18e28981fbb8754",
+      "sourcePath": "docs/ui-screens/screens/workout/rest-timer-paused__phone-390-light-pt-text200.png"
     }
   ]
 }

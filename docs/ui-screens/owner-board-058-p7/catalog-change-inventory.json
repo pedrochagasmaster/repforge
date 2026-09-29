@@ -10,19 +10,190 @@
   },
   "capture": {
     "command": "env -u REPFORGE_URL node tools/capture-ui-screens.mjs",
-    "productionSourceSha": "65edbc6d428bfa18bd77eabe8bde789e26737580",
+    "productionSourceSha": "4b61d990fe8b7ee765d0eac701a69546bb0402bd",
     "startedFromCleanSourceHead": true,
-    "generatedScreenCount": 147,
-    "generatedFrameCount": 898,
+    "generatedScreenCount": 148,
+    "generatedFrameCount": 906,
     "unchangedFrames": 647,
     "byteChangedFrames": 251,
-    "addedFrames": 0,
+    "addedFrames": 8,
     "removedFrames": 0,
     "perceptualMatchesAgainstPreP7Catalog": 898,
     "perceptualThresholdExceededFramesAgainstPreP7Catalog": 0,
     "semanticCatalogExact": true,
     "semanticSha256": "ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa",
-    "geometryAndCaptureContracts": "All 898/898 scenarios passed during production capture. node tools/check-ui-screens.mjs passed, and node tools/compare-ui-screens.mjs matched all 898 frames with the semantic snapshot exact."
+    "geometryAndCaptureContracts": "The unfiltered production capture passed 906/906 scenarios. node tools/check-ui-screens.mjs reports 148 screens / 906 frames. Against the exact pre-capture snapshot at sourceSha, node tools/compare-ui-screens.mjs matched all 906/906 frames and semantics. Against the original P6 P7 baseline, all 898 common frames pass perceptual thresholds; eight paused-rest-timer frames are new registered additions and zero old frames are missing.",
+    "preCaptureSnapshot": {
+      "sourceSha": "4b61d990fe8b7ee765d0eac701a69546bb0402bd",
+      "path": "/tmp/plan058-pre-final-4b61d990/docs/ui-screens/screens",
+      "screenCount": 148,
+      "frameCount": 906,
+      "pixelAndSemanticComparison": "906/906 exact perceptual matches; semantic comparison exact.",
+      "frameByteDelta": {
+        "commonFrames": 906,
+        "byteIdenticalFrames": 898,
+        "byteChangedFrames": 8,
+        "addedFrames": 0,
+        "removedFrames": 0,
+        "changedFrames": [
+          {
+            "path": "progress/sibling-shorter-session__phone-320-light-en.png",
+            "beforeSha256": "5a9eee8e10c5b68072d195b1582af81ba7b82ec7fc8c7dc790e01e0b0212aad4",
+            "afterSha256": "208fff8464df59113d4bc2f9057125ea67613bd9a8b80fa95764fa8d2cdf3389",
+            "comparison": {
+              "width": 640,
+              "height": 1136,
+              "ok": true,
+              "meanCellDelta": 0.0024203369557708096,
+              "changedCellRatio": 0.01171875,
+              "meanEdgeDelta": 0.002965325511668891,
+              "changedEdgeRatio": 0.01515275952693824,
+              "histogramDelta": 0.0015462171286344528,
+              "reasons": []
+            },
+            "renderIntentId": "fresh-production-proposal-identifiers",
+            "reason": "The scenario creates new transitionId and successorProgramId values; both remain in the production proposal hash, so the visible digest string changes. The rendered state, copy, layout, and actions are unchanged."
+          },
+          {
+            "path": "progress/sibling-shorter-session__phone-390-dark-en.png",
+            "beforeSha256": "e0a378f16711eb231685d3413be57c00c90187c7121dc1532124cabd8b8c9f22",
+            "afterSha256": "6dc1d37f53f86c0e08e83034c0e5fe2bd7225bdc0fb4522ee9d793dbbf3d3ffc",
+            "comparison": {
+              "width": 780,
+              "height": 1688,
+              "ok": true,
+              "meanCellDelta": 0.0013844058153676976,
+              "changedCellRatio": 0.007731119791666667,
+              "meanEdgeDelta": 0.0017783713163550987,
+              "changedEdgeRatio": 0.009773324572930354,
+              "histogramDelta": 0.0012207116233184934,
+              "reasons": []
+            },
+            "renderIntentId": "fresh-production-proposal-identifiers",
+            "reason": "The scenario creates new transitionId and successorProgramId values; both remain in the production proposal hash, so the visible digest string changes. The rendered state, copy, layout, and actions are unchanged."
+          },
+          {
+            "path": "progress/sibling-shorter-session__phone-390-light-en-reduced.png",
+            "beforeSha256": "a6be7f6a43728e05ed17c4a475ef6a044c3302ec390fb3fb5d906ad51b86142f",
+            "afterSha256": "d6a1a7d6cc1a888224b17eb720dc93919373c31a17dd243b6b49557d0553c1f5",
+            "comparison": {
+              "width": 780,
+              "height": 1688,
+              "ok": true,
+              "meanCellDelta": 0.0012896875869029916,
+              "changedCellRatio": 0.007080078125,
+              "meanEdgeDelta": 0.0016957552670335957,
+              "changedEdgeRatio": 0.00895203679369251,
+              "histogramDelta": 0.00048828125,
+              "reasons": []
+            },
+            "renderIntentId": "fresh-production-proposal-identifiers",
+            "reason": "The scenario creates new transitionId and successorProgramId values; both remain in the production proposal hash, so the visible digest string changes. The rendered state, copy, layout, and actions are unchanged."
+          },
+          {
+            "path": "progress/sibling-shorter-session__phone-390-light-en-text200.png",
+            "beforeSha256": "de75e30c57e3ed42ef9d902dabe2300d7e75820c3de308de839c170fd6138315",
+            "afterSha256": "569c997ce261d0161793bdf26a45f02b674a6f1a303da7c957aa4b8a4fd15627",
+            "comparison": {
+              "width": 780,
+              "height": 1688,
+              "ok": true,
+              "meanCellDelta": 0.005523500063011673,
+              "changedCellRatio": 0.029052734375,
+              "meanEdgeDelta": 0.0063703548745711125,
+              "changedEdgeRatio": 0.033795992115637316,
+              "histogramDelta": 0.002522785362089053,
+              "reasons": []
+            },
+            "renderIntentId": "fresh-production-proposal-identifiers",
+            "reason": "The scenario creates new transitionId and successorProgramId values; both remain in the production proposal hash, so the visible digest string changes. The rendered state, copy, layout, and actions are unchanged."
+          },
+          {
+            "path": "progress/sibling-shorter-session__phone-390-light-en.png",
+            "beforeSha256": "ee3a7aec9477283fca6855b3927012466f310d23a91d009e7cac90ae23eccb6b",
+            "afterSha256": "383bfd7433426e8165c7cde42d4f29523e85a62562d10c310ad336dab4f4dce2",
+            "comparison": {
+              "width": 780,
+              "height": 1688,
+              "ok": true,
+              "meanCellDelta": 0.0011237234739770177,
+              "changedCellRatio": 0.006103515625,
+              "meanEdgeDelta": 0.0014831241949629062,
+              "changedEdgeRatio": 0.008048620236530881,
+              "histogramDelta": 0.0008137999102473259,
+              "reasons": []
+            },
+            "renderIntentId": "fresh-production-proposal-identifiers",
+            "reason": "The scenario creates new transitionId and successorProgramId values; both remain in the production proposal hash, so the visible digest string changes. The rendered state, copy, layout, and actions are unchanged."
+          },
+          {
+            "path": "progress/sibling-shorter-session__phone-390-light-pt-text200.png",
+            "beforeSha256": "1bef9c8b3a6284d90a1f99d2650962c77bb6fa2ab8a12e424b61cfe69da2d71d",
+            "afterSha256": "ae018a9b5268460fefece3de636c31806246115d64a79da64555cce1438d18aa",
+            "comparison": {
+              "width": 780,
+              "height": 1688,
+              "ok": true,
+              "meanCellDelta": 0.005720760764690556,
+              "changedCellRatio": 0.029378255208333332,
+              "meanEdgeDelta": 0.006868395724293437,
+              "changedEdgeRatio": 0.035684954007884365,
+              "histogramDelta": 0.003662099305074662,
+              "reasons": []
+            },
+            "renderIntentId": "fresh-production-proposal-identifiers",
+            "reason": "The scenario creates new transitionId and successorProgramId values; both remain in the production proposal hash, so the visible digest string changes. The rendered state, copy, layout, and actions are unchanged."
+          },
+          {
+            "path": "progress/sibling-shorter-session__phone-390-light-pt.png",
+            "beforeSha256": "0e2ef46d7ab3c86a990bf205193898935956a487b7a44471a73042dbebb2fbf9",
+            "afterSha256": "4102cde86493641f2373afe71fc2326f6faf66068e1e724c901cc833e1b9c694",
+            "comparison": {
+              "width": 780,
+              "height": 1688,
+              "ok": true,
+              "meanCellDelta": 0.0011885677718729355,
+              "changedCellRatio": 0.006429036458333333,
+              "meanEdgeDelta": 0.00151436117510758,
+              "changedEdgeRatio": 0.008253942181340342,
+              "histogramDelta": 0.0008951916825026274,
+              "reasons": []
+            },
+            "renderIntentId": "fresh-production-proposal-identifiers",
+            "reason": "The scenario creates new transitionId and successorProgramId values; both remain in the production proposal hash, so the visible digest string changes. The rendered state, copy, layout, and actions are unchanged."
+          },
+          {
+            "path": "progress/sibling-shorter-session__phone-430-light-en.png",
+            "beforeSha256": "fac1bef3f07e377838b776fe4a407fbda75a986c863ad4d7bfa085524bee5be7",
+            "afterSha256": "cf18f5bc7d131b677f10f1179168d8c4d93f3124fb60b7e30394e3525e1f3b8d",
+            "comparison": {
+              "width": 860,
+              "height": 1864,
+              "ok": true,
+              "meanCellDelta": 0.0013750835738264718,
+              "changedCellRatio": 0.006998697916666667,
+              "meanEdgeDelta": 0.0016318802647145756,
+              "changedEdgeRatio": 0.008459264126149803,
+              "histogramDelta": 0.0016276011010631919,
+              "reasons": []
+            },
+            "renderIntentId": "fresh-production-proposal-identifiers",
+            "reason": "The scenario creates new transitionId and successorProgramId values; both remain in the production proposal hash, so the visible digest string changes. The rendered state, copy, layout, and actions are unchanged."
+          }
+        ]
+      }
+    },
+    "renderedRoleAudit": {
+      "sourceSha": "4b61d990fe8b7ee765d0eac701a69546bb0402bd",
+      "liveStates": 148,
+      "renderedVariants": 592,
+      "checks": 53916,
+      "passes": 53916,
+      "failures": 0,
+      "unsupported": 0,
+      "missing": 0,
+      "exempt": 0
+    }
   },
   "matrix": {
     "locales": [
@@ -5468,19 +5639,19 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "92c00a232e26e8a4afe8f28c67e9ea641854b1023c837c4db9879a7cf3fb8ad5",
-      "regeneratedFrameSha256": "5a9eee8e10c5b68072d195b1582af81ba7b82ec7fc8c7dc790e01e0b0212aad4",
+      "regeneratedFrameSha256": "208fff8464df59113d4bc2f9057125ea67613bd9a8b80fa95764fa8d2cdf3389",
       "bytesChanged": true,
       "comparison": {
         "passedPerceptualThresholds": true,
         "reasons": [],
-        "meanCellDelta": 0.0021859519836921683,
+        "meanCellDelta": 0.0020426710769290966,
         "changedCellRatio": 0.010579427083333334,
-        "meanEdgeDelta": 0.0025939840661868474,
-        "changedEdgeRatio": 0.013058475689881735,
-        "histogramDelta": 0.00179035565815866
+        "meanEdgeDelta": 0.002571281872973649,
+        "changedEdgeRatio": 0.013386990801576872,
+        "histogramDelta": 0.0021972653921693563
       },
-      "renderIntentId": "p7-full-catalog-regeneration-same-source",
-      "renderIntent": "The registered state was regenerated from the frozen P6 production source during the one complete P7 capture. This frame changed at the byte level; its measured pixel deltas remain within fixed comparator thresholds, the semantic catalog is unchanged, and the screen state and copy are unchanged."
+      "renderIntentId": "proposal-hash-refreshes-with-transition-identifiers",
+      "renderIntent": "The rendered schedule proposal displays its canonical SHA-256 digest. The production scenario creates fresh transitionId and successorProgramId values with uid() for each proposal, and those values remain in the canonical proposal-hash preimage. This re-capture therefore changes only the visible digest string; inspected layout, copy, state, and action hierarchy are unchanged. Its exact pixel metrics remain within fixed thresholds."
     },
     {
       "path": "progress/sibling-shorter-session__phone-390-dark-en.png",
@@ -5494,19 +5665,19 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "f554bd2de4e8b64f807981d534e5318e34d2d1736361ffd83f907b7c916fa9b7",
-      "regeneratedFrameSha256": "e0a378f16711eb231685d3413be57c00c90187c7121dc1532124cabd8b8c9f22",
+      "regeneratedFrameSha256": "6dc1d37f53f86c0e08e83034c0e5fe2bd7225bdc0fb4522ee9d793dbbf3d3ffc",
       "bytesChanged": true,
       "comparison": {
         "passedPerceptualThresholds": true,
         "reasons": [],
-        "meanCellDelta": 0.0014030627408648244,
-        "changedCellRatio": 0.008138020833333334,
-        "meanEdgeDelta": 0.0017832785155795486,
-        "changedEdgeRatio": 0.010183968462549276,
-        "histogramDelta": 0.0008951951749622822
+        "meanCellDelta": 0.001218692268439945,
+        "changedCellRatio": 0.006266276041666667,
+        "meanEdgeDelta": 0.00168006342337632,
+        "changedEdgeRatio": 0.008746714848883048,
+        "histogramDelta": 0.001302081742323935
       },
-      "renderIntentId": "p7-full-catalog-regeneration-same-source",
-      "renderIntent": "The registered state was regenerated from the frozen P6 production source during the one complete P7 capture. This frame changed at the byte level; its measured pixel deltas remain within fixed comparator thresholds, the semantic catalog is unchanged, and the screen state and copy are unchanged."
+      "renderIntentId": "proposal-hash-refreshes-with-transition-identifiers",
+      "renderIntent": "The rendered schedule proposal displays its canonical SHA-256 digest. The production scenario creates fresh transitionId and successorProgramId values with uid() for each proposal, and those values remain in the canonical proposal-hash preimage. This re-capture therefore changes only the visible digest string; inspected layout, copy, state, and action hierarchy are unchanged. Its exact pixel metrics remain within fixed thresholds."
     },
     {
       "path": "progress/sibling-shorter-session__phone-390-light-en-reduced.png",
@@ -5520,19 +5691,19 @@
         "motion": "reduced"
       },
       "previousCatalogFrameSha256": "12fd6cdc6b472b21bbf65a0c6a9a7ac6481de595beab83c58c72f78dc90cedbc",
-      "regeneratedFrameSha256": "a6be7f6a43728e05ed17c4a475ef6a044c3302ec390fb3fb5d906ad51b86142f",
+      "regeneratedFrameSha256": "d6a1a7d6cc1a888224b17eb720dc93919373c31a17dd243b6b49557d0553c1f5",
       "bytesChanged": true,
       "comparison": {
         "passedPerceptualThresholds": true,
         "reasons": [],
-        "meanCellDelta": 0.0011632750471864295,
-        "changedCellRatio": 0.006510416666666667,
-        "meanEdgeDelta": 0.001604120811244348,
-        "changedEdgeRatio": 0.008705650459921156,
-        "histogramDelta": 0.0008138089324347675
+        "meanCellDelta": 0.0012056038734852626,
+        "changedCellRatio": 0.006591796875,
+        "meanEdgeDelta": 0.001647399554858853,
+        "changedEdgeRatio": 0.00911629434954008,
+        "histogramDelta": 0.0010579495574347675
       },
-      "renderIntentId": "p7-full-catalog-regeneration-same-source",
-      "renderIntent": "The registered state was regenerated from the frozen P6 production source during the one complete P7 capture. This frame changed at the byte level; its measured pixel deltas remain within fixed comparator thresholds, the semantic catalog is unchanged, and the screen state and copy are unchanged."
+      "renderIntentId": "proposal-hash-refreshes-with-transition-identifiers",
+      "renderIntent": "The rendered schedule proposal displays its canonical SHA-256 digest. The production scenario creates fresh transitionId and successorProgramId values with uid() for each proposal, and those values remain in the canonical proposal-hash preimage. This re-capture therefore changes only the visible digest string; inspected layout, copy, state, and action hierarchy are unchanged. Its exact pixel metrics remain within fixed thresholds."
     },
     {
       "path": "progress/sibling-shorter-session__phone-390-light-en-text200.png",
@@ -5546,19 +5717,19 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "7b9c3c5e006e4e8297b0d7e40bda3728d3798a2855716a762c419a525fc77c49",
-      "regeneratedFrameSha256": "de75e30c57e3ed42ef9d902dabe2300d7e75820c3de308de839c170fd6138315",
+      "regeneratedFrameSha256": "569c997ce261d0161793bdf26a45f02b674a6f1a303da7c957aa4b8a4fd15627",
       "bytesChanged": true,
       "comparison": {
         "passedPerceptualThresholds": true,
         "reasons": [],
-        "meanCellDelta": 0.005059182073796788,
-        "changedCellRatio": 0.026936848958333332,
-        "meanEdgeDelta": 0.006062307638580007,
-        "changedEdgeRatio": 0.03322109067017083,
-        "histogramDelta": 0.00390625064028427
+        "meanCellDelta": 0.005340549132641755,
+        "changedCellRatio": 0.027099609375,
+        "meanEdgeDelta": 0.006236782441902098,
+        "changedEdgeRatio": 0.03264618922470434,
+        "histogramDelta": 0.0021158855815883726
       },
-      "renderIntentId": "p7-full-catalog-regeneration-same-source",
-      "renderIntent": "The registered state was regenerated from the frozen P6 production source during the one complete P7 capture. This frame changed at the byte level; its measured pixel deltas remain within fixed comparator thresholds, the semantic catalog is unchanged, and the screen state and copy are unchanged."
+      "renderIntentId": "proposal-hash-refreshes-with-transition-identifiers",
+      "renderIntent": "The rendered schedule proposal displays its canonical SHA-256 digest. The production scenario creates fresh transitionId and successorProgramId values with uid() for each proposal, and those values remain in the canonical proposal-hash preimage. This re-capture therefore changes only the visible digest string; inspected layout, copy, state, and action hierarchy are unchanged. Its exact pixel metrics remain within fixed thresholds."
     },
     {
       "path": "progress/sibling-shorter-session__phone-390-light-en.png",
@@ -5572,19 +5743,19 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "5473ee7bcc3561fb4b06e7b2c64a5eb882bca343a08922280b312419e7d73797",
-      "regeneratedFrameSha256": "ee3a7aec9477283fca6855b3927012466f310d23a91d009e7cac90ae23eccb6b",
+      "regeneratedFrameSha256": "383bfd7433426e8165c7cde42d4f29523e85a62562d10c310ad336dab4f4dce2",
       "bytesChanged": true,
       "comparison": {
         "passedPerceptualThresholds": true,
         "reasons": [],
-        "meanCellDelta": 0.001074400195881146,
-        "changedCellRatio": 0.006022135416666667,
-        "meanEdgeDelta": 0.0015367171023427735,
-        "changedEdgeRatio": 0.008336070959264126,
-        "histogramDelta": 0.0008138155099004507
+        "meanCellDelta": 0.0011740228414977222,
+        "changedCellRatio": 0.00634765625,
+        "meanEdgeDelta": 0.001595101731678816,
+        "changedEdgeRatio": 0.008377135348226018,
+        "histogramDelta": 0.0007324318867176771
       },
-      "renderIntentId": "p7-full-catalog-regeneration-same-source",
-      "renderIntent": "The registered state was regenerated from the frozen P6 production source during the one complete P7 capture. This frame changed at the byte level; its measured pixel deltas remain within fixed comparator thresholds, the semantic catalog is unchanged, and the screen state and copy are unchanged."
+      "renderIntentId": "proposal-hash-refreshes-with-transition-identifiers",
+      "renderIntent": "The rendered schedule proposal displays its canonical SHA-256 digest. The production scenario creates fresh transitionId and successorProgramId values with uid() for each proposal, and those values remain in the canonical proposal-hash preimage. This re-capture therefore changes only the visible digest string; inspected layout, copy, state, and action hierarchy are unchanged. Its exact pixel metrics remain within fixed thresholds."
     },
     {
       "path": "progress/sibling-shorter-session__phone-390-light-pt-text200.png",
@@ -5598,19 +5769,19 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "8b04f100279e6e6b9147041c17a9396f9c95177a9af5cd9fd9f0fc1686162be0",
-      "regeneratedFrameSha256": "1bef9c8b3a6284d90a1f99d2650962c77bb6fa2ab8a12e424b61cfe69da2d71d",
+      "regeneratedFrameSha256": "ae018a9b5268460fefece3de636c31806246115d64a79da64555cce1438d18aa",
       "bytesChanged": true,
       "comparison": {
         "passedPerceptualThresholds": true,
         "reasons": [],
-        "meanCellDelta": 0.005914053818580099,
-        "changedCellRatio": 0.030354817708333332,
-        "meanEdgeDelta": 0.006982308732891521,
-        "changedEdgeRatio": 0.03786136662286465,
-        "histogramDelta": 0.0034179682843387127
+        "meanCellDelta": 0.005575754606921131,
+        "changedCellRatio": 0.028889973958333332,
+        "meanEdgeDelta": 0.00652483425319743,
+        "changedEdgeRatio": 0.03490473061760841,
+        "histogramDelta": 0.0023600158165208995
       },
-      "renderIntentId": "p7-full-catalog-regeneration-same-source",
-      "renderIntent": "The registered state was regenerated from the frozen P6 production source during the one complete P7 capture. This frame changed at the byte level; its measured pixel deltas remain within fixed comparator thresholds, the semantic catalog is unchanged, and the screen state and copy are unchanged."
+      "renderIntentId": "proposal-hash-refreshes-with-transition-identifiers",
+      "renderIntent": "The rendered schedule proposal displays its canonical SHA-256 digest. The production scenario creates fresh transitionId and successorProgramId values with uid() for each proposal, and those values remain in the canonical proposal-hash preimage. This re-capture therefore changes only the visible digest string; inspected layout, copy, state, and action hierarchy are unchanged. Its exact pixel metrics remain within fixed thresholds."
     },
     {
       "path": "progress/sibling-shorter-session__phone-390-light-pt.png",
@@ -5624,19 +5795,19 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "14f347914c3618ee86283610deeb936f22358f9c59d1322767d33d275a872f01",
-      "regeneratedFrameSha256": "0e2ef46d7ab3c86a990bf205193898935956a487b7a44471a73042dbebb2fbf9",
+      "regeneratedFrameSha256": "4102cde86493641f2373afe71fc2326f6faf66068e1e724c901cc833e1b9c694",
       "bytesChanged": true,
       "comparison": {
         "passedPerceptualThresholds": true,
         "reasons": [],
-        "meanCellDelta": 0.0012562624365583565,
-        "changedCellRatio": 0.007731119791666667,
-        "meanEdgeDelta": 0.00162209735378016,
-        "changedEdgeRatio": 0.00948587385019711,
-        "histogramDelta": 0.001546214334666729
+        "meanCellDelta": 0.001074104765894107,
+        "changedCellRatio": 0.005696614583333333,
+        "meanEdgeDelta": 0.0014272999757614462,
+        "changedEdgeRatio": 0.007473718791064389,
+        "histogramDelta": 0.001057943096384406
       },
-      "renderIntentId": "p7-full-catalog-regeneration-same-source",
-      "renderIntent": "The registered state was regenerated from the frozen P6 production source during the one complete P7 capture. This frame changed at the byte level; its measured pixel deltas remain within fixed comparator thresholds, the semantic catalog is unchanged, and the screen state and copy are unchanged."
+      "renderIntentId": "proposal-hash-refreshes-with-transition-identifiers",
+      "renderIntent": "The rendered schedule proposal displays its canonical SHA-256 digest. The production scenario creates fresh transitionId and successorProgramId values with uid() for each proposal, and those values remain in the canonical proposal-hash preimage. This re-capture therefore changes only the visible digest string; inspected layout, copy, state, and action hierarchy are unchanged. Its exact pixel metrics remain within fixed thresholds."
     },
     {
       "path": "progress/sibling-shorter-session__phone-430-light-en.png",
@@ -5650,19 +5821,19 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "532b4f762bbd6181fb86ffa7ec342e13c7fa4793cfff04274e4bf337f423cbfb",
-      "regeneratedFrameSha256": "fac1bef3f07e377838b776fe4a407fbda75a986c863ad4d7bfa085524bee5be7",
+      "regeneratedFrameSha256": "cf18f5bc7d131b677f10f1179168d8c4d93f3124fb60b7e30394e3525e1f3b8d",
       "bytesChanged": true,
       "comparison": {
         "passedPerceptualThresholds": true,
         "reasons": [],
-        "meanCellDelta": 0.0013835223324874378,
-        "changedCellRatio": 0.006673177083333333,
-        "meanEdgeDelta": 0.0016470699327534037,
-        "changedEdgeRatio": 0.008048620236530881,
-        "histogramDelta": 0.002360038517508656
+        "meanCellDelta": 0.0015200790050806901,
+        "changedCellRatio": 0.007893880208333334,
+        "meanEdgeDelta": 0.0018167546001824693,
+        "changedEdgeRatio": 0.009034165571616294,
+        "histogramDelta": 0.001871755055617541
       },
-      "renderIntentId": "p7-full-catalog-regeneration-same-source",
-      "renderIntent": "The registered state was regenerated from the frozen P6 production source during the one complete P7 capture. This frame changed at the byte level; its measured pixel deltas remain within fixed comparator thresholds, the semantic catalog is unchanged, and the screen state and copy are unchanged."
+      "renderIntentId": "proposal-hash-refreshes-with-transition-identifiers",
+      "renderIntent": "The rendered schedule proposal displays its canonical SHA-256 digest. The production scenario creates fresh transitionId and successorProgramId values with uid() for each proposal, and those values remain in the canonical proposal-hash preimage. This re-capture therefore changes only the visible digest string; inspected layout, copy, state, and action hierarchy are unchanged. Its exact pixel metrics remain within fixed thresholds."
     },
     {
       "path": "settings/privacy-disclosure__phone-320-light-en.png",
@@ -6581,7 +6752,7 @@
     "byteIdenticalFrames": 647,
     "perceptualThresholdExceededFrames": 0,
     "nonzeroChangedCellRatioFrames": 220,
-    "maxChangedCellRatio": 0.030354817708333332,
+    "maxChangedCellRatio": 0.028889973958333332,
     "maxMeanCellDelta": 0.006047702702800352,
     "maxMeanEdgeDelta": 0.008503901403833,
     "maxHistogramDelta": 0.006917307386174798,
@@ -6590,6 +6761,155 @@
       "maxMeanCellDelta": 0.018,
       "maxMeanEdgeDelta": 0.025,
       "maxHistogramDelta": 0.08
+    },
+    "addedFrames": 8,
+    "removedFrames": 0
+  },
+  "addedFrameCount": 8,
+  "addedFrameDetails": [
+    {
+      "path": "workout/rest-timer-paused__phone-390-light-en.png",
+      "flow": "workout",
+      "screen": "rest-timer-paused",
+      "variant": {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "textScale": "normal",
+        "motion": "normal"
+      },
+      "previousCatalogFrameSha256": null,
+      "regeneratedFrameSha256": "7259c81c6110764aa5a534a60ca1a07f903cf25faf26a58a805f0e14aa438925",
+      "bytesChanged": true,
+      "reason": "New registered workout/rest-timer-paused state added so the held countdown arc is measured as a required boundary; generated directly from production controls during final P7 capture.",
+      "renderIntentId": "paused-rest-required-boundary-state",
+      "renderIntent": "The paused countdown state was added so its non-text circular stroke is registered and measured as a required boundary after SOL-058-01 exposed its low contrast. The production fix uses --boundary-required. These are newly captured state variants with no prior catalog images."
+    },
+    {
+      "path": "workout/rest-timer-paused__phone-390-dark-en.png",
+      "flow": "workout",
+      "screen": "rest-timer-paused",
+      "variant": {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "textScale": "normal",
+        "motion": "normal"
+      },
+      "previousCatalogFrameSha256": null,
+      "regeneratedFrameSha256": "f67cb4aae79fbb13b27637edbec7a369214011dc3612b617e41156327fbecf57",
+      "bytesChanged": true,
+      "reason": "New registered workout/rest-timer-paused state added so the held countdown arc is measured as a required boundary; generated directly from production controls during final P7 capture.",
+      "renderIntentId": "paused-rest-required-boundary-state",
+      "renderIntent": "The paused countdown state was added so its non-text circular stroke is registered and measured as a required boundary after SOL-058-01 exposed its low contrast. The production fix uses --boundary-required. These are newly captured state variants with no prior catalog images."
+    },
+    {
+      "path": "workout/rest-timer-paused__phone-390-light-pt.png",
+      "flow": "workout",
+      "screen": "rest-timer-paused",
+      "variant": {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "textScale": "normal",
+        "motion": "normal"
+      },
+      "previousCatalogFrameSha256": null,
+      "regeneratedFrameSha256": "3a99793c2f7e74d8430403f04f5f289aa6ed51fbc50b4bc20634980446da25d0",
+      "bytesChanged": true,
+      "reason": "New registered workout/rest-timer-paused state added so the held countdown arc is measured as a required boundary; generated directly from production controls during final P7 capture.",
+      "renderIntentId": "paused-rest-required-boundary-state",
+      "renderIntent": "The paused countdown state was added so its non-text circular stroke is registered and measured as a required boundary after SOL-058-01 exposed its low contrast. The production fix uses --boundary-required. These are newly captured state variants with no prior catalog images."
+    },
+    {
+      "path": "workout/rest-timer-paused__phone-320-light-en.png",
+      "flow": "workout",
+      "screen": "rest-timer-paused",
+      "variant": {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "textScale": "normal",
+        "motion": "normal"
+      },
+      "previousCatalogFrameSha256": null,
+      "regeneratedFrameSha256": "57ffa96bf45942093aeed823d00aed539b890ac5ef588a25b9c2b3e525295020",
+      "bytesChanged": true,
+      "reason": "New registered workout/rest-timer-paused state added so the held countdown arc is measured as a required boundary; generated directly from production controls during final P7 capture.",
+      "renderIntentId": "paused-rest-required-boundary-state",
+      "renderIntent": "The paused countdown state was added so its non-text circular stroke is registered and measured as a required boundary after SOL-058-01 exposed its low contrast. The production fix uses --boundary-required. These are newly captured state variants with no prior catalog images."
+    },
+    {
+      "path": "workout/rest-timer-paused__phone-430-light-en.png",
+      "flow": "workout",
+      "screen": "rest-timer-paused",
+      "variant": {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "en",
+        "textScale": "normal",
+        "motion": "normal"
+      },
+      "previousCatalogFrameSha256": null,
+      "regeneratedFrameSha256": "72f352a161dd115d07ee5e47849ecc5f2784f8d3ba5587a3b687571b5cbf8802",
+      "bytesChanged": true,
+      "reason": "New registered workout/rest-timer-paused state added so the held countdown arc is measured as a required boundary; generated directly from production controls during final P7 capture.",
+      "renderIntentId": "paused-rest-required-boundary-state",
+      "renderIntent": "The paused countdown state was added so its non-text circular stroke is registered and measured as a required boundary after SOL-058-01 exposed its low contrast. The production fix uses --boundary-required. These are newly captured state variants with no prior catalog images."
+    },
+    {
+      "path": "workout/rest-timer-paused__phone-390-light-en-text200.png",
+      "flow": "workout",
+      "screen": "rest-timer-paused",
+      "variant": {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "textScale": "text200",
+        "motion": "normal"
+      },
+      "previousCatalogFrameSha256": null,
+      "regeneratedFrameSha256": "304dcafc692dac3da3f14f3e17702629f96e3a14e4765b314bd1c28606ca9a9a",
+      "bytesChanged": true,
+      "reason": "New registered workout/rest-timer-paused state added so the held countdown arc is measured as a required boundary; generated directly from production controls during final P7 capture.",
+      "renderIntentId": "paused-rest-required-boundary-state",
+      "renderIntent": "The paused countdown state was added so its non-text circular stroke is registered and measured as a required boundary after SOL-058-01 exposed its low contrast. The production fix uses --boundary-required. These are newly captured state variants with no prior catalog images."
+    },
+    {
+      "path": "workout/rest-timer-paused__phone-390-light-en-reduced.png",
+      "flow": "workout",
+      "screen": "rest-timer-paused",
+      "variant": {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "textScale": "normal",
+        "motion": "reduced"
+      },
+      "previousCatalogFrameSha256": null,
+      "regeneratedFrameSha256": "afb5a1f217d63b728674a8428f996b1954c4eaa900dc46b533cca39dbe52b0f5",
+      "bytesChanged": true,
+      "reason": "New registered workout/rest-timer-paused state added so the held countdown arc is measured as a required boundary; generated directly from production controls during final P7 capture.",
+      "renderIntentId": "paused-rest-required-boundary-state",
+      "renderIntent": "The paused countdown state was added so its non-text circular stroke is registered and measured as a required boundary after SOL-058-01 exposed its low contrast. The production fix uses --boundary-required. These are newly captured state variants with no prior catalog images."
+    },
+    {
+      "path": "workout/rest-timer-paused__phone-390-light-pt-text200.png",
+      "flow": "workout",
+      "screen": "rest-timer-paused",
+      "variant": {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "textScale": "text200",
+        "motion": "normal"
+      },
+      "previousCatalogFrameSha256": null,
+      "regeneratedFrameSha256": "69133b77a3fe767103ce149883e9251e9f4bda3d379ad1bea18e28981fbb8754",
+      "bytesChanged": true,
+      "reason": "New registered workout/rest-timer-paused state added so the held countdown arc is measured as a required boundary; generated directly from production controls during final P7 capture.",
+      "renderIntentId": "paused-rest-required-boundary-state",
+      "renderIntent": "The paused countdown state was added so its non-text circular stroke is registered and measured as a required boundary after SOL-058-01 exposed its low contrast. The production fix uses --boundary-required. These are newly captured state variants with no prior catalog images."
     }
-  }
+  ]
 }
