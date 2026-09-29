@@ -128,6 +128,7 @@ flowchart TD
   P056["056 · Phase 5<br/>Progress + blocks"]
   P057["057 · Phase 6<br/>Management"]
   P058["058 · Phase 7<br/>System convergence"]
+  POST058["Owner-selected post-058<br/>candidate construction"]
   P059["059 · Phase 8<br/>Launch validation"]
 
   P049 --> P050
@@ -169,20 +170,25 @@ flowchart TD
   P055 --> P059
   P056 --> P059
   P057 --> P059
-  P058 --> P059
+  P058 --> POST058
+  POST058 --> P059
 ```
 
-The DAG is acyclic. The post-053 production dependency is hard:
-053 → durable-state bridge → 054 → 055 / 056 → 057 → 058 → 059.
-Read-only inventory, fixtures, and owner-selected visual preparation may be
-prepared earlier where their existing plan allows it; production implementation
-may not bypass this ordering or the plan's owner gates.
+The DAG is acyclic. The post-053 production dependency through system
+convergence is hard:
+053 → durable-state bridge → 054 → 055 / 056 → 057 → 058.
+After 058, the owner-selected candidate-construction window recorded in
+[`docs/post-058-open-pr-clearance-sequence.md`](post-058-open-pr-clearance-sequence.md)
+must clear before 059 freezes the final candidate. Read-only inventory, fixtures,
+evidence acquisition, and owner-selected visual preparation may happen earlier
+where their existing plan allows it; production implementation may not bypass
+058, the candidate-construction ordering, or any owning plan's gates.
 
 ## Critical path
 
 The hard sequence is:
 
-049 → 050/051/052 → 053 → durable-state bridge → 054 → 055 and 056 → 057 → 058 → 059.
+049 → 050/051/052 → 053 → durable-state bridge → 054 → 055 and 056 → 057 → 058 → owner-selected candidate construction → 059.
 
 Plan 049 establishes the canonical contracts. Plans 050/051/052 establish the
 correctness, DraftV2, and transition foundations while serializing shared
@@ -192,8 +198,10 @@ settlement/recovery under those accepted contracts. Plan 054 consumes the merged
 bridge and retains the landing visual-selection gate. Plans 055 and 056 consume
 054 and the bridge for workout/gesture ownership and historical projections,
 respectively. Plan 057 completes management consumers; Plan 058 converges the
-system and removes obsolete delegates only after migration; Plan 059 verifies
-one immutable release-candidate SHA and waits for final device/owner sign-off.
+system and removes obsolete delegates only after migration. The bounded post-058
+candidate-construction window then integrates the owner-selected redesign and
+stabilization work. Plan 059 verifies that resulting immutable release-candidate
+SHA and waits for final device/owner sign-off.
 
 The architecture insertion neither changes recovery policy version 2 nor
 weakens any visual, staging, physical-device, privacy, or same-SHA gate.
@@ -477,7 +485,7 @@ Plan 049 names semantic roles before feature work. Plan 058 inventories and migr
 
 ## Deferred work
 
-The following remain outside Plans 049–059 except a future-compatible seam explicitly named in a current plan: general program lifecycle expansion, general lifecycle/friction observability, publisher attribution/identity, free one-off sessions, general multi-gym, generalized intervention routing, Pro, payments, entitlement, AI, cloud sync, production account/platform APIs, hosted workout storage, creator publishing, and native rewrite. None may be pulled into an overhaul PR to “complete” a surface.
+The following remain outside Plans 049–059 except a future-compatible seam explicitly named in a current plan: general program lifecycle expansion, general lifecycle/friction observability, publisher attribution/identity, free one-off sessions, general multi-gym, generalized intervention routing, Pro, payments, entitlement, AI, cloud sync, production account/platform APIs, hosted workout storage, creator publishing, and native rewrite. None may be pulled into an overhaul PR to “complete” a surface. The separately owned already-open #255/#257/#258 workfronts have only the bounded post-058, pre-059 exception in [the clearance sequence](post-058-open-pr-clearance-sequence.md); they remain outside completed Plans 049–058.
 
 ## Public-launch boundary
 
