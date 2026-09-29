@@ -218,7 +218,9 @@ strings, and no minutes on the chooser (`route-choice`, `route-help`,
 `hub-existing`); K-21 in reduced-motion cells, no animation or transition
 longer than 0; K-23 on `landing` at 390×844 100%, both actions in the first
 viewport above any pinned region, the proof image with
-`landing.shot.today_ready.alt` loaded, and a real tap on
+`landing.shot.today_ready.alt` loaded (Round 4: or a candidate's own
+capture of its own Today, marked `data-proof-own`, with its own truthful
+alt of at least 40 characters), and a real tap on
 `[data-privacy-open]` opening the Privacy stub. Warnings: targets under
 44 px, clipped text (`.visually-hidden` excluded, H-14), K-22 (the
 `rec-result` first viewport shows the program name, facts line and first

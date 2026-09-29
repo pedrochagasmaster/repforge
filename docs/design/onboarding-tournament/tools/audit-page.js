@@ -200,8 +200,13 @@
     const limit = pinnedTop();
     for (const id of ["firstRunCreate", "firstRunImport"]) { const el = document.getElementById(id); if (!el || !visible(el)) out.push(`#${id} missing`); else if (rectOf(el).bottom > Math.min(innerHeight, limit) + 1 || rectOf(el).top < 0) out.push(`#${id} outside the first viewport (bottom ${Math.round(rectOf(el).bottom)} of ${innerHeight})`); }
     const alt = t("landing.shot.today_ready.alt");
-    const img = [...document.images].find((i) => i.getAttribute("alt") === alt && /today-ready-/.test(i.src));
-    if (!img) out.push("landing proof image with landing.shot.today_ready.alt missing"); else if (!img.complete || !img.naturalWidth) out.push("landing proof image did not load");
+    /* Round 4 worlds may ship their own capture of their own Today; such an
+       image is marked data-proof-own and must carry its own truthful alt
+       (at least 40 characters) instead of the production alt, which
+       describes the production screenshot (week 5 of 6). */
+    const img = [...document.images].find((i) => i.getAttribute("alt") === alt && /today-ready-/.test(i.src))
+      || [...document.images].find((i) => i.hasAttribute("data-proof-own") && /today-ready-/.test(i.src) && (i.getAttribute("alt") || "").trim().length >= 40);
+    if (!img) out.push("landing proof image with landing.shot.today_ready.alt (or an own capture with its own alt) missing"); else if (!img.complete || !img.naturalWidth) out.push("landing proof image did not load");
     const p = document.querySelector("[data-privacy-open]"); if (!p || !visible(p)) out.push("Privacy control ([data-privacy-open]) missing");
     return out;
   }

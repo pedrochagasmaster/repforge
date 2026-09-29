@@ -21,10 +21,10 @@ Light: the stock changes per route, like colour-coded cards in a gym's card box.
 
 | Role | Token | Value | Contrast |
 | --- | --- | --- | --- |
-| Recommend stock (canary) | `--card` yellow | `#F3D250` | print 11.7:1 · pen 6.6:1 · stamp text 5.1:1 |
+| Recommend stock (canary) | `--card` yellow | `#F3D250` | print 11.7:1 · pen 6.6:1 · stamp text 5.6:1 |
 | Paste door stock (sky) | blue | `#BCD7EC` | print 11.6:1 · pen 6.6:1 |
-| File import stock | blue2 | `#CBD9E6` | print ≥11:1 |
-| Custom stock | pink | `#F2C4C6` | print 11.1:1 · pen 6.3:1 |
+| File import stock | blue2 | `#CBD9E6` | print 12.0:1 |
+| Custom stock | pink | `#F2C4C6` | print 11.1:1 · pen 6.3:1 · stamp text 5.4:1 |
 | Browse stock | mint | `#BFE2C8` | print 12.3:1 · pen 7.0:1 |
 | Build / shared stock | white | `#F3F1EA` | print 15.3:1 |
 | Card box (route choice) | kraft | `#C4A67A` | print 7.4:1 (all text on kraft uses print, never soft) |
