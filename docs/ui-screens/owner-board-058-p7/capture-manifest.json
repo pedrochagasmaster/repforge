@@ -13,14 +13,14 @@
   },
   "selectedScreenCount": 30,
   "boardFrameCount": 65,
-  "provenance": "Each board PNG remains a byte-for-byte copy of its corresponding frame in the final 915-frame production catalog. The final nine recaptured byte changes do not intersect the 65 selected board frames.",
+  "provenance": "Each board PNG remains a byte-for-byte copy of its corresponding frame in the current production catalog. The final install-title accessibility correction refreshes exactly one selected frame, install/transfer-ready PT-BR 200%; the other 64 selected board frames remain unchanged from the P7 board capture.",
   "ownerGate": {
     "approval": "Pedro explicitly approved the representative P5 board as the intended Taurifer visual direction; the approval covers the production visual system represented there.",
     "sourceBoard": "docs/ui-screens/owner-board-058-p5/",
     "sourceBoardManifest": "docs/ui-screens/owner-board-058-p5/capture-manifest.json",
     "approvedBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
     "approvedBoardFrameCount": 56,
-    "continuation": "Pedro explicitly approved the P5 board at source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. The earlier Today/dock board refresh at faa0bc494ab6e04c4537da7179705c89d80115c6 remains byte-identical to the final e5bca41c5cb017c3cd161e8a880237a3c94a5de7 catalog. The later computed-root Today/day-picker/library correction extends truthful text-scale coverage without changing the selected board hierarchy or direction, so renewed owner approval is not required.",
+    "continuation": "Pedro explicitly approved the P5 board at source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. The earlier Today/dock board refresh at faa0bc494ab6e04c4537da7179705c89d80115c6 remains byte-identical to the final e5bca41c5cb017c3cd161e8a880237a3c94a5de7 catalog. The later computed-root Today/day-picker/library correction extends truthful text-scale coverage without changing the selected board hierarchy or direction, so renewed owner approval is not required. The later install-title accessibility correction at 0eec72030c7df79fbd90825d4453cdd2e0e8a486 refreshes one selected PT-BR 200% install-transfer frame to remove clipping. It preserves the same sheet hierarchy/actions and is a bounded accessibility repair, so it does not reopen the approved visual direction.",
     "renewedApprovalRequired": false
   },
   "selected": [
@@ -434,7 +434,7 @@
       "key": "install/transfer-ready",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png",
-      "sha256": "4ba0b982463a8cc4ab65224885820cdffa6ad4c88a69e456a9a0b8ae6ed9879c",
+      "sha256": "5f7cc3472b5356f477e0efe1696488c725c983c73701850c748c49a52a0297cd",
       "sourcePath": "docs/ui-screens/screens/install/transfer-ready__phone-390-light-pt-text200.png"
     },
     {
@@ -479,5 +479,16 @@
       "sha256": "69133b77a3fe767103ce149883e9251e9f4bda3d379ad1bea18e28981fbb8754",
       "sourcePath": "docs/ui-screens/screens/workout/rest-timer-paused__phone-390-light-pt-text200.png"
     }
-  ]
+  ],
+  "currentProductionSourceSha": "0eec72030c7df79fbd90825d4453cdd2e0e8a486",
+  "postP7MergeReadinessCorrection": {
+    "sourceSha": "0eec72030c7df79fbd90825d4453cdd2e0e8a486",
+    "cacheRevision": 340,
+    "boardFramesChanged": 1,
+    "catalogFramesChanged": 10,
+    "proof": "110/110 install catalog captures passed; 13/13 PT-BR 200% transfer states satisfy title-width, visible-close separation/viewport, and document-width assertions; negative catalog-oracle proof catches the regression when wrapping is removed.",
+    "boardFramePaths": [
+      "screens/install/transfer-ready__phone-390-light-pt-text200.png"
+    ]
+  }
 }

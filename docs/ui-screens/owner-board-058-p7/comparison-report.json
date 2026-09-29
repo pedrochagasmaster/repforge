@@ -3,8 +3,8 @@
   "baselineBoard": "owner-board-058-p5",
   "baselineBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
   "currentBoard": "owner-board-058-p7",
-  "currentProductionSourceSha": "e5bca41c5cb017c3cd161e8a880237a3c94a5de7",
-  "comparator": "tools/compare-ui-screens.mjs comparePngFiles; measured from production PNG artifacts at this source SHA",
+  "currentProductionSourceSha": "0eec72030c7df79fbd90825d4453cdd2e0e8a486",
+  "comparator": "tools/compare-ui-screens.mjs comparePngFiles; 64 board frames remain unchanged through the current production source and the PT-BR 200% install/transfer-ready frame is refreshed for the final accessibility correction.",
   "thresholds": {
     "changedCellDelta": 0.08,
     "maxChangedCellRatio": 0.045,
@@ -65,8 +65,8 @@
       "reason": "New paused-timer state added for the required non-text boundary proof; no equivalent P5 frame exists."
     }
   ],
-  "passCount": 50,
-  "thresholdExceededCount": 6,
+  "passCount": 49,
+  "thresholdExceededCount": 7,
   "comparisons": [
     {
       "key": "onboarding-start/first-run",
@@ -323,9 +323,9 @@
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.00005212243012118383,
+        "meanCellDelta": 5.212243012118383e-05,
         "changedCellRatio": 0.000244140625,
-        "meanEdgeDelta": 0.0000817388609423744,
+        "meanEdgeDelta": 8.17388609423744e-05,
         "changedEdgeRatio": 0.00036957950065703024,
         "histogramDelta": 0.00032552098855376244,
         "reasons": []
@@ -342,9 +342,9 @@
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.000047048871216778245,
+        "meanCellDelta": 4.7048871216778245e-05,
         "changedCellRatio": 0.000244140625,
-        "meanEdgeDelta": 0.00007522567303829218,
+        "meanEdgeDelta": 7.522567303829218e-05,
         "changedEdgeRatio": 0.00036957950065703024,
         "histogramDelta": 0.00024413922801613808,
         "reasons": []
@@ -399,9 +399,9 @@
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.00001740487779801169,
+        "meanCellDelta": 1.740487779801169e-05,
         "changedCellRatio": 0.00016276041666666666,
-        "meanEdgeDelta": 0.00003069252297086409,
+        "meanEdgeDelta": 3.069252297086409e-05,
         "changedEdgeRatio": 0.00024638633377135346,
         "histogramDelta": 0.0001627691090106964,
         "reasons": []
@@ -936,7 +936,7 @@
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.00006583616457476367,
+        "meanCellDelta": 6.583616457476367e-05,
         "changedCellRatio": 0.000244140625,
         "meanEdgeDelta": 0.00011396185836403504,
         "changedEdgeRatio": 0.0004927726675427069,
@@ -955,9 +955,9 @@
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.00003193252597099704,
+        "meanCellDelta": 3.193252597099704e-05,
         "changedCellRatio": 0.000244140625,
-        "meanEdgeDelta": 0.00005630104656915001,
+        "meanEdgeDelta": 5.630104656915001e-05,
         "changedEdgeRatio": 0.00041064388961892245,
         "histogramDelta": 0.00016275979578495026,
         "reasons": []
@@ -974,9 +974,9 @@
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.00003193252597099704,
+        "meanCellDelta": 3.193252597099704e-05,
         "changedCellRatio": 0.000244140625,
-        "meanEdgeDelta": 0.00005630104656915001,
+        "meanEdgeDelta": 5.630104656915001e-05,
         "changedEdgeRatio": 0.00041064388961892245,
         "histogramDelta": 0.00016275886446237564,
         "reasons": []
@@ -1143,24 +1143,30 @@
       "key": "install/transfer-ready",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png",
-      "currentSha256": "4ba0b982463a8cc4ab65224885820cdffa6ad4c88a69e456a9a0b8ae6ed9879c",
+      "currentSha256": "5f7cc3472b5356f477e0efe1696488c725c983c73701850c748c49a52a0297cd",
       "hasP5Match": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "ok": true,
-        "meanCellDelta": 0.0005006391638191632,
-        "changedCellRatio": 0.0020345052083333335,
-        "meanEdgeDelta": 0.0005093125109995242,
-        "changedEdgeRatio": 0.002463863337713535,
-        "histogramDelta": 0.0017903644475154579,
-        "reasons": []
+        "ok": false,
+        "meanCellDelta": 0.07501071139680797,
+        "changedCellRatio": 0.23966471354166666,
+        "meanEdgeDelta": 0.06855000231265727,
+        "changedEdgeRatio": 0.2596501314060447,
+        "histogramDelta": 0.008544909651391208,
+        "reasons": [
+          "mean colour delta 7.50% exceeds 3.50%",
+          "changed-cell ratio 23.97% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
       },
-      "disposition": "Within the fixed P5 comparison thresholds."
+      "disposition": "Reviewed intentional accessibility correction: at PT-BR 200% text the install-transfer title now wraps inside its title column instead of overflowing toward the close control. The sheet hierarchy and actions are unchanged; vertical reflow is required to keep the enlarged localized title reachable and non-overlapping."
     }
   ],
   "reviewNotes": [
-    "Final P6 dock correction: the selected Today/ready EN and PT-BR 200% frames were refreshed from source faa0bc494ab6e04c4537da7179705c89d80115c6. Their capture now uses measured row-bottom/dock-top scrolling, so the complete exercise row is visible above the same two-row dock. This is an evidence framing correction; the computed-root CSS repair preserves the approved layout and action hierarchy."
+    "Final P6 dock correction: the selected Today/ready EN and PT-BR 200% frames were refreshed from source faa0bc494ab6e04c4537da7179705c89d80115c6. Their capture now uses measured row-bottom/dock-top scrolling, so the complete exercise row is visible above the same two-row dock. This is an evidence framing correction; the computed-root CSS repair preserves the approved layout and action hierarchy.",
+    "Final merge-readiness accessibility correction: install/transfer-ready PT-BR 200% was refreshed from production source 0eec72030c7df79fbd90825d4453cdd2e0e8a486. The title wraps within its column instead of overflowing toward the close control; this intentional reflow exceeds the generic P5 pixel threshold while preserving sheet hierarchy and actions."
   ],
   "refreshedBoardFrames": [
     {
@@ -1187,6 +1193,12 @@
       "path": "screens/program/progression-editor__phone-390-light-pt.png",
       "beforeSha256": "8e518cbb3a37a5055d2409532561591ec44e821808190cea6ac335abd456ade6",
       "afterSha256": "61c4403303e150983cda873ef9c876da3c0936aaf504b335a73c68623223fd3b"
+    },
+    {
+      "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png",
+      "beforeSha256": "4ba0b982463a8cc4ab65224885820cdffa6ad4c88a69e456a9a0b8ae6ed9879c",
+      "afterSha256": "5f7cc3472b5356f477e0efe1696488c725c983c73701850c748c49a52a0297cd",
+      "reason": "PT-BR 200% install-title accessibility wrap correction."
     }
   ]
 }

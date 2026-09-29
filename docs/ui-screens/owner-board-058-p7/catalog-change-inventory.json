@@ -10,7 +10,7 @@
   },
   "capture": {
     "command": "env -u REPFORGE_URL node tools/capture-ui-screens.mjs",
-    "productionSourceSha": "e5bca41c5cb017c3cd161e8a880237a3c94a5de7",
+    "productionSourceSha": "0eec72030c7df79fbd90825d4453cdd2e0e8a486",
     "startedFromCleanSourceHead": true,
     "generatedScreenCount": 148,
     "generatedFrameCount": 915,
@@ -18,11 +18,11 @@
     "byteChangedFrames": 273,
     "addedFrames": 17,
     "removedFrames": 0,
-    "perceptualMatchesAgainstPreP7Catalog": 896,
-    "perceptualThresholdExceededFramesAgainstPreP7Catalog": 2,
+    "perceptualMatchesAgainstPreP7Catalog": 890,
+    "perceptualThresholdExceededFramesAgainstPreP7Catalog": 8,
     "semanticCatalogExact": true,
     "semanticSha256": "ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa",
-    "geometryAndCaptureContracts": "The final unfiltered production capture passed all 915 scenarios and node tools/check-ui-screens.mjs reports 148 screens / 915 frames. Against the immutable same-source pre-capture snapshot, node tools/compare-ui-screens.mjs matched 915/915 within fixed perceptual thresholds and semantics exactly. Against the 898-frame P6 catalog baseline, 625 common frames are byte-identical, 273 are byte-changed, 17 are newly registered, and none are removed; the two previously reviewed Today/ready 200% framing changes are the only historical-baseline threshold exceedances.",
+    "geometryAndCaptureContracts": "The original P7 unfiltered production capture passed all 915 scenarios at source e5bca41c. The final merge-readiness correction at source 0eec72030c7df79fbd90825d4453cdd2e0e8a486 recaptured the complete 110-frame install flow with the catalog contract enabled; all 110 passed, including every registered PT-BR 200% transfer state. Against the 898-frame P6 catalog baseline, 625 common frames remain byte-identical, 273 are byte-changed, 17 are newly registered, and none are removed. Eight historical-baseline comparisons now exceed generic perceptual thresholds: the two previously reviewed Today/ready 200% framing changes plus six intentional install-transfer text-reflow frames covered by the final accessibility disposition.",
     "preCaptureSnapshot": {
       "sourceSha": "e5bca41c5cb017c3cd161e8a880237a3c94a5de7",
       "evidenceHeadSha": "e37180c330d0f8c730c96c8e7c11a7222b1fd2f8",
@@ -60,8 +60,30 @@
     "focusedProof": {
       "externalComputedRootFont": "Production-backed scenarios remove inline root sizing and apply an external computed 32px root while asserting Today dock/exercise-row, day-picker, and library tabs/header reflow across the registered EN/PT-BR text-scale cases.",
       "catalogVariants": "The final catalog has 148 screens / 915 frames, including the five newly registered library/list demanding-text variants and the Today 320/390/430 EN/PT-BR 200% coverage.",
-      "cacheOffline": "sw-upgrade passes at cache revision 339; exercise-library runtime inventory expects the same revision.",
-      "automaticFeedbackRun": "36594476625 succeeded at exact P6 source SHA e5bca41c5cb017c3cd161e8a880237a3c94a5de7; docs/evidence-head feedback 36600457425 also succeeded at e37180c330d0f8c730c96c8e7c11a7222b1fd2f8."
+      "cacheOffline": "sw-upgrade passes at cache revision 340; exercise-library runtime inventory expects the same revision.",
+      "automaticFeedbackRun": "36594476625 succeeded at exact P6 source SHA e5bca41c5cb017c3cd161e8a880237a3c94a5de7; docs/evidence-head feedback 36600457425 also succeeded at e37180c330d0f8c730c96c8e7c11a7222b1fd2f8.",
+      "installTransferTitle200": "The production-backed 390px PT-BR 200% probe passes all 13 transfer states: the title scrollWidth never exceeds clientWidth, the visible close control stays outside the title box and inside the viewport, and document width stays bounded. test/ui-catalog-contract.mjs also removes the wrap safeguard in-place and proves the catalog oracle rejects #iosInstallTitle as clipped."
+    },
+    "mergeReadinessCorrection": {
+      "sourceSha": "0eec72030c7df79fbd90825d4453cdd2e0e8a486",
+      "cacheRevision": 340,
+      "catalogOracle": "#iosInstallTitle carries data-catalog-layout; overflow-wrap:anywhere prevents long-word clipping.",
+      "focusedCatalog": "install flow 110/110 captures passed",
+      "changedCatalogFrames": 10,
+      "changedFramePaths": [
+        "install/transfer-claimed-expired__phone-390-light-pt-text200.png",
+        "install/transfer-claiming__phone-390-light-pt-text200.png",
+        "install/transfer-creating__phone-390-light-pt-text200.png",
+        "install/transfer-interrupted__phone-390-light-pt-text200.png",
+        "install/transfer-ready__phone-390-light-pt-text200.png",
+        "install/transfer-retryable__phone-390-light-pt-text200.png",
+        "install/transfer-success__phone-390-light-pt-text200.png",
+        "install/transfer-terminal__phone-390-light-en-text200.png",
+        "install/transfer-terminal__phone-390-light-pt-text200.png",
+        "install/transfer-unknown__phone-390-light-pt-text200.png"
+      ],
+      "historicalBaselineThresholdFailures": 8,
+      "finalExactHeadGate": "Remote exact-head Simulation feedback must pass before PR #256 is marked ready."
     }
   },
   "matrix": {
@@ -5887,23 +5909,24 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "d29a9223b1e43da4d7d6370936e57f1ae4ffef969853121af07f7f4cf25256d4",
-      "regeneratedFrameSha256": "37da2549c8a7a11da0fc2381a574e80bcb1fb0843c56f39720c93beb436f32fb",
+      "regeneratedFrameSha256": "3151e3a45464ee6ceaf0d59439f6274e533c6268d016d1af0b43213399eb8a64",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0015462239583333333,
-        "meanCellDelta": 0.00028890994065070875,
-        "meanEdgeDelta": 0.000422593785031318,
-        "changedEdgeRatio": 0.0022585413929040736,
-        "histogramDelta": 0.001302086457144469,
+        "changedCellRatio": 0.017578125,
+        "meanCellDelta": 0.00731731167834157,
+        "meanEdgeDelta": 0.00640818392233764,
+        "changedEdgeRatio": 0.019464520367936926,
+        "histogramDelta": 0.00276690733153373,
         "passedPerceptualThresholds": true,
         "reasons": []
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -6135,23 +6158,29 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "6bc3738d0f8a7ac2cab6d8deced05bc13348235c812c70bb664a33ccc21dc7da",
-      "regeneratedFrameSha256": "4ba0b982463a8cc4ab65224885820cdffa6ad4c88a69e456a9a0b8ae6ed9879c",
+      "regeneratedFrameSha256": "5f7cc3472b5356f477e0efe1696488c725c983c73701850c748c49a52a0297cd",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0008138020833333334,
-        "meanCellDelta": 0.0001498445066705812,
-        "meanEdgeDelta": 0.00022888774573607138,
-        "changedEdgeRatio": 0.0010676741130091984,
-        "histogramDelta": 0.0008951812633313239,
-        "passedPerceptualThresholds": true,
-        "reasons": []
+        "changedCellRatio": 0.23844401041666666,
+        "meanCellDelta": 0.07465991673965942,
+        "meanEdgeDelta": 0.06826957754739382,
+        "changedEdgeRatio": 0.25825394218134035,
+        "histogramDelta": 0.007975249201990664,
+        "passedPerceptualThresholds": false,
+        "reasons": [
+          "mean colour delta 7.47% exceeds 3.50%",
+          "changed-cell ratio 23.84% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -6383,23 +6412,24 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "b9699829e61b429843da771a6675810edf33569a877d5627143419e722e03860",
-      "regeneratedFrameSha256": "b4981a5722a426d9d6d515a5cb604300e35beba0445a8c86bd9721ae1839a40a",
+      "regeneratedFrameSha256": "7bb59fd1530080c775e1a58dd6c629051b9e5362fa528d7eb2ee0fb2717326cb",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0008138020833333334,
-        "meanCellDelta": 0.0001498445066705812,
-        "meanEdgeDelta": 0.00022888774573607138,
-        "changedEdgeRatio": 0.0010676741130091984,
-        "histogramDelta": 0.0008951850468292832,
+        "changedCellRatio": 0.033610026041666664,
+        "meanCellDelta": 0.015147726294023257,
+        "meanEdgeDelta": 0.013746242934125678,
+        "changedEdgeRatio": 0.03712220762155059,
+        "histogramDelta": 0.0034993698936887085,
         "passedPerceptualThresholds": true,
         "reasons": []
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -6631,23 +6661,29 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "4e0b899f257002014ba2f490bdef494469c317fbe71c7f17608582af856de084",
-      "regeneratedFrameSha256": "ddcac5de99af0eaaae0f47f861f5c289f03602b6248825749f228e461965662c",
+      "regeneratedFrameSha256": "5b60d526dd424271cd4dbf584be5e18aff1681890e3d46438f0c4bc38a0c1642",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0015462239583333333,
-        "meanCellDelta": 0.00028890994065070875,
-        "meanEdgeDelta": 0.000422593785031318,
-        "changedEdgeRatio": 0.0022585413929040736,
-        "histogramDelta": 0.0013020787155255675,
-        "passedPerceptualThresholds": true,
-        "reasons": []
+        "changedCellRatio": 0.14900716145833334,
+        "meanCellDelta": 0.06579742259668857,
+        "meanEdgeDelta": 0.03756969980344803,
+        "changedEdgeRatio": 0.11185939553219448,
+        "histogramDelta": 0.0648600275744684,
+        "passedPerceptualThresholds": false,
+        "reasons": [
+          "mean colour delta 6.58% exceeds 3.50%",
+          "changed-cell ratio 14.90% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -7127,23 +7163,30 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "0be70bbab6f7b3209cd9ddcbe13341a41a1904c9b2c6ed03086c7105b838b9f0",
-      "regeneratedFrameSha256": "17ac737fc36ac615fb3557a1999ec9b22e01a9bf91d55232c2a77d0d76dd00bd",
+      "regeneratedFrameSha256": "f45ae79da3a53c2086e66b2be16d1b50da52f32dbff15b264ee6c7d873c1274a",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0015462239583333333,
-        "meanCellDelta": 0.00028890994065070875,
-        "meanEdgeDelta": 0.000422593785031318,
-        "changedEdgeRatio": 0.0022585413929040736,
-        "histogramDelta": 0.0013020778424106538,
-        "passedPerceptualThresholds": true,
-        "reasons": []
+        "changedCellRatio": 0.176513671875,
+        "meanCellDelta": 0.07101762518777442,
+        "meanEdgeDelta": 0.030508995040854667,
+        "changedEdgeRatio": 0.0964602496714849,
+        "histogramDelta": 0.1232096262392588,
+        "passedPerceptualThresholds": false,
+        "reasons": [
+          "mean colour delta 7.10% exceeds 3.50%",
+          "changed-cell ratio 17.65% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture",
+          "colour distribution changed with visible cell deltas"
+        ]
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -7561,23 +7604,28 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "a557d4c6d1a0407e20c04fa1fc40505ccb055200aa55e4f7ba23e55940b5b6ed",
-      "regeneratedFrameSha256": "d7747b1b19b8dcfddf7377526c970eae11aff2814f0dcae89442e160a976c13a",
+      "regeneratedFrameSha256": "6b65a206a6d6047df116472e031ba18bd56cd3c4145de74c0ee411d7f7cc51b6",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.001953125,
-        "meanCellDelta": 0.0003442155697121461,
-        "meanEdgeDelta": 0.0005299343204960403,
-        "changedEdgeRatio": 0.002710249671484888,
-        "histogramDelta": 0.0013834600104019046,
-        "passedPerceptualThresholds": true,
-        "reasons": []
+        "changedCellRatio": 0.11124674479166667,
+        "meanCellDelta": 0.044350846024936774,
+        "meanEdgeDelta": 0.02289407187583275,
+        "changedEdgeRatio": 0.06894710906701708,
+        "histogramDelta": 0.06551108189160004,
+        "passedPerceptualThresholds": false,
+        "reasons": [
+          "mean colour delta 4.44% exceeds 3.50%",
+          "changed-cell ratio 11.12% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise"
+        ]
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -7623,23 +7671,30 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "2f399d39cd37e3a03b795aa69f50b97d77e063679a422cd4c45efc3a0f0cff7e",
-      "regeneratedFrameSha256": "36ad6fc3f83774c0693b559a975cc34df9fe03074cf7daa6ce921fef9302a60a",
+      "regeneratedFrameSha256": "1daf7c1d81d5718f66ca4ce10803c74c923c067e2992eb16b36561cf95b8f8ea",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0015462239583333333,
-        "meanCellDelta": 0.00028890994065070875,
-        "meanEdgeDelta": 0.000422593785031318,
-        "changedEdgeRatio": 0.0022585413929040736,
-        "histogramDelta": 0.0013020856422372162,
-        "passedPerceptualThresholds": true,
-        "reasons": []
+        "changedCellRatio": 0.3175455729166667,
+        "meanCellDelta": 0.10730811607335873,
+        "meanEdgeDelta": 0.07376894224300472,
+        "changedEdgeRatio": 0.2630174113009198,
+        "histogramDelta": 0.11946616671048105,
+        "passedPerceptualThresholds": false,
+        "reasons": [
+          "mean colour delta 10.73% exceeds 3.50%",
+          "changed-cell ratio 31.75% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture",
+          "colour distribution changed with visible cell deltas"
+        ]
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -8119,23 +8174,24 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "83dfb4452293a4a2efda98a8e8a2998c2b92e34873075ae6dfe0090422475bfa",
-      "regeneratedFrameSha256": "3ca831e29411ee4f47167e895ce718f7ed17e7e3fa2069091a896fcf66c31515",
+      "regeneratedFrameSha256": "052428573a2c633b04fd20dbf5db3960cd681d495677ba002d784781734fbab4",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0008138020833333334,
-        "meanCellDelta": 0.0001498445066705812,
-        "meanEdgeDelta": 0.00022888774573607138,
-        "changedEdgeRatio": 0.0010676741130091984,
-        "histogramDelta": 0.0008951842901296914,
+        "changedCellRatio": 0.021809895833333332,
+        "meanCellDelta": 0.00923495444089475,
+        "meanEdgeDelta": 0.008449137930448672,
+        "changedEdgeRatio": 0.024556504599211562,
+        "histogramDelta": 0.0015462054288946092,
         "passedPerceptualThresholds": true,
         "reasons": []
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -8367,23 +8423,29 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "72245031ca2e2e038db341e9e62f758c704696569bcb4c7afb9d00982ebff7d9",
-      "regeneratedFrameSha256": "c53874160635b28a9566e508cfb50e78a0ff067de7c6f4833658a65041e85d30",
+      "regeneratedFrameSha256": "1310d26a973df9769340321f8b7ddeaf70169095004463e184e69bd11ae285b7",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0008138020833333334,
-        "meanCellDelta": 0.0001498445066705812,
-        "meanEdgeDelta": 0.00022888774573607138,
-        "changedEdgeRatio": 0.0010676741130091984,
-        "histogramDelta": 0.0008951816707849503,
-        "passedPerceptualThresholds": true,
-        "reasons": []
+        "changedCellRatio": 0.19612630208333334,
+        "meanCellDelta": 0.06576736550792502,
+        "meanEdgeDelta": 0.06552168958283149,
+        "changedEdgeRatio": 0.22905716162943496,
+        "histogramDelta": 0.013183598057366908,
+        "passedPerceptualThresholds": false,
+        "reasons": [
+          "mean colour delta 6.58% exceeds 3.50%",
+          "changed-cell ratio 19.61% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     },
     {
@@ -8615,23 +8677,24 @@
         "motion": "normal"
       },
       "previousCatalogFrameSha256": "6f2a03519a5eb6af176dd5f7214277fd57eabe179e2e888a98f5e5648eeb0619",
-      "regeneratedFrameSha256": "6e5a6c740d7676ac24c89984e32fd4137c8a4f2ba65dababa9115fc85b37642c",
+      "regeneratedFrameSha256": "89b14645f4a63e447e6c4a9296be74445d8e5cb58cee21fe79901f3b1b80d661",
       "bytesChanged": true,
       "comparison": {
         "width": 780,
         "height": 1688,
-        "changedCellRatio": 0.0008138020833333334,
-        "meanCellDelta": 0.0001498445066705812,
-        "meanEdgeDelta": 0.00022888774573607138,
-        "changedEdgeRatio": 0.0010676741130091984,
-        "histogramDelta": 0.0008951794006861746,
+        "changedCellRatio": 0.020263671875,
+        "meanCellDelta": 0.00857408586332185,
+        "meanEdgeDelta": 0.007457630020418203,
+        "changedEdgeRatio": 0.021189224704336398,
+        "histogramDelta": 0.002360014885198325,
         "passedPerceptualThresholds": true,
         "reasons": []
       },
-      "renderIntentId": "p6-semantic-weight-tokenization",
-      "renderIntent": "P6 migrated visible emphasis text from literal weights to the frozen semantic typography token. The rendered glyph weight follows the owner named by reviewDispositionIds; this frame’s exact old/new hashes and perceptual result are recorded above.",
+      "renderIntentId": "p7-install-transfer-title-200-wrap",
+      "renderIntent": "Final merge-readiness correction lets the install-transfer title break long words at 200% text scale and registers that title with the catalog layout oracle. The resulting vertical reflow is intentional accessibility behavior; exact baseline/current hashes and comparator metrics are recorded here.",
       "reviewDispositionIds": [
-        "p6-semantic-semibold-weight"
+        "p6-semantic-semibold-weight",
+        "p7-install-transfer-title-200-wrap"
       ]
     }
   ],
@@ -8639,12 +8702,12 @@
     "comparedFrames": 898,
     "byteChangedFrames": 273,
     "byteIdenticalFrames": 625,
-    "perceptualThresholdExceededFrames": 2,
+    "perceptualThresholdExceededFrames": 8,
     "nonzeroChangedCellRatioFrames": 222,
-    "maxChangedCellRatio": 0.18701171875,
-    "maxMeanCellDelta": 0.07282744069726986,
-    "maxMeanEdgeDelta": 0.06737680197203882,
-    "maxHistogramDelta": 0.030436209170147777,
+    "maxChangedCellRatio": 0.3175455729166667,
+    "maxMeanCellDelta": 0.10730811607335873,
+    "maxMeanEdgeDelta": 0.07376894224300472,
+    "maxHistogramDelta": 0.1232096262392588,
     "thresholds": {
       "maxChangedCellRatio": 0.045,
       "maxMeanCellDelta": 0.018,
@@ -8968,14 +9031,15 @@
     "status": "complete",
     "reviewedAt": "2026-09-29T18:30:00Z",
     "reviewer": "Plan 058 implementation owner",
-    "method": "Verified the final 273 common changed-frame rows against the committed 898-frame P6 baseline with exact old/new hashes and existing role/cause dispositions. Seventeen additions are reasoned: eight paused-timer boundary states, four Today computed-root dock frames, and five library demanding-text frames. The final exact-source recapture changes nine PNGs: eight Progress proposal digests refresh from generated transition/successor IDs and one exercise-picker frame is raster-only variance; all nine pass fixed perceptual thresholds. The final 915-frame comparator is exact semantically.",
+    "method": "Verified the final 273 common changed-frame rows against the committed 898-frame P6 baseline with exact old/new hashes and role/cause dispositions. The final merge-readiness correction adds a second disposition to 10 existing install-transfer rows whose 200% title now wraps instead of overflowing; six intentionally exceed the generic historical-baseline perceptual threshold because content below the title reflows. Seventeen additions remain reasoned: eight paused-timer boundary states, four Today computed-root dock frames, and five library demanding-text frames. The original final-source same-source recapture evidence remains historical for e5bca41c.",
     "changedFrameCoverage": {
       "total": 273,
       "dispositioned": 273,
       "previouslySpecificRows": 8,
       "newlyDispositionedGenericRows": 243,
       "laterTextScaleCaptureRows": 2,
-      "sameSourceRerenderRowsAddedToBaselineDelta": 20
+      "sameSourceRerenderRowsAddedToBaselineDelta": 20,
+      "mergeReadinessCorrectionOverlayFrames": 10
     },
     "addedFrameCoverage": {
       "total": 17,
@@ -9507,6 +9571,42 @@
           "program/readiness__phone-390-light-en-text200.png",
           "program/readiness__phone-390-light-en-reduced.png"
         ]
+      },
+      {
+        "id": "p7-install-transfer-title-200-wrap",
+        "status": "reviewed-intentional-accessibility-correction",
+        "affectedFrameCount": 10,
+        "semanticRole": "Install-transfer sheet title at enlarged text scale.",
+        "productionSelectors": [
+          ".installsheet__title",
+          "#iosInstallTitle[data-catalog-layout]"
+        ],
+        "cause": "At 390px PT-BR 200% text, long install-transfer titles could not break inside the flex title column, so the glyph run overflowed toward the close control. The final correction adds overflow-wrap:anywhere and explicitly registers the title with the catalog layout oracle.",
+        "visualOutcome": "Long titles wrap within the available title column. Downstream transfer copy/actions move vertically where required; no horizontal title overflow, title/visible-close overlap, close-button viewport escape, or document-width overflow remains in the 13-state PT-BR 200% production probe.",
+        "framePaths": [
+          "install/transfer-claimed-expired__phone-390-light-pt-text200.png",
+          "install/transfer-claiming__phone-390-light-pt-text200.png",
+          "install/transfer-creating__phone-390-light-pt-text200.png",
+          "install/transfer-interrupted__phone-390-light-pt-text200.png",
+          "install/transfer-ready__phone-390-light-pt-text200.png",
+          "install/transfer-retryable__phone-390-light-pt-text200.png",
+          "install/transfer-success__phone-390-light-pt-text200.png",
+          "install/transfer-terminal__phone-390-light-en-text200.png",
+          "install/transfer-terminal__phone-390-light-pt-text200.png",
+          "install/transfer-unknown__phone-390-light-pt-text200.png"
+        ],
+        "evidence": {
+          "productionSourceSha": "0eec72030c7df79fbd90825d4453cdd2e0e8a486",
+          "cacheRevision": 340,
+          "catalogCapture": "install flow 110/110",
+          "focusedRuntimeProbe": "13/13 PT-BR 200% transfer states passed title width, close overlap/viewport, and document width assertions.",
+          "negativeOracleProof": "test/ui-catalog-contract.mjs sets #iosInstallTitle overflow-wrap back to normal and requires a clipped p #iosInstallTitle axes=x failure.",
+          "historicalBaselineComparison": {
+            "frames": 10,
+            "genericThresholdPass": 4,
+            "intentionalThresholdExceedances": 6
+          }
+        }
       }
     ]
   }
