@@ -11,6 +11,15 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
 .ctl label{display:inline-flex;flex-direction:column;gap:2px;font-size:11px;color:var(--h-soft);text-transform:uppercase;letter-spacing:.06em}
 .ctl select,.ctl button{font:13px system-ui,sans-serif;padding:6px 8px;border:1px solid var(--h-rule);border-radius:6px;background:var(--h-bg);color:var(--h-ink);min-height:32px}
 .ctl button{cursor:pointer;align-self:flex-end}
+.ctl__body{display:contents}
+.ctl__step{display:inline-flex;gap:8px;align-self:flex-end}
+.ctl__toggle{order:-1}
+.ctl__summary{display:none;color:var(--h-soft);font-size:13px;align-self:center;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 200px}
+.ctl.is-collapsed{padding-top:6px;padding-bottom:6px}
+.ctl.is-collapsed .ctl__body{display:none}
+.ctl.is-collapsed .ctl__summary{display:block}
+.ctl.is-collapsed button{align-self:center}
+body.is-compact .hd,body.is-compact .desc{display:none}
 .desc{margin:10px 16px 0;color:var(--h-soft);font-size:13px;max-width:900px}
 .frames{display:flex;gap:20px;padding:14px 16px 24px;overflow-x:auto;align-items:flex-start}
 .frame{flex:none;display:flex;flex-direction:column;gap:8px}

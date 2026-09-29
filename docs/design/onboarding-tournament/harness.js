@@ -21,6 +21,13 @@
         f: { name: "F · A primeira pergunta", thesis: { en: "Choosing a route should cost nothing extra, so the chooser opens on Recommend's first question (answering it is choosing Recommend), and every screen after that keeps the program in view: answers as chips, each corrected in a bottom sheet and followed by a before/after count.", pt: "Escolher um caminho não deve custar nada a mais: o seletor abre na primeira pergunta da recomendação (responder já é escolher Recomendar), e cada tela depois disso mantém o programa à vista: respostas como chips, cada uma corrigida numa folha inferior e seguida de uma contagem de antes e depois." }, axis: "Cheaper up-front chooser without a product decision · hybrid grouping · chips and before/after counts · Build as the third import door" },
       },
     },
+    /* Round 3: one synthesis candidate, acceptance-checked, not judged (Q626). */
+    3: {
+      doc: "round-3/app.html",
+      candidates: {
+        g: { name: "G · Síntese", thesis: { en: "The synthesis both Round 2 judges converged on: D's structure, F's first-question chooser and before/after count, E's inline editing, with every defect the judges found fixed and checked.", pt: "A síntese em que os dois juízes da Rodada 2 convergiram: a estrutura de D, o seletor de primeira pergunta e a contagem antes/depois de F, a edição no lugar de E, com cada defeito encontrado pelos juízes corrigido e verificado." }, axis: "Owner decisions Q622–Q637 · no product decision · acceptance checks K-1–K-32, no judges" },
+      },
+    },
   };
   const $ = (s) => document.querySelector(s);
   const params = new URLSearchParams(location.search);
@@ -52,6 +59,7 @@
     $("#cpDesc").textContent = desc ? `${desc.id} — ${desc.label} · seed: ${desc.seed}` : "";
     $("#theses").innerHTML = Object.entries(round.candidates).map(([id, c]) => `<div class="thesis"><h3>${c.name}</h3><p>${c.thesis[state.lang === "pt" ? "pt" : "en"]}</p><p class="axis">${c.axis}</p></div>`).join("");
     $("#roundLabel").textContent = "Round " + state.round;
+    summary();
   }
   function render() {
     fill();
@@ -71,7 +79,24 @@
     if (k === "round") await loadContract();
     render();
   });
+  /* Collapsible controls: the bar folds to a one-line summary (and the
+     header and state description hide) so the phones get the room.
+     Remembered per browser; storage may be unavailable. */
+  const COLLAPSE_KEY = "tournamentHarnessControlsCollapsed";
+  function setCollapsed(on) {
+    $("#ctl").classList.toggle("is-collapsed", on); document.body.classList.toggle("is-compact", on);
+    const b = $("#ctlToggle"); b.setAttribute("aria-expanded", String(!on)); b.textContent = on ? "Show controls" : "Hide controls";
+    try { localStorage.setItem(COLLAPSE_KEY, on ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
+  function summary() {
+    const round = ROUNDS[state.round] || ROUNDS[1];
+    const cands = state.cands === "all" ? Object.values(round.candidates).map((c) => c.name.split(" · ")[0]).join(", ") : (round.candidates[state.cands]?.name || state.cands);
+    $("#ctlSummary").textContent = `Round ${state.round} · ${cands} · ${state.cp} · ${state.lang === "pt" ? "PT-BR" : "EN"} · ${state.theme} · ${state.vw} px · ${state.text}%${state.motion === "reduced" ? " · reduced motion" : ""}`;
+  }
+  $("#ctlToggle").addEventListener("click", () => setCollapsed(!$("#ctl").classList.contains("is-collapsed")));
+  try { if (localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true); } catch (e) { /* ignore */ }
   function step(delta) { const i = CHECKPOINTS.findIndex((c) => c.id === state.cp); const n = CHECKPOINTS[(i + delta + CHECKPOINTS.length) % CHECKPOINTS.length]; state.cp = n.id; state.scenario = n.scenario; render(); }
   $("#prev").onclick = () => step(-1); $("#next").onclick = () => step(1);
-  loadContract().then(render);
+  /* A link that names a state but no scenario opens on that state. */
+  loadContract().then(() => { if (params.get("cp") && !params.get("s")) { const c = CHECKPOINTS.find((x) => x.id === params.get("cp")); if (c) state.scenario = c.scenario; } render(); });
 })();

@@ -12,17 +12,21 @@
   <div class="hd__brand"><strong>Taurifer</strong> onboarding tournament <span class="hd__round" id="roundLabel">Round 1</span></div>
   <div class="hd__note">Baseline PR #256 · <code id="baseSha">f61ce44b</code> · candidates share the same data, engine, scenarios, copy rules and matrix. Interactions work inside each phone.</div>
 </header>
-<div class="ctl" role="group" aria-label="Review controls">
-  <label>Round <select id="round"><option value="1">1</option><option value="2">2</option></select></label>
-  <label>Candidates <select id="cands"></select></label>
-  <label>Scenario <select id="scenario"></select></label>
-  <label>State <select id="cp"></select></label>
-  <label>Language <select id="lang"><option value="pt">PT-BR</option><option value="en">EN</option></select></label>
-  <label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
-  <label>Width <select id="vw"><option value="320">320</option><option value="390" selected>390</option><option value="430">430</option></select></label>
-  <label>Text <select id="text"><option value="100">100%</option><option value="200">200%</option></select></label>
-  <label>Motion <select id="motion"><option value="normal">Normal</option><option value="reduced">Reduced</option></select></label>
-  <button type="button" id="prev">‹ Prev state</button><button type="button" id="next">Next state ›</button>
+<div class="ctl" id="ctl" role="group" aria-label="Review controls">
+  <button type="button" class="ctl__toggle" id="ctlToggle" aria-expanded="true" aria-controls="ctlBody">Hide controls</button>
+  <span class="ctl__summary" id="ctlSummary" aria-live="polite"></span>
+  <div class="ctl__body" id="ctlBody">
+    <label>Round <select id="round"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+    <label>Candidates <select id="cands"></select></label>
+    <label>Scenario <select id="scenario"></select></label>
+    <label>State <select id="cp"></select></label>
+    <label>Language <select id="lang"><option value="pt">PT-BR</option><option value="en">EN</option></select></label>
+    <label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <label>Width <select id="vw"><option value="320">320</option><option value="390" selected>390</option><option value="430">430</option></select></label>
+    <label>Text <select id="text"><option value="100">100%</option><option value="200">200%</option></select></label>
+    <label>Motion <select id="motion"><option value="normal">Normal</option><option value="reduced">Reduced</option></select></label>
+  </div>
+  <div class="ctl__step"><button type="button" id="prev">‹ Prev state</button><button type="button" id="next">Next state ›</button></div>
 </div>
 <p class="desc" id="cpDesc"></p>
 <main class="frames" id="frames"></main>
