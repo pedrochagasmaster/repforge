@@ -1,10 +1,269 @@
-# Audit of merged UI overhaul Plans 049–057
+# Post-058 reconciliation of the Plans 049–057 audit
+
+Revalidated 2026-09-29 against `origin/main`
+`8aff328eeea0694f7ae5d7739e9d9168cc230b70`. This is PR #280's stage-3
+reconciliation under the [merged clearance sequence](post-058-open-pr-clearance-sequence.md).
+It changes documentation only. Six findings remain open; A05 is closed by
+Plan 058. An open audit finding does not block merging this truthful record,
+but its owning work must meet the disposition below before final acceptance.
+
+## Baseline and authority
+
+| Object | Pinned state at start |
+|---|---|
+| `origin/main` and #281 merge | `8aff328eeea0694f7ae5d7739e9d9168cc230b70` |
+| #281 merged | 2026-09-29 21:48:31 UTC |
+| #280 head | `45702f4fd75eaa59cfb1240e6c127e7b8f91838a` |
+| #280 GitHub base SHA | `de0f7e619f14e2b61345879c16a6a90a76280f3d` |
+| Current main ancestor of starting #280 head | No, `git merge-base --is-ancestor` exited 1 |
+| #280 draft / mergeability | Non-draft / `CONFLICTING` |
+| Root and audit worktrees | Clean before work; unrelated worktrees untouched |
+
+The audit uses the existing clean worktree
+`/home/ubuntu/.t3/worktrees/repforge/t3code-f38ff2b2`. Main was integrated by
+merge commit `2f519e73`; the only conflict was the backlog's overhaul row.
+The resolution retained #281's ordering. Published history was not rewritten.
+The merged branch's production files are identical to the pinned main;
+`git diff origin/main --name-only` before reconciliation listed only this audit.
+Thus the production observations below concern that exact main source, not
+an older audit branch's application. Clean-commit execution receipts also
+bind the refreshed probes to the integrated and final audit heads.
+
+Current merged `AGENTS.md`, `docs/ci.md`, backlog, clearance sequence, plan
+index, Plans 058/059, implementation sequence, disposition register and
+semantic contract were consulted. Historical plan-index/checkpoint status
+lines do not reopen completed 058 or outrank #281. #268/#269 retain their
+orientation cleanup. Plan 059 remains last and has not started.
+
+Complete starting open-PR inventory, fetched from GitHub:
+
+| PR | Head SHA | Draft | Work |
+|---|---|---|---|
+| #280 | `45702f4fd75eaa59cfb1240e6c127e7b8f91838a` | No | This audit |
+| #279 | `e519d689affe40cd49aa2697f65520bdcd94792a` | Yes | Onboarding tournament |
+| #276 | `336b492d0db3bf1812070bef3f7d3112d7273384` | Yes | Landing redesign |
+| #272 | `964f827effc6e8d16965b4193e7709bae4e83691` | Yes | Direction D |
+| #271 | `525fabfaabae72d7a845505cfe9829f9ab01e573` | Yes | Rebase-journal write failure |
+| #269 | `6dc6820a4fdfbfa0fa136722d3f79cc6e1be9aaf` | Yes | CLAUDE.md drift |
+| #268 | `37d98affd573ed92cd1f53403866d1cd30ae0173` | Yes | Plan index |
+| #258 | `ef49788f034d58adc9cd346cd0cfb9529eded15f` | Yes | History migration |
+| #257 | `e013984ddbcbf1e5e4cd844f15f7f2c08652290e` | Yes | One-off domain |
+| #255 | `db5819e221783f70a3eafe430a61fc1698a26d60` | Yes | Unsupported grammar measurement |
+
+## Finding matrix
+
+Every OPEN row means **OPEN — reproduced on
+`8aff328eeea0694f7ae5d7739e9d9168cc230b70`**. Evidence is repeatable through
+[the focused production probes](ui-overhaul-plans-049-057-reproduction.md).
+They assert the observed defect rather than silently treating it as a passing
+product contract. Current executable regression expectations belong to the
+remediation owner; no product fix or retained suite was added here.
+
+| Finding | Post-058 status | Executable evidence | Smallest next owner |
+|---|---|---|---|
+| A01, P1 | OPEN | Both staged commands accept revision 0→1; promotion/reload drops one accepted field, checkpoint agrees with the losing aggregate, sidecars are gone | Narrow standalone DraftV2 safety fix in stage 4 before #255. Distinct from #271 |
+| A02, P2 | OPEN | History RIR=2 saves to both replicas with `rirMeasured:false`; reload remains `insufficient / missing-effort`. Flag-only control yields `sufficient / improved / progress` | Narrow evidence-correctness fix in stage 4 before #255; preserve provenance for load/date-only edits |
+| A03, P2 | OPEN | New York spring DST returns week 1 on March 9 and excludes today's session; block denominator also remains one week | Narrow evidence-correctness fix in stage 4 before #255; may share the A02 packet if ownership/proofs stay clear |
+| A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Direction D #272's exercise-actions interaction acceptance, not a throwaway restyling PR |
+| A05, former P2 | CLOSED — fixed by #256, History convergence `dbf55da1`, with EN/PT computed typography proof | Catalog and external computed-root 200% both double data, headings and action labels; scaling survives reload | No fix. Preserve scaling proof in D and final 059 evidence |
+| N01, P3 | OPEN | PT sheet still says `Quadríceps · 2 sets` | Direction D #272's retained exercise-actions copy |
+| N02, P3 | OPEN | Live read-only Today Preview with an authoritative `effort_target@1` RIR 2–3 prescription shows sets/reps/muscle but no effort target | Direction D #272 decision 9 / Today preview retirement, with removal and no-draft evidence |
+
+None is already owned by #271. That PR changes a failed lock-held
+**state-journal rewrite**; A01 is the unlocked **draft-sidecar CAS** before
+that lock. Inspection of #271's published durable-state delta shows no repair
+to `compareAndSwapV2()`/`stageFor()`. Integrating/revalidating #271 remains the
+separate stage-4 task; this audit has not started it.
+
+## Current observations and closing contracts
+
+### A01: concurrent staged DraftV2 commands lose acknowledged input
+
+Current owner is `durable-state.js`, `DraftStore.compareAndSwapV2()` at
+lines 323–345, especially `stageFor()` and the early `writeTarget()` branch.
+Promotion is `DraftStore.promote()` at lines 559–580. These production bytes
+are unchanged from the historical audit source `29fc1c36`; Plan 058 neither
+moved this owner nor changed the reproducer.
+
+The smallest deterministic interleaving is still: two tabs read the same
+DraftV2; hold `repforge:state-write`; queue a real state commit to publish a
+journal; pause tab A immediately before writing its draft sidecar; tab B
+edits reps to 12 and receives `applied`; release A to accept load 80; release
+the lock and reload. Both sidecars carry revision 1. The observed canonical
+and reloaded aggregate has null load and reps 12, losing accepted load 80.
+The checkpoint agrees with that canonical aggregate and both sidecars have
+been deleted. The barrier schedules the production Storage write; it does
+not replace the CAS, dispatcher, promotion, journal, or loader.
+
+This is current data loss on a device-local only copy, still P1. It must be
+fixed ahead of #255 and the redesign train because D retains the same draft
+commands. The repair must serialize predecessor comparison and acceptance
+without breaking pending state-transaction conflict behavior. At most one
+writer can accept the same predecessor; prove checkpoint, sidecar, canonical
+and reload preservation in the owning storage suite.
+
+### A02: corrected RIR is omitted from canonical Strength evidence
+
+Current owners are `history-ui.js:180–207`,
+`historySessionFromWorkingCopy()`/`historyApplyWorkingInput()`, and
+`app.js:8664–8708`, `strengthEvidenceRows()`/`strengthEvidenceRecords()`.
+History and Progress-model bytes are unchanged by 058; the app still filters
+`rirMeasured:false` to null at the evidence boundary.
+
+A legacy missing-RIR row migrates to an unmeasured default. The actual
+History Edit → RIR 2 → Save path persists RIR 2 with that false flag to
+localStorage and IndexedDB. Reloading two comparable 50 kg sessions still
+produces `insufficient`, reason `missing-effort`. A control changing only
+that flag to true produces `sufficient`, outcome `improved`, normalized
+recommendation `progress`. These records feed the rendered Strength evidence
+and `strengthFactsByLift()` used by recovery evaluation.
+
+The claim is deliberately narrower than “all progression ignores corrected
+RIR.” `progressionHistory()` at `app.js:4804–4812` reads numeric RIR through
+a separate path. The probe records the real recommendation before and after
+the flag-only control; it remains `add2`, target 52.5, typical RIR 2. This
+finding establishes missing canonical Strength/outcome evidence, not a
+blanket inability of the progression engine to read RIR. It remains P2.
+
+Closing proof must use real History controls, save both replicas, reload and
+restore evidence. A load/date-only correction must keep missing effort
+unmeasured. The shared evidence/provenance repair survives D and belongs in
+a narrow stage-4 correctness packet before #255.
+
+### A03: calendar weeks still use elapsed local milliseconds
+
+Current owner is `progress-model.js`, `buildWeekStatus():264`, with the same
+pattern in current-week selection `:218`, volume periods `:333`, schedule
+`:430` and lifecycle boundaries `:460`. No byte changed between `29fc1c36`
+and post-058 main.
+
+The browser clock is March 9, 2026, in `America/New_York`; the block starts
+March 2. Local noon distance is 167 hours after spring DST, so flooring
+elapsed milliseconds/86,400,000 gives six days. The real Volume evidence
+returns March 2–8, week 1, and excludes the March 9 workout. Block-to-date
+includes both sessions but plans only 3 sessions/36 sets over one elapsed
+numbered week, instead of two weeks' 6/72. This is a reproduced scope and
+denominator error, still P2, independent of cosmetic D work.
+
+The small shared-model fix belongs before #255. Closing regression must use
+a non-UTC DST boundary and prove week interval, included sessions, elapsed
+planned quantities and completion boundary. This audit did not independently
+exercise every affected lifecycle branch; the shared arithmetic locations
+are an inspected blast radius, not additional executed failures.
+
+### A04 and N01: retained exercise-actions sheet
+
+Current owner is `app.js`, `renderExActionsSheet():6275–6353`.
+Plan 058 migrated styling/control roles but retained the handler that writes
+`#exActionsWarmupList.innerHTML` after a successful toggle. In a rendered
+390px, reduced-motion PT context, keyboard Enter on Make warm-up leaves
+`document.activeElement` as `BODY` while the sheet remains visible. The next
+Tab focuses `#exActionSubstBtn`. The reverse working-set toggle also loses
+focus. A04 remains P2; current source shape alone was not the proof.
+
+The same live function at `:6291` still emits `${setsTotal} sets`; the PT
+sheet renders `Quadríceps · 2 sets`. N01 remains P3. No i18n convergence
+translated it. Closing proof is a complete localized count message plus
+rendered PT output, and corresponding-control focus after both toggle roles.
+
+D's published spec decision 11 retains exercise utilities and changes their
+presentation. Assign both findings to that exact #272 workfront, with explicit
+acceptance; do not infer that a new visual recipe repairs focus or copy.
+Neither has data loss, privacy exposure or a dependency integration failure
+that requires building a temporary presentation fix before D.
+
+### A05: genuine enlarged History text now exists
+
+**CLOSED — fixed by #256, commit
+`dbf55da131f37fcdcd593c87d9fdb13884f8be0e`, with current executable evidence.**
+That commit migrates History's fixed-pixel typography to rem-backed semantic
+roles. Plan 058's other consumer migrations and P6 strict literal scan remove
+the old premise that ordinary labels still use an unscaled pixel recipe.
+P7's later computed-root fixes `faa0bc49` / `e5bca41c` and title correction
+`0eec7203` strengthen enlarged-text layout evidence; they are not substituted
+for measured typography here.
+
+The probe calls the actual catalog `openPage()` with manifest `text200`,
+then opens production History. It measures the text itself in EN and PT:
+
+| Computed typography | Normal | 200% |
+|---|---:|---:|
+| Root | 16 px | 32 px |
+| Set data / exercise name | 14 px | 28 px |
+| Column headings | 11 px | 22 px |
+| Session heading | 18 px | 36 px |
+| Edit action | 16 px | 32 px |
+| Delete action | 14 px | 28 px |
+
+All assertions require exactly twice the normal computed size. The catalog
+init script reapplies scale across reload; a separate external stylesheet
+sets computed root to 32 px after removing inline sizing and yields the same
+sizes. Thus this is enlarged user text, not a zoomed image or an unchanged
+13 px row filed as text200. The old reproducer's assertion no longer applies.
+The role/AA traversal and strict debt checker are stronger current 058 guards,
+but the focused typography assertions supply the specific closure proof.
+
+This closes A05's false-evidence claim, not physical-device text/accessibility
+sign-off or universal absence of clipping. Those remain 059 obligations.
+
+### N02: Today Preview still exists
+
+Current owners `plannedPreviewModel()` / `previewExerciseRowHtml()` at
+`app.js:6068–6082` still omit programmed RIR, contrary to
+[Plan 055's read-only Preview contract](../plans/055-focus-only-workout.md#today-preview-boundary).
+The probe activates the visible `#previewSession` action on a fresh seeded
+program with an `effort_target@1` envelope specifying RIR 2–3 and no workout history. The probe asserts that envelope survives production normalization. The first row says
+`Hack squat / 2 × 4–8 / Quadríceps`; no RIR is shown and no draft is created.
+
+No merged 058 authority retired the route. Direction D's future decision 9
+supersedes G-44 by removing Preview, but #272 has not landed. N02 is therefore
+OPEN, not SUPERSEDED today. It should close through D's actual removal of the
+action/route and owning evidence, rather than adding RIR to a soon-retired
+preview. If D retains it, its owner must fulfill the current contract instead.
+
+## Verification and handoff
+
+The repeatable probes and extraction instructions are in the linked
+[reproduction record](ui-overhaul-plans-049-057-reproduction.md). Their
+assertions cover every OPEN and CLOSED disposition. The clean integrated
+source receipts were produced with `tools/record-verification.mjs`; final
+clean-head receipts, independent review, exact-head candidate run and merge
+identity are recorded on [PR #280](https://github.com/pedrochagasmaster/repforge/pull/280).
+No historical green result below is reused as current candidate evidence.
+
+Current checks include `git diff --check`, canonical contradiction checking,
+disposition/document-link checking and the affected selector. The old
+canonical “Next rows remain scheduled” failure was repaired by merged #281;
+it passes on this baseline. Only allowlisted Markdown is changed, so affected
+selection requires no application suites; exact-SHA remote candidate remains
+the mandatory broad boundary. Focused probes are additional disposition proof,
+not a claim that every browser suite was rerun locally.
+
+During probe development, two harness errors were corrected, a wrong outcome
+property and a wrong delete selector. An overlapping preview briefly made the
+selector see generated shell config and select the broad packet; that run was
+interrupted, generated shell bytes restored, and selection rerun after cleanup.
+None is reported as a green application regression result.
+
+Next exact stage remains #268/#269 repository orientation, then integrated
+#271 and stage-4 safety/correctness fixes A01–A03, before #255 and the redesign
+train. A04/N01/N02 belong to D's owning UI acceptance. Preserve #281's remaining
+Now work and landing → D → onboarding → #258 → #257 → convergence → 059
+sequence. No remediation, redesign or later PR was started here.
+
+## Historical pre-058 audit
+
+The following is the original 2026-09-26 record at `29fc1c36`. Its locations,
+severities, “current” statements and command results describe that old source
+only. The post-058 matrix and observations above govern current dispositions.
+
+## Audit of merged UI overhaul Plans 049–057
 
 Review date: 2026-09-26. Baseline: `63c57c1e`. Integrated head: `29fc1c36180abec3ff1839e4889f6d44a39fa6dc`.
 
 The integrated work has one reproduced data-loss defect, three reproduced functional/accessibility defects, and one material enlarged-text verification gap. Two smaller Plan 055 omissions remain. Passing merged-head checks do not cover these cases.
 
-## Scope and coverage
+### Scope and coverage
 
 | Plan | Main PR | Merge | Audit coverage and result |
 |---|---|---|---|
@@ -20,9 +279,9 @@ The integrated work has one reproduced data-loss defect, three reproduced functi
 
 The durable-state bridge in #240 was included because it moved the Plan 051 implementation. Intervening changes were checked when they affected attribution. This is targeted adversarial review across all nine plans, not exhaustive execution of every suite, screen, or device matrix.
 
-## Act on: correctness and spec
+### Act on: correctness and spec
 
-### A01 · P1 · Concurrent staged draft commands lose acknowledged input
+#### A01 · P1 · Concurrent staged draft commands lose acknowledged input
 
 Location: `durable-state.js:335–343`, with promotion at `:559–577`. The same unlocked staging branch exists in Plan 051's original merged `app.js` at `c3491c5e`, before #240 extracted it.
 
@@ -47,7 +306,7 @@ Closing evidence: reproduce this pending-journal, two-writer interleaving in the
 
 The controlled reproduction used the production draft dispatcher and lock, with a scheduling barrier immediately before sidecar storage. It recorded both accepted revisions and the post-reload aggregate.
 
-### A02 · P2 · History RIR corrections remain excluded from strength evidence
+#### A02 · P2 · History RIR corrections remain excluded from strength evidence
 
 Location: `history-ui.js:191` and `:201`; consumer `app.js:8663`.
 
@@ -61,7 +320,7 @@ Closing evidence: edit missing RIR through the actual History controls, save, ve
 
 The browser reproduction used a persisted legacy session, edited it through History, saved, reloaded, and queried the production Strength evidence hook. The DST case used the production Progress model in an `America/New_York` context.
 
-### A03 · P2 · Spring DST selects the previous numbered week
+#### A03 · P2 · Spring DST selects the previous numbered week
 
 Location: `progress-model.js:264`, also `:216`, `:333`, `:430`, and `:460`.
 
@@ -75,7 +334,7 @@ Closing evidence: use calendar-day arithmetic and a real non-UTC browser test ac
 
 The browser reproduction used a persisted legacy session, edited it through History, saved, reloaded, and queried the production Strength evidence hook. The DST case used the production Progress model in an `America/New_York` context.
 
-### A04 · P2 · Warm-up toggle destroys keyboard focus
+#### A04 · P2 · Warm-up toggle destroys keyboard focus
 
 Location: `app.js:6335–6347`.
 
@@ -89,9 +348,9 @@ Closing evidence: preserve or restore focus to the corresponding set control aft
 
 The browser reproduction ran at 390px with reduced motion. It used keyboard activation, inspected `document.activeElement`, and checked the next Tab destination.
 
-## Act on: verification standards
+### Act on: verification standards
 
-### A05 · P2 · “200% text” captures leave important text unscaled
+#### A05 · P2 · “200% text” captures leave important text unscaled
 
 Location: `tools/ui-screens/session.mjs:133–141`; concrete current consumer `styles.css:2634–2641`.
 
@@ -105,12 +364,12 @@ Closing evidence: make relevant typography respond to the declared scale, or use
 
 The production-backed browser probe measured `.history-read__row` at 13px with a 16px root, then again at 13px after changing the root to 32px.
 
-## Smaller spec omissions
+### Smaller spec omissions
 
 - **N01 · P3 · Untranslated set count.** `app.js:6288` hardcodes `${setsTotal} sets`. The PT exercise-actions sheet renders `Quadríceps · 2 sets`. Introduced by Plan 055. Use a complete translated message with count handling and assert PT rendered copy. The browser reproduction rendered `Quadríceps · 2 sets` in PT.
 - **N02 · P3 · Preview omits programmed RIR.** `app.js:6068–6077` drops RIR from the preview model and renders sets × reps, muscle, notes, and selected recommendation text. Plan 055 line 137 explicitly includes programmed RIR. The fresh seeded preview displays `Hack squat2 × 4–8Quads`; no RIR is shown. Add the canonical programmed effort target without creating draft state. This is a source-backed spec omission, not a demonstrated persistence defect.
 
-## Evidence audit and exclusions
+### Evidence audit and exclusions
 
 All nine fetched PR heads have successful remote checks. PR bodies and comments were fetched from GitHub during the audit. These historical checks do not establish the current integrated result or the adversarial cases above.
 
@@ -122,7 +381,7 @@ Current `node tools/check-canonical-contradictions.mjs --check` fails with `FAIL
 
 Speculative repeat-last concerns, broad refactor preferences, and already-corrected Share/custom-delete race reports were not promoted to findings. No new Plan 052/053 blocker was established by this review.
 
-## Commands and results
+### Commands and results
 
 | Execution at the pinned integrated head | Result |
 |---|---|
@@ -136,7 +395,7 @@ Speculative repeat-last concerns, broad refactor preferences, and already-correc
 
 No production source was edited, no commits or remote comments were created, and no candidate CI was dispatched. Test dependencies were installed under `test/`. Test runners temporarily generated local preview configuration and restored it on cleanup. The workspace was clean at completion. Focused reproduction scripts and logs remained in `/tmp` and are not part of this report artifact.
 
-## Review independence and limits
+### Review independence and limits
 
 A focused GPT-6 Sol XHigh reviewer examined foundations. Two additional reviewers examined entry/Focus and Progress/management. The latter reviewers inherited the parent model; this was not a full run of the interrogate skill's unavailable default model lineup. Two reviewers hit the provider usage limit before final summaries. Their useful findings were retained, and the lead continued the audit and independently reproduced the five principal findings.
 
