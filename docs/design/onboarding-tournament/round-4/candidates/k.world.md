@@ -96,12 +96,16 @@ fails white text at small sizes, so the world deepens it to `#D1261E`.
   apart, and turn at 45° to their levels. They carry their real station counts
   and end in the terminal rail, which feeds "Seu programa" and then "Hoje". The
   yellow line is drawn over an ink casing. A figcaption (and the figure's
-  `aria-label`) says it in words.
+  `aria-label`) says it in words. At 200% text or below 360 px, an HTML
+  version (`miniNetwork()`) replaces the SVG. It has the same rails and
+  lines, and its names are set in HTML above each track, so they scale with
+  text and never touch a line.
 - **Active-program board**: the heading carries the fact itself ("Programa
   ativo: Full body A/B"), a safety-yellow sill frames it, and the sessions and
   the archive consequence follow. There is no eyebrow.
-- **Exit sign (`.k-exit`)**: Cancelar is rendered as a black "Saída" sign with
-  an exit pictogram. Its accessible name is "Saída: cancelar a configuração".
+- **Exit sign (`.k-exit`)**: Cancelar is rendered as an outlined, panel-weight
+  "Saída" sign with an exit pictogram. It is lighter than the black go sign,
+  so leaving never reads as the primary action. Its accessible name is "Saída: cancelar a configuração".
 - **Station note (`.k-stnote`)**: a passed station's note on a later station.
   For example, the Colar station's "8 linhas coladas" note has a line-colour
   check dot and "Editar o texto".

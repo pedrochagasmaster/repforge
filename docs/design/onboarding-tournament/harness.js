@@ -28,6 +28,20 @@
         g: { name: "G · Síntese", thesis: { en: "The synthesis both Round 2 judges converged on: D's structure, F's first-question chooser and before/after count, E's inline editing, with every defect the judges found fixed and checked.", pt: "A síntese em que os dois juízes da Rodada 2 convergiram: a estrutura de D, o seletor de primeira pergunta e a contagem antes/depois de F, a edição no lugar de E, com cada defeito encontrado pelos juízes corrigido e verificado." }, axis: "Owner decisions Q622–Q637 · no product decision · acceptance checks K-1–K-32, no judges" },
       },
     },
+    /* Round 4: five bold directions, each in its own visual world, built to
+       finish quality on the core journey only (core: the states below). The
+       owner picks what advances; reviews assist. */
+    4: {
+      doc: "round-4/app.html",
+      core: ["landing", "route-choice", "hub-existing", "rec-goal", "rec-background", "rec-schedule", "rec-environment", "rec-priorities", "rec-result", "rec-env-correction", "rec-result-corrected", "activate", "replace-confirm", "activation-conflict", "cancel-confirm", "activated-today", "ff-empty", "ff-reply", "ff-gaps", "import-review", "import-preview"],
+      candidates: {
+        h: { name: "H · Concreto", thesis: { en: "Onboarding is a sequence of concrete poems: each screen is one typographic composition on a six-column grid, one monumental lowercase word states the decision, the answers are words placed in the composition, and the choice floods its cell with a single vermilion field.", pt: "O onboarding é uma sequência de poemas concretos: cada tela é uma composição tipográfica numa grade de seis colunas, uma palavra monumental em minúsculas diz a decisão, as respostas são palavras na composição e a escolha inunda a célula com um único campo vermelhão." }, axis: "Typographic poster world (Jost, black rules, one vermilion) · no product decision · Rafael 18 taps" },
+        i: { name: "I · Ficha", thesis: { en: "Setup is filling in your own gym training card: every answer is written onto the card in your pen, the review is the completed card, and activation date-stamps it and hands it to Today.", pt: "Configurar é preencher a sua própria ficha de treino: cada resposta é escrita no cartão com a sua caneta, a revisão é a ficha completa, e ativar carimba a data e entrega a ficha ao Hoje." }, axis: "Paper-form world (coloured cardstock, BIC-blue pen, red stamp) · no product decision · Rafael 13 taps" },
+        j: { name: "J · Conversa", thesis: { en: "Setup is a chat you already know how to use: Taurifer asks, you answer with a quick reply, your program arrives as a message, and you correct it by replying to the line you want changed. No typing indicator, no first person, no free-text reading.", pt: "Configurar é uma conversa que você já sabe usar: o Taurifer pergunta, você responde com um toque, o programa chega como mensagem, e você corrige respondendo à linha que quer mudar. Sem “digitando”, sem primeira pessoa, sem leitura de texto livre." }, axis: "Messaging world (bubbles, quick replies, reply-to-correct) · reopens PD-1 (no chooser; paste and file doors in the thread) · Rafael 11 taps" },
+        k: { name: "K · Linhas", thesis: { en: "Setup is a trip on a metro network: the five ways in are five coloured lines on one map, each step is a station, the cost of a route is counted in stations, and every line ends at the same terminal: your program, then Today.", pt: "Configurar é uma viagem de metrô: as cinco formas de começar são cinco linhas coloridas num mapa, cada passo é uma estação, o custo de um caminho se conta em estações, e toda linha termina no mesmo terminal: o seu programa, depois o Hoje." }, axis: "Wayfinding world (São Paulo Metrô signage, line colours carry routes) · no product decision · Rafael 14 taps" },
+        l: { name: "L · Pino", thesis: { en: "The program exists before the questions: Recommend opens on a real program built from labelled defaults, every answer is a selector pin the lifter moves while the program recompiles under their thumb, and activation stays locked until every pin was set by the lifter.", pt: "O programa existe antes das perguntas: a recomendação abre num programa real montado com padrões identificados, cada resposta é um pino que o praticante move enquanto o programa se refaz sob o dedo, e ativar fica travado até todos os pinos serem escolhidos por ele." }, axis: "Weight-stack world (powder-coat plates, selector pin, stencil) · reopens PD-4 (a program before answers) · Rafael 10 taps" },
+      },
+    },
   };
   const $ = (s) => document.querySelector(s);
   const params = new URLSearchParams(location.search);
@@ -46,12 +60,16 @@
       document.body.appendChild(f);
     });
   }
+  /* A round may declare the states it was built for (Round 4: core only). */
+  function visibleCps() { const core = (ROUNDS[state.round] || ROUNDS[1]).core; return core ? CHECKPOINTS.filter((c) => core.includes(c.id)) : CHECKPOINTS; }
   function fill() {
     const round = ROUNDS[state.round] || ROUNDS[1];
     const cands = $("#cands"); cands.innerHTML = `<option value="all">All side by side</option>` + Object.entries(round.candidates).map(([id, c]) => `<option value="${id}">${c.name}</option>`).join("");
     cands.value = state.cands;
-    const sc = $("#scenario"); sc.innerHTML = Object.entries(SCENARIOS).map(([n, l]) => `<option value="${n}">${n}. ${l}</option>`).join(""); sc.value = state.scenario;
-    const cps = CHECKPOINTS.filter((c) => c.scenario === state.scenario);
+    const scs = new Set(visibleCps().map((c) => c.scenario));
+    if (!scs.has(state.scenario)) state.scenario = visibleCps()[0]?.scenario || state.scenario;
+    const sc = $("#scenario"); sc.innerHTML = Object.entries(SCENARIOS).filter(([n]) => scs.has(n)).map(([n, l]) => `<option value="${n}">${n}. ${l}</option>`).join(""); sc.value = state.scenario;
+    const cps = visibleCps().filter((c) => c.scenario === state.scenario);
     if (!cps.some((c) => c.id === state.cp)) state.cp = cps[0]?.id || state.cp;
     const cp = $("#cp"); cp.innerHTML = cps.map((c) => `<option value="${c.id}">${c.id}</option>`).join(""); cp.value = state.cp;
     for (const k of ["round", "lang", "theme", "vw", "text", "motion"]) $("#" + k).value = state[k];
@@ -75,7 +93,7 @@
   }
   for (const k of ["round", "cands", "scenario", "cp", "lang", "theme", "vw", "text", "motion"]) $("#" + k).addEventListener("change", async (e) => {
     state[k] = e.target.value;
-    if (k === "scenario") state.cp = CHECKPOINTS.find((c) => c.scenario === state.scenario)?.id || state.cp;
+    if (k === "scenario") state.cp = visibleCps().find((c) => c.scenario === state.scenario)?.id || state.cp;
     if (k === "round") await loadContract();
     render();
   });
@@ -95,7 +113,7 @@
   }
   $("#ctlToggle").addEventListener("click", () => setCollapsed(!$("#ctl").classList.contains("is-collapsed")));
   try { if (localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true); } catch (e) { /* ignore */ }
-  function step(delta) { const i = CHECKPOINTS.findIndex((c) => c.id === state.cp); const n = CHECKPOINTS[(i + delta + CHECKPOINTS.length) % CHECKPOINTS.length]; state.cp = n.id; state.scenario = n.scenario; render(); }
+  function step(delta) { const L = visibleCps(); const i = L.findIndex((c) => c.id === state.cp); const n = L[(i + delta + L.length) % L.length]; state.cp = n.id; state.scenario = n.scenario; render(); }
   $("#prev").onclick = () => step(-1); $("#next").onclick = () => step(1);
   /* A link that names a state but no scenario opens on that state. */
   loadContract().then(() => { if (params.get("cp") && !params.get("s")) { const c = CHECKPOINTS.find((x) => x.id === params.get("cp")); if (c) state.scenario = c.scenario; } render(); });

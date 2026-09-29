@@ -101,6 +101,14 @@ were not inspected at finish quality.
 - "Sentido: Seu programa" on the last station's go sign.
 - An interchange ring heading the Baldeação panel.
 
+## Verdict pass: last batch
+
+- At 200% text or below 360 px, the landing map switches to an HTML network
+  (`miniNetwork()`). Its line names and terminal labels scale with text and
+  clear the lines. The SVG stays at wider widths with 100% text.
+- The "Saída" sign is now outlined and panel weight, lighter than the black
+  go sign.
+
 ## Detector (run once)
 
 After the mechanical fixes, the remaining warnings are:
