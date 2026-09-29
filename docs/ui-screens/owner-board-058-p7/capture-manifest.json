@@ -1,17 +1,18 @@
 {
   "schemaVersion": 1,
   "plan": "058-P7",
-  "sourceSha": "363e3a0dad2769dbb9d9cf672f351203a549b5a9",
+  "sourceSha": "65edbc6d428bfa18bd77eabe8bde789e26737580",
   "catalogSource": "docs/ui-screens/screens/",
   "captureCommand": "env -u REPFORGE_URL node tools/capture-ui-screens.mjs",
-  "captureGeneratedAt": "2026-09-28",
-  "sourceBoundary": "No production UI, CSS, token, or markup changes occurred between P6 production SHA 51b43f732f7e25588f72c7e1c22b95a04f4d061c and the captured SHA.",
+  "captureGeneratedAt": "2026-09-29",
+  "sourceBoundary": "The full catalog was generated from frozen P6 production source SHA 65edbc6d428bfa18bd77eabe8bde789e26737580; no production UI, CSS, token, or markup changes occurred during P7 evidence preparation.",
   "catalog": {
-    "screenCount": 143,
-    "frameCount": 866
+    "screenCount": 147,
+    "frameCount": 898,
+    "semanticSha256": "ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa"
   },
-  "selectedScreenCount": 25,
-  "boardFrameCount": 59,
+  "selectedScreenCount": 29,
+  "boardFrameCount": 63,
   "provenance": "Each board PNG is an unmodified byte-for-byte copy of its corresponding production-generated frame from the complete P7 catalog at sourceSha.",
   "ownerGate": {
     "approval": "Pedro explicitly approved the representative P5 board as the intended Taurifer visual direction; the approval covers the production visual system represented there.",
@@ -19,7 +20,7 @@
     "sourceBoardManifest": "docs/ui-screens/owner-board-058-p5/capture-manifest.json",
     "approvedBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
     "approvedBoardFrameCount": 56,
-    "continuation": "The P6 200% text repairs preserve the approved hierarchy and system direction. The P7 comparison report records dispositions for all six representative threshold exceedances; none materially changes the approved visual direction.",
+    "continuation": "The P6 200% text repairs preserve the approved hierarchy and system direction. The P7 comparison report records and explains all six representative threshold exceedances; none materially changes the approved direction.",
     "renewedApprovalRequired": false
   },
   "selected": [
@@ -62,56 +63,56 @@
       "key": "onboarding-start/hub",
       "variant": "phone-390-light-en",
       "path": "screens/onboarding-start/hub__phone-390-light-en.png",
-      "sha256": "92448eb83f3e9110e15df7667314bdecdbfa2e6ab0b68ea9531d7a734c5c898c",
+      "sha256": "794ad86d480429752f2b00adeda85540b018ac3fc8cbe83144aef609f028e64c",
       "sourcePath": "docs/ui-screens/screens/onboarding-start/hub__phone-390-light-en.png"
     },
     {
       "key": "onboarding-start/hub",
       "variant": "phone-390-dark-en",
       "path": "screens/onboarding-start/hub__phone-390-dark-en.png",
-      "sha256": "74c5696e2d91b1ddbc30b50a1aa9fd7ab9696a1c445836fbe6d7cf73461084db",
+      "sha256": "b8a94588679b360dff73891199d1797016fc4b5068b4b1579ab4094d8589ced9",
       "sourcePath": "docs/ui-screens/screens/onboarding-start/hub__phone-390-dark-en.png"
     },
     {
       "key": "onboarding-start/hub",
       "variant": "phone-390-light-pt",
       "path": "screens/onboarding-start/hub__phone-390-light-pt.png",
-      "sha256": "2085a210931887d24fabe2c5e256c2e67c3216e737da80396555e4f13f768af3",
+      "sha256": "d7927e60c1ceb3ec18b1440ac626b1993474f790cf98a73ff17de96b1dce62fd",
       "sourcePath": "docs/ui-screens/screens/onboarding-start/hub__phone-390-light-pt.png"
     },
     {
       "key": "onboarding-build/editor-empty",
       "variant": "phone-390-light-en-text200",
       "path": "screens/onboarding-build/editor-empty__phone-390-light-en-text200.png",
-      "sha256": "de548ea6f014ae2f4569eb86204dc003cbcc377c13f43e3f5211fdef71e33cb3",
+      "sha256": "2dbda3bc1c43949553325ae52fcc90b4d6e997cf9e69dc787bdfbf7d2edb4704",
       "sourcePath": "docs/ui-screens/screens/onboarding-build/editor-empty__phone-390-light-en-text200.png"
     },
     {
       "key": "onboarding-build/editor-ready",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png",
-      "sha256": "bf430db5ff2a6e02210c33c99d487731cebd07e17283bcd07b1227b30db7af9d",
+      "sha256": "fe0bcc58ce0b446ace6f9021f0cbd0eea685513eaee86c8a81a94d89fdda0af1",
       "sourcePath": "docs/ui-screens/screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png"
     },
     {
       "key": "today/no-program",
       "variant": "phone-390-light-en",
       "path": "screens/today/no-program__phone-390-light-en.png",
-      "sha256": "517fa5cb6ce2481198b1ffbe79bcb219dcf9024c6af3944cfc592adaf5a8f5a7",
+      "sha256": "7ab437a553673745999cd39919acfbafe616d69172d2d01d5d276cd56aa55f47",
       "sourcePath": "docs/ui-screens/screens/today/no-program__phone-390-light-en.png"
     },
     {
       "key": "today/ready",
       "variant": "phone-390-light-en",
       "path": "screens/today/ready__phone-390-light-en.png",
-      "sha256": "12c39f9bb9c684cf8de6b1440ccd1b236c53319b5f1e6630a0a6f16fea92908b",
+      "sha256": "59563dad1ebc185a50097e20d7b783dbdb1c19c94213b7302f4aa0e6cfed5de3",
       "sourcePath": "docs/ui-screens/screens/today/ready__phone-390-light-en.png"
     },
     {
       "key": "today/ready",
       "variant": "phone-390-dark-en",
       "path": "screens/today/ready__phone-390-dark-en.png",
-      "sha256": "b8df87af9568c1df445645ed09f45f71094286f4c1806a51752352bf0d5fa518",
+      "sha256": "0e5827aad73c30dca9265aaea04a2b626b6cdfd408455f3da70d0a149e3c17ed",
       "sourcePath": "docs/ui-screens/screens/today/ready__phone-390-dark-en.png"
     },
     {
@@ -237,21 +238,21 @@
       "key": "history/list",
       "variant": "phone-390-light-en",
       "path": "screens/history/list__phone-390-light-en.png",
-      "sha256": "c0dc52696edb51323728a8bef8752864f3a6b0dcb96fff5a7db5a5bf46fa6cd0",
+      "sha256": "4fb6f9d8616a1261f53e9f7ecd8a012a056a43f4cee9dbcd9a24c6b2513bf6eb",
       "sourcePath": "docs/ui-screens/screens/history/list__phone-390-light-en.png"
     },
     {
       "key": "history/list",
       "variant": "phone-390-dark-en",
       "path": "screens/history/list__phone-390-dark-en.png",
-      "sha256": "9273dcc25196620366819cee287d283eb4af250beeec495a1be2b5d793d27921",
+      "sha256": "2ccc4c88813c02af83b1f9e2f4f9a5f536e2570cd4fb182c9e36dbce66aaa653",
       "sourcePath": "docs/ui-screens/screens/history/list__phone-390-dark-en.png"
     },
     {
       "key": "history/list",
       "variant": "phone-390-light-pt",
       "path": "screens/history/list__phone-390-light-pt.png",
-      "sha256": "751e1e9cc6bba8a0dfee5b17059bd301b4e505d1e7479d9a8258a2ff5cc9c3a8",
+      "sha256": "92e843205be2aae639d580968a0675c550f4d858ec9229023db5fa1986397005",
       "sourcePath": "docs/ui-screens/screens/history/list__phone-390-light-pt.png"
     },
     {
@@ -272,35 +273,35 @@
       "key": "program/overview",
       "variant": "phone-390-light-en",
       "path": "screens/program/overview__phone-390-light-en.png",
-      "sha256": "25584d485aaff704cdf2ba67013d9b52661313647b776ac8cf94f64d95ea7d18",
+      "sha256": "cfc47f9576f07c3e2eeb10a3121d33bbfda723fb3a6cdbcf7bdb20bf9e7b1b66",
       "sourcePath": "docs/ui-screens/screens/program/overview__phone-390-light-en.png"
     },
     {
       "key": "program/overview",
       "variant": "phone-390-dark-en",
       "path": "screens/program/overview__phone-390-dark-en.png",
-      "sha256": "4b77e39601a128bb7e21dcd3c16202f667506c1dcc699315162accf02e923dfe",
+      "sha256": "4537c8f28092b5d2513d13029b548cd1be8fb202c6c2d56d4904887b3066e8a1",
       "sourcePath": "docs/ui-screens/screens/program/overview__phone-390-dark-en.png"
     },
     {
       "key": "program/progression-editor",
       "variant": "phone-390-light-en",
       "path": "screens/program/progression-editor__phone-390-light-en.png",
-      "sha256": "82a57fd4c548c1a6c9c6708da808d948fd863f663510310324af5d96895fe8cf",
+      "sha256": "28b5fffc900c9b988d4cf508e7f90cd9dab7f91a672a1efe896aae6072b8b0fe",
       "sourcePath": "docs/ui-screens/screens/program/progression-editor__phone-390-light-en.png"
     },
     {
       "key": "program/progression-editor",
       "variant": "phone-390-light-pt",
       "path": "screens/program/progression-editor__phone-390-light-pt.png",
-      "sha256": "896e2c845becdebf227ce009f4f077b86b0ef1f22ddb42519066f97688efad44",
+      "sha256": "8e518cbb3a37a5055d2409532561591ec44e821808190cea6ac335abd456ade6",
       "sourcePath": "docs/ui-screens/screens/program/progression-editor__phone-390-light-pt.png"
     },
     {
       "key": "program/exercise-picker",
       "variant": "phone-390-light-en",
       "path": "screens/program/exercise-picker__phone-390-light-en.png",
-      "sha256": "8ea0aaece31e3fd91931a67be29379339a26ba2970af4f0e5e21ad7295bbf369",
+      "sha256": "909de3247f67f7edf4a6fd598335c8c41492238e8374e8ab4356732c5a90aa7c",
       "sourcePath": "docs/ui-screens/screens/program/exercise-picker__phone-390-light-en.png"
     },
     {
@@ -377,7 +378,7 @@
       "key": "settings/privacy-disclosure",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/settings/privacy-disclosure__phone-390-light-pt-text200.png",
-      "sha256": "4fb303a177ccaa3a6bfbcafecfc1a038103645ce7ddf8b6ef78522113638317c",
+      "sha256": "ee791305b7851755aab71b6f0b6f8bdeae69c668325044ff1655910ba5907348",
       "sourcePath": "docs/ui-screens/screens/settings/privacy-disclosure__phone-390-light-pt-text200.png"
     },
     {
@@ -405,36 +406,64 @@
       "key": "library/exercise-detail",
       "variant": "phone-390-light-en",
       "path": "screens/library/exercise-detail__phone-390-light-en.png",
-      "sha256": "2541d1c6cbe60593467205d4ad0c8c5c7e7f18a3b329775b3de2ad7ec7f8a068",
+      "sha256": "69bee969124e59a9deb6088e2c70d18359b73a36ff52bc748064e5c0d5306824",
       "sourcePath": "docs/ui-screens/screens/library/exercise-detail__phone-390-light-en.png"
     },
     {
       "key": "library/exercise-detail",
       "variant": "phone-390-light-pt",
       "path": "screens/library/exercise-detail__phone-390-light-pt.png",
-      "sha256": "35f8086adf39fafd1e0c512e4f7dbfb3456a4c04edd1b97a616fd4a12d9fa479",
+      "sha256": "665f402c5f02ee0808d9c410fab48bd30fef49b264aefd99fde356b41be3293d",
       "sourcePath": "docs/ui-screens/screens/library/exercise-detail__phone-390-light-pt.png"
     },
     {
       "key": "install/transfer-ready",
       "variant": "phone-390-light-en",
       "path": "screens/install/transfer-ready__phone-390-light-en.png",
-      "sha256": "9a68b84b6aef9b84d6edf9df6eb8074b7ace93da71e8ed53bf4edbcb01ad071a",
+      "sha256": "6d72e98b01466e8125ecedf918225aab0b3895e146a7e69a58dddcdf471c6d24",
       "sourcePath": "docs/ui-screens/screens/install/transfer-ready__phone-390-light-en.png"
     },
     {
       "key": "install/transfer-ready",
       "variant": "phone-390-dark-en",
       "path": "screens/install/transfer-ready__phone-390-dark-en.png",
-      "sha256": "cee39c99c0cee93e28c2bf5a33a183e71e5be239c8cfda504a3e320ef5032c6b",
+      "sha256": "32e7d56890257e3be57494c2a2f4915f0fd5a502289765719511b2029a63557f",
       "sourcePath": "docs/ui-screens/screens/install/transfer-ready__phone-390-dark-en.png"
     },
     {
       "key": "install/transfer-ready",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png",
-      "sha256": "6bc3738d0f8a7ac2cab6d8deced05bc13348235c812c70bb664a33ccc21dc7da",
+      "sha256": "4ba0b982463a8cc4ab65224885820cdffa6ad4c88a69e456a9a0b8ae6ed9879c",
       "sourcePath": "docs/ui-screens/screens/install/transfer-ready__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "today/rest-bar",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/today/rest-bar__phone-390-light-pt-text200.png",
+      "sha256": "0bc526cda72bf81bf18aa5724879e82a8ed228da30fedfe5fdc0f44240183e2d",
+      "sourcePath": "docs/ui-screens/screens/today/rest-bar__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "workout/focus-glossary",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/focus-glossary__phone-390-light-pt-text200.png",
+      "sha256": "2231202a1439d5ce8e815b1f15e9da90373039d7682fa049da928a9252d98efc",
+      "sourcePath": "docs/ui-screens/screens/workout/focus-glossary__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "library/list-selected",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/library/list-selected__phone-390-light-pt-text200.png",
+      "sha256": "2fd4d5c26610860ff85de4515015959419d0b95841c5879a49934773cf6c3d75",
+      "sourcePath": "docs/ui-screens/screens/library/list-selected__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "library/exercise-detail-glossary",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/library/exercise-detail-glossary__phone-390-light-pt-text200.png",
+      "sha256": "f3ecb2945ca2328ea58e777d8af9428f623c4dd1efe25e8d8f8e0638e6e5f6a0",
+      "sourcePath": "docs/ui-screens/screens/library/exercise-detail-glossary__phone-390-light-pt-text200.png"
     }
   ]
 }
