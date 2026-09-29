@@ -472,3 +472,19 @@ details[open] > summary .j-day__chev { transform: rotate(180deg); }
 :root[style*="200%"] .j-bar--land .j-bar__lbl { display: none; }
 :root[style*="200%"] .j-pill__t { font-size: .625rem; }
 :root[style*="200%"] .j-pill--hint, :root[style*="200%"] .j-pill--draft { padding-right: .5rem; gap: .25rem; }
+/* 200%: paperclip leaves the pill for its own round button; the hint keeps one line */
+.j-clip--out, .j-pill__t--short { display: none; }
+:root[style*="200%"] .j-pill__clip { display: none; }
+:root[style*="200%"] .j-clip--out { display: grid; width: 2.75rem; height: 2.75rem; }
+:root[style*="200%"] .j-composer { align-items: center; }
+:root[style*="200%"] .j-pill--hint { padding: .375rem .75rem; }
+:root[style*="200%"] .j-pill--hint .j-pill__t { display: none; }
+:root[style*="200%"] .j-pill--hint .j-pill__t--short { display: block; font-size: .6875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[style*="200%"] .j-pill--draft { padding-left: .75rem; }
+:root[style*="200%"] .j-sys { text-align: left; justify-content: flex-start; }
+/* 200%: the two round buttons hold the 44 px floor in px, so the hint keeps the width */
+:root[style*="200%"] .j-clip--out, :root[style*="200%"] .j-send { width: 44px; height: 44px; }
+:root[style*="200%"] .j-clip--out .j-ico, :root[style*="200%"] .j-send .j-ico { width: 22px; height: 22px; }
+:root[style*="200%"] .j-composer { gap: 4px; }
+:root[style*="200%"] .j-pill--hint { padding: .25rem .5rem; min-height: 44px; }
+:root[style*="200%"] .j-pill--hint .j-pill__t--short { white-space: normal; overflow: visible; font-size: .625rem; line-height: 1.2; }

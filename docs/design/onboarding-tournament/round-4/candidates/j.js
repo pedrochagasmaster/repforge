@@ -61,6 +61,7 @@
       "j.a.minutes": "Até {n} min por sessão",
       "j.a.minutes_90": "90 min ou mais por sessão",
       "j.c.tap": "Toque em uma resposta acima",
+      "j.c.tap_short": "Toque numa resposta",
       "j.c.send": "Enviar",
       "j.c.paste": "Colar um programa que já tenho",
       "j.c.attach": "Anexar um arquivo de programa",
@@ -110,7 +111,8 @@
       "j.imp.opened": "Você abriu o {provider} com o comando.",
       "j.imp.copied": "Você copiou o comando.",
       "j.imp.reply_label": "Resposta do {provider}, colada",
-      "j.imp.reply_hint": "Importe da área de transferência ou cole abaixo.",
+      "j.imp.reply_hint": "Cole da área de transferência ou no campo abaixo.",
+      "j.imp.clipboard": "Colar da área de transferência",
       "j.imp.reply_ph": "Resposta do assistente",
       "j.imp.reply_label_any": "Resposta do assistente, colada",
       "j.imp.gaps_title": "Complete o que falta",
@@ -173,6 +175,7 @@
       "j.a.minutes": "Up to {n} min a session",
       "j.a.minutes_90": "90 min or more a session",
       "j.c.tap": "Tap an answer above",
+      "j.c.tap_short": "Tap an answer",
       "j.c.send": "Send",
       "j.c.paste": "Paste a program I already have",
       "j.c.attach": "Attach a program file",
@@ -222,7 +225,8 @@
       "j.imp.opened": "You opened {provider} with the prompt.",
       "j.imp.copied": "You copied the prompt.",
       "j.imp.reply_label": "{provider} reply, pasted",
-      "j.imp.reply_hint": "Import from clipboard, or paste it below.",
+      "j.imp.reply_hint": "Paste from the clipboard, or into the field below.",
+      "j.imp.clipboard": "Paste from clipboard",
       "j.imp.reply_ph": "Assistant reply",
       "j.imp.reply_label_any": "Assistant reply, pasted",
       "j.imp.gaps_title": "Fill in what is missing",
@@ -598,7 +602,7 @@
         const sent = S.ffSent;
         const live = !sent || ff.status === "unreadable";
         m.push(inMsg("imp:reply", `<p class="j-q">${esc(t("entry.freeform.stage3_title"))}</p>${live ? `<p class="j-body">${esc(t("j.imp.reply_hint"))}</p>` + attached([
-          attBtn({ act: "ff", label: t("entry.freeform.clipboard_import"), extra: ' data-ff="clipboard"', icon: "paste", primary: true }),
+          attBtn({ act: "ff", label: t("j.imp.clipboard"), extra: ' data-ff="clipboard"', icon: "paste", primary: true }),
           attBtn({ act: "ff", label: t("entry.freeform.try_another"), extra: ' data-ff="try-another"', icon: "redo" }),
           attBtn({ act: "ff", label: t("entry.freeform.start_over"), extra: ' data-ff="start-over" aria-haspopup="dialog"', danger: true })]) : ""}`));
         if (sent) {
@@ -679,9 +683,11 @@
     }
     let attach = "", pill = "", send = "";
     const clip = `<button type="button" class="j-pill__clip" data-act="attach-open" aria-haspopup="dialog" aria-label="${esc(t("j.c.bring"))}">${ico("clip")}</button>`;
-    const tapPill = (id = "jPill") => `<span class="j-pill j-pill--hint">${clip}<span class="j-pill__t" id="${id}">${esc(t("j.c.tap"))}</span></span>`;
+    const clipOut = `<button type="button" class="j-clip j-clip--out" data-act="attach-open" aria-haspopup="dialog" aria-label="${esc(t("j.c.bring"))}">${ico("clip")}</button>`;
+    const tapPill = (id = "jPill") => `<span class="j-pill j-pill--hint">${clip}<span class="j-pill__t" id="${id}">${esc(t("j.c.tap"))}</span><span class="j-pill__t j-pill__t--short" aria-hidden="true">${esc(t("j.c.tap_short"))}</span></span>`;
     if (S.route === "recommend") {
       const st = step();
+      attach = clipOut;
       if (st === "environment" && S.envFix) { pill = `<span class="j-pill j-pill--draft">${clip}<span class="j-pill__t" id="jPill">${esc(t("j.c.fix_draft"))}</span></span>`; send = sendBtn({ act: "env-send", enabled: true, label: t("j.c.fix_draft") }); }
       else if (st === "priorities" && S.prioOpen) {
         const pending = !!S.avoid.pending; const txt = prioText(S.answers);
@@ -1039,12 +1045,12 @@
   /* The wallpaper: training notation set in the world's two faces, drawn
      once into a tile at 8.5% ink (5% white in dark). */
   async function paintWall() {
-    try { await Promise.all([document.fonts.load('600 15px "Atkinson Hyperlegible Mono"'), document.fonts.load('700 15px "Atkinson Hyperlegible Next"')]); } catch (e) { /* fonts optional */ }
+    try { await Promise.all([document.fonts.load('400 15px "Atkinson Hyperlegible Mono"'), document.fonts.load('600 15px "Atkinson Hyperlegible Next"')]); } catch (e) { /* fonts optional */ }
     try {
       const W = 208, H = 176, dpr = 2; const c = document.createElement("canvas"); c.width = W * dpr; c.height = H * dpr;
       const g = c.getContext("2d"); g.scale(dpr, dpr); g.textBaseline = "middle"; g.fillStyle = theme === "dark" ? "rgba(255,255,255,.05)" : "rgba(27,42,46,.085)";
-      const marks = [["3×8", 16, 26, -7, 1, 17], ["RIR 2", 118, 20, 5, 0, 14], ["+2,5 kg", 58, 88, -4, 0, 15], ["5×5", 150, 104, 7, 1, 17], ["8–12", 14, 150, 4, 1, 14], ["60 s", 124, 158, -5, 0, 13]];
-      for (const [txt, x, y, r, mono, size] of marks) { g.save(); g.translate(x, y); g.rotate((r * Math.PI) / 180); g.font = `${mono ? 600 : 700} ${size}px "${mono ? "Atkinson Hyperlegible Mono" : "Atkinson Hyperlegible Next"}", sans-serif`; g.fillText(txt, 0, 0); g.restore(); }
+      const marks = [["3×8", 22, 30, -7, 1, 15], ["RIR 2", 120, 26, 5, 0, 12], ["+2,5 kg", 62, 90, -4, 0, 13], ["5×5", 148, 104, 7, 1, 15], ["8–12", 20, 148, 4, 1, 12], ["60 s", 124, 152, -5, 0, 12]];
+      for (const [txt, x, y, r, mono, size] of marks) { g.save(); g.translate(x, y); g.rotate((r * Math.PI) / 180); g.font = `${mono ? 400 : 600} ${size}px "${mono ? "Atkinson Hyperlegible Mono" : "Atkinson Hyperlegible Next"}", sans-serif`; g.fillText(txt, 0, 0); g.restore(); }
       document.documentElement.style.setProperty("--j-wall-print", `url(${c.toDataURL("image/png")})`);
       document.documentElement.style.setProperty("--j-wall-size", `${W}px ${H}px`);
     } catch (e) { /* the plain wall stands */ }
