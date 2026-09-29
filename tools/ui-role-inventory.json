@@ -288,6 +288,11 @@
       "content": "flat",
       "scenario": "The rest timer sheet."
     },
+    "workout/rest-timer-paused": {
+      "owner": "plan-058",
+      "content": "flat",
+      "scenario": "The rest timer sheet with its countdown held."
+    },
     "workout/exercise-note": {
       "owner": "plan-055",
       "content": "flat",
@@ -4188,7 +4193,8 @@
       "rationale": "Changes a numeric training or timer value through repeatable increments; it does not choose an option.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -4212,7 +4218,8 @@
       "rationale": "Switches the ephemeral countdown between running and paused.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -4233,7 +4240,8 @@
       "rationale": "Changes a numeric training or timer value through repeatable increments; it does not choose an option.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -4255,7 +4263,8 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -4298,7 +4307,8 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -4321,7 +4331,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -4338,7 +4349,8 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -4360,7 +4372,8 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -5602,6 +5615,7 @@
         "workout/persist-retry",
         "workout/reorder",
         "workout/rest-timer",
+        "workout/rest-timer-paused",
         "workout/session",
         "workout/skipped-actions",
         "workout/stale-draft",
@@ -6930,7 +6944,8 @@
       "rationale": "Chooses the countdown duration; the chosen preset stays selected.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     },
     {
@@ -7272,7 +7287,6 @@
         "hover",
         "pressed",
         "focus-visible",
-        "selected",
         "disabled"
       ],
       "rationale": "Changes a numeric training or timer value through repeatable increments; it does not choose an option.",
@@ -7565,6 +7579,7 @@
         "workout/persist-retry",
         "workout/invalid-draft",
         "workout/rest-timer",
+        "workout/rest-timer-paused",
         "workout/exercise-note",
         "workout/why-this-weight",
         "workout/session",
@@ -7745,7 +7760,8 @@
       "rationale": "The active rest countdown needs responsive Mono numerals inside a fixed circular dial.",
       "owner": "plan-057/058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ]
     }
   ],
@@ -7797,7 +7813,8 @@
       "rationale": "Elapsed rest time has seconds remaining; assigning block, week, exercise-set or task would falsify its denominator.",
       "owner": "plan-055/058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ],
       "boundary": "required"
     },
@@ -7946,6 +7963,7 @@
         "workout/exercise-note",
         "workout/reorder",
         "workout/rest-timer",
+        "workout/rest-timer-paused",
         "workout/session",
         "workout/skipped-actions",
         "workout/substituted-actions",
@@ -8256,7 +8274,8 @@
       "rationale": "The zero-shadow animation endpoints make overtime pulse from and return to the stable warning state without leaving an unintended glow.",
       "owner": "plan-055/058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "The canonical timer frame captures a running countdown; overtime occurs only after it passes zero."
@@ -8273,7 +8292,8 @@
       "rationale": "The alert ring is a motion-only overtime cue paired with the danger color and timer text; reduced motion keeps the same status through non-motion signals.",
       "owner": "plan-055/058",
       "catalogStates": [
-        "workout/rest-timer"
+        "workout/rest-timer",
+        "workout/rest-timer-paused"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "The canonical timer frame captures a running countdown; overtime occurs only after it passes zero."

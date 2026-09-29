@@ -738,6 +738,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "rest-timer-paused",
+      "flow": "workout",
+      "label": "Workout — paused rest timer",
+      "scenario": "The rest timer sheet with its countdown held.",
+      "variants": "demandingText"
+    },
+    {
       "id": "exercise-note",
       "flow": "workout",
       "label": "Workout — exercise note",

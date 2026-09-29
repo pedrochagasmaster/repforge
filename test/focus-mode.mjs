@@ -14,10 +14,14 @@
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { loadRoleInventory } from "../tools/ui-system-core.mjs";
+import { requiredBoundaryExceptionRequests } from "../tools/check-ui-system.mjs";
+import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const REST_ARC_BOUNDARY = requiredBoundaryExceptionRequests(loadRoleInventory().exceptions, "workout/rest-timer");
 
 const results = { passed: 0, failed: 0 };
 function assert(cond, name, detail) {
@@ -400,6 +404,7 @@ async function main() {
       cta: resolve(root.getPropertyValue("--cta")),
       ink: resolve(root.getPropertyValue("--ink")),
       soft: resolve(root.getPropertyValue("--ink-soft")),
+      requiredBoundary: resolve(root.getPropertyValue("--boundary-required")),
     };
     const selection = {
       background: resolve(root.getPropertyValue("--control-selection-bg")),
@@ -477,6 +482,44 @@ async function main() {
     pausedAppearance.secondary.every((control) => control.foreground !== pausedAppearance.neutral.accent) &&
     pausedAppearance.chipDot !== pausedAppearance.neutral.accent,
   "paused timer uses the default selection recipe while the deadline is frozen", JSON.stringify(pausedAppearance));
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((next) => document.documentElement.setAttribute("data-theme", next), theme);
+    const expectedBoundary = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--boundary-required)";
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    await page.waitForFunction(({ selector, expected }) =>
+      getComputedStyle(document.querySelector(selector)).stroke === expected,
+    { selector: REST_ARC_BOUNDARY[0].selector, expected: expectedBoundary }, { timeout: 1000 });
+    const appearance = await timerAppearance();
+    assert(appearance.arc === appearance.neutral.requiredBoundary,
+      `${theme} paused rest arc uses the required-boundary recipe`, JSON.stringify(appearance));
+    await page.evaluate((requests) => {
+      const arc = document.querySelector(requests[0].selector);
+      const sheet = document.querySelector("#restSheet");
+      arc.style.setProperty("transition", "none", "important");
+      arc.style.setProperty("stroke", getComputedStyle(sheet).backgroundColor, "important");
+    }, REST_ARC_BOUNDARY);
+    const rejectedArc = await page.evaluate(measureRenderedRoles, { requests: REST_ARC_BOUNDARY });
+    assert(rejectedArc[0]?.status === "fail",
+      `${theme} paused arc rejects a low-contrast boundary stroke`, JSON.stringify(rejectedArc));
+    await page.evaluate((requests) => {
+      const arc = document.querySelector(requests[0].selector);
+      arc.style.removeProperty("stroke");
+      arc.style.removeProperty("transition");
+    }, REST_ARC_BOUNDARY);
+    await page.waitForFunction(({ selector, expected }) =>
+      getComputedStyle(document.querySelector(selector)).stroke === expected,
+    { selector: REST_ARC_BOUNDARY[0].selector, expected: appearance.neutral.requiredBoundary }, { timeout: 1000 });
+    const measuredArc = await page.evaluate(measureRenderedRoles, { requests: REST_ARC_BOUNDARY });
+    assert(measuredArc[0]?.status === "pass" && measuredArc[0].ratio >= 3,
+      `${theme} production paused arc passes 3:1 against its rendered sheet`, JSON.stringify(measuredArc));
+  }
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
   await page.click("#restPlayPause");
   await page.waitForFunction((clock) => {
     const sheet = document.querySelector("#restSheet");

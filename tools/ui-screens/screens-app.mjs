@@ -491,6 +491,22 @@ async function createInUseCustomExercise(page) {
   return result;
 }
 
+async function showRestTimer(page, paused = false) {
+  await focusMode(page);
+  await logCurrentSet(page);
+  await page.waitForFunction(
+    () => document.querySelector("#woRest")?.classList.contains("is-running"),
+    undefined, { timeout: 20000 }
+  );
+  await page.click("#woRest");
+  await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
+  if (paused) {
+    await page.click("#restPlayPause");
+    await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-paused"));
+  }
+  await sleep(page, 400);
+}
+
 export const APP_SCENARIOS = {
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/ready": async (page) => {
@@ -756,15 +772,10 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "workout/rest-timer": async (page) => {
-    await focusMode(page);
-    await logCurrentSet(page);
-    await page.waitForFunction(
-      () => document.querySelector("#woRest")?.classList.contains("is-running"),
-      undefined, { timeout: 20000 }
-    );
-    await page.click("#woRest");
-    await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
-    await sleep(page, 400);
+    await showRestTimer(page);
+  },
+  "workout/rest-timer-paused": async (page) => {
+    await showRestTimer(page, true);
   },
   "today/rest-bar": async (page) => {
     await focusMode(page);

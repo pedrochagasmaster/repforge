@@ -122,7 +122,9 @@ export async function measureRenderedRoles(input) {
     let inside = background(node);
     if (inside.unsupported && pixels) {
       const offset = parseFloat(style.outlineOffset) || 0;
-      inside = (kind === "boundary" || kind === "focus" && offset < 0 ? elementSurface(node) : localSurface(node)) || inside;
+      inside = (kind === "boundary" && node.namespaceURI === "http://www.w3.org/2000/svg"
+        ? adjacentSurface(node) || elementSurface(node)
+        : kind === "boundary" || kind === "focus" && offset < 0 ? elementSurface(node) : localSurface(node)) || inside;
     }
     if (inside.unsupported) return { selector, kind, status: "unsupported", reason: inside.unsupported };
     let foreground = null;
@@ -144,6 +146,21 @@ export async function measureRenderedRoles(input) {
       if (outside.unsupported) return { selector, kind, status: "unsupported", reason: outside.unsupported };
       adjacent = outside.rgb;
     } else if (kind === "boundary") {
+      const svgStroke = node.namespaceURI === "http://www.w3.org/2000/svg" && style.stroke !== "none"
+        && parseFloat(style.strokeWidth) > 0 ? color(style.stroke) : null;
+      if (svgStroke && svgStroke[3] > 0) {
+        let surface = inside;
+        if (surface.unsupported && pixels) surface = adjacentSurface(node) || surface;
+        if (surface.unsupported) return { selector, kind, status: "unsupported", reason: surface.unsupported };
+        const elementOpacity = Number.parseFloat(style.opacity);
+        const strokeOpacity = Number.parseFloat(style.strokeOpacity);
+        const alpha = svgStroke[3] * (Number.isFinite(elementOpacity) ? elementOpacity : 1)
+          * (Number.isFinite(strokeOpacity) ? strokeOpacity : 1);
+        const edge = composite([...svgStroke.slice(0, 3), alpha], surface.rgb);
+        const measured = ratio(edge, surface.rgb);
+        return { selector, kind, status: measured >= 3 ? "pass" : "fail", ratio: Math.round(measured * 100) / 100,
+          threshold: 3, foreground: style.stroke, background: surface.rgb.slice(0, 3) };
+      }
       const sides = ["Top", "Right", "Bottom", "Left"].filter((side) =>
         parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== "none"
         && (color(style[`border${side}Color`])?.[3] || 0) > 0

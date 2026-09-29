@@ -114,6 +114,12 @@ export function inspectRoleCoverage({ key, components, exceptions, progressCandi
   return { key, problems, observed, matched: [...matched], matchedExceptions: [...matchedExceptions] };
 }
 
+export function requiredBoundaryExceptionRequests(exceptions, key) {
+  return exceptions
+    .filter((item) => item.boundary === "required" && item.catalogStates.includes(key))
+    .map((item) => ({ selector: item.selector, kind: "boundary" }));
+}
+
 export async function auditFocusRoles(page, { key, components, pixels }) {
   const targets = await page.evaluate((items) => {
     const visible = (node) => {
@@ -249,6 +255,13 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
         for (const item of rendered) measurements[item.status] = (measurements[item.status] || 0) + 1;
         measurements.total += rendered.length;
         problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, rendered));
+        const exceptionBoundaries = requiredBoundaryExceptionRequests(inventory.exceptions, key);
+        if (exceptionBoundaries.length) {
+          const renderedExceptions = await opened.page.evaluate(measureRenderedRoles, { requests: exceptionBoundaries, pixels });
+          for (const item of renderedExceptions) measurements[item.status] = (measurements[item.status] || 0) + 1;
+          measurements.total += renderedExceptions.length;
+          problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, renderedExceptions));
+        }
       } catch (error) {
         problems.push(`${key}: scenario failed: ${error.stack || error.message}`);
       } finally { await context?.close(); }

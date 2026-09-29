@@ -7,13 +7,16 @@ import { spawnSync } from "node:child_process";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio } from "../tools/ui-system-core.mjs";
 import { measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
-import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
+import { auditFocusRoles, inspectRoleCoverage, requiredBoundaryExceptionRequests } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
 import { setCaptureBase, launchChromium, openPage, settle } from "../tools/ui-screens/session.mjs";
 import { onboardingState, ONBOARDING_SCENARIOS } from "../tools/ui-screens/screens-onboarding.mjs";
 
 const manifest = loadManifest(), inventory = loadRoleInventory();
 assert.deepEqual(validateRoleInventory(inventory, manifest), [], "current manifest and semantic inventory agree");
+assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-timer"), [
+  { selector: "#restSheet .restdial__arc", kind: "boundary" },
+], "required boundary exceptions enter rendered-role measurement for their owned catalog state");
 assert.equal(Object.keys(inventory.catalogStates).length, manifest.screens.length, "every live catalog state has an explicit owner");
 assert.ok(inventory.components.some((item) => item.roles.elevation === "flat"), "flat content has an explicit role");
 for (const role of ["selected", "floating", "modal", "persistent-action"]) {
@@ -146,6 +149,8 @@ assert.equal(roleOf(".stepbtn:not([id])"), "adjustment", "rapid workout stepper 
 assert.equal(roleOf('button[data-role="adjust"]'), "adjustment", "deliberate program stepper keeps numeric meaning");
 assert.equal(roleOf(".prog-day__head:not([id])"), "disclosure", "Program day chevron expands in place");
 assert.equal(roleOf(".prog-ex:not([id])"), "quiet-navigation", "Program exercise row with a chevron drills in");
+assert.equal(inventory.components.find((item) => item.selector === 'button[data-role="adjust"]')?.states.includes("selected"), false,
+  "numeric Program set steppers do not claim a selected state");
 assert.equal(roleOf("#entryFreeformStartOver"), "destructive", "Start over discards staged work");
 
 const focusSkipSelectors = ["#exActionSkipBtn", ".focus-tool.ex__skip:not([id])"];
@@ -609,6 +614,7 @@ try {
       <button id="uiDuplicateFocus" style="display:block;background:#fff;color:#111">First duplicate</button>
       <button id="uiDuplicateFocus" style="display:block;background:#fff;color:#111">Second duplicate</button>
       <button id="uiThinFocus" style="display:block;outline:1px solid #111;background:#fff;color:#111">Thin focus</button>
+      <svg style="display:block;width:48px;height:48px"><circle id="uiBadArc" cx="24" cy="24" r="18" fill="none" stroke="#ddd" stroke-width="6" /></svg>
       <style>#uiDuplicateFocus:focus-visible{outline:2px solid #111}</style>
       <p id="uiUnsupported" style="background:linear-gradient(#fff,#eee);color:#333">Gradient</p>
       <button id="uiDisabled" disabled style="color:#aaa;background:#fff">Unavailable</button>
@@ -617,13 +623,14 @@ try {
     </div>`));
   const measured = await opened.page.evaluate(measureRenderedRoles, [
     { selector: "#uiBadText", kind: "text" }, { selector: "#uiBadIcon", kind: "icon" },
+    { selector: "#uiBadArc", kind: "boundary" },
     { selector: "#uiBadBoundary", kind: "boundary" }, { selector: "#uiBadFocus", kind: "focus" },
     { selector: "#uiDecorativeSide", kind: "boundary" },
     { selector: "#uiThinFocus", kind: "focus" },
     { selector: "#uiUnsupported", kind: "text" }, { selector: "#uiDisabled", kind: "disabled-control" },
     { selector: "#uiDisabledReason", kind: "disabled-reason" },
   ]);
-  for (const selector of ["#uiBadText", "#uiBadIcon", "#uiBadBoundary", "#uiBadFocus", "#uiThinFocus", "#uiDisabledReason"]) {
+  for (const selector of ["#uiBadText", "#uiBadIcon", "#uiBadArc", "#uiBadBoundary", "#uiBadFocus", "#uiThinFocus", "#uiDisabledReason"]) {
     assert.equal(measured.find((item) => item.selector === selector)?.status, "fail", `${selector} deliberate rendered-role failure is rejected: ${JSON.stringify(measured)}`);
   }
   assert.equal(measured.find((item) => item.selector === "#uiUnsupported")?.status, "unsupported", "unresolved effective background blocks rather than passing");
@@ -645,6 +652,7 @@ try {
     { selector: "#uiMissing", kind: "boundary", status: "missing" },
   ]);
   assert.ok(auditProblems.some((item) => item.includes("#uiBadText fail")), "the catalog audit turns low rendered text contrast into a blocking finding");
+  assert.ok(auditProblems.some((item) => item.includes("#uiBadArc fail")), "the catalog audit rejects a low-contrast SVG boundary stroke");
   assert.ok(auditProblems.some((item) => item.includes("#uiUnsupported unsupported")), "the catalog audit blocks unresolved rendered backgrounds");
   assert.ok(auditProblems.some((item) => item.includes("#uiMissing missing")), "the catalog audit blocks a missing required role measurement");
   assert.ok(!auditProblems.some((item) => item.includes("disabled-control #uiDisabled")), "an inactive control exemption does not become a catalog failure");

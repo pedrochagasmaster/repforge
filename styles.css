@@ -1934,7 +1934,7 @@ body.is-sheet-open{overflow:hidden}
   font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--color-ink);
 }
 /* Held: the ring goes quiet so a frozen clock never reads as a running one. */
-.sheet--rest.is-paused .restdial__arc{stroke:var(--boundary-modal)}
+.sheet--rest.is-paused .restdial__arc{stroke:var(--boundary-required)}
 .sheet--rest.is-paused .restdial__clock{color:var(--color-maintained)}
 /* Past the bell, the same red the chip and the bar use for overtime. */
 .sheet--rest.is-over .restdial__arc{stroke:var(--danger)}
