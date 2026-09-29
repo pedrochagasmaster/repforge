@@ -1,0 +1,1247 @@
+{
+  "schemaVersion": 1,
+  "plan": "058-P7",
+  "productionSourceSha": "faa0bc494ab6e04c4537da7179705c89d80115c6",
+  "manifestSha256": "e9cfa04bdec3c75842025c76fca2d9ae8b3b47e72f0fa68013bb5209109bae83",
+  "captureCommand": "env -u REPFORGE_URL node tools/capture-ui-screens.mjs",
+  "snapshot": {
+    "sourceSha": "faa0bc494ab6e04c4537da7179705c89d80115c6",
+    "path": "/tmp/plan058-pre-p7-faa0bc494ab6e04c4537da7179705c89d80115c6/screens",
+    "frameCount": 910
+  },
+  "recapture": {
+    "sourceSha": "faa0bc494ab6e04c4537da7179705c89d80115c6",
+    "frameCount": 910,
+    "byteIdenticalFrames": 852,
+    "byteChangedFrames": 58,
+    "addedFrames": 0,
+    "removedFrames": 0,
+    "perceptualThresholdFailures": 0,
+    "semanticCatalogExact": true,
+    "exactComparison": "The full catalog comparator matched all 910/910 frames within its fixed perceptual thresholds and matched the semantic catalog exactly."
+  },
+  "groups": [
+    {
+      "id": "p7-same-source-raster-today",
+      "status": "reviewed-same-source-recapture",
+      "affectedFrameCount": 4,
+      "semanticRole": "Registered today surface pixels; no rendered-role, copy, or state change.",
+      "cause": "The P7 full catalog was recaptured from identical production source SHA faa0bc494ab6e04c4537da7179705c89d80115c6 and the same manifest. PNG bytes varied on rerender; each row's exact hashes and comparator metrics are stored in same-source-recapture-delta.json.",
+      "productionSelectors": [],
+      "visualOutcome": "All listed frames remain below perceptual thresholds; the complete 910-frame comparison passes and the semantic catalog is exact. These byte-only differences do not represent a production visual change.",
+      "evidence": "docs/ui-screens/owner-board-058-p7/same-source-recapture-delta.json",
+      "framePaths": [
+        "today/no-program__phone-390-light-en.png",
+        "today/no-program__phone-390-dark-en.png",
+        "today/no-program__phone-390-light-pt.png",
+        "today/day-picker__phone-320-light-en.png"
+      ]
+    },
+    {
+      "id": "p7-same-source-raster-progress",
+      "status": "reviewed-same-source-recapture",
+      "affectedFrameCount": 17,
+      "semanticRole": "Progress raster recapture; proposal digest states are tracked separately.",
+      "cause": "The P7 full catalog was recaptured from identical production source SHA faa0bc494ab6e04c4537da7179705c89d80115c6 and the same manifest. PNG bytes varied on rerender; each row's exact hashes and comparator metrics are stored in same-source-recapture-delta.json.",
+      "productionSelectors": [],
+      "visualOutcome": "These 17 frames differ only at PNG byte level between the immutable pre-capture snapshot and the final capture. All remain within fixed perceptual thresholds; no rendered copy, role, state, action, or hierarchy changes occur in this group.",
+      "evidence": "docs/ui-screens/owner-board-058-p7/same-source-recapture-delta.json",
+      "framePaths": [
+        "progress/schedule-diagnosis__phone-430-light-en.png",
+        "progress/guided-repair__phone-390-light-en.png",
+        "progress/guided-repair__phone-390-dark-en.png",
+        "progress/guided-repair__phone-390-light-pt.png",
+        "progress/guided-repair__phone-430-light-en.png",
+        "progress/guided-repair__phone-390-light-en-reduced.png",
+        "progress/recovery-ineligible__phone-390-light-en.png",
+        "progress/recovery-ineligible__phone-390-dark-en.png",
+        "progress/recovery-ineligible__phone-390-light-pt.png",
+        "progress/recovery-ineligible__phone-430-light-en.png",
+        "progress/recovery-ineligible__phone-390-light-en-reduced.png",
+        "progress/recovery-questions__phone-390-light-en.png",
+        "progress/recovery-questions__phone-390-dark-en.png",
+        "progress/recovery-questions__phone-390-light-pt.png",
+        "progress/recovery-questions__phone-430-light-en.png",
+        "progress/recovery-questions__phone-390-light-en-reduced.png",
+        "progress/recovery-active__phone-430-light-en.png"
+      ]
+    },
+    {
+      "id": "p7-same-source-raster-history",
+      "status": "reviewed-same-source-recapture",
+      "affectedFrameCount": 13,
+      "semanticRole": "Registered history surface pixels; no rendered-role, copy, or state change.",
+      "cause": "The P7 full catalog was recaptured from identical production source SHA faa0bc494ab6e04c4537da7179705c89d80115c6 and the same manifest. PNG bytes varied on rerender; each row's exact hashes and comparator metrics are stored in same-source-recapture-delta.json.",
+      "productionSelectors": [],
+      "visualOutcome": "All listed frames remain below perceptual thresholds; the complete 910-frame comparison passes and the semantic catalog is exact. These byte-only differences do not represent a production visual change.",
+      "evidence": "docs/ui-screens/owner-board-058-p7/same-source-recapture-delta.json",
+      "framePaths": [
+        "history/session__phone-430-light-en.png",
+        "history/delete-confirm__phone-390-light-en.png",
+        "history/delete-confirm__phone-390-dark-en.png",
+        "history/delete-confirm__phone-390-light-pt.png",
+        "history/delete-confirm__phone-320-light-en.png",
+        "history/delete-confirm__phone-430-light-en.png",
+        "history/delete-confirm__phone-390-light-en-reduced.png",
+        "history/conflict__phone-390-light-en.png",
+        "history/conflict__phone-390-dark-en.png",
+        "history/conflict__phone-390-light-pt.png",
+        "history/conflict__phone-320-light-en.png",
+        "history/conflict__phone-430-light-en.png",
+        "history/conflict__phone-390-light-en-reduced.png"
+      ]
+    },
+    {
+      "id": "p7-same-source-raster-program",
+      "status": "reviewed-same-source-recapture",
+      "affectedFrameCount": 16,
+      "semanticRole": "Registered program surface pixels; no rendered-role, copy, or state change.",
+      "cause": "The P7 full catalog was recaptured from identical production source SHA faa0bc494ab6e04c4537da7179705c89d80115c6 and the same manifest. PNG bytes varied on rerender; each row's exact hashes and comparator metrics are stored in same-source-recapture-delta.json.",
+      "productionSelectors": [],
+      "visualOutcome": "All listed frames remain below perceptual thresholds; the complete 910-frame comparison passes and the semantic catalog is exact. These byte-only differences do not represent a production visual change.",
+      "evidence": "docs/ui-screens/owner-board-058-p7/same-source-recapture-delta.json",
+      "framePaths": [
+        "program/no-program__phone-390-light-en.png",
+        "program/no-program__phone-390-dark-en.png",
+        "program/no-program__phone-390-light-pt.png",
+        "program/progression-editor__phone-390-light-en.png",
+        "program/progression-editor__phone-390-dark-en.png",
+        "program/progression-editor__phone-390-light-pt.png",
+        "program/exercise-picker__phone-390-light-pt.png",
+        "program/share-one-blocker__phone-390-light-pt.png",
+        "program/share-repair-return__phone-390-light-pt.png",
+        "program/readiness__phone-390-light-en.png",
+        "program/readiness__phone-390-dark-en.png",
+        "program/readiness__phone-390-light-pt.png",
+        "program/readiness__phone-320-light-en.png",
+        "program/readiness__phone-430-light-en.png",
+        "program/readiness__phone-390-light-en-text200.png",
+        "program/readiness__phone-390-light-en-reduced.png"
+      ]
+    },
+    {
+      "id": "proposal-hash-refreshes-with-transition-identifiers",
+      "status": "reviewed-intentional",
+      "affectedFrameCount": 8,
+      "semanticRole": "Visible canonical proposal digest in the Progress sibling-shorter-session preview.",
+      "cause": "The production capture scenario generates fresh transitionId and successorProgramId values with uid(); both remain in the canonical proposal-hash preimage. Recapturing the same source therefore refreshes the displayed digest.",
+      "productionSelectors": [],
+      "visualOutcome": "The eight exact frames show a refreshed derived digest value and no other copy, semantic state, action availability, or hierarchy changes. Every frame remains within fixed perceptual thresholds.",
+      "evidence": "The per-frame hashes and comparator metrics are in same-source-recapture-delta.json; scenario ID generation is at tools/ui-screens/screens-app.mjs:932 and app.js:3055-3067.",
+      "framePaths": [
+        "progress/sibling-shorter-session__phone-320-light-en.png",
+        "progress/sibling-shorter-session__phone-390-dark-en.png",
+        "progress/sibling-shorter-session__phone-390-light-en-reduced.png",
+        "progress/sibling-shorter-session__phone-390-light-en-text200.png",
+        "progress/sibling-shorter-session__phone-390-light-en.png",
+        "progress/sibling-shorter-session__phone-390-light-pt-text200.png",
+        "progress/sibling-shorter-session__phone-390-light-pt.png",
+        "progress/sibling-shorter-session__phone-430-light-en.png"
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "path": "today/no-program__phone-390-light-en.png",
+      "beforeSha256": "7ab437a553673745999cd39919acfbafe616d69172d2d01d5d276cd56aa55f47",
+      "afterSha256": "313234d1cc4734a2b22ab667d600c3a20d80a2183d9819e853e31607ece2d20b",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.021854874886084143,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255121409893036,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-today",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "today/no-program__phone-390-dark-en.png",
+      "beforeSha256": "f91b8bd197acd3e06f473544cd2e5edac0716c96c1d9c78d59b0be2d33904930",
+      "afterSha256": "5c4a3cc2a3cc338407d8cccecd87323b95d3381dbf00e6e8a8df46ede0f076f3",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0025443403518532865,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.253211635660561e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-today",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "today/no-program__phone-390-light-pt.png",
+      "beforeSha256": "7d43f45ab90833567e7715a94b3c6bf3a1fc39c2fff37a74286525330f7856b8",
+      "afterSha256": "181b087178f37b71b57473db03235974843b411b4bf3090f775a0720fa4b5851",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.021854874886084143,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032551027834415436,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-today",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "today/day-picker__phone-320-light-en.png",
+      "beforeSha256": "816c3b81c665964ce2f95a5974236a10a29b9d0be2a9c08cb8f07ff4551459dc",
+      "afterSha256": "0634ddbd930a649a5fd174d4f37e30fba60d20ef16915bddc82e500d466ffd7e",
+      "comparison": {
+        "width": 640,
+        "height": 1136,
+        "ok": true,
+        "meanCellDelta": 1.705620128541086e-07,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.336998542254294e-07,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-today",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/schedule-diagnosis__phone-430-light-en.png",
+      "beforeSha256": "645d9a88bbbf6a050af682250f8fa105a7be44bc14f08b641d2e2c50e44b806d",
+      "afterSha256": "fd986df10fbac45f57c5711ed7b26729923eb69cb6fc29163bb8f209fe52e837",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.00366189438824138,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0021158941090106964,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/sibling-shorter-session__phone-390-light-en.png",
+      "beforeSha256": "383bfd7433426e8165c7cde42d4f29523e85a62562d10c310ad336dab4f4dce2",
+      "afterSha256": "ef05fc51288a9c5bc755ccb770000e3370b04f7f7c0eefdd18beb2fe4d292378",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.001207797681358041,
+        "changedCellRatio": 0.006429036458333333,
+        "meanEdgeDelta": 0.0015692789053713288,
+        "changedEdgeRatio": 0.008130749014454665,
+        "histogramDelta": 0.0013834621640853584,
+        "reasons": []
+      },
+      "dispositionId": "proposal-hash-refreshes-with-transition-identifiers",
+      "cause": "Fresh transitionId and successorProgramId values generated by the production-backed scenario participate in the canonical proposal-hash preimage, so the visible digest refreshes on capture despite unchanged production source and manifest.",
+      "visualOutcome": "Only the derived digest value changes; action availability, proposal semantics, and visual hierarchy remain unchanged. This content change is separate from progress-only raster variance."
+    },
+    {
+      "path": "progress/sibling-shorter-session__phone-390-dark-en.png",
+      "beforeSha256": "6dc1d37f53f86c0e08e83034c0e5fe2bd7225bdc0fb4522ee9d793dbbf3d3ffc",
+      "afterSha256": "94a2d93d9af35d2329e0700354a5aa012a8b1b103f3473791d334a032ec32a7c",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.001292326531669348,
+        "changedCellRatio": 0.006429036458333333,
+        "meanEdgeDelta": 0.0016821179209759217,
+        "changedEdgeRatio": 0.008171813403416557,
+        "histogramDelta": 0.0017903532134369016,
+        "reasons": []
+      },
+      "dispositionId": "proposal-hash-refreshes-with-transition-identifiers",
+      "cause": "Fresh transitionId and successorProgramId values generated by the production-backed scenario participate in the canonical proposal-hash preimage, so the visible digest refreshes on capture despite unchanged production source and manifest.",
+      "visualOutcome": "Only the derived digest value changes; action availability, proposal semantics, and visual hierarchy remain unchanged. This content change is separate from progress-only raster variance."
+    },
+    {
+      "path": "progress/sibling-shorter-session__phone-390-light-pt.png",
+      "beforeSha256": "4102cde86493641f2373afe71fc2326f6faf66068e1e724c901cc833e1b9c694",
+      "afterSha256": "51f8f15e8c7925159164192d80365126b395ecf92e538db253453c29c15ddbb6",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0011972714929203486,
+        "changedCellRatio": 0.006510416666666667,
+        "meanEdgeDelta": 0.0015845722353646382,
+        "changedEdgeRatio": 0.008377135348226018,
+        "histogramDelta": 0.000976575305685401,
+        "reasons": []
+      },
+      "dispositionId": "proposal-hash-refreshes-with-transition-identifiers",
+      "cause": "Fresh transitionId and successorProgramId values generated by the production-backed scenario participate in the canonical proposal-hash preimage, so the visible digest refreshes on capture despite unchanged production source and manifest.",
+      "visualOutcome": "Only the derived digest value changes; action availability, proposal semantics, and visual hierarchy remain unchanged. This content change is separate from progress-only raster variance."
+    },
+    {
+      "path": "progress/sibling-shorter-session__phone-320-light-en.png",
+      "beforeSha256": "208fff8464df59113d4bc2f9057125ea67613bd9a8b80fa95764fa8d2cdf3389",
+      "afterSha256": "c42736db003315b832a5f6ff1055d8e43126dfd49e08496e6a90551be4f37581",
+      "comparison": {
+        "width": 640,
+        "height": 1136,
+        "ok": true,
+        "meanCellDelta": 0.002220812170768646,
+        "changedCellRatio": 0.010660807291666666,
+        "meanEdgeDelta": 0.002773748967752507,
+        "changedEdgeRatio": 0.014002956636005256,
+        "histogramDelta": 0.0015462124720215797,
+        "reasons": []
+      },
+      "dispositionId": "proposal-hash-refreshes-with-transition-identifiers",
+      "cause": "Fresh transitionId and successorProgramId values generated by the production-backed scenario participate in the canonical proposal-hash preimage, so the visible digest refreshes on capture despite unchanged production source and manifest.",
+      "visualOutcome": "Only the derived digest value changes; action availability, proposal semantics, and visual hierarchy remain unchanged. This content change is separate from progress-only raster variance."
+    },
+    {
+      "path": "progress/sibling-shorter-session__phone-430-light-en.png",
+      "beforeSha256": "cf18f5bc7d131b677f10f1179168d8c4d93f3124fb60b7e30394e3525e1f3b8d",
+      "afterSha256": "7cbccd2c588352ecbb9e61a8cb0c5056938b6fd72d6461c6746ca8c74af07037",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.0054195135193206186,
+        "changedCellRatio": 0.006266276041666667,
+        "meanEdgeDelta": 0.00209749784227583,
+        "changedEdgeRatio": 0.008377135348226018,
+        "histogramDelta": 0.00382487999740988,
+        "reasons": []
+      },
+      "dispositionId": "proposal-hash-refreshes-with-transition-identifiers",
+      "cause": "Fresh transitionId and successorProgramId values generated by the production-backed scenario participate in the canonical proposal-hash preimage, so the visible digest refreshes on capture despite unchanged production source and manifest.",
+      "visualOutcome": "Only the derived digest value changes; action availability, proposal semantics, and visual hierarchy remain unchanged. This content change is separate from progress-only raster variance."
+    },
+    {
+      "path": "progress/sibling-shorter-session__phone-390-light-en-text200.png",
+      "beforeSha256": "569c997ce261d0161793bdf26a45f02b674a6f1a303da7c957aa4b8a4fd15627",
+      "afterSha256": "87b73d5264fb3c8ae70340ba3e7c92d05f8b52999a6753baeb964c536c2f7b60",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.005454330839128013,
+        "changedCellRatio": 0.026936848958333332,
+        "meanEdgeDelta": 0.006531923015586023,
+        "changedEdgeRatio": 0.033385348226018394,
+        "histogramDelta": 0.00268554943613708,
+        "reasons": []
+      },
+      "dispositionId": "proposal-hash-refreshes-with-transition-identifiers",
+      "cause": "Fresh transitionId and successorProgramId values generated by the production-backed scenario participate in the canonical proposal-hash preimage, so the visible digest refreshes on capture despite unchanged production source and manifest.",
+      "visualOutcome": "Only the derived digest value changes; action availability, proposal semantics, and visual hierarchy remain unchanged. This content change is separate from progress-only raster variance."
+    },
+    {
+      "path": "progress/sibling-shorter-session__phone-390-light-en-reduced.png",
+      "beforeSha256": "d6a1a7d6cc1a888224b17eb720dc93919373c31a17dd243b6b49557d0553c1f5",
+      "afterSha256": "31d2502b0f476dc7092452b44170dd379cbcef2031a7dbff152eb2224e6a8454",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.001256713568404561,
+        "changedCellRatio": 0.007080078125,
+        "meanEdgeDelta": 0.0016837863400872215,
+        "changedEdgeRatio": 0.009239487516425756,
+        "histogramDelta": 0.002034492266830057,
+        "reasons": []
+      },
+      "dispositionId": "proposal-hash-refreshes-with-transition-identifiers",
+      "cause": "Fresh transitionId and successorProgramId values generated by the production-backed scenario participate in the canonical proposal-hash preimage, so the visible digest refreshes on capture despite unchanged production source and manifest.",
+      "visualOutcome": "Only the derived digest value changes; action availability, proposal semantics, and visual hierarchy remain unchanged. This content change is separate from progress-only raster variance."
+    },
+    {
+      "path": "progress/sibling-shorter-session__phone-390-light-pt-text200.png",
+      "beforeSha256": "ae018a9b5268460fefece3de636c31806246115d64a79da64555cce1438d18aa",
+      "afterSha256": "9064c570254bfed87ec4a2cfd36766b4fac3040a793af6f1751da58f7b5356b9",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.005776527373530308,
+        "changedCellRatio": 0.0302734375,
+        "meanEdgeDelta": 0.0068747771123079055,
+        "changedEdgeRatio": 0.036999014454664914,
+        "histogramDelta": 0.003173818055074662,
+        "reasons": []
+      },
+      "dispositionId": "proposal-hash-refreshes-with-transition-identifiers",
+      "cause": "Fresh transitionId and successorProgramId values generated by the production-backed scenario participate in the canonical proposal-hash preimage, so the visible digest refreshes on capture despite unchanged production source and manifest.",
+      "visualOutcome": "Only the derived digest value changes; action availability, proposal semantics, and visual hierarchy remain unchanged. This content change is separate from progress-only raster variance."
+    },
+    {
+      "path": "progress/guided-repair__phone-390-light-en.png",
+      "beforeSha256": "3375b4b90691a91d464af9178a843920896a716189f6d324977538485cf39660",
+      "afterSha256": "4639a3866002d7848b8268267cdba58673a75aa3c6305ffbff19213c643cefde",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.009278083451174613,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255084156990051,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/guided-repair__phone-390-dark-en.png",
+      "beforeSha256": "fe1521315a289dc8850f84184e8f7d87246845612913be52c66f61f8248810d4",
+      "afterSha256": "5e9b0a2d5a173f80cd0a48841093c825b3f618a72ac39e6abc97bcba28213382",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0010773513796223425,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.253211635660561e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/guided-repair__phone-390-light-pt.png",
+      "beforeSha256": "3c8507a60ef8a25758ff070b92fc697ecf008998203970939b3b06f43d17e8c5",
+      "afterSha256": "c573e3be60ed1057b86fbd8d725d1a15a40f02717a9c8ad8f0560d6abc7f3d0e",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.009278083451174613,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032551586627960205,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/guided-repair__phone-430-light-en.png",
+      "beforeSha256": "0774a23ab9939a97091f420026541d865cba2a3f73550544d532b752e3af9307",
+      "afterSha256": "2c5313c1f1f43ab9263e9c96959c1d634693097d77550622be6b547cfe0a001a",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.014273562161446611,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0021158941090106964,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/guided-repair__phone-390-light-en-reduced.png",
+      "beforeSha256": "3375b4b90691a91d464af9178a843920896a716189f6d324977538485cf39660",
+      "afterSha256": "4639a3866002d7848b8268267cdba58673a75aa3c6305ffbff19213c643cefde",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.009278083451174613,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255084156990051,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-ineligible__phone-390-light-en.png",
+      "beforeSha256": "dcc5d6621fb604414860961ba2ec91ab90f021d127a1e6ceea61cc0e29172d9c",
+      "afterSha256": "58be65509e3ee4d41ef51bf95df478373a2af10e7e62848ebe87ac0e988b44e5",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.004758299227448896,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255382180213928,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-ineligible__phone-390-dark-en.png",
+      "beforeSha256": "90837c2e2daf3ad046346822f342a36266282c1a90e33c3ec60cba776883ce22",
+      "afterSha256": "be674e0bfb7f2fdb40f095f323462e091e212da5bc11620b0bee3d4fef7ba223",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0005501522177268635,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.253211635660561e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-ineligible__phone-390-light-pt.png",
+      "beforeSha256": "eb9363153b2e711008e25835985686ecaf6a36da6665dcea55384ae90cbab915",
+      "afterSha256": "c563deab1a48c7ea2cbe3e994d62a11a192d103d557a2cc3e8ea5fe24c85af86",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0035792250304261066,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032551586627960205,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-ineligible__phone-430-light-en.png",
+      "beforeSha256": "f4ebe7ef39040a485a62b65aeb09a069c4f0b8084bf32b424809b9a11a6b874d",
+      "afterSha256": "88bb34c1ebb71605e83d41e39652023c430760b7a16c5ec0e086bea9c8395624",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.009164240641014487,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.002115868031978607,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-ineligible__phone-390-light-en-reduced.png",
+      "beforeSha256": "dcc5d6621fb604414860961ba2ec91ab90f021d127a1e6ceea61cc0e29172d9c",
+      "afterSha256": "58be65509e3ee4d41ef51bf95df478373a2af10e7e62848ebe87ac0e988b44e5",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.004758299227448896,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255382180213928,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-questions__phone-390-light-en.png",
+      "beforeSha256": "37e7060d1c922fdcbf221d444226b77ab5c74fe51391a90a168389011b0559ea",
+      "afterSha256": "d5de8e6c5023b9beb9c2fbadcc96d9b98b8e31bab5b6e27f886e08abf7b0aa63",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.007116447621494488,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255382180213928,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-questions__phone-390-dark-en.png",
+      "beforeSha256": "22d65c19bee6750307ea9fe3a1da2bb70dc09582f7b569676c442291c3413b1f",
+      "afterSha256": "cdca790643caaab5d7e5a6ee1229bc4b231f2462495420d060072c060ef9e197",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0008252126500201454,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.253211635660561e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-questions__phone-390-light-pt.png",
+      "beforeSha256": "c1f6118327992d5f6c75739b4257c2a337a81b104785914ddc0c6598af89f3df",
+      "afterSha256": "b319e44212b1a064eb7423a89303f5a2d75ac3b8d69a0a9e807a4618432ef500",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0059373734244717105,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255382180213928,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-questions__phone-430-light-en.png",
+      "beforeSha256": "8def769e912469ffbc73ee95e1c96d061595b7f3cd1ded2ce1fe61bc16a8b53d",
+      "afterSha256": "63421258f5eb7c89fa8450133180ac1ceca9cd0206027f3214bdf260bafdf846",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.01132587647069465,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0021158941090106964,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-questions__phone-390-light-en-reduced.png",
+      "beforeSha256": "37e7060d1c922fdcbf221d444226b77ab5c74fe51391a90a168389011b0559ea",
+      "afterSha256": "d5de8e6c5023b9beb9c2fbadcc96d9b98b8e31bab5b6e27f886e08abf7b0aa63",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.007116447621494488,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255382180213928,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "progress/recovery-active__phone-430-light-en.png",
+      "beforeSha256": "834e9a6e4792eb5b66761c8872e0340d2b43eb29af3511b706902b9ad9416dd7",
+      "afterSha256": "15079b45665c16281e482a9d176bfed9d16b1b01372720d64956452ff54502ea",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.0016967707265368587,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.002115897834300995,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-progress",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/session__phone-430-light-en.png",
+      "beforeSha256": "409939e8f757e1580d1df99b75727c34179077d684430d034fbb9dccf05eff6d",
+      "afterSha256": "d8b4ffb162ec9e94a30004ab3eecfe8998bc7f2934bdc5f4ec4a1cb77c3e300f",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.002286307626853231,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0021158941090106964,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/delete-confirm__phone-390-light-en.png",
+      "beforeSha256": "486a14f3061a53b565fa5563226b6d9670a8c15b065aba6107fe8617d9090f9a",
+      "afterSha256": "88788b65baedb5f0927967397d79640de3f23c5a00100d88edf316743c02536a",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.018710677027356865,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255121409893036,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/delete-confirm__phone-390-dark-en.png",
+      "beforeSha256": "37bfd2092dc314e0bbccbe842716ddd4c3f6aa2dfda9f733bdb725e3cd5a5c85",
+      "afterSha256": "d10bbbfc412ccfbb4b3ee61d5b790423fec9a15addcdac5b596f002b6ef1f8ad",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0021775931087955453,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.253211635660561e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/delete-confirm__phone-390-light-pt.png",
+      "beforeSha256": "b9c037a2180f96f10e6b59ca7f6a3da0d3974340c182968118344b99e500754d",
+      "afterSha256": "be674b2fc56a205ed42fdaad6a322a3a65f567cfa6d6e0a86e3c287b353937f9",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.01772811539469953,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032551027834415436,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/delete-confirm__phone-320-light-en.png",
+      "beforeSha256": "f2348f76c0f68e8379c7888cd92c6f059997f3f3dae17a789efc87090fe43113",
+      "afterSha256": "28dae6c7edda5216198581836715fe1993a092aa3757a5262a4b51ccc7a9d26f",
+      "comparison": {
+        "width": 640,
+        "height": 1136,
+        "ok": true,
+        "meanCellDelta": 0.00015920254264466062,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 5.9458881166228795e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.005289724096655846,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/delete-confirm__phone-430-light-en.png",
+      "beforeSha256": "791ccc98f585ad7f252067c806708f17bcf94035fb6cdf297b2ef2cb96e7e4d5",
+      "afterSha256": "12505149df091a872e387cec82c4f29e890cc52b56e260d3f9ba50eebbab5484",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.021741032075923972,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.002115895040333271,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/delete-confirm__phone-390-light-en-reduced.png",
+      "beforeSha256": "9abc9df637fcd143ad1bb8e98009fbb0a6e5576c9678c4c8fcb9d0a83871008f",
+      "afterSha256": "3293e3554167aa48826944d24a9eadad5a26ea2a4a028b17246c2cfb45eaea67",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.018710677027356865,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032554008066654205,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/conflict__phone-390-light-en.png",
+      "beforeSha256": "ef612da0c7098a120e98104aef60e83bafc581148edf3cc414d8039ba0e0876a",
+      "afterSha256": "66b77e69f5db42642ab8c888214295820f8887080044326a9ef4f3f27db3cfcc",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.01772811539469953,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032554008066654205,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/conflict__phone-390-dark-en.png",
+      "beforeSha256": "6bde11c3ad2e9741e18f3e11adcc4fcb491298ee843c458fa904a5a6dcf20a6a",
+      "afterSha256": "d6897d9e730057cc8655e037cce90eac86c0700ed4faba7193a71abcd55c0737",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.002062984595340001,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.253211635660561e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/conflict__phone-390-light-pt.png",
+      "beforeSha256": "ba1cdc634b15edaea5d00ed4a8a5e1812cc361886fe3c174dcb4e7c491708f45",
+      "afterSha256": "835ee6f6b67239bdc6af6e93f26ba69243aa24be18fda8acd83a8d506e3f04e4",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.01399438023926571,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0003255121409893036,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/conflict__phone-320-light-en.png",
+      "beforeSha256": "8299d2f9d82fd3935aa405d6e5e80febe060d5dda3c6df2433c566018d97d1ae",
+      "afterSha256": "ff329833f4f3a3d818ab3413eab28af6401b55b88a315ffc5086389f6e9fdc8e",
+      "comparison": {
+        "width": 640,
+        "height": 1136,
+        "ok": true,
+        "meanCellDelta": 0.00047564524751069577,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.0001899424558517654,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.005289692431688309,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/conflict__phone-430-light-en.png",
+      "beforeSha256": "755e26291f45809d5e94d2064c6be91c2b945fcebd2144120b442a19a50523e0",
+      "afterSha256": "0efd1e5575079f181368bc101f50caa9e0b076240c446a2be1170e6db5954928",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.020758470046876965,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.002115866169333458,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "history/conflict__phone-390-light-en-reduced.png",
+      "beforeSha256": "a25c5728d3fea3f3f4fa4a1143ed6a37cf80b1e103a6de30073ddd0b7e1ea2a2",
+      "afterSha256": "8f2f948aa504ab79771bcd35e8878a047895326743032fbb5066590f249387f9",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.01772811539469953,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032551027834415436,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-history",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/no-program__phone-390-light-en.png",
+      "beforeSha256": "df6f5bc0e68d3e916da2f5f3ae0bf04f93487653a749eeaaec56afce02219f42",
+      "afterSha256": "db6ff2bb0ae0e2232267657ec6a2acb9f74cc47e0f6e26987c9a8b53e9367a01",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.023033949083106933,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.000325511209666729,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/no-program__phone-390-dark-en.png",
+      "beforeSha256": "f87a24e104b884068ca5aed26e4b5836acb9a9cd86742e4c90be24cead8779bc",
+      "afterSha256": "5a57e155cd2e5d68fec76dfeb074a448578c6c80380166629f030f1d90399d94",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0026818705679999394,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.253211635660561e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/no-program__phone-390-light-pt.png",
+      "beforeSha256": "1e225c65135315b391662e6ba5d091002c9de730c33d8f556678284a8a321997",
+      "afterSha256": "fdba8eb423d7dc8b62624930d12c53ad79e9e0d42f1479eeeae4d5458f775f2b",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.023033949083106933,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.000325511209666729,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/progression-editor__phone-390-light-en.png",
+      "beforeSha256": "28b5fffc900c9b988d4cf508e7f90cd9dab7f91a672a1efe896aae6072b8b0fe",
+      "afterSha256": "6ff44d1dda2fc07a28728aaa39cf84cef7795abc1728c730c732588797e744ed",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 4.13977704434999e-06,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 8.362292773463566e-06,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 8.138082921504974e-05,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/progression-editor__phone-390-dark-en.png",
+      "beforeSha256": "d7fdae4318a0f918243662b552048281576836c6289c55dbf8c4b2cc8198f817",
+      "afterSha256": "f5278ceabc0fe6b2ed4dfc5b84cb397acfa46e70e94d7a13f7fea7e4785c8e52",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 4.332373268186426e-06,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 8.730225157330447e-06,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 8.138082921504974e-05,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/progression-editor__phone-390-light-pt.png",
+      "beforeSha256": "8e518cbb3a37a5055d2409532561591ec44e821808190cea6ac335abd456ade6",
+      "afterSha256": "61c4403303e150983cda873ef9c876da3c0936aaf504b335a73c68623223fd3b",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 4.13977704434999e-06,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 8.362292773463566e-06,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 8.138082921504974e-05,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/exercise-picker__phone-390-light-pt.png",
+      "beforeSha256": "0b389ec4031fc1ecb313ad13112b8e4a476432bd3b62d816b922a3a62d566d66",
+      "afterSha256": "09950b06d5bba9e8050ae9ae9037a40bcd26d939cf210f2a5538a56ddd3f1e09",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 1.612692095806732e-07,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 2.9946242932734444e-07,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/share-one-blocker__phone-390-light-pt.png",
+      "beforeSha256": "fec09288546f6d3b2dc852ebbddca975a18c4facbce076bc3220e7b6b0108bcb",
+      "afterSha256": "d533ad1ab1dbbaec11571beedea5d4c8ee34ae380ce49ef993922aa81d6b0776",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/share-repair-return__phone-390-light-pt.png",
+      "beforeSha256": "fec09288546f6d3b2dc852ebbddca975a18c4facbce076bc3220e7b6b0108bcb",
+      "afterSha256": "d533ad1ab1dbbaec11571beedea5d4c8ee34ae380ce49ef993922aa81d6b0776",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/readiness__phone-390-light-en.png",
+      "beforeSha256": "ef6adf65a0583a5429c2de15ed25ac93c84367ebf2f4ac464ced44a9d697e8a1",
+      "afterSha256": "a9a1cc9f9a8a3475f2dc13a29827718a6ecf273b73371228ab0a66960866b5ae",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.023426973815447862,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032554101198911667,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/readiness__phone-390-dark-en.png",
+      "beforeSha256": "551f1d361e315eeccef9adcec26de925f8b6c961d3687ca55e3f706aea6fc641",
+      "afterSha256": "4cb05a8ddc0fda96dfdee3a367f673da520742c44c902f2867030359211735b8",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.002727713973382157,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 3.253211635660561e-05,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/readiness__phone-390-light-pt.png",
+      "beforeSha256": "cb8edb0264ceeb127bf2e20d3f7fb7fbb14c1757218edb2f6c9182e727e52ea1",
+      "afterSha256": "e72dc396cdda25e383859e73d5f4defef344dd0fdad1c412000ab517cb1d1292",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.021658362718108667,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032551027834415436,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/readiness__phone-320-light-en.png",
+      "beforeSha256": "fa141fceffdd21330c045917f67d2e7440cb90676a9e09ee8f30ce67cf2d093a",
+      "afterSha256": "678a97b5310061f14d4d49fe8d39bb83698efc527289e1e3239cceab887e2247",
+      "comparison": {
+        "width": 640,
+        "height": 1136,
+        "ok": true,
+        "meanCellDelta": 0.010349231583177262,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00038322227739003267,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.005289694294333458,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/readiness__phone-430-light-en.png",
+      "beforeSha256": "0a4505cb006bed84d0e96722d285f50911899aa29b8820102e8480c425d5fc8c",
+      "afterSha256": "22c297c28724dfb44e991f314321d5bd46fbd2d23816763b105a11ef64b0612d",
+      "comparison": {
+        "width": 860,
+        "height": 1864,
+        "ok": true,
+        "meanCellDelta": 0.025867791567308746,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039206790822250926,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.002115866169333458,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/readiness__phone-390-light-en-text200.png",
+      "beforeSha256": "a7b2c5e7c513205f2af381e44f5f1ee8ba18051e15a0d7fab1d729a26a1cc878",
+      "afterSha256": "a17b6df0ab08e5ddfec4156a8970151a561133bda813fd1ee3b5d5fabbb93d4e",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.007120798037735919,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00038799991814050035,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.0026041753590106964,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    },
+    {
+      "path": "program/readiness__phone-390-light-en-reduced.png",
+      "beforeSha256": "e20a5adc44a846d2dd781a25c4e99cdfd61f53f0fc74b565f48c072df41fba62",
+      "afterSha256": "73b9b56be8123aa6c0b595cc655f412c7b449d754993dbd23bc2eaef1dda39ce",
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.023426973815447862,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0.00039176863915581895,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0.00032554008066654205,
+        "reasons": []
+      },
+      "dispositionId": "p7-same-source-raster-program",
+      "cause": "Same-source full-catalog rerender; no application or manifest source changed. The stored pixel metrics pass the fixed comparator; the full semantic catalog is exact.",
+      "visualOutcome": "No material rendered change; no state, copy, or role change."
+    }
+  ]
+}

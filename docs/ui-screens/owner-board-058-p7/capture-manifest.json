@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "plan": "058-P7",
-  "sourceSha": "4b61d990fe8b7ee765d0eac701a69546bb0402bd",
+  "sourceSha": "faa0bc494ab6e04c4537da7179705c89d80115c6",
   "catalogSource": "docs/ui-screens/screens/",
   "captureCommand": "env -u REPFORGE_URL node tools/capture-ui-screens.mjs",
   "captureGeneratedAt": "2026-09-29",
-  "sourceBoundary": "Final full catalog and representative board were generated from frozen Plan 058 production source SHA 4b61d990fe8b7ee765d0eac701a69546bb0402bd; no application UI, CSS, token, markup, or behavior source changed during the final P7 capture and board preparation.",
+  "sourceBoundary": "The complete P7 catalog and representative board were regenerated from frozen Plan 058 production source SHA faa0bc494ab6e04c4537da7179705c89d80115c6. No production application, CSS, token, markup, or behavior source changed during this full-catalog capture; the five selected board images below were recopied from the generated catalog.",
   "catalog": {
     "screenCount": 148,
-    "frameCount": 906,
+    "frameCount": 910,
     "semanticSha256": "ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa"
   },
   "selectedScreenCount": 30,
   "boardFrameCount": 65,
-  "provenance": "Each board PNG is an unmodified byte-for-byte copy of its corresponding production-generated frame from the complete P7 catalog at sourceSha.",
+  "provenance": "Each board PNG is an unmodified byte-for-byte copy of its corresponding production-generated frame from the complete final P7 catalog at sourceSha. The five selected frames that differed from the final catalog were recopied directly; no screenshot was hand-edited.",
   "ownerGate": {
     "approval": "Pedro explicitly approved the representative P5 board as the intended Taurifer visual direction; the approval covers the production visual system represented there.",
     "sourceBoard": "docs/ui-screens/owner-board-058-p5/",
     "sourceBoardManifest": "docs/ui-screens/owner-board-058-p5/capture-manifest.json",
     "approvedBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
     "approvedBoardFrameCount": 56,
-    "continuation": "Pedro explicitly approved the P5 board at source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. P6 reflow fixes and the paused-timer required-boundary correction preserve that hierarchy and direction. The final P7 comparison records the six earlier reviewed exceedances and adds paused timer states for dark and PT-BR at 200% text; no material change to the approved direction was found, so renewed owner approval is not required.",
+    "continuation": "Pedro explicitly approved the P5 board at source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. P6's computed-root 32px dock reflow and measured Today/ready text-scale scroll proof preserve the approved two-row dock, action order, and hierarchy. Five representative board copies were refreshed from the exact final catalog at source SHA faa0bc494ab6e04c4537da7179705c89d80115c6; the Today/ready PT-BR 200% frame shows the whole exercise row above the dock. This is a text-scale clearance correction within the approved system, with no material change to the approved direction, so renewed owner approval is not required.",
     "renewedApprovalRequired": false
   },
   "selected": [
@@ -98,7 +98,7 @@
       "key": "today/no-program",
       "variant": "phone-390-light-en",
       "path": "screens/today/no-program__phone-390-light-en.png",
-      "sha256": "7ab437a553673745999cd39919acfbafe616d69172d2d01d5d276cd56aa55f47",
+      "sha256": "313234d1cc4734a2b22ab667d600c3a20d80a2183d9819e853e31607ece2d20b",
       "sourcePath": "docs/ui-screens/screens/today/no-program__phone-390-light-en.png"
     },
     {
@@ -119,14 +119,14 @@
       "key": "today/ready",
       "variant": "phone-390-light-en-text200",
       "path": "screens/today/ready__phone-390-light-en-text200.png",
-      "sha256": "2cb64a119ba6e42c94e80f6c350a82bb02dbb46c20a33d76b1affdb7cd2f0b38",
+      "sha256": "a50e2f19c2333a75393af4d760fc399e5fc692f1e547d4a25e3eeceda1535327",
       "sourcePath": "docs/ui-screens/screens/today/ready__phone-390-light-en-text200.png"
     },
     {
       "key": "today/ready",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/today/ready__phone-390-light-pt-text200.png",
-      "sha256": "723e902ce19e03286ceaf61abdd397f1adb450e4fe68768cc158b735e5d1c85f",
+      "sha256": "a02c125d3971b20ae708528284d1cc9b63ae5a6ba670ce53d6482f4325429908",
       "sourcePath": "docs/ui-screens/screens/today/ready__phone-390-light-pt-text200.png"
     },
     {
@@ -287,14 +287,14 @@
       "key": "program/progression-editor",
       "variant": "phone-390-light-en",
       "path": "screens/program/progression-editor__phone-390-light-en.png",
-      "sha256": "28b5fffc900c9b988d4cf508e7f90cd9dab7f91a672a1efe896aae6072b8b0fe",
+      "sha256": "6ff44d1dda2fc07a28728aaa39cf84cef7795abc1728c730c732588797e744ed",
       "sourcePath": "docs/ui-screens/screens/program/progression-editor__phone-390-light-en.png"
     },
     {
       "key": "program/progression-editor",
       "variant": "phone-390-light-pt",
       "path": "screens/program/progression-editor__phone-390-light-pt.png",
-      "sha256": "8e518cbb3a37a5055d2409532561591ec44e821808190cea6ac335abd456ade6",
+      "sha256": "61c4403303e150983cda873ef9c876da3c0936aaf504b335a73c68623223fd3b",
       "sourcePath": "docs/ui-screens/screens/program/progression-editor__phone-390-light-pt.png"
     },
     {

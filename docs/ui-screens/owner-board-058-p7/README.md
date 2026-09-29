@@ -1,11 +1,11 @@
 # Plan 058 representative P7 visual board
 
-- **Production source SHA:** 4b61d990fe8b7ee765d0eac701a69546bb0402bd
+- **Production source SHA:** faa0bc494ab6e04c4537da7179705c89d80115c6
 - **Generated:** 2026-09-29 from the complete P7 catalog.
-- **Catalog:** 148 screens / 906 registered frames; semantic snapshot ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa.
-- **Board:** 65 production frames across 30 screens. Each PNG is a byte-for-byte copy from the catalog; no screenshot editing.
+- **Catalog:** 148 screens / 910 registered frames; semantic snapshot ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa.
+- **Board:** 65 production frames across 30 screens. Each PNG is a byte-for-byte copy from the final catalog; five selected frames were recopied from the regenerated catalog. No screenshot was hand-edited.
 - **Owner approval:** Pedro approved the P5 board at source SHA `dd70f11ad0e6a4bca8a491c7f37b3296d83c3166` as the intended visual direction.
-- **Full-catalog delta:** among the 898 frames present at the P6 baseline, 647 are byte-identical and 251 are byte-changed; all 898 pass fixed perceptual thresholds. The final catalog adds eight production-generated paused-rest-timer frames and removes none. Against the exact-source pre-capture snapshot, 898/906 frames remain byte-identical; the other eight change only their production-generated proposal digest. All 906 pass perceptual comparison and the semantic catalog matches exactly.
+- **Full-catalog delta:** among the 898 frames present at the P6 baseline, 625 are byte-identical and 273 are byte-changed; 12 registered frames were added and none were removed. Two Today/ready 200% frames exceed the pixel threshold because the production-backed scenario now uses measured scroll clearance to show the whole enlarged exercise row above the dock; both have exact dispositions. The other 271 common changes pass fixed perceptual thresholds. Against the immutable same-source pre-capture snapshot, 852/910 frames are byte-identical and 58 differ: eight Progress proposal previews refresh their derived digest from newly generated scenario IDs, and the remaining 50 differ only at the PNG byte level. All 910 pass perceptual comparison and the semantic catalog matches exactly.
 - **P5 comparison:** 56 comparable frames, 9 representative frames without a P5 match (seven existing P7 additions plus two paused-timer variants); 50 are within thresholds and 6 exceedances were reviewed. See [comparison-report.json](comparison-report.json).
 - **Exact frame delta:** [catalog-change-inventory.json](catalog-change-inventory.json).
 
@@ -13,7 +13,7 @@
 
 Assess Taurifer identity, hierarchy, density, semantic consistency, action hierarchy, card/elevation restraint, selected and disabled treatment, outcome semantics, and responsive/localized coherence. This selection is representative; P7 records every frame-level delta. Coverage includes EN/PT-BR, light/dark, 320/390/430 px phones, normal/200% text, reduced motion, and registered install/transfer states. Service-worker/cache behavior is separately covered by upgrade/offline evidence. Desktop is outside the mobile-only catalog.
 
-The program-entry threshold exceedances preserve the approved title, four-route order, featured action, and action hierarchy. The PT-BR 200% Today, Progress, and privacy frames show corrected reflow with content and actions reachable. The two added paused-timer frames show the required boundary in dark mode and the PT-BR 200% layout with all timer actions visible. The P5 approval remains the visual-direction decision; no renewed approval was needed.
+The program-entry threshold exceedances preserve the approved title, four-route order, featured action, and action hierarchy. The PT-BR 200% Today, Progress, and privacy frames show corrected reflow with content and actions reachable. The final Today/ready PT-BR 200% frame places the full exercise row above the persistent dock; the two-row dock and four actions retain their approved hierarchy. The two added paused-timer frames show the required boundary in dark mode and the PT-BR 200% layout with all timer actions visible. The P5 approval remains the visual-direction decision; no renewed approval was needed.
 
 ## Landing and program entry
 

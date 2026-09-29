@@ -3,7 +3,7 @@
   "baselineBoard": "owner-board-058-p5",
   "baselineBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
   "currentBoard": "owner-board-058-p7",
-  "currentProductionSourceSha": "4b61d990fe8b7ee765d0eac701a69546bb0402bd",
+  "currentProductionSourceSha": "faa0bc494ab6e04c4537da7179705c89d80115c6",
   "comparator": "tools/compare-ui-screens.mjs comparePngFiles; measured from production PNG artifacts at this source SHA",
   "thresholds": {
     "changedCellDelta": 0.08,
@@ -72,7 +72,6 @@
       "key": "onboarding-start/first-run",
       "variant": "phone-390-light-en",
       "path": "screens/onboarding-start/first-run__phone-390-light-en.png",
-      "baselineSha256": "9788250d280da40f460acc7af09d5555b633d2e5b32ecad55235d36fba48dc6b",
       "currentSha256": "9788250d280da40f460acc7af09d5555b633d2e5b32ecad55235d36fba48dc6b",
       "hasP5Match": true,
       "comparison": {
@@ -92,7 +91,6 @@
       "key": "onboarding-start/first-run",
       "variant": "phone-390-dark-en",
       "path": "screens/onboarding-start/first-run__phone-390-dark-en.png",
-      "baselineSha256": "8a3066e8fd323d1c3cd31a04b73fd10635e58ddb324ddb55dacc090f9a06c9c3",
       "currentSha256": "8a3066e8fd323d1c3cd31a04b73fd10635e58ddb324ddb55dacc090f9a06c9c3",
       "hasP5Match": true,
       "comparison": {
@@ -112,7 +110,6 @@
       "key": "onboarding-start/first-run",
       "variant": "phone-390-light-pt",
       "path": "screens/onboarding-start/first-run__phone-390-light-pt.png",
-      "baselineSha256": "aceafc4137200ba3efbe65caf9d1c21db2f2a3045694fb1505a19c6e20e03a0b",
       "currentSha256": "aceafc4137200ba3efbe65caf9d1c21db2f2a3045694fb1505a19c6e20e03a0b",
       "hasP5Match": true,
       "comparison": {
@@ -132,7 +129,6 @@
       "key": "onboarding-start/first-run",
       "variant": "phone-320-light-en",
       "path": "screens/onboarding-start/first-run__phone-320-light-en.png",
-      "baselineSha256": "4e839d1e86e00a8eda2a7d1b70161704d13df0e3aa50c81c90974f6b449be406",
       "currentSha256": "4e839d1e86e00a8eda2a7d1b70161704d13df0e3aa50c81c90974f6b449be406",
       "hasP5Match": true,
       "comparison": {
@@ -152,7 +148,6 @@
       "key": "onboarding-start/first-run",
       "variant": "phone-390-light-en-text200",
       "path": "screens/onboarding-start/first-run__phone-390-light-en-text200.png",
-      "baselineSha256": "bcc675167ef87eae3b31d7545efb2896b3ff33792922986c1c58c97fd27a7dfa",
       "currentSha256": "bcc675167ef87eae3b31d7545efb2896b3ff33792922986c1c58c97fd27a7dfa",
       "hasP5Match": true,
       "comparison": {
@@ -172,7 +167,6 @@
       "key": "onboarding-start/hub",
       "variant": "phone-390-light-en",
       "path": "screens/onboarding-start/hub__phone-390-light-en.png",
-      "baselineSha256": "85b53f219175f686d94612f4cf13997a5afa2567eb37bdba240d02da69753a90",
       "currentSha256": "794ad86d480429752f2b00adeda85540b018ac3fc8cbe83144aef609f028e64c",
       "hasP5Match": true,
       "comparison": {
@@ -196,7 +190,6 @@
       "key": "onboarding-start/hub",
       "variant": "phone-390-dark-en",
       "path": "screens/onboarding-start/hub__phone-390-dark-en.png",
-      "baselineSha256": "d049856bd6026378dd627a28e3a31751463eff7745ba6d010a1a99624799e693",
       "currentSha256": "b8a94588679b360dff73891199d1797016fc4b5068b4b1579ab4094d8589ced9",
       "hasP5Match": true,
       "comparison": {
@@ -220,7 +213,6 @@
       "key": "onboarding-start/hub",
       "variant": "phone-390-light-pt",
       "path": "screens/onboarding-start/hub__phone-390-light-pt.png",
-      "baselineSha256": "08eb57162be185589b9b61f51c2168ff53b1a4bd57afb2844ce51407a7bb351b",
       "currentSha256": "d7927e60c1ceb3ec18b1440ac626b1993474f790cf98a73ff17de96b1dce62fd",
       "hasP5Match": true,
       "comparison": {
@@ -241,41 +233,20 @@
       "disposition": "Visual review: the page title, four-route order, featured action, and action hierarchy match the approved direction; the measured difference is the shared typography and spacing recipe migration."
     },
     {
-      "key": "onboarding-build/editor-empty",
-      "variant": "phone-390-light-en-text200",
-      "path": "screens/onboarding-build/editor-empty__phone-390-light-en-text200.png",
-      "baselineSha256": null,
-      "currentSha256": "2dbda3bc1c43949553325ae52fcc90b4d6e997cf9e69dc787bdfbf7d2edb4704",
-      "hasP5Match": false,
-      "comparison": null,
-      "disposition": "No matching P5 board frame exists for this registered state; the current production capture is included for P6/P7 state coverage and geometry review."
-    },
-    {
-      "key": "onboarding-build/editor-ready",
-      "variant": "phone-390-light-pt-text200",
-      "path": "screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png",
-      "baselineSha256": null,
-      "currentSha256": "fe0bcc58ce0b446ace6f9021f0cbd0eea685513eaee86c8a81a94d89fdda0af1",
-      "hasP5Match": false,
-      "comparison": null,
-      "disposition": "No matching P5 board frame exists for this registered state; the current production capture is included for P6/P7 state coverage and geometry review."
-    },
-    {
       "key": "today/no-program",
       "variant": "phone-390-light-en",
       "path": "screens/today/no-program__phone-390-light-en.png",
-      "baselineSha256": "671eaaef39111d4aeadf140b5949c336bc0ecb088f72dcf295809b8edb3c6b57",
-      "currentSha256": "7ab437a553673745999cd39919acfbafe616d69172d2d01d5d276cd56aa55f47",
+      "currentSha256": "313234d1cc4734a2b22ab667d600c3a20d80a2183d9819e853e31607ece2d20b",
       "hasP5Match": true,
       "comparison": {
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.0009650347742294157,
+        "meanCellDelta": 0.022819909660313595,
         "changedCellRatio": 0.004475911458333333,
-        "meanEdgeDelta": 0.0012255448764789748,
+        "meanEdgeDelta": 0.0016173135156347935,
         "changedEdgeRatio": 0.006118593955321945,
-        "histogramDelta": 0.0021972768154228106,
+        "histogramDelta": 0.0023600272979820147,
         "reasons": []
       },
       "disposition": "Within the fixed P5 comparison thresholds."
@@ -284,7 +255,6 @@
       "key": "today/ready",
       "variant": "phone-390-light-en",
       "path": "screens/today/ready__phone-390-light-en.png",
-      "baselineSha256": "d5e77c65ecd04d33ce2ed21c1b68e718adc7a26c7f5960251cd2f69ac90fadb5",
       "currentSha256": "59563dad1ebc185a50097e20d7b783dbdb1c19c94213b7302f4aa0e6cfed5de3",
       "hasP5Match": true,
       "comparison": {
@@ -304,7 +274,6 @@
       "key": "today/ready",
       "variant": "phone-390-dark-en",
       "path": "screens/today/ready__phone-390-dark-en.png",
-      "baselineSha256": "f47433a1cbe9375da75fbb3992f5ae0e73373a5ed4564eb1a4385b70d1980ba9",
       "currentSha256": "0e5827aad73c30dca9265aaea04a2b626b6cdfd408455f3da70d0a149e3c17ed",
       "hasP5Match": true,
       "comparison": {
@@ -322,33 +291,22 @@
     },
     {
       "key": "today/ready",
-      "variant": "phone-390-light-en-text200",
-      "path": "screens/today/ready__phone-390-light-en-text200.png",
-      "baselineSha256": null,
-      "currentSha256": "2cb64a119ba6e42c94e80f6c350a82bb02dbb46c20a33d76b1affdb7cd2f0b38",
-      "hasP5Match": false,
-      "comparison": null,
-      "disposition": "No matching P5 board frame exists for this registered state; the current production capture is included for P6/P7 state coverage and geometry review."
-    },
-    {
-      "key": "today/ready",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/today/ready__phone-390-light-pt-text200.png",
-      "baselineSha256": "67e645ec4641a78954accf952333e18d3af4c554ba953c501c93a555fb3b6caf",
-      "currentSha256": "723e902ce19e03286ceaf61abdd397f1adb450e4fe68768cc158b735e5d1c85f",
+      "currentSha256": "a02c125d3971b20ae708528284d1cc9b63ae5a6ba670ce53d6482f4325429908",
       "hasP5Match": true,
       "comparison": {
         "width": 780,
         "height": 1688,
         "ok": false,
-        "meanCellDelta": 0.08825070440625254,
-        "changedCellRatio": 0.235107421875,
-        "meanEdgeDelta": 0.08028409699022124,
-        "changedEdgeRatio": 0.26568659658344285,
-        "histogramDelta": 0.019938131168601103,
+        "meanCellDelta": 0.08768391115331031,
+        "changedCellRatio": 0.23583984375,
+        "meanEdgeDelta": 0.0779428222010453,
+        "changedEdgeRatio": 0.26010183968462547,
+        "histogramDelta": 0.020019532516016625,
         "reasons": [
-          "mean colour delta 8.83% exceeds 3.50%",
-          "changed-cell ratio 23.51% exceeds 4.50%",
+          "mean colour delta 8.77% exceeds 3.50%",
+          "changed-cell ratio 23.58% exceeds 4.50%",
           "colour change is broad rather than isolated raster noise",
           "edge structure changed across the capture"
         ]
@@ -359,7 +317,6 @@
       "key": "workout/focus",
       "variant": "phone-390-light-en",
       "path": "screens/workout/focus__phone-390-light-en.png",
-      "baselineSha256": "9a39e72c1fe63dca7f3368f0ee298531916b1717d576769e86c696b181d275c3",
       "currentSha256": "6a67f0829a24e4efbdda47b14fd4d8fb22714f1905ba3a64c823d905b5730692",
       "hasP5Match": true,
       "comparison": {
@@ -379,7 +336,6 @@
       "key": "workout/focus",
       "variant": "phone-390-dark-en",
       "path": "screens/workout/focus__phone-390-dark-en.png",
-      "baselineSha256": "1108174944c5309a5f309acaedbce94a44ecd4945530317588e7b27563fdb0d6",
       "currentSha256": "9d8111323b1004e1d426ab756688be55bb7f243027093e28dc2ba48650897f0d",
       "hasP5Match": true,
       "comparison": {
@@ -399,7 +355,6 @@
       "key": "workout/focus",
       "variant": "phone-320-light-en",
       "path": "screens/workout/focus__phone-320-light-en.png",
-      "baselineSha256": "904b609b631064a0107bf1c225f3b59379b2201d09af6059cfd9076f1d5c4486",
       "currentSha256": "f81aed3904d7e3bae2ff26baae89d94f1bea7ea9d7e29a0efe78f7d7dafe8b7a",
       "hasP5Match": true,
       "comparison": {
@@ -419,7 +374,6 @@
       "key": "workout/focus",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/workout/focus__phone-390-light-pt-text200.png",
-      "baselineSha256": "e4e58c7f743e12761e066a2b2bf3e2cddd68223eb6711e074ce03f7e644f74e9",
       "currentSha256": "e192f8a4a0611802e1546524e8ad58974908b0bde424ef8c04bf5806fa952218",
       "hasP5Match": true,
       "comparison": {
@@ -439,7 +393,6 @@
       "key": "workout/rest-timer",
       "variant": "phone-390-dark-en",
       "path": "screens/workout/rest-timer__phone-390-dark-en.png",
-      "baselineSha256": "815a17ee191e855eafc26369c678fc0a875130b9696fa7c23c64afe284abdc77",
       "currentSha256": "1e30b500518eeee3e5288deebd4c7a0734632e38896e6a4b93345fefccde66f2",
       "hasP5Match": true,
       "comparison": {
@@ -459,7 +412,6 @@
       "key": "workout/rest-timer",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/workout/rest-timer__phone-390-light-pt-text200.png",
-      "baselineSha256": "68c6f42aa194cd4610e2c9bc5e482e77223ec89bbe220cfa77f08e745e377a79",
       "currentSha256": "156cc262f1b00092feebf11e5e098a5f6edae0b31d8982c0dd489a5c14aa5ba8",
       "hasP5Match": true,
       "comparison": {
@@ -479,7 +431,6 @@
       "key": "session/summary",
       "variant": "phone-390-light-en",
       "path": "screens/session/summary__phone-390-light-en.png",
-      "baselineSha256": "8fb1013ee3d6a066169e1d85ef8a1e31da68d6ae58f7855cf46130ed9771f527",
       "currentSha256": "8fb1013ee3d6a066169e1d85ef8a1e31da68d6ae58f7855cf46130ed9771f527",
       "hasP5Match": true,
       "comparison": {
@@ -499,7 +450,6 @@
       "key": "session/summary",
       "variant": "phone-390-dark-en",
       "path": "screens/session/summary__phone-390-dark-en.png",
-      "baselineSha256": "2366fd7a4b11322c4fbf16273f9fe50fe64210c794fd887c4e9d6a962810cf5c",
       "currentSha256": "2366fd7a4b11322c4fbf16273f9fe50fe64210c794fd887c4e9d6a962810cf5c",
       "hasP5Match": true,
       "comparison": {
@@ -519,7 +469,6 @@
       "key": "session/summary-declined",
       "variant": "phone-390-light-en",
       "path": "screens/session/summary-declined__phone-390-light-en.png",
-      "baselineSha256": "8fb1013ee3d6a066169e1d85ef8a1e31da68d6ae58f7855cf46130ed9771f527",
       "currentSha256": "8fb1013ee3d6a066169e1d85ef8a1e31da68d6ae58f7855cf46130ed9771f527",
       "hasP5Match": true,
       "comparison": {
@@ -539,7 +488,6 @@
       "key": "session/summary-declined",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/session/summary-declined__phone-390-light-pt-text200.png",
-      "baselineSha256": "b57956defa01bd75bcc45e73fbf1393ae4cc9e519c4bdbae51bd715ab22b9711",
       "currentSha256": "b57956defa01bd75bcc45e73fbf1393ae4cc9e519c4bdbae51bd715ab22b9711",
       "hasP5Match": true,
       "comparison": {
@@ -559,7 +507,6 @@
       "key": "progress/overview-action",
       "variant": "phone-390-light-en",
       "path": "screens/progress/overview-action__phone-390-light-en.png",
-      "baselineSha256": "48098b419acacbe1ad8f609a9fbae9819b846f4a43a4a78b36718993f9b0dad4",
       "currentSha256": "9b334a39ede0e9fb04ca614af263e0ec18858e69423b4c81bcae7837a9debf71",
       "hasP5Match": true,
       "comparison": {
@@ -579,7 +526,6 @@
       "key": "progress/overview-action",
       "variant": "phone-390-dark-en",
       "path": "screens/progress/overview-action__phone-390-dark-en.png",
-      "baselineSha256": "e643ef8b8202bfd4885afc8eadb265219cd76251ab9a539cedf3bd834481f7f2",
       "currentSha256": "236bf5b248d3995638fb57c0876042f8af8fca1e80bfff44e7c9e1db6fe6a19a",
       "hasP5Match": true,
       "comparison": {
@@ -599,7 +545,6 @@
       "key": "progress/recovery-preview",
       "variant": "phone-390-light-en",
       "path": "screens/progress/recovery-preview__phone-390-light-en.png",
-      "baselineSha256": "9a41e6078255fee1c834df611e0f6cbb12ea704760255249d695c8a9192dccc6",
       "currentSha256": "827598dbc0ac0833bb1a67427ce512fc91d07258129dd7b38af9d85495491d8d",
       "hasP5Match": true,
       "comparison": {
@@ -619,7 +564,6 @@
       "key": "progress/recovery-preview",
       "variant": "phone-320-light-en",
       "path": "screens/progress/recovery-preview__phone-320-light-en.png",
-      "baselineSha256": "cca1a250111869e441cb4e2137389cd022e1ba01e32fadbe26e0a107c694fb3e",
       "currentSha256": "67d2c4d44efa66a904eed1097c3288ed36b55dc99d0e5c67d5d2d7f27b831cfc",
       "hasP5Match": true,
       "comparison": {
@@ -639,7 +583,6 @@
       "key": "progress/recovery-preview",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/progress/recovery-preview__phone-390-light-pt-text200.png",
-      "baselineSha256": "752ad6c4c544b7d5d59f60a320400d93b52bdd07439e9ccaf70f241783383b29",
       "currentSha256": "e94e616b96d965a2b14ed0e57f478191dc071e6aec9549d6f66ee19890f14e29",
       "hasP5Match": true,
       "comparison": {
@@ -664,7 +607,6 @@
       "key": "history/list",
       "variant": "phone-390-light-en",
       "path": "screens/history/list__phone-390-light-en.png",
-      "baselineSha256": "148f300d3b15933bb123bea630a098bf0f602092cf55c8effffc4f0234df0add",
       "currentSha256": "4fb6f9d8616a1261f53e9f7ecd8a012a056a43f4cee9dbcd9a24c6b2513bf6eb",
       "hasP5Match": true,
       "comparison": {
@@ -684,7 +626,6 @@
       "key": "history/list",
       "variant": "phone-390-dark-en",
       "path": "screens/history/list__phone-390-dark-en.png",
-      "baselineSha256": "641cb1d2fbdf647ead71e56f456d9f2a06afa359ac7debce784af70c5f7db671",
       "currentSha256": "2ccc4c88813c02af83b1f9e2f4f9a5f536e2570cd4fb182c9e36dbce66aaa653",
       "hasP5Match": true,
       "comparison": {
@@ -704,7 +645,6 @@
       "key": "history/list",
       "variant": "phone-390-light-pt",
       "path": "screens/history/list__phone-390-light-pt.png",
-      "baselineSha256": "7aa77510da4a1770edd7e9ee6c5fe3f104d9651a2b9f7a80c65f02167a12bc44",
       "currentSha256": "92e843205be2aae639d580968a0675c550f4d858ec9229023db5fa1986397005",
       "hasP5Match": true,
       "comparison": {
@@ -724,7 +664,6 @@
       "key": "history/edit-invalid",
       "variant": "phone-390-light-en",
       "path": "screens/history/edit-invalid__phone-390-light-en.png",
-      "baselineSha256": "77058d5045ceb137231db3453ec841c7d6f19d1674fac1086543cf212172e8d3",
       "currentSha256": "c0edaa22d3a394a881914189f99ca38b8aaf58617b60a784ed97d0bcabe9bd38",
       "hasP5Match": true,
       "comparison": {
@@ -744,7 +683,6 @@
       "key": "history/edit-invalid",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/history/edit-invalid__phone-390-light-pt-text200.png",
-      "baselineSha256": "36a4ed784b634c6b18490e5543ebec2c320550048c5cc632541230ffeef9b727",
       "currentSha256": "75812c1a13a65485a1a66074b985b6a561dbe5e7028fe6007ea02b35f70f92b0",
       "hasP5Match": true,
       "comparison": {
@@ -764,7 +702,6 @@
       "key": "program/overview",
       "variant": "phone-390-light-en",
       "path": "screens/program/overview__phone-390-light-en.png",
-      "baselineSha256": "9561aeb3cdb43e464a78ce831848cd6ffd4392ad427a38a42d95b0450dc287aa",
       "currentSha256": "cfc47f9576f07c3e2eeb10a3121d33bbfda723fb3a6cdbcf7bdb20bf9e7b1b66",
       "hasP5Match": true,
       "comparison": {
@@ -784,7 +721,6 @@
       "key": "program/overview",
       "variant": "phone-390-dark-en",
       "path": "screens/program/overview__phone-390-dark-en.png",
-      "baselineSha256": "01bd4ee87c1f26c0beb292076752bcdbd8b31f745a9b85109fcb7dffa2548dc3",
       "currentSha256": "4537c8f28092b5d2513d13029b548cd1be8fb202c6c2d56d4904887b3066e8a1",
       "hasP5Match": true,
       "comparison": {
@@ -804,18 +740,17 @@
       "key": "program/progression-editor",
       "variant": "phone-390-light-en",
       "path": "screens/program/progression-editor__phone-390-light-en.png",
-      "baselineSha256": "a8ee8db4beaea6930e4b5d1e07a576432625e2a550f72baeaf15250d3b10a4cf",
-      "currentSha256": "28b5fffc900c9b988d4cf508e7f90cd9dab7f91a672a1efe896aae6072b8b0fe",
+      "currentSha256": "6ff44d1dda2fc07a28728aaa39cf84cef7795abc1728c730c732588797e744ed",
       "hasP5Match": true,
       "comparison": {
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.0012226217284862328,
+        "meanCellDelta": 0.001226761505530583,
         "changedCellRatio": 0.006673177083333333,
-        "meanEdgeDelta": 0.0017613236047082756,
+        "meanEdgeDelta": 0.001769685897481739,
         "changedEdgeRatio": 0.009280551905387648,
-        "histogramDelta": 0.0020344957119959872,
+        "histogramDelta": 0.0019531148827809375,
         "reasons": []
       },
       "disposition": "Within the fixed P5 comparison thresholds."
@@ -824,16 +759,15 @@
       "key": "program/progression-editor",
       "variant": "phone-390-light-pt",
       "path": "screens/program/progression-editor__phone-390-light-pt.png",
-      "baselineSha256": "da8461a148538ec9c2d756f85e469425bb592e4042d623b1172073f2d8f06d89",
-      "currentSha256": "8e518cbb3a37a5055d2409532561591ec44e821808190cea6ac335abd456ade6",
+      "currentSha256": "61c4403303e150983cda873ef9c876da3c0936aaf504b335a73c68623223fd3b",
       "hasP5Match": true,
       "comparison": {
         "width": 780,
         "height": 1688,
         "ok": true,
-        "meanCellDelta": 0.001438397460693161,
+        "meanCellDelta": 0.0014425372377375111,
         "changedCellRatio": 0.007731119791666667,
-        "meanEdgeDelta": 0.0019179793728243818,
+        "meanEdgeDelta": 0.0019263416655978455,
         "changedEdgeRatio": 0.009937582128777924,
         "histogramDelta": 0.002522777063859394,
         "reasons": []
@@ -844,7 +778,6 @@
       "key": "program/exercise-picker",
       "variant": "phone-390-light-en",
       "path": "screens/program/exercise-picker__phone-390-light-en.png",
-      "baselineSha256": "13c9944e3bc639e033ba29de1440d85a0e21025dc49025b5bb3b171b2db8a34c",
       "currentSha256": "909de3247f67f7edf4a6fd598335c8c41492238e8374e8ab4356732c5a90aa7c",
       "hasP5Match": true,
       "comparison": {
@@ -864,7 +797,6 @@
       "key": "program/share-ready",
       "variant": "phone-390-light-en",
       "path": "screens/program/share-ready__phone-390-light-en.png",
-      "baselineSha256": "0105e41dbcd83c0b3b58ed109d408bdeb840fd76796fd53139d7f27f07097a77",
       "currentSha256": "58f77f0440ecea69990a5321c2afd5e0242dd3b47d7728561a0e1f89e84e9bed",
       "hasP5Match": true,
       "comparison": {
@@ -884,7 +816,6 @@
       "key": "program/share-ready",
       "variant": "phone-390-dark-en",
       "path": "screens/program/share-ready__phone-390-dark-en.png",
-      "baselineSha256": "67a586a4a0a12a1d2248ea458bc72d1af15e306fed68498e6a8bd812e21bf11b",
       "currentSha256": "01cf1d24210acaaad532d9d2e560efb1323ed1472ab6af68527a02a54e78b815",
       "hasP5Match": true,
       "comparison": {
@@ -904,7 +835,6 @@
       "key": "program/share-ready",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/program/share-ready__phone-390-light-pt-text200.png",
-      "baselineSha256": "51bce22935bac70682302146783b5b0f2ac5b585e82a3996d5de0013ccffb6bd",
       "currentSha256": "5fb8e63c4528a5797a76ae8584a0ccbae046240b55876d2fa9512beb3d47c8dd",
       "hasP5Match": true,
       "comparison": {
@@ -924,7 +854,6 @@
       "key": "program/share-one-blocker",
       "variant": "phone-390-light-en",
       "path": "screens/program/share-one-blocker__phone-390-light-en.png",
-      "baselineSha256": "ca39417cd26bd3f177ed241c8aa66717c36f6f22461a9f09890dd2d4e07abf1b",
       "currentSha256": "e4f88a9778abe5b796be1e318dc65a7f9cc53cb5e332836798b72cd141d1ca1a",
       "hasP5Match": true,
       "comparison": {
@@ -944,7 +873,6 @@
       "key": "program/share-one-blocker",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/program/share-one-blocker__phone-390-light-pt-text200.png",
-      "baselineSha256": "57e90e110e4e4ee1e3e990fc7fcc0a250ad2fe7beda91d653c14af1705187ebc",
       "currentSha256": "c5c44cc2919db801e5ff42205288576a5720a7a5b4546845a87a87fc08d45042",
       "hasP5Match": true,
       "comparison": {
@@ -964,7 +892,6 @@
       "key": "settings/main",
       "variant": "phone-390-light-en",
       "path": "screens/settings/main__phone-390-light-en.png",
-      "baselineSha256": "045ae59641e190fa8e340df5a89eda503186cd056952d80221fdd3ad98b40fb9",
       "currentSha256": "d8c9e0eeb923f3986dcb3d33e3ce62ae5656d65da50584fd7c1efd5320d08765",
       "hasP5Match": true,
       "comparison": {
@@ -984,7 +911,6 @@
       "key": "settings/main",
       "variant": "phone-390-dark-en",
       "path": "screens/settings/main__phone-390-dark-en.png",
-      "baselineSha256": "37be6f885c08509404f219176af8f6ef945ad7f3ca1727f1d2c0aea7e569a5c7",
       "currentSha256": "923c8351b06b0e96f636b2e8347f3f8125f1d56e1926e5e1dae096968e23f6c9",
       "hasP5Match": true,
       "comparison": {
@@ -1004,7 +930,6 @@
       "key": "settings/main",
       "variant": "phone-390-light-pt",
       "path": "screens/settings/main__phone-390-light-pt.png",
-      "baselineSha256": "ab63a5ccac3a208b524c29d9e1e9a983dc2609084657fdc2429d1d3cdf0c7001",
       "currentSha256": "457bce80bfd211e804c2ff22a1ffe074660ad2cd7768b468fc3896e1b115d96e",
       "hasP5Match": true,
       "comparison": {
@@ -1024,7 +949,6 @@
       "key": "settings/guides-replay",
       "variant": "phone-390-light-en",
       "path": "screens/settings/guides-replay__phone-390-light-en.png",
-      "baselineSha256": "bbfb8ea099d224e64da6b3dda7a9cdb9a9215caa415279456b76ee08d4708750",
       "currentSha256": "adee77ac6a7c23b4cf05977122d589a1a1aa4b8a3980a1b3dad566f0c4d8ba8a",
       "hasP5Match": true,
       "comparison": {
@@ -1044,7 +968,6 @@
       "key": "settings/guides-replay",
       "variant": "phone-390-light-pt",
       "path": "screens/settings/guides-replay__phone-390-light-pt.png",
-      "baselineSha256": "c7f76c2a4c88349b649240d9c2671349c9b2f443157abf2a820d1ed9322c2e8d",
       "currentSha256": "7b1d21d19a1940c7714f5201add7495e3b352e790c9a571bff9d339672e2b2ba",
       "hasP5Match": true,
       "comparison": {
@@ -1064,7 +987,6 @@
       "key": "settings/privacy-disclosure",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/settings/privacy-disclosure__phone-390-light-pt-text200.png",
-      "baselineSha256": "c60f4c7e9b1e58514f0f97ce20ac3ccf039fabacd05f3bc4bc7f45b00c41ec51",
       "currentSha256": "ee791305b7851755aab71b6f0b6f8bdeae69c668325044ff1655910ba5907348",
       "hasP5Match": true,
       "comparison": {
@@ -1088,7 +1010,6 @@
       "key": "library/list",
       "variant": "phone-390-light-en",
       "path": "screens/library/list__phone-390-light-en.png",
-      "baselineSha256": "31b91e3e994263f8781e84d58e9d55b506f02717a0d150f4b0f8e000dcb0ad34",
       "currentSha256": "d88fdc68033a40851c78332ab20e2d36f978dbff11f7425167ad1d43406e0e99",
       "hasP5Match": true,
       "comparison": {
@@ -1108,7 +1029,6 @@
       "key": "library/list",
       "variant": "phone-390-dark-en",
       "path": "screens/library/list__phone-390-dark-en.png",
-      "baselineSha256": "6fd8bf042ed9f934531a216f54a122001fb786532b928a03ae6b22cc7fb6c90b",
       "currentSha256": "fa7e10c78eb77445540d388d2aa9d361fe472603432a9bf8fe1e701779d64a0c",
       "hasP5Match": true,
       "comparison": {
@@ -1128,7 +1048,6 @@
       "key": "library/list",
       "variant": "phone-390-light-pt",
       "path": "screens/library/list__phone-390-light-pt.png",
-      "baselineSha256": "a8968848678ab05757118e1182e965c995a32e25f349fb1f4cd5717bccfc932d",
       "currentSha256": "4d0b9739322bed5adaf5c662484a375102e2dd5bad774f66d53c1d8ce51bef6a",
       "hasP5Match": true,
       "comparison": {
@@ -1148,7 +1067,6 @@
       "key": "library/exercise-detail",
       "variant": "phone-390-light-en",
       "path": "screens/library/exercise-detail__phone-390-light-en.png",
-      "baselineSha256": "a9ed060f612c9b889b448cb719071987a4b739c8c7e317e42557ba34dfc25e89",
       "currentSha256": "69bee969124e59a9deb6088e2c70d18359b73a36ff52bc748064e5c0d5306824",
       "hasP5Match": true,
       "comparison": {
@@ -1168,7 +1086,6 @@
       "key": "library/exercise-detail",
       "variant": "phone-390-light-pt",
       "path": "screens/library/exercise-detail__phone-390-light-pt.png",
-      "baselineSha256": "4b1a9ddd0af6b4f52f88753c8075f2aad1c9615620f9ef3e95ffc8b78ea476bd",
       "currentSha256": "665f402c5f02ee0808d9c410fab48bd30fef49b264aefd99fde356b41be3293d",
       "hasP5Match": true,
       "comparison": {
@@ -1188,7 +1105,6 @@
       "key": "install/transfer-ready",
       "variant": "phone-390-light-en",
       "path": "screens/install/transfer-ready__phone-390-light-en.png",
-      "baselineSha256": "4b2133c2c94d74b840ff697bcaa420b8dc44b1ea7f48e06a25a73700341dbb10",
       "currentSha256": "6d72e98b01466e8125ecedf918225aab0b3895e146a7e69a58dddcdf471c6d24",
       "hasP5Match": true,
       "comparison": {
@@ -1208,7 +1124,6 @@
       "key": "install/transfer-ready",
       "variant": "phone-390-dark-en",
       "path": "screens/install/transfer-ready__phone-390-dark-en.png",
-      "baselineSha256": "0916b63b33e1172cc57053a9653fc7cb765e095ffe1379f368ee2de928f0619e",
       "currentSha256": "32e7d56890257e3be57494c2a2f4915f0fd5a502289765719511b2029a63557f",
       "hasP5Match": true,
       "comparison": {
@@ -1228,7 +1143,6 @@
       "key": "install/transfer-ready",
       "variant": "phone-390-light-pt-text200",
       "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png",
-      "baselineSha256": "ec58f0835687ac4407988061b76c733deac5425b95a2770bf69a36043d9d57a2",
       "currentSha256": "4ba0b982463a8cc4ab65224885820cdffa6ad4c88a69e456a9a0b8ae6ed9879c",
       "hasP5Match": true,
       "comparison": {
@@ -1243,53 +1157,36 @@
         "reasons": []
       },
       "disposition": "Within the fixed P5 comparison thresholds."
-    },
-    {
-      "key": "today/rest-bar",
-      "variant": "phone-390-light-pt-text200",
-      "path": "screens/today/rest-bar__phone-390-light-pt-text200.png",
-      "baselineSha256": null,
-      "currentSha256": "0bc526cda72bf81bf18aa5724879e82a8ed228da30fedfe5fdc0f44240183e2d",
-      "hasP5Match": false,
-      "comparison": null,
-      "disposition": "No matching P5 board frame exists for this registered state; the current production capture is included for P6/P7 state coverage and geometry review."
-    },
-    {
-      "key": "workout/focus-glossary",
-      "variant": "phone-390-light-pt-text200",
-      "path": "screens/workout/focus-glossary__phone-390-light-pt-text200.png",
-      "baselineSha256": null,
-      "currentSha256": "2231202a1439d5ce8e815b1f15e9da90373039d7682fa049da928a9252d98efc",
-      "hasP5Match": false,
-      "comparison": null,
-      "disposition": "No matching P5 board frame exists for this registered state; the current production capture is included for P6/P7 state coverage and geometry review."
-    },
-    {
-      "key": "library/list-selected",
-      "variant": "phone-390-light-pt-text200",
-      "path": "screens/library/list-selected__phone-390-light-pt-text200.png",
-      "baselineSha256": null,
-      "currentSha256": "2fd4d5c26610860ff85de4515015959419d0b95841c5879a49934773cf6c3d75",
-      "hasP5Match": false,
-      "comparison": null,
-      "disposition": "No matching P5 board frame exists for this registered state; the current production capture is included for P6/P7 state coverage and geometry review."
-    },
-    {
-      "key": "library/exercise-detail-glossary",
-      "variant": "phone-390-light-pt-text200",
-      "path": "screens/library/exercise-detail-glossary__phone-390-light-pt-text200.png",
-      "baselineSha256": null,
-      "currentSha256": "f3ecb2945ca2328ea58e777d8af9428f623c4dd1efe25e8d8f8e0638e6e5f6a0",
-      "hasP5Match": false,
-      "comparison": null,
-      "disposition": "No matching P5 board frame exists for this registered state; the current production capture is included for P6/P7 state coverage and geometry review."
     }
   ],
-  "reviewNotes": {
-    "reviewedAt": "2026-09-29",
-    "reviewer": "Luna parent implementation owner",
-    "semanticCatalog": "Exact across the full 148-screen / 906-frame final P7 catalog.",
-    "materialDirection": "All six P5 comparison threshold exceedances were individually reviewed. The three program-entry frames preserve the visible title, route order, featured card, and action hierarchy; the three PT-BR 200% frames show repaired reflow with content and actions reachable. The added paused-timer dark and PT-BR 200% frames preserve the approved rest-sheet hierarchy while exposing the required-boundary state. No material change to Taurifer identity, semantic selection, outcome treatment, or surface hierarchy was found.",
-    "ownerApproval": "Pedro approved the P5 representative board at production source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. P6 corrections and the final P7 evidence refresh preserve that direction; this evidence refresh does not create a new owner approval."
-  }
+  "reviewNotes": [
+    "Final P6 dock correction: the selected Today/ready EN and PT-BR 200% frames were refreshed from source faa0bc494ab6e04c4537da7179705c89d80115c6. Their capture now uses measured row-bottom/dock-top scrolling, so the complete exercise row is visible above the same two-row dock. This is an evidence framing correction; the computed-root CSS repair preserves the approved layout and action hierarchy."
+  ],
+  "refreshedBoardFrames": [
+    {
+      "path": "screens/today/no-program__phone-390-light-en.png",
+      "beforeSha256": "7ab437a553673745999cd39919acfbafe616d69172d2d01d5d276cd56aa55f47",
+      "afterSha256": "313234d1cc4734a2b22ab667d600c3a20d80a2183d9819e853e31607ece2d20b"
+    },
+    {
+      "path": "screens/today/ready__phone-390-light-en-text200.png",
+      "beforeSha256": "2cb64a119ba6e42c94e80f6c350a82bb02dbb46c20a33d76b1affdb7cd2f0b38",
+      "afterSha256": "a50e2f19c2333a75393af4d760fc399e5fc692f1e547d4a25e3eeceda1535327"
+    },
+    {
+      "path": "screens/today/ready__phone-390-light-pt-text200.png",
+      "beforeSha256": "723e902ce19e03286ceaf61abdd397f1adb450e4fe68768cc158b735e5d1c85f",
+      "afterSha256": "a02c125d3971b20ae708528284d1cc9b63ae5a6ba670ce53d6482f4325429908"
+    },
+    {
+      "path": "screens/program/progression-editor__phone-390-light-en.png",
+      "beforeSha256": "28b5fffc900c9b988d4cf508e7f90cd9dab7f91a672a1efe896aae6072b8b0fe",
+      "afterSha256": "6ff44d1dda2fc07a28728aaa39cf84cef7795abc1728c730c732588797e744ed"
+    },
+    {
+      "path": "screens/program/progression-editor__phone-390-light-pt.png",
+      "beforeSha256": "8e518cbb3a37a5055d2409532561591ec44e821808190cea6ac335abd456ade6",
+      "afterSha256": "61c4403303e150983cda873ef9c876da3c0936aaf504b335a73c68623223fd3b"
+    }
+  ]
 }
