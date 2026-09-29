@@ -235,8 +235,8 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 .i-bgrid__r span:first-child{margin:0 10px 7px 0;border-right:0;border-bottom:1px dotted var(--rule)}
 .i-land__priv{text-align:left}
 .i-proof{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:10px;padding-top:8px}
-.i-proof .landing-proof{margin:0;width:min(64%,250px);transform:rotate(-2.2deg);border:7px solid var(--paper);border-bottom-width:22px;box-shadow:0 14px 26px -12px rgba(0,0,0,.45),0 2px 4px rgba(0,0,0,.15);background:var(--paper)}
-.i-proof .landing-proof img{display:block;width:100%;height:auto;border-radius:0}
+.i-proof__photo{display:block;margin:0;width:min(64%,250px);transform:rotate(-2.2deg);border:7px solid var(--paper);border-bottom-width:22px;box-shadow:0 14px 26px -12px rgba(0,0,0,.45),0 2px 4px rgba(0,0,0,.15);background:var(--paper)}
+.i-proof__photo img{display:block;width:100%;height:auto;border-radius:0}
 .i-proof__clip{position:absolute;top:0;left:50%;z-index:2;width:92px;height:26px;margin-left:-40px;transform:rotate(3deg);background:rgba(255,253,240,.5);box-shadow:0 1px 2px rgba(0,0,0,.12);backdrop-filter:blur(1px)}
 :root[data-theme="dark"] .i-proof__clip{background:rgba(220,225,255,.18)}
 .i-proof figcaption{text-align:center;max-width:22em}
@@ -436,7 +436,7 @@ html[data-stock="kraft"] .i-lede,html[data-stock="kraft"] .i-note{color:var(--pr
 :root[style*="200%"] .i-field{border-right:0}
 :root[style*="200%"] .i-fields--q .i-field:not(.is-here){display:none}
 :root[style*="200%"] .i-head__sum{display:block;padding:4px 6px;border-bottom:1px solid var(--rule-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-:root[style*="200%"] .i-head__sum .i-pen{font-size:.875rem}
+:root[style*="200%"] .i-head__sum .i-pen{display:block;font-size:.875rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 :root[style*="200%"] .i-where__r{display:none}
 :root[style*="200%"] .i-where{padding-bottom:2px}
 :root[style*="200%"] .i-field__btn,:root[style*="200%"] .i-field__static{min-height:44px;padding:4px 6px}
