@@ -465,3 +465,10 @@ details[open] > summary .j-day__chev { transform: rotate(180deg); }
 :root[style*="200%"] .j-bar--land .j-bar__txt, :root[style*="200%"] .j-bar__txt { min-height: 2.75rem; padding: 0 .5rem; font-size: .6875rem; }
 :root[style*="200%"] .j-replies--stack { width: 100%; }
 :root[style*="200%"] .j-pill__clip { width: 2.75rem; }
+.j-bar__txt { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; }
+.j-bar__lock { display: none; width: 1.25rem; height: 1.25rem; }
+:root[style*="200%"] .j-bar--land .j-bar__txt { width: 2.75rem; padding: 0; border-radius: 50%; }
+:root[style*="200%"] .j-bar--land .j-bar__lock { display: block; }
+:root[style*="200%"] .j-bar--land .j-bar__lbl { display: none; }
+:root[style*="200%"] .j-pill__t { font-size: .625rem; }
+:root[style*="200%"] .j-pill--hint, :root[style*="200%"] .j-pill--draft { padding-right: .5rem; gap: .25rem; }

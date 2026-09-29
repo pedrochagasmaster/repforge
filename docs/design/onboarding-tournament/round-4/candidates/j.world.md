@@ -13,7 +13,7 @@ presence.
 
 | Token | Role | Light | Dark | Contrast |
 | --- | --- | --- | --- | --- |
-| `--j-wall` + `--j-wall-print` | Wallpaper: concrete sage, printed with faint training marks (plates, ticks, a bar, a stopwatch, ×, +) as an authored 148 px SVG tile | `#dde2e0`, marks at 8.5% | `#0e1113`, marks at 5% white | ink on wall 13.5:1 |
+| `--j-wall` + `--j-wall-print` | Wallpaper: sage-leaning concrete, printed with training notation ("3×8", "RIR 2", "+2,5 kg", "5×5", "8–12", "60 s") set in the world's own faces (Mono 600 for the prescriptions, Next 700 for the words), slightly rotated, drawn once into a 208×176 tile on a canvas after the fonts load. No ticks in the tile: ticks appear only on answers, where they mean something | `#d8e2dc`, notation at 8.5% ink | `#0e1113`, notation at 5% white | ink on wall 12.9:1 |
 | `--j-in` / `--j-in-ink` / `--j-in-soft` | Taurifer's bubbles: white paper, ink, secondary | `#fff` / `#15191b` / `#566064` | `#1d2225` / `#e8eceb` / `#9aa5a9` | 17.7 / 6.5 · 13.5 / 6.4 |
 | `--j-out` / `--j-out-ink` / `--j-out-soft` | The lifter's voice: signal orange with ink text; unchanged in dark | `#ff6b2c` / `#1a0e07` / `#4a2410` | same | 6.7 / 4.8 |
 | `--j-bar` / `--j-bar-ink` / `--j-bar-soft` | Graphite app bar | `#15191b` / `#f4f6f5` / `#a9b3b6` | `#171b1d` / same | 16.3 / 8.3 |
@@ -25,7 +25,8 @@ presence.
 | `--j-disabled` / `--j-disabled-ink` | A send or activate that cannot run yet | `#c9cfce` / `#4f585b` | `#2c3337` / `#9aa5a9` | 4.6 / 5.1 |
 | `--j-focus` | Focus ring, distinct from every surface | `#1557d6` | `#8ab4ff` | — |
 
-Selection is orange with ink, the caret is the orange edge, scrollbars take
+Focus: a 3 px ring on controls; programmatic focus targets (`tabindex="-1"`
+headings, the conflict title, the change statement) take no box. Selection is orange with ink, the caret is the orange edge, scrollbars take
 the rule colour. Colour is never the only signal: sent answers are also
 right-aligned with a tail and a tick; selected toggles carry a check mark;
 disabled controls carry an `aria-describedby` reason.
@@ -45,13 +46,20 @@ and program name 1.625rem / 800 / -0.022em; questions 1.0625rem / 700; body
 
 - **App bar**: back arrow (one question back), the mark on a paper plate,
   "Taurifer" as the h1, a task status line, and one text action (Privacidade
-  on the landing, Sair in setup).
+  on the landing, Sair in setup). At 200% text the status takes its own row
+  and wraps (it is the presence replacement, so it never truncates), and
+  Privacidade becomes a lock button with the same accessible name.
 - **Bubbles**: incoming white, outgoing orange; the first of a run gets a tail
-  (drawn on the row so it never widens the control). Every bubble carries its
-  time; sent answers carry one tick, and two ticks once a program was built
-  from them.
+  (drawn on the row so it never widens the control). Only the lifter's
+  answers carry a time and ticks: one tick, the answer is in this setup; two
+  ticks, a program was built from it. Taurifer's messages carry no meta row.
+- **History is kept as sent**: once a program exists, the questions and
+  answers above it render from a snapshot taken when that program was built.
+  A correction never rewrites them; it appears only as a reply bubble quoting
+  the old answer and the new version beneath it, so the double ticks stay
+  true.
 - **Quick replies**: outlined pills on the lifter's side; numeric ones show a
-  big number and a small unit. Tapping one sends it: the pill lifts into the
+  big number and a small unit; text answers stack at one shared width. Tapping one sends it: the pill lifts into the
   outgoing bubble's place (FLIP) and stays in the thread as a button with the
   same `data-key`/`data-val`, so focus never moves.
 - **Attached buttons**: full-width buttons under a bubble, divided by
@@ -67,7 +75,9 @@ and program name 1.625rem / 800 / -0.022em; questions 1.0625rem / 700; body
   line being answered, with radios and toggles, and "Enviar resposta".
 - **Composer**: a pill that is either a hint ("Toque em uma resposta acima"),
   a draft summary, or the paste field, plus the round send button (the
-  `data-advance` control). At a review it becomes the dock holding "Usar este
+  `data-advance` control). From the first question through priorities the
+  pill carries a paperclip that opens "Trazer um programa" (paste, or attach
+  a Taurifer file, stating that the answers so far are discarded). At a review it becomes the dock holding "Usar este
   programa".
 - **Dialogs**: centred paper cards with stacked right-aligned text buttons
   (Sair, Começar de novo, Recomeçar, replacement, attach); an image viewer
