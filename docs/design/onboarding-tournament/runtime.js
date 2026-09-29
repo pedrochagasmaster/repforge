@@ -59,6 +59,16 @@
       "entry.build_setup.name_placeholder": "Meu programa",
       "entry.priorities.avoid_reason": "Por que evitar {exercise}?",
       "entry.rules_changed.body_rebuild": "O Taurifer mudou a forma de montar programas desde que você salvou este. Monte de novo para usar as regras atuais.",
+      /* European-Portuguese baseline strings in the shared widgets (reported
+         by the Round 2 D generator; §5.1 PT-BR first). */
+      "entry.freeform.gaps_title": "Completar os detalhes que faltam",
+      "entry.freeform.review": "Revisar o programa",
+      "entry.freeform.gaps_submit": "Revisar o programa",
+      "entry.freeform.unreadable_body": "A resposta do assistente não pôde ser lida como um programa do Taurifer. Você pode editar a resposta, tentar outro assistente ou copiar um comando de correção.",
+      "entry.freeform.copy": "Copiar o comando",
+      "entry.resume.detail": "Parou em {where}, salvo em {when}.",
+      "entry.rules_changed.body_keep": "O Taurifer mudou a forma de montar programas desde que você salvou este. Ele continua funcionando como está, então você pode mantê-lo.",
+      "entry.catalogue.review_aria": "Revisar {name}",
     },
     en: {
       "entry.result.why_goal": "Goal: {goal}.",

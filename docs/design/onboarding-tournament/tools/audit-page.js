@@ -128,8 +128,9 @@
   /* Whole words with Unicode letter boundaries (\b does not treat "ê" or
      "ç" as letters). */
   const words = (list, flags = "iu") => new RegExp(`(?<!\\p{L})(?:${list.join("|")})(?!\\p{L})`, flags);
-  const K15 = words(["aparelhos?", "stats", "log", "performance", "delta", "split", "offline", "Introduza", "assinalad[oa]s?", "regista", "separador", "Porquê", "aplicação", "folha de cálculo"]);
-  const K15_CASE = /(?<!\p{L})O meu(?!\p{L})/u;
+  const K15 = words(["aparelhos?", "stats", "log", "performance", "delta", "split", "offline", "Introduza", "assinalad[oa]s?", "regista", "separador", "Porquê", "aplicação", "folha de cálculo", "em falta", "por isso"]);
+  /* Case-sensitive: "O meu" and the EU-PT imperative "Rever" as a label. */
+  const K15_CASE = /(?<!\p{L})(?:O meu|Rever)(?!\p{L})/u;
   function k15(lang) {
     const out = [];
     if (lang === "pt") {
@@ -185,7 +186,10 @@
     const hasText = (needle) => nodes.some((n) => n.nodeValue.includes(needle) && inView(n.parentElement));
     const name = TF.resultName(r, lang); if (!hasText(name)) out.push(`program name "${name}" not in the first viewport above the pinned region`);
     const dayName = TF.dayName(t, r.preview.days[0], r.preview.programStructure, 0); if (!hasText(dayName)) out.push(`first day "${dayName}" not in the first viewport`);
-    const factEl = [...document.querySelectorAll("body *")].find((el) => visible(el) && inView(el) && el.textContent.length < 240 && new RegExp(`\\b${facts.exercises}\\b`).test(el.textContent) && new RegExp(`\\b${facts.sets}\\b`).test(el.textContent));
+    /* innerText, not textContent: adjacent inline spans ("minutos</span><span>18")
+       must read as separate words, or \b never matches (D generator report). */
+    const rendered = (el) => el.innerText || el.textContent || "";
+    const factEl = [...document.querySelectorAll("body *")].find((el) => visible(el) && inView(el) && rendered(el).length < 240 && new RegExp(`\\b${facts.exercises}\\b`).test(rendered(el)) && new RegExp(`\\b${facts.sets}\\b`).test(rendered(el)));
     if (!factEl) out.push(`facts line (${facts.exercises} exercises, ${facts.sets} sets) not in the first viewport`);
     return out;
   }
