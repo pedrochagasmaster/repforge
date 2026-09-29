@@ -34,6 +34,13 @@
   }
   function activeIsReviewed(run, reviewed, out) { if (reviewed && run.final.device.active) out.push(...sameProgram("active vs reviewed", run.final.device.active.program, reviewed, { params: true })); }
   const noLanding = (dom, out, where) => { if (dom.landing) out.push(`${where}: the first-run landing is shown`); };
+  /* K-28 (Q634): the change statement is in view, above the pinned region,
+     right after the apply that caused it. */
+  function statementInView(dom, out, where) {
+    const v = dom.changeView;
+    if (!v) { out.push(`K-28 ${where}: no change statement visible`); return; }
+    if (v.top < 0 || v.bottom > v.limit + 1) out.push(`K-28 ${where}: change statement is off screen (top ${v.top}, bottom ${v.bottom}, visible area 0–${v.limit})`);
+  }
   function statementMatches(dom, before, after, out, where) {
     const d = TF.identityDiff(before, after);
     const s = dom.change[0];
@@ -230,7 +237,7 @@
     return out;
   };
   /* ---- K-14 ---- */
-  C["overlays"] = (run) => { const out = []; if (!run.overlays.length) out.push("no overlay was checked"); for (const o of run.overlays) if (!o.ok) out.push(`overlay "${o.label}": confirm not fully visible above the pinned region (${o.detail})`); return out; };
+  C["overlays"] = (run) => { const out = []; if (!run.overlays.length) out.push("no overlay was checked"); for (const o of run.overlays) if (!o.ok) out.push(o.k29 ? `K-29 overlay "${o.label}": editor too small to work in (${o.detail})` : `overlay "${o.label}": confirm not fully visible above the pinned region (${o.detail})`); return out; };
   /* ---- K-17 / K-24 ---- */
   C["change.days"] = (run, ctx) => {
     const out = []; const c = snap(run, "changed", out); if (!c) return out;
@@ -238,6 +245,7 @@
     if (c.entry?.answers?.daysPerWeek !== 4) out.push("changed: daysPerWeek is not 4");
     const e4 = E.compile("recommend", a4); if (c.entry?.result) out.push(...sameProgram("changed vs engine", c.entry.result, e4));
     statementMatches(c.dom, E.recommend().preview, e4.preview, out, "changed");
+    statementInView(c.dom, out, "changed");
     return out;
   };
   const segment = (run, out) => { const s = run.marks.start, e = run.marks.end; if (!s || !e) { out.push("marks start/end missing"); return null; } return { taps: e.taps - s.taps, trace: run.trace.slice(s.trace, e.trace) }; };
@@ -252,6 +260,7 @@
     const want = { ...E.rafael(), environment: target }; const ec = E.compile("recommend", want);
     if (c.entry?.result) out.push(...sameProgram("corrected vs engine", c.entry.result, ec));
     statementMatches(c.dom, E.recommend().preview, ec.preview, out, "corrected");
+    statementInView(c.dom, out, "corrected");
     run.segmentTaps = seg.taps; run.bound = bound;
     return out;
   };
@@ -259,6 +268,7 @@
     const out = []; const seg = segment(run, out); const v = snap(run, "review", out); if (!seg || !v) return out;
     const a = v.entry?.answers || {}; if (!(a.exerciseConstraints || []).some((c) => c.exerciseId === "pr_bb" && c.reason === "pain")) out.push("review: answers do not avoid pr_bb for pain");
     try { statementMatches(v.dom, E.recommend().preview, E.compile("recommend", a).preview, out, "review"); } catch (e) { out.push(String(e.message)); }
+    statementInView(v.dom, out, "review");
     run.segmentTaps = seg.taps;
     return out;
   };

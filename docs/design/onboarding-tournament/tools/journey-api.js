@@ -39,6 +39,8 @@
       activate: q("[data-activate]").map((e) => ({ disabled: e.disabled || e.getAttribute("aria-disabled") === "true", label: norm(e.textContent), reason: textOf(e.getAttribute("aria-describedby")) })),
       advance: q("[data-advance]").map((e) => ({ disabled: e.disabled || e.getAttribute("aria-disabled") === "true", label: norm(e.textContent), reason: textOf(e.getAttribute("aria-describedby")) })),
       change: q("[data-change-statement]").map((e) => ({ n: Number(e.dataset.changed), total: Number(e.dataset.total), text: norm(e.textContent) })),
+      /* K-28: where the first change statement sits in the viewport. */
+      changeView: (() => { const e = q("[data-change-statement]")[0]; if (!e) return null; const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), limit: Math.round(A.pinnedTop()), vh: innerHeight }; })(),
       improws: [...document.querySelectorAll("[data-imp-row]")].map((r) => ({ key: r.dataset.impRow, name: norm(r.querySelector(".improw__name")?.textContent), badge: norm(r.querySelector(".impbadge")?.textContent), open: r.classList.contains("is-open") })),
       today: norm(document.querySelector("[data-today-program]")?.textContent || ""),
       landing: !!(document.querySelector("#firstRunCreate") && vis(document.querySelector("#firstRunCreate"))) || q('[data-checkpoint="landing"]').length > 0,
@@ -105,6 +107,15 @@
         const inView = r.top >= 0 && r.bottom <= limit + 1;
         const onTop = !!hit && (hit === el || el.contains(hit));
         rec.ok = inView && onTop; rec.detail = `top ${Math.round(r.top)} bottom ${Math.round(r.bottom)} limit ${Math.round(limit)} viewport ${innerHeight} ${onTop ? "on top" : "covered"}`;
+        /* K-29 (Q634): a modal editor's scrolling body keeps at least half
+           the viewport. Inline editors scroll with the page and pass. */
+        const dlg = el.closest("[role=dialog],[role=alertdialog],[aria-modal=true]");
+        if (dlg) {
+          const scrollers = [dlg, ...dlg.querySelectorAll("*")].filter((x) => { const oy = getComputedStyle(x).overflowY; return (oy === "auto" || oy === "scroll") && x.scrollHeight > x.clientHeight + 1; });
+          const h = scrollers.length ? Math.min(...scrollers.map((x) => x.getBoundingClientRect().height)) : null;
+          rec.scroller = h == null ? null : Math.round(h);
+          if (h != null && h < innerHeight * 0.5) { rec.ok = false; rec.k29 = true; rec.detail += `; K-29 scrolling body ${Math.round(h)}px of ${innerHeight}px viewport`; }
+        }
         run.overlays.push(rec); return rec;
       },
       notOffered(what, why = "") { run.notOffered.push({ what, why }); },

@@ -35,8 +35,8 @@ const args = {};
 for (let i = 0; i < argv.length; i++) if (argv[i].startsWith("--")) { const k = argv[i].slice(2); const v = argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : true; args[k] = v; }
 const BASE = args.base || "http://127.0.0.1:8123/docs/design/onboarding-tournament/";
 const ROUND = String(args.round || "1");
-const DOC = ROUND === "1" ? "app.html" : "round-2/app.html";
-const CANDS = String(args.candidates || (ROUND === "1" ? "a,b,c" : "d,e,f")).split(",").filter(Boolean);
+const DOC = ROUND === "1" ? "app.html" : `round-${ROUND}/app.html`;
+const CANDS = String(args.candidates || ({ 1: "a,b,c", 2: "d,e,f", 3: "g" }[ROUND] || "")).split(",").filter(Boolean);
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = args.out ? resolve(args.out) : join(here, "..", `round-${ROUND}`, "acceptance");
 const SHOTS = !args["no-shots"];
@@ -199,6 +199,126 @@ async function auditCheckpoint(page, cand, cp, cell, consoleErrors) {
   return r;
 }
 
+/* ------------------------------------------------------------------ */
+/* Interaction checks (Q634): driven here with real input, because each one
+   needs a real tap, key press or focus change. They run in the journey
+   cells; the K-31 tap-every-control pass runs in cell 1 only. */
+const settle = (page, ms = 150) => page.waitForTimeout(ms);
+async function mark(page, sel, attr = "data-k-target") {
+  return page.evaluate(({ sel, attr }) => { document.querySelectorAll(`[${attr}]`).forEach((e) => e.removeAttribute(attr)); const els = [...document.querySelectorAll(sel)].filter((e) => window.__audit.visible(e) && !e.disabled && e.getAttribute("aria-disabled") !== "true"); els.forEach((e, i) => e.setAttribute(attr, String(i))); return els.map((e) => ({ mode: e.dataset.mode || e.dataset.importMode || null, label: (e.getAttribute("aria-label") || e.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40), tag: e.tagName.toLowerCase() })); }, { sel, attr });
+}
+const inPage = (page) => page.addScriptTag({ path: join(here, "audit-page.js") });
+const cpVisible = (page, cp) => page.evaluate((cp) => [...document.querySelectorAll(`[data-checkpoint="${cp}"]`)].some((e) => window.__audit.visible(e)), cp);
+const dialogOpen = (page) => page.evaluate(() => [...document.querySelectorAll("[role=dialog],[role=alertdialog]")].some((e) => window.__audit.visible(e)));
+const focusInfo = (page) => page.evaluate(() => { const a = document.activeElement; return { tag: a ? a.tagName.toLowerCase() : null, inDialog: !!(a && a.closest("[role=dialog],[role=alertdialog]")), key: a?.dataset?.key || null, val: a?.dataset?.val || null, target: a?.getAttribute?.("data-k-target") ?? null, desc: a ? window.__audit.describe(a) : "none" }; });
+
+async function interactionChecks(cand, cell) {
+  const out = []; const ctx = await newContext(cell); const page = await ctx.newPage();
+  const open = async (cp) => { await load(page, docUrl(cand, cp, cell)); await inPage(page); };
+  const rec = (check, where, problems) => { out.push({ candidate: cand, check, where, cell: cell.n, ok: problems.length === 0, problems }); };
+  /* K-25: an import-mode control never discards paste-door work. */
+  for (const cp of ["ff-reply", "ff-gaps"]) {
+    await open(cp); const controls = await mark(page, '[data-act="import-mode"],[data-import-mode]');
+    const problems = [];
+    for (let i = 0; i < controls.length; i++) {
+      try {
+        await open(cp); await mark(page, '[data-act="import-mode"],[data-import-mode]');
+        await page.locator(`[data-k-target="${i}"]`).click({ timeout: 4000 }); await settle(page);
+        if (await dialogOpen(page)) continue; /* a confirmation guards the work */
+        if (await cpVisible(page, cp)) continue; /* nothing changed */
+        const back = await mark(page, '[data-act="import-mode"][data-mode="freeform"],[data-import-mode="freeform"]', "data-k-back");
+        if (!back.length) { problems.push(`after "${controls[i].label}" no control returns to the paste door`); continue; }
+        await page.locator('[data-k-back="0"]').click({ timeout: 4000 }); await settle(page);
+        if (!(await cpVisible(page, cp))) problems.push(`"${controls[i].label}" (${controls[i].mode}) and back lost the paste work (${cp} is gone)`);
+      } catch (e) { problems.push(`"${controls[i]?.label}": ${String(e.message).split("\n")[0].slice(0, 120)}`); }
+    }
+    rec("K-25", cp, problems);
+  }
+  /* K-26: every dialog takes focus inside it, Escape closes it, focus returns to the opener. */
+  for (const [cp, opener, prep] of [["rec-schedule", '[data-act="cancel"]'], ["rec-result", '[data-act="restart"]'], ["ff-reply", '[data-ff="start-over"]'], ["replace-confirm", "[data-activate]", "close"]]) {
+    const problems = [];
+    try {
+      await open(cp);
+      if (prep === "close") { await page.keyboard.press("Escape"); await settle(page); if (await dialogOpen(page)) { const c = await mark(page, '[data-act="replace-cancel"]', "data-k-close"); if (c.length) { await page.locator('[data-k-close="0"]').click({ timeout: 4000 }); await settle(page); } } if (await dialogOpen(page)) problems.push("could not close the replacement dialog to reopen it"); }
+      const found = await mark(page, opener);
+      if (!found.length) problems.push(`no visible opener ${opener}`);
+      else {
+        await page.locator('[data-k-target="0"]').click({ timeout: 4000 }); await settle(page, 250);
+        if (!(await dialogOpen(page))) problems.push(`${opener} opened no dialog`);
+        else {
+          const f = await focusInfo(page); if (!f.inDialog) problems.push(`focus is not inside the dialog (on ${f.desc})`);
+          await page.keyboard.press("Escape"); await settle(page, 250);
+          if (await dialogOpen(page)) problems.push("Escape did not close the dialog");
+          else { const back = await page.evaluate((sel) => { const a = document.activeElement; return { ok: !!(a && a.matches && a.matches(sel)), desc: a ? window.__audit.describe(a) : "none" }; }, opener); if (!back.ok) problems.push(`focus did not return to the opener (on ${back.desc})`); }
+        }
+      }
+    } catch (e) { problems.push(String(e.message).split("\n")[0].slice(0, 160)); }
+    rec("K-26", `${cp} ${opener}`, problems);
+  }
+  /* K-27: after an answer, focus stays on the chosen option (tap and Space). */
+  { const problems = [];
+    try {
+      await open("rec-schedule");
+      for (const [key, how] of [["daysPerWeek", "tap"], ["sessionMinutes", "space"]]) {
+        const opts = await mark(page, `[data-act="pick"][data-key="${key}"]`);
+        if (!opts.length) continue; /* one-question-per-screen layouts show one key at a time */
+        const val = await page.locator('[data-k-target="1"],[data-k-target="0"]').last().getAttribute("data-val");
+        const loc = page.locator(`[data-act="pick"][data-key="${key}"][data-val="${val}"]`).first();
+        if (how === "tap") await loc.click(); else { await loc.focus(); await page.keyboard.press("Space"); }
+        await settle(page);
+        const f = await focusInfo(page);
+        if (!(f.key === key && f.val === val)) problems.push(`${how} on ${key}=${val}: focus moved to ${f.desc}`);
+      }
+      if (!(await mark(page, '[data-act="pick"]')).length) problems.push("no answer option visible on rec-schedule");
+    } catch (e) { problems.push(String(e.message).split("\n")[0].slice(0, 160)); }
+    rec("K-27", "rec-schedule", problems);
+  }
+  /* K-30: Skip never discards a constraint the lifter chose. */
+  { const problems = [];
+    try {
+      await open("rec-avoid-pain");
+      const skips = await mark(page, '[data-act="skip"],[data-skip]');
+      if (skips.length) {
+        await page.locator('[data-k-target="0"]').click({ timeout: 4000 }); await settle(page);
+        const kept = await page.evaluate(() => { const c = window.__tournamentCandidates[window.__tq.candidate]; const e = c.entry(); return !!(e && (e.answers?.exerciseConstraints || []).some((x) => x.exerciseId === "pr_bb" && x.reason === "pain")); });
+        if (!kept) problems.push(`"${skips[0].label}" discarded the pain avoidance of the barbell bench press`);
+      }
+    } catch (e) { problems.push(String(e.message).split("\n")[0].slice(0, 160)); }
+    rec("K-30", "rec-avoid-pain", problems);
+  }
+  await ctx.close();
+  return out;
+}
+/* K-31 smoke: tap every visible control on every checkpoint once (fresh
+   load each time) and scan for raw keys, undefined values and errors. */
+async function smoke(cand, cell, checkpoints) {
+  const out = []; const ctx = await newContext(cell); const page = await ctx.newPage(); const errs = [];
+  page.on("pageerror", (e) => errs.push(String(e))); page.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
+  const SEL = 'button,summary,[role=button],a[href]:not([target="_blank"])';
+  for (const cp of checkpoints) {
+    const problems = [];
+    try {
+      await load(page, docUrl(cand, cp, cell)); await inPage(page);
+      const n = (await mark(page, SEL)).length;
+      for (let i = 0; i < Math.min(n, 40); i++) {
+        errs.length = 0;
+        await load(page, docUrl(cand, cp, cell)); await inPage(page); const list = await mark(page, SEL);
+        if (!list[i]) continue;
+        try { await page.locator(`[data-k-target="${i}"]`).click({ timeout: 2500 }); } catch (e) { continue; }
+        await settle(page, 120);
+        const raw = await page.evaluate(() => { try { return window.__audit.k31().concat((window.__tournamentErrors || []).map((e) => "runtime error: " + String(e).slice(0, 120))); } catch (e) { return ["page replaced"]; } }).catch(() => []);
+        for (const r of raw) if (r !== "page replaced") problems.push(`after "${list[i].label}": ${r}`);
+        for (const e of errs) problems.push(`after "${list[i].label}": console ${e.slice(0, 120)}`);
+        if (problems.length > 6) break;
+      }
+    } catch (e) { problems.push(String(e.message).split("\n")[0].slice(0, 160)); }
+    out.push({ candidate: cand, check: "K-31", where: `${cp} (tap every control)`, cell: cell.n, ok: problems.length === 0, problems: [...new Set(problems)] });
+    process.stdout.write(`${problems.length ? "✗" : "✓"} ${cand} smoke ${cp}${problems.length ? "  " + problems.slice(0, 2).join(" | ").slice(0, 200) : ""}\n`);
+  }
+  await ctx.close();
+  return out;
+}
+
 async function runJourney(cand, j, cell, policy) {
   const context = await newContext(cell); const page = await context.newPage(); const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -228,7 +348,7 @@ async function runJourney(cand, j, cell, policy) {
 
 async function roundTwo() {
   const cells = pick(R2_CELLS, args.cells, (c) => c.n);
-  const audits = [], journeys = [], policies = {};
+  const audits = [], journeys = [], policies = {}, interactions = [];
   for (const cand of CANDS) {
     { /* policy + checkpoint list */
       const ctx = await newContext(R2_CELLS[0]); const page = await ctx.newPage();
@@ -248,6 +368,10 @@ async function roundTwo() {
       }
       await ctx.close();
     }
+    if (!args["no-interactions"]) {
+      for (const cell of JOURNEY_CELLS) { const r = await interactionChecks(cand, cell); interactions.push(...r); for (const x of r) process.stdout.write(`${x.ok ? "✓" : "✗"} ${cand} ${x.check} ${x.where} [${x.cell}]${x.problems.length ? "  " + x.problems.join(" | ").slice(0, 240) : ""}\n`); }
+      if (!args["no-smoke"]) interactions.push(...await smoke(cand, R2_CELLS[0], checkpoints));
+    }
     if (args.journeys !== "none") {
       const list = pick(JOURNEYS, args.journeys, (j) => j.id);
       for (const j of list) for (const cell of JOURNEY_CELLS) {
@@ -257,21 +381,21 @@ async function roundTwo() {
       }
     }
   }
-  writeFileSync(join(outDir, "results.json"), JSON.stringify({ base: BASE, round: ROUND, doc: DOC, generatedAt: new Date().toISOString(), cells, journeyCells: JOURNEY_CELLS.map((c) => c.n), policies, audits, journeys }, null, 1));
-  writeFileSync(join(outDir, "summary.md"), summaryTwo(cells, audits, journeys, policies));
+  writeFileSync(join(outDir, "results.json"), JSON.stringify({ base: BASE, round: ROUND, doc: DOC, generatedAt: new Date().toISOString(), cells, journeyCells: JOURNEY_CELLS.map((c) => c.n), policies, audits, journeys, interactions }, null, 1));
+  writeFileSync(join(outDir, "summary.md"), summaryTwo(cells, audits, journeys, policies, interactions));
   console.log(`\nwrote ${join(outDir, "summary.md")}`);
 }
 
-function summaryTwo(cells, audits, journeys, policies) {
-  const md = [`# Acceptance — round 2`, "", `Generated ${new Date().toISOString()} against \`${BASE}${DOC}\` by \`tools/verify.mjs --round 2\`.`, "",
+function summaryTwo(cells, audits, journeys, policies, interactions = []) {
+  const md = [`# Acceptance — round ${ROUND}`, "", `Generated ${new Date().toISOString()} against \`${BASE}${DOC}\` by \`tools/verify.mjs --round ${ROUND}\`.`, "",
     "Cells (§12.1): " + cells.map((c) => `${c.n} ${cellName(c)}`).join(" · ") + ".", `Journeys (§12.2) run in cells ${JOURNEY_CELLS.map((c) => c.n).join(" and ")}. Every hard check is a failure; warnings are listed separately.`, ""];
   const cands = [...new Set([...audits.map((a) => a.candidate), ...journeys.map((j) => j.candidate)])];
-  md.push("| Candidate | Declared product decisions | Checkpoint cells | Cells without hard failures | Cells with warnings | Journey runs | Journeys passed | Journeys failed (hard) | Not implemented |", "|---|---|---|---|---|---|---|---|---|");
+  md.push("| Candidate | Declared product decisions | Checkpoint cells | Cells without hard failures | Cells with warnings | Journey runs | Journeys passed | Journeys failed (hard) | Not implemented | Interaction checks passed |", "|---|---|---|---|---|---|---|---|---|---|");
   for (const c of cands) {
-    const A = audits.filter((a) => a.candidate === c), Jr = journeys.filter((j) => j.candidate === c);
-    md.push(`| ${c} | ${((policies[c]?.policy?.productDecisions) || []).join(", ") || "none"} | ${A.length} | ${A.filter((a) => a.ok).length} | ${A.filter((a) => a.warn.length).length} | ${Jr.length} | ${Jr.filter((j) => j.severity === "pass").length} | ${Jr.filter((j) => j.severity === "hard" && j.status !== "not-implemented").length} | ${Jr.filter((j) => j.status === "not-implemented").length} |`);
+    const A = audits.filter((a) => a.candidate === c), Jr = journeys.filter((j) => j.candidate === c), I = interactions.filter((x) => x.candidate === c);
+    md.push(`| ${c} | ${((policies[c]?.policy?.productDecisions) || []).join(", ") || "none"} | ${A.length} | ${A.filter((a) => a.ok).length} | ${A.filter((a) => a.warn.length).length} | ${Jr.length} | ${Jr.filter((j) => j.severity === "pass").length} | ${Jr.filter((j) => j.severity === "hard" && j.status !== "not-implemented").length} | ${Jr.filter((j) => j.status === "not-implemented").length} | ${I.length ? `${I.filter((x) => x.ok).length} / ${I.length}` : "not run"} |`);
   }
-  md.push("");
+  md.push("", "Interaction checks (Q634): K-25 import work kept, K-26 dialog focus, K-27 focus after an answer, K-30 Skip keeps constraints (cells " + JOURNEY_CELLS.map((c) => c.n).join(" and ") + "), K-31 tap every control (cell 1). K-28, K-29, K-31 and K-32 also run inside the journeys and the checkpoint audit.", "");
   for (const c of cands) {
     const A = audits.filter((a) => a.candidate === c), Jr = journeys.filter((j) => j.candidate === c);
     md.push(`## ${c}`, "");
@@ -281,6 +405,8 @@ function summaryTwo(cells, audits, journeys, policies) {
     md.push("### Checkpoint audit: hard failures", "");
     if (!Object.keys(byCheck).length) md.push(A.length ? "None." : "Not run.", "");
     for (const [k, list] of Object.entries(byCheck).sort()) { md.push(`**${k}** (${list.length})`, "", ...list.slice(0, 40).map((x) => `- ${x.replace(/\|/g, "\\|")}`), ...(list.length > 40 ? [`- … ${list.length - 40} more in results.json`] : []), ""); }
+    const I = interactions.filter((x) => x.candidate === c);
+    if (I.length) { const bad = I.filter((x) => !x.ok); md.push("### Interaction checks", "", bad.length ? `${bad.length} of ${I.length} failed:` : `All ${I.length} passed.`, "", ...bad.map((x) => `- **${x.check}** ${x.where} [${x.cell}]: ${x.problems.join(" | ").slice(0, 400).replace(/\|/g, "\\|")}`), ""); }
     const warns = A.filter((a) => a.warn.length);
     md.push("### Checkpoint audit: warnings", "", warns.length ? `${warns.length} cells with warnings (44 px targets, clipping, K-22, K-20). First 20:` : "None.", "", ...warns.slice(0, 20).map((a) => `- ${a.checkpoint} [${a.cell}]: ${a.warn.join(" | ").slice(0, 300).replace(/\|/g, "\\|")}`), "");
     if (Jr.length) {

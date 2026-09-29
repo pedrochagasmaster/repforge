@@ -229,6 +229,42 @@
     }
     return { errs, overflow, small: small.slice(0, 12), clipped: clipped.slice(0, 6) };
   }
+  /* K-31 (Q634): no raw catalog key, `undefined`, `NaN` or `[object Object]`
+     in visible text or accessible names. A dotted lowercase token with at
+     least two dots (entry.route.undefined, x.change.many) is a key. */
+  const RAW_KEY = /(?<![\w./:@-])[a-z][a-z0-9_]*(?:\.[a-z0-9_]+){2,}(?![\w/])/;
+  const RAW_VALUE = /\bundefined\b|\bNaN\b|\[object Object\]/;
+  function k31() {
+    const out = [];
+    const all = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let n; while ((n = w.nextNode())) { const par = n.parentElement; if (!par || par.closest("script,style,noscript,template") || !n.nodeValue.trim()) continue; if (!visible(par, { allowVisuallyHidden: true })) continue; all.push({ text: n.nodeValue, where: describe(par), user: !!par.closest("[data-user-text]") }); }
+    for (const a of accessibleStrings()) all.push({ text: a.text, where: `${describe(a.el)}@${a.attr}`, user: false });
+    for (const x of all) {
+      const m = (!x.user && x.text.match(RAW_KEY)) || x.text.match(RAW_VALUE);
+      if (m) { out.push(`raw text "${m[0]}" in ${x.where}: "${short(x.text, 60)}"`); if (out.length > 4) break; }
+    }
+    return out;
+  }
+  /* K-32 (Q634, L-3): on every review, the first day's name and its first
+     exercise are in the first viewport, above the pinned region. The
+     program comes from the candidate's entry() contract. */
+  const REVIEWS = new Set(["rec-result", "rec-result-corrected", "rec-result-avoided", "custom-result", "browse-preview", "import-preview", "shared-preview"]);
+  function k32(lang) {
+    const out = [];
+    const cand = (window.__tournamentCandidates || {})[window.__tq && window.__tq.candidate];
+    let e = null; try { e = cand && cand.entry && cand.entry(); } catch (err) { return [`entry() threw: ${short(err, 80)}`]; }
+    const p = e && e.result && e.result.preview; if (!p || !(p.days || []).length) return ["no reviewed program in entry()"];
+    const t = TF.makeT(lang, TS.COPY[lang]);
+    const day = p.days[0]; const dayName = TF.dayName(t, day, p.programStructure, 0);
+    const ex = (day.exercises || [])[0]; const exName = ex ? TS.exName(ex, lang) : "";
+    const limit = pinnedTop();
+    const nodes = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let n; while ((n = w.nextNode())) { const par = n.parentElement; if (par && n.nodeValue.trim() && !par.closest(MODAL) && visible(par)) nodes.push(n); }
+    const inView = (needle) => nodes.some((x) => x.nodeValue.includes(needle) && (() => { const r = rectOf(x.parentElement); return r.top >= 0 && r.bottom <= limit + 1; })());
+    if (!inView(dayName)) out.push(`first day "${dayName}" is not in the first viewport above the pinned region`);
+    if (exName && !inView(exName)) out.push(`first exercise "${exName}" is not in the first viewport above the pinned region`);
+    return out;
+  }
   function run({ checkpoint, lang, vw, text, motion }) {
     const hard = [], warn = [], data = {};
     const b = basic();
@@ -248,9 +284,11 @@
     for (const p of k16(lang, checkpoint)) hard.push(`K-16 ${p}`);
     if (motion === "reduced") for (const p of k21()) hard.push(`K-21 ${p}`);
     if (checkpoint === "rec-result" && vw === 390 && text === "100") for (const p of k22(lang)) warn.push(`K-22 ${p}`);
+    for (const p of k31()) hard.push(`K-31 ${p}`);
+    if (REVIEWS.has(checkpoint) && vw === 390 && text === "100") for (const p of k32(lang)) hard.push(`K-32 ${p}`);
     if (checkpoint === "landing" && vw === 390 && text === "100") { data.k23 = true; for (const p of k23(lang)) hard.push(`K-23 ${p}`); }
     data.title = document.querySelector("h1")?.textContent?.trim() || "";
     return { hard, warn, data };
   }
-  window.__audit = { run, visible, textNodes, persistentRegions, pinnedTop, lineCount, describe };
+  window.__audit = { run, visible, textNodes, persistentRegions, pinnedTop, lineCount, describe, k31 };
 })();

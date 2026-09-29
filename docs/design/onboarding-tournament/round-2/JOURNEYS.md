@@ -234,3 +234,25 @@ node docs/design/onboarding-tournament/tools/verify.mjs --round 2 \
 
 `summary.md` lists hard failures by check id, warnings, one row per journey
 and cell, and the K-24 tap counts.
+
+## 6. Round 3 additions (Q634)
+
+The owner decided (Q634) that Round 3 runs with no judges, so every defect
+the Round 2 judges found by hand became a mechanical check. Each check was
+run against D, E and F and flags exactly the defects the judges reported
+(`round-3/acceptance-checks.md`). Run Round 3 with
+`node tools/verify.mjs --round 3`. The checks run for any round ≥ 2.
+
+| Check | What it requires | Where it runs | Markup it reads |
+| --- | --- | --- | --- |
+| K-25 | No import-mode control discards paste-door work. Tapping any mode control, including the active one, then returning to the paste door, shows the same stage again, or a confirmation dialog opens first. | `ff-reply`, `ff-gaps`; cells 1 and 6 | `[data-act="import-mode"]` or `[data-import-mode]`, with `data-mode` / `data-import-mode` = `freeform` or `file` |
+| K-26 | Every dialog takes focus inside itself; Escape closes it; focus returns to the control that opened it. | Cancel on `rec-schedule`, Start over on `rec-result`, Recomeçar on `ff-reply`, activation on `replace-confirm` (reopened); cells 1 and 6 | `role="dialog"` / `alertdialog` |
+| K-27 | After an answer (tap or Space), focus stays on the chosen option. | `rec-schedule`; cells 1 and 6 | `[data-act="pick"][data-key][data-val]` |
+| K-28 | Right after an apply, the change statement is in the viewport, above the pinned region. | Journeys `change.days`, `correct.environment`, `avoid.from-review` | `[data-change-statement]` |
+| K-29 | A modal editor's scrolling body keeps at least half the viewport. Inline editors pass. | Journey `overlays` (cells 1 and 6) | `role="dialog"` ancestors of the confirm control |
+| K-30 | Skip never discards a constraint the lifter chose. | `rec-avoid-pain`; cells 1 and 6 | `[data-act="skip"]` or `[data-skip]`; `entry().answers` |
+| K-31 | No raw catalog key, `undefined`, `NaN` or `[object Object]` in visible text or accessible names, on every checkpoint and after tapping every visible control once. | Checkpoint audit (all cells); tap-every-control pass (cell 1) | — |
+| K-32 | On every review (`rec-result`, `rec-result-corrected`, `rec-result-avoided`, `custom-result`, `browse-preview`, `import-preview`, `shared-preview`), the first day's name and its first exercise are in the first viewport above the pinned region. | Checkpoint audit at 390 px, 100% text | `entry().result.preview` |
+
+All eight are hard checks. Flags: `--no-interactions` skips K-25–K-27, K-30
+and the K-31 tap pass; `--no-smoke` skips only the tap pass.
