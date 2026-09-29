@@ -37,9 +37,14 @@ header comment of `l.js`, in `policy.productDecisions: ["PD-4"]`, and here.
 
 Landing → chooser → the machine (tune) → the machine locks (review) → Today.
 
+- **Chooser** (route-choice / hub-existing): one stack on one rod. Recommend,
+  Colar de qualquer lugar and Importar um programa are numbered plates; the
+  pin rests in plate 1, drops into the plate the lifter taps (FLIP, 380 ms)
+  and the route opens. With reduced motion the route opens at once.
+
 - **Tune** (`data-entry-step` = the station of the last touched pin): the
-  readout plate (program name, tag, facts, days) followed by the seven
-  stacks, all open. Each tap recompiles and shows the identity-diff change
+  readout plate (program name, tag, facts, Day 1 open with its exercises)
+  followed by the seven stacks, all open. Each tap recompiles and shows the identity-diff change
   statement under that stack. A compact strip with the live facts slides in
   when the readout scrolls away (390/430 px at 100% only).
 - **The pin drop** (signature interaction): the knob FLIPs from its old plate
@@ -57,10 +62,16 @@ Landing → chooser → the machine (tune) → the machine locks (review) → To
 - Back from the review returns to tune with every answer kept; tune then
   offers "Ver o programa completo" to lock again.
 - **Paste door** is the machine's numbered instruction placard (three steps,
-  done/now/next). Mode switch is a two-plate stack with the pin. Import
-  review rows are plates whose empty pin hole is ringed yellow until a
-  decision drops a pin in; commit stays locked until none remains.
-- Dialogs are lockout tags (hazard edge, stencil title).
+  done/now/next). Mode switch is a two-plate stack with the pin.
+- **Import review**: each row is a plate stack under "Como veio: <name>".
+  Plates: the shortlist matches (library names), Manter o nome importado,
+  Criar personalizado, Escolher na biblioteca. A hollow pin marks the
+  suggestion ("Sugerido"); the lifter's tap drops the yellow pin and folds
+  the row to its decided plate with "Alterar". No duplicated match line, no
+  status chip (status stays in a visually-hidden label for screen readers),
+  no yellow buttons. Commit stays locked until no row is open.
+- Dialogs are coat cards with a steel top edge; the hazard stripe is kept
+  for "not yours yet" and lockouts only.
 
 Rafael, landing to Today: 10 taps (Montar meu programa, Recomendar, 7 pins,
 Usar este programa).
@@ -89,6 +100,32 @@ Round 4 verifier).
 - Short tile values avoid K-16 words ("A maior parte das sessões", not
   "maioria").
 
+## Rebuild (finish review disposition REBUILD)
+
+Topology, interaction model and copy kept. Rebuilt in one batch:
+1. Material is flat powder coat: no grain, no bevels, no gradient rod. The
+   machine reads through geometry: a flat steel rod through every pin hole,
+   a single-stroke SVG pin (ring and shaft), stencilled numbers on every
+   plate (numeric plates are their own numbers).
+2. Tune readout at 390 shows Day 1's exercises; the tune paragraph is
+   shortened (PT and EN).
+3. Chooser redrawn as the machine (above); no cards, no icons.
+4. Import review rebuilt as plate stacks (above).
+5. Hazard stripe only on the "Ainda não é seu" tag, the default-state tag
+   and locked actions; removed from the landing floor, the placard head and
+   dialogs.
+6. At 320 px and 200% text Voltar and Cancelar share one row and the locked
+   activation is about 60 px; at 390 the compact strip puts its facts on
+   their own line.
+7. Facts separators sit before each fact and are clipped at every line
+   start, so none dangles; pin-board keys are top-aligned with one value
+   size.
+8. Reason list: equipment is lowercased mid-sentence (Smith kept). Day
+   titles come unchanged from the shared `TF.dayName`. The growth_3 titles
+   ("Hipertrofia de membros inferiores" over a knee/horizontal full-body
+   day) are the production catalog's own names, logged by the coordinator
+   as a production finding and left as they are.
+
 ## Verification
 
 - `verify.mjs --round 4 --candidates l`: 168/168 checkpoint cells without
@@ -98,7 +135,10 @@ Round 4 verifier).
   state), the landing panel's hazard floor edge was kept as the world's
   base. 92 advisories compare against the app's DESIGN.md ramp, which this
   candidate deliberately does not use (brief: each candidate owns its world).
-- Inspection: one batched round (PT light 390, PT light 320 at 200%, EN dark
+- After the rebuild: `verify.mjs --round 4 --candidates l` again 168/168
+  cells without hard failures, 0 warnings, 30/30 journeys, 35/35
+  interaction checks; Rafael 10 taps; the correction 6 taps (bound 6).
+- Inspection before the rebuild: one batched round (PT light 390, PT light 320 at 200%, EN dark
   390; reduced motion via K-21), one confirmation round. Fixed in batch: the
   tune readout pushed the first stack below the fold (days now collapsed in
   tune), the lock reason ran to three lines (names only when ≤3 missing),

@@ -1,8 +1,10 @@
 # L · Pino: the world
 
 The selectorized weight stack every Brazilian commercial gym has on its
-machines: black powder-coated plates, a steel selector rod, stencilled
-numbers, a pin you pull and push into the plate you want. One colour, safety
+machines: flat black powder-coated plates, a steel selector rod running
+through their pin holes, stencilled numbers, a pin you pull and push into
+the plate you want. Nothing is rendered as a 3D object: no grain, bevels or
+gradients. The machine reads through geometry alone. One colour, safety
 yellow, marks what the lifter chose; the yellow/black hazard stripe marks
 what is not theirs yet.
 
@@ -19,7 +21,8 @@ Tokens live on `:root` in `l.css` and swap under `[data-theme="dark"]`.
 | `--l-coat` / `-hi` / `-lo` | #18191B / #26282B / #0C0D0E | #1F2124 / #2C2F33 / #101112 | plates, readout, dialogs |
 | `--l-stencil` / `-2` | #F1F0E8 / #B7BAB3 | same | text on plates |
 | `--l-yellow` | #FFCF00 | same | the pin, primary action, "not yours yet" tag, focus ring |
-| `--l-steel` | #A3A7A0 | same | selector rod, pin shaft |
+| `--l-steel` | #A3A7A0 | same | selector rod, steel pin, dialog top edge |
+| `--l-hole` | #070808 | same | pin holes (the rod shows through them in `--l-steel-2`) |
 | `--l-danger` | #A8241A | #FF8C7C | destructive actions and conflicts |
 
 Measured contrast: ink on ground 14.5 (light) / 16.2 (dark); ink-2 7.8 /
@@ -45,27 +48,36 @@ and a written reason.
 
 ## Components
 
-- **Plate** (`.l-plate`): the answer control. Coat slab, 3 px radius,
-  machined inner highlight and bottom lip, grain; label left, pin hole
-  right. A steel rod runs behind the column of holes and shows in the gaps.
-- **Knob** (`.l-knob`): one per stack. Ghost (dashed ring, "Padrão") on the
-  default plate; set (yellow knob, dark centre) on the chosen plate; steel on
-  the landing.
+- **Plate** (`.l-plate`, `.l-cplate`, `.l-bigplate`): flat coat slab, 3 px
+  radius, stencilled number left, label, pin hole right. A flat steel rod
+  runs behind the column of holes, shows in the gaps between plates and
+  passes visibly through every empty hole.
+- **Pin** (`.l-knob`): one single-stroke SVG path, a ring and its shaft. Set:
+  yellow, 4-unit stroke. Default/suggestion: dashed stencil-grey ring with
+  the word "Padrão" or "Sugerido". Steel: the resting pin on the landing and
+  the chooser.
 - **Stack** (`.l-stack`): question heading, state tag, plates, live change
   statement. Numeric stacks set numbers in stencil; days and minutes sit side
   by side at 360 px and wider.
 - **Readout plate** (`.l-readout`): the program as a machine readout: stencil
-  name, status tag, facts, collapsible days.
+  name, status tag, facts (separators clipped at line starts), collapsible
+  days with Day 1 open.
+- **Chooser stack** (`.l-cstack`): the three routes as numbered plates on one
+  rod; the lead plate sets its title in yellow stencil.
 - **Status tag** (`.l-tag`): hazard stripe + yellow field ("Ainda não é seu");
   outlined yellow ("Seu programa"); lock-open icon while a pin is pulled.
 - **Pin board** (`.l-tile`): the review's answers as plates with a seated
   yellow knob; opening one pulls the pin into an inline editor (`.l-pull`).
 - **Activation plate** (`.l-go`): yellow when usable; coat with yellow
   hatching and a lock when not.
-- **Placard** (`.l-placard`): numbered instruction steps with a hazard head,
-  for the paste door.
-- **Lockout tag** (`.l-dialog`): coat card with a hazard edge for every
-  confirmation.
+- **Placard** (`.l-placard`): numbered instruction steps inside an inked
+  frame, for the paste door.
+- **Import stack**: one plate stack per imported row, the pin on the
+  decision.
+- **Dialog** (`.l-dialog`): coat card with a 6 px steel top edge and the only
+  floating shadow.
+- **Hazard stripe**: reserved for "not yours yet" (the status tag, the
+  default-state tag) and lockouts (locked activation and commit).
 - **Toggles, fields, results**: coat toggles with a yellow check box;
   recessed fields on the panel with a yellow focus outline.
 
@@ -80,8 +92,8 @@ transition, and the FLIP is skipped in script.
 
 ## Dark rendition
 
-Dark is the machine itself: the ground becomes powder coat, plates lift to
-graphite with a 1 px edge so they separate from the ground, the stack recess
+Dark is the machine itself: the ground becomes powder coat, plates turn
+graphite with a flat 1 px edge so they separate from the ground, the stack recess
 turns near-black. Yellow, steel and the stencil whites do not change; they
 are the object's materials, not the theme's.
 

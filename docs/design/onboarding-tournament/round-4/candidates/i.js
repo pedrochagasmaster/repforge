@@ -20,6 +20,7 @@
       "i.grid.exercise": "Exercício", "i.grid.sets": "Séries", "i.grid.reps": "Reps", "i.grid.load": "Carga",
       "i.land.blank": "Um programa em branco, com os campos objetivo, dias por semana, duração, descanso e local, e uma tabela de exercícios, séries, repetições e carga ainda vazia.",
       "i.land.proof": "Quando o programa fica pronto, a tela Hoje mostra a sessão do dia.",
+      "i.land.proof_alt": "A tela Hoje logo depois de ativar: o programa Ganhar massa, semana 1 de 6, 0 de 3 sessões concluídas, e o Dia 1, Hipertrofia de membros inferiores, impresso com seis exercícios, séries e repetições, e o botão Começar treino.",
       "i.hub.lede_first": "Cada caminho preenche o programa de um jeito. Responder à primeira pergunta já começa a recomendação.",
       "i.hub.lede_existing": "Escolha como montar o próximo programa. O atual continua ativo até você confirmar a troca.",
       "i.hub.do": "Você faz", "i.hub.get": "Você recebe",
@@ -75,6 +76,7 @@
       "i.unit.min": "min",
       "i.stamp.active": "Ativo",
       "i.stamp.aria": "Carimbo: ativo desde {date}",
+      "i.stamp.aria_plain": "Carimbo: ativo",
       "i.edit.lede": "Remova exercícios ou ajuste séries e repetições. As mudanças valem só para este programa ainda não usado.",
       "i.edit.done": "Voltar ao programa",
       "i.build.days_caption": "{n} dias de treino",
@@ -93,6 +95,7 @@
       "i.grid.exercise": "Exercise", "i.grid.sets": "Sets", "i.grid.reps": "Reps", "i.grid.load": "Load",
       "i.land.blank": "A blank program, with goal, days per week, length, rest and place fields, and an empty table of exercises, sets, reps and load.",
       "i.land.proof": "Once the program is ready, the Today screen shows the day's session.",
+      "i.land.proof_alt": "The Today screen right after activation: the Build Muscle program, week 1 of 6, 0 of 3 sessions completed, and Day 1, Lower body hypertrophy, printed with six exercises, sets and reps, and the Start workout button.",
       "i.hub.lede_first": "Each way fills in the program differently. Answering the first question starts the recommendation.",
       "i.hub.lede_existing": "Choose how to set up your next program. The current one stays active until you confirm the switch.",
       "i.hub.do": "You do", "i.hub.get": "You get",
@@ -148,6 +151,7 @@
       "i.unit.min": "min",
       "i.stamp.active": "Active",
       "i.stamp.aria": "Stamp: active since {date}",
+      "i.stamp.aria_plain": "Stamp: active",
       "i.edit.lede": "Remove exercises or adjust sets and reps. Changes apply only to this unused program.",
       "i.edit.done": "Back to the program",
       "i.build.days_caption": "{n} training days",
@@ -178,7 +182,9 @@
   const SVG_CHEV = `<svg class="i-chev" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M7.8 2.2 4 6l3.8 3.8"/></svg>`;
   const SVG_TICK = `<svg class="i-x i-tick" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path pathLength="1" d="M4.5 12.8c2.2 1.8 3.8 3.6 5.3 6.1 2.6-6.1 5.6-10.4 9.8-14.3"/></svg>`;
   const stampDate = () => { const d = new Date(); return `${String(d.getDate()).padStart(2, "0")} ${MONTHS[lang][d.getMonth()]} ${d.getFullYear()}`; };
-  const stamp = (cls = "") => `<span class="i-stamp ${cls}" role="img" aria-label="${esc(t("i.stamp.aria", { date: stampDate() }))}"><span class="i-stamp__w">${esc(t("i.stamp.active"))}</span><span class="i-stamp__d">${esc(stampDate())}</span></span>`;
+  /* dated: the stamp carries today's date only when it records an activation
+     that happens now; an existing program is stamped without a date. */
+  const stamp = (cls = "", { dated = true } = {}) => `<span class="i-stamp ${cls}" role="img" aria-label="${esc(dated ? t("i.stamp.aria", { date: stampDate() }) : t("i.stamp.aria_plain"))}"><span class="i-stamp__w">${esc(t("i.stamp.active"))}</span>${dated ? `<span class="i-stamp__d">${esc(stampDate())}</span>` : ""}</span>`;
 
   /* ---------- state ---------- */
   function blank(view) {
@@ -351,7 +357,9 @@
       if (i < idx && v) return `<li class="i-field is-filled"><button type="button" class="i-field__btn" data-act="jump" data-step="${step}" aria-label="${esc(t("i.field.edit", { what: lcFirst(fieldLabel(step)), value: v }))}">${lab}${pen}</button></li>`;
       return `<li class="i-field${i === idx ? " is-here" : ""}"${i === idx ? ' aria-current="step"' : ""}><span class="i-field__static">${lab}${pen}</span></li>`;
     }).join("");
-    return `<nav class="i-head" aria-label="${esc(t("i.rail"))}"><ol class="i-fields i-fields--q">${items}</ol></nav>`;
+    const filled = qs.slice(0, idx).map((step) => sectionValue(step, S.answers)).filter(Boolean);
+    const sum = filled.length ? `<p class="i-head__sum" aria-hidden="true"><span class="i-pen">${esc(filled.join(" · "))}</span></p>` : "";
+    return `<nav class="i-head" aria-label="${esc(t("i.rail"))}">${sum}<ol class="i-fields i-fields--q">${items}</ol></nav>`;
   }
 
   /* ---------- controls in the card's vocabulary ---------- */
@@ -447,7 +455,7 @@
       ${invalid ? `<p class="i-notice i-notice--err" role="status">${esc(t(TF.sharedErrorKey(S.sharedError)))}</p>` : blankCard()}
       ${landingActions()}
       <p class="i-note i-land__priv">${esc(t("x.privacy.line"))}</p>
-      ${invalid ? "" : `<figure class="i-proof"><span class="i-proof__clip" aria-hidden="true"></span>${TS.landingProof(t, lang)}<figcaption class="i-note">${esc(t("i.land.proof"))}</figcaption></figure>`}</main>`;
+      ${invalid ? "" : `<figure class="i-proof"><span class="i-proof__clip" aria-hidden="true"></span><span class="i-proof__photo"><img data-proof-own src="${esc(TF.asset(`round-4/assets/i/today-ready-${lang === "pt" ? "pt" : "en"}-${document.documentElement.dataset.theme === "dark" ? "dark" : "light"}.png`))}" width="780" height="1688" decoding="async" alt="${esc(t("i.land.proof_alt"))}"></span><figcaption class="i-note">${esc(t("i.land.proof"))}</figcaption></figure>`}</main>`;
   }
 
   /* ---------- route choice: the card box ---------- */
@@ -463,7 +471,7 @@
     const info = TF.loadDraft(); if (!info || info.status === "corrupt") return "";
     if (info.status === "rules_changed") return `<div class="i-recover i-notice" data-checkpoint="rules-changed" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t(info.route === "import" || info.route === "shared" ? "entry.rules_changed.body_keep" : "entry.rules_changed.body_rebuild"))}</p>${info.route === "import" || info.route === "shared" ? btn(t("entry.rules_changed.keep"), "rules-keep", { extra: " disabled" }) : btn(t("entry.rules_changed.rebuild"), "rules-rebuild")}</div>`;
     const f = TS.resumeFacts(t, lang, info);
-    return `<section class="i-recover i-idx i-idx--static" data-stock="${STOCK[info.route] || "yellow"}" data-checkpoint="resume" aria-labelledby="iResumeTitle"><div class="i-idx__btn"><h2 class="i-idx__t" id="iResumeTitle">${esc(t("entry.resume.title"))}</h2><p class="i-small">${esc(t("entry.resume.body"))}</p><p class="i-pen i-resume__at">${esc(t("i.resume.at", { route: f.route, step: f.step, when: f.when }))}</p><div class="i-acts">${btn(t("entry.resume.continue"), "resume", { cls: "i-btn i-btn--solid", id: "iResume" })}${btn(t("entry.resume.restart"), "resume-restart", { cls: "i-link i-link--danger", id: "iResumeRestart", extra: ' aria-haspopup="dialog"' })}</div></div></section>`;
+    return `<section class="i-recover i-idx i-idx--static" data-stock="${STOCK[info.route] || "yellow"}" data-checkpoint="resume" aria-labelledby="iResumeTitle"><div class="i-idx__btn"><h2 class="i-idx__t" id="iResumeTitle">${esc(t("entry.resume.title"))}</h2><p class="i-small">${esc(t("entry.resume.body"))}</p><p class="i-resume__at">${esc(t("i.resume.at", { route: f.route, step: f.step, when: f.when }))}</p><div class="i-acts">${btn(t("entry.resume.continue"), "resume", { cls: "i-btn i-btn--solid", id: "iResume" })}${btn(t("entry.resume.restart"), "resume-restart", { cls: "i-link i-link--danger", id: "iResumeRestart", extra: ' aria-haspopup="dialog"' })}</div></div></section>`;
   }
   function helpPanel() {
     const h = S.help; if (!h) return "";
@@ -480,10 +488,10 @@
     return `<div class="i-page i-hub"><header class="i-bar"><button type="button" class="i-link i-bar__btn" data-act="hub-back">${SVG_CHEV}${esc(t("entry.back"))}</button></header>
       <main class="i-main" data-checkpoint="${active ? "hub-existing" : "route-choice"}">
         <h1 class="i-title" data-focus>${esc(t("entry.hub.title"))}</h1><p class="i-lede">${esc(active ? t("i.hub.lede_existing") : t("i.hub.lede_first"))}</p>
-        ${cur ? `<section class="i-current" aria-labelledby="iCur"><h2 class="i-rule-l" id="iCur">${esc(t("i.hub.current"))}</h2><p class="i-current__n" data-user-text>${esc(TF.activeName(lang))}</p><p class="i-small">${esc(t("i.hub.current_facts", { days: cur.daysPerWeek, n: TF.device.sessions }))}</p>${stamp("i-stamp--sm")}<p class="i-note">${esc(t("entry.active_notice"))}</p></section>` : ""}
+        ${cur ? `<section class="i-current" aria-labelledby="iCur"><h2 class="i-rule-l" id="iCur">${esc(t("i.hub.current"))}</h2><p class="i-current__n" data-user-text>${esc(TF.activeName(lang))}</p><p class="i-small">${esc(t("i.hub.current_facts", { days: cur.daysPerWeek, n: TF.device.sessions }))}</p>${stamp("i-stamp--sm", { dated: false })}<p class="i-note">${esc(t("entry.active_notice"))}</p></section>` : ""}
         ${recoveryCard()}
         <ol class="i-box-list">
-          <li class="i-idx i-idx--rec" data-stock="yellow"><section class="i-idx__btn" aria-labelledby="iRecQ"><span class="i-idx__t">${esc(t("entry.hub.recommend.title"))}</span><h2 class="i-idx__q" id="iRecQ">${esc(t("entry.desired_result.title"))}</h2><p class="i-idx__line"><span class="i-idx__k">${esc(t("i.hub.do"))}</span> ${esc(t("x.cost.recommend"))}</p><p class="i-idx__line"><span class="i-idx__k">${esc(t("i.hub.get"))}</span> ${esc(t("i.get.recommend"))}</p>
+          <li class="i-idx i-idx--rec" data-stock="yellow"><span class="i-idx__tab">${esc(t("entry.hub.recommend.title"))}</span><section class="i-idx__btn" aria-labelledby="iRecQ"><h2 class="i-idx__q" id="iRecQ">${esc(t("entry.desired_result.title"))}</h2><p class="i-idx__line"><span class="i-idx__k">${esc(t("i.hub.do"))}</span> ${esc(t("x.cost.recommend"))}</p><p class="i-idx__line"><span class="i-idx__k">${esc(t("i.hub.get"))}</span> ${esc(t("i.get.recommend"))}</p>
             <div class="i-lines" role="group" aria-labelledby="iRecQ">${TS.DESIRED.map((v) => `<button type="button" class="i-opt i-opt--go" data-act="start-rec" data-goal="${v}"><span class="i-box" aria-hidden="true"><span class="i-paren">(</span>${SVG_X}<span class="i-paren">)</span></span><span class="i-opt__b"><span class="i-opt__t">${esc(t(`entry.desired_result.${v}.label`))}</span><span class="i-opt__c">${esc(t(`entry.desired_result.${v}.sub`))}</span></span></button>`).join("")}</div></section></li>
           ${door("custom")}${door("browse")}${door("import", { importMode: "freeform" })}${door("import", { importMode: "file" })}${door("build")}
         </ol>
@@ -580,7 +588,7 @@
     const items = chipList().map((c) => {
       const old = S.orig && S.orig[c.chip] !== undefined && S.orig[c.chip] !== c.text ? S.orig[c.chip] : null;
       const open = S.sheet && S.sheet.chip === c.chip;
-      return `<li class="i-field is-filled${old ? " is-corrected" : ""}"><button type="button" class="i-field__btn${open ? " is-open" : ""}" data-act="chip" data-chip="${c.chip}" aria-expanded="${open ? "true" : "false"}"${open ? ' aria-controls="iEdit"' : ""} aria-label="${esc(t("i.field.edit", { what: lcFirst(c.label), value: c.text }))}"><span class="i-field__l">${esc(c.label)}</span>${old ? `<s class="i-struck">${esc(old)}</s>` : ""}<span class="i-pen${fc.has(c.chip) ? " is-fresh" : ""}">${esc(c.text)}</span></button></li>`;
+      return `<li class="i-field is-filled${old ? " is-corrected" : ""}"><button type="button" class="i-field__btn${open ? " is-open" : ""}" data-act="chip" data-chip="${c.chip}" aria-expanded="${open ? "true" : "false"}"${open ? ' aria-controls="iEdit"' : ""} aria-label="${esc(t("i.field.edit", { what: lcFirst(c.label), value: c.text }))}"><span class="i-field__l">${esc(c.label)}</span>${old ? `<del class="i-struck${fc.has(c.chip) ? " is-fresh" : ""}">${esc(old)}</del>` : ""}<span class="i-pen${fc.has(c.chip) ? " is-fresh" : ""}">${esc(c.text)}</span></button></li>`;
     }).join("");
     return `<section class="i-head i-head--rev" aria-labelledby="iFieldsL"><h2 class="visually-hidden" id="iFieldsL">${esc(t("i.rail"))}</h2><ol class="i-fields">${items}</ol><p class="i-note i-head__hint">${esc(t("i.rev.fields_hint"))}</p>${editorView()}</section>`;
   }
@@ -593,7 +601,7 @@
       <p class="i-facts" id="iFacts">${facts.map((x) => `<span>${esc(x)}</span>`).join("")}</p></div>${changeLine()}
       ${TF.hasActiveProgram() && S.notice !== "conflict" && !S.stamping ? `<p class="i-note i-active">${esc(t("entry.active_notice"))}</p>` : ""}`;
     if (gen) out += fieldsBlock();
-    else out += `<p class="i-note i-src">${esc(t("i.rev.source", { source: t(`entry.preview.source.${S.route}`) }))}</p>`;
+    else out += `<p class="i-src">${esc(t("i.rev.source", { source: t(`entry.preview.source.${S.route}`) }))}</p>`;
     out += `<section class="i-week${S.printRows ? " is-printing" : ""}" aria-labelledby="iWeek"><h2 class="visually-hidden" id="iWeek">${esc(t("entry.preview.days"))}</h2>${grid(p, S.changeFrom && gen ? addedIds(S.changeFrom.preview, p) : new Set())}<p class="i-note i-loadnote">${esc(t("i.grid.load_note"))}</p></section>`;
     const obs = [];
     if (gen) for (const x of TS.reasons(t, lang, r, a, { custom: S.route === "custom" })) obs.push(x.text);
@@ -660,7 +668,7 @@
       return `${ni}${err}<ol class="i-gaps">${g.gaps.map((gap) => { const bad = ff.gapErrors.has(gap.key); const lab = gap.field === "sets" ? t("entry.freeform.gap_sets_label", { exercise: `${gap.day} · ${gap.name}` }) : t("entry.freeform.gap_reps_label", { exercise: `${gap.day} · ${gap.name}` }); return `<li><label class="i-input i-input--pen${bad ? " is-bad" : ""}"><span class="i-input__l">${esc(lab)}</span><input type="text" inputmode="numeric" autocomplete="off" data-field="gap" data-key="${esc(gap.key)}" value="${esc(ff.gapAnswers[gap.key] || "")}" placeholder="${esc(gap.field === "sets" ? t("entry.freeform.gap_sets_placeholder") : t("entry.freeform.gap_reps_placeholder"))}"${bad ? ' aria-invalid="true"' : ""}>${bad ? `<span class="i-miss">${esc(t("entry.freeform.gap_error"))}</span>` : ""}</label></li>`; }).join("")}</ol>
         <div class="i-acts"><button type="button" class="i-btn i-btn--solid" data-act="ff" data-ff="gap-submit">${esc(t("entry.freeform.gaps_submit"))}</button><button type="button" class="i-btn i-btn--quiet" data-act="ff" data-ff="gap-back">${esc(t("entry.freeform.back_to_reply"))}</button></div>`;
     }
-    const summary = ff.stage > 1 ? `<div class="i-srcrow"><span class="i-pen">${esc(t("entry.freeform.source_summary", { lines: TS.freeform.lines(ff) }))}</span><button type="button" class="i-btn i-btn--sm" data-act="ff" data-ff="edit-source">${esc(t("entry.freeform.edit_source"))}</button></div>` : "";
+    const summary = ff.stage > 1 ? `<div class="i-srcrow"><span class="i-srcrow__t">${esc(t("entry.freeform.source_summary", { lines: TS.freeform.lines(ff) }))}</span><button type="button" class="i-btn i-btn--sm" data-act="ff" data-ff="edit-source">${esc(t("entry.freeform.edit_source"))}</button></div>` : "";
     const stages = `<ol class="i-steps" aria-hidden="true">${[1, 2, 3].map((n) => `<li class="${ff.stage === n ? "is-here" : ff.stage > n ? "is-done" : ""}">${n}</li>`).join("")}</ol>`;
     if (ff.stage === 1) return `${stages}<label class="i-sheet"><span class="i-group__l">${esc(t("entry.freeform.input_label"))}</span><textarea id="ffIn" rows="${compact() ? 6 : 8}" maxlength="${TF.FREEFORM_MAX_CHARS}" spellcheck="false" autocapitalize="off" data-field="ffInput" placeholder="${esc(t("entry.freeform.input_placeholder"))}">${esc(ff.input)}</textarea><span class="i-note" id="ffCount">${esc(t("entry.freeform.count", { n: TF.nf(lang, ff.input.length), max: TF.nf(lang, TF.FREEFORM_MAX_CHARS) }))}</span></label>
         <p class="i-note" id="ffNeeds"${program ? " hidden" : ""}>${esc(t("entry.freeform.needs_input"))}</p>
@@ -731,9 +739,9 @@
     else if (S.step === "import_source") { const r = importBody(); body = r.body; footer = r.footer; }
     else if ((S.route === "build" && S.step === "editor") || S.editing) { const e = editorParts(); body = e.body; footer = e.footer; }
     else if (reviewing()) { body = reviewBody(); if (S.result && !S.sheet) footer = activateStub({ ready: !TF.progressionIssue(S.result.preview), reasonId: "iBlocked" }); }
-    const where = `<p class="i-where"><span>${esc(TS.routeName(t, S.route))}</span>${qi >= 0 ? `<span aria-live="polite">${esc(t("entry.step", { n: qi + 1, total: qs.length }))}</span>` : ""}</p>`;
+    const where = `<p class="i-where"><span class="i-where__r">${esc(TS.routeName(t, S.route))}</span>${qi >= 0 ? `<span aria-live="polite">${esc(t("entry.step", { n: qi + 1, total: qs.length }))}</span>` : ""}</p>`;
     return `<div class="i-page i-route"><header class="i-bar"><button type="button" class="i-link i-bar__btn" data-act="back">${SVG_CHEV}${esc(t("entry.back"))}</button><button type="button" class="i-link i-bar__btn" data-act="cancel">${esc(t("entry.cancel"))}</button></header>
-      ${reviewing() ? "" : where}${qi >= 0 ? cardHead() : ""}
+      ${qi >= 0 ? where + cardHead() : ""}
       <main class="i-main${reviewing() ? " i-main--card" : ""}${S.stamping ? " is-stamping" : ""}" data-entry-step="${esc(S.step)}"${S.editing ? " data-editor" : ""} data-checkpoint="${esc(checkpointFor())}">${body}</main>${footer}</div>`;
   }
   function overlayView() {
@@ -743,9 +751,25 @@
     if (S.overlay === "resume-discard") return slip(`<h2 class="i-slip__t" id="iDiscardTitle" tabindex="-1">${esc(t("i.resume.discard_title"))}</h2><p class="i-small" id="iDiscardBody">${esc(t("i.resume.discard_body"))}</p><div class="i-acts"><button type="button" class="i-btn i-btn--danger" data-act="resume-discard-confirm">${esc(t("i.resume.discard_confirm"))}</button><button type="button" class="i-btn" data-act="resume-discard-cancel">${esc(t("i.resume.discard_cancel"))}</button></div>`, { role: "alertdialog", label: "iDiscardTitle", desc: "iDiscardBody", attrs: 'data-confirm="discard-draft"', scrimAct: "resume-discard-cancel" });
     return "";
   }
+  /* Today continues the card: the program's first training day printed in
+     the same grid the lifter approved (same data as TF.renderToday: the
+     active program, week 1 of 6, no session done yet, Day 1). */
   function todayView() {
-    const h = S.handover;
-    return `<div class="i-today${h ? " is-handed" : ""}">${h ? `<div class="i-handover" data-stock="${h.stock}">${stamp("i-stamp--on")}<p class="i-handover__t" role="status">${esc(t("x.activated"))}</p></div>` : ""}${TF.renderToday(t, lang)}</div>`;
+    const h = S.handover; const a = TF.device.active; if (!a) return "";
+    const days = (a.programStructure && a.programStructure.days || []).map((d) => ({ ...d, exercises: a.program.filter((e) => e.day === d.label || e.dayId === d.dayId) }));
+    const first = days[0] || { label: "Day 1", exercises: [] };
+    const per = a.daysPerWeek || days.length;
+    const date = new Date().toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US", { weekday: "long", month: "long", day: "numeric" });
+    const muscles = [...new Set(first.exercises.flatMap((e) => TF.muscleLabels(t, e.primary)))].slice(0, 3).join(" · ");
+    const day = grid({ days: [first], programStructure: a.programStructure });
+    const strip = h ? `<div class="i-handover" data-stock="${h.stock}">${stamp("i-stamp--on")}<p class="i-handover__t" role="status">${esc(t("x.activated"))}</p></div>` : "";
+    return `<div class="i-today${h ? " is-handed" : ""}">${strip}<div class="today i-today__in" data-checkpoint="activated-today">
+      <header class="i-today__head"><h1 class="i-title" data-focus>${esc(t("nav.log"))}</h1><p class="i-note">${esc(date)}</p></header>
+      <section class="i-today__prog" aria-labelledby="iTodayName"><p class="i-today__name" id="iTodayName" data-today-program>${esc(TF.activeName(lang))}</p><p class="i-note">${esc(t("today.week_of", { n: 1, total: 6 }))} · ${esc(t("today.sessions_done", { done: 0, planned: per }))}</p><div class="i-today__week" aria-hidden="true">${Array.from({ length: per }, () => "<span></span>").join("")}</div></section>
+      <section class="i-today__day" aria-label="${esc(t("today.session_label"))}">${muscles ? `<p class="i-note i-today__mus">${esc(muscles)}</p>` : ""}${day}</section>
+      <button type="button" class="i-btn i-btn--solid">${esc(t("today.start"))}</button>
+      <nav class="dock" aria-label="${esc(t("nav.aria"))}"><button type="button" class="is-active"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span>${esc(t("nav.log"))}</button><button type="button"><span class="icon-mask icon-mask--trend" aria-hidden="true"></span>${esc(t("nav.stats"))}</button><button type="button"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(t("nav.history"))}</button><button type="button"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span>${esc(t("nav.program"))}</button></nav>
+    </div></div>`;
   }
   function view() {
     if (S.view === "today") return todayView();
