@@ -1,0 +1,8 @@
+Kalam
+Fetched 2026-09-29T16:10:46.040Z from https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap
+Licence: see https://fonts.google.com/specimen/Kalam/license
+
+kalam-400-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/kalam/v18/YA9dr0Wd4kDdMthfOCfzsw.woff2
+kalam-400-normal-latin.woff2 <- https://fonts.gstatic.com/s/kalam/v18/YA9dr0Wd4kDdMthROCc.woff2
+kalam-700-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/kalam/v18/YA9Qr0Wd4kDdMtDqHTLCkiQ4tg.woff2
+kalam-700-normal-latin.woff2 <- https://fonts.gstatic.com/s/kalam/v18/YA9Qr0Wd4kDdMtDqHTLMkiQ.woff2

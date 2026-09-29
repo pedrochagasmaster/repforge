@@ -1,0 +1,14 @@
+Atkinson Hyperlegible Next
+Fetched 2026-09-29T16:12:27.344Z from https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700;800&display=swap
+Licence: see https://fonts.google.com/specimen/Atkinson+Hyperlegible+Next/license
+
+atkinson-hyperlegible-next-400-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiHn3qmpQ.woff2
+atkinson-hyperlegible-next-400-normal-latin.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2
+atkinson-hyperlegible-next-500-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiHn3qmpQ.woff2
+atkinson-hyperlegible-next-500-normal-latin.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2
+atkinson-hyperlegible-next-600-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiHn3qmpQ.woff2
+atkinson-hyperlegible-next-600-normal-latin.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2
+atkinson-hyperlegible-next-700-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiHn3qmpQ.woff2
+atkinson-hyperlegible-next-700-normal-latin.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2
+atkinson-hyperlegible-next-800-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiHn3qmpQ.woff2
+atkinson-hyperlegible-next-800-normal-latin.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2

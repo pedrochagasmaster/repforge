@@ -1,0 +1,10 @@
+Barlow Condensed
+Fetched 2026-09-29T16:11:34.867Z from https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap
+Licence: see https://fonts.google.com/specimen/Barlow+Condensed/license
+
+barlow-condensed-500-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B4-Lwz3jWuZEC.woff2
+barlow-condensed-500-normal-latin.woff2 <- https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B4-Lwz3bWuQ.woff2
+barlow-condensed-600-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B4873z3jWuZEC.woff2
+barlow-condensed-600-normal-latin.woff2 <- https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B4873z3bWuQ.woff2
+barlow-condensed-700-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B46r2z3jWuZEC.woff2
+barlow-condensed-700-normal-latin.woff2 <- https://fonts.gstatic.com/s/barlowcondensed/v13/HTxwL3I-JCGChYJ8VI-L6OO_au7B46r2z3bWuQ.woff2

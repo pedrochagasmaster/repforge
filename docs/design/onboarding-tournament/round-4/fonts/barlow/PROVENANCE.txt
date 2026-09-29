@@ -1,0 +1,12 @@
+Barlow
+Fetched 2026-09-29T16:11:34.593Z from https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap
+Licence: see https://fonts.google.com/specimen/Barlow/license
+
+barlow-400-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/barlow/v13/7cHpv4kjgoGqM7E_Ass52Hs.woff2
+barlow-400-normal-latin.woff2 <- https://fonts.gstatic.com/s/barlow/v13/7cHpv4kjgoGqM7E_DMs5.woff2
+barlow-500-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3_-gs6VospT4.woff2
+barlow-500-normal-latin.woff2 <- https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3_-gs51os.woff2
+barlow-600-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E30-8s6VospT4.woff2
+barlow-600-normal-latin.woff2 <- https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E30-8s51os.woff2
+barlow-700-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3t-4s6VospT4.woff2
+barlow-700-normal-latin.woff2 <- https://fonts.gstatic.com/s/barlow/v13/7cHqv4kjgoGqM7E3t-4s51os.woff2

@@ -1,0 +1,3 @@
+Archivo
+Variable wght files archivo-var-latin.woff2 and archivo-var-latin-ext.woff2 from https://fonts.googleapis.com/css2?family=Archivo (Google Fonts, SIL Open Font License).
+Licence: see https://fonts.google.com/specimen/Archivo/license

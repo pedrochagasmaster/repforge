@@ -1,0 +1,14 @@
+Sofia Sans
+Fetched 2026-09-29T16:11:52.949Z from https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;500;600;700;800&display=swap
+Licence: see https://fonts.google.com/specimen/Sofia+Sans/license
+
+sofia-sans-400-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrO96kigt.woff2
+sofia-sans-400-normal-latin.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrOF6kg.woff2
+sofia-sans-500-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrO96kigt.woff2
+sofia-sans-500-normal-latin.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrOF6kg.woff2
+sofia-sans-600-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrO96kigt.woff2
+sofia-sans-600-normal-latin.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrOF6kg.woff2
+sofia-sans-700-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrO96kigt.woff2
+sofia-sans-700-normal-latin.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrOF6kg.woff2
+sofia-sans-800-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrO96kigt.woff2
+sofia-sans-800-normal-latin.woff2 <- https://fonts.gstatic.com/s/sofiasans/v20/Yq6R-LCVXSLy9uPBwlATrOF6kg.woff2

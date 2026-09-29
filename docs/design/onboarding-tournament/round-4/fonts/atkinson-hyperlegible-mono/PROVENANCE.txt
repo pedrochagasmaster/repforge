@@ -1,0 +1,8 @@
+Atkinson Hyperlegible Mono
+Fetched 2026-09-29T16:12:27.650Z from https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600&display=swap
+Licence: see https://fonts.google.com/specimen/Atkinson+Hyperlegible+Mono/license
+
+atkinson-hyperlegible-mono-400-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblemono/v8/tss4AoFBci4C4gvhPXrt3wjT1MqSzhA4t7IIcncBiwKjhFyRHQ.woff2
+atkinson-hyperlegible-mono-400-normal-latin.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblemono/v8/tss4AoFBci4C4gvhPXrt3wjT1MqSzhA4t7IIcncBiwKthFw.woff2
+atkinson-hyperlegible-mono-600-normal-latin-ext.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblemono/v8/tss4AoFBci4C4gvhPXrt3wjT1MqSzhA4t7IIcncBiwKjhFyRHQ.woff2
+atkinson-hyperlegible-mono-600-normal-latin.woff2 <- https://fonts.gstatic.com/s/atkinsonhyperlegiblemono/v8/tss4AoFBci4C4gvhPXrt3wjT1MqSzhA4t7IIcncBiwKthFw.woff2
