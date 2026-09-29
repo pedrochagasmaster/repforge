@@ -17,13 +17,12 @@
     pt: {
       "h.name": "H · Concreto",
       "h.land.key": "exatamente",
-      "h.land.proof": "A tela de Hoje, depois que um programa está ativo.",
+      "h.land.proof": "Hoje, logo depois de ativar um programa.",
       "h.brand.home": "Taurifer",
       "h.index": "{n} de {total}",
       "h.index.sr": "Pergunta {n} de {total}.",
       "h.verse.sr": "Suas respostas até aqui:",
-      "h.hub.title": "Como começar",
-      "h.hub.lede": "Escolha um verbo. Cada um é um caminho até um programa completo.",
+      "h.verse.more": "e mais {n}",
       "h.hub.lede_existing": "{name} continua ativo até você usar outro programa. Escolha como montar o próximo.",
       "h.door.recommend": "recomendar", "h.door.custom": "personalizar", "h.door.browse": "explorar", "h.door.freeform": "colar", "h.door.file": "importar", "h.door.build": "montar",
       "h.cost.recommend": "{n} perguntas, uma por tela, e uma etapa opcional.",
@@ -104,13 +103,12 @@
     en: {
       "h.name": "H · Concreto",
       "h.land.key": "exactly",
-      "h.land.proof": "The Today screen, once a program is active.",
+      "h.land.proof": "Today, right after a program is activated.",
       "h.brand.home": "Taurifer",
       "h.index": "{n} of {total}",
       "h.index.sr": "Question {n} of {total}.",
       "h.verse.sr": "Your answers so far:",
-      "h.hub.title": "How to start",
-      "h.hub.lede": "Choose a verb. Each one is a way to a complete program.",
+      "h.verse.more": "and {n} more",
       "h.hub.lede_existing": "{name} stays active until you use another program. Choose how to set up the next one.",
       "h.door.recommend": "recommend", "h.door.custom": "customize", "h.door.browse": "browse", "h.door.freeform": "paste", "h.door.file": "import", "h.door.build": "build",
       "h.cost.recommend": "{n} questions, one per screen, and one optional step.",
@@ -380,8 +378,11 @@
   function runningVerse() {
     const list = QLIST[S.route] || []; const words = [];
     list.forEach((q, i) => { if (i > S.qi) return; if (QDEF[q].optional && i === S.qi) return; if (QDEF[q].optional && !["priorities", "emphasis", "prefs"].includes(q)) return; const w = vWord(q, S.answers); if (w && !(QDEF[q].optional && /^(sem |no |ênfase normal|normal emphasis)/.test(w))) words.push({ q, w }); });
-    if (!words.length) return "";
-    return `<p class="h-verse" aria-live="polite"><span class="visually-hidden">${esc(t("h.verse.sr"))} </span>${words.map((x, i) => `${i ? '<span class="h-verse__sep" aria-hidden="true">/</span> ' : ""}<span class="h-verse__w${S.fresh === x.q ? " is-new" : ""}">${esc(x.w)}</span>`).join(" ")}</p>`;
+    const idx = `${S.qi + 1}/${list.length}`;
+    const last = words[words.length - 1];
+    const compact = `<p class="h-verse h-verse--compact" aria-hidden="true"><span class="h-verse__idx">${esc(idx)}</span>${last ? ` <span class="h-verse__sep">/</span> <span class="h-verse__w${S.fresh === last.q ? " is-new" : ""}">${esc(last.w)}</span>${words.length > 1 ? ` <span class="h-verse__more">${esc(t("h.verse.more", { n: words.length - 1 }))}</span>` : ""}` : ""}</p>`;
+    if (!words.length) return compact;
+    return compact + `<p class="h-verse h-verse--full" aria-live="polite"><span class="visually-hidden">${esc(t("h.verse.sr"))} </span>${words.map((x, i) => `${i ? '<span class="h-verse__sep" aria-hidden="true">/</span> ' : ""}<span class="h-verse__w${S.fresh === x.q ? " is-new" : ""}">${esc(x.w)}</span>`).join(" ")}</p>`;
   }
 
   /* ---------- atoms ---------- */
@@ -389,6 +390,15 @@
   function opt({ key, val, title, sub, sel, role = "radio", ctx }) {
     const fl = ctx && !ctx.sheet && S.flood === `${key}|${val}`;
     return `<button type="button" class="h-opt${sel ? " is-on" : ""}${fl ? " is-flood" : ""}" role="${role}" aria-checked="${sel ? "true" : "false"}" data-act="pick" data-key="${esc(key)}" data-val="${esc(val)}"><span class="h-opt__t">${esc(title)}</span>${sub ? `<span class="h-opt__s">${esc(sub)}</span>` : ""}${TICK}</button>`;
+  }
+  /* Phrase answers as words placed in the six-column composition. spots:
+     [column start, span] per answer; each screen has its own placement. */
+  function placed({ key, items, spots, ctx, labelId, name }) {
+    const g = `${name}${ctx.sheet ? "S" : ""}`;
+    return `<div class="h-place h-place--${name}" role="radiogroup" aria-labelledby="${labelId}">${items.map((it, i) => {
+      const [c, span] = spots[i]; const fl = !ctx.sheet && S.flood === `${key}|${it.val}`;
+      return `<button type="button" class="h-word${it.sel ? " is-on" : ""}${fl ? " is-flood" : ""}" style="--c:${c};--s:${span}" role="radio" aria-checked="${it.sel ? "true" : "false"}" data-act="pick" data-key="${esc(key)}" data-val="${esc(it.val)}"><span class="h-word__t" data-fit data-fit-group="${g}" data-fit-rem="1.625">${esc(it.title)}</span>${it.sub ? `<span class="h-word__s">${esc(it.sub)}</span>` : ""}${TICK}</button>`;
+    }).join("")}</div>`;
   }
   function chip({ key, val, label, sel, role = "checkbox", disabled, ctx }) {
     const fl = ctx && !ctx.sheet && S.flood === `${key}|${val}`;
@@ -410,9 +420,9 @@
   function qBody(q, a, ctx) {
     const p = ctx.sheet ? "hS" : "hQ"; const lab = `${p}L-${q}`;
     switch (q) {
-      case "goal": return `<div class="h-words" role="radiogroup" aria-labelledby="${lab}">${TS.DESIRED.map((v) => opt({ key: "desiredResult", val: v, title: t(`entry.desired_result.${v}.label`), sub: t(`entry.desired_result.${v}.sub`), sel: a.desiredResult === v, ctx })).join("")}</div>`;
-      case "experience": return `<div class="h-words" role="radiogroup" aria-labelledby="${lab}">${TS.EXPERIENCE.map((v) => opt({ key: "structuredExperience", val: v, title: t(`entry.background.experience.${v}`), sel: a.structuredExperience === v, ctx })).join("")}</div>`;
-      case "consistency": return `<div class="h-words" role="radiogroup" aria-labelledby="${lab}">${TS.CONSISTENCY.map((v) => opt({ key: "recentConsistency", val: v, title: t(`entry.background.consistency.${v}`), sel: a.recentConsistency === v, ctx })).join("")}</div>`;
+      case "goal": return placed({ key: "desiredResult", name: "goal", ctx, labelId: lab, spots: [[1, 5], [2, 5], [3, 4]], items: TS.DESIRED.map((v) => ({ val: v, title: t(`entry.desired_result.${v}.label`), sub: t(`entry.desired_result.${v}.sub`), sel: a.desiredResult === v })) });
+      case "experience": return placed({ key: "structuredExperience", name: "exp", ctx, labelId: lab, spots: [[1, 3], [2, 3], [3, 3], [4, 3]], items: TS.EXPERIENCE.map((v) => ({ val: v, title: t(`entry.background.experience.${v}`), sel: a.structuredExperience === v })) });
+      case "consistency": return placed({ key: "recentConsistency", name: "cons", ctx, labelId: lab, spots: [[1, 3], [4, 3], [1, 3], [4, 3]], items: TS.CONSISTENCY.map((v) => ({ val: v, title: t(`entry.background.consistency.${v}`), sel: a.recentConsistency === v })) });
       case "days": return stair("daysPerWeek", TS.DAYS.map((n) => ({ val: n, num: String(n), unit: t("h.unit.days") })), (v) => a.daysPerWeek === v, ctx, lab);
       case "minutes": return stair("sessionMinutes", TS.MINUTES.map((n) => ({ val: n, num: n === 90 ? "90+" : String(n), unit: t("h.unit.min") })), (v) => a.sessionMinutes === v, ctx, lab);
       case "rest": {
@@ -422,7 +432,7 @@
       }
       case "environment": {
         const e = a.environment;
-        const kinds = `<div class="h-words" role="radiogroup" aria-labelledby="${lab}">${TS.ENVS.map((v) => opt({ key: "environment", val: v, title: t(`entry.environment.${v}`), sel: !!(e && e.kind === v), ctx })).join("")}</div>`;
+        const kinds = placed({ key: "environment", name: "env", ctx, labelId: lab, spots: [[1, 6], [1, 3], [4, 3], [1, 3], [4, 3]], items: TS.ENVS.map((v) => ({ val: v, title: t(`entry.environment.${v}`), sel: !!(e && e.kind === v) })) });
         if (!e) return kinds;
         const eq = new Set(e.equipment || []), caps = new Set(e.capabilities || []);
         const groups = `<p class="h-label" id="${p}Eq">${esc(t("entry.env_correct.equipment"))}</p><div class="h-chips" role="group" aria-labelledby="${p}Eq">${TS.EQUIP.map((k) => chip({ key: "environmentEquipment", val: k, label: t(`entry.equip.${k}`, undefined, k), sel: eq.has(k), ctx })).join("")}</div>
@@ -501,7 +511,7 @@
       <h1 class="h-poem" tabindex="-1">${poem}</h1>
       <p class="h-land__body">${esc(t("landing.body"))}</p>
       <div class="h-land__acts"><button type="button" id="firstRunCreate" class="h-btn h-btn--field" data-act="land-create"><span class="h-btn__l">${esc(t("landing.build"))}</span>${ARROW()}</button><button type="button" id="firstRunImport" class="h-btn h-btn--line" data-act="land-import"><span class="h-btn__l">${esc(t("landing.track"))}</span>${ARROW()}</button></div>
-      <div class="h-land__proof"><p class="h-land__cap">${esc(t("h.land.proof"))}</p><figure class="h-land__shot"><img src="${esc(TF.asset(`vendor/brand/today-ready-${lang === "pt" ? "pt" : "en"}-${document.documentElement.dataset.theme === "dark" ? "dark" : "light"}.webp`))}" width="903" height="1832" decoding="async" alt="${esc(t("landing.shot.today_ready.alt"))}"></figure></div>
+      <div class="h-land__proof"><p class="h-land__cap">${esc(t("h.land.proof"))}</p><figure class="h-land__shot"><img src="${esc(TF.asset(`round-4/assets/h/today-ready-${lang === "pt" ? "pt" : "en"}-${document.documentElement.dataset.theme === "dark" ? "dark" : "light"}.png`))}" width="780" height="1688" decoding="async" alt="${esc(t("landing.shot.today_ready.alt"))}"></figure></div>
       <p class="h-land__privacy">${esc(t("x.privacy.line"))}</p></main>`;
   }
   function door(route, { lead = false, importMode } = {}) {
@@ -509,7 +519,7 @@
     const title = route === "import" ? t(importMode === "freeform" ? "entry.hub.freeform.title" : "entry.hub.import.title") : t(`entry.hub.${route}.title`);
     const n = QLIST[route] ? QLIST[route].filter((q) => !QDEF[q].optional && q !== "shape").length : 0;
     const cost = t(`h.cost.${key}`, { n });
-    return `<button type="button" class="h-door${lead ? " h-door--lead" : ""}" data-act="route" data-route="${route}"${importMode ? ` data-mode="${importMode}"` : ""}><span class="h-door__w" data-fit data-fit-group="doors" data-fit-max="64">${esc(t(`h.door.${key}`))}</span><span class="h-door__t">${esc(title)}</span><span class="h-door__c">${esc(cost)}</span><span class="h-door__a">${ARROW()}</span></button>`;
+    return `<button type="button" class="h-door${lead ? " h-door--lead" : ""}" data-act="route" data-route="${route}"${importMode ? ` data-mode="${importMode}"` : ""}><span class="h-door__w" data-fit data-fit-group="doors" data-fit-max="64">${esc(t(`h.door.${key}`))}</span><span class="visually-hidden">: ${esc(title)}.</span><span class="h-door__c">${esc(cost)}</span><span class="h-door__a">${ARROW()}</span></button>`;
   }
   function resumeCard() {
     const info = TF.loadDraft(); if (!info || info.status !== "resumable") return "";
@@ -519,12 +529,12 @@
   function hubView() {
     const existing = TF.hasActiveProgram();
     return `<main class="h-page h-hub" data-checkpoint="${existing ? "hub-existing" : "route-choice"}">${bar({ backAct: "hub-back", cancel: false, center: "" })}
-      <h1 class="h-hub__t" tabindex="-1">${esc(t("h.hub.title"))}</h1>
-      <p class="h-lede">${esc(existing ? t("h.hub.lede_existing", { name: TF.activeName(lang) }) : t("h.hub.lede"))}</p>
+      <h1 class="h-hub__t" tabindex="-1"><span class="h-hub__w" data-fit data-fit-max="60" data-fit-vh="0.12">${esc(t("entry.hub.title"))}</span></h1>
+      <p class="h-lede">${esc(existing ? t("h.hub.lede_existing", { name: TF.activeName(lang) }) : t("entry.hub.lede"))}</p>
       ${resumeCard()}
-      <section class="h-stanza" aria-labelledby="hG1"><h2 class="h-stanza__t" id="hG1">${esc(t("entry.hub.group.written"))}</h2>${door("recommend", { lead: true })}${door("custom")}</section>
-      <section class="h-stanza" aria-labelledby="hG2"><h2 class="h-stanza__t" id="hG2">${esc(t("entry.hub.group.browse"))}</h2>${door("browse")}</section>
-      <section class="h-stanza" aria-labelledby="hG3"><h2 class="h-stanza__t" id="hG3">${esc(t("entry.hub.group.own"))}</h2>${door("import", { importMode: "freeform" })}${door("import", { importMode: "file" })}${door("build")}</section>
+      <section class="h-stanza h-stanza--first" aria-label="${esc(t("entry.hub.group.written"))}">${door("recommend", { lead: true })}${door("custom")}</section>
+      <section class="h-stanza" aria-label="${esc(t("entry.hub.group.browse"))}">${door("browse")}</section>
+      <section class="h-stanza" aria-label="${esc(t("entry.hub.group.own"))}">${door("import", { importMode: "freeform" })}${door("import", { importMode: "file" })}${door("build")}</section>
     </main>`;
   }
   function questionView() {
@@ -539,7 +549,8 @@
   }
   function identityCounts(p) { const m = new Map(); for (const e of (p && p.program) || []) { const k = TF.exerciseIdentity(e); m.set(k, (m.get(k) || 0) + 1); } return m; }
   function posterCols(preview) {
-    const before = S.changeFrom ? identityCounts(S.changeFrom.preview) : null;
+    const diff = S.changeFrom ? TF.identityDiff(S.changeFrom.preview, preview) : null;
+    const before = diff && diff.n < diff.total ? identityCounts(S.changeFrom.preview) : null;
     const days = preview.days || [];
     return `<div class="h-cols" data-n="${days.length}" style="--cols:${Math.min(3, days.length)}">${days.map((d, i) => {
       const ex = d.exercises || []; const sets = ex.reduce((s, e) => s + (+e.sets || 0), 0);
@@ -702,7 +713,8 @@
     return `<main class="h-page h-impv" data-checkpoint="${cp}" data-entry-step="import_source">${bar({ center: t("entry.route.import") })}${modeSwitch()}<div class="h-comp h-stack">${body}</div></main>${dockHtml}`;
   }
   function todayView() {
-    return `<div class="h-today">${S.toast ? `<p class="h-toast" role="status">${esc(S.toast)}</p>` : ""}${TF.renderToday(t, lang)}</div>`;
+    const label = `<p class="t-label">${esc(t("today.session_label"))}</p>`;
+    return `<div class="h-today">${S.toast ? `<p class="h-toast" role="status">${esc(S.toast)}</p>` : ""}${TF.renderToday(t, lang).replace(label, "")}</div>`;
   }
   function routeView() {
     if (S.stage === "q") return questionView();
@@ -765,7 +777,7 @@
     const prev = ident(document.activeElement); const typing = document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
     const page = S.view === "landing" ? landingView() : S.view === "hub" ? hubView() : S.view === "today" ? todayView() : routeView();
     const dlg = S.view === "route" ? dialogView() : "";
-    document.documentElement.classList.toggle("h-locked", !!dlg);
+    document.documentElement.classList.toggle("h-locked", !!dlg); setLarge();
     root.innerHTML = `<div class="h-app${S.view === "today" ? " h-app--today" : ""}"${dlg ? " inert" : ""}>${page}</div>${dlg}`;
     S.flood = null; S.fresh = null;
     layout();
@@ -783,6 +795,15 @@
     const ls = (parseFloat(cs.letterSpacing) || 0) / (parseFloat(cs.fontSize) || 16);
     return ctx2d.measureText(txt).width / 100 + ls * txt.length;
   }
+  /* Large text is measured, not read from the harness query: when the root
+     em is big for the viewport (OS or browser text size, or 200%), the grid
+     re-sets itself. */
+  function setLarge() {
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const large = rem >= 24 || innerWidth / rem < 16;
+    document.documentElement.classList.toggle("h-large", large);
+    return large;
+  }
   function fitSize(el) {
     const cs = getComputedStyle(el);
     const box = cs.display === "inline" ? el.parentElement : el; const bcs = box === el ? cs : getComputedStyle(box);
@@ -790,7 +811,11 @@
     const text = el.textContent.trim(); if (!text || avail <= 0) return null;
     let unit = el.dataset.fitLine !== undefined ? widthPerPx(text, cs) : Math.max(...text.split(/\s+/).map((w) => widthPerPx(w, cs)));
     if (el.dataset.fitLines) unit = Math.max(unit, (widthPerPx(text, cs) * 1.08) / +el.dataset.fitLines);
-    const cap = Math.min(+el.dataset.fitMax || 120, el.dataset.fitVh ? innerHeight * +el.dataset.fitVh + 24 : Infinity);
+    const large = document.documentElement.classList.contains("h-large");
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const vh = el.dataset.fitVh ? (large ? Math.min(+el.dataset.fitVh, 0.11) : +el.dataset.fitVh) : null;
+    const capPx = el.dataset.fitRem ? rem * +el.dataset.fitRem : +el.dataset.fitMax || 120;
+    const cap = Math.min(capPx, vh ? innerHeight * vh + (large ? 0 : 24) : Infinity);
     return Math.max(12, Math.min(cap, (avail * 0.97) / unit));
   }
   function fitAll() {
@@ -815,7 +840,7 @@
       g.style.setProperty("--cols", cols);
     }
   }
-  function layout() { try { fitAll(); layoutCols(); } catch (e) { /* layout is cosmetic */ } }
+  function layout() { try { setLarge(); fitAll(); layoutCols(); } catch (e) { /* layout is cosmetic */ } }
 
   /* ---------- actions ---------- */
   function onPick(d) {
