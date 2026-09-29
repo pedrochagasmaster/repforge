@@ -45,7 +45,7 @@
       "l.tag.own": "Seu programa",
       "l.tag.own_all": "As {n} respostas são suas",
       "l.tag.open": "Uma resposta aberta",
-      "l.tune.lede": "Montado com o primeiro valor de cada coluna. Toque no seu valor em cada coluna e o programa muda na hora. Ele só pode ser usado quando todas as respostas forem suas.",
+      "l.tune.lede": "Montado com o primeiro valor de cada coluna. Escolha o seu em cada uma e o programa muda na hora.",
       "l.state.default": "Padrão",
       "l.state.set": "Sua escolha",
       "l.sr.default": "Ainda no padrão: {value}.",
@@ -96,6 +96,7 @@
       "l.imp.more": "Outras opções",
       "l.prev.title": "Revisar o programa",
       "l.proof": "Depois de usar um programa, Hoje mostra a sessão do dia.",
+      "l.hub.aria": "Como começar", "l.imp.suggested": "Sugerido", "l.imp.keep": "Manter o nome importado", "l.imp.choose": "Escolher na biblioteca", "l.imp.as_imported": "Como veio: {name}", "l.day.trains": "Trabalha {muscles}",
       "entry.rules_changed.rebuild": "Montar de novo com as regras atuais",
     },
     en: {
@@ -119,7 +120,7 @@
       "l.tag.own": "Your program",
       "l.tag.own_all": "All {n} answers are yours",
       "l.tag.open": "One answer open",
-      "l.tune.lede": "Built from the first value in each column. Tap your value in each column and the program changes right away. It can be used only when every answer is yours.",
+      "l.tune.lede": "Built from the first value in each column. Choose yours in each one and the program changes right away.",
       "l.state.default": "Default",
       "l.state.set": "Your choice",
       "l.sr.default": "Still at the default: {value}.",
@@ -170,6 +171,7 @@
       "l.imp.more": "Other options",
       "l.prev.title": "Review the program",
       "l.proof": "Once a program is in use, Today shows the session of the day.",
+      "l.hub.aria": "How to start", "l.imp.suggested": "Suggested", "l.imp.keep": "Keep the imported name", "l.imp.choose": "Choose from the library", "l.imp.as_imported": "As imported: {name}", "l.day.trains": "Trains {muscles}",
       "entry.rules_changed.rebuild": "Rebuild with current rules",
     },
   };
@@ -277,9 +279,9 @@
   const factsList = (p) => { const f = TF.previewFacts(p); return [["days", t("entry.catalogue.days_badge", { days: (p.days || []).length })], ["time", TF.durationLabel(t, p)], ["ex", t("entry.preview.exercises", { n: f.exercises, exercise: TF.tp(t, f.exercises, "exercise") })], ["sets", t("entry.preview.sets", { n: f.sets })]].filter((x) => x[1]); };
   function factsHtml(p, id = "lFacts") {
     const prev = S._facts || {}; const next = {};
-    const out = factsList(p).map(([k, v]) => { next[k] = v; const changed = prev[k] !== undefined && prev[k] !== v; return `<span class="l-fact${changed ? " is-changed" : ""}" data-fact="${k}">${esc(v)}</span>`; }).join(`<span class="l-fact__sep" aria-hidden="true"></span>`);
+    const out = factsList(p).map(([k, v]) => { next[k] = v; const changed = prev[k] !== undefined && prev[k] !== v; return `<span class="l-fact${changed ? " is-changed" : ""}" data-fact="${k}">${esc(v)}</span>`; }).join("");
     S._factsNext = next;
-    return `<p class="l-facts" id="${id}">${out}</p>`;
+    return `<p class="l-facts" id="${id}"><span class="l-facts__in">${out}</span></p>`;
   }
   function addedIds(before, after) {
     if (!before || !after) return new Set();
@@ -300,11 +302,16 @@
       const meta = [t("entry.preview.exercises", { n: ex.length, exercise: TF.tp(t, ex.length, "exercise") }), t("entry.preview.sets", { n: sets }), d.estimateMinutes ? t("entry.preview.minutes", { n: d.estimateMinutes }) : ""].filter(Boolean).join(" · ");
       const open = openAll || (openFirst && i === 0) || (openFirst && ex.some((e) => added.has(e.id)));
       const nNew = ex.filter((e) => added.has(e.id)).length;
-      return `<details class="l-day"${open ? " open" : ""}><summary class="l-day__sum"><span class="l-day__n" aria-hidden="true">${i + 1}</span><span class="l-day__body"><span class="l-day__name">${esc(TF.dayName(t, d, preview.programStructure, i))}</span><span class="l-day__meta">${esc(meta)}${nNew && !open ? ` <span class="l-new">${esc(t("l.new"))} ${nNew}</span>` : ""}</span></span><span class="l-chev" aria-hidden="true"></span></summary>
+      const prog = (preview.program || []).filter((e) => (d.dayId && e.dayId === d.dayId) || e.day === d.label);
+      const muscles = [...new Set(prog.flatMap((e) => TF.muscleLabels(t, e.primary)))];
+      return `<details class="l-day"${open ? " open" : ""}><summary class="l-day__sum"><span class="l-day__n" aria-hidden="true">${i + 1}</span><span class="l-day__body"><span class="l-day__name">${esc(TF.dayName(t, d, preview.programStructure, i))}</span>${muscles.length ? `<span class="l-day__trains">${esc(t("l.day.trains", { muscles: muscles.join(", ").toLowerCase() }))}</span>` : ""}<span class="l-day__meta">${esc(meta)}${nNew && !open ? ` <span class="l-new">${esc(t("l.new"))} ${nNew}</span>` : ""}</span></span><span class="l-chev" aria-hidden="true"></span></summary>
         <ul class="l-exlist">${ex.length ? ex.map((e) => { const isNew = added.has(e.id); return `<li class="l-ex${isNew ? " is-new" : ""}"><span class="l-ex__name">${esc(TS.exName(e, lang))}${isNew ? ` <span class="l-new">${esc(t("l.new"))}</span>` : ""}</span><span class="l-ex__rx">${e.sets != null ? `${e.sets} × ${e.min}–${e.max}` : ""}</span></li>`; }).join("") : `<li class="l-ex l-ex--empty">${esc(t("program.empty.exercises"))}</li>`}</ul></details>`;
     }).join("")}</div>`;
   }
-  const knob = (id, kind) => `<span class="l-knob l-knob--${kind}" data-knob="${esc(id)}" aria-hidden="true"><span class="l-knob__shaft"></span><span class="l-knob__head"></span></span>`;
+  const PIN_PATH = "M20 11a9 9 0 1 1 0 18a9 9 0 1 1 0-18M29 20h11";
+  const knob = (id, kind) => `<span class="l-knob l-knob--${kind}" data-knob="${esc(id)}" aria-hidden="true"><svg class="l-knob__svg" viewBox="0 0 40 40" focusable="false"><path d="${PIN_PATH}"/></svg></span>`;
+  const hole = (inner = "", cls = "") => `<span class="l-hole ${cls}" aria-hidden="true">${inner}</span>`;
+  const plateNo = (n) => `<span class="l-no" aria-hidden="true">${n}</span>`;
 
   /* One column of plates: the lifter's selector. */
   function stack(p, a, { ctx = "tune" } = {}) {
@@ -317,9 +324,9 @@
       const sub = p.id === "goal" ? `<span class="l-plate__sub">${esc(t(`entry.desired_result.${v}.sub`))}</span>` : "";
       const aria = p.num ? ` aria-label="${esc(valueLabel(p, v))}"` : "";
       return `<button type="button" class="l-plate${pinned ? " is-pinned" : ""}${chosen ? " is-chosen" : ""}${!set && v === def ? " is-default" : ""}" role="radio" aria-checked="${chosen ? "true" : "false"}" data-act="pick" data-key="${p.key}" data-val="${esc(v)}"${aria}>
-        <span class="l-plate__body"><span class="l-plate__v">${esc(label)}</span>${sub}</span>
+        ${p.num ? "" : plateNo(p.values.indexOf(v) + 1)}<span class="l-plate__body"><span class="l-plate__v">${esc(label)}</span>${sub}</span>
         ${!set && v === def ? `<span class="l-plate__def" aria-hidden="true">${esc(t("l.state.default"))}</span>` : ""}
-        <span class="l-plate__hole" aria-hidden="true">${pinned ? knob(`${ctx}-${p.id}`, set ? "set" : "ghost") : ""}</span></button>`;
+        <span class="l-hole" aria-hidden="true">${pinned ? knob(`${ctx}-${p.id}`, set ? "set" : "ghost") : ""}</span></button>`;
     }).join("");
     return `<section class="l-stack${p.num ? " l-stack--num" : ""}${set ? " is-set" : ""}" data-pin="${p.id}" aria-labelledby="${hid}">
       <div class="l-stack__head"><h2 class="l-stack__q" id="${hid}">${esc(t(p.q))}</h2><span class="l-state${set ? " is-set" : ""}">${set ? I.check : ""}${esc(state)}</span></div>
@@ -377,18 +384,26 @@
         <h1 class="l-land__head" data-focus>${esc(t("landing.headline"))}</h1>
         <p class="l-land__lede">${esc(t("landing.body"))}</p>
         <div class="l-land__stack">
-          <button type="button" id="firstRunCreate" class="l-bigplate l-bigplate--yellow" data-act="land-create"><span class="l-bigplate__t">${esc(t("landing.build"))}</span><span class="l-plate__hole" aria-hidden="true">${knob("land", "steel")}</span></button>
-          <button type="button" id="firstRunImport" class="l-bigplate" data-act="land-import"><span class="l-bigplate__t">${esc(t("landing.track"))}</span><span class="l-plate__hole" aria-hidden="true"></span></button>
+          <button type="button" id="firstRunCreate" class="l-bigplate l-bigplate--yellow" data-act="land-create">${plateNo(1)}<span class="l-bigplate__t">${esc(t("landing.build"))}</span><span class="l-hole" aria-hidden="true">${knob("land", "steel")}</span></button>
+          <button type="button" id="firstRunImport" class="l-bigplate" data-act="land-import">${plateNo(2)}<span class="l-bigplate__t">${esc(t("landing.track"))}</span><span class="l-hole" aria-hidden="true"></span></button>
         </div>
       </div>
       <div class="l-land__proof"><div class="l-proofplate">${TS.landingProof(t, lang)}<p class="l-proofplate__cap">${esc(t("l.proof"))}</p></div>
       <p class="l-land__privacy">${esc(t("x.privacy.line"))}</p></div></main>`;
   }
-  function door(route, mode) {
-    const key = route === "import" ? mode : route;
-    const title = mode === "freeform" ? t("entry.hub.freeform.title") : t("entry.hub.import.title");
-    const ask = key === "freeform" ? t("x.cost.paste") : t("x.cost.file");
-    return `<button type="button" class="l-door" data-act="route" data-route="${route}" data-mode="${mode}"><span class="l-door__ico" aria-hidden="true">${key === "freeform" ? I.paste : I.file}</span><span class="l-door__body"><span class="l-door__t">${esc(title)}</span><span class="l-door__l"><span class="l-door__k">${esc(t("l.hub.ask"))}</span> ${esc(ask)}</span><span class="l-door__l"><span class="l-door__k">${esc(t("l.hub.get"))}</span> ${esc(t("x.get.import"))}</span></span><span class="l-door__go" aria-hidden="true">${I.arrow}</span></button>`;
+  /* The chooser is a stack: every route is a plate on one rod, and the pin
+     drops into the plate the lifter taps before the route opens. */
+  const HUB_PLATES = [
+    { route: "recommend", mode: "", title: "entry.hub.recommend.title", line: "l.hub.rec_line", ask: "l.hub.rec_ask", get: "l.hub.rec_get" },
+    { route: "import", mode: "freeform", title: "entry.hub.freeform.title", line: null, ask: "x.cost.paste", get: "x.get.import" },
+    { route: "import", mode: "file", title: "entry.hub.import.title", line: null, ask: "x.cost.file", get: "x.get.import" },
+  ];
+  function hubStack() {
+    const chosen = S.hubPick;
+    return `<div class="l-cstack" role="group" aria-label="${esc(t("l.hub.aria"))}">${HUB_PLATES.map((d, i) => {
+      const key = d.route + (d.mode ? ":" + d.mode : ""); const here = chosen ? chosen === key : i === 0;
+      return `<button type="button" class="l-cplate${i === 0 ? " l-cplate--lead" : ""}${chosen === key ? " is-chosen" : ""}" data-act="route" data-route="${d.route}"${d.mode ? ` data-mode="${d.mode}"` : ""}>${plateNo(i + 1)}<span class="l-cplate__body"><span class="l-cplate__t">${esc(t(d.title))}</span>${d.line ? `<span class="l-cplate__line">${esc(t(d.line))}</span>` : ""}<span class="l-cplate__l"><span class="l-cplate__k">${esc(t("l.hub.ask"))}</span> ${esc(t(d.ask))}</span><span class="l-cplate__l"><span class="l-cplate__k">${esc(t("l.hub.get"))}</span> ${esc(t(d.get))}</span></span>${hole(here ? knob("hub", chosen ? "set" : "steel") : "")}</button>`;
+    }).join("")}</div>`;
   }
   function recoveryCard() {
     const info = TF.loadDraft(); if (!info || info.status === "corrupt") return "";
@@ -404,12 +419,7 @@
         <h1 class="l-title" data-focus>${esc(t("entry.hub.title"))}</h1><p class="l-lede">${esc(t(active ? "l.hub.lede_existing" : "l.hub.lede_first"))}</p>
         ${active ? `<p class="l-notice" role="status">${esc(t("entry.active_notice"))}</p>` : ""}
         ${recoveryCard()}
-        <button type="button" class="l-feature" data-act="route" data-route="recommend">
-          <span class="l-feature__art" aria-hidden="true"><span></span><span class="is-pin"></span><span></span><span></span></span>
-          <span class="l-feature__body"><span class="l-feature__t">${esc(t("entry.hub.recommend.title"))}</span><span class="l-feature__line">${esc(t("l.hub.rec_line"))}</span>
-          <span class="l-door__l"><span class="l-door__k">${esc(t("l.hub.ask"))}</span> ${esc(t("l.hub.rec_ask"))}</span><span class="l-door__l"><span class="l-door__k">${esc(t("l.hub.get"))}</span> ${esc(t("l.hub.rec_get"))}</span></span>
-          <span class="l-door__go" aria-hidden="true">${I.arrow}</span></button>
-        <section class="l-group" aria-labelledby="lOthers"><h2 class="l-h2" id="lOthers">${esc(t("l.hub.others"))}</h2><div class="l-doors">${door("import", "freeform")}${door("import", "file")}</div></section>
+        ${hubStack()}
       </main>${overlayView()}</div>`;
   }
   function header({ back = "back", cancel = false } = {}) {
@@ -429,7 +439,7 @@
     return `<section class="l-readout${S.justLocked ? " is-locking" : ""}" aria-labelledby="lName">
       <h1 class="l-name" id="lName" data-focus tabindex="-1">${esc(progName())}</h1>${tag()}
       ${factsHtml(p)}${stmt}${S.notice === "conflict" ? `<div id="lConflict" tabindex="-1" class="l-conflict" role="alert" data-checkpoint="activation-conflict"><p class="l-notice__t">${esc(t("entry.conflict.title"))}</p><p>${esc(t("entry.conflict.body"))}</p><button type="button" class="l-btn l-btn--yellow" data-act="conflict-review">${esc(t("entry.conflict.review"))}</button></div>` : ""}
-      ${days(p, { added, openFirst: S.mode === "review" })}</section>`;
+      ${days(p, { added })}</section>`;
   }
   function tuneBody() {
     const a = S.answers; const out = [];
@@ -459,18 +469,19 @@
       <div class="l-acts l-pull__acts"><button type="button" class="l-btn l-btn--yellow" data-act="pull-confirm"${pending ? ' disabled aria-describedby="pendingAvoidNote"' : ""}>${esc(t("l.pull.confirm"))}</button><button type="button" class="l-btn l-btn--quiet" data-act="pull-close">${esc(t(changed ? "l.pull.undo" : "l.pull.close"))}</button></div></div>`;
   }
   function board() {
-    const tiles = [...PINS.map((p) => ({ id: p.id, k: t(`l.k.${p.id}`), v: tileValue(p), num: !!p.num, wide: p.id === "env" })), { id: "prio", k: t("l.k.prio"), v: prioValue(), opt: true }];
+    const tiles = [...PINS.map((p) => ({ id: p.id, k: t(`l.k.${p.id}`), v: tileValue(p), wide: p.id === "env" })), { id: "prio", k: t("l.k.prio"), v: prioValue(), opt: true }];
     return `<section class="l-board" aria-labelledby="lBoardT"><h2 class="l-h2" id="lBoardT">${esc(t("l.board.title"))}</h2><p class="l-note">${esc(t("l.board.hint"))}</p>
       <div class="l-tiles${S.justLocked ? " is-locking" : ""}">${tiles.map((x, i) => {
         const open = S.pull && S.pull.pin === x.id;
-        return `<button type="button" class="l-tile${open ? " is-open" : ""}${x.opt ? " l-tile--opt" : ""}${x.num ? " l-tile--num" : ""}${x.wide ? " l-tile--wide" : ""}" style="--i:${i}" data-act="pull" data-pin="${x.id}" aria-expanded="${open ? "true" : "false"}"${open ? ' aria-controls="lPull"' : ""} aria-label="${esc(t("l.board.aria", { what: t(TILE_WHAT[x.id]), value: x.v }))}"><span class="l-tile__k">${esc(x.k)}</span><span class="l-tile__v">${esc(x.v)}</span>${x.opt ? "" : `<span class="l-tile__pin" aria-hidden="true"></span>`}</button>${open ? pulledPanel() : ""}`;
+        return `<button type="button" class="l-tile${open ? " is-open" : ""}${x.opt ? " l-tile--opt" : ""}${x.wide ? " l-tile--wide" : ""}" style="--i:${i}" data-act="pull" data-pin="${x.id}" aria-expanded="${open ? "true" : "false"}"${open ? ' aria-controls="lPull"' : ""} aria-label="${esc(t("l.board.aria", { what: t(TILE_WHAT[x.id]), value: x.v }))}"><span class="l-tile__k">${esc(x.k)}</span><span class="l-tile__v">${esc(x.v)}</span>${x.opt ? "" : `<span class="l-tile__pin" aria-hidden="true"><svg viewBox="0 0 40 40" focusable="false"><path d="${PIN_PATH}"/></svg></span>`}</button>${open ? pulledPanel() : ""}`;
       }).join("")}</div></section>`;
   }
   function reviewBody() {
     if (!S.live || !S.live.ok) return "";
     const r = S.live.result, a = TF.normalizeAnswers(S.answers);
     let out = board();
-    const reasons = TS.reasons(t, lang, r, a, {});
+    const eqText = [...new Set((a.environment && a.environment.equipment) || [])].map((k) => { const l = t(`entry.equip.${k}`, undefined, k); return /^Smith/.test(l) ? l : l.toLowerCase(); }).join(", ");
+    const reasons = TS.reasons(t, lang, r, a, {}).map((x) => (x.key === "equipment" ? { ...x, text: t("entry.result.why_equipment", { equipment: eqText }) } : x));
     out += `<section class="l-sec" aria-labelledby="lWhy"><h2 class="l-h2" id="lWhy">${esc(t("entry.result.why"))}</h2><ul class="l-list">${reasons.map((x) => `<li>${esc(x.text)}</li>`).join("")}</ul><p class="l-note">${esc(t("entry.result.lede"))}</p></section>`;
     const adj = TS.adjustments(t, r.preview);
     if (adj.length) out += `<section class="l-sec" aria-labelledby="lAdj"><h2 class="l-h2" id="lAdj">${esc(t("l.rev.adjusted"))}</h2><ul class="l-list">${adj.map((x) => `<li>${esc(x.text)}</li>`).join("")}</ul></section>`;
@@ -520,8 +531,8 @@
   /* ---------- import (paste door placard, file door, review, preview) ---------- */
   function modeSwitch() {
     const m = S.importMode;
-    const b = (mode, label, ico) => `<button type="button" class="l-mode${m === mode ? " is-on" : ""}" role="radio" aria-checked="${m === mode}" data-act="import-mode" data-mode="${mode}">${ico}<span>${esc(label)}</span><span class="l-plate__hole" aria-hidden="true">${m === mode ? knob("mode", "set") : ""}</span></button>`;
-    return `<div class="l-modes" role="radiogroup" aria-label="${esc(t("l.mode.label"))}">${b("freeform", t("l.mode.freeform"), I.paste)}${b("file", t("l.mode.file"), I.file)}</div>`;
+    const b = (mode, label, n) => `<button type="button" class="l-mode${m === mode ? " is-on" : ""}" role="radio" aria-checked="${m === mode}" data-act="import-mode" data-mode="${mode}">${plateNo(n)}<span class="l-mode__t">${esc(label)}</span>${hole(m === mode ? knob("mode", "set") : "")}</button>`;
+    return `<div class="l-modes" role="radiogroup" aria-label="${esc(t("l.mode.label"))}">${b("freeform", t("l.mode.freeform"), 1)}${b("file", t("l.mode.file"), 2)}</div>`;
   }
   function ffPlacard() {
     const ff = S.ff; const program = TS.freeform.program(ff);
@@ -559,15 +570,24 @@
   function importRows(d) {
     const ordered = [...d.rows].sort((a, b) => (a.reviewed ? 1 : 0) - (b.reviewed ? 1 : 0));
     return `<ul class="l-imps">${ordered.map((row) => {
-      const proposed = !row.reviewed && row.match ? row.match : null; const shown = row.decision === "link" && row.match ? row.match : proposed;
-      const target = shown ? TF.libraryName(shown, lang) : row.decision === "custom" ? t("import.target_custom") : t("import.target_raw");
-      const badge = row.reviewed ? t("import.status.confirmed") : t(`import.status.${row.status === "probable" ? "probable" : row.status}`);
-      const folded = row.reviewed && !row.expanded;
-      const picks = !folded && row.shortlist.length ? row.shortlist.map((e, i) => `<button type="button" class="l-btn l-btn--coat l-btn--sm" data-act="imp" data-imp="pick" data-key="${row.key}" data-idx="${i}">${esc(t("import.action_link", { name: TF.libraryName(e, lang) }))}</button>`).join("") : !folded && row.match && row.decision !== "link" ? `<button type="button" class="l-btn l-btn--coat l-btn--sm" data-act="imp" data-imp="link" data-key="${row.key}">${esc(t("import.action_link", { name: TF.libraryName(row.match, lang) }))}</button>` : "";
-      const escapes = `<button type="button" class="l-btn l-btn--quiet l-btn--sm" data-act="imp" data-imp="choose" data-key="${row.key}">${esc(t("import.action_choose"))}</button>${row.decision !== "raw" || !row.reviewed ? `<button type="button" class="l-btn l-btn--quiet l-btn--sm" data-act="imp" data-imp="raw" data-key="${row.key}">${esc(t("import.action_keep"))}</button>` : ""}${row.decision !== "custom" ? `<button type="button" class="l-btn l-btn--quiet l-btn--sm" data-act="imp" data-imp="custom" data-key="${row.key}">${esc(t("import.action_custom"))}</button>` : ""}`;
-      const acts = folded ? `<button type="button" class="l-btn l-btn--quiet l-btn--sm" data-act="imp" data-imp="expand" data-key="${row.key}">${esc(t("import.action_change"))}</button>` : picks ? `<div class="l-imp__picks">${picks}</div><details class="l-disc l-disc--plain"><summary class="l-disc__sum"><span>${esc(t("import.more_options"))}</span><span class="l-chev" aria-hidden="true"></span></summary><div class="l-imp__picks">${escapes}</div></details>` : `<div class="l-imp__picks">${escapes}</div>`;
+      const target = row.decision === "link" && row.match ? TF.libraryName(row.match, lang) : row.decision === "custom" ? t("import.target_custom") : t("import.target_raw");
+      const status = row.reviewed ? t("import.status.confirmed") : t(`import.status.${row.status === "probable" ? "probable" : row.status}`);
+      const head = `<p class="l-imp__from"><span class="l-imp__src" data-user-text>${esc(t("l.imp.as_imported", { name: row.raw.name || "" }))}</span><span class="impbadge visually-hidden">${esc(status)}</span><span class="improw__name visually-hidden">${esc(target)}</span></p>`;
+      if (row.reviewed && !row.expanded) {
+        return `<li class="l-imp" data-imp-row="${row.key}">${head}<div class="l-imp__done"><span class="l-cplate l-cplate--static">${hole(knob(`imp-${row.key}`, "set"))}<span class="l-cplate__body"><span class="l-cplate__t">${esc(target)}</span></span></span><button type="button" class="l-btn l-btn--quiet l-btn--sm" data-act="imp" data-imp="expand" data-key="${row.key}" aria-label="${esc(t("import.action_change"))}: ${esc(row.raw.name || "")}">${esc(t("import.action_change"))}</button></div></li>`;
+      }
+      /* The option plates. The pin sits on the lifter's decision; before one
+         is made, a hollow pin marks the suggestion. */
+      const opts = [];
+      const inShort = row.match && row.shortlist.some((e) => e.id === row.match.id);
+      if (row.match && !inShort) opts.push({ imp: "link", label: TF.libraryName(row.match, lang), on: row.decision === "link", sug: !row.reviewed && row.decision === "link" });
+      row.shortlist.forEach((e, i) => opts.push({ imp: "pick", idx: i, label: TF.libraryName(e, lang), on: row.reviewed && row.decision === "link" && row.match && row.match.id === e.id, sug: !row.reviewed && i === 0 }));
+      opts.push({ imp: "raw", label: t("l.imp.keep"), on: row.reviewed && row.decision === "raw", sug: !row.reviewed && !row.shortlist.length && !row.match });
+      opts.push({ imp: "custom", label: t("import.action_custom"), on: row.decision === "custom" });
+      opts.push({ imp: "choose", label: t("l.imp.choose"), on: false, more: true });
+      const plates = opts.map((o, i) => `<button type="button" class="l-plate${o.on ? " is-chosen is-pinned" : ""}${o.sug ? " is-default" : ""}" data-act="imp" data-imp="${o.imp}" data-key="${row.key}"${o.idx !== undefined ? ` data-idx="${o.idx}"` : ""}${o.imp === "choose" ? "" : ` role="radio" aria-checked="${o.on ? "true" : "false"}"`}>${plateNo(i + 1)}<span class="l-plate__body"><span class="l-plate__v">${esc(o.label)}</span></span>${o.sug ? `<span class="l-plate__def" aria-hidden="true">${esc(t("l.imp.suggested"))}</span>` : ""}${hole(o.on ? knob(`imp-${row.key}`, "set") : o.sug ? knob(`imp-${row.key}`, "ghost") : o.more ? I.search : "")}</button>`).join("");
       const picker = S.picker && S.picker.key === row.key ? pickerBody(S.picker.query) : "";
-      return `<li class="l-imp${row.reviewed ? "" : " is-open"}" data-imp-row="${row.key}"><div class="l-imp__line"><span class="l-imp__from" data-user-text>${esc(row.raw.name || "")}</span><span class="l-imp__arrow" aria-hidden="true">${I.arrow}</span><span class="l-imp__to"><span class="improw__name">${esc(target)}</span><span class="impbadge">${esc(badge)}</span></span><span class="l-plate__hole l-imp__hole" aria-hidden="true">${row.reviewed ? knob(`imp-${row.key}`, "set") : ""}</span></div><div class="l-imp__acts">${acts}</div>${picker}</li>`;
+      return `<li class="l-imp${row.reviewed ? "" : " is-open"}" data-imp-row="${row.key}">${head}<div class="l-plates" role="radiogroup" aria-label="${esc(t("l.imp.as_imported", { name: row.raw.name || "" }))}">${plates}</div>${picker}</li>`;
     }).join("")}</ul>`;
   }
   function importView() {
@@ -594,13 +614,13 @@
         ${TF.hasActiveProgram() ? `<p class="l-notice" role="status">${esc(t("entry.active_notice"))}</p>` : ""}${gaps ? "" : modeSwitch()}
         ${ff ? ffPlacard() : `<div class="l-filedoor"><button type="button" class="l-btn l-btn--yellow" data-act="import-file">${I.file}${esc(t("entry.import_source.pick"))}</button><p class="l-note">${esc(t("x.cost.file"))}</p></div>`}`;
     }
-    const restart = S.ff.confirmStartOver ? `<div class="l-scrim" data-act="ff" data-ff="start-over-cancel"></div><div class="l-dialog" role="alertdialog" aria-modal="true" aria-labelledby="ffRestartTitle" data-confirm="ff-start-over"><div class="l-dialog__hazard" aria-hidden="true"></div><h2 class="l-dialog__t" id="ffRestartTitle" tabindex="-1">${esc(t("entry.freeform.confirm_start_over"))}</h2><div class="l-acts"><button type="button" class="l-btn l-btn--danger-fill" data-act="ff" data-ff="start-over-confirm">${esc(t("x.ff.restart_confirm"))}</button><button type="button" class="l-btn l-btn--coat" data-act="ff" data-ff="start-over-cancel">${esc(t("x.ff.restart_cancel"))}</button></div></div>` : "";
+    const restart = S.ff.confirmStartOver ? `<div class="l-scrim" data-act="ff" data-ff="start-over-cancel"></div><div class="l-dialog" role="alertdialog" aria-modal="true" aria-labelledby="ffRestartTitle" data-confirm="ff-start-over"><h2 class="l-dialog__t" id="ffRestartTitle" tabindex="-1">${esc(t("entry.freeform.confirm_start_over"))}</h2><div class="l-acts"><button type="button" class="l-btn l-btn--danger-fill" data-act="ff" data-ff="start-over-confirm">${esc(t("x.ff.restart_confirm"))}</button><button type="button" class="l-btn l-btn--coat" data-act="ff" data-ff="start-over-cancel">${esc(t("x.ff.restart_cancel"))}</button></div></div>` : "";
     return `<div class="l-page">${header({ back: "back", cancel: true })}<main class="l-main" data-entry-step="${esc(entryStep())}" data-checkpoint="${esc(checkpointFor())}">${body}</main>${foot}${overlayView()}${restart}</div>`;
   }
 
   /* ---------- dialogs ---------- */
   function dialog({ id, title, body, acts, role = "dialog", attrs = "", scrimAct }) {
-    return `<div class="l-scrim" data-act="${scrimAct}"></div><div class="l-dialog" role="${role}" aria-modal="true" aria-labelledby="${id}"${body ? ` aria-describedby="${id}B"` : ""} ${attrs}><div class="l-dialog__hazard" aria-hidden="true"></div><h2 class="l-dialog__t" id="${id}" tabindex="-1">${esc(title)}</h2>${body ? `<p class="l-dialog__b" id="${id}B">${esc(body)}</p>` : ""}<div class="l-acts">${acts}</div></div>`;
+    return `<div class="l-scrim" data-act="${scrimAct}"></div><div class="l-dialog" role="${role}" aria-modal="true" aria-labelledby="${id}"${body ? ` aria-describedby="${id}B"` : ""} ${attrs}><h2 class="l-dialog__t" id="${id}" tabindex="-1">${esc(title)}</h2>${body ? `<p class="l-dialog__b" id="${id}B">${esc(body)}</p>` : ""}<div class="l-acts">${acts}</div></div>`;
   }
   function overlayView() {
     if (S.overlay === "cancel") return dialog({ id: "cancelTitle", title: t("entry.cancel_confirm.title"), body: t("entry.cancel_confirm.body"), scrimAct: "cancel-continue", attrs: 'data-checkpoint="cancel-confirm"', acts: `<button type="button" class="l-btn l-btn--yellow" data-act="cancel-keep">${esc(t("l.cancel.keep"))}</button><button type="button" class="l-btn l-btn--danger-line" data-act="cancel-discard">${esc(t("entry.cancel_confirm.discard"))}</button><button type="button" class="l-btn l-btn--quiet" data-act="cancel-continue">${esc(t("entry.cancel_confirm.continue"))}</button>` });
@@ -779,7 +799,12 @@
       case "land-create": S.view = "hub"; render(true); return;
       case "land-import": openImport("freeform"); return;
       case "hub-back": S = blank(TF.hasActiveProgram() ? "today" : "landing"); render(true); return;
-      case "route": if (d.route === "recommend") openMachine(); else openImport(d.mode); return;
+      case "route": {
+        if (S.hubBusy) return;
+        const go = () => { S.hubBusy = false; if (d.route === "recommend") openMachine(); else openImport(d.mode); };
+        if (reducedMotion()) { go(); return; }
+        S.hubPick = d.route + (d.mode ? ":" + d.mode : ""); S.hubBusy = true; render(); setTimeout(go, 380); return;
+      }
       case "pick": onPick(d); return;
       case "lock": lockNow(); return;
       case "pull": openPull(d.pin); return;
@@ -870,7 +895,7 @@
   }
   function importAt(mode) { S = blank("import"); S.route = "import"; S.step = "import_source"; S.importMode = mode; }
   function ffAt(stage, reply) { let ff = TS.freeform.apply(TS.freeform.create(), "input", TF.F.freeform.pasted[lang]); if (stage >= 2) ff = TS.freeform.apply(ff, "continue"); if (stage >= 3) ff = TS.freeform.apply(ff, "copy", "chatgpt"); if (reply) { ff = TS.freeform.apply(ff, "reply", reply); ff = TS.freeform.apply(ff, "review"); } return ff; }
-  function scrollToPin(id) { const el = root.querySelector(`.l-stack[data-pin="${id}"]`); if (el) scrollToEl(el, 64); }
+  function scrollToPin(id) { const el = root.querySelector(`.l-stack[data-pin="${id}"]`); if (el) scrollToEl(el, 88); }
   async function reach(cp) {
     flipOff = true;
     try { await reachInner(cp); } finally { flipOff = false; }
@@ -922,7 +947,7 @@
   const journeys = {
     async "activate.recommend"(api) {
       const a = TF.fixtureAnswers("rafael");
-      await api.tap("#firstRunCreate"); await api.tap('[data-act="route"][data-route="recommend"]');
+      await api.tap("#firstRunCreate"); await api.tap('[data-act="route"][data-route="recommend"]'); await api.waitFor("[data-entry-step]");
       for (const p of PINS) await api.tap(pickKey(p.key, valOf(p, a)));
       api.snapshot("review"); await activateAndWait(api);
     },
@@ -950,8 +975,8 @@
     async "destroy.paste-restart"(api) { await api.tap('button[data-ff="start-over"]'); api.snapshot("asked"); await api.tap('button[data-ff="start-over-cancel"]'); api.snapshot("after-cancel"); },
     async "destroy.discard-draft"(api) { await api.tap('[data-act="cancel"]'); api.snapshot("asked"); await api.tap('button[data-act="cancel-discard"]'); api.snapshot("discarded"); },
     async "existing.back"(api) { await api.tap('[data-act="hub-back"]'); },
-    async "existing.cancel-keep"(api) { await api.tap('[data-act="route"][data-route="recommend"]'); await api.tap(pickKey("desiredResult", "muscle_growth")); await api.tap('[data-act="cancel"]'); await api.tap('button[data-act="cancel-keep"]'); },
-    async "existing.cancel-discard"(api) { await api.tap('[data-act="route"][data-route="recommend"]'); await api.tap(pickKey("desiredResult", "muscle_growth")); await api.tap('[data-act="cancel"]'); await api.tap('button[data-act="cancel-discard"]'); },
+    async "existing.cancel-keep"(api) { await api.tap('[data-act="route"][data-route="recommend"]'); await api.waitFor("[data-entry-step]"); await api.tap(pickKey("desiredResult", "muscle_growth")); await api.tap('[data-act="cancel"]'); await api.tap('button[data-act="cancel-keep"]'); },
+    async "existing.cancel-discard"(api) { await api.tap('[data-act="route"][data-route="recommend"]'); await api.waitFor("[data-entry-step]"); await api.tap(pickKey("desiredResult", "muscle_growth")); await api.tap('[data-act="cancel"]'); await api.tap('button[data-act="cancel-discard"]'); },
     async "existing.replace-cancel"(api) { await api.tap('button[data-act="replace-cancel"]'); },
     async "existing.conflict"(api) { await api.tap('[data-act="conflict-review"]'); api.snapshot("reviewed"); await api.tap("[data-activate]"); },
     async overlays(api) {

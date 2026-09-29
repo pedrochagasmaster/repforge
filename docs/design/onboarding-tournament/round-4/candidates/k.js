@@ -32,7 +32,7 @@
       "k.map.end_program": "Seu programa", "k.map.end_program_sub": "Você revisa e decide usar.",
       "k.map.end_today": "Hoje", "k.map.end_today_sub": "A primeira sessão aparece aqui.",
       "k.map.back_today": "Voltar para Hoje",
-      "k.map.active_title": "Programa ativo",
+      "k.map.active_title": "Programa ativo: {name}",
       "k.map.sessions.one": "1 sessão registrada", "k.map.sessions.other": "{n} sessões registradas",
       "k.map.replace_note": "Ao usar um novo programa, o atual é arquivado. As sessões registradas continuam no Histórico.",
       "k.land.map": "Cinco linhas, um destino: seu programa. Depois dele, Hoje.",
@@ -59,7 +59,7 @@
       "k.q.priorities_lede": "Sem escolhas aqui, o Taurifer monta o programa só com as respostas anteriores.",
       "k.q.none_limit": "Você já escolheu dois músculos. Desmarque um para trocar.",
       "k.unit.min": "min",
-      "k.go.next": "Próxima: {station}", "k.go.show": "Mostrar meu programa",
+      "k.go.next": "Próxima: {station}", "k.go.show": "Sentido: Seu programa", "k.exit": "Saída", "k.exit_aria": "Saída: cancelar a configuração", "k.ff.note_edit": "Editar o texto", "k.ff.reply_label": "Resposta do assistente", "k.land.map_aria": "Mapa: cinco linhas saem de um ponto de partida comum e terminam no mesmo trilho, seu programa, que leva a Hoje.",
       "k.xfer.title": "Baldeação", "k.xfer.to": "Linha {n} · {line}", "k.xfer.keeps": "Suas respostas seguem com você.",
       "k.xfer.done.one": "Baldeação feita. 1 resposta veio da Linha {n}.", "k.xfer.done.other": "Baldeação feita. {k} respostas vieram da Linha {n}.",
       "k.chips.label": "Montado com suas respostas",
@@ -116,7 +116,7 @@
       "k.map.end_program": "Your program", "k.map.end_program_sub": "You review it and decide to use it.",
       "k.map.end_today": "Today", "k.map.end_today_sub": "Your first session appears here.",
       "k.map.back_today": "Back to Today",
-      "k.map.active_title": "Active program",
+      "k.map.active_title": "Active program: {name}",
       "k.map.sessions.one": "1 logged session", "k.map.sessions.other": "{n} logged sessions",
       "k.map.replace_note": "Using a new program archives the current one. Logged sessions stay in History.",
       "k.land.map": "Five lines, one destination: your program. After it, Today.",
@@ -143,7 +143,7 @@
       "k.q.priorities_lede": "With nothing chosen here, Taurifer builds the program from your earlier answers alone.",
       "k.q.none_limit": "You already chose two muscles. Clear one to switch.",
       "k.unit.min": "min",
-      "k.go.next": "Next: {station}", "k.go.show": "Show my program",
+      "k.go.next": "Next: {station}", "k.go.show": "Towards: Your program", "k.exit": "Exit", "k.exit_aria": "Exit: cancel setup", "k.ff.note_edit": "Edit the text", "k.ff.reply_label": "Assistant reply", "k.land.map_aria": "Map: five lines leave one shared starting point and end on the same rail, your program, which leads to Today.",
       "k.xfer.title": "Transfer", "k.xfer.to": "Line {n} · {line}", "k.xfer.keeps": "Your answers come with you.",
       "k.xfer.done.one": "Transfer done. 1 answer came from Line {n}.", "k.xfer.done.other": "Transfer done. {k} answers came from Line {n}.",
       "k.chips.label": "Built from your answers",
@@ -202,8 +202,10 @@
   const compact = () => document.documentElement.style.fontSize === "200%" || window.innerWidth < 360;
   const reduced = () => document.documentElement.dataset.motion === "reduced" || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const ARROW = `<svg class="k-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 10.4h13.1l-4.9-4.9 2.3-2.3L21.8 12l-8.8 8.8-2.3-2.3 4.9-4.9H2.5z"/></svg>`;
+  const CHEV = `<svg class="k-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15.6 3.2l2.3 2.3-6.5 6.5 6.5 6.5-2.3 2.3L6.8 12z"/></svg>`;
+  const EXIT = `<svg class="k-exit__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3h10v4h-2.4V5.4H5.4v13.2h5.2V17H13v4H3zM15.4 7.2l4.8 4.8-4.8 4.8-1.7-1.7 1.9-1.9H8v-2.4h7.6l-1.9-1.9z"/></svg>`;
   const pict = (icon, cls = "") => `<span class="k-pict ${cls}" aria-hidden="true"><span class="icon-mask icon-mask--${icon}"></span></span>`;
-  const roundel = (n) => (n ? `<span class="k-roundel" aria-hidden="true">${n}</span>` : `<span class="k-roundel k-roundel--ink" aria-hidden="true"></span>`);
+  const roundel = (n) => (n ? `<span class="k-roundel" data-line="${n}" aria-hidden="true">${n}</span>` : `<span class="k-roundel k-roundel--ink" aria-hidden="true"></span>`);
 
   /* ---------- state ---------- */
   function blank(view) {
@@ -404,10 +406,11 @@
     });
     if (trip) items.push(`<li class="k-st is-here k-st--today" style="--k:${list.length}" aria-current="step"><span class="k-st__btn"><span class="k-st__dot" aria-hidden="true"></span><span class="k-st__txt"><span class="k-st__name">${esc(t("k.st.today"))}</span></span></span></li>`);
     const left = total - 1 - cur;
+    const nowName = trip ? t("k.st.today") : stName((list[Math.min(cur, list.length - 1)] || {}).id, route);
     const count = trip ? t("k.strip.today") : left <= 0 ? t("k.strip.terminal") : plural("k.strip.left", left);
     return `<nav class="k-strip${dense ? " k-strip--dense" : ""}" aria-label="${esc(t("k.strip.aria", { n: n || "", line, i: Math.min(cur + 1, total), total }))}">
       <div class="k-strip__route">${roundel(n)}<span class="k-strip__line">${n ? `${esc(t("k.line.n", { n }))} · ` : ""}${esc(line)}</span><span class="k-strip__count">${esc(count)}</span></div>
-      <div class="k-strip__track" style="--n:${total};--i:${Math.min(cur, total - 1)}"><span class="k-strip__base" aria-hidden="true"></span><span class="k-strip__fill" aria-hidden="true"></span><ol class="k-strip__stops">${items.join("")}</ol></div></nav>`;
+      <div class="k-strip__track" style="--n:${total};--i:${Math.min(cur, total - 1)}"><span class="k-strip__base" aria-hidden="true"></span><span class="k-strip__fill" aria-hidden="true"></span><ol class="k-strip__stops">${items.join("")}</ol></div><p class="k-strip__now" aria-hidden="true">${esc(nowName)} · ${esc(count)}</p></nav>`;
   }
   function animateStrip() {
     const nav = root.querySelector(".k-strip"); const tr = nav && nav.querySelector(".k-strip__track");
@@ -448,7 +451,7 @@
   /* ---------- question bodies ---------- */
   function envCorrection(a, open) {
     const eq = new Set(a.environment.equipment || []), caps = new Set(a.environment.capabilities || []);
-    return `<details class="k-disc" data-role="env-correction"${open ? " open" : ""}><summary class="k-disc__sum">${pict("sliders", "k-pict--line")}<span class="k-disc__t">${esc(t("entry.env_correct.summary"))}</span><span class="k-disc__chev" aria-hidden="true"></span></summary><div class="k-disc__body">
+    return `<details class="k-disc" data-role="env-correction"${open ? " open" : ""}><summary class="k-disc__sum">${pict("sliders", "k-pict--line")}<span class="k-disc__t">${esc(t("entry.env_correct.summary"))}</span><span class="k-disc__chev" aria-hidden="true">${CHEV}</span></summary><div class="k-disc__body">
       <h3 class="k-group__label" id="kEq">${esc(t("entry.env_correct.equipment"))}</h3><div class="k-grid2" role="group" aria-labelledby="kEq">${TS.EQUIP.map((k) => opt({ key: "environmentEquipment", val: k, title: t(`entry.equip.${k}`, undefined, k), selected: eq.has(k), role: "checkbox", cls: "k-opt--compact" })).join("")}</div>
       <h3 class="k-group__label" id="kCaps">${esc(t("entry.env_correct.capabilities"))}</h3><div class="k-stack" role="group" aria-labelledby="kCaps">${TS.CAPS.map((k) => opt({ key: "environmentCapabilities", val: k, title: t(`entry.cap.${k}`, undefined, k), selected: caps.has(k), role: "checkbox", cls: "k-opt--compact" })).join("")}</div>
       <p class="k-hint">${esc(t("entry.env_correct.note"))}</p></div></details>`;
@@ -521,18 +524,39 @@
     if (route === "import") return stationList("import", "freeform").length - 1;
     return stationList(route).length - 1;
   }
-  function network({ mini = false } = {}) {
+  const doTextOf = (route) => (route === "recommend" ? t("k.do.recommend", { n: QUESTIONS.recommend.length }) : route === "import" ? t("k.do.import", { n: stationList("import", "file").length - 1 }) : t(`k.do.${route}`));
+  /* The full map: every line is a coloured track (the tap target) running from
+     the origin rail into the terminal rail, with its station names on the dots. */
+  function network() {
     const rows = MAP.map(([route, m]) => {
-      const n = LINE[route]; const cost = lineCost(route);
-      const dots = `${Array.from({ length: cost }, (_, i) => `<i style="--k:${i}"></i>`).join("")}<b></b>`;
-      const doText = route === "recommend" ? t("k.do.recommend", { n: QUESTIONS.recommend.length }) : route === "import" ? t("k.do.import", { n: stationList("import", "file").length - 1 }) : t(`k.do.${route}`);
-      const head = `<span class="k-net__top">${roundel(n)}<span class="k-net__name">${esc(t(`k.line.${route}`))}</span>${mini ? "" : `<span class="k-net__cost">${esc(plural("k.cost", cost))}</span>`}</span>`;
-      const track = `<span class="k-net__track" aria-hidden="true">${dots}</span>`;
-      if (mini) return `<li class="k-net__row" data-line="${n}"><span class="k-net__btn">${head}${track}</span></li>`;
-      return `<li class="k-net__row" data-line="${n}"><button type="button" class="k-net__btn" data-act="route" data-route="${route}"${m ? ` data-mode="${m}"` : ""}>${head}<span class="k-net__do">${esc(doText)}</span></button>${track}</li>`;
+      const n = LINE[route]; const list = stationList(route, m || "freeform").slice(0, -1);
+      const stops = list.map((st, i) => `<span class="k-net__stop" style="--k:${i}"><span class="k-net__dot" aria-hidden="true"></span><span class="k-net__stopname">${esc(stName(st.id, route))}</span></span>`).join("");
+      return `<li class="k-net__row" data-line="${n}"><button type="button" class="k-net__line" data-act="route" data-route="${route}"${m ? ` data-mode="${m}"` : ""} aria-describedby="kDo${n}"><span class="k-net__head">${roundel(n)}<span class="k-net__name">${esc(t(`k.line.${route}`))}</span><span class="k-net__cost">${esc(plural("k.cost", list.length))}</span></span><span class="k-net__track k-net__track--${list.length}">${stops}</span></button><p class="k-net__do" id="kDo${n}">${esc(doTextOf(route))}</p></li>`;
     }).join("");
-    return `<div class="k-net${mini ? " k-net--mini" : ""}">${mini ? "" : `<p class="k-net__origin">${esc(t("k.map.origin"))}</p>`}<ol class="k-net__rows"${mini ? ' aria-hidden="true"' : ""}>${rows}</ol>
-      <div class="k-net__end"><div class="k-net__endstop"><span class="k-net__enddot" aria-hidden="true"></span><p><strong>${esc(t("k.map.end_program"))}</strong>${mini ? "" : `<span>${esc(t("k.map.end_program_sub"))}</span>`}</p></div><div class="k-net__endstop"><span class="k-net__enddot k-net__enddot--today" aria-hidden="true"></span><p><strong>${esc(t("k.map.end_today"))}</strong>${mini ? "" : `<span>${esc(t("k.map.end_today_sub"))}</span>`}</p></div></div></div>`;
+    return `<div class="k-net"><p class="k-net__origin"><span class="k-net__ring" aria-hidden="true"></span>${esc(t("k.map.origin"))}</p><ol class="k-net__rows">${rows}</ol>
+      <div class="k-net__end"><div class="k-net__endstop"><span class="k-net__enddot" aria-hidden="true"></span><p><strong>${esc(t("k.map.end_program"))}</strong><span>${esc(t("k.map.end_program_sub"))}</span></p></div><div class="k-net__endstop"><span class="k-net__enddot k-net__enddot--today" aria-hidden="true"></span><p><strong>${esc(t("k.map.end_today"))}</strong><span>${esc(t("k.map.end_today_sub"))}</span></p></div></div></div>`;
+  }
+  /* The landing diagram: octilinear, drawn once in SVG. Five lines fan out at
+     45° from one ring-marked interchange, run level, and end in the terminal
+     rail, which feeds Seu programa and then Hoje. Station dots are the real
+     station counts of each line. */
+  function lineDiagram() {
+    const ox = 20, oy = 100, rail = 326, ys = [20, 60, 100, 140, 180];
+    const col = (n) => `var(--k-l${n})`, ink = "var(--k-ink)", panel = "var(--k-panel)";
+    let paths = "", dots = "", labels = "";
+    MAP.forEach(([route, m], i) => {
+      const n = LINE[route]; const y = ys[i]; const sy = oy + (i - 2) * 10; const dy = Math.abs(y - sy); const x1 = ox + 16, x2 = x1 + dy;
+      const d = `M${ox} ${sy}H${x1}L${x2} ${y}H${rail}`;
+      if (n === 4) paths += `<path d="${d}" style="stroke:${ink}" stroke-width="10" fill="none" stroke-linejoin="round"/>`;
+      paths += `<path d="${d}" style="stroke:${col(n)}" stroke-width="7" fill="none" stroke-linejoin="round"/>`;
+      const count = stationList(route, m || "freeform").length - 1;
+      for (let k = 0; k < count; k++) { const x = 212 + (count === 1 ? 50 : (k * 100) / (count - 1)); dots += `<circle cx="${x}" cy="${y}" r="5" style="fill:${panel};stroke:${n === 4 ? ink : col(n)}" stroke-width="3.2"/>`; }
+      labels += `<circle cx="132" cy="${y - 1}" r="9.5" style="fill:${col(n)};stroke:${n === 4 ? ink : panel}" stroke-width="${n === 4 ? 1.5 : 0}"/><text x="132" y="${y + 3}" text-anchor="middle" class="k-svgnum" style="fill:var(--k-l${n}-ink)">${n}</text><text x="146" y="${y - 7}" class="k-svgname">${esc(t(`k.line.${route}`))}</text>`;
+    });
+    const rails = `<rect x="${rail - 6}" y="8" width="12" height="184" rx="6" style="fill:${panel};stroke:${ink}" stroke-width="3.5"/><path d="M${rail} 192V246" style="stroke:${ink}" stroke-width="5"/><rect x="${rail - 7}" y="206" width="14" height="22" rx="7" style="fill:${panel};stroke:${ink}" stroke-width="3.5"/><circle cx="${rail}" cy="246" r="6.5" style="fill:${ink};stroke:${panel}" stroke-width="3"/><circle cx="${rail}" cy="246" r="11" style="fill:none;stroke:${ink}" stroke-width="3"/>`;
+    const origin = `<rect x="${ox - 9}" y="${oy - 30}" width="18" height="60" rx="9" style="fill:${panel};stroke:${ink}" stroke-width="3.5"/><circle cx="${ox}" cy="${oy}" r="6.5" style="fill:${panel};stroke:${ink}" stroke-width="3"/><circle cx="${ox}" cy="${oy}" r="2.5" style="fill:${ink}"/>`;
+    const end = `<text x="${rail - 16}" y="222" text-anchor="end" class="k-svgname">${esc(t("k.map.end_program"))}</text><text x="${rail - 16}" y="251" text-anchor="end" class="k-svgname">${esc(t("k.map.end_today"))}</text>`;
+    return `<svg class="k-diagram" viewBox="0 0 346 262" aria-hidden="true" focusable="false">${paths}${rails}${origin}${dots}${labels}${end}</svg>`;
   }
 
   /* ---------- screens ---------- */
@@ -551,7 +575,7 @@
     return `<main class="k-land" data-checkpoint="${invalid ? "shared-invalid" : "landing"}">${band()}<div class="k-land__in">
       <h1 class="k-land__head" data-focus>${esc(t(invalid ? "landing.shared.invalid_headline" : "landing.headline"))}</h1>
       <p class="k-lede">${esc(t(invalid ? "landing.shared.invalid_body" : "landing.body"))}</p>
-      ${invalid ? alertBox("", t(TF.sharedErrorKey(S.sharedError)), { role: "status" }) : `<figure class="k-land__map">${network({ mini: true })}<figcaption>${esc(t("k.land.map"))}</figcaption></figure>`}
+      ${invalid ? alertBox("", t(TF.sharedErrorKey(S.sharedError)), { role: "status" }) : `<figure class="k-land__map" role="img" aria-label="${esc(t("k.land.map_aria"))}">${lineDiagram()}<figcaption aria-hidden="true">${esc(t("k.land.map"))}</figcaption></figure>`}
       ${landingActions()}
       <p class="k-land__privacy">${pict("shield", "k-pict--sm")}<span>${esc(t("x.privacy.line"))}</span></p>
       ${invalid ? "" : `<section class="k-proof" aria-labelledby="kProof"><h2 class="k-h2" id="kProof">${esc(t("k.land.proof_title"))}</h2><p class="k-hint">${esc(t("k.land.proof_body"))}</p>${TS.landingProof(t, lang)}</section>`}
@@ -564,9 +588,9 @@
     return `<section class="k-panel k-resume" data-checkpoint="resume" aria-labelledby="kResumeTitle"><h2 class="k-h2" id="kResumeTitle">${esc(t("entry.resume.title"))}</h2><p>${esc(t("entry.resume.body"))}</p><p class="k-hint">${esc(t("k.resume.at", { route: f.route, step: f.step, when: f.when }))}</p><div class="k-acts">${goBtn({ label: t("entry.resume.continue"), attrs: 'id="dResume" data-act="resume"' })}<button type="button" class="k-btn k-btn--danger" id="dResumeRestart" data-act="resume-restart" aria-haspopup="dialog">${esc(t("entry.resume.restart"))}</button></div></section>`;
   }
   function activeBoard() {
-    return `<section class="k-status" aria-labelledby="kActive">${pict("pin")}<div class="k-status__txt"><h2 class="k-status__k" id="kActive">${esc(t("k.map.active_title"))}</h2><p class="k-status__name" data-user-text>${esc(TF.activeName(lang))}</p><p class="k-status__meta">${esc(plural("k.map.sessions", TF.device.sessions))}</p><p class="k-status__note">${esc(t("k.map.replace_note"))}</p></div></section>`;
+    return `<section class="k-status" aria-labelledby="kActive">${pict("pin")}<div class="k-status__txt"><h2 class="k-status__name" id="kActive">${esc(t("k.map.active_title", { name: "\u0000" })).split("\u0000").join(`<span data-user-text>${esc(TF.activeName(lang))}</span>`)}</h2><p class="k-status__meta">${esc(plural("k.map.sessions", TF.device.sessions))}</p><p class="k-status__note">${esc(t("k.map.replace_note"))}</p></div></section>`;
   }
-  const chev = `<span class="k-chev" aria-hidden="true"></span>`;
+  const chev = `<span class="k-chev" aria-hidden="true">${CHEV}</span>`;
   function hubView() {
     const active = TF.hasActiveProgram();
     return `<div class="k-app" data-line="0"><header class="k-bar"><button type="button" class="k-bar__btn" data-act="hub-back">${chev}${esc(t(active ? "k.map.back_today" : "entry.back"))}</button></header>
@@ -621,7 +645,7 @@
       const meta = [t("entry.preview.exercises", { n: ex.length, exercise: TF.tp(t, ex.length, "exercise") }), t("entry.preview.sets", { n: sets }), d.estimateMinutes ? t("entry.preview.minutes", { n: d.estimateMinutes }) : ""].filter(Boolean).join(" · ");
       const open = i === 0 || ex.some((e) => added.has(e.id));
       const list = ex.length ? ex.map((e) => { const isNew = added.has(e.id); return `<li class="k-ex${isNew ? " is-new" : ""}" data-slot="${esc(e.id)}"><span class="k-ex__tick" aria-hidden="true"></span><span class="k-ex__name">${esc(TS.exName(e, lang))}${isNew ? ` <span class="k-new">${esc(t("k.rev.new"))}</span>` : ""}</span><span class="k-ex__rx">${e.sets != null ? `${e.sets} × ${e.min}–${e.max}` : ""}</span></li>`; }).join("") : `<li class="k-ex k-ex--empty">${esc(t("program.empty.exercises"))}</li>`;
-      return `<li class="k-day"><details${open ? " open" : ""}><summary class="k-day__sum"><span class="k-day__dot" aria-hidden="true"></span><span class="k-day__head"><span class="k-day__name">${esc(TF.dayName(t, d, preview.programStructure, i))}</span><span class="k-day__meta">${esc(meta)}</span></span><span class="k-disc__chev" aria-hidden="true"></span></summary><ul class="k-day__list">${list}</ul></details></li>`;
+      return `<li class="k-day"><details${open ? " open" : ""}><summary class="k-day__sum"><span class="k-day__dot" aria-hidden="true"></span><span class="k-day__head"><span class="k-day__name">${esc(TF.dayName(t, d, preview.programStructure, i))}</span><span class="k-day__meta">${esc(meta)}</span></span><span class="k-disc__chev" aria-hidden="true">${CHEV}</span></summary><ul class="k-day__list">${list}</ul></details></li>`;
     }).join("")}</ol>`;
   }
   const CHIP_STEP = { goal: "desired_result", exp: "background", cons: "background", days: "schedule", minutes: "schedule", rest: "schedule", env: "environment", prio: "priorities", avoid: "priorities", emph: "priorities", prefs: "exercise_preferences", shape: "custom_shape" };
@@ -667,7 +691,7 @@
     const sub = S.route === "recommend" ? t("entry.result.title") : S.route === "custom" ? t("entry.result.custom_title") : t(`entry.preview.source.${S.route}`);
     const facts = [t("entry.catalogue.days_badge", { days: (p.days || []).length }), TF.durationLabel(t, p), t("entry.preview.exercises", { n: f.exercises, exercise: TF.tp(t, f.exercises, "exercise") }), t("entry.preview.sets", { n: f.sets })].filter(Boolean);
     const conflict = S.notice === "conflict" ? `<div id="dConflictBox" tabindex="-1" class="k-conflict" data-checkpoint="activation-conflict">${alertBox(t("entry.conflict.title"), t("entry.conflict.body"), { extra: `<div class="k-acts"><button type="button" class="k-btn" data-act="conflict-review">${esc(t("entry.conflict.review"))}</button></div>` })}</div>` : "";
-    let out = `${conflict}${sign(name(), { sub, cls: "k-sign--terminal", userText: S.route === "shared" || S.route === "import" })}
+    let out = `${sign(name(), { sub, cls: "k-sign--terminal", userText: S.route === "shared" || S.route === "import" })}${conflict}
       <p class="k-facts" id="kFacts">${facts.map((x) => `<span>${esc(x)}</span>`).join("")}</p>${changeLine()}
       ${TF.hasActiveProgram() && S.notice !== "conflict" ? note(t("entry.active_notice"), "pin", "status") : ""}
       <section class="k-sec" aria-labelledby="kWeek"><h2 class="k-h2" id="kWeek">${esc(t("entry.preview.days"))}</h2>${weekView(p, S.changeFrom && gen ? addedIds(S.changeFrom.preview, p) : new Set())}</section>`;
@@ -708,7 +732,7 @@
     return `${sign(t("k.st.catalogue"), { sub: t("entry.catalogue.title") })}<p class="k-lede">${esc(t("entry.catalogue.lede"))}</p>
       <div class="k-context"><p class="k-facts"><span>${esc(t("entry.catalogue.context_days", { days: a.daysPerWeek }))}</span><span>${esc(t("entry.catalogue.context_minutes", { minutes: a.sessionMinutes }))}</span><span>${esc(t(`entry.environment.${a.environment ? a.environment.kind : "other"}`))}</span></p><button type="button" class="k-btn k-btn--sm" data-act="jump" data-step="schedule" aria-label="${esc(t("k.catalogue.change_aria"))}">${esc(t("x.change"))}</button></div>
       ${fits.length ? `<section class="k-sec" aria-labelledby="kFits"><h2 class="k-h2" id="kFits">${esc(t("entry.catalogue.group_fits", { days: a.daysPerWeek }))}</h2><ul class="k-cards">${fits.map(card).join("")}</ul></section>` : alertBox(t("entry.catalogue.empty_title"), t("entry.catalogue.empty_body"))}
-      ${others.length ? `<details class="k-disc"><summary class="k-disc__sum"><span class="k-disc__t">${esc(t("entry.catalogue.group_other"))} (${others.length})</span><span class="k-disc__chev" aria-hidden="true"></span></summary><div class="k-disc__body"><p class="k-hint">${esc(t("entry.catalogue.mismatch"))}</p><ul class="k-cards">${others.map(card).join("")}</ul></div></details>` : ""}`;
+      ${others.length ? `<details class="k-disc"><summary class="k-disc__sum"><span class="k-disc__t">${esc(t("entry.catalogue.group_other"))} (${others.length})</span><span class="k-disc__chev" aria-hidden="true">${CHEV}</span></summary><div class="k-disc__body"><p class="k-hint">${esc(t("entry.catalogue.mismatch"))}</p><ul class="k-cards">${others.map(card).join("")}</ul></div></details>` : ""}`;
   }
   function editorParts() {
     const forBuild = S.route === "build" && !S.editing;
@@ -752,7 +776,7 @@
     const c = TF.importCounts(d);
     return `<dl class="k-boardrow">${[["linked", c.linked], ["review", c.review], ["custom", c.custom]].map(([k, v]) => `<div class="k-boardrow__cell${k === "review" && v ? " is-open" : ""}" data-metric="${k}"><dt>${esc(t(`import.count_${k}`))}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
   }
-  function ffSummary(ff) { return `<div class="k-ticket"><span>${esc(t("entry.freeform.source_summary", { lines: TS.freeform.lines(ff) }))}</span><button type="button" class="k-btn k-btn--sm" data-act="ff" data-ff="edit-source">${esc(t("entry.freeform.edit_source"))}</button></div>`; }
+  function ffSummary(ff) { return `<div class="k-stnote"><span class="k-stnote__dot" aria-hidden="true"></span><p class="k-stnote__t"><strong>${esc(t("k.st.ff1"))}</strong><span data-user-text>${esc(t("entry.freeform.source_summary", { lines: TS.freeform.lines(ff) }))}</span></p><button type="button" class="k-btn k-btn--sm" data-act="ff" data-ff="edit-source">${esc(t("k.ff.note_edit"))}</button></div>`; }
   function ffBody(ff) {
     const program = TS.freeform.program(ff);
     if (ff.status === "gaps" && ff.gap) {
@@ -765,16 +789,16 @@
       <p class="k-hint" id="ffNeeds"${program ? " hidden" : ""}>${esc(t("entry.freeform.needs_input"))}</p>${note(t("entry.freeform.privacy"))}
       ${goBtn({ label: t("entry.freeform.continue"), attrs: `data-act="ff" data-ff="continue"${program ? "" : " disabled"}` })}</div>`;
     const prompt = TF.freeformPrompt(t, program);
-    if (ff.stage === 2) return ffSummary(ff) + `<div class="k-stack k-sec"><h2 class="k-h2">${esc(t("entry.freeform.stage2_title"))}</h2><p class="k-hint">${esc(t("entry.freeform.stage2_hint"))}</p>
+    if (ff.stage === 2) return ffSummary(ff) + `<div class="k-stack k-sec"><p class="k-hint">${esc(t("entry.freeform.stage2_hint"))}</p>
       <div class="k-providers"><a class="k-go k-go--provider" href="https://chatgpt.com/?q=${encodeURIComponent(prompt)}" target="_blank" rel="noopener noreferrer" data-act="ff" data-ff="open" data-provider="chatgpt"><span class="k-go__t">${esc(t("entry.freeform.open_chatgpt"))}</span><span class="k-go__arrow" aria-hidden="true">${ARROW}</span></a><a class="k-go k-go--provider" href="https://claude.ai/new?q=${encodeURIComponent(prompt)}" target="_blank" rel="noopener noreferrer" data-act="ff" data-ff="open" data-provider="claude"><span class="k-go__t">${esc(t("entry.freeform.open_claude"))}</span><span class="k-go__arrow" aria-hidden="true">${ARROW}</span></a></div>
-      <details class="k-disc"><summary class="k-disc__sum"><span class="k-disc__t">${esc(t("entry.freeform.preview_prompt"))}</span><span class="k-disc__chev" aria-hidden="true"></span></summary><div class="k-disc__body"><pre class="k-pre">${esc(prompt)}</pre></div></details>
+      <details class="k-disc"><summary class="k-disc__sum"><span class="k-disc__t">${esc(t("entry.freeform.preview_prompt"))}</span><span class="k-disc__chev" aria-hidden="true">${CHEV}</span></summary><div class="k-disc__body"><pre class="k-pre">${esc(prompt)}</pre></div></details>
       <button type="button" class="k-btn" data-act="ff" data-ff="copy">${esc(t("entry.freeform.copy"))}</button></div>`;
     const unreadable = ff.status === "unreadable" ? alertBox(t("entry.freeform.unreadable_title"), t("entry.freeform.unreadable_body"), { extra: `<div class="k-acts"><button type="button" class="k-btn" data-act="ff" data-ff="copy-repair">${esc(t("entry.freeform.copy_repair_prompt"))}</button><button type="button" class="k-btn" data-act="ff" data-ff="try-another">${esc(t("entry.freeform.try_another"))}</button></div>` }) : "";
     const invalidated = ff.invalidated ? note(t("entry.freeform.edit_source_warning"), "alert", "status") : "";
-    return ffSummary(ff) + `<div class="k-stack k-sec">${invalidated}${unreadable}<h2 class="k-h2">${esc(t("entry.freeform.stage3_title"))}</h2><p class="k-hint">${esc(t("entry.freeform.stage3_hint"))}</p>
+    return ffSummary(ff) + `<div class="k-stack k-sec">${invalidated}${unreadable}<p class="k-hint">${esc(t("entry.freeform.stage3_hint"))}</p>
       ${goBtn({ label: t("entry.freeform.clipboard_import"), attrs: 'data-act="ff" data-ff="clipboard"' })}
-      ${field({ label: t("entry.freeform.clipboard_or"), input: `<textarea id="ffOut" rows="${compact() ? 5 : 7}" spellcheck="false" autocapitalize="off" data-field="ffReply" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(ff.reply)}</textarea>` })}
-      <button type="button" class="k-btn k-btn--strong" data-act="ff" data-ff="review">${esc(t("entry.freeform.review"))}</button>
+      <label class="k-field"><span class="visually-hidden">${esc(t("k.ff.reply_label"))}</span><span class="k-field__box"><textarea id="ffOut" rows="${compact() ? 5 : 7}" spellcheck="false" autocapitalize="off" data-field="ffReply" placeholder="${esc(t("entry.freeform.clipboard_or"))}">${esc(ff.reply)}</textarea></span></label>
+      <button type="button" class="k-btn" data-act="ff" data-ff="review">${esc(t("entry.freeform.review"))}</button>
       <div class="k-acts k-acts--row"><button type="button" class="k-btn" data-act="ff" data-ff="try-another">${esc(t("entry.freeform.try_another"))}</button><button type="button" class="k-btn k-btn--danger" data-act="ff" data-ff="start-over" aria-haspopup="dialog">${esc(t("entry.freeform.start_over"))}</button></div></div>`;
   }
   function importSwitches() {
@@ -789,7 +813,7 @@
       return { body: `${sign(t("k.st.review"), { sub: t("import.heading") })}<p class="k-lede">${esc(t("import.lede"))}</p><p class="k-ticket" data-user-text><span>${esc(t("import.file", { name: d.fileName || t("import.file_fallback"), n: c.total, exercise: TF.tp(t, c.total, "lift") }))}</span></p>
         ${d.notImported.length ? note(t("entry.freeform.not_imported_notice", { items: d.notImported.map((x) => t(`entry.freeform.not_imported.${x}`)).join(", ") }), "alert", "status") : ""}
         ${importCounts(d)}${importRows(d)}
-        ${d.originalText ? `<details class="k-disc"><summary class="k-disc__sum"><span class="k-disc__t">${esc(t("entry.freeform.view_original"))}</span><span class="k-disc__chev" aria-hidden="true"></span></summary><div class="k-disc__body"><pre class="k-pre">${esc(d.originalText)}</pre></div></details>` : ""}
+        ${d.originalText ? `<details class="k-disc"><summary class="k-disc__sum"><span class="k-disc__t">${esc(t("entry.freeform.view_original"))}</span><span class="k-disc__chev" aria-hidden="true">${CHEV}</span></summary><div class="k-disc__body"><pre class="k-pre">${esc(d.originalText)}</pre></div></details>` : ""}
         ${note(t("import.safe"))}${c.review && compact() ? `<p class="k-hint k-reasonline" id="dImpReason">${esc(t("import.commit_blocked", { n: c.review }))}</p>` : ""}`,
         footer: platform(`${c.review && !compact() ? `<p class="k-platform__reason" id="dImpReason">${esc(t("import.commit_blocked", { n: c.review }))}</p>` : ""}${goBtn({ label: t("entry.preview.review"), attrs: `id="dImportCommit" data-act="import-commit"${c.review ? ' disabled aria-describedby="dImpReason"' : ""}` })}`) };
     }
@@ -797,10 +821,11 @@
     if (S.importMode === "freeform") {
       const ff = S.ff; const gaps = ff.status === "gaps";
       const st = ff.stage === 1 ? "ff1" : ff.stage === 2 ? "ff2" : "ff3";
-      const sub = gaps ? t("k.ff.gaps_title") : ff.stage === 1 ? t("entry.freeform.title") : ff.stage === 2 ? t("entry.freeform.stage2_title") : t("entry.freeform.output_label");
+      const sub = gaps ? t("k.ff.gaps_title") : ff.stage === 1 ? t("entry.freeform.title") : ff.stage === 2 ? t("entry.freeform.stage2_title") : t("entry.freeform.stage3_title");
       const lede = gaps ? t("k.ff.gaps_lede") : ff.stage === 1 ? t("entry.freeform.lede") : "";
       const dialog = ff.confirmStartOver ? dialogHtml({ id: "ffRestartTitle", role: "alertdialog", attrs: 'data-confirm="ff-start-over"', close: 'data-act="ff" data-ff="start-over-cancel"', title: t("entry.freeform.confirm_start_over"), buttons: [`<button type="button" class="k-btn k-btn--danger" data-act="ff" data-ff="start-over-confirm">${esc(t("x.ff.restart_confirm"))}</button>`, `<button type="button" class="k-btn k-btn--strong" data-act="ff" data-ff="start-over-cancel">${esc(t("x.ff.restart_cancel"))}</button>`] }) : "";
-      return { body: `${sign(t(`k.st.${st}`), { sub })}${lede ? `<p class="k-lede">${esc(lede)}</p>` : ""}${active}<div class="k-ff">${ffBody(ff)}</div>${gaps ? "" : importSwitches()}`, footer: "", overlay: dialog };
+      const ledeHtml = lede ? `<p class="k-lede">${esc(lede)}</p>` : "";
+      return { body: `${sign(t(`k.st.${st}`), { sub })}${compact() ? "" : ledeHtml}${active}<div class="k-ff">${ffBody(ff)}</div>${compact() ? ledeHtml : ""}${gaps ? "" : importSwitches()}`, footer: "", overlay: dialog };
     }
     return { body: `${sign(t("k.st.file"), { sub: t("entry.import_source.title") })}<p class="k-lede">${esc(t("entry.import_source.lede"))}</p>${active}<div class="k-stack">${goBtn({ label: t("entry.import_source.pick"), attrs: 'data-act="import-file"' })}<p class="k-hint">${esc(t("x.cost.file"))}</p></div>${importSwitches()}`, footer: "" };
   }
@@ -809,7 +834,7 @@
     const to = XFER[S.route]; if (!to || !["about", "schedule", "environment"].includes(S.step)) return "";
     const kept = SHARED_KEYS.filter((k) => has(S.answers, k)).length; if (!kept) return "";
     const list = stationList(to); const idx = list.findIndex((s) => s.id === S.step); const left = list.length - 1 - Math.max(0, idx);
-    return `<section class="k-transfer" aria-labelledby="kXfer"><h2 class="k-transfer__title" id="kXfer">${pict("reset", "k-pict--sm")}${esc(t("k.xfer.title"))}</h2>
+    return `<section class="k-transfer" aria-labelledby="kXfer"><h2 class="k-transfer__title" id="kXfer"><span class="k-xring" aria-hidden="true">${roundel(LINE[S.route])}${roundel(LINE[to])}</span>${esc(t("k.xfer.title"))}</h2>
       <button type="button" class="k-transfer__go k-transfer__go--${LINE[to]}" data-act="transfer" data-route="${to}">${roundel(LINE[to])}<span class="k-transfer__txt"><strong>${esc(t("k.xfer.to", { n: LINE[to], line: t(`k.line.${to}`) }))}</strong><span>${esc(t("k.xfer.keeps"))} ${esc(plural("k.strip.left", left))}.</span></span></button></section>`;
   }
   function routeView() {
@@ -817,7 +842,8 @@
     let body = "", footer = "", overlay = "";
     if (qi >= 0) {
       const h = stepHead(S.step); const pending = S.avoid.pending || S.pref.pending;
-      body = `${sign(stName(S.step), { sub: h.title })}${h.optional ? `<p class="k-optional">${esc(t("entry.optional"))}</p>` : ""}${h.lede ? `<p class="k-lede">${esc(h.lede)}</p>` : ""}${validationNotice()}${questionBody(S.step, S.answers)}${transferBlock()}`;
+      const ledeHtml = h.lede ? `<p class="k-lede">${esc(h.lede)}</p>` : "";
+      body = `${sign(stName(S.step), { sub: h.title })}${h.optional ? `<p class="k-optional">${esc(t("entry.optional"))}</p>` : ""}${compact() ? "" : ledeHtml}${validationNotice()}${questionBody(S.step, S.answers)}${compact() ? ledeHtml : ""}${transferBlock()}`;
       const screens = generated() ? [...qs, "result"] : STEPS[S.route];
       const next = screens[screens.indexOf(S.step) + 1];
       const label = S.step === "custom_shape" ? t("entry.custom_shape.generate") : next === "result" ? t("k.go.show") : t("k.go.next", { station: stName(next) });
@@ -828,7 +854,7 @@
     else if ((S.route === "build" && S.step === "editor") || S.editing) { const e = editorParts(); body = e.body; footer = e.footer; }
     else if (reviewing()) { body = reviewBody(); if (S.result && !S.sheet) footer = activateFooter({ ready: !TF.progressionIssue(S.result.preview), reasonId: "dBlocked" }); }
     const xfer = S.xfer ? `<p class="k-xfer-done" role="status">${pict("reset", "k-pict--sm")}<span>${esc(plural("k.xfer.done", S.xfer.k, { k: S.xfer.k, n: S.xfer.from }))}</span></p>` : "";
-    return `<div class="k-app" data-line="${LINE[S.route]}"><header class="k-bar"><button type="button" class="k-bar__btn" data-act="back">${chev}${esc(t("entry.back"))}</button><span class="k-bar__gap"></span><button type="button" class="k-bar__btn k-bar__btn--end" data-act="cancel">${esc(t("entry.cancel"))}</button></header>
+    return `<div class="k-app" data-line="${LINE[S.route]}"><header class="k-bar"><button type="button" class="k-bar__btn" data-act="back">${chev}${esc(t("entry.back"))}</button><span class="k-bar__gap"></span><button type="button" class="k-exit" data-act="cancel" aria-label="${esc(t("k.exit_aria"))}">${EXIT}<span>${esc(t("k.exit"))}</span></button></header>
       ${strip()}${xfer}
       <main class="k-main" data-entry-step="${esc(entryStep())}"${S.editing ? " data-editor" : ""} data-checkpoint="${esc(checkpointFor())}">${body}</main>${footer}</div>${overlay}`;
   }

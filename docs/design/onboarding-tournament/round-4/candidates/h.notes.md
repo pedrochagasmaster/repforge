@@ -35,9 +35,9 @@ roll's list (the assigned lead). Not copied into shipped markup.
 
 | State | Composition |
 |---|---|
-| `landing` | The headline set as a poem: "chegue na academia / sabendo", then **exatamente** reversed out of a full-bleed vermilion band, then "o que fazer." right-aligned. Body line, the two actions (vermilion bar, black outline), then the real Today capture on the grid with its caption. Privacy in the brand bar. |
-| `route-choice` / `hub-existing` | "como começar", then six verbs at one measured size in three stanzas (the production group names); the lead verb *recomendar* is the vermilion field bled to the edges. Each door carries its catalog title and a factual cost line (question counts, no minutes). The existing user sees which program stays active. |
-| `rec-goal` … `rec-priorities` | One decision per screen (goal, experience, consistency, days, minutes, rest, place, optional priorities), 8 screens across the production steps. Numeric scales climb as a staircase; phrases sit on ruled lines; the verse sits above. Continue is pinned and disabled with its visible reason until the screen's answer exists. |
+| `landing` | The headline set as a poem: "chegue na academia / sabendo", then **exatamente** reversed out of a full-bleed vermilion band, then "o que fazer." right-aligned. Body line, the two actions (vermilion bar, black outline), then H's own Today (a capture of this candidate's activated-today, `round-4/assets/h/today-ready-*.png`, framed by the 3 px rule, no device bezel) with its caption. Privacy in the brand bar. |
+| `route-choice` / `hub-existing` | "criar um programa" (catalog title, fitted) and the catalog lede, then six verbs at one measured size; stanza breaks are a 6 px rule and space (group names are `aria-label`s, no visible labels); the lead verb *recomendar* is the vermilion field bled to the edges. Each door carries a factual cost line (question counts, no minutes). The existing user sees which program stays active. |
+| `rec-goal` … `rec-priorities` | One decision per screen (goal, experience, consistency, days, minutes, rest, place, optional priorities), 8 screens across the production steps. Numeric scales climb as a staircase. Phrase answers are words placed in the six-column composition, each screen its own placement: goal staggers down and right, experience climbs one column per step, consistency is a 2 × 2 field, place leads with one full-width word over a 2 × 2. The verse sits above. Continue is pinned and disabled with its visible reason until the screen's answer exists. |
 | `rec-env-correction` | The place screen with the equipment/capability disclosure open. |
 | `rec-result` / `activate` | The poster: name monumental (fitted to at most two lines), facts line, days as columns headed by vermilion numerals, the colophon verse, the reasons, Start over; activation pinned. |
 | `rec-result-corrected` | The same poster after the correction, with the change block and "novo" tags. |
@@ -52,6 +52,18 @@ a ruled list of names, the Build editor with the shared model) but were not
 polished to the core's level; Edit before using, the shared-link gate, the
 route helper and rules-changed are not built in this round (they fall back as
 the brief allows).
+
+## Large text (measured)
+
+Large text is detected by measurement, not by the harness query: `setLarge()`
+sets `html.h-large` when the root em is ≥ 24 px or the viewport is narrower
+than 16 em, so OS and browser text sizes trigger it too. In that mode the
+monumental word is capped near 0.11 of the viewport height, the verse collapses
+to "4/8 / latest word  e mais 3" (the full verse stays for screen readers),
+ledes move below the answers, the staircase and the placed words re-set as one
+or two columns, the landing puts the actions before the body line, and the
+poster uses smaller numerals so the first answer, door, input or day sits above
+the pinned action at 320 px / 200%.
 
 ## Measured type
 
@@ -77,6 +89,18 @@ Rafael at 390 px, 2 × 2 for four days, one column at 200%).
 the orchestrator for the last run's table. Rafael, landing → Today: 18 taps
 (one decision per screen costs a tap to answer and a tap to continue; no
 auto-advance, so focus stays on the chosen answer).
+
+## Landing proof and its alt text
+
+The proof image is H's own activated Today (a real Build-route program,
+"Corpo inteiro" / "Full body", activated through `TF.activate` and rendered by
+`TF.renderToday` under `h.css`), captured by Playwright; see
+`round-4/assets/h/PROVENANCE.txt`. Check K-23 requires the production alt text
+verbatim (`landing.shot.today_ready.alt`). The capture matches it (Full body,
+0 of 3 sessions, Day 1 with quads, chest and hamstrings in five exercises,
+Start workout) except the week: the harness Today always shows week 1 of 6
+while the pinned alt says week 5 of 6. That mismatch is the harness's, not a
+candidate choice.
 
 ## Detector
 

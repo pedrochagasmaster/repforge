@@ -50,7 +50,7 @@
       "h.unit.days": "dias", "h.unit.min": "minutos", "h.unit.sec": "segundos", "h.unit.minrest": "minutos",
       "h.rest.about": "cerca de",
       "h.rest.more": "ou mais",
-      "h.adv.need": "Escolha uma resposta para continuar.",
+      "h.adv.need": "Escolha uma resposta.",
       "h.adv.show": "Mostrar meu programa",
       "h.adv.catalogue": "Ver programas",
       "h.adv.editor": "Abrir os dias",
@@ -136,7 +136,7 @@
       "h.unit.days": "days", "h.unit.min": "minutes", "h.unit.sec": "seconds", "h.unit.minrest": "minutes",
       "h.rest.about": "about",
       "h.rest.more": "or more",
-      "h.adv.need": "Choose an answer to continue.",
+      "h.adv.need": "Choose an answer.",
       "h.adv.show": "Show my program",
       "h.adv.catalogue": "See programs",
       "h.adv.editor": "Open the days",
@@ -380,7 +380,7 @@
     list.forEach((q, i) => { if (i > S.qi) return; if (QDEF[q].optional && i === S.qi) return; if (QDEF[q].optional && !["priorities", "emphasis", "prefs"].includes(q)) return; const w = vWord(q, S.answers); if (w && !(QDEF[q].optional && /^(sem |no |ênfase normal|normal emphasis)/.test(w))) words.push({ q, w }); });
     const idx = `${S.qi + 1}/${list.length}`;
     const last = words[words.length - 1];
-    const compact = `<p class="h-verse h-verse--compact" aria-hidden="true"><span class="h-verse__idx">${esc(idx)}</span>${last ? ` <span class="h-verse__sep">/</span> <span class="h-verse__w${S.fresh === last.q ? " is-new" : ""}">${esc(last.w)}</span>${words.length > 1 ? ` <span class="h-verse__more">${esc(t("h.verse.more", { n: words.length - 1 }))}</span>` : ""}` : ""}</p>`;
+    const compact = `<p class="h-verse h-verse--compact">${words.length ? `<span class="visually-hidden">${esc(t("h.verse.sr"))} ${esc(words.map((x) => x.w).join(", "))}</span>` : ""}<span aria-hidden="true"><span class="h-verse__idx">${esc(idx)}</span>${last ? ` <span class="h-verse__sep">/</span> <span class="h-verse__w${S.fresh === last.q ? " is-new" : ""}">${esc(last.w)}</span>${words.length > 1 ? ` <span class="h-verse__more">${esc(t("h.verse.more", { n: words.length - 1 }))}</span>` : ""}` : ""}</span></p>`;
     if (!words.length) return compact;
     return compact + `<p class="h-verse h-verse--full" aria-live="polite"><span class="visually-hidden">${esc(t("h.verse.sr"))} </span>${words.map((x, i) => `${i ? '<span class="h-verse__sep" aria-hidden="true">/</span> ' : ""}<span class="h-verse__w${S.fresh === x.q ? " is-new" : ""}">${esc(x.w)}</span>`).join(" ")}</p>`;
   }
@@ -412,7 +412,7 @@
   }
   const btn = ({ act, label, cls = "h-btn--field", attrs = "", arrow = true, id }) => `<button type="button" class="h-btn ${cls}"${id ? ` id="${id}"` : ""} data-act="${act}"${attrs ? " " + attrs : ""}><span class="h-btn__l">${esc(label)}</span>${arrow ? ARROW() : ""}</button>`;
   function bar({ backAct = "back", center = "", centerSr = "", cancel = true } = {}) {
-    return `<header class="h-bar"><button type="button" class="h-bar__btn h-bar__back" data-act="${backAct}"><span class="h-bar__arrow">${ARROW("left")}</span><span class="visually-hidden">${esc(t("entry.back"))}</span></button><p class="h-bar__mid">${centerSr ? `<span class="visually-hidden">${esc(centerSr)}</span><span aria-hidden="true">${esc(center)}</span>` : esc(center)}</p>${cancel ? `<button type="button" class="h-bar__btn h-bar__cancel" data-act="cancel" aria-haspopup="dialog">${esc(t("entry.cancel"))}</button>` : '<span class="h-bar__spacer"></span>'}</header>`;
+    return `<header class="h-bar"><button type="button" class="h-bar__btn h-bar__back" data-act="${backAct}"><span class="h-bar__arrow">${ARROW("left")}</span><span class="visually-hidden">${esc(t("entry.back"))}</span></button><p class="h-bar__mid">${center ? `<span class="visually-hidden">${esc(centerSr || center)}</span><span class="h-bar__vis" aria-hidden="true">${esc(center)}</span>` : ""}</p>${cancel ? `<button type="button" class="h-bar__btn h-bar__cancel" data-act="cancel" aria-haspopup="dialog">${esc(t("entry.cancel"))}</button>` : '<span class="h-bar__spacer"></span>'}</header>`;
   }
   function dock(inner, attrs = "") { return `<div class="h-dock" data-persistent-action ${attrs}><div class="h-dock__in">${inner}</div></div>`; }
 
@@ -498,7 +498,7 @@
 
   /* ---------- screens ---------- */
   const privacyBtn = () => `<button type="button" class="h-link h-brand__privacy" data-act="privacy-open" data-privacy-open aria-haspopup="dialog">${esc(t("privacy.title"))}</button>`;
-  const brand = () => `<header class="h-brand"><img class="h-brand__mark" src="${esc(TF.asset("vendor/brand/mark.png"))}" alt="" width="30" height="30"><span class="h-brand__word">Taurifer</span>${privacyBtn()}</header>`;
+  const brand = () => `<header class="h-brand"><img class="h-brand__mark" src="${esc(TF.asset("vendor/brand/mark.png"))}" alt="" width="30" height="30"><span class="h-brand__word"><span class="h-brand__vis" aria-hidden="true">Taurifer</span><span class="visually-hidden">Taurifer</span></span>${privacyBtn()}</header>`;
   function landingView() {
     const head = t("landing.headline"); const key = t("h.land.key"); const at = head.toLowerCase().indexOf(key.toLowerCase());
     let poem;
@@ -590,7 +590,7 @@
     const err = S.actError ? `<p class="h-alert" role="alert" id="hActError" tabindex="-1">${esc(S.actError)}</p>` : "";
     return `<main class="h-page h-poster"${cp ? ` data-checkpoint="${cp}"` : ""} data-entry-step="${step}">${bar({ center: kind })}
       ${conflict}
-      <header class="h-poster__head"><h1 class="h-poster__name" tabindex="-1"><span class="h-poster__nm" data-fit data-fit-lines="2" data-fit-max="92" data-fit-vh="0.12">${esc(name)}</span></h1>${factsLine(preview)}${source ? `<p class="h-note">${esc(source)}</p>` : ""}</header>
+      <header class="h-poster__head"><h1 class="h-poster__name" tabindex="-1"><span class="h-poster__nm" data-fit data-fit-lines="2" data-fit-max="92" data-fit-vh="0.12" data-fit-vh-large="0.085">${esc(name)}</span></h1>${factsLine(preview)}${source ? `<p class="h-note">${esc(source)}</p>` : ""}</header>
       ${changeBlock()}
       ${posterCols(preview)}
       ${colophon()}${progNote}${whyBlock()}
@@ -813,8 +813,8 @@
     if (el.dataset.fitLines) unit = Math.max(unit, (widthPerPx(text, cs) * 1.08) / +el.dataset.fitLines);
     const large = document.documentElement.classList.contains("h-large");
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const vh = el.dataset.fitVh ? (large ? Math.min(+el.dataset.fitVh, 0.11) : +el.dataset.fitVh) : null;
-    const capPx = el.dataset.fitRem ? rem * +el.dataset.fitRem : +el.dataset.fitMax || 120;
+    const vh = el.dataset.fitVh ? (large ? Math.min(+el.dataset.fitVh, +(el.dataset.fitVhLarge || 0.11)) : +el.dataset.fitVh) : null;
+    const capPx = el.dataset.fitRem ? rem * (large ? Math.min(+el.dataset.fitRem, 1.125) : +el.dataset.fitRem) : +el.dataset.fitMax || 120;
     const cap = Math.min(capPx, vh ? innerHeight * vh + (large ? 0 : 24) : Infinity);
     return Math.max(12, Math.min(cap, (avail * 0.97) / unit));
   }

@@ -392,9 +392,9 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
 :root.h-large .h-word__t { font-size: 1.125rem; }
 :root.h-large .h-word__s { font-size: .8125rem; }
 :root.h-large .h-pair, :root.h-large .h-chips--4 { grid-template-columns: minmax(0, 1fr); }
-:root.h-large .h-bar__mid { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:root.h-large .h-bar__cancel { font-size: .8125rem; }
-:root.h-large .h-verse--full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:root.h-large .h-bar__vis { display: none; }
+:root.h-large .h-bar__cancel { font-size: .8125rem; grid-column: 3; justify-self: end; }
+:root.h-large .h-verse--full { display: none; }
 :root.h-large .h-verse--compact { display: block; margin-top: 8px; font-size: .75rem; color: var(--h-ink); }
 :root.h-large .h-verse__idx { font-weight: 700; }
 :root.h-large .h-verse__more { color: var(--h-ink-2); }
@@ -407,15 +407,17 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
 :root.h-large .h-dock__why { font-size: .6875rem; }
 :root.h-large .h-dock .h-btn, :root.h-large .h-sheet__foot .h-btn { font-size: .9375rem; min-height: 48px; padding: 6px 12px; }
 :root.h-large .h-dock .h-ico, :root.h-large .h-sheet__foot .h-ico { width: 22px; height: 22px; }
-:root.h-large .h-btn { font-size: 1rem; }
+:root.h-large .h-btn { font-size: .9375rem; min-height: 52px; padding: 8px 12px; }
 :root.h-large .h-poster__head { margin-top: 12px; }
 :root.h-large .h-poster__facts { font-size: .8125rem; margin-top: 8px; }
 :root.h-large .h-poster__facts span { white-space: normal; }
 :root.h-large .h-cols { margin-top: 12px; }
-:root.h-large .h-col__n { font-size: min(4.5rem, 20vw); }
+:root.h-large .h-col__n { font-size: 1.5rem; }
+:root.h-large .h-col__name { margin-top: 4px; font-size: .875rem; }
+:root.h-large .h-cols { padding-top: 6px; }
 :root.h-large .h-change__s { font-size: 1rem; }
 :root.h-large .h-change__ba { font-size: .8125rem; }
-:root.h-large .h-brand__word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:root.h-large .h-brand__vis { display: none; }
 :root.h-large .h-brand__privacy { margin-left: auto; font-size: .875rem; }
 :root.h-large .h-land { display: flex; flex-direction: column; }
 :root.h-large .h-land > .h-brand { order: 0; } :root.h-large .h-land > .h-poem { order: 1; margin-top: 14px; }
@@ -436,3 +438,11 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
 :root.h-large .h-srcline { font-size: .8125rem; }
 :root.h-large .h-impv .h-comp > .h-head { margin-top: 8px; }
 :root.h-large .h-mono { padding-bottom: .12em; }
+:root.h-large .h-comp.h-stack { gap: 8px; margin-top: 8px; }
+:root.h-large .h-srcline { padding: 0; }
+:root.h-large .h-srcline .h-mini { min-height: 44px; padding: 4px 10px; }
+:root.h-large .h-poster__nm { line-height: .84; }
+:root.h-large .h-comp { display: flex; flex-direction: column; }
+:root.h-large .h-comp > .h-lede { order: 5; margin-top: 12px; }
+:root.h-large .h-comp > .h-corr { order: 6; }
+.h-stanza .h-door:last-child { border-bottom: 0; }

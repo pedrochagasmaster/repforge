@@ -892,7 +892,7 @@
     const i = S.versions.length - 1; const c = root.querySelector(`#jChange${i}`); if (!c) return;
     scrollCard(false);
     const limit = window.innerHeight - dockH(); const top = docTop(c);
-    if (top + c.offsetHeight - window.scrollY > limit - 8) scrollTo(top - headerH() - 12, false);
+    if (top + c.offsetHeight - window.scrollY > limit - 32) scrollTo(top - headerH() - 12, false);
     try { c.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
   }
   function activateNow() {

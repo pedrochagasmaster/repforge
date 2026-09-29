@@ -60,10 +60,15 @@ lines, 10 px vermilion edge on every dialog.
 - **The verse** (signature): the lifter's answers as short words separated by
   vermilion slashes, above each composition; the word just chosen is set in the
   field. On the review it becomes the colophon, one editable line per group.
-- **Answer words** (`.h-opt`): full-width lines, the chosen one flooded.
+- **Placed words** (`.h-word`): phrase answers set on a 3 px rule at their own
+  grid position per screen (stagger, climb, 2 × 2 field, lead word over a
+  2 × 2), secondary notes beneath; the chosen one flooded. Ruled full-width
+  lines (`.h-opt`) remain only for short lists (priorities, structure, rest's
+  "let Taurifer choose").
 - **Staircase** (`.h-stair`): numeric scales (days 2–6, minutes 30–90+, rest)
   climb one grid column per step, left to right: a progression drawn as a
-  progression. At 200% text it re-sets as a two-column grid.
+  progression. In large-text mode (measured, `html.h-large`) it re-sets as a
+  two-column grid.
 - **Chips** (`.h-chip`): loose words for muscles, movements, equipment.
 - **Buttons**: words on a vermilion bar (forward), black bar (secondary
   forward), black outline (alternative), underlined word (quiet); drawn SVG
@@ -87,7 +92,8 @@ One authored moment: **the flood**. A chosen answer's field wipes in left to
 right (background-size, 0.5 s, exponential ease-out) while its type turns
 white; the same wipe sets the new word into the verse 80 ms later. Dialogs rise
 32 px from their resting place (0.36 s); the scrim fades. Hover moves arrows
-4 px and steps an answer line in. Reduced motion (`data-motion="reduced"` or
+4 px and steps an answer line in, only where a fine pointer can hover
+(`@media (hover: hover) and (pointer: fine)`). Reduced motion (`data-motion="reduced"` or
 the media query) removes every animation and transition: the states simply
 appear.
 

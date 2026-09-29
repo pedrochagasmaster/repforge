@@ -415,6 +415,7 @@ html[data-stock="kraft"] .i-lede,html[data-stock="kraft"] .i-note{color:var(--pr
 :root[style*="200%"] .i-display{font-size:1.5rem;line-height:1}
 :root[style*="200%"] .i-title,:root[style*="200%"] .i-slip__t{font-size:1.25rem}
 :root[style*="200%"] .i-progname{font-size:1.5rem}
+:root[style*="200%"] .i-facts{font-size:.8125rem}
 :root[style*="200%"] .i-idx__q{font-size:1.125rem}
 :root[style*="200%"] .i-fields,:root[style*="200%"] .i-lines--2,:root[style*="200%"] .i-bf-grid,:root[style*="200%"] .i-acts--2{grid-template-columns:1fr}
 :root[style*="200%"] .i-field{border-right:0}
