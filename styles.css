@@ -4589,7 +4589,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .installsheet__titles{min-width:0}
 .installsheet__close{margin-left:auto;align-self:flex-start}
 .installsheet__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-section-title);
-  font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.02em;color:var(--color-ink)}
+  font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.02em;color:var(--color-ink);overflow-wrap:anywhere}
 .installsheet__sub{margin:4px 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .installsheet__done{margin-top:22px}
