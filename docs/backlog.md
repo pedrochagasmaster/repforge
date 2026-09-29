@@ -270,8 +270,8 @@ Do not re-add these as backlog without new owner evidence.
 - The post-Plan053 durable-state architecture bridge is implemented in PR
   #240 and merged at `3710f34bb677c59674a3677c03d2fc1427e07cef`.
   `durable-state.js` owns the normalized outcome, settlement, recovery, WAL,
-  replica, and DraftV2 transaction-sidecar contracts. Plan 054 is the active
-  overhaul implementation.
+  replica, and DraftV2 transaction-sidecar contracts. Plan 054 followed this
+  bridge; the current workfront is governed by the post-058 clearance sequence.
 
 - Plans 045–048 are implemented (measurement foundation, shared progression
   engine, program families/compiler, program entry/onboarding). Their former

@@ -232,8 +232,9 @@ The repeatable probes and extraction instructions are in the linked
 [reproduction record](ui-overhaul-plans-049-057-reproduction.md). Their
 assertions cover every OPEN and CLOSED disposition. The clean integrated
 source receipts were produced with `tools/record-verification.mjs`; final
-clean-head receipts, independent review, exact-head candidate run and merge
-identity are recorded on [PR #280](https://github.com/pedrochagasmaster/repforge/pull/280).
+clean-head receipts, independent review and exact-head candidate evidence
+belong on [PR #280](https://github.com/pedrochagasmaster/repforge/pull/280).
+The merge identity is added there only after the authorized merge.
 No historical green result below is reused as current candidate evidence.
 
 Current checks include `git diff --check`, canonical contradiction checking,
