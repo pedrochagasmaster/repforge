@@ -36,7 +36,12 @@ for (let i = 0; i < argv.length; i++) if (argv[i].startsWith("--")) { const k = 
 const BASE = args.base || "http://127.0.0.1:8123/docs/design/onboarding-tournament/";
 const ROUND = String(args.round || "1");
 const DOC = ROUND === "1" ? "app.html" : `round-${ROUND}/app.html`;
-const CANDS = String(args.candidates || ({ 1: "a,b,c", 2: "d,e,f", 3: "g" }[ROUND] || "")).split(",").filter(Boolean);
+const CANDS = String(args.candidates || ({ 1: "a,b,c", 2: "d,e,f", 3: "g", 4: "h,i,j,k,l" }[ROUND] || "")).split(",").filter(Boolean);
+/* Round 4 (bold directions): the core journey only, at finish quality. */
+const CORE = ROUND === "4";
+const CORE_CPS = ["landing", "route-choice", "hub-existing", "rec-goal", "rec-background", "rec-schedule", "rec-environment", "rec-priorities", "rec-result", "rec-env-correction", "rec-result-corrected", "activate", "replace-confirm", "activation-conflict", "cancel-confirm", "activated-today", "ff-empty", "ff-reply", "ff-gaps", "import-review", "import-preview"];
+const CORE_JOURNEYS = new Set(["activate.recommend", "activate.import-paste", "change.days", "correct.environment", "recommend.required", "cancel", "back.recommend", "destroy.review-start-over", "destroy.paste-restart", "existing.replace-cancel", "existing.conflict", "overlays"]);
+const CORE_CANCEL = new Set(["rec-schedule", "rec-result", "ff-reply", "import-review"]);
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = args.out ? resolve(args.out) : join(here, "..", `round-${ROUND}`, "acceptance");
 const SHOTS = !args["no-shots"];
@@ -273,8 +278,8 @@ async function interactionChecks(cand, cell) {
     } catch (e) { problems.push(String(e.message).split("\n")[0].slice(0, 160)); }
     rec("K-27", "rec-schedule", problems);
   }
-  /* K-30: Skip never discards a constraint the lifter chose. */
-  { const problems = [];
+  /* K-30: Skip never discards a constraint the lifter chose (not in Round 4's core). */
+  if (!CORE) { const problems = [];
     try {
       await open("rec-avoid-pain");
       const skips = await mark(page, '[data-act="skip"],[data-skip]');
@@ -356,7 +361,7 @@ async function roundTwo() {
       const info = await page.evaluate(() => { const c = (window.__tournamentCandidates || {})[window.__tq.candidate]; return { loaded: !!c, policy: (c && c.policy) || {}, checkpoints: TF.CHECKPOINTS.map((x) => x.id), journeys: c && c.journeys ? Object.keys(c.journeys) : [], entry: !!(c && typeof c.entry === "function") }; });
       policies[cand] = info; await ctx.close();
       if (!info.loaded) { console.log(`✗ candidate ${cand} did not load`); continue; }
-      var checkpoints = pick(info.checkpoints, args.checkpoints, (x) => x);
+      var checkpoints = pick(CORE && !args.checkpoints ? CORE_CPS : info.checkpoints, args.checkpoints, (x) => x);
     }
     if (!args["no-audit"]) for (const cell of cells) {
       const ctx = await newContext(cell); const page = await ctx.newPage(); const consoleErrors = [];
@@ -373,7 +378,7 @@ async function roundTwo() {
       if (!args["no-smoke"]) interactions.push(...await smoke(cand, R2_CELLS[0], checkpoints));
     }
     if (args.journeys !== "none") {
-      const list = pick(JOURNEYS, args.journeys, (j) => j.id);
+      const list = pick(CORE && !args.journeys ? JOURNEYS.filter((j) => CORE_JOURNEYS.has(j.id) && (j.id !== "cancel" || CORE_CANCEL.has(j.params.checkpoint))) : JOURNEYS, args.journeys, (j) => j.id);
       for (const j of list) for (const cell of JOURNEY_CELLS) {
         const r = await runJourney(cand, j, cell, policies[cand].policy || {}); journeys.push(r);
         const mark = r.severity === "pass" ? "✓" : r.severity === "warn" ? "!" : "✗";

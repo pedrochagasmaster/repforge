@@ -278,10 +278,14 @@
     const keys = ["desiredResult", "structuredExperience", "recentConsistency", "daysPerWeek", "sessionMinutes", "preferredRestSeconds", "environment"].filter((k) => !(k === "sessionMinutes" && pd.has("PD-2")) && !(k === "preferredRestSeconds" && pd.has("PD-3")));
     for (const k of keys) {
       const s = run.snapshots[`missing:${k}`]; if (!s) { out.push(`probe missing:${k} was not taken`); continue; }
-      const a = s.entry?.answers || {}; if (Object.prototype.hasOwnProperty.call(a, k) && !(k !== "preferredRestSeconds" && a[k] == null)) out.push(`missing:${k}: the answer is already set (${J(a[k])})`);
-      if (!s.probe?.blocked) out.push(`missing:${k}: not blocked (${s.probe?.how})`);
+      /* PD-4 (a program from labelled defaults before the answers): the
+         candidate may show a result and hold assumed values, but activation
+         stays blocked until every answer is the lifter's own. */
+      const pd4 = pd.has("PD-4");
+      const a = s.entry?.answers || {}; if (!pd4 && Object.prototype.hasOwnProperty.call(a, k) && !(k !== "preferredRestSeconds" && a[k] == null)) out.push(`missing:${k}: the answer is already set (${J(a[k])})`);
+      if (!pd4 && !s.probe?.blocked) out.push(`missing:${k}: not blocked (${s.probe?.how})`);
       if (s.dom.activate.some((x) => !x.disabled)) out.push(`missing:${k}: an enabled activation control is visible`);
-      if (s.entry?.result) out.push(`missing:${k}: a result exists`);
+      if (!pd4 && s.entry?.result) out.push(`missing:${k}: a result exists`);
     }
     const r = snap(run, "review", out); if (r && !r.entry?.result) out.push("review: no result after all answers");
     return out;
