@@ -243,6 +243,92 @@
         "text": "text200",
         "motion": "normal"
       }
+    ],
+    "demandingDockText": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "reduced"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      }
     ]
   },
   "catalogChecks": {
@@ -672,7 +758,7 @@
       "flow": "today",
       "label": "Today — ready to start",
       "scenario": "A seeded program with recent max-rep evidence makes the readiness shortcut visible.",
-      "variants": "demandingText"
+      "variants": "demandingDockText"
     },
     {
       "id": "rest-bar",

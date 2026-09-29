@@ -13,6 +13,7 @@
 @font-face{font-family:"Plex Mono";src:url(fonts/plexmono-600.woff2) format("woff2");font-weight:600;font-display:swap}
 
 :root{
+  container-type:inline-size;
   color-scheme:light;
   /* `color-scheme` is a keyword property, so the few rules that pin a native
      control to one appearance read it from here instead of hard-coding it and
@@ -2534,26 +2535,30 @@ nav button.active{
   nav:has(button:nth-child(3).active){--dock-i:2}
   nav:has(button:nth-child(4).active){--dock-i:3}
 }
-/* At true 200% text, four short dock columns break primary names inside words.
-   Reflow to two columns. The 22px label glyphs extend past their line boxes, so
-   reserve full rows for each icon and label without reducing either size. */
-:root[style*="font-size: 200%"]{
-  --dock-h:calc(82px + 2 * var(--font-size-label));
-  --dock-gap:2px;
-  --nav:calc(var(--dock-h) + var(--dock-gap));
+/* At enlarged computed text sizes, four short dock columns break localized
+   names inside words. The root container's em threshold follows the rendered
+   root font size, regardless of whether the browser scales it with inline
+   style, a user stylesheet, or another accessibility preference. Keep the
+   same two-row dock and selected-tab indicator while the labels reflow. */
+@container (max-width:15em){
+  body{
+    --dock-h:calc(82px + 2 * var(--font-size-label));
+    --dock-gap:2px;
+    --nav:calc(var(--dock-h) + var(--dock-gap));
+  }
+  nav{grid-template-columns:repeat(2,minmax(0,1fr))}
+  nav button{gap:3px}
+  nav::before{
+    bottom:auto;
+    width:calc((100% - 12px - 2px)/2);
+    height:calc((100% - 12px - 2px)/2);
+    transform:translateX(calc(var(--dock-col,0) * (100% + 2px))) translateY(calc(var(--dock-row,0) * (100% + 2px)));
+  }
+  nav:has(button:nth-child(1).active){--dock-col:0;--dock-row:0}
+  nav:has(button:nth-child(2).active){--dock-col:1;--dock-row:0}
+  nav:has(button:nth-child(3).active){--dock-col:0;--dock-row:1}
+  nav:has(button:nth-child(4).active){--dock-col:1;--dock-row:1}
 }
-:root[style*="font-size: 200%"] nav{grid-template-columns:repeat(2,minmax(0,1fr))}
-:root[style*="font-size: 200%"] nav button{gap:3px}
-:root[style*="font-size: 200%"] nav::before{
-  bottom:auto;
-  width:calc((100% - 12px - 2px)/2);
-  height:calc((100% - 12px - 2px)/2);
-  transform:translateX(calc(var(--dock-col,0) * (100% + 2px))) translateY(calc(var(--dock-row,0) * (100% + 2px)));
-}
-:root[style*="font-size: 200%"] nav:has(button:nth-child(1).active){--dock-col:0;--dock-row:0}
-:root[style*="font-size: 200%"] nav:has(button:nth-child(2).active){--dock-col:1;--dock-row:0}
-:root[style*="font-size: 200%"] nav:has(button:nth-child(3).active){--dock-col:0;--dock-row:1}
-:root[style*="font-size: 200%"] nav:has(button:nth-child(4).active){--dock-col:1;--dock-row:1}
 .nav__icon{width:22px;height:22px;flex:none;background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain}
 nav button.active .nav__icon{background:var(--accent)}

@@ -56,6 +56,74 @@ async function assertGlossaryViewport(page, label) {
   }
 }
 
+async function assertDockFitsExternalTextScale(page) {
+  const inlineFontSize = await page.evaluate(() => {
+    const root = document.documentElement;
+    const value = root.style.fontSize;
+    root.style.removeProperty("font-size");
+    const style = document.createElement("style");
+    style.id = "plan058-external-text-scale-proof";
+    style.textContent = "html { font-size: 32px !important; }";
+    document.head.append(style);
+    return value;
+  });
+  try {
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    const layout = await page.evaluate(() => {
+      const root = document.documentElement;
+      const nav = document.querySelector("nav");
+      if (!nav) return { error: "the production dock is missing" };
+      const navRect = nav.getBoundingClientRect();
+      const labels = [...nav.querySelectorAll(":scope > button")].map((button) => {
+        const label = button.querySelector("[data-i18n]");
+        const buttonRect = button.getBoundingClientRect();
+        const labelRect = label?.getBoundingClientRect();
+        const range = document.createRange();
+        if (label) range.selectNodeContents(label);
+        const textRects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+        return {
+          view: button.dataset.view,
+          text: label?.textContent.trim() || "",
+          visible: buttonRect.width > 0 && buttonRect.height > 0 && getComputedStyle(button).display !== "none",
+          fits: !!label && label.scrollWidth <= label.clientWidth + 1
+            && textRects.length > 0 && textRects.every((rect) => rect.left >= labelRect.left - 1
+              && rect.right <= labelRect.right + 1 && rect.top >= buttonRect.top - 1 && rect.bottom <= buttonRect.bottom + 1),
+          rect: { left: buttonRect.left, right: buttonRect.right, top: buttonRect.top, bottom: buttonRect.bottom },
+        };
+      });
+      const columns = getComputedStyle(nav).gridTemplateColumns.trim().split(/\s+/).length;
+      const overlap = labels.some((label, index) => labels.slice(index + 1).some((other) =>
+        label.rect.left < other.rect.right - 1 && other.rect.left < label.rect.right - 1
+        && label.rect.top < other.rect.bottom - 1 && other.rect.top < label.rect.bottom - 1));
+      const lang = root.lang.toLowerCase();
+      const expectedLabels = lang.startsWith("pt")
+        ? ["Hoje", "Progresso", "Histórico", "Programa"]
+        : ["Today", "Progress", "History", "Program"];
+      return {
+        rootFontSize: getComputedStyle(root).fontSize,
+        rootInlineFontSize: root.style.fontSize,
+        columns,
+        expectedLabels,
+        labels,
+        overlap,
+        dockInViewport: navRect.left >= 0 && navRect.right <= root.clientWidth
+          && navRect.top >= 0 && navRect.bottom <= root.clientHeight,
+      };
+    });
+    if (layout.error || layout.rootFontSize !== "32px" || layout.rootInlineFontSize !== ""
+      || layout.columns !== 2 || layout.labels.length !== 4
+      || layout.labels.some((label, index) => !label.visible || !label.fits || label.text !== layout.expectedLabels[index])
+      || layout.overlap || !layout.dockInViewport) {
+      throw new Error(`The production dock does not reflow for an external 32px root font: ${JSON.stringify(layout)}`);
+    }
+  } finally {
+    await page.evaluate((fontSize) => {
+      document.getElementById("plan058-external-text-scale-proof")?.remove();
+      if (fontSize) document.documentElement.style.fontSize = fontSize;
+    }, inlineFontSize);
+  }
+}
+
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
@@ -519,9 +587,11 @@ export const APP_SCENARIOS = {
     if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
       await page.evaluate(() => {
         const row = document.querySelector(".today-ex");
-        if (!row) throw new Error("Today 200% exercise row is missing");
-        const top = row.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: Math.max(0, top - 420), behavior: "instant" });
+        const dock = document.querySelector("nav");
+        if (!row || !dock) throw new Error("Today 200% exercise row or dock is missing");
+        const rowBottom = row.getBoundingClientRect().bottom;
+        const dockTop = dock.getBoundingClientRect().top;
+        window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
       });
       const clearance = await page.evaluate(() => {
         const row = document.querySelector(".today-ex");
@@ -549,6 +619,7 @@ export const APP_SCENARIOS = {
         || clearance.rowBottom > clearance.dockTop - 8 || clearance.valueBottom > clearance.dockTop - 8) {
         throw new Error(`200% Today exercise row does not fit above the floating dock: ${JSON.stringify(clearance)}`);
       }
+      await assertDockFitsExternalTextScale(page);
     }
   },
   "today/day-picker": async (page) => {
