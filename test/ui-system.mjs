@@ -90,6 +90,12 @@ assert.equal(cssLiteralDebt('.seeded{background:#161513 url("icon.png") center/c
   "checker rejects a color literal even when the same declaration loads an image");
 assert.equal(cssLiteralDebt(".seeded{--plate:#F4F2EF}").length, 1,
   "checker rejects a color literal on an unclassified custom property");
+assert.equal(cssLiteralDebt(".seeded{color:rebeccapurple}").length, 1,
+  "checker rejects every CSS named color, including rebeccapurple");
+assert.equal(cssLiteralDebt(".seeded{background:color(display-p3 1 0 0)}").length, 1,
+  "checker rejects a Color 4 display-p3 literal");
+assert.equal(cssLiteralDebt(".seeded{font-size:13ch}").length, 1,
+  "checker rejects font-size literals using character-relative units");
 assert.equal(cssLiteralDebt(":root { --font-body:1rem; --radius-control:8px; --ink:#1B1A17; }").length, 0,
   "token definitions are the one place values are declared");
 assert.equal(cssLiteralDebt(".art { border-radius:50%; font-size:0; } .square { border-radius:0; }").length, 0,
@@ -127,6 +133,12 @@ try {
   const badWeight = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
   assert.equal(badWeight.status, 1, "actual strict checker rejects a weight outside the frozen typography scale");
   assert.match(badWeight.stderr, /unapproved CSS literals/, "checker reports out-of-scale weight as debt");
+  writeFileSync(fixture, ".seeded { color:rebeccapurple; background:color(display-p3 1 0 0); font-size:13ch; }");
+  const modernLiterals = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
+  assert.equal(modernLiterals.status, 1, "strict checker rejects modern named-color, color-space and font-size literals");
+  assert.match(modernLiterals.stdout, /rebeccapurple/, "strict checker identifies the modern named color");
+  assert.match(modernLiterals.stdout, /display-p3/, "strict checker identifies the modern color-space literal");
+  assert.match(modernLiterals.stdout, /13ch/, "strict checker identifies a character-relative font-size");
   writeFileSync(fixture, ".seeded { color:var(--color-ink); }");
   writeFileSync(polishFixture, ".polish { font-weight:650; box-shadow:0 2px 4px #123456; border-radius:var(--radius-legacy); }");
   const polishDebt = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture, "--css", polishFixture], { cwd: ROOT, encoding: "utf8" });

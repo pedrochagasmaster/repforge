@@ -96,6 +96,27 @@ export function validateRoleInventory(inventory, manifest) {
 export function cssLiteralDebt(css, exceptions = []) {
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, (comment) => " ".repeat(comment.length));
   const debt = [];
+  const namedColors = `
+    aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood
+    cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray
+    darkgrey darkgreen darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen
+    darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue
+    firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew
+    hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan
+    lightgoldenrodyellow lightgray lightgrey lightgreen lightpink lightsalmon lightseagreen lightskyblue lightslategray
+    lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid
+    mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream
+    mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen
+    paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown
+    royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow
+    springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen
+  `.trim().split(/\s+/);
+  const namedColor = new RegExp(`\\b(?:${namedColors.join("|")})\\b`, "i");
+  const lengthUnits = "(?:px|rem|em|%|pt|pc|in|cm|mm|q|ch|ex|cap|ic|lh|rlh|"
+    + "vw|vh|vi|vb|vmin|vmax|svw|svh|svi|svb|lvw|lvh|lvi|lvb|dvw|dvh|dvi|dvb|"
+    + "cqw|cqh|cqi|cqb|cqmin|cqmax)";
+  const typeMeasure = new RegExp(`(?:^|[\\s,(])(?:-?\\d*\\.?\\d+)${lengthUnits}?(?=[\\s,)/]|$)`, "i");
+  const localMeasure = new RegExp(`\\b\\d+(?:\\.\\d+)?${lengthUnits}\\b`, "i");
   const declaration = /([\w-]+)\s*:\s*([^;{}]+)(?=[;}])/g;
   for (const match of clean.matchAll(declaration)) {
     const property = match[1].toLowerCase();
@@ -114,8 +135,8 @@ export function cssLiteralDebt(css, exceptions = []) {
     const isLocalRoleToken = property.startsWith("--") && /(?:font|radius|shadow|color|ink|bg|boundary|surface|accent|rule)/.test(property);
     if (!isType && !isFontWeight && !isRadius && !isShadow && !isColor && !isLocalRoleToken && !isCustomProperty) continue;
     let literal = false;
-    if (isType) literal = /(?:^|[\s,(])(?:-?\d*\.?\d+)(?:px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/.test(value)
-      && !/^(?:var\([^)]*\)|inherit|initial|unset|revert|normal|0)$/.test(value);
+    if (isType) literal = typeMeasure.test(value)
+      && !/^(?:var\([^)]*\)|inherit|initial|unset|revert|revert-layer|normal|0|xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|larger|smaller)$/i.test(value);
     if (isFontWeight && selector !== "@font-face") {
       const number = Number(value);
       const supportedWeight = /^\d+(?:\.\d+)?$/.test(value) && [400, 500, 600].includes(number);
@@ -129,10 +150,11 @@ export function cssLiteralDebt(css, exceptions = []) {
     if (isShadow) literal = value !== "none" && !/^var\([^)]*\)$/.test(value);
     const colorValue = value.replace(/url\([^)]*\)/gi, " ");
     const hasColorLiteral = /#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})\b/i.test(colorValue)
-      || /\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch)\s*\((?!\s*var\()/i.test(colorValue)
-      || /\b(?:black|white|red|orange|green|blue|gray|grey)\b/i.test(colorValue);
+      || /\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch|color|device-cmyk)\s*\((?!\s*var\()/i.test(colorValue)
+      || namedColor.test(colorValue);
     if (isColor || isCustomProperty) literal = hasColorLiteral;
-    if (isLocalRoleToken) literal ||= /#[\da-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch)\s*\((?!\s*var\()|\b\d+(?:\.\d+)?(?:px|rem|em)\b/i.test(value);
+    if (isLocalRoleToken) literal ||= /#[\da-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch|color|device-cmyk)\s*\((?!\s*var\()|\b\d+(?:\.\d+)?(?:px|rem|em)\b/i.test(value)
+      || localMeasure.test(value);
     if (!literal) continue;
     const line = css.slice(0, match.index).split("\n").length;
     if (exceptions.some((item) => item.selector === selector && item.cssLiterals?.some((literal) => literal.property === property && literal.value === value))) continue;

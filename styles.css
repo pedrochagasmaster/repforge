@@ -1444,11 +1444,12 @@ body.is-sheet-open{overflow:hidden}
 .picktab.is-active:hover:not(:disabled),.picktab.is-active:active:not(:disabled){background:var(--well);border-bottom-color:var(--control-selected-boundary)}
 .picktab:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .picktab:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
-/* Three library tabs cannot hold full-size PT-BR labels at 200% in one row.
-   Keep their text intact by making a two-column tab grid at that scale. */
-:root[style*="font-size: 200%"] #library #libTabs{flex-wrap:wrap}
-:root[style*="font-size: 200%"] #library #libTabs .picktab{
-  flex:1 1 140px;min-width:0;white-space:normal;overflow-wrap:anywhere
+/* Let the tabs reflow when enlarged text narrows their effective container. */
+@container (max-width:15em){
+  #library #libTabs{flex-wrap:wrap}
+  #library #libTabs .picktab{
+    flex:1 1 140px;min-width:0;white-space:normal;overflow-wrap:anywhere
+  }
 }
 
 .libwrap{padding:0 16px var(--libbar-clearance,calc(96px + env(safe-area-inset-bottom)))}
@@ -1780,10 +1781,12 @@ body.is-sheet-open{overflow:hidden}
 .daypick__line{display:flex;align-items:center;gap:8px}
 .daypick__title{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .daypick__sub{display:block;margin-top:2px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* Keep the full day choice readable when the system text scale is enlarged.
+/* Keep the full day choice readable when enlarged text narrows the sheet.
    The list owns the added height and remains the sheet's scroll region. */
-:root[style*="font-size: 200%"] .daypick__title,
-:root[style*="font-size: 200%"] .daypick__sub{overflow:visible;text-overflow:clip;white-space:normal}
+@container (max-width:15em){
+  .daypick__title,
+  .daypick__sub{overflow:visible;text-overflow:clip;white-space:normal}
+}
 /* The day Today is already on, marked wherever it sits in the split. */
 .daypick__chip{
   flex:none;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);text-transform:uppercase;letter-spacing:.06em;
@@ -3285,16 +3288,14 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .today-ex:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .today-ex__name{min-width:0;flex:1;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .today-ex__value{flex:none;display:inline-flex;align-items:center;gap:10px;font-family:var(--font-training-data);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
-/* At 200%, give the exercise name its own line so every locale can wrap at
-   word boundaries while the prescribed volume stays visible as the next line. */
-:root[style*="font-size: 200%"] .today-ex{
-  flex-wrap:wrap;align-items:flex-start
-}
-:root[style*="font-size: 200%"] .today-ex__name{
-  flex:1 0 100%;overflow:visible;overflow-wrap:anywhere;text-overflow:clip;white-space:normal
-}
-:root[style*="font-size: 200%"] .today-ex__value{
-  margin-left:auto
+/* Give the exercise name its own line when enlarged text narrows the row;
+   keep the prescribed volume visible as the next line. */
+@container (max-width:15em){
+  .today-ex{flex-wrap:wrap;align-items:flex-start}
+  .today-ex__name{
+    flex:1 0 100%;overflow:visible;overflow-wrap:anywhere;text-overflow:clip;white-space:normal
+  }
+  .today-ex__value{margin-left:auto}
 }
 .today-exmore{
   display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
@@ -4045,19 +4046,21 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .exview-head .back-link{position:absolute;left:0;display:inline-flex;align-items:center;min-height:44px}
 .exview-head__title{margin:0;font-size:var(--font-size-subtitle);font-weight:600}
 .exview-head__right{position:absolute;right:0}
-/* At true 200% text, the library's localized page title needs its own row so
-   the Back and Close actions remain separate, readable controls. */
-:root[style*="font-size: 200%"] #library .exview-head{
-  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:8px;row-gap:8px;min-height:0
-}
-:root[style*="font-size: 200%"] #library .exview-head .back-link{
-  position:static;left:auto;grid-column:1;grid-row:1;justify-self:start;min-width:0;white-space:normal;overflow-wrap:anywhere
-}
-:root[style*="font-size: 200%"] #library .exview-head__title{
-  grid-column:1/-1;grid-row:2;justify-self:stretch;min-width:0;max-width:100%;text-align:center;overflow-wrap:anywhere
-}
-:root[style*="font-size: 200%"] #library .exview-head__right{
-  position:static;right:auto;grid-column:2;grid-row:1;justify-self:end;min-width:0
+/* Let the localized exercise title take its own row when enlarged text
+   narrows the container, keeping Back and Close separate. */
+@container (max-width:15em){
+  #library .exview-head{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:8px;row-gap:8px;min-height:0
+  }
+  #library .exview-head .back-link{
+    position:static;left:auto;grid-column:1;grid-row:1;justify-self:start;min-width:0;white-space:normal;overflow-wrap:anywhere
+  }
+  #library .exview-head__title{
+    grid-column:1/-1;grid-row:2;justify-self:stretch;min-width:0;max-width:100%;text-align:center;overflow-wrap:anywhere
+  }
+  #library .exview-head__right{
+    position:static;right:auto;grid-column:2;grid-row:1;justify-self:end;min-width:0
+  }
 }
 /* One lift, four facts: which lift it is, how its top set has moved, the records
    behind that, and the curve. They shared a card and nothing else — the picker

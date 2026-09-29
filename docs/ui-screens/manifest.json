@@ -1115,7 +1115,7 @@
       "flow": "library",
       "label": "Exercise library",
       "scenario": "The searchable movement library.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "list-selected",

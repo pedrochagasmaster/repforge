@@ -56,7 +56,7 @@ async function assertGlossaryViewport(page, label) {
   }
 }
 
-async function assertDockFitsExternalTextScale(page) {
+async function withExternalTextScale(page, verify) {
   const inlineFontSize = await page.evaluate(() => {
     const root = document.documentElement;
     const value = root.style.fontSize;
@@ -69,6 +69,25 @@ async function assertDockFitsExternalTextScale(page) {
   });
   try {
     await page.evaluate(() => new Promise(requestAnimationFrame));
+    const rootScale = await page.evaluate(() => ({
+      fontSize: getComputedStyle(document.documentElement).fontSize,
+      inlineFontSize: document.documentElement.style.fontSize,
+    }));
+    if (rootScale.fontSize !== "32px" || rootScale.inlineFontSize !== "") {
+      throw new Error(`External text-scale fixture did not produce a 32px root without inline sizing: ${JSON.stringify(rootScale)}`);
+    }
+    await verify();
+  } finally {
+    await page.evaluate((fontSize) => {
+      document.getElementById("plan058-external-text-scale-proof")?.remove();
+      if (fontSize) document.documentElement.style.fontSize = fontSize;
+    }, inlineFontSize);
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+  }
+}
+
+async function assertDockFitsExternalTextScale(page) {
+  await withExternalTextScale(page, async () => {
     const layout = await page.evaluate(() => {
       const root = document.documentElement;
       const nav = document.querySelector("nav");
@@ -116,12 +135,122 @@ async function assertDockFitsExternalTextScale(page) {
       || layout.overlap || !layout.dockInViewport) {
       throw new Error(`The production dock does not reflow for an external 32px root font: ${JSON.stringify(layout)}`);
     }
-  } finally {
-    await page.evaluate((fontSize) => {
-      document.getElementById("plan058-external-text-scale-proof")?.remove();
-      if (fontSize) document.documentElement.style.fontSize = fontSize;
-    }, inlineFontSize);
-  }
+  });
+}
+
+async function assertTodayExerciseFitsExternalTextScale(page) {
+  await withExternalTextScale(page, async () => {
+    await page.evaluate(() => {
+      const row = document.querySelector(".today-ex");
+      const dock = document.querySelector("nav");
+      if (!row || !dock) throw new Error("Today external-scale proof is missing the exercise row or dock");
+      const rowBottom = row.getBoundingClientRect().bottom;
+      const dockTop = dock.getBoundingClientRect().top;
+      window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
+    });
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    const clearance = await page.evaluate(() => {
+      const root = document.documentElement;
+      const row = document.querySelector(".today-ex");
+      const name = row?.querySelector(".today-ex__name");
+      const value = row?.querySelector(".today-ex__value");
+      const dock = document.querySelector("nav");
+      if (!row || !name || !value || !dock) return { error: "Today row, value, or dock is missing" };
+      const style = getComputedStyle(name);
+      const nameRect = name.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(name);
+      const textRects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+      const rowRect = row.getBoundingClientRect();
+      const valueRect = value.getBoundingClientRect();
+      const dockRect = dock.getBoundingClientRect();
+      return {
+        rootFontSize: getComputedStyle(root).fontSize,
+        rootInlineFontSize: root.style.fontSize,
+        name: name.textContent.trim(),
+        whiteSpace: style.whiteSpace,
+        textOverflow: style.textOverflow,
+        nameFits: name.scrollWidth <= name.clientWidth + 1 && textRects.length > 0
+          && textRects.every((rect) => rect.left >= nameRect.left - 1 && rect.right <= nameRect.right + 1
+            && rect.top >= nameRect.top - 1 && rect.bottom <= nameRect.bottom + 1),
+        rowTop: rowRect.top,
+        rowBottom: rowRect.bottom,
+        valueBottom: valueRect.bottom,
+        dockTop: dockRect.top,
+      };
+    });
+    if (clearance.error || clearance.rootFontSize !== "32px" || clearance.rootInlineFontSize !== ""
+      || !clearance.name || clearance.whiteSpace !== "normal" || clearance.textOverflow === "ellipsis"
+      || !clearance.nameFits || clearance.rowTop < 0 || clearance.rowBottom > clearance.dockTop - 8
+      || clearance.valueBottom > clearance.dockTop - 8) {
+      throw new Error(`The Today exercise row does not reflow for an external 32px root font: ${JSON.stringify(clearance)}`);
+    }
+  });
+}
+
+async function assertLibraryTabsFitExternalTextScale(page) {
+  await withExternalTextScale(page, async () => {
+    const layout = await page.evaluate(() => {
+      const bar = document.querySelector("#library #libTabs");
+      const header = document.querySelector("#library .exview-head");
+      if (!bar || !header) return { error: "the production library tabs or header are missing" };
+      const barRect = bar.getBoundingClientRect();
+      const headerItems = ["#libBack", "#libTitle", "#libClose"].map((selector) => {
+        const element = document.querySelector(selector);
+        const rect = element?.getBoundingClientRect();
+        const range = document.createRange();
+        if (element) range.selectNodeContents(element);
+        const textRects = [...range.getClientRects()].filter((item) => item.width > 0 && item.height > 0);
+        return {
+          selector,
+          visible: !!element && rect.width > 0 && rect.height > 0,
+          fits: !!element && element.scrollWidth <= element.clientWidth + 1 && textRects.length > 0
+            && textRects.every((item) => item.left >= rect.left - 1 && item.right <= rect.right + 1
+              && item.top >= rect.top - 1 && item.bottom <= rect.bottom + 1),
+          rect: rect && { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+        };
+      });
+      const headerOverlap = headerItems.some((item, index) => headerItems.slice(index + 1).some((other) =>
+        item.rect && other.rect && item.rect.left < other.rect.right - 1 && item.rect.right > other.rect.left + 1
+        && item.rect.top < other.rect.bottom - 1 && item.rect.bottom > other.rect.top + 1));
+      const tabs = [...bar.querySelectorAll(".picktab")].map((tab) => {
+        const rect = tab.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(tab);
+        const textRects = [...range.getClientRects()].filter((item) => item.width > 0 && item.height > 0);
+        return {
+          text: tab.textContent.trim(),
+          rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+          fits: tab.scrollWidth <= tab.clientWidth + 1 && textRects.length > 0
+            && textRects.every((item) => item.left >= rect.left - 1 && item.right <= rect.right + 1
+              && item.top >= rect.top - 1 && item.bottom <= rect.bottom + 1),
+        };
+      });
+      const rows = [...new Set(tabs.map((tab) => Math.round(tab.rect.top)))];
+      const overlap = tabs.some((tab, index) => tabs.slice(index + 1).some((other) =>
+        tab.rect.left < other.rect.right - 1 && other.rect.left < tab.rect.right - 1
+        && tab.rect.top < other.rect.bottom - 1 && other.rect.top < tab.rect.bottom - 1));
+      return {
+        rootFontSize: getComputedStyle(document.documentElement).fontSize,
+        rootInlineFontSize: document.documentElement.style.fontSize,
+        headerDisplay: getComputedStyle(header).display,
+        headerItems,
+        headerOverlap,
+        flexWrap: getComputedStyle(bar).flexWrap,
+        barInViewport: barRect.left >= 0 && barRect.right <= document.documentElement.clientWidth,
+        tabs,
+        rows,
+        overlap,
+      };
+    });
+    if (layout.error || layout.rootFontSize !== "32px" || layout.rootInlineFontSize !== ""
+      || layout.headerDisplay !== "grid" || layout.headerItems.some((item) => !item.visible || !item.fits)
+      || layout.headerOverlap
+      || layout.flexWrap !== "wrap" || layout.tabs.length !== 3 || layout.rows.length < 2
+      || layout.tabs.some((tab) => !tab.fits) || layout.overlap || !layout.barInViewport) {
+      throw new Error(`The library tabs do not reflow for an external 32px root font: ${JSON.stringify(layout)}`);
+    }
+  });
 }
 
 export function appState(key, lang) {
@@ -620,6 +749,7 @@ export const APP_SCENARIOS = {
         throw new Error(`200% Today exercise row does not fit above the floating dock: ${JSON.stringify(clearance)}`);
       }
       await assertDockFitsExternalTextScale(page);
+      await assertTodayExerciseFitsExternalTextScale(page);
     }
   },
   "today/day-picker": async (page) => {
@@ -627,46 +757,48 @@ export const APP_SCENARIOS = {
     await page.waitForSelector("#dayPickSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
     if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
-      const layout = await page.evaluate(() => {
-        const textFits = (node) => {
-          const box = node.getBoundingClientRect(), range = document.createRange();
-          range.selectNodeContents(node);
-          return [...range.getClientRects()].filter((rect) => rect.width && rect.height).every((rect) =>
-            rect.left >= box.left - 1 && rect.right <= box.right + 1
-              && rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1);
-        };
-        const clippedLabels = [...document.querySelectorAll("#dayPickList .daypick__title, #dayPickList .daypick__sub")]
-          .filter((label) => {
-          const style = getComputedStyle(label);
-          return style.whiteSpace !== "normal" || style.textOverflow === "ellipsis"
-            || label.scrollWidth > label.clientWidth + 1
-            || !textFits(label);
-          }).map((label) => ({ selector: label.className, text: label.textContent.trim() }));
-        const actions = ["#dayPickConfirm", "#dayPickCancel"].map((selector) => {
-          const button = document.querySelector(selector);
-          if (!button) return { selector, visible: false, labelFits: false, inViewport: false };
-          const box = button.getBoundingClientRect();
-          const style = getComputedStyle(button);
-          return { selector, visible: style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0,
-            labelFits: textFits(button), inViewport: box.top >= -1 && box.bottom <= innerHeight + 1 };
+      await withExternalTextScale(page, async () => {
+        const layout = await page.evaluate(() => {
+          const textFits = (node) => {
+            const box = node.getBoundingClientRect(), range = document.createRange();
+            range.selectNodeContents(node);
+            return [...range.getClientRects()].filter((rect) => rect.width && rect.height).every((rect) =>
+              rect.left >= box.left - 1 && rect.right <= box.right + 1
+                && rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1);
+          };
+          const clippedLabels = [...document.querySelectorAll("#dayPickList .daypick__title, #dayPickList .daypick__sub")]
+            .filter((label) => {
+              const style = getComputedStyle(label);
+              return style.whiteSpace !== "normal" || style.textOverflow === "ellipsis"
+                || label.scrollWidth > label.clientWidth + 1
+                || !textFits(label);
+            }).map((label) => ({ selector: label.className, text: label.textContent.trim() }));
+          const actions = ["#dayPickConfirm", "#dayPickCancel"].map((selector) => {
+            const button = document.querySelector(selector);
+            if (!button) return { selector, visible: false, labelFits: false, inViewport: false };
+            const box = button.getBoundingClientRect();
+            const style = getComputedStyle(button);
+            return { selector, visible: style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0,
+              labelFits: textFits(button), inViewport: box.top >= -1 && box.bottom <= innerHeight + 1 };
+          });
+          const list = document.querySelector("#dayPickList");
+          const rows = [...(list?.querySelectorAll(".daypick__row") || [])];
+          let lastChoiceReachable = false;
+          if (list && rows.length && ["auto", "scroll", "overlay"].includes(getComputedStyle(list).overflowY)) {
+            const originalTop = list.scrollTop;
+            list.scrollTop = list.scrollHeight;
+            const listBox = list.getBoundingClientRect(), lastBox = rows.at(-1).getBoundingClientRect();
+            lastChoiceReachable = list.scrollHeight > list.clientHeight
+              && lastBox.top >= listBox.top - 1 && lastBox.bottom <= listBox.bottom + 1;
+            list.scrollTop = originalTop;
+          }
+          return { clippedLabels, actions, lastChoiceReachable };
         });
-        const list = document.querySelector("#dayPickList");
-        const rows = [...(list?.querySelectorAll(".daypick__row") || [])];
-        let lastChoiceReachable = false;
-        if (list && rows.length && ["auto", "scroll", "overlay"].includes(getComputedStyle(list).overflowY)) {
-          const originalTop = list.scrollTop;
-          list.scrollTop = list.scrollHeight;
-          const listBox = list.getBoundingClientRect(), lastBox = rows.at(-1).getBoundingClientRect();
-          lastChoiceReachable = list.scrollHeight > list.clientHeight
-            && lastBox.top >= listBox.top - 1 && lastBox.bottom <= listBox.bottom + 1;
-          list.scrollTop = originalTop;
+        if (layout.clippedLabels.length || layout.actions.some((action) => !action.visible || !action.labelFits || !action.inViewport)
+          || !layout.lastChoiceReachable) {
+          throw new Error(`200% day-picker labels/actions do not fit and remain reachable: ${JSON.stringify(layout)}`);
         }
-        return { clippedLabels, actions, lastChoiceReachable };
       });
-      if (layout.clippedLabels.length || layout.actions.some((action) => !action.visible || !action.labelFits || !action.inViewport)
-        || !layout.lastChoiceReachable) {
-        throw new Error(`200% day-picker labels/actions do not fit and remain reachable: ${JSON.stringify(layout)}`);
-      }
     }
   },
   "today/done": async (page) => {
@@ -1001,12 +1133,20 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
 
-  "library/list": openLibrary,
+  "library/list": async (page) => {
+    await openLibrary(page);
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await assertLibraryTabsFitExternalTextScale(page);
+    }
+  },
   "library/list-selected": async (page) => {
     await openLibrary(page);
     const choice = page.locator("#libList [data-lib-toggle]").first();
     await choice.waitFor({ state: "visible", timeout: 20000 });
     await choice.click();
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await assertLibraryTabsFitExternalTextScale(page);
+    }
     await page.waitForFunction(() => {
       const bar = document.querySelector("#libBar");
       const rect = bar?.getBoundingClientRect();
