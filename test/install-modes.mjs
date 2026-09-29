@@ -1066,8 +1066,7 @@ async function run() {
     await context.close();
 
     // Run the service worker's actual path helper with the GitHub Pages scope.
-    // Root-only SHELL entries must still match requests under /repforge/ or the
-    // corrected manifest can remain cache-first after a deploy.
+    // Release assets must still resolve under /repforge/ after a deploy.
     const swContext = {
       URL,
       self: {

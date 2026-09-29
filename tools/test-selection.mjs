@@ -181,6 +181,11 @@ const EXPLICIT_INPUT_RULES = [
     why: "UI screen semantic baseline",
   },
   {
+    match: /^tools\/ui-role-inventory\.json$/,
+    suiteFiles: ["test/ui-system.mjs", "tools/check-ui-system.mjs"],
+    why: "live semantic-role inventory",
+  },
+  {
     match: /^docs\/ui-screens\/screens\/.+\.png$/,
     suiteFiles: ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
     why: "UI screen catalog baselines",

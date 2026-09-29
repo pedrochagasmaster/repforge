@@ -7,8 +7,9 @@ and owner gates only.
 
 - **Plan number:** 058
 - **Phase:** 7 — System convergence
-- **Status:** Planned; implementation has not started
-- **Owner approval state:** Semantic direction is approved; rendered results require owner visual review
+- **Status:** P7 system-convergence evidence is complete. A final merge-readiness accessibility correction is frozen at production source `0eec72030c7df79fbd90825d4453cdd2e0e8a486`: install-transfer titles can break long words at 200% text, `#iosInstallTitle` is now measured by the catalog layout oracle, cache revision 340 is aligned, the complete 110-frame install catalog passes, and a production-backed PT-BR 200% probe passes all 13 transfer states. The final exact-head automatic-feedback receipt after this evidence binding is the only remaining gate; PR #256 stays draft until it is green.
+- **P6 automatic feedback:** Run `36565310084` passed at `faa0bc494ab6e04c4537da7179705c89d80115c6`; run `36583658191` passed at `94fe9daae34e65c821bf4a18576007ecc4f4f39a`; final P6 correction run [`36594476625`](https://github.com/pedrochagasmaster/repforge/actions/runs/36594476625) passed all applicable lanes at exact SHA `e5bca41c5cb017c3cd161e8a880237a3c94a5de7`.
+- **Owner approval state:** Pedro approved the P5 representative board at production source SHA `dd70f11ad0e6a4bca8a491c7f37b3296d83c3166` as the intended Taurifer direction. P6 repairs fix enlarged-text clipping and reflow while preserving its hierarchy and action treatment; refreshed affected frames were inspected.
 - **Depends on:** Plans 049–057 and the durable-state bridge merged, including the accepted architecture outputs of 054–057; principal public surfaces and interaction structure must have stopped moving.
 - **Blocks:** Plan 059 public-launch validation
 - **Governing G decisions:** G-13–G-14, G-28, G-57–G-60, G-67, G-74, G-80–G-81
@@ -17,6 +18,24 @@ and owner gates only.
 - **Affected surfaces:** Every public app/landing/sheet/dialog/toast/navigation/control/chart/catalog surface
 - **Complexity:** Very high
 - **Risk:** High — broad CSS/markup migration can regress strong task-specific hierarchy
+
+## Current P6/P7 checkpoint
+
+P6 production source is frozen at `e5bca41c5cb017c3cd161e8a880237a3c94a5de7`. Automatic feedback `36594476625` passed all applicable lanes at that exact SHA; cache revision 339, the external-computed-32px Today/day-picker/library proofs, strict CSS debt checks, and the five new library demanding-text variants are part of that source. The documentation/evidence checkpoint `e37180c330d0f8c730c96c8e7c11a7222b1fd2f8` has no later production UI/CSS/runtime changes, and automatic feedback `36600457425` passed there, including `node tools/check-ui-system.mjs`.
+
+Final P7 capture is complete from that frozen production source: one unfiltered production run generated **148 screens / 915 frames**. `node tools/check-ui-screens.mjs` passes; comparison against `/tmp/plan058-pre-p7-e37180c3-vEGoQz` matches **915/915** within fixed perceptual thresholds and the semantic catalog exactly (`ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa`). The local rendered traversal completed **592/592 variants** and reported **6,156/6,156** rendered-role checks with zero failures, unsupported, missing, or exempt roles; exact evidence-head CI independently completed the same UI-system checker successfully. Strict metadata remains zero CSS literal declarations and zero obsolete aliases.
+
+Against the 898-frame P6 catalog baseline, 625 common frames are byte-identical and 273 are byte-changed; 17 frames are added and none removed. Every changed common frame retains exact hashes and a documented role/cause disposition. The 17 additions are eight paused-rest-timer states, four Today computed-root 200% dock frames, and five library demanding-text frames. At the current merge-candidate source, eight historical-baseline comparisons exceed the generic perceptual thresholds: the two previously reviewed Today/ready 200% viewport-framing changes and six intentional install-transfer 200% reflow frames from the final accessibility correction. The immutable e5 P7 same-source pre-capture snapshot remains historical evidence: 906/915 frames were byte-identical there; eight Progress proposal frames refreshed only their derived digest from generated transition/successor IDs, and one exercise-picker frame had negligible raster-only variance. All nine passed the fixed comparator and semantics were exact.
+
+The 65-frame P7 representative board remains byte-for-byte bound to its current catalog sources. The final install-title correction refreshes exactly one selected frame (`install/transfer-ready` PT-BR 200%); the other 64 remain unchanged. Pedro's P5 visual-direction approval at source `dd70f11ad0e6a4bca8a491c7f37b3296d83c3166` remains the owner gate: the refreshed frame preserves the same sheet hierarchy/actions and introduces only the required enlarged-text reflow, so it does not reopen the visual direction. P5 comparison is now 49/56 within thresholds with seven reviewed exceedances and nine representative frames without a P5 match.
+
+The earlier owner-audit blockers are closed: the 200% layout condition now responds to computed root size rather than the catalog fixture's inline style, and all 273 changed common frames have traceable dispositions. The later Sol review's inline-only Today/day-picker/library gaps and CSS-debt parser false negatives were corrected in `e5bca41c5cb017c3cd161e8a880237a3c94a5de7` and are covered by exact-source feedback. A subsequent independent merge-readiness audit found one additional gap outside that report: at 390px PT-BR 200% text, a long install-transfer title could overflow toward the close control while the catalog oracle did not measure that `<p>`. Production source `0eec72030c7df79fbd90825d4453cdd2e0e8a486` closes both sides of that gap with `overflow-wrap:anywhere` and an explicit `data-catalog-layout` marker. The complete install flow recaptured **110/110** frames successfully; the focused 13-state PT-BR 200% runtime probe has no title overflow, visible-close collision, close viewport escape, or document-width overflow; and `test/ui-catalog-contract.mjs` proves removing the wrap safeguard is rejected as `clipped p #iosInstallTitle`. Ten registered screenshots intentionally reflow. Six of those plus the two already reviewed Today/ready framing changes now account for the **8** P6-baseline perceptual-threshold exceedances, all with concrete dispositions. Final exact-head automatic feedback is the only remaining verification step before the PR is marked ready.
+
+### Post-candidate audit remediation
+
+The original green candidate at `8085647c2d0ae5244c36e6d170b8faeaddb1b7a4` was correctly withheld after owner audit found two gaps: the 200% dock reflow depended on the catalog fixture's inline root style, and 243 changed frames lacked concrete role/cause dispositions. The first correction at `faa0bc494ab6e04c4537da7179705c89d80115c6` fixed the dock condition and completed the changed-frame inventory. A later read-only Sol review of evidence head `94fe9da` found the same inline-only assumption still present in Today exercise-row, day-picker, and library layouts, plus CSS-debt parser false negatives for named/Color-4 colors and `ch` font sizes.
+
+Final production correction `e5bca41c5cb017c3cd161e8a880237a3c94a5de7` closes those follow-on findings: the affected layouts use computed root-container sizing, production-backed external-32px assertions cover Today/day-picker/library without inline root sizing, the library demanding-text matrix adds five missing variants, strict debt parsing rejects the newly identified forms, and cache revision 339 is aligned. Automatic feedback `36594476625` passed at that exact source. The final 915-frame P7 capture, exact semantic comparison, changed-frame inventory, representative-board provenance, and rendered-role evidence are recorded in the current checkpoint above.
 
 ## Problem statement
 
@@ -74,7 +93,16 @@ a separate engineering queue or permission to implement this plan early.
 6. Preserve legacy readers, durable formats/keys/locks, progression semantics, exact exercise identity, backup/setup/transfer scope, and all accepted Plan 051–053 invariants. Historical compatibility is not an obsolete path merely because current UI no longer writes its format.
 7. Record every retained delegate/exception with its real consumer, reason and existing plan owner; a broad allowlist or unowned deferral does not satisfy convergence. Plan 059 verifies the final authority and executable-release result on its candidate SHA.
 
+P6's concrete adoption evidence and retained-consumer register are recorded in
+[`docs/design/plan-058-pr239-adoption-evidence.md`](../docs/design/plan-058-pr239-adoption-evidence.md).
+
 ### Re-runnable role inventory
+
+The P1–P3 role and token decisions are frozen in
+[`docs/design/ui-system-semantic-contract.md`](../docs/design/ui-system-semantic-contract.md)
+and the selector/state binding in `tools/ui-role-inventory.json`. Later surface
+slices consume these contracts and record any proposed change as a P2/P3
+contract review.
 
 Add planning/test artifacts that make convergence auditable:
 

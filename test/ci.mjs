@@ -153,7 +153,7 @@ test("substantive or unprovable service-worker changes retain the full SW owner 
   const appQuery = fixture.source.match(/"\.\/app\.js\?v=(\d+)"/);
   assert.ok(appQuery, "baseline worker has a protected app.js query revision");
   const substantive = [
-    ["SHELL", replaceOnce(fixture.source, '"/program-editor.js"', '"/program-editor.js", "/new-shell.js"')],
+    ["release asset expansion", replaceOnce(fixture.source, '"./program-editor.js"', '"./program-editor.js", "./new-shell.js"')],
     ["ASSETS", replaceOnce(fixture.source, '"./styles.css"', '"./styles.css", "./new.css"')],
     ["install behavior", replaceOnce(fixture.source, ".then(() => self.skipWaiting())", ".then(() => self.clients.claim())")],
     ["activate behavior", replaceOnce(fixture.source, ".then(() => self.clients.claim())", ".then(() => self.skipWaiting())")],
@@ -214,7 +214,7 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   const captureScenario = selectAffected(["tools/ui-screens/screens-app.mjs"]);
   assert.equal(captureScenario.mode, "selected");
   assert.deepEqual(captureScenario.entries.map(({ suite }) => suite.file).sort(),
-    ["test/ci.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"].sort());
+    ["test/ci.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "test/ui-system.mjs", "tools/check-ui-screens.mjs", "tools/check-ui-system.mjs"].sort());
   const manifestInput = selectAffected(["docs/ui-screens/manifest.json"]);
   assert.equal(manifestInput.mode, "selected");
   assert.deepEqual(manifestInput.entries.map(({ suite }) => suite.file).sort(), [
@@ -233,6 +233,10 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   const semanticInput = selectAffected(["docs/ui-screens/entry-semantics.json"]);
   assert.equal(semanticInput.mode, "selected");
   assert.deepEqual(semanticInput.entries.map(({ suite }) => suite.file), ["test/ui-screens.mjs"]);
+  const roleInventory = selectAffected(["tools/ui-role-inventory.json"]);
+  assert.equal(roleInventory.mode, "selected");
+  assert.deepEqual(roleInventory.entries.map(({ suite }) => suite.file).sort(),
+    ["test/ui-system.mjs", "tools/check-ui-system.mjs"].sort());
   const app = selectAffected(["app.js"]);
   assert.equal(app.entries.length, Object.values(SUITES).flat().length - SUITES.service.length);
   const service = selectAffected(["services/install-transfer/src/index.js", ".github/workflows/install-transfer-service.yml"]);
