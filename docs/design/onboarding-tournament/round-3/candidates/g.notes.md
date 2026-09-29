@@ -62,4 +62,4 @@ fix the judges found.
 
 ## Verification
 
-See `round-3/acceptance/summary.md` for the frozen run.
+Frozen run (`round-3/acceptance/summary.md`): 360/360 checkpoint cells with no warnings, 122/122 journeys, 61/61 interaction checks.
