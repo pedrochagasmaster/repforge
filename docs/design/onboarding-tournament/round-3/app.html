@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-motion="normal">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Taurifer onboarding tournament — Round 3 candidate document</title>
+<!-- One Round 3 candidate, one checkpoint, one locale/theme/text-scale per document.
+     Query: ?c=g&cp=<checkpoint>&lang=en|pt&theme=light|dark&text=100|200&motion=normal|reduced
+     Shared files come from the harness root (../); the candidate's own files
+     are candidates/<c>.{js,css} next to this document. Only the requested
+     candidate is loaded, so adding a candidate never edits this file.
+     cp=none mounts without reaching a checkpoint (the acceptance journeys
+     start that way and call reach() themselves). -->
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../base.css">
+<script>
+(function(){
+  const q=new URLSearchParams(location.search);
+  const lang=q.get("lang")==="pt"?"pt":"en", theme=q.get("theme")==="dark"?"dark":"light";
+  const html=document.documentElement;
+  html.lang=lang==="pt"?"pt-BR":"en"; html.dataset.theme=theme; html.dataset.motion=q.get("motion")==="reduced"?"reduced":"normal";
+  if(q.get("text")==="200") html.style.fontSize="200%";
+  const c=q.get("c")||"";
+  window.__tq={candidate:/^[a-z_][a-z0-9_]*$/.test(c)?c:"",checkpoint:q.get("cp")||"landing",lang,theme,text:q.get("text")==="200"?"200":"100",motion:html.dataset.motion};
+  if(window.__tq.candidate) document.write('<link rel="stylesheet" href="candidates/'+window.__tq.candidate+'.css">');
+})();
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script src="../vendor/exercises.js"></script>
+<script src="../vendor/program-compiler.js"></script>
+<script src="../vendor/program-entry.js"></script>
+<script src="../vendor/program-entry-adapter.js"></script>
+<script src="../vendor/shared-setup.js"></script>
+<script src="../data/fixtures.js"></script>
+<script src="../runtime.js"></script>
+<script src="../candidates/shared-screens.js"></script>
+<script>if(window.__tq.candidate) document.write('<script src="candidates/'+window.__tq.candidate+'.js"><\/script>');</script>
+<script>
+(async function(){
+  const q=window.__tq;
+  window.__tournamentErrors=[];
+  window.addEventListener("error",e=>window.__tournamentErrors.push(String(e.message||e)));
+  const cand=(window.__tournamentCandidates||{})[q.candidate];
+  if(!cand){document.getElementById("root").textContent="Unknown candidate "+q.candidate;window.__tournamentReady=true;return}
+  const cp=TF.CHECKPOINTS.find(c=>c.id===q.checkpoint);
+  const ctx={lang:q.lang,theme:q.theme,checkpoint:q.checkpoint,seed:cp?cp.seed:"fresh",root:document.getElementById("root")};
+  try{ await cand.mount(ctx); if(cp) await cand.reach(q.checkpoint); }
+  catch(e){ window.__tournamentErrors.push(String(e&&e.stack||e)); console.error(e); }
+  window.__tournamentReady=true;
+  document.documentElement.dataset.ready="true";
+})();
+</script>
+</body>
+</html>
