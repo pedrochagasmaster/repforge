@@ -536,6 +536,12 @@
     return `<div class="k-net"><p class="k-net__origin"><span class="k-net__ring" aria-hidden="true"></span>${esc(t("k.map.origin"))}</p><ol class="k-net__rows">${rows}</ol>
       <div class="k-net__end"><div class="k-net__endstop"><span class="k-net__enddot" aria-hidden="true"></span><p><strong>${esc(t("k.map.end_program"))}</strong><span>${esc(t("k.map.end_program_sub"))}</span></p></div><div class="k-net__endstop"><span class="k-net__enddot k-net__enddot--today" aria-hidden="true"></span><p><strong>${esc(t("k.map.end_today"))}</strong><span>${esc(t("k.map.end_today_sub"))}</span></p></div></div></div>`;
   }
+  /* The same network in HTML for 200% text and narrow phones: names scale
+     with text, each line runs rail to rail with its real station dots. */
+  function miniNetwork() {
+    const rows = MAP.map(([route, m]) => { const n = LINE[route]; const count = stationList(route, m || "freeform").length - 1; return `<li class="k-mini__row" data-line="${n}"><span class="k-mini__head">${roundel(n)}<span class="k-mini__name">${esc(t(`k.line.${route}`))}</span></span><span class="k-mini__track">${Array.from({ length: count }, () => "<i></i>").join("")}</span></li>`; }).join("");
+    return `<div class="k-mini" aria-hidden="true"><span class="k-net__ring"></span><ol class="k-mini__rows">${rows}</ol><div class="k-net__end"><div class="k-net__endstop"><span class="k-net__enddot"></span><p><strong>${esc(t("k.map.end_program"))}</strong></p></div><div class="k-net__endstop"><span class="k-net__enddot k-net__enddot--today"></span><p><strong>${esc(t("k.map.end_today"))}</strong></p></div></div></div>`;
+  }
   /* The landing diagram: octilinear, drawn once in SVG. Five lines fan out at
      45° from one ring-marked interchange, run level, and end in the terminal
      rail, which feeds Seu programa and then Hoje. Station dots are the real
@@ -575,7 +581,7 @@
     return `<main class="k-land" data-checkpoint="${invalid ? "shared-invalid" : "landing"}">${band()}<div class="k-land__in">
       <h1 class="k-land__head" data-focus>${esc(t(invalid ? "landing.shared.invalid_headline" : "landing.headline"))}</h1>
       <p class="k-lede">${esc(t(invalid ? "landing.shared.invalid_body" : "landing.body"))}</p>
-      ${invalid ? alertBox("", t(TF.sharedErrorKey(S.sharedError)), { role: "status" }) : `<figure class="k-land__map" role="img" aria-label="${esc(t("k.land.map_aria"))}">${lineDiagram()}<figcaption aria-hidden="true">${esc(t("k.land.map"))}</figcaption></figure>`}
+      ${invalid ? alertBox("", t(TF.sharedErrorKey(S.sharedError)), { role: "status" }) : `<figure class="k-land__map" role="img" aria-label="${esc(t("k.land.map_aria"))}">${lineDiagram()}${miniNetwork()}<figcaption aria-hidden="true">${esc(t("k.land.map"))}</figcaption></figure>`}
       ${landingActions()}
       <p class="k-land__privacy">${pict("shield", "k-pict--sm")}<span>${esc(t("x.privacy.line"))}</span></p>
       ${invalid ? "" : `<section class="k-proof" aria-labelledby="kProof"><h2 class="k-h2" id="kProof">${esc(t("k.land.proof_title"))}</h2><p class="k-hint">${esc(t("k.land.proof_body"))}</p>${TS.landingProof(t, lang)}</section>`}

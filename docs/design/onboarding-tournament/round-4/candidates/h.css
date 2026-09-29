@@ -405,8 +405,8 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
 :root.h-large .h-opt { font-size: 1.0625rem; min-height: 52px; padding-block: 8px; }
 :root.h-large .h-dock__in { padding-top: 6px; padding-bottom: 8px; gap: 4px; }
 :root.h-large .h-dock__why { font-size: .6875rem; }
-:root.h-large .h-dock .h-btn, :root.h-large .h-sheet__foot .h-btn { font-size: .9375rem; min-height: 48px; padding: 6px 12px; }
-:root.h-large .h-dock .h-ico, :root.h-large .h-sheet__foot .h-ico { width: 22px; height: 22px; }
+:root.h-large .h-dock .h-btn, :root.h-large .h-sheet__foot .h-btn { font-size: .875rem; min-height: 48px; padding: 6px 8px; }
+:root.h-large .h-dock .h-ico, :root.h-large .h-sheet__foot .h-ico { display: none; }
 :root.h-large .h-btn { font-size: .9375rem; min-height: 52px; padding: 8px 12px; }
 :root.h-large .h-poster__head { margin-top: 12px; }
 :root.h-large .h-poster__facts { font-size: .8125rem; margin-top: 8px; }
@@ -415,10 +415,11 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
 :root.h-large .h-col__n { font-size: 1.5rem; }
 :root.h-large .h-col__name { margin-top: 4px; font-size: .875rem; }
 :root.h-large .h-cols { padding-top: 6px; }
-:root.h-large .h-change__s { font-size: 1rem; }
+:root.h-large .h-change__s { font-size: .875rem; }
 :root.h-large .h-change__ba { font-size: .8125rem; }
-:root.h-large .h-brand__vis { display: none; }
-:root.h-large .h-brand__privacy { margin-left: auto; font-size: .875rem; }
+:root.h-large .h-brand { flex-wrap: wrap; column-gap: 10px; row-gap: 0; padding-block: 6px; }
+:root.h-large .h-brand__word { font-size: 1rem; }
+:root.h-large .h-brand__privacy { flex-basis: 100%; font-size: .875rem; min-height: 44px; padding-block: 4px; }
 :root.h-large .h-land { display: flex; flex-direction: column; }
 :root.h-large .h-land > .h-brand { order: 0; } :root.h-large .h-land > .h-poem { order: 1; margin-top: 14px; }
 :root.h-large .h-land > .h-land__acts { order: 2; margin-top: 14px; }
@@ -446,3 +447,14 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
 :root.h-large .h-comp > .h-lede { order: 5; margin-top: 12px; }
 :root.h-large .h-comp > .h-corr { order: 6; }
 .h-stanza .h-door:last-child { border-bottom: 0; }
+:root.h-large .h-impv .h-comp > .h-note, :root.h-large .h-impv .h-comp > .h-counts { order: 6; }
+:root.h-large .h-impv .h-comp > .h-imps { margin-top: 4px; }
+:root.h-large .h-impv .h-field__l { font-size: .8125rem; }
+:root.h-large .h-imp { padding-block: 8px; }
+:root.h-large .h-imp__from { font-size: .75rem; }
+:root.h-large .h-imp__to { font-size: .875rem; }
+:root.h-large .h-mini { font-size: .8125rem; }
+:root.h-large .h-impv--review { display: flex; flex-direction: column; }
+:root.h-large .h-impv--review > .h-modes { order: 2; margin-top: 18px; }
+:root.h-large .h-impv--review > .h-comp { order: 1; }
+:root.h-large .h-imp__acts { margin-top: 2px; }

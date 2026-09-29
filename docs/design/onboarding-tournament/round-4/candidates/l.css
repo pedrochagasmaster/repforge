@@ -417,8 +417,6 @@ details[open]>summary .l-chev{transform:rotate(-135deg) translateY(-2px)}
 .l-bigplate .l-no{color:inherit;opacity:.72}
 .l-bigplate .l-hole{flex-basis:34px}
 .l-bigplate--yellow .l-hole{background:var(--l-coat-lo)}
-/* day truth line */
-.l-day__trains{font-size:.88rem;color:var(--l-stencil)}
 /* the chooser: one stack on one rod */
 .l-cstack{position:relative;display:flex;flex-direction:column;gap:5px;padding:6px;border-radius:6px;background:var(--l-ground-2)}
 :root[data-theme="dark"] .l-cstack{background:#060707;box-shadow:inset 0 0 0 1px var(--l-coat-edge)}

@@ -96,7 +96,7 @@
       "l.imp.more": "Outras opções",
       "l.prev.title": "Revisar o programa",
       "l.proof": "Depois de usar um programa, Hoje mostra a sessão do dia.",
-      "l.hub.aria": "Como começar", "l.imp.suggested": "Sugerido", "l.imp.keep": "Manter o nome importado", "l.imp.choose": "Escolher na biblioteca", "l.imp.as_imported": "Como veio: {name}", "l.day.trains": "Trabalha {muscles}",
+      "l.hub.aria": "Como começar", "l.imp.suggested": "Sugerido", "l.imp.keep": "Manter o nome importado", "l.imp.choose": "Escolher na biblioteca", "l.imp.as_imported": "Como veio: {name}",
       "entry.rules_changed.rebuild": "Montar de novo com as regras atuais",
     },
     en: {
@@ -171,7 +171,7 @@
       "l.imp.more": "Other options",
       "l.prev.title": "Review the program",
       "l.proof": "Once a program is in use, Today shows the session of the day.",
-      "l.hub.aria": "How to start", "l.imp.suggested": "Suggested", "l.imp.keep": "Keep the imported name", "l.imp.choose": "Choose from the library", "l.imp.as_imported": "As imported: {name}", "l.day.trains": "Trains {muscles}",
+      "l.hub.aria": "How to start", "l.imp.suggested": "Suggested", "l.imp.keep": "Keep the imported name", "l.imp.choose": "Choose from the library", "l.imp.as_imported": "As imported: {name}",
       "entry.rules_changed.rebuild": "Rebuild with current rules",
     },
   };
@@ -302,9 +302,7 @@
       const meta = [t("entry.preview.exercises", { n: ex.length, exercise: TF.tp(t, ex.length, "exercise") }), t("entry.preview.sets", { n: sets }), d.estimateMinutes ? t("entry.preview.minutes", { n: d.estimateMinutes }) : ""].filter(Boolean).join(" · ");
       const open = openAll || (openFirst && i === 0) || (openFirst && ex.some((e) => added.has(e.id)));
       const nNew = ex.filter((e) => added.has(e.id)).length;
-      const prog = (preview.program || []).filter((e) => (d.dayId && e.dayId === d.dayId) || e.day === d.label);
-      const muscles = [...new Set(prog.flatMap((e) => TF.muscleLabels(t, e.primary)))];
-      return `<details class="l-day"${open ? " open" : ""}><summary class="l-day__sum"><span class="l-day__n" aria-hidden="true">${i + 1}</span><span class="l-day__body"><span class="l-day__name">${esc(TF.dayName(t, d, preview.programStructure, i))}</span>${muscles.length ? `<span class="l-day__trains">${esc(t("l.day.trains", { muscles: muscles.join(", ").toLowerCase() }))}</span>` : ""}<span class="l-day__meta">${esc(meta)}${nNew && !open ? ` <span class="l-new">${esc(t("l.new"))} ${nNew}</span>` : ""}</span></span><span class="l-chev" aria-hidden="true"></span></summary>
+      return `<details class="l-day"${open ? " open" : ""}><summary class="l-day__sum"><span class="l-day__n" aria-hidden="true">${i + 1}</span><span class="l-day__body"><span class="l-day__name">${esc(TF.dayName(t, d, preview.programStructure, i))}</span><span class="l-day__meta">${esc(meta)}${nNew && !open ? ` <span class="l-new">${esc(t("l.new"))} ${nNew}</span>` : ""}</span></span><span class="l-chev" aria-hidden="true"></span></summary>
         <ul class="l-exlist">${ex.length ? ex.map((e) => { const isNew = added.has(e.id); return `<li class="l-ex${isNew ? " is-new" : ""}"><span class="l-ex__name">${esc(TS.exName(e, lang))}${isNew ? ` <span class="l-new">${esc(t("l.new"))}</span>` : ""}</span><span class="l-ex__rx">${e.sets != null ? `${e.sets} × ${e.min}–${e.max}` : ""}</span></li>`; }).join("") : `<li class="l-ex l-ex--empty">${esc(t("program.empty.exercises"))}</li>`}</ul></details>`;
     }).join("")}</div>`;
   }

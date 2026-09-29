@@ -78,7 +78,7 @@
       "h.rev.why": "Por que este programa",
       "h.rev.col_meta": "{n} exercícios · {sets} séries",
       "h.rev.rx_sr": "{sets} séries de {min} a {max} repetições",
-      "h.ff.gaps_lede": "A resposta trouxe a estrutura do programa, mas faltam algumas séries ou repetições. Preencha abaixo.",
+      "h.ff.gaps_lede": "A resposta trouxe a estrutura do programa, mas faltam algumas séries ou repetições nos campos desta tela.",
       "h.ff.edit_sr": "Editar o texto colado",
       "h.mode.label": "Como trazer o programa",
       "h.mode.freeform": "Colar texto",
@@ -165,7 +165,7 @@
       "h.rev.why": "Why this program",
       "h.rev.col_meta": "{n} exercises · {sets} sets",
       "h.rev.rx_sr": "{sets} sets of {min} to {max} reps",
-      "h.ff.gaps_lede": "The reply brought back the program's structure, but some sets or reps are missing. Fill them in below.",
+      "h.ff.gaps_lede": "The reply brought back the program's structure, but some sets or reps are missing in the fields on this screen.",
       "h.ff.edit_sr": "Edit the pasted text",
       "h.mode.label": "How to bring the program",
       "h.mode.freeform": "Paste text",
@@ -712,7 +712,7 @@
       dockHtml = dock(`${c.review ? `<p class="h-dock__why" id="hCommitWhy">${esc(t("import.commit_blocked", { n: c.review }))}</p>` : ""}<button type="button" class="h-btn h-btn--field" data-act="import-commit"${c.review ? ' disabled aria-describedby="hCommitWhy"' : ""}><span class="h-btn__l">${esc(t("import.commit"))}</span>${ARROW()}</button>`);
     } else if (S.importMode === "freeform") { cp = ffCheckpoint(); body = ffBody(); }
     else { cp = "import-source"; body = `<h1 class="h-head" tabindex="-1">${mono(t("h.mono.file"))}<span class="h-head__q">${esc(t("entry.import_source.title"))}</span></h1><p class="h-lede">${esc(t("entry.import_source.lede"))}</p><button type="button" class="h-btn h-btn--field" data-act="import-file"><span class="h-btn__l">${esc(t("entry.import_source.pick"))}</span>${ARROW()}</button>`; }
-    return `<main class="h-page h-impv" data-checkpoint="${cp}" data-entry-step="import_source">${bar({ center: t("entry.route.import") })}${modeSwitch()}<div class="h-comp h-stack">${body}</div></main>${dockHtml}`;
+    return `<main class="h-page h-impv${dr ? " h-impv--review" : ""}" data-checkpoint="${cp}" data-entry-step="import_source">${bar({ center: t("entry.route.import") })}${modeSwitch()}<div class="h-comp h-stack">${body}</div></main>${dockHtml}`;
   }
   function todayView() {
     const label = `<p class="t-label">${esc(t("today.session_label"))}</p>`;
