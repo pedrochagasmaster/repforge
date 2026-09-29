@@ -424,8 +424,8 @@ html[data-stock="kraft"] .i-lede,html[data-stock="kraft"] .i-note{color:var(--pr
 :root[style*="200%"] .i-num{grid-column:span 2;border-bottom:1px solid var(--rule-soft)}
 :root[style*="200%"] .i-num:nth-child(4),:root[style*="200%"] .i-num:nth-child(5){grid-column:span 3}
 :root[style*="200%"] .i-num__v{font-size:1.25rem}
-:root[style*="200%"] .i-opt{grid-template-columns:1.9rem minmax(0,1fr)}
-:root[style*="200%"] .i-box{width:1.7rem;font-size:1.25rem;height:1.4rem}
+:root[style*="200%"] .i-opt{grid-template-columns:1.6rem minmax(0,1fr);gap:4px;padding-right:0}
+:root[style*="200%"] .i-box{width:1.5rem;font-size:1.125rem;height:1.3rem}
 :root[style*="200%"] .i-x{width:1.1rem;height:1.1rem}
 :root[style*="200%"] .i-box--sq{width:1rem;height:1rem;margin-left:.3rem}
 :root[style*="200%"] .i-bgrid{display:none}

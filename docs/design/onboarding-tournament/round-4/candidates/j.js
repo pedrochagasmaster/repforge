@@ -33,7 +33,7 @@
       "j.media.close": "Fechar a imagem",
       "j.you": "Você",
       "j.edited": "editada",
-      "j.rec.intro": "São cinco seções curtas. Toque em uma resposta, ou cole abaixo um programa que você já treina.",
+      "j.rec.intro": "São cinco seções curtas. Toque em uma resposta, ou traga um programa que você já treina.",
       "j.rec.active": "Programa ativo: {name}",
       "j.q.exp": "Há quanto tempo você segue programas de treino estruturados?",
       "j.q.cons": "E nas últimas seis semanas, quantas das sessões planejadas você fez?",
@@ -97,7 +97,7 @@
       "j.cancel.continue": "Continuar respondendo",
       "j.restart.confirm": "Apagar e começar de novo",
       "j.imp.lede": "Cole do jeito que estiver: mensagem do treinador, suas notas, uma planilha ou outro lugar. O Taurifer monta um comando para o ChatGPT ou o Claude, que devolve o programa no formato do app.",
-      "j.imp.attach_hint": "Tem um arquivo de programa Taurifer? Toque no clipe para anexar.",
+      "j.imp.attach_hint": "Tem um arquivo de programa Taurifer de outro dispositivo? Anexe aqui.",
       "j.imp.pasted": "Colado",
       "j.imp.handoff": "O Taurifer não lê texto livre. Um assistente que você abre converte o seu texto para o formato do app, e o Taurifer confere o resultado antes de salvar qualquer coisa.",
       "j.imp.copy": "Copiar o comando",
@@ -137,7 +137,7 @@
       "j.media.close": "Close the image",
       "j.you": "You",
       "j.edited": "edited",
-      "j.rec.intro": "Five short sections. Tap an answer, or paste a program you already train below.",
+      "j.rec.intro": "Five short sections. Tap an answer, or bring a program you already train.",
       "j.rec.active": "Active program: {name}",
       "j.q.exp": "How long have you followed structured training programs?",
       "j.q.cons": "And in the past six weeks, how many of your planned sessions did you do?",
@@ -201,7 +201,7 @@
       "j.cancel.continue": "Keep answering",
       "j.restart.confirm": "Delete and start over",
       "j.imp.lede": "Paste it however you have it: a message from your trainer, your notes, a spreadsheet or anywhere else. Taurifer writes a prompt for ChatGPT or Claude, which returns the program in the app's format.",
-      "j.imp.attach_hint": "Have a Taurifer program file? Tap the paperclip to attach it.",
+      "j.imp.attach_hint": "Have a Taurifer program file from another device? Attach it here.",
       "j.imp.pasted": "Pasted",
       "j.imp.handoff": "Taurifer does not read free text. An assistant you open converts your text into the app's format, and Taurifer checks the result before anything is saved.",
       "j.imp.copy": "Copy the prompt",
@@ -768,7 +768,9 @@
   const dockH = () => { const d = root.querySelector(".j-composer,.j-dock"); return d ? d.getBoundingClientRect().height : 0; };
   function scrollBehavior() { return reduced() ? "auto" : "smooth"; }
   function scrollTo(y, smooth) { window.scrollTo({ top: Math.max(0, y), behavior: smooth ? scrollBehavior() : "auto" }); }
-  function scrollCard(smooth) { const c = root.querySelector("[data-card]"); if (!c) return; scrollTo(c.getBoundingClientRect().top + window.scrollY - headerH() - 8, smooth); }
+  /* Layout position, unaffected by an arrival transform still in flight. */
+  const docTop = (el) => { let y = 0; for (let e = el; e; e = e.offsetParent) y += e.offsetTop; return y; };
+  function scrollCard(smooth) { const c = root.querySelector("[data-card]"); if (!c) return; scrollTo(docTop(c) - headerH() - 8, smooth); }
   function scrollBottom(smooth) { scrollTo(document.documentElement.scrollHeight, smooth); }
   /* render({ focus: selector | "heading", scroll: "bottom" | "card" | "top" | "keep", flip: { rect, sel } }) */
   function render(o = {}) {
@@ -889,8 +891,8 @@
   function showChange() {
     const i = S.versions.length - 1; const c = root.querySelector(`#jChange${i}`); if (!c) return;
     scrollCard(false);
-    const limit = window.innerHeight - dockH();
-    if (c.getBoundingClientRect().bottom > limit - 8) scrollTo(c.getBoundingClientRect().top + window.scrollY - headerH() - 12, false);
+    const limit = window.innerHeight - dockH(); const top = docTop(c);
+    if (top + c.offsetHeight - window.scrollY > limit - 8) scrollTo(top - headerH() - 12, false);
     try { c.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
   }
   function activateNow() {

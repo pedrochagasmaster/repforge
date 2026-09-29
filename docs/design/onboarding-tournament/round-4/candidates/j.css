@@ -440,3 +440,10 @@ details[open] > summary .j-day__chev { transform: rotate(180deg); }
 :root[style*="200%"] .j-dock { padding: .25rem .375rem calc(.25rem + env(safe-area-inset-bottom)); }
 :root[style*="200%"] .j-change__line { font-size: .8125rem; }
 :root[style*="200%"] .j-change__ba { font-size: .75rem; }
+:root[style*="200%"] .j-bar { min-height: 3rem; }
+:root[style*="200%"] .j-bar__name { font-size: .875rem; }
+:root[style*="200%"] .j-bar__status { font-size: .625rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[style*="200%"] .j-bar__txt { font-size: .75rem; }
+:root[style*="200%"] .j-pill { font-size: .6875rem; line-height: 1.25; }
+:root[style*="200%"] .j-pill--field textarea { font-size: .8125rem; padding: .5rem .625rem; }
+:root[style*="200%"] .j-send { width: 2.75rem; height: 2.75rem; }
