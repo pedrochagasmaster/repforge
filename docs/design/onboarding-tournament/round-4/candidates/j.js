@@ -299,7 +299,8 @@
   }
   const sameSet = (x, y) => JSON.stringify([...(x || [])].sort()) === JSON.stringify([...(y || [])].sort());
   const envAdjusted = (e) => { if (!e) return false; const b = TF.env(e.kind); return !(sameSet(b.equipment, e.equipment) && sameSet(b.capabilities, e.capabilities)); };
-  const equipList = (e) => [...(e?.equipment || []).map((k) => t(`entry.equip.${k}`, undefined, k)), ...(e?.capabilities || []).map((k) => t(`entry.cap.${k}`, undefined, k))].map((x, i) => (i === 0 ? x : /^Smith/.test(x) ? x : lcFirst(x)));
+  /* Equipment reads in running text; capabilities keep their catalog wording. */
+  const equipList = (e) => [...(e?.equipment || []).map((k) => t(`entry.equip.${k}`, undefined, k)).map((x, i) => (i === 0 || /^Smith/.test(x) ? x : lcFirst(x))), ...(e?.capabilities || []).map((k) => t(`entry.cap.${k}`, undefined, k))];
   function envCheckText(a) {
     if (!envAdjusted(a.environment)) return t("j.env.ok");
     const l = equipList(a.environment); return l.length ? t("j.env.fixed", { list: listJoin(l) }) : t("j.env.fixed_none");
@@ -513,7 +514,7 @@
     const fb = TF.previewFacts(b), fa = TF.previewFacts(p);
     const lead = v.changeFrom.constraints ? t("j.card.constraints_applied") : t("j.card.updated");
     const same = d.n === 0 && fb.sets === fa.sets;
-    return `<div class="j-change" id="jChange${i}" tabindex="-1" role="status" data-change-statement data-changed="${d.n}" data-total="${d.total}"><p class="j-change__line">${ico("redo")}<span>${esc(lead)} <strong>${esc(TS.changeText(t, d))}</strong></span></p>${same ? "" : `<p class="j-change__ba"><span><span class="j-change__k">${esc(t("j.card.before"))}</span> ${esc(factsOf(b))}</span><span><span class="j-change__k">${esc(t("j.card.after"))}</span> ${esc(factsOf(p))}</span></p>`}</div>`;
+    return `<div class="j-change"><p class="j-change__line" id="jChange${i}" tabindex="-1" role="status" data-change-statement data-changed="${d.n}" data-total="${d.total}">${ico("redo")}<span>${esc(lead)} <strong>${esc(TS.changeText(t, d))}</strong></span></p>${same ? "" : `<p class="j-change__ba"><span><span class="j-change__k">${esc(t("j.card.before"))}</span> ${esc(factsOf(b))}</span><span><span class="j-change__k">${esc(t("j.card.after"))}</span> ${esc(factsOf(p))}</span></p>`}</div>`;
   }
   function cardMsg(v, i, n) {
     const r = v.result, p = r.preview, f = TF.previewFacts(p); const rec = S.route === "recommend";

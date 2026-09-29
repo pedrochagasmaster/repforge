@@ -492,7 +492,7 @@ details[open]>summary .k-disc__chev{transform:rotate(-135deg);margin-top:4px}
 .privacy-sheet .btn--primary{min-height:56px;border-radius:2px;background:var(--k-sign);color:var(--k-sign-ink);font:700 1.0625rem/1.2 var(--k-font);border:0;box-shadow:none}
 
 /* ---- 200% text: the diagram keeps its dots, the sign names the station ---- */
-:root[style*="200%"] .k-strip__line{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:root[style*="200%"] .k-strip__line{display:none}
 :root[style*="200%"] .k-strip__route{justify-content:space-between}
 :root[style*="200%"] .k-alert__in{flex-direction:column}
 :root[style*="200%"] .k-status{flex-direction:column}

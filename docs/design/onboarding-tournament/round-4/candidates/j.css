@@ -252,7 +252,7 @@ button:focus-visible, a[href]:focus-visible, summary:focus-visible, input:focus-
 .j-card__sec { margin-top: .5rem; }
 .j-card__h { font-size: .9375rem; font-weight: 800; margin: 1rem 0 .375rem; }
 .j-change { margin: .75rem 0 .25rem; padding: .5rem .75rem; border-radius: .75rem; background: var(--j-sys); color: var(--j-sys-ink); }
-.j-change:focus-visible { outline: 3px solid var(--j-focus); }
+.j-change__line:focus-visible { outline: 3px solid var(--j-focus); outline-offset: 3px; }
 .j-change__line { display: flex; gap: .5rem; align-items: flex-start; font-size: .9375rem; }
 .j-change__line .j-ico { margin-top: .0625rem; }
 .j-change__ba { display: flex; flex-wrap: wrap; gap: .125rem 1rem; font-size: .8125rem; margin-top: .25rem; padding-left: 1.75rem; }
@@ -438,3 +438,5 @@ details[open] > summary .j-day__chev { transform: rotate(180deg); }
 :root[style*="200%"] .j-go { font-size: .8125rem; min-height: 2.75rem; padding: .375rem .75rem; }
 :root[style*="200%"] .j-go .j-ico { display: none; }
 :root[style*="200%"] .j-dock { padding: .25rem .375rem calc(.25rem + env(safe-area-inset-bottom)); }
+:root[style*="200%"] .j-change__line { font-size: .8125rem; }
+:root[style*="200%"] .j-change__ba { font-size: .75rem; }
