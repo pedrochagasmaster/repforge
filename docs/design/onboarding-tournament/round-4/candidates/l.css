@@ -473,3 +473,12 @@ details[open]>summary .l-chev{transform:rotate(-135deg) translateY(-2px)}
 :root[style*="200%"] .l-plates::before,:root[style*="200%"] .l-cstack::before{right:26px}
 .l-facts>.l-fact{padding-left:0}
 .l-facts>.l-fact::before{display:none}
+.l-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+.l-tile,.l-pull{min-width:0}
+.l-imp__done .l-cplate{min-width:0}
+.l-bigplate__t{min-width:0}
+@media (max-width:359px){.l-tiles{grid-template-columns:minmax(0,1fr)}}
+:root[style*="200%"] .l-tiles{grid-template-columns:minmax(0,1fr)}
+:root[style*="200%"] .l-imp__done{flex-direction:column}
+:root[style*="200%"] .l-bigplate{padding-left:12px;gap:8px}
+:root[style*="200%"] .l-bigplate__t{font-size:.9rem;letter-spacing:.02em}
