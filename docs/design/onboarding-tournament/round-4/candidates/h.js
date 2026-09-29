@@ -397,7 +397,7 @@
     const g = `${name}${ctx.sheet ? "S" : ""}`;
     return `<div class="h-place h-place--${name}" role="radiogroup" aria-labelledby="${labelId}">${items.map((it, i) => {
       const [c, span] = spots[i]; const fl = !ctx.sheet && S.flood === `${key}|${it.val}`;
-      return `<button type="button" class="h-word${it.sel ? " is-on" : ""}${fl ? " is-flood" : ""}" style="--c:${c};--s:${span}" role="radio" aria-checked="${it.sel ? "true" : "false"}" data-act="pick" data-key="${esc(key)}" data-val="${esc(it.val)}"><span class="h-word__t" data-fit data-fit-group="${g}" data-fit-rem="1.625">${esc(it.title)}</span>${it.sub ? `<span class="h-word__s">${esc(it.sub)}</span>` : ""}${TICK}</button>`;
+      return `<button type="button" class="h-word${it.sel ? " is-on" : ""}${fl ? " is-flood" : ""}" style="--c:${c};--s:${span}" role="radio" aria-checked="${it.sel ? "true" : "false"}" data-act="pick" data-key="${esc(key)}" data-val="${esc(it.val)}"><span class="h-word__t" data-fit data-fit-group="${g}${it.solo ? "0" : ""}" data-fit-rem="${it.solo ? 2.25 : 1.625}">${esc(it.title)}</span>${it.sub ? `<span class="h-word__s">${esc(it.sub)}</span>` : ""}${TICK}</button>`;
     }).join("")}</div>`;
   }
   function chip({ key, val, label, sel, role = "checkbox", disabled, ctx }) {
@@ -432,7 +432,7 @@
       }
       case "environment": {
         const e = a.environment;
-        const kinds = placed({ key: "environment", name: "env", ctx, labelId: lab, spots: [[1, 6], [1, 3], [4, 3], [1, 3], [4, 3]], items: TS.ENVS.map((v) => ({ val: v, title: t(`entry.environment.${v}`), sel: !!(e && e.kind === v) })) });
+        const kinds = placed({ key: "environment", name: "env", ctx, labelId: lab, spots: [[1, 6], [1, 3], [4, 3], [1, 3], [4, 3]], items: TS.ENVS.map((v, i) => ({ val: v, title: t(`entry.environment.${v}`), sel: !!(e && e.kind === v), solo: i === 0 })) });
         if (!e) return kinds;
         const eq = new Set(e.equipment || []), caps = new Set(e.capabilities || []);
         const groups = `<p class="h-label" id="${p}Eq">${esc(t("entry.env_correct.equipment"))}</p><div class="h-chips" role="group" aria-labelledby="${p}Eq">${TS.EQUIP.map((k) => chip({ key: "environmentEquipment", val: k, label: t(`entry.equip.${k}`, undefined, k), sel: eq.has(k), ctx })).join("")}</div>

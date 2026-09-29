@@ -349,20 +349,18 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
 .h-stack > *, .h-comp > *, .h-head > * { min-width: 0; }
 
 /* ---------- phrase answers: words placed in the composition ---------- */
-.h-place { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 24px; }
-.h-word { grid-column: var(--c) / span var(--s); position: relative; container-type: inline-size; display: grid; grid-template-columns: minmax(0, 1fr) 18px; align-content: start; column-gap: 8px; min-height: 64px; padding: 10px 12px 12px; background: none; border: 3px solid var(--h-ink); color: var(--h-ink); text-align: left; cursor: pointer; }
+.h-place { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px 8px; margin-top: 26px; }
+.h-word { grid-column: var(--c) / span var(--s); position: relative; container-type: inline-size; display: grid; grid-template-columns: minmax(0, 1fr) 18px; align-content: start; column-gap: 8px; min-height: 64px; padding: 10px 10px 14px; background: none; border: 0; border-top: 3px solid var(--h-ink); color: var(--h-ink); text-align: left; cursor: pointer; }
 .h-word__t { grid-column: 1; display: block; font-size: 1.375rem; font-weight: 700; line-height: 1.02; letter-spacing: -.02em; overflow-wrap: normal; }
 .h-word__s { grid-column: 1; margin-top: 6px; font: 400 .9375rem/1.3 var(--h-font); color: var(--h-ink-2); }
 .h-word .h-tick { grid-column: 2; grid-row: 1; width: 18px; height: 18px; }
-.h-word.is-on { background: linear-gradient(var(--h-field), var(--h-field)) no-repeat 0 0 / 100% 100%; border-color: var(--h-field); color: var(--h-on-field); }
+.h-word.is-on { background: linear-gradient(var(--h-field), var(--h-field)) no-repeat 0 0 / 100% 100%; border-top-color: var(--h-field); color: var(--h-on-field); }
 .h-word.is-on .h-word__s { color: var(--h-on-field); }
 .h-word.is-on .h-tick { opacity: 1; }
-.h-place:has(.is-on) .h-word:not(.is-on) { color: var(--h-ink-2); border-color: var(--h-ink-2); }
+.h-place:has(.is-on) .h-word:not(.is-on) { color: var(--h-ink-2); border-top-color: var(--h-ink-2); }
 .h-place--goal .h-word { min-height: 96px; }
 .h-place--exp .h-word { min-height: 72px; }
 .h-place--cons .h-word { min-height: 132px; align-content: end; }
-.h-place--env .h-word:first-child { min-height: 84px; }
-.h-place--env .h-word:first-child .h-word__t { font-size: 1.75rem; }
 .h-verse--compact { display: none; }
 
 /* ---------- hover only where a pointer can hover ---------- */
@@ -381,7 +379,7 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
   .h-card:hover .h-card__n { color: var(--h-field); }
   .h-result--btn:hover { color: var(--h-field); }
   .h-slab .h-btn--line:hover { background: var(--h-on-slab); color: var(--h-slab); }
-  .h-word:hover:not(.is-on) { border-color: var(--h-field); }
+  .h-word:hover:not(.is-on) { border-top-color: var(--h-field); }
 }
 
 /* ---------- large text (measured in h.js: root em large for the viewport) ---------- */
@@ -391,7 +389,7 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, [tabindex="-1"]:focus:not(:foc
 :root.h-large .h-step__u { font-size: min(1rem, 16cqi); }
 :root.h-large .h-place { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 :root.h-large .h-word { grid-column: 1; min-height: 0; }
-:root.h-large .h-word__t, :root.h-large .h-place--env .h-word:first-child .h-word__t { font-size: 1.125rem; }
+:root.h-large .h-word__t { font-size: 1.125rem; }
 :root.h-large .h-word__s { font-size: .8125rem; }
 :root.h-large .h-pair, :root.h-large .h-chips--4 { grid-template-columns: minmax(0, 1fr); }
 :root.h-large .h-bar__mid { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
