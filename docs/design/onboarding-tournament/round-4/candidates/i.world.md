@@ -72,8 +72,10 @@ status is a stamped word; errors carry a sentence.
   fields stay blank. On the review every answer field is a button that opens the
   inline correction; a corrected value keeps the old one struck through by a
   drawn, slightly wavering pen stroke (an SVG line per text line), not a
-  typographic line-through. At 200% text the head folds to the current field
-  plus one line of the filled answers, and the lede moves below the question.
+  typographic line-through; the struck value stays in pen blue at 62% opacity.
+  At 200% text the head folds to the current field (which then names the
+  section) plus a printed list of the filled fields, and ledes, hints and
+  explanations follow the options.
 - **Options**: printed parentheses `( )` for single choice (marked with a drawn
   X), printed squares for multiple choice (a drawn tick), numbers circled in pen.
   Full-row targets, 54 px minimum.
@@ -127,7 +129,8 @@ is one `role="img"` with a sentence.
   stamp ink on the bare card.
 - **No punched hole**: removed; the card has nothing underneath it to show.
 - **Import status marks**: PROVÁVEL and SEM CORRESPONDÊNCIA print in red stamp
-  ink (light and dark); matched and confirmed marks print in black or soft print.
+  ink (light and dark); matched marks print in black; CONFIRMADO prints in pen
+  blue (the lifter's confirmation).
 - **Today continues the card**: the program name in print, week and sessions
   as a printed line and empty week boxes, and Day 1 as the same numbered tab
   and EXERCÍCIO · SÉRIES · REPS · CARGA grid the lifter approved. Bottom padding

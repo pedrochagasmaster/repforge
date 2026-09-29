@@ -528,3 +528,4 @@ details[open]>summary .l-chev{transform:rotate(-135deg) translateY(-2px)}
 @media (max-width:359px){.l-segs{grid-template-columns:minmax(0,1fr)}}
 :root[style*="200%"] .l-toggles{grid-template-columns:minmax(0,1fr)}
 :root[style*="200%"] .l-toggle{font-family:var(--l-label);font-weight:600;font-size:.88rem}
+.l-placard__edit{min-width:48px;padding:0 6px}

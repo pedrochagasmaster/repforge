@@ -39,6 +39,7 @@
       "i.resume.discard_confirm": "Descartar e começar de novo",
       "i.resume.discard_cancel": "Manter a configuração salva",
       "i.rail": "Suas respostas",
+      "i.head.filled": "Já anotado: {list}.",
       "i.field.goal": "Objetivo", "i.field.background": "Histórico", "i.field.schedule": "Semana", "i.field.environment": "Local", "i.field.priorities": "Prioridades",
       "i.field.emphasis": "Ênfase", "i.field.exercises": "Exercícios", "i.field.shape": "Estrutura",
       "i.field.edit": "Alterar {what}: {value}",
@@ -114,6 +115,7 @@
       "i.resume.discard_confirm": "Discard and start over",
       "i.resume.discard_cancel": "Keep the saved setup",
       "i.rail": "Your answers",
+      "i.head.filled": "Filled in: {list}.",
       "i.field.goal": "Goal", "i.field.background": "Background", "i.field.schedule": "Week", "i.field.environment": "Place", "i.field.priorities": "Priorities",
       "i.field.emphasis": "Emphasis", "i.field.exercises": "Exercises", "i.field.shape": "Structure",
       "i.field.edit": "Change {what}: {value}",
@@ -357,8 +359,8 @@
       if (i < idx && v) return `<li class="i-field is-filled"><button type="button" class="i-field__btn" data-act="jump" data-step="${step}" aria-label="${esc(t("i.field.edit", { what: lcFirst(fieldLabel(step)), value: v }))}">${lab}${pen}</button></li>`;
       return `<li class="i-field${i === idx ? " is-here" : ""}"${i === idx ? ' aria-current="step"' : ""}><span class="i-field__static">${lab}${pen}</span></li>`;
     }).join("");
-    const filled = qs.slice(0, idx).map((step) => sectionValue(step, S.answers)).filter(Boolean);
-    const sum = filled.length ? `<p class="i-head__sum" aria-hidden="true"><span class="i-pen">${esc(filled.join(" · "))}</span></p>` : "";
+    const filled = qs.slice(0, idx).filter((step) => sectionValue(step, S.answers)).map((step) => lcFirst(fieldLabel(step)));
+    const sum = filled.length ? `<p class="i-head__sum" aria-hidden="true">${esc(t("i.head.filled", { list: filled.join(", ") }))}</p>` : "";
     return `<nav class="i-head" aria-label="${esc(t("i.rail"))}">${sum}<ol class="i-fields i-fields--q">${items}</ol></nav>`;
   }
 
@@ -400,7 +402,7 @@
     }
     if (step === "environment") {
       const open = o.sheet ? true : S.envOpen;
-      return group(`${p}Env`, t("entry.environment.lede"), TS.ENVS.map((v) => opt({ key: "environment", val: v, title: t(`entry.environment.${v}`), selected: a.environment && a.environment.kind === v })).join(""), { key: "environment" }) + envCorrection(a, open, !o.sheet && route !== "browse" || !!o.sheet);
+      return group(`${p}Env`, t("entry.environment.lede"), TS.ENVS.map((v) => opt({ key: "environment", val: v, title: t(`entry.environment.${v}`), selected: a.environment && a.environment.kind === v })).join(""), { key: "environment", cls: "i-group--explain" }) + envCorrection(a, open, !o.sheet && route !== "browse" || !!o.sheet);
     }
     if (step === "priorities" && route === "custom") return `<p class="i-note">${esc(t("entry.priorities.state_hint"))}</p><div class="i-ts">${TS.muscleEmphasis(t, a)}</div>`;
     if (step === "priorities") {
@@ -731,7 +733,7 @@
       const h = stepHead(S.step); const pending = S.avoid.pending || S.pref.pending;
       const emptyPrio = !(S.answers.primaryMuscles || []).length && !(S.answers.priorityMovements || []).length && !(S.answers.exerciseConstraints || []).length && !S.avoid.pending;
       const skip = S.route === "recommend" && S.step === "priorities" && emptyPrio ? `<button type="button" class="i-link i-skip" data-act="skip">${esc(t("i.q.skip"))}</button>` : "";
-      body = `<h1 class="i-title" data-focus>${esc(h.title)}</h1>${h.optional ? `<p class="i-opt-l">${esc(t("entry.optional"))}</p>` : ""}${h.lede ? `<p class="i-lede">${esc(h.lede)}</p>` : ""}${skip}${validationNotice()}${questionBody(S.step, S.answers)}`;
+      body = `<h1 class="i-title i-qtitle${document.documentElement.style.fontSize === "200%" ? " visually-hidden" : ""}" data-focus>${esc(h.title)}</h1>${h.optional ? `<p class="i-opt-l">${esc(t("entry.optional"))}</p>` : ""}${h.lede ? `<p class="i-lede">${esc(h.lede)}</p>` : ""}${skip}${validationNotice()}${questionBody(S.step, S.answers)}`;
       const label = S.step === "custom_shape" ? t("entry.custom_shape.generate") : S.route === "recommend" && S.step === "priorities" ? t("i.q.show") : t("entry.next");
       footer = `<footer class="i-stub" data-persistent-action><button type="button" class="i-btn i-btn--solid" id="iNext" data-advance data-act="next"${pending ? ' disabled aria-describedby="pendingAvoidNote"' : ""}>${esc(label)}</button></footer>`;
     } else if (S.step === "catalogue") body = catalogueBody();

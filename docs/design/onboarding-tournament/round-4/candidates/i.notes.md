@@ -114,9 +114,21 @@ Ceiling, all three done: own Today capture as the landing proof
 renders Day 1 as the printed grid; the carbon sheet has a faint impression halo
 and the dark card box keeps each route's colour as a tint.
 
+## Last batch (verdict pass follow-up)
+
+- 200% text: on Recommend question steps the card head's current field names
+  the section and the section heading stays for assistive tech only; hints and
+  the environment explanation follow the options; the folded summary names the
+  filled fields in print ("Já anotado: objetivo, histórico.") and wraps instead
+  of truncating the lifter's answers. The first option of goal, background,
+  schedule, environment and priorities now sits fully above the stub at
+  320 px / 200% (PT and EN).
+- The struck old answer stays in pen blue (62% opacity) under the drawn strike.
+- CONFIRMADO / CONFIRMED marks print in pen blue again.
+- import-preview's Progressão section is populated (the manual-progression
+  sentence and "Seu histórico não será alterado."); full-page captures draw the
+  sticky stub over it, so a scrolled capture shows it.
+
 ## Known gaps for the finish review
 
 - The non-core routes reuse restyled shared widgets (see Structure).
-- At 200% text the Recommend goal and background sections show the top of the
-  first option above the stub, not the whole option (the options carry a
-  second line of explanation).

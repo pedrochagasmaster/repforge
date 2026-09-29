@@ -96,7 +96,7 @@
       "l.imp.more": "Outras opções",
       "l.prev.title": "Revisar o programa",
       "l.proof": "Depois de usar um programa, Hoje mostra a sessão do dia.",
-      "l.hub.aria": "Como começar", "l.f.min": "~{n} min", "l.f.min_range": "~{min}–{max} min", "l.f.sets": "{n} séries", "l.lock.conflict": "O programa ativo mudou · revise de novo", "l.gap.reps": "Repetições", "l.gap.sets": "Séries", "l.imp.keep_s": "Manter o nome", "l.imp.custom_s": "Criar novo", "l.imp.choose_s": "Biblioteca", "l.imp.or": "Ou", "l.imp.suggested": "Sugerido", "l.imp.keep": "Manter o nome importado", "l.imp.choose": "Escolher na biblioteca", "l.imp.as_imported": "Como veio: {name}",
+      "l.hub.aria": "Como começar", "l.f.min": "~{n} min", "l.f.min_range": "~{min}–{max} min", "l.f.sets": "{n} séries", "l.lock.conflict": "O programa ativo mudou · revise de novo", "l.lock.conflict_short": "O programa ativo mudou.", "l.gap.reps": "Repetições", "l.gap.sets": "Séries", "l.imp.keep_s": "Manter o nome", "l.imp.custom_s": "Criar novo", "l.imp.choose_s": "Biblioteca", "l.imp.or": "Ou", "l.imp.suggested": "Sugerido", "l.imp.keep": "Manter o nome importado", "l.imp.choose": "Escolher na biblioteca", "l.imp.as_imported": "Como veio: {name}",
       "entry.rules_changed.rebuild": "Montar de novo com as regras atuais",
     },
     en: {
@@ -171,7 +171,7 @@
       "l.imp.more": "Other options",
       "l.prev.title": "Review the program",
       "l.proof": "Once a program is in use, Today shows the session of the day.",
-      "l.hub.aria": "How to start", "l.f.min": "~{n} min", "l.f.min_range": "~{min}–{max} min", "l.f.sets": "{n} sets", "l.lock.conflict": "The active program changed · review again", "l.gap.reps": "Reps", "l.gap.sets": "Sets", "l.imp.keep_s": "Keep the name", "l.imp.custom_s": "Create new", "l.imp.choose_s": "Library", "l.imp.or": "Or", "l.imp.suggested": "Suggested", "l.imp.keep": "Keep the imported name", "l.imp.choose": "Choose from the library", "l.imp.as_imported": "As imported: {name}",
+      "l.hub.aria": "How to start", "l.f.min": "~{n} min", "l.f.min_range": "~{min}–{max} min", "l.f.sets": "{n} sets", "l.lock.conflict": "The active program changed · review again", "l.lock.conflict_short": "The active program changed.", "l.gap.reps": "Reps", "l.gap.sets": "Sets", "l.imp.keep_s": "Keep the name", "l.imp.custom_s": "Create new", "l.imp.choose_s": "Library", "l.imp.or": "Or", "l.imp.suggested": "Suggested", "l.imp.keep": "Keep the imported name", "l.imp.choose": "Choose from the library", "l.imp.as_imported": "As imported: {name}",
       "entry.rules_changed.rebuild": "Rebuild with current rules",
     },
   };
@@ -504,7 +504,7 @@
       else if (S.live && S.live.ok && TF.progressionIssue(S.live.result.preview)) { blocked = true; reasonId = "lBlocked"; }
       else if (!S.live || !S.live.ok) { blocked = true; reason = t("x.issue.compile"); }
     }
-    if (S.notice === "conflict") { blocked = true; reasonId = "lLock lConflict"; reason = t("l.lock.conflict"); }
+    if (S.notice === "conflict") { blocked = true; reasonId = "lLock lConflict"; reason = t(compact() ? "l.lock.conflict_short" : "l.lock.conflict"); }
     const cp = (route === "recommend" && S.mode === "review") || (route === "import" && S.step === "preview") ? ' data-checkpoint="activate"' : "";
     return `<footer class="l-foot" data-persistent-action${cp}>${reason ? `<p class="l-foot__why" id="lLock">${I.lock}<span>${esc(reason)}</span></p>` : ""}<button type="button" class="l-go${blocked ? " is-locked" : ""}" id="lActivate" data-activate data-act="activate"${blocked ? ` aria-disabled="true" aria-describedby="${reasonId}"` : ""}><span class="l-go__t">${esc(label)}</span><span class="l-go__ico" aria-hidden="true">${blocked ? I.lock : I.arrow}</span></button></footer>`;
   }

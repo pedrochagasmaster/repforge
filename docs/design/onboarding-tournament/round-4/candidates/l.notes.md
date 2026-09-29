@@ -126,6 +126,40 @@ Topology, interaction model and copy kept. Rebuilt in one batch:
    day) are the production catalog's own names, logged by the coordinator
    as a production finding and left as they are.
 
+## Fix batch (finish review disposition FIX, after the rebuild)
+
+1. First viewport (rec-goal, 390×844): the readout keeps Day 1's exercises
+   and the whole Objetivo stack (three plates, the dashed "Padrão" pin) sits
+   above the lock bar. Day meta is one line ("5 exercícios · 7 séries · ~29
+   min"), exercise rows are about 30 px with no rules, the facts are one line
+   ("2 dias · ~29 min · 10 exercícios · 14 séries"), and the "Montado com o
+   primeiro valor…" paragraph moved below the Objetivo stack.
+2. Landing: the proof and privacy line have the 16 px gutter again (a fused
+   selector had disabled the rule).
+3. No dangling separators: the status tag and the import file and count
+   lines use the facts line's clipped leading separator.
+4. Equipment, capability, priority and reason pickers are plates with their
+   own hole: set pin when chosen, empty hole when not (`role="checkbox"` /
+   `"radio"` and `aria-checked` kept).
+5. Paste door: a flat instruction placard with ink rules top and bottom,
+   stencilled step numerals, rules between steps, the set-pin stroke for a
+   finished step and "Editar" as the placard's own underlined control.
+   ff-gaps is the same placard: exercise as the step title, a short
+   "Repetições"/"Séries" label, the example only in the placeholder (the
+   input is labelled by both).
+6. Change statement mark is the single-stroke set pin.
+7. Conflict lock has a one-line reason ("O programa ativo mudou · revise de
+   novo"; "O programa ativo mudou." at 320 px and 200% text).
+8. The compact strip's "N respostas no padrão" carries the hazard stripe.
+Ceiling: import rows keep the candidates as plates and put Manter o nome /
+Criar novo / Biblioteca in one compact plate row (the pin marks keep or
+create); the landing's plate numeral is ink on yellow.
+Left alone as instructed: the growth_3 day names (production finding PF-1).
+
+Verify after the fix batch: 168/168 cells without hard failures, 0
+warnings, 30/30 journeys, 35/35 interaction checks; Rafael 10 taps; the
+correction 6 taps (bound 6).
+
 ## Verification
 
 - `verify.mjs --round 4 --candidates l`: 168/168 checkpoint cells without

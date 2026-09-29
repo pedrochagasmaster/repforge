@@ -90,7 +90,7 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 .i-pen{font-family:var(--f-pen);font-weight:400;color:var(--pen);font-size:1.25rem;line-height:1.15;letter-spacing:.005em}
 .i-pen.is-fresh{animation:i-write .62s cubic-bezier(.33,.7,.25,1) both}
 @keyframes i-write{from{clip-path:inset(-10% 100% -20% 0);filter:blur(.6px)}to{clip-path:inset(-10% -4% -20% 0);filter:none}}
-.i-struck{display:inline;font-family:var(--f-pen);font-size:1.0625rem;color:var(--print-soft);text-decoration:none;margin-right:6px;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:var(--strike) no-repeat 0 46%/100% .6em}
+.i-struck{display:inline;font-family:var(--f-pen);font-size:1.0625rem;color:rgba(var(--pen-rgb),.62);text-decoration:none;margin-right:6px;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:var(--strike) no-repeat 0 46%/100% .6em}
 .i-struckline{display:block}
 .i-struck.is-fresh{animation:i-strike .42s .1s cubic-bezier(.33,.7,.25,1) both}
 @keyframes i-strike{from{background-size:0% .7em}to{background-size:100% .7em}}
@@ -367,7 +367,7 @@ html[data-stock="kraft"] .i-lede,html[data-stock="kraft"] .i-note{color:var(--pr
 .impbadge.i-mark,.impbadge.i-mark.is-open{color:var(--print)}
 .impbadge.i-mark--probable,.impbadge.i-mark--unmatched,.impbadge.i-mark--probable.is-open,.impbadge.i-mark--unmatched.is-open{color:var(--stamp-text)}
 .i-mark--exact,.i-mark--alias,.i-mark--confirmed{color:var(--print)}
-.impbadge.i-mark--confirmed{color:var(--print-soft)}
+.impbadge.i-mark--confirmed{color:var(--pen)}
 
 /* ---------- dialogs: a perforated slip over the card ---------- */
 .i-scrim{position:fixed;inset:0;z-index:20;background:var(--scrim-ink)}
@@ -435,8 +435,7 @@ html[data-stock="kraft"] .i-lede,html[data-stock="kraft"] .i-note{color:var(--pr
 :root[style*="200%"] .i-fields,:root[style*="200%"] .i-lines--2,:root[style*="200%"] .i-bf-grid,:root[style*="200%"] .i-acts--2{grid-template-columns:1fr}
 :root[style*="200%"] .i-field{border-right:0}
 :root[style*="200%"] .i-fields--q .i-field:not(.is-here){display:none}
-:root[style*="200%"] .i-head__sum{display:block;padding:4px 6px;border-bottom:1px solid var(--rule-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-:root[style*="200%"] .i-head__sum .i-pen{display:block;font-size:.875rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+:root[style*="200%"] .i-head__sum{display:block;padding:4px 6px;border-bottom:1px solid var(--rule-soft);font-family:var(--f-form);font-weight:700;font-size:.8125rem;line-height:1.25;color:var(--print-soft)}
 :root[style*="200%"] .i-where__r{display:none}
 :root[style*="200%"] .i-where{padding-bottom:2px}
 :root[style*="200%"] .i-field__btn,:root[style*="200%"] .i-field__static{min-height:44px;padding:4px 6px}
@@ -498,3 +497,10 @@ html[data-stock="kraft"] .i-lede,html[data-stock="kraft"] .i-note{color:var(--pr
 :root[style*="200%"] .i-group__l{font-size:.9375rem;margin-top:2px}
 :root[style*="200%"] .i-field.is-here .i-pen{font-size:.9375rem}
 :root[style*="200%"] .i-route .i-title{font-size:1.125rem}
+/* 200%: the current field of the card head names the section, so the
+   section heading stays for assistive tech only; explanations follow the
+   options. */
+:root[style*="200%"] .i-group__h{order:2}
+:root[style*="200%"] .i-group>.i-lines{order:1}
+:root[style*="200%"] .i-group--explain>.i-group__l{order:3;font-weight:600;font-family:var(--f-print)}
+:root[style*="200%"] .i-group__l{font-size:.875rem}
