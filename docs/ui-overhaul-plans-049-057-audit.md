@@ -33,7 +33,9 @@ Current merged `AGENTS.md`, `docs/ci.md`, backlog, clearance sequence, plan
 index, Plans 058/059, implementation sequence, disposition register and
 semantic contract were consulted. Historical plan-index/checkpoint status
 lines do not reopen completed 058 or outrank #281. #268/#269 retain their
-orientation cleanup. Plan 059 remains last and has not started.
+orientation cleanup. Plan 059 remains last and has not started. Independent review corrected A04
+routing to stage 4 and the A03 code-location labels; both corrections were
+verified against current code and #281 before the final candidate.
 
 Complete starting open-PR inventory, fetched from GitHub:
 
@@ -64,7 +66,7 @@ remediation owner; no product fix or retained suite was added here.
 | A01, P1 | OPEN | Both staged commands accept revision 0→1; promotion/reload drops one accepted field, checkpoint agrees with the losing aggregate, sidecars are gone | Narrow standalone DraftV2 safety fix in stage 4 before #255. Distinct from #271 |
 | A02, P2 | OPEN | History RIR=2 saves to both replicas with `rirMeasured:false`; reload remains `insufficient / missing-effort`. Flag-only control yields `sufficient / improved / progress` | Narrow evidence-correctness fix in stage 4 before #255; preserve provenance for load/date-only edits |
 | A03, P2 | OPEN | New York spring DST returns week 1 on March 9 and excludes today's session; block denominator also remains one week | Narrow evidence-correctness fix in stage 4 before #255; may share the A02 packet if ownership/proofs stay clear |
-| A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Direction D #272's exercise-actions interaction acceptance, not a throwaway restyling PR |
+| A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Narrow stage-4 focus-continuity fix before #255; D retains this utility |
 | A05, former P2 | CLOSED — fixed by #256, History convergence `dbf55da1`, with EN/PT computed typography proof | Catalog and external computed-root 200% both double data, headings and action labels; scaling survives reload | No fix. Preserve scaling proof in D and final 059 evidence |
 | N01, P3 | OPEN | PT sheet still says `Quadríceps · 2 sets` | Direction D #272's retained exercise-actions copy |
 | N02, P3 | OPEN | Live read-only Today Preview with an authoritative `effort_target@1` RIR 2–3 prescription shows sets/reps/muscle but no effort target | Direction D #272 decision 9 / Today preview retirement, with removal and no-draft evidence |
@@ -133,8 +135,9 @@ a narrow stage-4 correctness packet before #255.
 ### A03: calendar weeks still use elapsed local milliseconds
 
 Current owner is `progress-model.js`, `buildWeekStatus():264`, with the same
-pattern in current-week selection `:218`, volume periods `:333`, schedule
-`:430` and lifecycle boundaries `:460`. No byte changed between `29fc1c36`
+pattern in `elapsedWeekOf():218` for Review checkpoints,
+Review lifecycle completion `:333`, this-week Volume `:430`, and
+block-to-date Volume `:460`. No byte changed between `29fc1c36`
 and post-058 main.
 
 The browser clock is March 9, 2026, in `America/New_York`; the block starts
@@ -166,11 +169,13 @@ sheet renders `Quadríceps · 2 sets`. N01 remains P3. No i18n convergence
 translated it. Closing proof is a complete localized count message plus
 rendered PT output, and corresponding-control focus after both toggle roles.
 
-D's published spec decision 11 retains exercise utilities and changes their
-presentation. Assign both findings to that exact #272 workfront, with explicit
-acceptance; do not infer that a new visual recipe repairs focus or copy.
-Neither has data loss, privacy exposure or a dependency integration failure
-that requires building a temporary presentation fix before D.
+D's published spec decision 11 retains exercise utilities; P5b restyles the
+sheets. A04 is a behavioral focus defect on that retained command, so its
+repair is useful across D. Under #281's focus rule it belongs to a narrow
+stage-4 fix before #255, with actual keyboard continuity proof, not to deferred
+redesign acceptance. N01 is presentation copy on the same restyled utility and
+can be corrected in D P5b with rendered PT proof. A new visual recipe alone
+repairs neither focus nor copy.
 
 ### A05: genuine enlarged History text now exists
 
@@ -246,8 +251,8 @@ interrupted, generated shell bytes restored, and selection rerun after cleanup.
 None is reported as a green application regression result.
 
 Next exact stage remains #268/#269 repository orientation, then integrated
-#271 and stage-4 safety/correctness fixes A01–A03, before #255 and the redesign
-train. A04/N01/N02 belong to D's owning UI acceptance. Preserve #281's remaining
+#271 and stage-4 safety/correctness/focus fixes A01–A04, before #255 and the redesign
+train. N01/N02 belong to D's owning UI acceptance. Preserve #281's remaining
 Now work and landing → D → onboarding → #258 → #257 → convergence → 059
 sequence. No remediation, redesign or later PR was started here.
 
