@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
   "plan": "058-P7",
-  "sourceSha": "faa0bc494ab6e04c4537da7179705c89d80115c6",
+  "sourceSha": "e5bca41c5cb017c3cd161e8a880237a3c94a5de7",
   "catalogSource": "docs/ui-screens/screens/",
   "captureCommand": "env -u REPFORGE_URL node tools/capture-ui-screens.mjs",
   "captureGeneratedAt": "2026-09-29",
-  "sourceBoundary": "The complete P7 catalog and representative board were regenerated from frozen Plan 058 production source SHA faa0bc494ab6e04c4537da7179705c89d80115c6. No production application, CSS, token, markup, or behavior source changed during this full-catalog capture; the five selected board images below were recopied from the generated catalog.",
+  "sourceBoundary": "The final 915-frame P7 catalog was captured from evidence checkpoint e37180c330d0f8c730c96c8e7c11a7222b1fd2f8, whose production UI/CSS/runtime source is frozen at e5bca41c5cb017c3cd161e8a880237a3c94a5de7. No production source changed during final capture/evidence binding.",
   "catalog": {
     "screenCount": 148,
-    "frameCount": 910,
+    "frameCount": 915,
     "semanticSha256": "ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa"
   },
   "selectedScreenCount": 30,
   "boardFrameCount": 65,
-  "provenance": "Each board PNG is an unmodified byte-for-byte copy of its corresponding production-generated frame from the complete final P7 catalog at sourceSha. The five selected frames that differed from the final catalog were recopied directly; no screenshot was hand-edited.",
+  "provenance": "Each board PNG remains a byte-for-byte copy of its corresponding frame in the final 915-frame production catalog. The final nine recaptured byte changes do not intersect the 65 selected board frames.",
   "ownerGate": {
     "approval": "Pedro explicitly approved the representative P5 board as the intended Taurifer visual direction; the approval covers the production visual system represented there.",
     "sourceBoard": "docs/ui-screens/owner-board-058-p5/",
     "sourceBoardManifest": "docs/ui-screens/owner-board-058-p5/capture-manifest.json",
     "approvedBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
     "approvedBoardFrameCount": 56,
-    "continuation": "Pedro explicitly approved the P5 board at source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. P6's computed-root 32px dock reflow and measured Today/ready text-scale scroll proof preserve the approved two-row dock, action order, and hierarchy. Five representative board copies were refreshed from the exact final catalog at source SHA faa0bc494ab6e04c4537da7179705c89d80115c6; the Today/ready PT-BR 200% frame shows the whole exercise row above the dock. This is a text-scale clearance correction within the approved system, with no material change to the approved direction, so renewed owner approval is not required.",
+    "continuation": "Pedro explicitly approved the P5 board at source SHA dd70f11ad0e6a4bca8a491c7f37b3296d83c3166 as the intended visual direction. The earlier Today/dock board refresh at faa0bc494ab6e04c4537da7179705c89d80115c6 remains byte-identical to the final e5bca41c5cb017c3cd161e8a880237a3c94a5de7 catalog. The later computed-root Today/day-picker/library correction extends truthful text-scale coverage without changing the selected board hierarchy or direction, so renewed owner approval is not required.",
     "renewedApprovalRequired": false
   },
   "selected": [

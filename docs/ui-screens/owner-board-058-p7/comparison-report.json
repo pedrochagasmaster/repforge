@@ -3,7 +3,7 @@
   "baselineBoard": "owner-board-058-p5",
   "baselineBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
   "currentBoard": "owner-board-058-p7",
-  "currentProductionSourceSha": "faa0bc494ab6e04c4537da7179705c89d80115c6",
+  "currentProductionSourceSha": "e5bca41c5cb017c3cd161e8a880237a3c94a5de7",
   "comparator": "tools/compare-ui-screens.mjs comparePngFiles; measured from production PNG artifacts at this source SHA",
   "thresholds": {
     "changedCellDelta": 0.08,

@@ -1,11 +1,11 @@
 # Plan 058 representative P7 visual board
 
-- **Production source SHA:** faa0bc494ab6e04c4537da7179705c89d80115c6
+- **Production source SHA:** e5bca41c5cb017c3cd161e8a880237a3c94a5de7
 - **Generated:** 2026-09-29 from the complete P7 catalog.
-- **Catalog:** 148 screens / 910 registered frames; semantic snapshot ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa.
-- **Board:** 65 production frames across 30 screens. Each PNG is a byte-for-byte copy from the final catalog; five selected frames were recopied from the regenerated catalog. No screenshot was hand-edited.
+- **Catalog:** 148 screens / 915 registered frames; semantic snapshot ea8535acc3540c911c4dfbb434656614f5523c79d4b6cb4e870e2ca6a831fdaa.
+- **Board:** 65 production frames across 30 screens. Every board PNG remains byte-for-byte identical to its final-catalog source; no screenshot was hand-edited.
 - **Owner approval:** Pedro approved the P5 board at source SHA `dd70f11ad0e6a4bca8a491c7f37b3296d83c3166` as the intended visual direction.
-- **Full-catalog delta:** among the 898 frames present at the P6 baseline, 625 are byte-identical and 273 are byte-changed; 12 registered frames were added and none were removed. Two Today/ready 200% frames exceed the pixel threshold because the production-backed scenario now uses measured scroll clearance to show the whole enlarged exercise row above the dock; both have exact dispositions. The other 271 common changes pass fixed perceptual thresholds. Against the immutable same-source pre-capture snapshot, 852/910 frames are byte-identical and 58 differ: eight Progress proposal previews refresh their derived digest from newly generated scenario IDs, and the remaining 50 differ only at the PNG byte level. All 910 pass perceptual comparison and the semantic catalog matches exactly.
+- **Full-catalog delta:** against the 898-frame P6 baseline, 625 common frames are byte-identical and 273 are byte-changed; 17 frames are added and none removed. The two previously reviewed Today/ready 200% framing changes are the only historical-baseline threshold exceedances. Against the immutable final-source pre-capture snapshot, 906/915 frames are byte-identical and 9 differ: eight Progress proposal previews refresh their derived digest from generated scenario IDs and one exercise-picker frame has negligible raster-only variance. All 915 pass perceptual comparison and the semantic catalog matches exactly.
 - **P5 comparison:** 56 comparable frames, 9 representative frames without a P5 match (seven existing P7 additions plus two paused-timer variants); 50 are within thresholds and 6 exceedances were reviewed. See [comparison-report.json](comparison-report.json).
 - **Exact frame delta:** [catalog-change-inventory.json](catalog-change-inventory.json).
 
