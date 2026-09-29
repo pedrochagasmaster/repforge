@@ -12,8 +12,8 @@ and contracted per decision and finding in
 Unrelated roadmap items below stay deferred; none may be pulled into an
 overhaul PR to "complete" a surface.
 
-**Owner sequencing amendment (2026-09-28):** Plan 058 / PR #256 remains the
-sole merge-active implementation workfront until it lands. After 058, Taurifer
+**Owner sequencing amendment (2026-09-28; refreshed 2026-09-29):** Plan 058 /
+PR #256 is complete and merged. Taurifer now
 constructs the actual pre-059 alpha candidate through the bounded sequence in
 [`docs/post-058-open-pr-clearance-sequence.md`](post-058-open-pr-clearance-sequence.md):
 post-058 truth/safety cleanup, selected mature work, the landing redesign,
@@ -56,7 +56,7 @@ separate teams or synchronized delivery dates.
 | Work | Required outcome | Governing detail |
 |---|---|---|
 | Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
-| Construct the post-058 pre-059 alpha candidate | After Plan 058 merges, clear stale/duplicate open PRs, reconcile repository truth, land live data-safety/audit blockers, then integrate the owner-selected landing, Direction D and onboarding redesigns plus explicitly pulled-forward mature work without weakening their gates. Plan 059 starts only after this candidate can be frozen on one SHA. | [post-058 clearance sequence](post-058-open-pr-clearance-sequence.md) |
+| Construct the post-058 pre-059 alpha candidate | With Plan 058 merged, clear stale/duplicate open PRs, reconcile repository truth, land live data-safety/audit blockers, then integrate the owner-selected landing, Direction D and onboarding redesigns plus explicitly pulled-forward mature work without weakening their gates. Plan 059 starts only after this candidate can be frozen on one SHA. | [post-058 clearance sequence](post-058-open-pr-clearance-sequence.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
 | Alpha data-safety fixes | A lifter's only copy of their data must not be lost or corrupted by a storage failure, a restored backup, or a deploy window. In this order: (1) a failed crash-journal update during a lock-held rebase aborts the write instead of being swallowed; (2) activation on every entry route archives any existing program content instead of discarding it (Q607, Q619); (3) the service worker never stores an error response over a good cached copy. Each lands with its regression test. Standalone PRs, per Q604. | Q604, Q607, Q609; advisor plans [003](../advisor-plans/003-durable-state-rebase-journal-write.md), [001](../advisor-plans/001-setup-link-eligibility-decision.md), [002](../advisor-plans/002-sw-never-cache-error-responses.md) |
 | Alpha measurement producers | The alpha must be able to measure whether lifters follow and understand recommendations. Emit the already-approved `set_saved`, `recommendation_explained`, `exercise_skipped`, and `block_review_viewed` using the Q616–Q618 definitions, and add a CI guard that fails when an approved event has neither a producer nor a reserved reason. No new event or property. Finish before Plan 059's evidence gate. | Q610, Q616–Q618; advisor plan [023](../advisor-plans/023-wire-alpha-trust-telemetry.md) |
@@ -91,6 +91,16 @@ work that is not being opportunistically cleared under that explicit exception:
 remove switching friction first, then validate how often real-life constraints
 break an otherwise good program before paying the complexity cost of broader
 execution models.
+
+The complete authorized exception mapping is below. Work names refer to the
+ordered Next rows, not a separate product queue. The canonical checker derives
+the workfront mapping from this table and checks it against the clearance stages.
+
+| Pre-059 PR | Next work |
+|---|---|
+| #255 | Unsupported workout-grammar measurement |
+| #257 | Free one-off sessions |
+| #258 | Historical migration foundation — Hevy, Strong, generic CSV |
 
 | Order | Work | User problem / business risk | Smallest observable success condition | Depends on | Scheduling effect |
 |---:|---|---|---|---|---|

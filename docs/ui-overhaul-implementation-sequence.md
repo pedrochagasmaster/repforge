@@ -485,7 +485,7 @@ Plan 049 names semantic roles before feature work. Plan 058 inventories and migr
 
 ## Deferred work
 
-The following remain outside Plans 049–059 except a future-compatible seam explicitly named in a current plan: general program lifecycle expansion, general lifecycle/friction observability, publisher attribution/identity, free one-off sessions, general multi-gym, generalized intervention routing, Pro, payments, entitlement, AI, cloud sync, production account/platform APIs, hosted workout storage, creator publishing, and native rewrite. None may be pulled into an overhaul PR to “complete” a surface.
+The following remain outside Plans 049–059 except a future-compatible seam explicitly named in a current plan: general program lifecycle expansion, general lifecycle/friction observability, publisher attribution/identity, free one-off sessions, general multi-gym, generalized intervention routing, Pro, payments, entitlement, AI, cloud sync, production account/platform APIs, hosted workout storage, creator publishing, and native rewrite. None may be pulled into an overhaul PR to “complete” a surface. The separately owned already-open #255/#257/#258 workfronts have only the bounded post-058, pre-059 exception in [the clearance sequence](post-058-open-pr-clearance-sequence.md); they remain outside completed Plans 049–058.
 
 ## Public-launch boundary
 

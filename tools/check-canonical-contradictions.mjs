@@ -538,7 +538,7 @@ for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"
   };
   const now = section("Now");
   const next = section("Next");
-  const nextIntro = next.split(/^\| Order \|/m)[0].replace(/\s+/g, " ");
+  const nextIntro = next.split(/^\| (?:Pre-059 PR|Order) \|/m)[0].replace(/\s+/g, " ");
   check(!!now && !!next, "backlog: Now and Next sections must exist");
   check(
     /default post-launch-validation queue/i.test(nextIntro),
@@ -559,30 +559,42 @@ for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"
   check(!/^\|\s*Next\s*\|/mi.test(now), "backlog: Next status row appears in Now section");
   check(!/^\|\s*Now\s*\|/mi.test(backlog.replace(now, "")), "backlog: Now status row appears outside Now section");
 
+  const normalize = (value) => value.replace(/[*`]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
   const nextWork = [...next.matchAll(/^\|\s*\d+\s*\|\s*([^|]+?)\s*\|/gm)].map((row) => row[1].trim());
   check(nextWork.length > 0, "backlog: Next queue has no ordered work rows");
-  const allowedPre059 = new Map([
-    ["Historical migration foundation — Hevy, Strong, generic CSV", "#258"],
-    ["Free one-off sessions", "#257"],
-    ["Unsupported workout-grammar measurement", "#255"],
-  ]);
+  // PR identities are the explicit owner decision; work titles come from the
+  // canonical backlog, so renaming a work item does not require a second enum.
+  const authorizedPRs = new Set(["#255", "#257", "#258"]);
+  const mappingTable = next.match(/^\| Pre-059 PR \| Next work \|\r?\n\|[-| :]+\|\r?\n((?:\|[^\n]+\|\r?\n)+)/m)?.[1] ?? "";
+  const mappings = [...mappingTable.matchAll(/^\|\s*(#[0-9]+)\s*\|\s*([^|]+?)\s*\|$/gm)]
+    .map((row) => ({ pr: row[1], work: row[2].trim() }));
+  check(mappings.length === authorizedPRs.size, "backlog: pre-059 mapping must contain exactly three exceptions");
+  check(new Set(mappings.map(({ pr }) => pr)).size === mappings.length, "backlog: duplicate pre-059 PR mapping");
+  check(new Set(mappings.map(({ work }) => normalize(work))).size === mappings.length, "backlog: duplicate pre-059 Next mapping");
+  for (const pr of authorizedPRs) {
+    check(mappings.some((entry) => entry.pr === pr), `backlog: pre-059 exception mapping missing ${pr}`);
+  }
+  const sequenceRows = [...clearance.matchAll(/^\|\s*\d+\s*\|\s*([^|]+)\|[^\n]+$/gm)]
+    .map((row) => normalize(row[1]));
+  for (const { pr, work } of mappings) {
+    check(authorizedPRs.has(pr), `backlog: unauthorized pre-059 PR ${pr}`);
+    check(nextWork.some((item) => normalize(item) === normalize(work)), `backlog: pre-059 mapping is not an ordered Next item ("${work}")`);
+    const stages = sequenceRows.filter((row) => new RegExp(`${pr}(?![0-9])`).test(row));
+    check(stages.length === 1 && stages[0].includes(normalize(work)), `post-058 sequence: missing or incorrect stage mapping for ${pr}`);
+  }
+  const allowedPre059 = new Set(mappings.filter(({ pr }) => authorizedPRs.has(pr)).map(({ work }) => normalize(work)));
+  // Include engineering Next rows too; adding another queue cannot bypass the
+  // default boundary. Unapproved titles are rejected without reliance on bold.
+  const statusNextWork = [...backlog.matchAll(/^\|\s*Next\s*\|\s*([^|]+?)\s*\|/gm)].map((row) => row[1].trim());
   const overhaulPlans = readdirSync(join(ROOT, "plans")).filter((name) => /^0(49|5[0-8])-.*\.md$/.test(name));
-  for (const work of nextWork) {
+  for (const work of new Set([...nextWork, ...statusNextWork])) {
     check(!now.includes(work), `backlog: Next work is also scheduled as a Now table row ("${work}")`);
     for (const name of overhaulPlans) {
       const plan = `plans/${name}`;
       check(!read(plan).includes(work), `backlog: Next work appears in ${plan} ("${work}")`);
     }
-    if (allowedPre059.has(work)) {
-      check(
-        clearance.includes(allowedPre059.get(work)),
-        `post-058 sequence: pulled-forward Next work lacks its PR mapping ("${work}")`,
-      );
-    } else {
-      check(
-        !clearance.includes(`**${work}**`),
-        `post-058 sequence: unapproved Next work pulled forward ("${work}")`,
-      );
+    if (!allowedPre059.has(normalize(work))) {
+      check(!normalize(clearance).includes(normalize(work)), `post-058 sequence: unapproved Next work pulled forward ("${work}")`);
     }
   }
   check(
