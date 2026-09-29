@@ -328,7 +328,7 @@
     const step = S.route === "build" ? "editor" : generated() ? "result" : "preview";
     let r;
     try { r = TF.activate(stateFor(step)); } catch (e) { r = { ok: false, code: "state_invalid" }; }
-    if (r.ok) { const toast = t("x.activated"); const trip = tripOf(); S = blank("today"); S.shared = null; S.toast = toast; S.trip = trip; render(true); return; }
+    if (r.ok) { const toast = t("x.activated"); const trip = tripOf(); S = blank("today"); S.shared = null; S.toast = toast; S.trip = trip; render(true); const mine = S; setTimeout(() => { if (S === mine && S.toast) { S.toast = null; const el = root.querySelector(".k-toast"); if (el) el.remove(); } }, 6000); return; }
     if (r.code === "active_program_changed") { S.notice = "conflict"; S.overlay = null; render("dConflictBox"); return; }
     S.actError = TS.issueText(t, r, { preview: S.result && S.result.preview }); render("dActError");
   }
@@ -529,7 +529,7 @@
       const head = `<span class="k-net__top">${roundel(n)}<span class="k-net__name">${esc(t(`k.line.${route}`))}</span>${mini ? "" : `<span class="k-net__cost">${esc(plural("k.cost", cost))}</span>`}</span>`;
       const track = `<span class="k-net__track" aria-hidden="true">${dots}</span>`;
       if (mini) return `<li class="k-net__row" data-line="${n}"><span class="k-net__btn">${head}${track}</span></li>`;
-      return `<li class="k-net__row" data-line="${n}"><button type="button" class="k-net__btn" data-act="route" data-route="${route}"${m ? ` data-mode="${m}"` : ""}>${head}<span class="k-net__do">${esc(doText)}</span>${track}</button></li>`;
+      return `<li class="k-net__row" data-line="${n}"><button type="button" class="k-net__btn" data-act="route" data-route="${route}"${m ? ` data-mode="${m}"` : ""}>${head}<span class="k-net__do">${esc(doText)}</span></button>${track}</li>`;
     }).join("");
     return `<div class="k-net${mini ? " k-net--mini" : ""}">${mini ? "" : `<p class="k-net__origin">${esc(t("k.map.origin"))}</p>`}<ol class="k-net__rows"${mini ? ' aria-hidden="true"' : ""}>${rows}</ol>
       <div class="k-net__end"><div class="k-net__endstop"><span class="k-net__enddot" aria-hidden="true"></span><p><strong>${esc(t("k.map.end_program"))}</strong>${mini ? "" : `<span>${esc(t("k.map.end_program_sub"))}</span>`}</p></div><div class="k-net__endstop"><span class="k-net__enddot k-net__enddot--today" aria-hidden="true"></span><p><strong>${esc(t("k.map.end_today"))}</strong>${mini ? "" : `<span>${esc(t("k.map.end_today_sub"))}</span>`}</p></div></div></div>`;

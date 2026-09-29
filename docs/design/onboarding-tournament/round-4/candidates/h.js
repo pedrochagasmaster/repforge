@@ -45,6 +45,7 @@
       "h.q.priorities": "Algo para priorizar ou evitar?",
       "h.q.priorities_lede": "Opcional. Sem escolhas aqui, o Taurifer monta o programa só com as respostas anteriores.",
       "h.q.emphasis": "Que ênfase cada músculo deve ter?",
+      "h.q.none_limit": "Você já escolheu dois músculos. Desmarque um para trocar.",
       "h.q.prefs": "Algum exercício para incluir ou evitar?",
       "h.q.minutes_lede": "É um teto: o Taurifer monta sessões que cabem nele.",
       "h.unit.days": "dias", "h.unit.min": "minutos", "h.unit.sec": "segundos", "h.unit.minrest": "minutos",
@@ -131,6 +132,7 @@
       "h.q.priorities": "Anything to prioritize or avoid?",
       "h.q.priorities_lede": "Optional. With nothing chosen here, Taurifer builds the program from your earlier answers alone.",
       "h.q.emphasis": "What emphasis should each muscle get?",
+      "h.q.none_limit": "You have chosen two muscles. Clear one to choose another.",
       "h.q.prefs": "Any exercise to include or avoid?",
       "h.q.minutes_lede": "It is a ceiling: Taurifer builds sessions that fit inside it.",
       "h.unit.days": "days", "h.unit.min": "minutes", "h.unit.sec": "seconds", "h.unit.minrest": "minutes",
@@ -432,7 +434,7 @@
       case "priorities": {
         const prim = a.primaryMuscles || []; const st = ctx.sheet ? S.sheet.avoid : S.avoid;
         return `<div class="h-words h-words--lead">${opt({ key: "clearPriorities", val: "1", title: t("entry.priorities.none"), sel: prim.length === 0 && !(a.priorityMovements || []).length && !(a.exerciseConstraints || []).length, role: "checkbox", ctx })}</div>
-          <p class="h-label" id="${p}Prim">${esc(t("entry.priorities.primary"))}</p><p class="h-note">${esc(t(prim.length >= 2 ? "g.q.none_limit" : "entry.priorities.lede", undefined, t("entry.priorities.lede")))}</p>
+          <p class="h-label" id="${p}Prim">${esc(t("entry.priorities.primary"))}</p><p class="h-note">${esc(t(prim.length >= 2 ? "h.q.none_limit" : "entry.priorities.lede"))}</p>
           <div class="h-chips" role="group" aria-labelledby="${p}Prim">${TS.MUSCLES.map((m) => chip({ key: "primaryMuscles", val: m, label: t(`entry.muscle.${m}`), sel: prim.includes(m), disabled: prim.length >= 2 && !prim.includes(m), ctx })).join("")}</div>
           <p class="h-label" id="${p}Mov">${esc(t("entry.priorities.movements"))}</p>
           <div class="h-chips" role="group" aria-labelledby="${p}Mov">${TS.MOVEMENTS.map((m) => chip({ key: "priorityMovements", val: m, label: t(`entry.movement.${m}`), sel: (a.priorityMovements || []).includes(m), ctx })).join("")}</div>
@@ -440,7 +442,7 @@
       }
       case "emphasis": {
         const status = (m) => (a.primaryMuscles || []).includes(m) ? "prioritize" : (a.deEmphasizedMuscles || []).includes(m) ? "deemphasize" : (a.ignoredMuscles || []).includes(m) ? "ignore" : "normal";
-        return `<p class="h-note">${esc(t("entry.priorities.state_hint"))}</p><div class="h-emph">${TS.MUSCLES.map((m) => { const cur = status(m); const full = (a.primaryMuscles || []).length >= 2 && cur !== "prioritize"; return `<div class="h-emph__row"><p class="h-emph__m" id="${p}M-${m}">${esc(t(`entry.muscle.${m}`))}</p><div class="h-chips h-chips--4" role="radiogroup" aria-labelledby="${p}M-${m}">${["normal", "prioritize", "deemphasize", "ignore"].map((stt) => chip({ key: "musclePriority", val: `${m}|${stt}`, label: t(`entry.priorities.state.${stt}`), sel: cur === stt, role: "radio", disabled: stt === "prioritize" && full, ctx })).join("")}</div></div>`; }).join("")}</div>`;
+        return `<div class="h-emph">${TS.MUSCLES.map((m) => { const cur = status(m); const full = (a.primaryMuscles || []).length >= 2 && cur !== "prioritize"; return `<div class="h-emph__row"><p class="h-emph__m" id="${p}M-${m}">${esc(t(`entry.muscle.${m}`))}</p><div class="h-chips h-chips--4" role="radiogroup" aria-labelledby="${p}M-${m}">${["normal", "prioritize", "deemphasize", "ignore"].map((stt) => chip({ key: "musclePriority", val: `${m}|${stt}`, label: t(`entry.priorities.state.${stt}`), sel: cur === stt, role: "radio", disabled: stt === "prioritize" && full, ctx })).join("")}</div></div>`; }).join("")}</div>`;
       }
       case "prefs": {
         const st = ctx.sheet ? S.sheet.pref : S.pref;
@@ -577,7 +579,7 @@
     const err = S.actError ? `<p class="h-alert" role="alert" id="hActError" tabindex="-1">${esc(S.actError)}</p>` : "";
     return `<main class="h-page h-poster"${cp ? ` data-checkpoint="${cp}"` : ""} data-entry-step="${step}">${bar({ center: kind })}
       ${conflict}
-      <header class="h-poster__head"><h1 class="h-poster__name" tabindex="-1"><span class="h-poster__nm" data-fit data-fit-max="92" data-fit-vh="0.12">${esc(name)}</span></h1>${factsLine(preview)}${source ? `<p class="h-note">${esc(source)}</p>` : ""}</header>
+      <header class="h-poster__head"><h1 class="h-poster__name" tabindex="-1"><span class="h-poster__nm" data-fit data-fit-lines="2" data-fit-max="92" data-fit-vh="0.12">${esc(name)}</span></h1>${factsLine(preview)}${source ? `<p class="h-note">${esc(source)}</p>` : ""}</header>
       ${changeBlock()}
       ${posterCols(preview)}
       ${colophon()}${progNote}${whyBlock()}
@@ -727,9 +729,8 @@
     const sh = S.sheet; const qs = GROUPS[S.route].find((g) => g[0] === sh.group)[1];
     const blockers = qs.map((q) => blocker(q, sh.answers, sh)).filter(Boolean);
     return `<div class="h-scrim" data-scrim></div><div class="h-sheet" role="dialog" aria-modal="true" aria-labelledby="hDlgTitle">
-      <div class="h-sheet__head"><h2 class="h-sheet__t" id="hDlgTitle" tabindex="-1">${esc(t("h.ed.title", { what: t(`h.what.${sh.group}`) }))}</h2><button type="button" class="h-link" data-act="sheet-close">${esc(t("h.ed.keep"))}</button></div>
-      <div class="h-sheet__body">${qs.map((q) => `<section class="h-sheet__q">${qHead(q, { sheet: true })}${qBody(q, sh.answers, { sheet: true })}</section>`).join("")}</div>
-      <div class="h-sheet__foot">${sh.error ? `<p class="h-alert" role="alert">${esc(sh.error)}</p>` : ""}${blockers.length ? `<p class="h-dock__why" id="hSheetWhy">${esc(blockers[0])}</p>` : ""}<button type="button" class="h-btn h-btn--field" data-act="sheet-apply"${blockers.length ? ' disabled aria-describedby="hSheetWhy"' : ""}><span class="h-btn__l">${esc(t("h.ed.apply"))}</span>${ARROW()}</button></div></div>`;
+      <div class="h-sheet__body"><h2 class="h-sheet__t" id="hDlgTitle" tabindex="-1">${esc(t("h.ed.title", { what: t(`h.what.${sh.group}`) }))}</h2>${qs.map((q) => `<section class="h-sheet__q">${qHead(q, { sheet: true })}${qBody(q, sh.answers, { sheet: true })}</section>`).join("")}</div>
+      <div class="h-sheet__foot">${sh.error ? `<p class="h-alert" role="alert">${esc(sh.error)}</p>` : ""}${blockers.length ? `<p class="h-dock__why" id="hSheetWhy">${esc(blockers[0])}</p>` : ""}<button type="button" class="h-btn h-btn--field" data-act="sheet-apply"${blockers.length ? ' disabled aria-describedby="hSheetWhy"' : ""}><span class="h-btn__l">${esc(t("h.ed.apply"))}</span>${ARROW()}</button><button type="button" class="h-link h-sheet__keep" data-act="sheet-close">${esc(t("h.ed.keep"))}</button></div></div>`;
   }
   function openSheet(group) { S.sheet = { group, answers: clone(S.answers), avoid: { query: "", pending: null }, pref: { query: "", pending: null }, error: null }; S.overlayReturn = `[data-chip="${group}"]`; render("#hDlgTitle"); }
   function closeSheet() { const g = S.sheet && S.sheet.group; S.sheet = null; render(g ? `[data-chip="${g}"]` : true); }
@@ -783,10 +784,12 @@
     return ctx2d.measureText(txt).width / 100 + ls * txt.length;
   }
   function fitSize(el) {
-    const cs = getComputedStyle(el); const host = el.parentElement; const hcs = getComputedStyle(host);
-    const avail = (el.dataset.fitLine !== undefined || cs.display !== "inline" ? el.parentElement.clientWidth - parseFloat(hcs.paddingLeft) - parseFloat(hcs.paddingRight) : host.clientWidth) - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const cs = getComputedStyle(el);
+    const box = cs.display === "inline" ? el.parentElement : el; const bcs = box === el ? cs : getComputedStyle(box);
+    const avail = box.clientWidth - parseFloat(bcs.paddingLeft) - parseFloat(bcs.paddingRight);
     const text = el.textContent.trim(); if (!text || avail <= 0) return null;
-    const unit = el.dataset.fitLine !== undefined ? widthPerPx(text, cs) : Math.max(...text.split(/\s+/).map((w) => widthPerPx(w, cs)));
+    let unit = el.dataset.fitLine !== undefined ? widthPerPx(text, cs) : Math.max(...text.split(/\s+/).map((w) => widthPerPx(w, cs)));
+    if (el.dataset.fitLines) unit = Math.max(unit, (widthPerPx(text, cs) * 1.08) / +el.dataset.fitLines);
     const cap = Math.min(+el.dataset.fitMax || 120, el.dataset.fitVh ? innerHeight * +el.dataset.fitVh + 24 : Infinity);
     return Math.max(12, Math.min(cap, (avail * 0.97) / unit));
   }
@@ -806,8 +809,8 @@
       const n = +g.dataset.n || 1; const avail = g.clientWidth; const gap = parseFloat(getComputedStyle(g).columnGap) || 0;
       let longest = 0;
       for (const el of g.querySelectorAll(".h-ex__n, .h-col__name")) { const cs = getComputedStyle(el); const size = parseFloat(cs.fontSize); for (const w of el.textContent.trim().split(/\s+/)) longest = Math.max(longest, widthPerPx(w, cs) * size); }
-      const pad = 14; let cols = Math.min(n, 4);
-      while (cols > 1 && ((avail - gap * (cols - 1)) / cols - pad < Math.max(longest + 2, 100))) cols--;
+      const pad = 4; let cols = Math.min(n, 4);
+      while (cols > 1 && ((avail - gap * (cols - 1)) / cols - pad < Math.max(longest + 2, 92))) cols--;
       const rows = Math.ceil(n / cols); cols = Math.ceil(n / rows);
       g.style.setProperty("--cols", cols);
     }
@@ -1107,8 +1110,7 @@
       if (!S || S.view !== "route" || !S.route) return null;
       let result = S.result;
       if (S.route === "build" && S.stage === "editor" && S.build) result = TS.build.result(S.build);
-      if (S.stage === "q" || S.stage === "catalogue" || S.stage === "setup") result = S.route === "browse" || S.route === "build" ? null : null;
-      if (S.route === "import" && S.stage === "import") result = null;
+      if (S.stage === "q" || S.stage === "catalogue" || S.stage === "setup" || S.stage === "import") result = null;
       return TF.jsonClean({ route: S.route, step: entryStep(), answers: answers(), result: result || null });
     },
     journeys,

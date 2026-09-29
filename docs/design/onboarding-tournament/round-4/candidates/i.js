@@ -52,7 +52,7 @@
       "i.v.none": "nenhuma", "i.v.prefs_none": "sem preferências",
       "i.chip.goal": "Objetivo", "i.chip.exp": "Tempo com programas", "i.chip.cons": "Últimas 6 semanas", "i.chip.days": "Dias por semana", "i.chip.minutes": "Duração", "i.chip.rest": "Descanso",
       "i.chip.env": "Onde você treina", "i.chip.prio": "Prioridades", "i.chip.avoid": "Evitar", "i.chip.emph": "Ênfase muscular", "i.chip.prefs": "Exercícios", "i.chip.shape": "Estrutura",
-      "i.rev.fields_hint": "Toque em uma resposta para corrigir. O programa é refeito aqui mesmo.",
+      "i.rev.fields_hint": "Toque em uma resposta para corrigir.",
       "i.rev.adjusted": "O que o Taurifer ajustou",
       "i.rev.constraints": "Suas restrições",
       "i.rev.restore": "Restaurar", "i.rev.restore_aria": "Restaurar {exercise}",
@@ -125,7 +125,7 @@
       "i.v.none": "none", "i.v.prefs_none": "no preferences",
       "i.chip.goal": "Goal", "i.chip.exp": "Time on programs", "i.chip.cons": "Past 6 weeks", "i.chip.days": "Days per week", "i.chip.minutes": "Length", "i.chip.rest": "Rest",
       "i.chip.env": "Where you train", "i.chip.prio": "Priorities", "i.chip.avoid": "Avoid", "i.chip.emph": "Muscle emphasis", "i.chip.prefs": "Exercises", "i.chip.shape": "Structure",
-      "i.rev.fields_hint": "Tap an answer to correct it. The program is rebuilt right here.",
+      "i.rev.fields_hint": "Tap an answer to correct it.",
       "i.rev.adjusted": "What Taurifer adjusted",
       "i.rev.constraints": "Your constraints",
       "i.rev.restore": "Restore", "i.rev.restore_aria": "Restore {exercise}",
@@ -182,7 +182,7 @@
 
   /* ---------- state ---------- */
   function blank(view) {
-    return { view, route: null, step: null, answers: {}, result: null, card: null, changeFrom: null, lastPreview: null, validation: false, build: null, editing: false, importMode: "freeform", importDraft: null, importKept: null, importHeld: null, ff: TS.freeform.create(), picker: null, help: null, envOpen: false, avoid: { query: "", pending: null }, pref: { query: "", pending: null }, sheet: null, overlay: null, notice: null, actError: null, toast: null, revAtStart: TF.liveRevision(), shared: S ? S.shared : null, sharedError: null, cpTag: null, stash: S ? S.stash : null, orig: null, fresh: null, freshChips: null, freshField: null, stamping: false, handover: null };
+    return { view, route: null, step: null, answers: {}, result: null, card: null, changeFrom: null, lastPreview: null, validation: false, build: null, editing: false, importMode: "freeform", importDraft: null, importKept: null, importHeld: null, ff: TS.freeform.create(), picker: null, help: null, envOpen: false, avoid: { query: "", pending: null }, pref: { query: "", pending: null }, sheet: null, overlay: null, notice: null, actError: null, toast: null, revAtStart: TF.liveRevision(), shared: S ? S.shared : null, sharedError: null, cpTag: null, stash: S ? S.stash : null, orig: null, fresh: null, freshChips: null, freshField: null, stamping: false, handover: null, printRows: false };
   }
   function fresh(seed) { S = null; TF.seedDevice(seed || "fresh"); S = blank(TF.hasActiveProgram() ? "today" : "landing"); }
   const answers = () => TF.normalizeAnswers(S.answers);
@@ -255,7 +255,7 @@
     const next = screens[screens.indexOf(S.step) + 1];
     if (next === "custom_shape") ensureSplit(S.answers);
     S.step = next;
-    if (next === "result") compileFirst();
+    if (next === "result") { compileFirst(); S.printRows = true; }
     render(true);
   }
   function skipPriorities() {
@@ -299,6 +299,7 @@
     S.actError = null;
     if (S.editing && S.build) { S.result = TS.build.commit(S.result, S.build); S.editing = false; }
     if (S.route === "build") S.result = TS.build.result(S.build);
+    const btnLabel = (root.querySelector("#iActivate") || {}).textContent || "";
     const step = S.route === "build" ? "editor" : generated() ? "result" : "preview";
     let r;
     try { r = TF.activate(stateFor(step)); } catch (e) { r = { ok: false, code: "state_invalid" }; }
@@ -306,7 +307,7 @@
       const stock = STOCK[S.route] || "yellow";
       const hand = () => { S = blank("today"); S.shared = null; S.handover = { stock }; render(true); };
       if (reduced()) { hand(); return; }
-      S.stamping = true; render(); setTimeout(hand, 820); return;
+      S.stamping = btnLabel || true; render(); setTimeout(hand, 820); return;
     }
     if (r.code === "active_program_changed") { S.notice = "conflict"; S.overlay = null; render("iConflictBox"); return; }
     S.actError = TS.issueText(t, r, { preview: S.result && S.result.preview }); render("iActError");
@@ -476,7 +477,7 @@
   function hubView() {
     const active = TF.hasActiveProgram();
     const cur = active ? TF.device.active : null;
-    return `<div class="i-page i-hub"><header class="i-bar">${btn("", "hub-back", { cls: "i-link i-bar__btn" }).replace("></button>", `>${SVG_CHEV}${esc(t("entry.back"))}</button>`)}</header>
+    return `<div class="i-page i-hub"><header class="i-bar"><button type="button" class="i-link i-bar__btn" data-act="hub-back">${SVG_CHEV}${esc(t("entry.back"))}</button></header>
       <main class="i-main" data-checkpoint="${active ? "hub-existing" : "route-choice"}">
         <h1 class="i-title" data-focus>${esc(t("entry.hub.title"))}</h1><p class="i-lede">${esc(active ? t("i.hub.lede_existing") : t("i.hub.lede_first"))}</p>
         ${cur ? `<section class="i-current" aria-labelledby="iCur"><h2 class="i-rule-l" id="iCur">${esc(t("i.hub.current"))}</h2><p class="i-current__n" data-user-text>${esc(TF.activeName(lang))}</p><p class="i-small">${esc(t("i.hub.current_facts", { days: cur.daysPerWeek, n: TF.device.sessions }))}</p>${stamp("i-stamp--sm")}<p class="i-note">${esc(t("entry.active_notice"))}</p></section>` : ""}
@@ -563,7 +564,7 @@
       const dn = TF.dayName(t, d, preview.programStructure, i);
       return `<section class="i-day" aria-labelledby="iDay${i}"><header class="i-day__h"><span class="i-day__n" aria-hidden="true">${i + 1}</span><span class="i-day__hb"><h3 class="i-day__t" id="iDay${i}">${esc(dn)}</h3><span class="i-day__m">${esc(meta)}</span></span></header>
         <table class="i-grid"><thead><tr><th scope="col" class="i-grid__ex">${esc(t("i.grid.exercise"))}</th><th scope="col" class="i-grid__n">${esc(t("i.grid.sets"))}</th><th scope="col" class="i-grid__n">${esc(t("i.grid.reps"))}</th><th scope="col" class="i-grid__ld">${esc(t("i.grid.load"))}</th></tr></thead>
-        <tbody>${ex.length ? ex.map((e, j) => { const isNew = added.has(e.id); return `<tr class="i-row${isNew ? " is-new" : ""}" data-slot="${esc(e.id)}" style="--i:${j}"><td class="i-grid__ex">${esc(TS.exName(e, lang))}${isNew ? ` <span class="i-new">${esc(t("i.rev.new"))}</span>` : ""}</td><td class="i-grid__n">${e.sets != null ? e.sets : ""}</td><td class="i-grid__n">${e.min != null ? (e.min === e.max ? e.min : `${e.min}–${e.max}`) : ""}</td><td class="i-grid__ld"><span class="i-ldline"></span></td></tr>`; }).join("") : `<tr><td colspan="4" class="i-grid__ex">${esc(t("program.empty.exercises"))}</td></tr>`}</tbody></table></section>`;
+        <tbody>${ex.length ? ex.map((e, j) => { const isNew = added.has(e.id); return `<tr class="i-row${isNew ? " is-new" : ""}" data-slot="${esc(e.id)}" style="--i:${j}"><td class="i-grid__ex">${esc(TS.exName(e, lang))}${isNew ? ` <span class="i-new">${esc(t("i.rev.new"))}</span>` : ""}</td><td class="i-grid__n" data-l="${esc(t("i.grid.sets"))}">${e.sets != null ? e.sets : ""}</td><td class="i-grid__n" data-l="${esc(t("i.grid.reps"))}">${e.min != null ? (e.min === e.max ? e.min : `${e.min}–${e.max}`) : ""}</td><td class="i-grid__ld"><span class="i-ldline"></span></td></tr>`; }).join("") : `<tr><td colspan="4" class="i-grid__ex">${esc(t("program.empty.exercises"))}</td></tr>`}</tbody></table></section>`;
     }).join("");
   }
   function editorView() {
@@ -590,10 +591,10 @@
     const conflict = S.notice === "conflict" ? `<div id="iConflictBox" tabindex="-1" class="i-notice i-notice--err" role="alert" data-checkpoint="activation-conflict"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>${btn(t("entry.conflict.review"), "conflict-review")}</div>` : "";
     let out = `${conflict}<div class="i-namebar">${S.stamping ? stamp("i-stamp--press") : ""}<h1 class="i-progname" data-focus${S.route === "shared" || S.route === "import" ? " data-user-text" : ""}>${esc(name())}</h1>
       <p class="i-facts" id="iFacts">${facts.map((x) => `<span>${esc(x)}</span>`).join("")}</p></div>${changeLine()}
-      ${TF.hasActiveProgram() && S.notice !== "conflict" ? `<p class="i-note i-active">${esc(t("entry.active_notice"))}</p>` : ""}`;
+      ${TF.hasActiveProgram() && S.notice !== "conflict" && !S.stamping ? `<p class="i-note i-active">${esc(t("entry.active_notice"))}</p>` : ""}`;
     if (gen) out += fieldsBlock();
     else out += `<p class="i-note i-src">${esc(t("i.rev.source", { source: t(`entry.preview.source.${S.route}`) }))}</p>`;
-    out += `<section class="i-week" aria-labelledby="iWeek"><h2 class="visually-hidden" id="iWeek">${esc(t("entry.preview.days"))}</h2>${grid(p, S.changeFrom && gen ? addedIds(S.changeFrom.preview, p) : new Set())}<p class="i-note i-loadnote">${esc(t("i.grid.load_note"))}</p></section>`;
+    out += `<section class="i-week${S.printRows ? " is-printing" : ""}" aria-labelledby="iWeek"><h2 class="visually-hidden" id="iWeek">${esc(t("entry.preview.days"))}</h2>${grid(p, S.changeFrom && gen ? addedIds(S.changeFrom.preview, p) : new Set())}<p class="i-note i-loadnote">${esc(t("i.grid.load_note"))}</p></section>`;
     const obs = [];
     if (gen) for (const x of TS.reasons(t, lang, r, a, { custom: S.route === "custom" })) obs.push(x.text);
     else {
@@ -615,7 +616,7 @@
   }
   function activateStub({ ready = true, reasonId = null, statusHtml = "" } = {}) {
     const blocked = S.notice === "conflict" ? "iConflictBox" : !ready ? reasonId : null;
-    const label = TF.hasActiveProgram() ? t("entry.preview.activate_replace") : S.route === "build" && !S.editing ? t("entry.editor.use") : t("entry.preview.activate_first");
+    const label = S.stamping ? S.stamping : TF.hasActiveProgram() ? t("entry.preview.activate_replace") : S.route === "build" && !S.editing ? t("entry.editor.use") : t("entry.preview.activate_first");
     return `<footer class="i-stub" data-persistent-action data-checkpoint="activate">${statusHtml}<button type="button" class="i-btn i-btn--stamp" id="iActivate" data-activate data-act="activate"${blocked ? ` disabled aria-describedby="${blocked}"` : ""}${S.stamping ? ' aria-disabled="true"' : ""}>${esc(label)}</button></footer>`;
   }
   function catalogueBody() {
@@ -778,7 +779,7 @@
     const act = document.activeElement; const key = focusKey(act); const typing = act && /^(INPUT|TEXTAREA)$/.test(act.tagName);
     document.documentElement.dataset.stock = stockNow();
     root.innerHTML = view();
-    S.fresh = null; S.freshChips = null; S.freshField = null;
+    S.fresh = null; S.freshChips = null; S.freshField = null; S.printRows = false;
     if (typeof focus === "string") focusId(focus);
     else if (focus) { window.scrollTo(0, 0); TS.focusHeading(root); }
     else if (key) { const el = root.querySelector(key); if (el) { if (typing && el.id) TS.refocus(root, el.id); else try { el.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }

@@ -96,6 +96,7 @@
       "l.imp.more": "Outras opções",
       "l.prev.title": "Revisar o programa",
       "l.proof": "Depois de usar um programa, Hoje mostra a sessão do dia.",
+      "entry.rules_changed.rebuild": "Montar de novo com as regras atuais",
     },
     en: {
       "l.name": "L · Pin",
@@ -169,6 +170,7 @@
       "l.imp.more": "Other options",
       "l.prev.title": "Review the program",
       "l.proof": "Once a program is in use, Today shows the session of the day.",
+      "entry.rules_changed.rebuild": "Rebuild with current rules",
     },
   };
 
@@ -291,13 +293,14 @@
     const ba = fb.exercises === fa.exercises && fb.sets === fa.sets ? "" : `<p class="l-change__ba">${esc(t("l.change.ba", { ex0: fb.exercises, s0: fb.sets, ex1: fa.exercises, s1: fa.sets }))}</p>`;
     return `<div class="l-change" id="${id}" tabindex="-1" role="status" aria-live="polite" data-change-statement data-changed="${d.n}" data-total="${d.total}"><p class="l-change__line"><span class="l-change__pin" aria-hidden="true"></span>${esc(TS.changeText(t, d))}</p>${ba}</div>`;
   }
-  function days(preview, { added = new Set(), openAll = false } = {}) {
+  function days(preview, { added = new Set(), openAll = false, openFirst = true } = {}) {
     const list = preview.days || [];
     return `<div class="l-days">${list.map((d, i) => {
       const ex = d.exercises || []; const sets = ex.reduce((n, e) => n + (+e.sets || 0), 0);
       const meta = [t("entry.preview.exercises", { n: ex.length, exercise: TF.tp(t, ex.length, "exercise") }), t("entry.preview.sets", { n: sets }), d.estimateMinutes ? t("entry.preview.minutes", { n: d.estimateMinutes }) : ""].filter(Boolean).join(" · ");
-      const open = openAll || i === 0 || ex.some((e) => added.has(e.id));
-      return `<details class="l-day"${open ? " open" : ""}><summary class="l-day__sum"><span class="l-day__n" aria-hidden="true">${i + 1}</span><span class="l-day__body"><span class="l-day__name">${esc(TF.dayName(t, d, preview.programStructure, i))}</span><span class="l-day__meta">${esc(meta)}</span></span><span class="l-chev" aria-hidden="true"></span></summary>
+      const open = openAll || (openFirst && i === 0) || (openFirst && ex.some((e) => added.has(e.id)));
+      const nNew = ex.filter((e) => added.has(e.id)).length;
+      return `<details class="l-day"${open ? " open" : ""}><summary class="l-day__sum"><span class="l-day__n" aria-hidden="true">${i + 1}</span><span class="l-day__body"><span class="l-day__name">${esc(TF.dayName(t, d, preview.programStructure, i))}</span><span class="l-day__meta">${esc(meta)}${nNew && !open ? ` <span class="l-new">${esc(t("l.new"))} ${nNew}</span>` : ""}</span></span><span class="l-chev" aria-hidden="true"></span></summary>
         <ul class="l-exlist">${ex.length ? ex.map((e) => { const isNew = added.has(e.id); return `<li class="l-ex${isNew ? " is-new" : ""}"><span class="l-ex__name">${esc(TS.exName(e, lang))}${isNew ? ` <span class="l-new">${esc(t("l.new"))}</span>` : ""}</span><span class="l-ex__rx">${e.sets != null ? `${e.sets} × ${e.min}–${e.max}` : ""}</span></li>`; }).join("") : `<li class="l-ex l-ex--empty">${esc(t("program.empty.exercises"))}</li>`}</ul></details>`;
     }).join("")}</div>`;
   }
@@ -426,7 +429,7 @@
     return `<section class="l-readout${S.justLocked ? " is-locking" : ""}" aria-labelledby="lName">
       <h1 class="l-name" id="lName" data-focus tabindex="-1">${esc(progName())}</h1>${tag()}
       ${factsHtml(p)}${stmt}${S.notice === "conflict" ? `<div id="lConflict" tabindex="-1" class="l-conflict" role="alert" data-checkpoint="activation-conflict"><p class="l-notice__t">${esc(t("entry.conflict.title"))}</p><p>${esc(t("entry.conflict.body"))}</p><button type="button" class="l-btn l-btn--yellow" data-act="conflict-review">${esc(t("entry.conflict.review"))}</button></div>` : ""}
-      ${days(p, { added })}</section>`;
+      ${days(p, { added, openFirst: S.mode === "review" })}</section>`;
   }
   function tuneBody() {
     const a = S.answers; const out = [];
@@ -456,11 +459,11 @@
       <div class="l-acts l-pull__acts"><button type="button" class="l-btn l-btn--yellow" data-act="pull-confirm"${pending ? ' disabled aria-describedby="pendingAvoidNote"' : ""}>${esc(t("l.pull.confirm"))}</button><button type="button" class="l-btn l-btn--quiet" data-act="pull-close">${esc(t(changed ? "l.pull.undo" : "l.pull.close"))}</button></div></div>`;
   }
   function board() {
-    const tiles = [...PINS.map((p) => ({ id: p.id, k: t(`l.k.${p.id}`), v: tileValue(p) })), { id: "prio", k: t("l.k.prio"), v: prioValue(), opt: true }];
+    const tiles = [...PINS.map((p) => ({ id: p.id, k: t(`l.k.${p.id}`), v: tileValue(p), num: !!p.num, wide: p.id === "env" })), { id: "prio", k: t("l.k.prio"), v: prioValue(), opt: true }];
     return `<section class="l-board" aria-labelledby="lBoardT"><h2 class="l-h2" id="lBoardT">${esc(t("l.board.title"))}</h2><p class="l-note">${esc(t("l.board.hint"))}</p>
       <div class="l-tiles${S.justLocked ? " is-locking" : ""}">${tiles.map((x, i) => {
         const open = S.pull && S.pull.pin === x.id;
-        return `<button type="button" class="l-tile${open ? " is-open" : ""}${x.opt ? " l-tile--opt" : ""}" style="--i:${i}" data-act="pull" data-pin="${x.id}" aria-expanded="${open ? "true" : "false"}"${open ? ' aria-controls="lPull"' : ""} aria-label="${esc(t("l.board.aria", { what: t(TILE_WHAT[x.id]), value: x.v }))}"><span class="l-tile__k">${esc(x.k)}</span><span class="l-tile__v">${esc(x.v)}</span>${x.opt ? "" : `<span class="l-tile__pin" aria-hidden="true"></span>`}</button>${open ? pulledPanel() : ""}`;
+        return `<button type="button" class="l-tile${open ? " is-open" : ""}${x.opt ? " l-tile--opt" : ""}${x.num ? " l-tile--num" : ""}${x.wide ? " l-tile--wide" : ""}" style="--i:${i}" data-act="pull" data-pin="${x.id}" aria-expanded="${open ? "true" : "false"}"${open ? ' aria-controls="lPull"' : ""} aria-label="${esc(t("l.board.aria", { what: t(TILE_WHAT[x.id]), value: x.v }))}"><span class="l-tile__k">${esc(x.k)}</span><span class="l-tile__v">${esc(x.v)}</span>${x.opt ? "" : `<span class="l-tile__pin" aria-hidden="true"></span>`}</button>${open ? pulledPanel() : ""}`;
       }).join("")}</div></section>`;
   }
   function reviewBody() {
@@ -485,7 +488,7 @@
     let reason = "", blocked = false, reasonId = "lLock";
     if (route === "recommend") {
       const m = missing();
-      if (m.length) { blocked = true; const list = m.map((p) => t(`l.s.${p.id}`)).join(", "); reason = compact() ? t(m.length === 1 ? "l.lock.short_one" : "l.lock.short_many", { n: m.length }) : t(m.length === 1 ? "l.lock.one" : "l.lock.many", { n: m.length, list }); }
+      if (m.length) { blocked = true; const list = m.map((p) => t(`l.s.${p.id}`)).join(", "); reason = compact() || m.length > 3 ? t(m.length === 1 ? "l.lock.short_one" : "l.lock.short_many", { n: m.length }) : t(m.length === 1 ? "l.lock.one" : "l.lock.many", { n: m.length, list }); }
       else if (S.live && S.live.ok && TF.progressionIssue(S.live.result.preview)) { blocked = true; reasonId = "lBlocked"; }
       else if (!S.live || !S.live.ok) { blocked = true; reason = t("x.issue.compile"); }
     }
@@ -831,7 +834,7 @@
         else S.ff = TS.freeform.apply(S.ff, d.ff, d.provider, t);
         if (S.ff.status === "complete" && S.ff.parsed) { S.importDraft = TF.buildImportDraft({ meta: S.ff.parsed.meta, exercises: S.ff.parsed.exercises, notImported: S.ff.parsed.notImported }, t("entry.freeform.source_name"), "freeform"); S.ff = { ...S.ff, status: null, parsed: null }; render(true); return; }
         if (d.ff === "start-over") { render("ffRestartTitle"); return; }
-        if (d.ff === "start-over-cancel") { render('button[data-ff="start-over"]'); return; }
+        if (d.ff === "start-over-cancel") { render('[data-ff="start-over"]'); return; }
         if (d.ff === "gap-submit" && S.ff.gapErrors.size) { render("lGapError"); return; }
         render(["continue", "open", "copy", "try-another", "gap-back", "start-over-confirm", "review", "edit-source"].includes(d.ff) ? true : undefined); return;
       }

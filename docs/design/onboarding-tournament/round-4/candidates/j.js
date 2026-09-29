@@ -421,7 +421,8 @@
     const m = [];
     if (S.landingPick) m.push(...landingMessages({ live: false }));
     m.push(...activeMsgs());
-    m.push(inMsg("intro", `<p class="j-body">${esc(t("j.rec.intro"))}</p><p class="j-note">${esc(t("entry.result.lede"))}</p>`, { cp: noAnswers() ? "route-choice" : "" }));
+    const offer = noAnswers() ? attached([attBtn({ act: "to-paste", label: t("j.c.paste"), icon: "paste" }), attBtn({ act: "import-mode", label: t("j.c.attach"), icon: "clip", extra: ' data-mode="file" aria-haspopup="dialog"' })]) : "";
+    m.push(inMsg("intro", `<p class="j-body">${esc(t("j.rec.intro"))}</p><p class="j-note">${esc(t("entry.result.lede"))}</p>${offer}`, { cp: noAnswers() ? "route-choice" : "" }));
     const a = S.answers;
     for (const q of QS) {
       m.push(qMsg(`q:${q.key}`, questionText(q.key), questionNote(q.key)));
@@ -555,7 +556,8 @@
     const m = [];
     if (S.landingPick) m.push(...landingMessages({ live: false }));
     m.push(...activeMsgs());
-    m.push(inMsg("imp:intro", `<p class="j-q">${esc(t("entry.freeform.title"))}</p><p class="j-body">${esc(t("j.imp.lede"))}</p><p class="j-note">${esc(t("j.imp.attach_hint"))}</p>`));
+    const canAttach = !S.fileSent && S.ff.stage === 1;
+    m.push(inMsg("imp:intro", `<p class="j-q">${esc(t("entry.freeform.title"))}</p><p class="j-body">${esc(t("j.imp.lede"))}</p>${canAttach ? `<p class="j-note">${esc(t("j.imp.attach_hint"))}</p>` + attached([attBtn({ act: "import-mode", label: t("j.c.attach"), icon: "clip", extra: ' data-mode="file" aria-haspopup="dialog"' })]) : ""}`));
     m.push(sysMsg("imp:privacy", `${ico("lock")}<span>${esc(t("entry.freeform.privacy"))}</span>`, { cls: "j-sys--lock" }));
     const ff = S.ff; const program = TS.freeform.program(ff);
     if (S.importMode === "file" && S.fileSent) {
@@ -657,8 +659,7 @@
     const tapPill = (id = "jPill") => `<span class="j-pill j-pill--hint" id="${id}">${esc(t("j.c.tap"))}</span>`;
     if (S.route === "recommend") {
       const st = step();
-      if (noAnswers()) { attach = `<button type="button" class="j-clip" data-act="import-mode" data-mode="file" aria-haspopup="dialog" aria-label="${esc(t("j.c.attach"))}">${ico("clip")}</button>`; pill = `<button type="button" class="j-pill j-pill--btn" data-act="to-paste">${ico("paste")}<span>${esc(t("j.c.paste"))}</span></button>`; send = sendBtn({ describedby: "jPillHint" }) + `<span class="visually-hidden" id="jPillHint">${esc(t("j.c.tap"))}</span>`; }
-      else if (st === "environment" && S.envFix) { pill = `<span class="j-pill j-pill--draft" id="jPill">${esc(t("j.c.fix_draft"))}</span>`; send = sendBtn({ act: "env-send", enabled: true, label: t("j.c.fix_draft") }); }
+      if (st === "environment" && S.envFix) { pill = `<span class="j-pill j-pill--draft" id="jPill">${esc(t("j.c.fix_draft"))}</span>`; send = sendBtn({ act: "env-send", enabled: true, label: t("j.c.fix_draft") }); }
       else if (st === "priorities" && S.prioOpen) {
         const pending = !!S.avoid.pending; const txt = prioText(S.answers);
         pill = `<span class="j-pill j-pill--draft" id="jPill">${esc(txt)}</span>`;
@@ -667,7 +668,6 @@
     } else if (S.route === "import") {
       const ff = S.ff;
       if (S.importMode === "file" || ff.stage === 1) {
-        attach = `<button type="button" class="j-clip" data-act="import-mode" data-mode="file" aria-haspopup="dialog" aria-label="${esc(t("j.c.attach"))}">${ico("clip")}</button>`;
         pill = `<label class="j-pill j-pill--field"><span class="visually-hidden">${esc(t("entry.freeform.input_label"))}</span><textarea id="ffIn" rows="1" maxlength="${TF.FREEFORM_MAX_CHARS}" spellcheck="false" autocapitalize="off" data-field="ffInput" placeholder="${esc(t("j.c.ff_in"))}">${esc(ff.input)}</textarea></label>`;
         send = sendBtn({ act: "ff", extra: ' data-ff="continue"', enabled: !!TS.freeform.program(ff), describedby: "jFfNeeds" }) + `<span class="visually-hidden" id="jFfNeeds">${esc(t("entry.freeform.needs_input"))}</span>`;
       } else if (ff.stage === 2) { pill = `<span class="j-pill j-pill--hint" id="jPill">${esc(t("j.c.ff_wait"))}</span>`; send = sendBtn({ describedby: "jPill" }); }
