@@ -55,7 +55,7 @@ separate teams or synchronized delivery dates.
 
 | Work | Required outcome | Governing detail |
 |---|---|---|
-| Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
+| Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. The [post-058 audit](ui-overhaul-plans-049-057-audit.md) reproduces A01–A04 for narrow stage-4 safety/evidence/focus fixes before #255, assigns N01/N02 to Direction D acceptance, and closes A05 with Plan 058 typography proof. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
 | Construct the post-058 pre-059 alpha candidate | With Plan 058 merged, clear stale/duplicate open PRs, reconcile repository truth, land live data-safety/audit blockers, then integrate the owner-selected landing, Direction D and onboarding redesigns plus explicitly pulled-forward mature work without weakening their gates. Plan 059 starts only after this candidate can be frozen on one SHA. | [post-058 clearance sequence](post-058-open-pr-clearance-sequence.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
 | Alpha data-safety fixes | A lifter's only copy of their data must not be lost or corrupted by a storage failure, a restored backup, or a deploy window. In this order: (1) a failed crash-journal update during a lock-held rebase aborts the write instead of being swallowed; (2) activation on every entry route archives any existing program content instead of discarding it (Q607, Q619); (3) the service worker never stores an error response over a good cached copy. Each lands with its regression test. Standalone PRs, per Q604. | Q604, Q607, Q609; advisor plans [003](../advisor-plans/003-durable-state-rebase-journal-write.md), [001](../advisor-plans/001-setup-link-eligibility-decision.md), [002](../advisor-plans/002-sw-never-cache-error-responses.md) |
@@ -270,8 +270,8 @@ Do not re-add these as backlog without new owner evidence.
 - The post-Plan053 durable-state architecture bridge is implemented in PR
   #240 and merged at `3710f34bb677c59674a3677c03d2fc1427e07cef`.
   `durable-state.js` owns the normalized outcome, settlement, recovery, WAL,
-  replica, and DraftV2 transaction-sidecar contracts. Plan 054 is the active
-  overhaul implementation.
+  replica, and DraftV2 transaction-sidecar contracts. Plan 054 followed this
+  bridge; the current workfront is governed by the post-058 clearance sequence.
 
 - Plans 045–048 are implemented (measurement foundation, shared progression
   engine, program families/compiler, program entry/onboarding). Their former
