@@ -216,6 +216,43 @@ export async function measureRenderedRoles(input) {
     return { selector, kind: "state-mark", status: measured >= 3 ? "pass" : "fail", ratio: Math.round(measured * 100) / 100,
       threshold: 3, foreground: style.backgroundColor, background: surface.rgb.slice(0, 3) };
   };
+  const measurePseudoBoundary = (node, selector, pseudo) => {
+    const style = getComputedStyle(node, pseudo);
+    if (style.content === "none" || style.display === "none") {
+      return { selector, kind: "boundary", status: "unsupported", reason: "required boundary mark is not rendered" };
+    }
+    let surface = background(node);
+    if (surface.unsupported && pixels) surface = localSurface(node) || surface;
+    if (surface.unsupported) return { selector, kind: "boundary", status: "unsupported", reason: surface.unsupported };
+    const opacity = Number.parseFloat(style.opacity);
+    const alpha = Number.isFinite(opacity) ? opacity : 1;
+    const fill = color(style.backgroundColor);
+    const inside = fill && fill[3] > 0
+      ? composite([...fill.slice(0, 3), fill[3] * alpha], surface.rgb)
+      : surface.rgb;
+    const sides = ["Top", "Right", "Bottom", "Left"].filter((side) =>
+      parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== "none"
+      && (color(style[`border${side}Color`])?.[3] || 0) > 0
+      && !isDecorativeBoundary(style[`border${side}Color`]));
+    if (sides.length) {
+      const measured = Math.min(...sides.flatMap((side) => {
+        const border = color(style[`border${side}Color`]);
+        const edge = border ? composite([...border.slice(0, 3), border[3] * alpha], surface.rgb) : surface.rgb;
+        return [ratio(edge, surface.rgb)];
+      }));
+      return { selector, kind: "boundary", status: measured >= 3 ? "pass" : "fail",
+        ratio: Math.round(measured * 100) / 100, threshold: 3,
+        foreground: sides.map((side) => `${side.toLowerCase()}:${style[`border${side}Color`]}`).join(", "),
+        background: surface.rgb.slice(0, 3) };
+    }
+    if (fill && fill[3] > 0) {
+      const measured = ratio(inside, surface.rgb);
+      return { selector, kind: "boundary", status: measured >= 3 ? "pass" : "fail",
+        ratio: Math.round(measured * 100) / 100, threshold: 3,
+        foreground: style.backgroundColor, background: surface.rgb.slice(0, 3) };
+    }
+    return { selector, kind: "boundary", status: "unsupported", reason: "required pseudo boundary has no rendered edge or fill" };
+  };
 
   const requests = Array.isArray(input) ? input : input.requests;
   if (Array.isArray(requests)) {
@@ -257,6 +294,19 @@ export async function measureRenderedRoles(input) {
           parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== "none"
           && (color(style[`border${side}Color`])?.[3] || 0) > 0);
         const hasFill = (color(style.backgroundColor)?.[3] || 0) > 0;
+        const pseudoBoundary = !hasEdge && !hasFill ? ["::before", "::after"].find((candidate) => {
+          const pseudoStyle = getComputedStyle(node, candidate);
+          const pseudoOpacity = Number.parseFloat(pseudoStyle.opacity);
+          if (pseudoStyle.content === "none" || pseudoStyle.content === "normal" || pseudoStyle.display === "none"
+            || (Number.isFinite(pseudoOpacity) && pseudoOpacity <= 0)) return false;
+          const pseudoFill = color(pseudoStyle.backgroundColor);
+          const pseudoHasFill = (pseudoFill?.[3] || 0) > 0;
+          const pseudoHasEdge = ["Top", "Right", "Bottom", "Left"].some((side) =>
+            parseFloat(pseudoStyle[`border${side}Width`]) > 0 && pseudoStyle[`border${side}Style`] !== "none"
+            && (color(pseudoStyle[`border${side}Color`])?.[3] || 0) > 0
+            && !isDecorativeBoundary(pseudoStyle[`border${side}Color`]));
+          return pseudoHasEdge || pseudoHasFill;
+        }) : null;
         const groupedSelection = item.roles?.control === "selection" && node.matches(".radio-card")
           ? node.closest(".onb__opts.onb__list,.onb__opts.onb__seg") : null;
         if (groupedSelection) {
@@ -270,9 +320,14 @@ export async function measureRenderedRoles(input) {
             results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
           }
         } else {
-          const requiredNow = item.roles?.progress || item.roles?.control === "field" || selected || invalid || hasEdge || hasFill;
+          const requiredNow = item.roles?.progress || item.roles?.control === "field"
+            || selected || invalid || hasEdge || hasFill || Boolean(pseudoBoundary);
           if (requiredNow && (hasEdge || hasFill || !item.roles?.progress)) {
-            results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
+            if (item.roles?.boundary === "required" && !hasEdge && !hasFill) {
+              results.push(pseudoBoundary
+                ? measurePseudoBoundary(node, `${item.selector}:${label(node)}${pseudoBoundary}`, pseudoBoundary)
+                : measure(node, `${item.selector}:${label(node)}`, "boundary"));
+            } else results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
           } else if (requiredNow && item.roles?.progress) {
           const marks = [...node.querySelectorAll("*")].filter((child) => {
             if (!visible(child)) return false;

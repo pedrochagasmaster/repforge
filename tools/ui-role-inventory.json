@@ -243,6 +243,11 @@
       "content": "flat",
       "scenario": "A seeded program with recent max-rep evidence makes the Today readiness shortcut visible."
     },
+    "today/rest-bar": {
+      "owner": "plan-058",
+      "content": "flat",
+      "scenario": "A logged set has started the inline rest countdown; the timer sheet remains closed after leaving Focus."
+    },
     "today/day-picker": {
       "owner": "plan-057",
       "content": "flat",
@@ -257,6 +262,11 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "One exercise at a time."
+    },
+    "workout/focus-glossary": {
+      "owner": "plan-058",
+      "content": "flat",
+      "scenario": "A definition is open after tapping a glossary term in Focus."
     },
     "workout/stale-draft": {
       "owner": "plan-055",
@@ -483,6 +493,11 @@
       "content": "flat",
       "scenario": "The searchable movement library."
     },
+    "library/list-selected": {
+      "owner": "plan-058",
+      "content": "flat",
+      "scenario": "One movement is selected and the persistent add bar remains visible."
+    },
     "library/exercise-preview": {
       "owner": "plan-057",
       "content": "flat",
@@ -492,6 +507,11 @@
       "owner": "plan-057",
       "content": "flat",
       "scenario": "The full movement detail surface."
+    },
+    "library/exercise-detail-glossary": {
+      "owner": "plan-058",
+      "content": "flat",
+      "scenario": "A definition is open after tapping a term in movement detail."
     },
     "program/no-program": {
       "owner": "plan-057",
@@ -788,6 +808,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -1897,7 +1918,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-detail"
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
       ]
     },
     {
@@ -2321,7 +2343,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-detail"
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
       ]
     },
     {
@@ -2541,11 +2564,31 @@
       "rationale": "Definition panel does not make the whole route modal.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-detail",
-        "workout/focus"
+        "workout/focus-glossary",
+        "library/exercise-detail-glossary"
+      ]
+    },
+    {
+      "id": "glossary-close",
+      "selector": "#glossary .glossary__close",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "popover-dismissal",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
       ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "Term popover opens only after tapping a glossary term; canonical frames keep it closed."
+      "rationale": "Dismisses the local definition popover while preserving the current exercise context.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "workout/focus-glossary",
+        "library/exercise-detail-glossary"
+      ]
     },
     {
       "id": "gotovolume",
@@ -3049,6 +3092,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -3071,7 +3115,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/list"
+        "library/list",
+        "library/list-selected"
       ]
     },
     {
@@ -3088,11 +3133,29 @@
       "rationale": "Selection count and Add action stay reachable over a long library list.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-preview",
-        "library/list"
+        "library/list-selected"
+      ]
+    },
+    {
+      "id": "lib-primary",
+      "selector": "#libPrimary",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": "library-add",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
       ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "Action bar appears after exercise selection/configuration; no canonical library scenario selects an exercise."
+      "rationale": "Commits the selected exercise additions to the active program through the single library action.",
+      "owner": "plan-057/058",
+      "catalogStates": [
+        "library/list-selected"
+      ]
     },
     {
       "id": "libclose",
@@ -3112,7 +3175,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/list"
+        "library/list",
+        "library/list-selected"
       ]
     },
     {
@@ -3134,7 +3198,8 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/list"
+        "library/list",
+        "library/list-selected"
       ]
     },
     {
@@ -3157,7 +3222,8 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/list"
+        "library/list",
+        "library/list-selected"
       ]
     },
     {
@@ -3178,8 +3244,10 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-glossary",
         "library/exercise-preview",
-        "library/list"
+        "library/list",
+        "library/list-selected"
       ],
       "progressScopes": {
         "exercise-picker-step": "task"
@@ -3504,6 +3572,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -3622,6 +3691,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -4097,10 +4167,8 @@
       "rationale": "A running rest countdown stays reachable outside the timer sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "Inline timer bar is a running-timer state; the catalog shows its full rest sheet instead."
+        "today/rest-bar"
+      ]
     },
     {
       "id": "restminus",
@@ -4334,7 +4402,8 @@
       "rationale": "Opens Focus on the first lift with an add-load recommendation, starting or resuming its reversible workout draft as a supporting action.",
       "owner": "plan-058",
       "catalogStates": [
-        "today/ready"
+        "today/ready",
+        "today/rest-bar"
       ]
     },
     {
@@ -4606,6 +4675,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -4895,6 +4965,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -5169,6 +5240,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -5196,6 +5268,7 @@
         "today/no-program",
         "today/preview",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ],
       "progressScopes": {
@@ -5248,6 +5321,7 @@
         "today/no-program",
         "today/preview",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ],
       "progressScopes": {
@@ -5302,6 +5376,7 @@
         "today/done",
         "today/draft-resume",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -5440,6 +5515,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -5467,6 +5543,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -5493,6 +5570,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -5519,6 +5597,7 @@
         "workout/exercise-actions",
         "workout/exercise-note",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/invalid-draft",
         "workout/persist-retry",
         "workout/reorder",
@@ -5557,6 +5636,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -5672,6 +5752,7 @@
         "today/preview",
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -5785,6 +5866,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -6072,6 +6154,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -6092,6 +6175,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -6118,6 +6202,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -6144,6 +6229,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -6225,6 +6311,7 @@
         "settings/privacy",
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -6317,7 +6404,8 @@
       "rationale": "Changes a chosen value, active option, or reversible status.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/list"
+        "library/list",
+        "library/list-selected"
       ]
     },
     {
@@ -6338,7 +6426,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/list"
+        "library/list",
+        "library/list-selected"
       ]
     },
     {
@@ -6359,7 +6448,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-detail"
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
       ]
     },
     {
@@ -6429,6 +6519,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/list",
+        "library/list-selected",
         "program/custom-exercise",
         "program/exercise-picker"
       ]
@@ -6484,7 +6575,8 @@
       "rationale": "Changes a chosen value, active option, or reversible status.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/list"
+        "library/list",
+        "library/list-selected"
       ]
     },
     {
@@ -6976,6 +7068,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -7020,6 +7113,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -7044,6 +7138,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -7066,7 +7161,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-detail"
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
       ]
     },
     {
@@ -7090,6 +7186,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -7289,6 +7386,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -7358,6 +7456,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/rest-bar",
         "workout/invalid-draft"
       ]
     },
@@ -7461,6 +7560,7 @@
       "owner": "plan-055/058",
       "catalogStates": [
         "workout/focus",
+        "workout/focus-glossary",
         "workout/stale-draft",
         "workout/persist-retry",
         "workout/invalid-draft",
@@ -7498,6 +7598,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
         "progress/overview",
@@ -7732,7 +7833,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-preview",
-        "library/exercise-detail"
+        "library/exercise-detail",
+        "library/exercise-detail-glossary"
       ],
       "cssLiterals": [
         {
@@ -7755,6 +7857,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]
@@ -7771,13 +7874,15 @@
       "owner": "plan-055/058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-glossary",
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ],
       "sourceOnly": true,
-      "sourceOnlyReason": "The glossary and overflow panel open after a tap; canonical frames show their owner screens with the popovers closed."
+      "sourceOnlyReason": "Focus and library glossary popovers have rendered states; the workout overflow menu remains on-demand."
     },
     {
       "id": "effort-explainer-elevation",
@@ -7791,6 +7896,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ],
@@ -7876,6 +7982,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
         "progress/overview",
@@ -7932,6 +8039,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
         "progress/overview",
@@ -7988,6 +8096,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
       ]

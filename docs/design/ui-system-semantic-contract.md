@@ -383,12 +383,13 @@ selectors. None is a subtree waiver.
 | `#completedVolume .vrow__bar` | Relative completed-muscle comparison, no target | `progress/volume`, `progress/overview`, `progress/overview-action`, `progress/overview-baseline`, `progress/exercise-chart` |
 | `.safaribar__side` | Decorative Safari teaching artwork, not a live control | `install/ios-sheet`, `install/transfer-ready` |
 
-Three owned controls do not appear in the canonical catalog frames:
-`#glossary` opens only after a term tap, `#restBar` requires a running timer,
-and `#libBar` requires an exercise-picker choice. The inventory marks each
-`sourceOnly` with a reason and its affected surface states. Their roles are
-frozen, while P4/P7 should add a state when migrating their surface so their
-rendered appearance is proven rather than inferred from source.
+P6 adds production-backed rendered states for these contextual controls:
+`#glossary` is open in `workout/focus-glossary` and
+`library/exercise-detail-glossary`, `#restBar` is visible in
+`today/rest-bar`, and `#libBar` is visible in `library/list-selected`.
+Their scenarios activate each control through its user action and leave the
+surrounding surface in its real context, so contrast, geometry, and elevation
+are measured rather than inferred from source.
 
 ## Executable ownership
 

@@ -1148,7 +1148,11 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
   g.querySelector(".glossary__body").textContent=t(`glossary.${termKey}`)||"";
   g.classList.remove("hidden");
-  const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
+  const r=anchor.getBoundingClientRect(),viewportWidth=document.documentElement.clientWidth||window.innerWidth;
+  const bounds=g.getBoundingClientRect(),left=Math.max(8,Math.min(r.left,viewportWidth-bounds.width-8));
+  const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
+  const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
+  g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
 const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 const normalizeRestSec=v=>{const n=+v;if(!Number.isFinite(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
@@ -11857,7 +11861,13 @@ function renderLibraryBar(){
   primary.textContent=libFlow.step==="configure"
     ?t("library.save_day",{day:dayLabel(libFlow.day)})
     :t("library.add_n",{n,day:dayLabel(libFlow.day)});
-  primary.disabled=n===0}
+  primary.disabled=n===0;
+  syncLibraryBarClearance()}
+function syncLibraryBarClearance(){
+  const bar=$("#libBar"),wrap=$("#library .libwrap");if(!bar||!wrap)return;
+  if(bar.classList.contains("is-hidden")){wrap.style.removeProperty("--libbar-clearance");return}
+  wrap.style.setProperty("--libbar-clearance",`${Math.ceil(bar.getBoundingClientRect().height+16)}px`)}
+window.addEventListener("resize",syncLibraryBarClearance,{passive:true});
 
 /* ---- configure step ---- */
 

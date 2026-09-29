@@ -38,6 +38,24 @@ function isoDaysAgo(n) {
   return date.toISOString().slice(0, 10);
 }
 
+async function assertGlossaryViewport(page, label) {
+  const bounds = await page.locator("#glossary").evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    const close = node.querySelector(".glossary__close").getBoundingClientRect();
+    return {
+      left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+      closeLeft: close.left, closeRight: close.right, closeTop: close.top, closeBottom: close.bottom,
+      viewportWidth: document.documentElement.clientWidth,
+      viewportHeight: document.documentElement.clientHeight,
+    };
+  });
+  if (bounds.left < 0 || bounds.right > bounds.viewportWidth || bounds.top < 0 || bounds.bottom > bounds.viewportHeight
+    || bounds.closeLeft < 0 || bounds.closeRight > bounds.viewportWidth
+    || bounds.closeTop < 0 || bounds.closeBottom > bounds.viewportHeight) {
+    throw new Error(`${label} glossary or close control escapes the viewport: ${JSON.stringify(bounds)}`);
+  }
+}
+
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
@@ -521,6 +539,48 @@ export const APP_SCENARIOS = {
     await page.click("#chooseAnotherDay");
     await page.waitForSelector("#dayPickSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      const layout = await page.evaluate(() => {
+        const textFits = (node) => {
+          const box = node.getBoundingClientRect(), range = document.createRange();
+          range.selectNodeContents(node);
+          return [...range.getClientRects()].filter((rect) => rect.width && rect.height).every((rect) =>
+            rect.left >= box.left - 1 && rect.right <= box.right + 1
+              && rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1);
+        };
+        const clippedLabels = [...document.querySelectorAll("#dayPickList .daypick__title, #dayPickList .daypick__sub")]
+          .filter((label) => {
+          const style = getComputedStyle(label);
+          return style.whiteSpace !== "normal" || style.textOverflow === "ellipsis"
+            || label.scrollWidth > label.clientWidth + 1
+            || !textFits(label);
+          }).map((label) => ({ selector: label.className, text: label.textContent.trim() }));
+        const actions = ["#dayPickConfirm", "#dayPickCancel"].map((selector) => {
+          const button = document.querySelector(selector);
+          if (!button) return { selector, visible: false, labelFits: false, inViewport: false };
+          const box = button.getBoundingClientRect();
+          const style = getComputedStyle(button);
+          return { selector, visible: style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0,
+            labelFits: textFits(button), inViewport: box.top >= -1 && box.bottom <= innerHeight + 1 };
+        });
+        const list = document.querySelector("#dayPickList");
+        const rows = [...(list?.querySelectorAll(".daypick__row") || [])];
+        let lastChoiceReachable = false;
+        if (list && rows.length && ["auto", "scroll", "overlay"].includes(getComputedStyle(list).overflowY)) {
+          const originalTop = list.scrollTop;
+          list.scrollTop = list.scrollHeight;
+          const listBox = list.getBoundingClientRect(), lastBox = rows.at(-1).getBoundingClientRect();
+          lastChoiceReachable = list.scrollHeight > list.clientHeight
+            && lastBox.top >= listBox.top - 1 && lastBox.bottom <= listBox.bottom + 1;
+          list.scrollTop = originalTop;
+        }
+        return { clippedLabels, actions, lastChoiceReachable };
+      });
+      if (layout.clippedLabels.length || layout.actions.some((action) => !action.visible || !action.labelFits || !action.inViewport)
+        || !layout.lastChoiceReachable) {
+        throw new Error(`200% day-picker labels/actions do not fit and remain reachable: ${JSON.stringify(layout)}`);
+      }
+    }
   },
   "today/done": async (page) => {
     await saveWholeSession(page);
@@ -571,6 +631,15 @@ export const APP_SCENARIOS = {
   },
 
   "workout/focus": focusMode,
+  "workout/focus-glossary": async (page) => {
+    await focusMode(page);
+    const term = page.locator("#workout [data-term]").first();
+    await term.waitFor({ state: "visible", timeout: 20000 });
+    await term.click();
+    await page.waitForSelector("#glossary:not(.hidden)", { timeout: 10000 });
+    await assertGlossaryViewport(page, "Focus");
+    await sleep(page, 400);
+  },
   "today/preview": async page => { await page.click("#previewSession"); await page.waitForSelector("#previewSessionSheet.is-open"); },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); },
@@ -695,6 +764,20 @@ export const APP_SCENARIOS = {
     );
     await page.click("#woRest");
     await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "today/rest-bar": async (page) => {
+    await focusMode(page);
+    await logCurrentSet(page);
+    await page.click("#leaveWorkout");
+    await page.waitForFunction(() => {
+      const timer = document.querySelector("#woRest");
+      const bar = document.querySelector("#restBar");
+      const rect = bar?.getBoundingClientRect();
+      return !document.body.classList.contains("is-focus-wo") && timer?.classList.contains("is-running")
+        && rect?.width > 1 && rect?.height > 1
+        && getComputedStyle(bar).display !== "none" && !document.querySelector("#restSheet.is-open");
+    }, undefined, { timeout: 20000 });
     await sleep(page, 400);
   },
   "workout/exercise-note": async (page) => {
@@ -837,6 +920,50 @@ export const APP_SCENARIOS = {
   },
 
   "library/list": openLibrary,
+  "library/list-selected": async (page) => {
+    await openLibrary(page);
+    const choice = page.locator("#libList [data-lib-toggle]").first();
+    await choice.waitFor({ state: "visible", timeout: 20000 });
+    await choice.click();
+    await page.waitForFunction(() => {
+      const bar = document.querySelector("#libBar");
+      const rect = bar?.getBoundingClientRect();
+      return rect?.width > 1 && rect?.height > 1 && getComputedStyle(bar).display !== "none";
+    }, undefined, { timeout: 10000 });
+    const header = await page.evaluate(() => {
+      const selectors = ["#libBack", "#libTitle", "#libClose"];
+      const items = selectors.map(selector => {
+        const element = document.querySelector(selector);
+        const rect = element?.getBoundingClientRect();
+        return { selector, left: rect?.left, top: rect?.top, right: rect?.right, bottom: rect?.bottom };
+      });
+      const overlaps = [];
+      for (let i = 0; i < items.length; i += 1) for (let j = i + 1; j < items.length; j += 1) {
+        const a = items[i], b = items[j];
+        if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) {
+          overlaps.push([a.selector, b.selector]);
+        }
+      }
+      const viewport = document.documentElement.clientWidth;
+      const outside = items.filter(item => item.left < 0 || item.right > viewport).map(item => item.selector);
+      return { items, overlaps, outside };
+    });
+    if (header.overlaps.length || header.outside.length) {
+      throw new Error(`Selected library header overlaps or escapes the viewport: ${JSON.stringify(header)}`);
+    }
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await sleep(page, 100);
+    const clearance = await page.evaluate(() => {
+      const end = document.querySelector("#libCustom").getBoundingClientRect();
+      const bar = document.querySelector("#libBar").getBoundingClientRect();
+      return { contentBottom: end.bottom, actionTop: bar.top, gap: bar.top - end.bottom };
+    });
+    if (clearance.gap < 8) {
+      throw new Error(`Selected library content is hidden behind its persistent action: ${JSON.stringify(clearance)}`);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await sleep(page, 400);
+  },
   "library/exercise-preview": async (page) => {
     await openLibrary(page);
     const preview = page.locator('#libList [data-lib-preview="sq_bb"]');
@@ -852,6 +979,19 @@ export const APP_SCENARIOS = {
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await sleep(page, 800);
+  },
+  "library/exercise-detail-glossary": async (page) => {
+    await enterWorkout(page);
+    const row = page.locator("#workout [data-exopen]").first();
+    await row.scrollIntoViewIfNeeded({ timeout: 20000 });
+    await row.click({ timeout: 20000 });
+    await page.waitForSelector("#exDetail:not(.hidden)", { timeout: 20000 });
+    const term = page.locator("#exDetail [data-term]").first();
+    await term.waitFor({ state: "visible", timeout: 20000 });
+    await term.click();
+    await page.waitForSelector("#glossary:not(.hidden)", { timeout: 10000 });
+    await assertGlossaryViewport(page, "Exercise detail");
+    await sleep(page, 400);
   },
 
   "program/no-program": async (page) => { await dismissChrome(page); await openProgram(page); },

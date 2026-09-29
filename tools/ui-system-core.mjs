@@ -100,15 +100,22 @@ export function cssLiteralDebt(css, exceptions = []) {
     const tokenDefinition = selector === ":root" || selector === ':root[data-theme="dark"]';
     if (property.startsWith("--") && tokenDefinition) continue;
     const isType = property === "font-size";
+    const isFontWeight = property === "font-weight";
     const isRadius = property === "border-radius" || property.startsWith("border-") && property.endsWith("-radius");
     const isShadow = property === "box-shadow" || property === "text-shadow";
     const isColor = /^(?:color|background(?:-color)?|border(?:-(?:top|bottom|left|right))?(?:-color)?|outline(?:-color)?|fill|stroke|caret-color|accent-color|text-decoration-color)$/.test(property);
     const isCustomProperty = property.startsWith("--");
     const isLocalRoleToken = property.startsWith("--") && /(?:font|radius|shadow|color|ink|bg|boundary|surface|accent|rule)/.test(property);
-    if (!isType && !isRadius && !isShadow && !isColor && !isLocalRoleToken && !isCustomProperty) continue;
+    if (!isType && !isFontWeight && !isRadius && !isShadow && !isColor && !isLocalRoleToken && !isCustomProperty) continue;
     let literal = false;
     if (isType) literal = /(?:^|[\s,(])(?:-?\d*\.?\d+)(?:px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/.test(value)
       && !/^(?:var\([^)]*\)|inherit|initial|unset|revert|normal|0)$/.test(value);
+    if (isFontWeight && selector !== "@font-face") {
+      const number = Number(value);
+      const supportedWeight = /^\d+(?:\.\d+)?$/.test(value) && [400, 500, 600].includes(number);
+      const inheritedOrTokenized = /^(?:var\(--weight-(?:regular|medium|semibold)\)|inherit|initial|unset|revert|normal)$/i.test(value);
+      literal = !supportedWeight && !inheritedOrTokenized;
+    }
     if (isRadius) {
       const measures = [...value.matchAll(/(?:^|[\s,(])(-?\d*\.?\d+)(px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/g)];
       literal = measures.some((measure) => Number(measure[1]) !== 0) && value !== "50%";

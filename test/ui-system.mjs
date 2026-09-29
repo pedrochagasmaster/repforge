@@ -71,10 +71,18 @@ assert.equal(cssLiteralDebt(css, inventory.exceptions).length, 0, "P6 removes al
 assert.equal(cssCompatibilityAliasDebt(css).length, 0, "P6 removes all obsolete compatibility aliases");
 assert.equal(cssLiteralDebt(motionPolishCss, inventory.exceptions).length, 0, "motion-polish.css has no unauthorized CSS literal debt");
 assert.equal(cssCompatibilityAliasDebt(motionPolishCss).length, 0, "motion-polish.css has no obsolete compatibility aliases");
-for (const declaration of ["font-size:15px", "border-radius:11px", "box-shadow:0 2px 8px #777", "color:#808080", "border:1px solid #ccc", "background:red"]) {
+for (const declaration of ["font-size:15px", "font-weight:700", "border-radius:11px", "box-shadow:0 2px 8px #777", "color:#808080", "border:1px solid #ccc", "background:red"]) {
   const bad = `.seeded { ${declaration}; }`;
   assert.equal(cssLiteralDebt(bad).length, 1, `checker rejects seeded ${declaration} outside token definitions`);
 }
+for (const weight of [400, 500, 600]) {
+  assert.equal(cssLiteralDebt(`.seeded { font-weight:${weight}; }`).length, 0,
+    `the frozen ${weight} text weight remains supported`);
+}
+assert.equal(cssLiteralDebt(".seeded { font-weight:var(--weight-semibold); }").length, 0,
+  "the semantic semibold token remains supported");
+assert.equal(cssLiteralDebt("@font-face { font-weight:100 700; }").length, 0,
+  "a variable font face range is capability metadata, not a rendered text weight");
 assert.equal(cssLiteralDebt('.seeded{background:#161513 url("icon.png") center/cover no-repeat}').length, 1,
   "checker rejects a color literal even when the same declaration loads an image");
 assert.equal(cssLiteralDebt(".seeded{--plate:#F4F2EF}").length, 1,
@@ -112,11 +120,16 @@ try {
   writeFileSync(fixture, ".seeded { border-radius:var(--radius-control); }");
   const migrated = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
   assert.equal(migrated.status, 0, "same checker accepts the migrated semantic radius token");
+  writeFileSync(fixture, ".seeded { font-weight:700; }");
+  const badWeight = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture], { cwd: ROOT, encoding: "utf8" });
+  assert.equal(badWeight.status, 1, "actual strict checker rejects a weight outside the frozen typography scale");
+  assert.match(badWeight.stderr, /unapproved CSS literals/, "checker reports out-of-scale weight as debt");
   writeFileSync(fixture, ".seeded { color:var(--color-ink); }");
-  writeFileSync(polishFixture, ".polish { box-shadow:0 2px 4px #123456; border-radius:var(--radius-legacy); }");
+  writeFileSync(polishFixture, ".polish { font-weight:650; box-shadow:0 2px 4px #123456; border-radius:var(--radius-legacy); }");
   const polishDebt = spawnSync(process.execPath, ["tools/check-ui-system.mjs", "--metadata", "--strict-css", "--css", fixture, "--css", polishFixture], { cwd: ROOT, encoding: "utf8" });
   assert.equal(polishDebt.status, 1, "actual checker scans every supplied stylesheet for literal and alias debt");
   assert.match(polishDebt.stdout, new RegExp(`${polishFixture.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:1`), "checker identifies the violating motion-polish source");
+  assert.match(polishDebt.stdout, /font-weight: 650/, "checker detects an out-of-scale weight in motion-polish.css");
   assert.match(polishDebt.stderr, /obsolete CSS alias references/, "checker rejects an obsolete alias in motion-polish.css");
 } finally { rmSync(fixtureDir, { recursive: true, force: true }); }
 if (process.argv.includes("--css-debt-only")) {
@@ -651,20 +664,31 @@ try {
       <button id="uiRequiredSelectedMark" aria-pressed="true" style="position:relative;display:block;width:60px;height:32px;border:2px solid #111;background:#fff;color:#111">
         <span>Selected with required boundary</span>
       </button>
+      <button id="uiPseudoGood" role="checkbox" aria-checked="false" style="display:block;width:44px;height:32px;border:0;background:transparent"></button>
+      <button id="uiPseudoBad" role="checkbox" aria-checked="false" style="display:block;width:44px;height:32px;border:0;background:transparent"></button>
       <style>
         #uiSelectedMark::before,#uiRequiredSelectedMark::before{content:"";position:absolute;left:0;top:0;width:4px;height:100%;background:#111}
+        #uiPseudoGood::before,#uiPseudoBad::before{content:"";display:inline-block;width:16px;height:16px;border-radius:50%}
+        #uiPseudoGood::before{border:2px solid #6e6a63}
+        #uiPseudoBad::before{border:2px solid #ddd}
       </style>
     </div>`));
   const contextualRoles = await opened.page.evaluate(measureRenderedRoles, { components: [
     { selector: ".radio-card", roles: { control: "selection", boundary: "required" } },
     { selector: "#uiSelectedMark", roles: { control: "selection" } },
     { selector: "#uiRequiredSelectedMark", roles: { control: "selection", boundary: "required" } },
+    { selector: "#uiPseudoGood", roles: { control: "selection", boundary: "required" } },
+    { selector: "#uiPseudoBad", roles: { control: "selection", boundary: "required" } },
   ] });
   const groupedMarks = contextualRoles.filter((item) => item.selector.includes("radio-card__mark"));
   assert.deepEqual(groupedMarks.map((item) => item.status).sort(), ["fail", "pass"],
     `grouped choices measure their actual marks without treating transparent rows as boundaries: ${JSON.stringify(contextualRoles)}`);
   assert.ok(contextualRoles.some((item) => item.kind === "boundary" && item.selector.includes("onb__opts.onb__list") && item.status === "pass"),
     "the grouped choice boundary is measured at its visible owner");
+  assert.equal(contextualRoles.find((item) => item.selector.includes("#uiPseudoGood") && item.kind === "boundary")?.status, "pass",
+    `required pseudo-element boundaries use their rendered border: ${JSON.stringify(contextualRoles)}`);
+  assert.equal(contextualRoles.find((item) => item.selector.includes("#uiPseudoBad") && item.kind === "boundary")?.status, "fail",
+    `a low-contrast pseudo-element boundary remains a deliberate rendered-role failure: ${JSON.stringify(contextualRoles)}`);
   assert.equal(contextualRoles.find((item) => item.kind === "state-mark" && item.selector.includes("uiSelectedMark"))?.status, "pass",
     "selected state measures its visible stripe rather than its quiet background wash");
   assert.equal(contextualRoles.find((item) => item.kind === "state-mark" && item.selector.includes("uiRequiredSelectedMark"))?.status, "pass",

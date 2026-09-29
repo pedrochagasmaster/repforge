@@ -675,6 +675,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "rest-bar",
+      "flow": "today",
+      "label": "Today — running rest bar",
+      "scenario": "The rest countdown remains visible after leaving the active workout.",
+      "variants": "demandingText"
+    },
+    {
       "id": "day-picker",
       "flow": "today",
       "label": "Today — choose another day",
@@ -693,6 +700,13 @@
       "flow": "workout",
       "label": "Workout — focus mode",
       "scenario": "One exercise at a time.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-glossary",
+      "flow": "workout",
+      "label": "Workout — Focus glossary definition",
+      "scenario": "A definition is open after tapping a glossary term in Focus.",
       "variants": "demandingText"
     },
     {
@@ -1011,6 +1025,13 @@
       "variants": "standard"
     },
     {
+      "id": "list-selected",
+      "flow": "library",
+      "label": "Exercise library — selected movement",
+      "scenario": "One movement is selected and the persistent add bar is visible.",
+      "variants": "demandingText"
+    },
+    {
       "id": "exercise-preview",
       "flow": "library",
       "label": "Exercise library — preview",
@@ -1023,6 +1044,13 @@
       "label": "Exercise library — detail",
       "scenario": "The full movement detail surface.",
       "variants": "standard"
+    },
+    {
+      "id": "exercise-detail-glossary",
+      "flow": "library",
+      "label": "Exercise library — detail glossary definition",
+      "scenario": "A definition is open after tapping a term in movement detail.",
+      "variants": "demandingText"
     },
     {
       "id": "no-program",
