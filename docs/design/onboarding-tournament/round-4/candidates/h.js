@@ -18,6 +18,7 @@
       "h.name": "H · Concreto",
       "h.land.key": "exatamente",
       "h.land.proof": "Hoje, logo depois de ativar um programa.",
+      "h.land.proof_alt": "A tela de Hoje: Corpo inteiro, semana 1 de 6, 0 de 3 sessões concluídas. A sessão de hoje é o Dia 1, com quadríceps, peito e posteriores em cinco exercícios, e o botão Começar treino.",
       "h.brand.home": "Taurifer",
       "h.index": "{n} de {total}",
       "h.index.sr": "Pergunta {n} de {total}.",
@@ -104,6 +105,7 @@
       "h.name": "H · Concreto",
       "h.land.key": "exactly",
       "h.land.proof": "Today, right after a program is activated.",
+      "h.land.proof_alt": "The Today screen: Full body, week 1 of 6, zero of three sessions completed. Today's session is Day 1, with quads, chest and hamstrings across five exercises, and a Start workout button.",
       "h.brand.home": "Taurifer",
       "h.index": "{n} of {total}",
       "h.index.sr": "Question {n} of {total}.",
@@ -511,7 +513,7 @@
       <h1 class="h-poem" tabindex="-1">${poem}</h1>
       <p class="h-land__body">${esc(t("landing.body"))}</p>
       <div class="h-land__acts"><button type="button" id="firstRunCreate" class="h-btn h-btn--field" data-act="land-create"><span class="h-btn__l">${esc(t("landing.build"))}</span>${ARROW()}</button><button type="button" id="firstRunImport" class="h-btn h-btn--line" data-act="land-import"><span class="h-btn__l">${esc(t("landing.track"))}</span>${ARROW()}</button></div>
-      <div class="h-land__proof"><p class="h-land__cap">${esc(t("h.land.proof"))}</p><figure class="h-land__shot"><img src="${esc(TF.asset(`round-4/assets/h/today-ready-${lang === "pt" ? "pt" : "en"}-${document.documentElement.dataset.theme === "dark" ? "dark" : "light"}.png`))}" width="780" height="1688" decoding="async" alt="${esc(t("landing.shot.today_ready.alt"))}"></figure></div>
+      <div class="h-land__proof"><p class="h-land__cap">${esc(t("h.land.proof"))}</p><figure class="h-land__shot"><img src="${esc(TF.asset(`round-4/assets/h/today-ready-${lang === "pt" ? "pt" : "en"}-${document.documentElement.dataset.theme === "dark" ? "dark" : "light"}.png`))}" width="780" height="1688" decoding="async" data-proof-own alt="${esc(t("h.land.proof_alt"))}"></figure></div>
       <p class="h-land__privacy">${esc(t("x.privacy.line"))}</p></main>`;
   }
   function door(route, { lead = false, importMode } = {}) {

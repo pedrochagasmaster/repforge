@@ -42,12 +42,13 @@
       "j.q.rest": "Quanto você prefere descansar entre séries exigentes?",
       "j.q.env": "Onde você treina?",
       "j.q.env_check": "{env} inclui: {equipment}. Confere?",
-      "j.q.env_check_none": "Com {env}, o Taurifer não conta com nenhum equipamento. Confere?",
+      "j.q.env_check_none": "{env}: sem equipamento marcado, o Taurifer monta o programa só com exercícios de peso corporal, sem barra fixa. Confere?",
       "j.env.ok": "Confere",
       "j.env.fix": "Corrigir o equipamento",
       "j.env.fix_title": "Marque o que existe onde você treina.",
       "j.env.fixed": "Corrigido: {list}",
-      "j.env.fixed_none": "Corrigido: sem equipamento",
+      "j.env.fixed_none": "Corrigido: só peso corporal",
+      "j.env.only_bw": "só peso corporal",
       "j.q.prio": "Quer priorizar algum músculo ou evitar algum exercício? É opcional.",
       "j.prio.none": "Sem prioridades",
       "j.prio.open": "Escolher prioridades",
@@ -63,6 +64,11 @@
       "j.c.send": "Enviar",
       "j.c.paste": "Colar um programa que já tenho",
       "j.c.attach": "Anexar um arquivo de programa",
+      "j.c.bring": "Colar ou anexar um programa que você já tem",
+      "j.attach.bring_title": "Trazer um programa",
+      "j.attach.paste": "Colar um programa",
+      "j.attach.paste_sub": "De uma mensagem, suas notas ou uma planilha.",
+      "j.attach.lose": "As respostas desta conversa serão descartadas.",
       "j.c.fix_draft": "Enviar a correção do equipamento",
       "j.c.prio_draft": "Enviar as prioridades",
       "j.c.prio_empty": "Escolha acima ou toque em Sem prioridades",
@@ -104,6 +110,8 @@
       "j.imp.opened": "Você abriu o {provider} com o comando.",
       "j.imp.copied": "Você copiou o comando.",
       "j.imp.reply_label": "Resposta do {provider}, colada",
+      "j.imp.reply_hint": "Importe da área de transferência ou cole abaixo.",
+      "j.imp.reply_ph": "Resposta do assistente",
       "j.imp.reply_label_any": "Resposta do assistente, colada",
       "j.imp.gaps_title": "Complete o que falta",
       "j.imp.gaps_lede": "A resposta trouxe a estrutura do programa, mas faltam algumas séries ou repetições. Preencha os campos e envie.",
@@ -146,12 +154,13 @@
       "j.q.rest": "How long do you like to rest between demanding sets?",
       "j.q.env": "Where do you train?",
       "j.q.env_check": "{env} includes: {equipment}. Is that right?",
-      "j.q.env_check_none": "With {env}, Taurifer assumes no equipment. Is that right?",
+      "j.q.env_check_none": "{env}: with no equipment marked, Taurifer builds the program from bodyweight exercises only, with no pull-up bar. Is that right?",
       "j.env.ok": "That's right",
       "j.env.fix": "Correct the equipment",
       "j.env.fix_title": "Mark what is there where you train.",
       "j.env.fixed": "Corrected: {list}",
-      "j.env.fixed_none": "Corrected: no equipment",
+      "j.env.fixed_none": "Corrected: bodyweight only",
+      "j.env.only_bw": "bodyweight only",
       "j.q.prio": "Want to prioritize a muscle or avoid an exercise? It is optional.",
       "j.prio.none": "No priorities",
       "j.prio.open": "Choose priorities",
@@ -167,6 +176,11 @@
       "j.c.send": "Send",
       "j.c.paste": "Paste a program I already have",
       "j.c.attach": "Attach a program file",
+      "j.c.bring": "Paste or attach a program you already have",
+      "j.attach.bring_title": "Bring a program",
+      "j.attach.paste": "Paste a program",
+      "j.attach.paste_sub": "From a message, your notes or a spreadsheet.",
+      "j.attach.lose": "The answers in this conversation will be discarded.",
       "j.c.fix_draft": "Send the equipment correction",
       "j.c.prio_draft": "Send the priorities",
       "j.c.prio_empty": "Choose above or tap No priorities",
@@ -208,6 +222,8 @@
       "j.imp.opened": "You opened {provider} with the prompt.",
       "j.imp.copied": "You copied the prompt.",
       "j.imp.reply_label": "{provider} reply, pasted",
+      "j.imp.reply_hint": "Import from clipboard, or paste it below.",
+      "j.imp.reply_ph": "Assistant reply",
       "j.imp.reply_label_any": "Assistant reply, pasted",
       "j.imp.gaps_title": "Fill in what is missing",
       "j.imp.gaps_lede": "The reply brought back the program's structure, but some sets or reps are missing. Fill in the fields and send.",
@@ -301,6 +317,7 @@
   const envAdjusted = (e) => { if (!e) return false; const b = TF.env(e.kind); return !(sameSet(b.equipment, e.equipment) && sameSet(b.capabilities, e.capabilities)); };
   /* Equipment reads in running text; capabilities keep their catalog wording. */
   const equipList = (e) => [...(e?.equipment || []).map((k) => t(`entry.equip.${k}`, undefined, k)).map((x, i) => (i === 0 || /^Smith/.test(x) ? x : lcFirst(x))), ...(e?.capabilities || []).map((k) => t(`entry.cap.${k}`, undefined, k))];
+  const envFull = (a) => `${answerText(a, "environment")}: ${listJoin(equipList(a.environment)) || t("j.env.only_bw")}`;
   function envCheckText(a) {
     if (!envAdjusted(a.environment)) return t("j.env.ok");
     const l = equipList(a.environment); return l.length ? t("j.env.fixed", { list: listJoin(l) }) : t("j.env.fixed_none");
@@ -355,6 +372,7 @@
     if (S.lastPreview && TF.identityDiff(S.lastPreview, r.result.preview).n > 0) changeFrom = { preview: S.lastPreview };
     else if ((S.answers.exerciseConstraints || []).length) { const w = compileWith({ ...answers(), exerciseConstraints: [] }); if (w.ok) changeFrom = { preview: w.result.preview, constraints: true }; }
     S.versions.push({ result: r.result, changeFrom, reply: null });
+    S.sent = { answers: clone(S.answers), edited: { ...S.edited } };
     S.lastPreview = null;
   }
   function stateFor(st) { return TF.entryState({ route: S.route, answers: S.route === "import" ? {} : answers(), result: result(), step: st || step(), activeProgramRevisionAtStart: S.revAtStart }); }
@@ -375,12 +393,12 @@
   /* ---------- message builders ---------- */
   /* A message: { id, from: "in" | "out" | "sys" | "chips", html, cls, cp } */
   const meta = (id, { ticks = 0, edited = false } = {}) => `<span class="j-meta">${edited ? `<span class="j-meta__ed">${esc(t("j.edited"))}</span>` : ""}<span class="j-meta__time">${stamp(id)}</span>${ticks ? `<span class="j-meta__ticks${ticks === 2 ? " is-used" : ""}">${ico(ticks === 2 ? "dcheck" : "check")}</span>` : ""}</span>`;
-  const inMsg = (id, body, { cls = "", cp = "", label = "" } = {}) => ({ id, from: "in", cp, html: `<div class="j-bubble j-in ${cls}"${label ? ` aria-label="${esc(label)}"` : ""}>${body}${meta(id)}</div>` });
+  const inMsg = (id, body, { cls = "", cp = "", label = "" } = {}) => ({ id, from: "in", cp, html: `<div class="j-bubble j-in ${cls}"${label ? ` aria-label="${esc(label)}"` : ""}>${body}</div>` });
   const sysMsg = (id, body, { cls = "", cp = "" } = {}) => ({ id, from: "sys", cp, html: `<div class="j-sys ${cls}">${body}</div>` });
-  function ansBubble(id, key, val, text, { what, quote = null, label = null, src = null } = {}) {
+  function ansBubble(id, key, val, text, { what, quote = null, label = null, src = null, edited = null } = {}) {
     const used = !!result() && S.route === "recommend";
     const w = what || t(`j.what.${KEY_WHAT[key] || (key === "priorities" ? "prio" : "env")}`);
-    return { id, from: "out", html: `<button type="button" class="j-bubble j-out j-ans" data-act="reply" data-key="${esc(key)}" data-val="${esc(val)}"${src ? ` data-src="${src}"` : ""} aria-label="${esc(t("j.ans.aria", { what: lcFirst(w), value: text }))}">${quote ? quoteBlock(quote.what, quote.text) : ""}${label ? `<span class="j-label">${label}</span>` : ""}<span class="j-ans__t">${esc(text)}</span><span class="j-ans__swipe" aria-hidden="true">${ico("reply")}</span>${meta(id, { ticks: used ? 2 : 1, edited: !!S.edited[key] })}</button>` };
+    return { id, from: "out", html: `<button type="button" class="j-bubble j-out j-ans" data-act="reply" data-key="${esc(key)}" data-val="${esc(val)}"${src ? ` data-src="${src}"` : ""} aria-label="${esc(t("j.ans.aria", { what: lcFirst(w), value: text }))}">${quote ? quoteBlock(quote.what, quote.text) : ""}${label ? `<span class="j-label">${label}</span>` : ""}<span class="j-ans__t">${esc(text)}</span><span class="j-ans__swipe" aria-hidden="true">${ico("reply")}</span>${meta(id, { ticks: used ? 2 : 1, edited: edited === null ? !!S.edited[key] : edited })}</button>` };
   }
   const outMsg = (id, body, { cls = "", label = "" } = {}) => ({ id, from: "out", html: `<div class="j-bubble j-out ${cls}">${label ? `<span class="j-label">${label}</span>` : ""}${body}${meta(id, { ticks: 1 })}</div>` });
   const quoteBlock = (what, text) => `<span class="j-quote"><span class="j-quote__bar" aria-hidden="true"></span><span class="j-quote__body"><span class="j-quote__who">${esc(t("j.you"))} · ${esc(what)}</span><span class="j-quote__text">${esc(text)}</span></span></span>`;
@@ -389,7 +407,7 @@
     const opts = options(key);
     const numeric = key === "daysPerWeek" || key === "sessionMinutes";
     const html = `<div class="j-replies${numeric ? " j-replies--num" : ""}" role="group" aria-labelledby="q-${id}">${opts.map((o) => `<button type="button" class="j-qr${o.sub ? " j-qr--sub" : ""}${numeric ? " j-qr--num" : ""}" data-act="pick" data-key="${key}" data-val="${esc(o.val)}"${numeric ? ` aria-label="${esc(o.num)} ${esc(o.unit)}"` : ""}>${numeric ? `<span class="j-qr__n">${esc(o.num)}</span><span class="j-qr__u" aria-hidden="true">${esc(o.unit)}</span>` : `<span class="j-qr__t">${esc(o.title)}</span>${o.sub ? `<span class="j-qr__s">${esc(o.sub)}</span>` : ""}`}</button>`).join("")}</div>`;
-    return { id: id + ":chips", from: "chips", html };
+    return { id: id + ":chips", from: "chips", html: numeric ? html : html.replace('class="j-replies"', 'class="j-replies j-replies--stack"') };
   }
   const qMsg = (id, text, note = "", { cp = "" } = {}) => inMsg(id, `<p class="j-q" id="q-${id}">${esc(text)}</p>${note ? `<p class="j-note">${esc(note)}</p>` : ""}`, { cp });
   /* Buttons attached under a bubble (the interactive-message grammar). */
@@ -402,9 +420,9 @@
     const src = TF.asset(`vendor/brand/today-ready-${lang === "pt" ? "pt" : "en"}-${theme}.webp`);
     const img = `<img src="${esc(src)}" width="903" height="1832" decoding="async" alt="${esc(t("landing.shot.today_ready.alt"))}">`;
     m.push(sysMsg("land:lock", `${ico("lock")}<span>${esc(t("x.privacy.line"))}</span>`, { cls: "j-sys--lock" }));
-    m.push({ id: "land:img", from: "in", html: `<div class="j-bubble j-in j-media">${live ? `<button type="button" class="j-media__btn" data-act="media-open" aria-haspopup="dialog">${img}<span class="visually-hidden">${esc(t("j.land.open_image"))}</span></button>` : `<span class="j-media__btn">${img}</span>`}<p class="j-media__cap">${esc(t("j.land.caption"))}</p>${meta("land:img")}</div>` });
+    m.push({ id: "land:img", from: "in", html: `<div class="j-bubble j-in j-media">${live ? `<button type="button" class="j-media__btn" data-act="media-open" aria-haspopup="dialog">${img}<span class="visually-hidden">${esc(t("j.land.open_image"))}</span></button>` : `<span class="j-media__btn">${img}</span>`}<p class="j-media__cap">${esc(t("j.land.caption"))}</p></div>` });
     const head = `<p class="j-headline">${esc(t("landing.headline"))}</p><p class="j-body">${esc(t("landing.body"))}</p>`;
-    if (live) m.push({ id: "land:pitch", from: "in", cp: "", html: `<div class="j-bubble j-in j-pitch">${head}${meta("land:pitch")}${attached([attBtn({ act: "land-create", id: "firstRunCreate", label: t("landing.build"), primary: true, icon: "arrow" }), attBtn({ act: "land-import", id: "firstRunImport", label: t("landing.track"), icon: "paste" })])}</div>` });
+    if (live) m.push({ id: "land:pitch", from: "in", cp: "", html: `<div class="j-bubble j-in j-pitch">${head}${attached([attBtn({ act: "land-create", id: "firstRunCreate", label: t("landing.build"), primary: true, icon: "arrow" }), attBtn({ act: "land-import", id: "firstRunImport", label: t("landing.track"), icon: "paste" })])}</div>` });
     else {
       m.push(inMsg("land:pitch", head, { cls: "j-pitch" }));
       if (S.landingPick) m.push(outMsg(`land:pick:${S.landingPick}`, `<span class="j-ans__t">${esc(t(S.landingPick === "import" ? "landing.track" : "landing.build"))}</span>`));
@@ -424,28 +442,31 @@
     m.push(...activeMsgs());
     const offer = noAnswers() ? attached([attBtn({ act: "to-paste", label: t("j.c.paste"), icon: "paste" }), attBtn({ act: "import-mode", label: t("j.c.attach"), icon: "clip", extra: ' data-mode="file" aria-haspopup="dialog"' })]) : "";
     m.push(inMsg("intro", `<p class="j-body">${esc(t("j.rec.intro"))}</p><p class="j-note">${esc(t("entry.result.lede"))}</p>${offer}`, { cp: noAnswers() ? "route-choice" : "" }));
-    const a = S.answers;
+    /* After the first program, the questions and answers read as they were
+       sent; later corrections live only in reply bubbles and new versions. */
+    const sent = S.versions.length && S.sent ? S.sent : null;
+    const a = sent ? sent.answers : S.answers; const ed = (k) => (sent ? !!sent.edited[k] : !!S.edited[k]);
     for (const q of QS) {
       m.push(qMsg(`q:${q.key}`, questionText(q.key), questionNote(q.key)));
       if (!answered(a, q.key)) { m.push(chipsMsg(`q:${q.key}`, q.key)); return m; }
-      m.push(ansBubble(`a:${q.key}`, q.key, valOf(a, q.key), answerText(a, q.key)));
+      m.push(ansBubble(`a:${q.key}`, q.key, valOf(a, q.key), answerText(a, q.key), { edited: ed(q.key) }));
     }
     /* Environment: what the choice includes, confirmed or corrected. */
     const e = a.environment; const base = TF.env(e.kind); const l = equipList(base);
-    m.push(inMsg("q:envCheck", `<p class="j-q" id="q-q:envCheck">${esc(l.length ? t("j.q.env_check", { env: t(`entry.environment.${e.kind}`), equipment: listJoin(l) }) : t("j.q.env_check_none", { env: lcFirst(t(`entry.environment.${e.kind}`)) }))}</p>`));
+    m.push(inMsg("q:envCheck", `<p class="j-q" id="q-q:envCheck">${esc(l.length ? t("j.q.env_check", { env: t(`entry.environment.${e.kind}`), equipment: listJoin(l) }) : t("j.q.env_check_none", { env: t(`entry.environment.${e.kind}`) }))}</p>`));
     if (!S.envOk) {
       if (S.envFix) m.push(envFixMsg());
       else m.push({ id: "q:envCheck:chips", from: "chips", html: `<div class="j-replies" role="group" aria-labelledby="q-q:envCheck"><button type="button" class="j-qr" data-act="env-ok">${esc(t("j.env.ok"))}</button><button type="button" class="j-qr" data-act="env-fix">${esc(t("j.env.fix"))}</button></div>` });
       return m;
     }
-    m.push(ansBubble("a:envCheck", "envCheck", e.kind, envCheckText(a), { what: t("j.what.env") }));
+    m.push(ansBubble("a:envCheck", "envCheck", e.kind, envCheckText(a), { what: t("j.what.env"), edited: ed("environment") }));
     m.push(qMsg("q:prio", t("j.q.prio")));
     if (!S.prioDone) {
       if (S.prioOpen) m.push(prioMsg());
       else m.push({ id: "q:prio:chips", from: "chips", html: `<div class="j-replies" role="group" aria-labelledby="q-q:prio"><button type="button" class="j-qr" data-act="prio-none">${esc(t("j.prio.none"))}</button><button type="button" class="j-qr" data-act="prio-open">${esc(t("j.prio.open"))}</button></div>` });
       return m;
     }
-    m.push(ansBubble("a:prio", "priorities", "set", prioText(a)));
+    m.push(ansBubble("a:prio", "priorities", "set", prioText(a), { edited: ed("priorities") }));
     m.push(...versionMessages());
     return m;
   }
@@ -503,7 +524,7 @@
     const rows = [["desiredResult", "goal"], ["structuredExperience", "exp"], ["recentConsistency", "cons"], ["daysPerWeek", "days"], ["sessionMinutes", "minutes"], ["preferredRestSeconds", "rest"], ["environment", "env"], ["priorities", "prio"]];
     return rows.map(([key, w]) => {
       let text = answerText(a, key);
-      if (key === "environment" && envAdjusted(a.environment)) text = `${text}: ${listJoin(equipList(a.environment)) || lcFirst(t("j.env.fixed_none").split(": ").pop())}`;
+      if (key === "environment" && envAdjusted(a.environment)) text = envFull(a);
       const what = t(`j.what.${w}`);
       return `<li><button type="button" class="j-fact" data-act="reply" data-src="card" data-key="${key}" data-val="${esc(key === "priorities" ? "set" : valOf(a, key))}" aria-label="${esc(t("j.reply.aria", { what: lcFirst(what), value: text }))}"><span class="j-fact__k">${esc(what)}</span><span class="j-fact__v">${esc(text)}</span>${ico("reply", "j-fact__r")}</button></li>`;
     }).join("");
@@ -536,7 +557,7 @@
       body += `<section class="j-card__sec" aria-labelledby="jProg"><h3 class="j-card__h" id="jProg">${esc(t("j.imp.progression"))}</h3><ul class="j-lines"><li>${ico("check")}<span>${esc(t(TF.progressionCopyKey(p)))}</span></li><li>${ico("check")}<span>${esc(t("import.safe"))}</span></li></ul></section>`;
     }
     if (TF.progressionIssue(p)) body += `<p class="j-sysline is-error" id="jBlocked" role="alert">${ico("alert")}<span>${esc(t("entry.preview.activation_blocked"))}</span></p>`;
-    return { id: `card:${i}`, from: "in", html: `<article class="j-bubble j-in j-card" data-card aria-labelledby="jCardName">${body}${meta(`card:${i}`)}${attached([attBtn({ act: "restart", id: "jRestart", label: t("entry.preview.restart"), danger: true, extra: ' aria-haspopup="dialog"' })])}</article>` };
+    return { id: `card:${i}`, from: "in", html: `<article class="j-bubble j-in j-card" data-card aria-labelledby="jCardName">${body}${attached([attBtn({ act: "restart", id: "jRestart", label: t("entry.preview.restart"), danger: true, extra: ' aria-haspopup="dialog"' })])}</article>` };
   }
   function versionMessages() {
     const m = []; const n = S.versions.length;
@@ -546,7 +567,7 @@
       if (i < n - 1) m.push(inMsg(`card:${i}`, `<p class="j-folded">${ico("doc")}<span>${esc(t("j.card.folded", { n: i + 1, name: TF.resultName(v.result, lang), facts: factsOf(v.result.preview) }))}</span></p>`, { cls: "j-card--folded" }));
       else m.push(cardMsg(v, i, n));
     });
-    if (S.notice === "conflict") m.push(sysMsg("conflict", `<p class="j-sys__t">${ico("alert")}<strong>${esc(t("entry.conflict.title"))}</strong></p><p id="jConflictBody">${esc(t("entry.conflict.body"))}</p>${attached([attBtn({ act: "conflict-review", label: t("entry.conflict.review"), icon: "redo" })])}`, { cls: "j-sys--error", cp: "activation-conflict" }));
+    if (S.notice === "conflict") m.push(sysMsg("conflict", `<h2 class="j-sys__t" id="jConflictT" tabindex="-1" aria-describedby="jConflictBody">${ico("alert")}<strong>${esc(t("entry.conflict.title"))}</strong></h2><p id="jConflictBody">${esc(t("entry.conflict.body"))}</p>${attached([attBtn({ act: "conflict-review", label: t("entry.conflict.review"), icon: "redo" })])}`, { cls: "j-sys--error", cp: "activation-conflict" }));
     if (S.actError) m.push(sysMsg("acterr", `<p id="jActError" tabindex="-1">${esc(S.actError)}</p>`, { cls: "j-sys--error" }));
     return m;
   }
@@ -576,7 +597,7 @@
         m.push(sysMsg("imp:opened", `<span>${esc(ff.provider === "copy" ? t("j.imp.copied") : t("j.imp.opened", { provider: provName(ff.provider) }))}</span>`, { cls: "j-sys--event" }));
         const sent = S.ffSent;
         const live = !sent || ff.status === "unreadable";
-        m.push(inMsg("imp:reply", `<p class="j-q">${esc(t("entry.freeform.stage3_title"))}</p><p class="j-body">${esc(t("entry.freeform.stage3_hint"))}</p>${live ? `<p class="j-note">${esc(t("entry.freeform.clipboard_or"))}</p>` + attached([
+        m.push(inMsg("imp:reply", `<p class="j-q">${esc(t("entry.freeform.stage3_title"))}</p>${live ? `<p class="j-body">${esc(t("j.imp.reply_hint"))}</p>` + attached([
           attBtn({ act: "ff", label: t("entry.freeform.clipboard_import"), extra: ' data-ff="clipboard"', icon: "paste", primary: true }),
           attBtn({ act: "ff", label: t("entry.freeform.try_another"), extra: ' data-ff="try-another"', icon: "redo" }),
           attBtn({ act: "ff", label: t("entry.freeform.start_over"), extra: ' data-ff="start-over" aria-haspopup="dialog"', danger: true })]) : ""}`));
@@ -657,13 +678,14 @@
       return `<footer class="j-dock" data-persistent-action><button type="button" class="j-go" id="jImportCommit" data-act="import-commit"${c.review ? ' disabled aria-describedby="jImpReason"' : ""}>${esc(t("j.imp.commit"))}${ico("arrow")}</button></footer>`;
     }
     let attach = "", pill = "", send = "";
-    const tapPill = (id = "jPill") => `<span class="j-pill j-pill--hint" id="${id}">${esc(t("j.c.tap"))}</span>`;
+    const clip = `<button type="button" class="j-pill__clip" data-act="attach-open" aria-haspopup="dialog" aria-label="${esc(t("j.c.bring"))}">${ico("clip")}</button>`;
+    const tapPill = (id = "jPill") => `<span class="j-pill j-pill--hint">${clip}<span class="j-pill__t" id="${id}">${esc(t("j.c.tap"))}</span></span>`;
     if (S.route === "recommend") {
       const st = step();
-      if (st === "environment" && S.envFix) { pill = `<span class="j-pill j-pill--draft" id="jPill">${esc(t("j.c.fix_draft"))}</span>`; send = sendBtn({ act: "env-send", enabled: true, label: t("j.c.fix_draft") }); }
+      if (st === "environment" && S.envFix) { pill = `<span class="j-pill j-pill--draft">${clip}<span class="j-pill__t" id="jPill">${esc(t("j.c.fix_draft"))}</span></span>`; send = sendBtn({ act: "env-send", enabled: true, label: t("j.c.fix_draft") }); }
       else if (st === "priorities" && S.prioOpen) {
         const pending = !!S.avoid.pending; const txt = prioText(S.answers);
-        pill = `<span class="j-pill j-pill--draft" id="jPill">${esc(txt)}</span>`;
+        pill = `<span class="j-pill j-pill--draft">${clip}<span class="j-pill__t" id="jPill">${esc(txt)}</span></span>`;
         send = sendBtn({ act: "prio-send", enabled: !pending, describedby: "pendingAvoidNote", label: t("j.c.prio_draft") });
       } else { pill = tapPill(); send = sendBtn({ describedby: "jPill" }); }
     } else if (S.route === "import") {
@@ -674,7 +696,7 @@
       } else if (ff.stage === 2) { pill = `<span class="j-pill j-pill--hint" id="jPill">${esc(t("j.c.ff_wait"))}</span>`; send = sendBtn({ describedby: "jPill" }); }
       else if (ff.status === "gaps") { pill = `<span class="j-pill j-pill--hint" id="jPill">${esc(t("j.c.gaps"))}</span>`; send = sendBtn({ act: "ff", extra: ' data-ff="gap-submit"', enabled: true, label: t("entry.freeform.gaps_submit") }); }
       else {
-        pill = `<label class="j-pill j-pill--field"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span><textarea id="ffOut" rows="1" spellcheck="false" autocapitalize="off" data-field="ffReply" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(S.ffSent ? "" : ff.reply)}</textarea></label>`;
+        pill = `<label class="j-pill j-pill--field"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span><textarea id="ffOut" rows="1" spellcheck="false" autocapitalize="off" data-field="ffReply" placeholder="${esc(t("j.imp.reply_ph"))}">${esc(S.ffSent ? "" : ff.reply)}</textarea></label>`;
         send = sendBtn({ act: "ff", extra: ' data-ff="review"', enabled: true, label: t("entry.freeform.review") });
       }
     }
@@ -690,8 +712,10 @@
     if (S.overlay === "restart") return dlg("jRestartD", { confirm: "restart", title: t("x.restart.title"), body: t("x.restart.body"), scrimAct: "restart-cancel", btns: [dBtn("restart-confirm", t("j.restart.confirm"), { kind: "danger" }), dBtn("restart-cancel", t("x.restart.cancel"))] });
     if (S.ff && S.ff.confirmStartOver) return dlg("jFfRestart", { confirm: "ff-start-over", title: t("entry.freeform.confirm_start_over"), scrimAct: "ff", btns: [dBtn("ff", t("x.ff.restart_confirm"), { kind: "danger", extra: ' data-ff="start-over-confirm"' }), dBtn("ff", t("x.ff.restart_cancel"), { extra: ' data-ff="start-over-cancel"' })] }).replace('data-act="ff"></div>', 'data-act="ff" data-ff="start-over-cancel"></div>');
     if (S.overlay === "attach") {
-      const discard = S.route === "import" && S.importMode === "freeform" && S.ff.input.trim();
-      return `<div class="j-scrim" data-act="attach-close"></div><div class="j-dialog j-attach" role="dialog" aria-modal="true" aria-labelledby="jAttachT"><h2 class="j-dialog__t" id="jAttachT" tabindex="-1">${esc(t("j.attach.title"))}</h2><button type="button" class="j-attach__opt" data-act="import-file">${ico("doc")}<span><span class="j-attach__t">${esc(t("j.attach.file"))}</span><span class="j-attach__s">${esc(t("x.cost.file"))}</span>${discard ? `<span class="j-attach__s is-warn">${esc(t("j.attach.discard"))}</span>` : ""}</span></button><div class="j-dialog__acts">${dBtn("attach-close", t("j.attach.close"))}</div></div>`;
+      const rec = S.route === "recommend"; const lose = rec && Object.keys(S.answers).length;
+      const discard = (S.route === "import" && S.importMode === "freeform" && S.ff.input.trim()) || lose;
+      const paste = rec ? `<button type="button" class="j-attach__opt" data-act="to-paste">${ico("paste")}<span><span class="j-attach__t">${esc(t("j.attach.paste"))}</span><span class="j-attach__s">${esc(t("j.attach.paste_sub"))}</span>${lose ? `<span class="j-attach__s is-warn">${esc(t("j.attach.lose"))}</span>` : ""}</span></button>` : "";
+      return `<div class="j-scrim" data-act="attach-close"></div><div class="j-dialog j-attach" role="dialog" aria-modal="true" aria-labelledby="jAttachT"><h2 class="j-dialog__t" id="jAttachT" tabindex="-1">${esc(t(rec ? "j.attach.bring_title" : "j.attach.title"))}</h2>${paste}<button type="button" class="j-attach__opt" data-act="import-file">${ico("doc")}<span><span class="j-attach__t">${esc(t("j.attach.file"))}</span><span class="j-attach__s">${esc(t("x.cost.file"))}</span>${discard ? `<span class="j-attach__s is-warn">${esc(t(lose ? "j.attach.lose" : "j.attach.discard"))}</span>` : ""}</span></button><div class="j-dialog__acts">${dBtn("attach-close", t("j.attach.close"))}</div></div>`;
     }
     if (S.overlay === "media") {
       const src = TF.asset(`vendor/brand/today-ready-${lang === "pt" ? "pt" : "en"}-${theme}.webp`);
@@ -755,7 +779,7 @@
   }
 
   /* ---------- render, focus, scroll, motion ---------- */
-  const seen = new Set();
+  const seen = new Set(); let quiet = false;
   const sel = (x) => (/^[#\[.]/.test(x) ? x : "#" + CSS.escape(x));
   const FOCUS_ATTRS = ["act", "key", "val", "id", "src", "imp", "ff", "mode", "provider", "field"];
   function focusKey(el) {
@@ -779,7 +803,7 @@
     document.documentElement.style.setProperty("--j-dock-h", `${Math.ceil(dockH())}px`);
     /* Entrance: only messages that were not on screen before. */
     let i = 0;
-    root.querySelectorAll("[data-mid]").forEach((el) => { const id = el.dataset.mid; if (!seen.has(id)) { seen.add(id); if (o.enter !== false) { el.classList.add("is-new"); el.style.setProperty("--j-i", String(Math.min(i++, 3))); } } });
+    root.querySelectorAll("[data-mid]").forEach((el) => { const id = el.dataset.mid; if (!seen.has(id)) { seen.add(id); if (o.enter !== false && !quiet) { el.classList.add("is-new"); el.style.setProperty("--j-i", String(Math.min(i++, 3))); } } });
     if (o.flip && !reduced()) flip(o.flip);
     if (o.focus === "heading") TS.focusHeading(root);
     else if (typeof o.focus === "string") focusSel(o.focus);
@@ -851,7 +875,7 @@
       exitToStart(); return;
     }
     const st = step();
-    if (st === "result") { S.lastPreview = result() ? result().preview : null; S.versions = []; S.notice = null; S.actError = null; S.prioDone = false; S.prioOpen = !!((S.answers.primaryMuscles || []).length || (S.answers.priorityMovements || []).length || (S.answers.exerciseConstraints || []).length); render({ scroll: "bottom", focus: "heading" }); return; }
+    if (st === "result") { if (S.sent) for (const k of [...QS.map((q) => q.key), "priorities"]) { const pick = (x) => JSON.stringify(k === "priorities" ? [x.primaryMuscles, x.priorityMovements, x.exerciseConstraints] : x[k]); if (pick(S.sent.answers) !== pick(S.answers)) S.edited[k] = true; } S.lastPreview = result() ? result().preview : null; S.versions = []; S.notice = null; S.actError = null; S.prioDone = false; S.prioOpen = !!((S.answers.primaryMuscles || []).length || (S.answers.priorityMovements || []).length || (S.answers.exerciseConstraints || []).length); render({ scroll: "bottom", focus: "heading" }); return; }
     if (st === "priorities") { if (S.prioOpen) { S.prioOpen = false; } else { S.envOk = false; } render({ scroll: "bottom", focus: "heading" }); return; }
     if (st === "environment" && S.envFix) { S.envFix = false; render({ scroll: "bottom", focus: "heading" }); return; }
     /* Otherwise the last answer is taken back and its question asked again. */
@@ -881,9 +905,9 @@
     if (!result() || S.route !== "recommend") { S.answers = next; S.edited[key] = true; S.sheet = null; render({ focus: ansSel(key, key === "priorities" ? "set" : valOf(next, key)) }); return; }
     const r = compileWith(TF.normalizeAnswers(next));
     if (!r.ok) { sh.error = r.text; render({ focus: "#jSheetT" }); return; }
-    const newText = key === "environment" && envAdjusted(next.environment) ? `${answerText(next, "environment")}: ${listJoin(equipList(next.environment)) || lcFirst(t("j.env.fixed_none").split(": ").pop())}` : answerText(next, key);
+    const newText = key === "environment" && envAdjusted(next.environment) ? envFull(next) : answerText(next, key);
     S.versions.push({ result: r.result, changeFrom: { preview: result().preview }, reply: { key, val: key === "priorities" ? "set" : valOf(next, key), what: sh.what, old: sh.old, text: newText } });
-    S.answers = next; S.edited[key] = true; S.sheet = null; S.notice = null; S.actError = null;
+    S.answers = next; S.sheet = null; S.notice = null; S.actError = null;
     render({ scroll: "card", smooth: false });
     showChange();
   }
@@ -900,7 +924,7 @@
     const st = S.route === "import" ? "preview" : "result";
     let r; try { r = TF.activate(stateFor(st)); } catch (e) { r = { ok: false, code: "state_invalid" }; }
     if (r.ok) { const toast = t("x.activated"); S = blank("today"); S.toast = toast; render({ scroll: "top", focus: "heading" }); return; }
-    if (r.code === "active_program_changed") { S.notice = "conflict"; S.overlay = null; render({ scroll: "bottom", focus: "#jConflictBody" }); return; }
+    if (r.code === "active_program_changed") { S.notice = "conflict"; S.overlay = null; render({ scroll: "bottom", focus: "#jConflictT" }); return; }
     S.actError = TS.issueText(t, r, { preview: result() && result().preview }); render({ scroll: "bottom", focus: "#jActError" });
   }
   function requestActivate() { if (TF.hasActiveProgram()) { S.overlay = "replace"; render({ focus: "#jReplT" }); } else activateNow(); }
@@ -928,8 +952,9 @@
       case "prio-open": S.prioOpen = true; render({ scroll: "bottom", smooth: true, focus: '[data-act="pick"][data-key="primaryMuscles"]' }); return;
       case "prio-send": if (S.avoid.pending) return; toResult(); return;
       case "to-paste": startRoute("import", { mode: "freeform" }); render({ scroll: "bottom", smooth: true, focus: "#ffIn" }); return;
-      case "import-mode": S.overlay = "attach"; S.overlayReturn = '[data-act="import-mode"]'; render({ focus: "#jAttachT" }); return;
-      case "attach-close": S.overlay = null; render({ focus: '[data-act="import-mode"]' }); return;
+      case "import-mode": S.overlay = "attach"; S.attachFrom = '[data-act="import-mode"]'; render({ focus: "#jAttachT" }); return;
+      case "attach-open": S.overlay = "attach"; S.attachFrom = '[data-act="attach-open"]'; render({ focus: "#jAttachT" }); return;
+      case "attach-close": { const from = S.attachFrom || '[data-act="import-mode"]'; S.overlay = null; S.attachFrom = null; render({ focus: from }); return; }
       case "import-file": importFile(); return;
       case "back": back(); return;
       case "cancel": S.overlay = "cancel"; render({ focus: "#jCancelT" }); return;
@@ -1011,6 +1036,20 @@
     root.addEventListener("click", (ev) => { if (swallow) { swallow = false; ev.stopPropagation(); ev.preventDefault(); } }, true);
   }
 
+  /* The wallpaper: training notation set in the world's two faces, drawn
+     once into a tile at 8.5% ink (5% white in dark). */
+  async function paintWall() {
+    try { await Promise.all([document.fonts.load('600 15px "Atkinson Hyperlegible Mono"'), document.fonts.load('700 15px "Atkinson Hyperlegible Next"')]); } catch (e) { /* fonts optional */ }
+    try {
+      const W = 208, H = 176, dpr = 2; const c = document.createElement("canvas"); c.width = W * dpr; c.height = H * dpr;
+      const g = c.getContext("2d"); g.scale(dpr, dpr); g.textBaseline = "middle"; g.fillStyle = theme === "dark" ? "rgba(255,255,255,.05)" : "rgba(27,42,46,.085)";
+      const marks = [["3×8", 16, 26, -7, 1, 17], ["RIR 2", 118, 20, 5, 0, 14], ["+2,5 kg", 58, 88, -4, 0, 15], ["5×5", 150, 104, 7, 1, 17], ["8–12", 14, 150, 4, 1, 14], ["60 s", 124, 158, -5, 0, 13]];
+      for (const [txt, x, y, r, mono, size] of marks) { g.save(); g.translate(x, y); g.rotate((r * Math.PI) / 180); g.font = `${mono ? 600 : 700} ${size}px "${mono ? "Atkinson Hyperlegible Mono" : "Atkinson Hyperlegible Next"}", sans-serif`; g.fillText(txt, 0, 0); g.restore(); }
+      document.documentElement.style.setProperty("--j-wall-print", `url(${c.toDataURL("image/png")})`);
+      document.documentElement.style.setProperty("--j-wall-size", `${W}px ${H}px`);
+    } catch (e) { /* the plain wall stands */ }
+  }
+
   /* ---------- checkpoint reach (states built through the same model) ---------- */
   const rafael = () => TF.fixtureAnswers("rafael");
   function at(route, a, { envOk = false, prioDone = false } = {}) { S = blank("chat"); S.route = route; S.answers = a; S.envOk = envOk; S.prioDone = prioDone; S.revAtStart = TF.liveRevision(); }
@@ -1035,7 +1074,7 @@
       case "replace-confirm": atResult(rafael()); S.overlay = "replace"; o = { scroll: "card", enter: false, focus: "#jReplT" }; break;
       case "rec-result-corrected": {
         atResult(rafael()); const before = result().preview; const next = { ...S.answers, environment: correctedEnv() }; const r = compileWith(TF.normalizeAnswers(next)); const old = answerText(S.answers, "environment");
-        S.answers = next; S.versions.push({ result: r.result, changeFrom: { preview: before }, reply: { key: "environment", val: next.environment.kind, what: t("j.what.env"), old, text: `${answerText(next, "environment")}: ${listJoin(equipList(next.environment))}` } });
+        S.answers = next; S.versions.push({ result: r.result, changeFrom: { preview: before }, reply: { key: "environment", val: next.environment.kind, what: t("j.what.env"), old, text: envFull(next) } });
         S.cpTag = cp; o.scroll = "card"; break;
       }
       case "rec-result-avoided": { const a = rafael(); a.primaryMuscles = [...u.rafael.pain.primaryMuscles]; a.exerciseConstraints = [{ exerciseId: u.rafael.pain.exerciseId, reason: u.rafael.pain.reason }]; atResult(a); S.cpTag = cp; o.scroll = "card"; break; }
@@ -1047,9 +1086,9 @@
       case "ff-unreadable": at("import", {}); S.ff = ffAt(3, TF.F.freeform.replyUnreadable[lang]); break;
       case "import-review": at("import", {}); S.importMode = "file"; S.fileSent = true; S.importDraft = TF.buildImportDraft(TF.F.importFile[lang], t("j.imp.file_name"), "file"); break;
       case "import-preview": { at("import", {}); S.importMode = "file"; S.fileSent = true; let dr = TF.buildImportDraft(TF.F.importFile[lang], t("j.imp.file_name"), "file"); for (const r of dr.rows) if (!r.reviewed) dr = TS.importReview.apply(dr, r.shortlist.length ? "pick" : "raw", r.key, 0); S.importKept = dr; S.versions = [{ result: TF.importResult(dr, t), changeFrom: null, reply: null }]; o.scroll = "card"; break; }
-      case "activation-conflict": atResult(rafael()); TF.device.revision += 1; activateNow(); return;
+      case "activation-conflict": atResult(rafael()); TF.device.revision += 1; quiet = true; activateNow(); quiet = false; return;
       case "cancel-confirm": at("recommend", bg()); S.overlay = "cancel"; o = { scroll: "bottom", enter: false, focus: "#jCancelT" }; break;
-      case "activated-today": atResult(rafael()); activateNow(); return;
+      case "activated-today": atResult(rafael()); quiet = true; activateNow(); quiet = false; return;
       default: S = blank("landing"); o.scroll = "top";
     }
     if (cp === "route-choice") S.cpTag = null;
@@ -1134,7 +1173,7 @@
     async mount(c) {
       lang = c.lang; root = c.root; theme = c.theme === "dark" ? "dark" : "light";
       t = TF.makeT(lang, Object.assign({}, TS.COPY[lang], COPY[lang]));
-      fresh(c.seed); TS.wire(root, on);
+      fresh(c.seed); TS.wire(root, on); paintWall();
       document.addEventListener("keydown", onKey);
       wireSwipe();
       render({ enter: false });

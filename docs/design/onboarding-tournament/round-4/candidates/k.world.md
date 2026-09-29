@@ -46,6 +46,13 @@ fails white text at small sizes, so the world deepens it to `#D1261E`.
   group labels 1.0625rem in 700, and body 1rem at 1.45. Display sizes are capped
   in `vw` so that at 200% text no word overflows at 320 px. Body and controls
   still double. Numbers use tabular figures.
+- At 200% text the station chrome compacts so that the first answer control
+  is in the first viewport at 320 × 568:
+  - The strip keeps its dots plus one line naming the current station and the
+    count of stations left.
+  - The band's padding and roundel shrink.
+  - The question line and group labels cap at about 24 px and 22 px.
+  - The lede moves below the controls in DOM order.
 - There are no eyebrows or kickers. The roundel sits beside the station name,
   never above it.
 
@@ -75,18 +82,38 @@ fails white text at small sizes, so the world deepens it to `#D1261E`.
   disabled button becomes a flat panel with a hairline, never an opacity fade.
 - **Platform (`.k-platform`)**: the pinned action region. Its top edge is a
   dotted safety-yellow tactile strip, like the edge of a real platform.
-- **Line map (`.k-net`)**: the origin rail on the left ("Você está aqui") and
-  the terminal rail on the right. It descends into "Seu programa" and then
-  "Hoje". Each line is a white row with its roundel, its name, the station
-  count on a black tag, what you do, and the coloured track with one dot per
-  station. The landing uses a compact rendering in which each track runs
-  beside its line name.
+- **Line map (`.k-net`)**: a network drawn on the concrete ground, with no
+  cards. A ring-marked origin node ("Você está aqui") heads the left rail, and
+  the terminal rail on the right descends into "Seu programa" and then "Hoje".
+  Each line is a thick coloured track running from rail to rail, and that
+  track (with the line's roundel, name and black station-count tag) is the
+  tap target. Its station dots carry the real station names, staggered above
+  and below the line as on a metro map. The description sits outside the line
+  as secondary text. At 200% text each line turns vertical, with the names
+  beside the dots, and then bends into the terminal rail.
+- **Landing diagram (`lineDiagram()`, inline SVG)**: octilinear. Five lines
+  leave one interchange capsule (marked with the ring) in parallel, 10 px
+  apart, and turn at 45° to their levels. They carry their real station counts
+  and end in the terminal rail, which feeds "Seu programa" and then "Hoje". The
+  yellow line is drawn over an ink casing. A figcaption (and the figure's
+  `aria-label`) says it in words.
+- **Active-program board**: the heading carries the fact itself ("Programa
+  ativo: Full body A/B"), a safety-yellow sill frames it, and the sessions and
+  the archive consequence follow. There is no eyebrow.
+- **Exit sign (`.k-exit`)**: Cancelar is rendered as a black "Saída" sign with
+  an exit pictogram. Its accessible name is "Saída: cancelar a configuração".
+- **Station note (`.k-stnote`)**: a passed station's note on a later station.
+  For example, the Colar station's "8 linhas coladas" note has a line-colour
+  check dot and "Editar o texto".
+- **Direction sign**: the last question station's go sign reads "Sentido:
+  Seu programa".
 - **Terminal review**: the program name is the station band. Facts sit in
   bordered tags. The week is drawn as a vertical line in the line colour: each
   training day is a station, and each exercise is a tick on the line beside
   its prescription. The answer tags open inline editors, and the change
   statement is a panel with a line-colour sill.
-- **Transfer (`.k-transfer`)**: a Baldeação panel on the shared stations.
+- **Transfer (`.k-transfer`)**: a Baldeação panel on the shared stations,
+  headed by an interchange ring (both roundels joined in one ink capsule).
   It moves between Linha 1 and Linha 2 and keeps the seven shared answers. It
   states how many stations are left, and afterwards a band in the new line
   colour confirms how many answers came across. The import door uses the same
@@ -95,6 +122,10 @@ fails white text at small sizes, so the world deepens it to `#D1261E`.
   badge that is black (confirmed or found) or safety yellow (likely or no
   match). Each badge also carries an icon and a word. A departure-board row
   counts linked, to-review and custom rows.
+- **Icons**: one authored SVG set in the arrow's weight. The go arrow, the
+  back chevron and the disclosure chevrons are the same arrowhead geometry
+  (the disclosure chevron is rotated), and the exit pictogram shares their
+  2.3-unit stroke. Product glyph masks fill the pictogram tiles.
 - **Alerts and dialogs**: a panel with a diagonal hazard band (yellow and ink)
   and an alert pictogram. Dialogs have a black title band over a safety-yellow
   edge, with stacked actions.

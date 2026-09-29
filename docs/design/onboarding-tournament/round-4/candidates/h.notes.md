@@ -90,17 +90,15 @@ the orchestrator for the last run's table. Rafael, landing → Today: 18 taps
 (one decision per screen costs a tap to answer and a tap to continue; no
 auto-advance, so focus stays on the chosen answer).
 
-## Landing proof and its alt text
+## Landing proof
 
 The proof image is H's own activated Today (a real Build-route program,
 "Corpo inteiro" / "Full body", activated through `TF.activate` and rendered by
 `TF.renderToday` under `h.css`), captured by Playwright; see
-`round-4/assets/h/PROVENANCE.txt`. Check K-23 requires the production alt text
-verbatim (`landing.shot.today_ready.alt`). The capture matches it (Full body,
-0 of 3 sessions, Day 1 with quads, chest and hamstrings in five exercises,
-Start workout) except the week: the harness Today always shows week 1 of 6
-while the pinned alt says week 5 of 6. That mismatch is the harness's, not a
-candidate choice.
+`round-4/assets/h/PROVENANCE.txt`. It is marked `data-proof-own` and carries
+its own alt text (`h.land.proof_alt`, PT and EN) describing exactly what the
+capture shows: Full body, week 1 of 6, 0 of 3 sessions, Day 1 with quads,
+chest and hamstrings in five exercises, Start workout.
 
 ## Detector
 

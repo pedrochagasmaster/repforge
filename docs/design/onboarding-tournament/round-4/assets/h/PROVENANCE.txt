@@ -5,5 +5,6 @@ program ("Corpo inteiro" / "Full body", 3 days; Day 1: barbell back squat,
 barbell bench press, barbell Romanian deadlift, barbell row, dumbbell lateral
 raise), activated through TF.activate and rendered with TF.renderToday under
 h.css. No image generation, no retouching.
-Note: the harness Today always shows week 1 of 6; the pinned landing alt text
-(landing.shot.today_ready.alt, required verbatim by check K-23) says week 5 of 6.
+The landing marks the image data-proof-own and describes it with its own alt text
+(h.land.proof_alt in h.js): Full body, week 1 of 6, 0 of 3 sessions, Day 1 with
+quads, chest and hamstrings in five exercises, Start workout.
