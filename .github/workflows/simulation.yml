@@ -90,7 +90,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.browser != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:

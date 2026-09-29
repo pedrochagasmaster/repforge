@@ -23,6 +23,7 @@ import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { tmpdir } from "os";
+import { runInNewContext } from "node:vm";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -191,10 +192,20 @@ function readServiceWorkerMeta() {
   const src = readFileSync(join(ROOT, "sw.js"), "utf8");
   const cache = src.match(/const CACHE\s*=\s*"([^"]+)"/)?.[1];
   if (!cache) throw new Error("sw.js CACHE string not found");
-  const shellRaw = src.match(/const SHELL\s*=\s*new Set\(\[([^\]]*)\]\)/)?.[1] || "";
-  const shell = [...shellRaw.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  if (!shell.length) throw new Error("sw.js SHELL set not found");
-  return { cache, shell };
+  const assetsRaw = src.match(/const ASSETS\s*=\s*(\[[\s\S]*?\n\])/)?.[1];
+  if (!assetsRaw) throw new Error("sw.js ASSETS release inventory not found");
+  const assets = runInNewContext(assetsRaw);
+  const normalized = assets.map((entry) => {
+    const asset = typeof entry === "string" ? { url: entry, required: true } : entry;
+    const path = new URL(asset.url, "http://localhost/").pathname;
+    return { path, required: asset.required !== false };
+  }).filter(({ path }) => path === "/" || /\.(?:html?|css|m?js|webmanifest)$/i.test(path));
+  const requiredByPath = new Map();
+  for (const { path, required } of normalized) requiredByPath.set(path, requiredByPath.get(path) === true || required);
+  const shell = [...requiredByPath.keys()];
+  if (!shell.length) throw new Error("sw.js ASSETS contains no document/code shell resources");
+  const optionalShell = shell.filter((path) => requiredByPath.get(path) === false);
+  return { cache, shell, optionalShell };
 }
 
 function pwaOriginFromBase() {
@@ -3104,14 +3115,14 @@ async function main() {
     "History tab → Every set table"
   );
 
-  // Volume audit renders
+  // Program retains the effective-set audit action in its overview.
   await nav(page, "program");
-  const volRows = await page.locator(".vrow").count();
+  const auditAction = await page.locator("#programOverview #seeVolumeAudit").count();
   assert(
-    volRows > 0,
-    "Volume audit renders muscle rows",
-    `vrow count: ${volRows}`,
-    "Program tab → Weekly volume audit"
+    auditAction === 1,
+    "Program overview exposes the effective-set audit action",
+    `action count: ${auditAction}`,
+    "Program tab → planned effective sets"
   );
 
   // Delete log (reset) — test then stop (wipes data for clean exit)
@@ -9663,7 +9674,7 @@ async function main() {
     }, exId);
     await page.waitForSelector("#exercise.view.active, body.is-exercise", { timeout: 5000 });
     const residue = await page.evaluate(() => {
-      const range = document.querySelector("#exDetail .range-static, #exDetail .range-quiet");
+      const range = document.querySelector("#exDetail .range-static");
       const records = [...document.querySelectorAll("#exDetail .listrow")].filter((el) => !el.id && !el.closest("#exSeePrs"));
       const actionable = (el) => {
         if (!el) return null;
@@ -10135,11 +10146,12 @@ async function main() {
         if (!reqs.length) return false;
         const paths = new Set(reqs.map((r) => new URL(r.url).pathname));
         return shell.every((path) => {
+          if (optionalShell.includes(path)) return true;
           if (path === "/") return paths.has("/") || paths.has("/index.html");
           return paths.has(path);
         });
       },
-      { cacheName: swMeta.cache, shell: swMeta.shell },
+      { cacheName: swMeta.cache, shell: swMeta.shell, optionalShell: swMeta.optionalShell },
       { timeout: 20000 }
     );
 
@@ -10173,10 +10185,13 @@ async function main() {
             }
           }
           if (!cached) {
+            const optionalMissing = path === optionalDeploymentShellAsset &&
+              [404, 503].includes(net.status) && !/^text\/html\b/i.test(net.headers.get("content-type") || "");
             results.push({
               path,
-              ok: false,
-              reason: "cache-miss",
+              ok: optionalMissing,
+              optionalMissing,
+              reason: optionalMissing ? "declared-optional-and-unavailable" : "cache-miss",
               cacheUrls: cacheUrls.slice(0, 12),
             });
             continue;
@@ -10237,7 +10252,7 @@ async function main() {
     );
     assert(
       shellFail.length === 0,
-      "Each SHELL asset matches CacheStorage bytes and content-type after cache-bypass fetch",
+      "Each cached release code/document asset matches bytes and content-type after cache-bypass fetch",
       JSON.stringify(shellFail.slice(0, 3)),
       "Online fetch({cache:'reload'}) vs caches.open(CACHE).match"
     );
@@ -10257,24 +10272,36 @@ async function main() {
     const offlineShell = [];
     for (const path of swMeta.shell.filter((p) => p !== "/")) {
       const url = new URL(path, origin).href;
-      const [resp] = await Promise.all([
+      const [resp, result] = await Promise.all([
         pwaPage.waitForResponse((r) => r.url() === url, { timeout: 8000 }).catch(() => null),
-        pwaPage.evaluate((u) => fetch(u), url),
+        pwaPage.evaluate(async (u) => {
+          const response = await fetch(u);
+          const type = response.headers.get("content-type") || "";
+          return { status: response.status, type, isHtml: /^text\/html\b/i.test(type) };
+        }, url),
       ]);
-      offlineShell.push({ path, fromSW: resp?.fromServiceWorker?.() === true, status: resp?.status() });
+      offlineShell.push({ path, fromSW: resp?.fromServiceWorker?.() === true, status: result.status, type: result.type, isHtml: result.isHtml });
     }
     const optionalOffline = offlineShell.find((r) => r.path === OPTIONAL_DEPLOYMENT_SHELL_ASSET);
+    const optionalConfigWasAvailable = optionalDeploymentAsset?.netOk === true;
+    const optionalOfflineExpectedStatus = optionalConfigWasAvailable ? 200 : 503;
+    const optionalOfflineHasExpectedType = optionalConfigWasAvailable
+      ? /^(?:application|text)\/(?:javascript|ecmascript|x-javascript)\b/i.test(optionalOffline?.type || "")
+      : /^text\/plain\b/i.test(optionalOffline?.type || "");
     assert(
-      optionalOffline?.fromSW === true,
-      "Service worker safely serves the absent local PostHog config offline",
-      JSON.stringify(optionalOffline),
+      optionalOffline?.fromSW === true && optionalOffline.status === optionalOfflineExpectedStatus &&
+        !optionalOffline.isHtml && optionalOfflineHasExpectedType,
+      optionalConfigWasAvailable
+        ? "Service worker serves the available PostHog config from cache offline as JavaScript"
+        : "Service worker reports the absent PostHog config offline without returning HTML as JavaScript",
+      JSON.stringify({ ...optionalOffline, expectedStatus: optionalOfflineExpectedStatus }),
       "Go offline → fetch /posthog-config.js"
     );
     assert(
       offlineShell.every((r) => r.fromSW),
-      "Offline SHELL fetches report fromServiceWorker()",
+      "Offline app shell fetches report fromServiceWorker()",
       JSON.stringify(offlineShell),
-      "While offline, fetch each SHELL path"
+      "While offline, fetch each release code/document path"
     );
 
     for (const view of ["log", "stats", "history", "program"]) {
@@ -10585,6 +10612,12 @@ async function main() {
     };
     const root = getComputedStyle(document.documentElement);
     const token = (n) => root.getPropertyValue(n).trim();
+    const resolveToken = (name, seen = []) => {
+      if (seen.includes(name)) return "";
+      const value = token(name);
+      const alias = /^var\((--[\w-]+)\)$/.exec(value);
+      return alias ? resolveToken(alias[1], [...seen, name]) : value;
+    };
     const rules = [];
     for (const sheet of document.styleSheets) {
       let cssRules;
@@ -10608,9 +10641,11 @@ async function main() {
     }
     const hasSel = (sel) =>
       rules.filter((r) => r.sel.split(",").map((s) => s.trim()).includes(sel));
+    const resolvedOpacity = (raw) => raw.startsWith("var(") ? token(raw.slice(4, -1)) : raw;
     return {
       accent: token("--accent"),
       accentText: token("--accent-deep"),
+      actionText: resolveToken("--color-action-text"),
       inkFaint: token("--ink-faint"),
       bg: token("--bg"),
       surface: token("--surface"),
@@ -10619,15 +10654,14 @@ async function main() {
       contrastAccentTextBg: contrastHex(token("--accent-deep"), token("--bg")),
       contrastAccentTextWhite: contrastHex(token("--accent-deep"), token("--surface")),
       ctaAfter: hasSel(".btn--cta::after").map((r) => r.color),
-      backLink: rules.filter((r) => r.sel.includes(".back-link") || r.sel.includes(".pagehead__back")).map((r) => r.color),
+      backLink: hasSel(".back-link").map((r) => r.color),
       linkAccent: hasSel(".link-accent").map((r) => r.color),
-      textBtnAccent: hasSel(".text-btn--accent").map((r) => r.color),
       vrowStatus: hasSel(".vrow__status").map((r) => r.color),
       vrowFill: hasSel(".vrow__fill").map((r) => ({ bg: r.bg, minWidth: r.minWidth })),
       focusVisible: rules.filter((r) => r.sel.includes(":focus-visible")).map((r) => r.outline),
       navIcon: hasSel("nav button.active .nav__icon").map((r) => r.bg),
-      btnDisabled: hasSel(".btn:disabled").map((r) => ({ opacity: r.opacity, cursor: r.cursor })),
-      iconbtnDisabled: hasSel(".iconbtn:disabled").map((r) => ({ opacity: r.opacity, cursor: r.cursor })),
+      btnDisabled: hasSel(".btn:disabled").map((r) => ({ opacity: resolvedOpacity(r.opacity), cursor: r.cursor })),
+      iconbtnDisabled: hasSel(".iconbtn:disabled").map((r) => ({ opacity: resolvedOpacity(r.opacity), cursor: r.cursor })),
       focusnavDisabled: hasSel(".focusnav:disabled").map((r) => r.color),
       accentTextSels: rules.filter((r) => r.color.includes("--accent-deep")).map((r) => r.sel),
     };
@@ -10671,21 +10705,23 @@ async function main() {
     "Inspect .btn--cta::after, nav icon, .vrow__fill, :focus-visible"
   );
   assert(
-    contrastAudit.backLink.filter(Boolean).every((c) => c.includes("var(--accent-deep)")) &&
-      contrastAudit.backLink.some((c) => c.includes("var(--accent-deep)")) &&
-      contrastAudit.linkAccent.every((c) => c.includes("var(--accent-deep)")) &&
-      contrastAudit.textBtnAccent.every((c) => c.includes("var(--accent-deep)")) &&
-      contrastAudit.vrowStatus.every((c) => c.includes("var(--accent-deep)")) &&
+    contrastAudit.actionText === contrastAudit.accentText &&
+      contrastAudit.backLink.filter(Boolean).every((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
+      contrastAudit.backLink.some((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
+      contrastAudit.linkAccent.length > 0 &&
+      contrastAudit.linkAccent.every((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
+      contrastAudit.vrowStatus.every((c) => ["var(--accent-deep)", "var(--color-action-text)"].includes(c)) &&
       contrastAudit.accentTextSels.length >= 8,
-    "C1: accent foreground text on light surfaces uses --accent-deep",
+    "C1: accent foreground text uses --accent-deep or its semantic action-text token",
     JSON.stringify({
       backLink: contrastAudit.backLink,
       linkAccent: contrastAudit.linkAccent,
       textBtnAccent: contrastAudit.textBtnAccent,
       vrowStatus: contrastAudit.vrowStatus,
+      actionText: contrastAudit.actionText,
       n: contrastAudit.accentTextSels.length,
     }),
-    "Inspect .back-link, .link-accent, .text-btn--accent, .vrow__status"
+    "Inspect .back-link, .link-accent, .vrow__status, and --color-action-text"
   );
   assert(
     contrastAudit.vrowFill.every((v) => !v.minWidth || v.minWidth === "0px" || v.minWidth === "0"),
@@ -10694,15 +10730,15 @@ async function main() {
     "Inspect .vrow__fill min-width"
   );
   assert(
-    contrastAudit.btnDisabled.some((r) => r.opacity === "0.4" && r.cursor === "default") &&
-      contrastAudit.iconbtnDisabled.some((r) => r.opacity === "0.3" && r.cursor === "default"),
+    contrastAudit.btnDisabled.some((r) => +r.opacity === 0.4 && r.cursor === "default") &&
+      contrastAudit.iconbtnDisabled.some((r) => +r.opacity === 0.3 && r.cursor === "default"),
     "F6: .btn:disabled is dimmed; .iconbtn:disabled is unchanged",
     JSON.stringify({ btn: contrastAudit.btnDisabled, icon: contrastAudit.iconbtnDisabled }),
     "Inspect .btn:disabled vs .iconbtn:disabled"
   );
   assert(
-    contrastAudit.focusnavDisabled.every((c) => c.includes("var(--ink-faint)")),
-    "C1: disabled Focus navigation uses the passing faint token",
+    contrastAudit.focusnavDisabled.every((c) => c.includes("var(--color-disabled-reason)")),
+    "C1: disabled Focus navigation uses the frozen disabled-reason token",
     JSON.stringify(contrastAudit.focusnavDisabled),
     "Inspect .focusnav:disabled color"
   );

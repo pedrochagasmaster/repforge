@@ -88,6 +88,17 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   return { context, page };
 }
 
+async function assertCanonicalOutcomeLabels(page, outcomes) {
+  for (const { key, outcome } of outcomes) {
+    const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
+    const label = await page.evaluate((value) => window.RepForgeI18n.t(`stats.outcome.${value}`), outcome);
+    const status = row.locator(".listrow__sub");
+    assert.ok(await status.isVisible(), `the ${outcome} outcome label stays visible in its evidence row`);
+    assert.ok((await status.textContent()).includes(label),
+      `the ${outcome} outcome keeps its localized text distinction in the rendered row`);
+  }
+}
+
 // Strength: sparse policy, scopes, drill-in.
 {
   const { context, page } = await freshPage();
@@ -172,6 +183,40 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
     return !!d && d.querySelectorAll("tbody tr").length > 0;
   });
   assert.equal(detailVisible, true, "drill-in shows the full per-lift table");
+  await context.close();
+}
+
+// Outcome words stay visible beside their canonical improved/maintained/declined facts.
+// The final assertion deliberately hides those words: the rendered semantic
+// oracle must reject a presentation that leaves outcome meaning to color alone.
+{
+  const outcomeLog = [
+    { session: "outcome-better-1", date: "2026-09-14", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 60, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-better-2", date: "2026-09-16", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 65, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-steady-1", date: "2026-09-14", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-steady-2", date: "2026-09-16", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-worse-1", date: "2026-09-14", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-worse-2", date: "2026-09-16", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 85, reps: 7, rir: 2, set: 1, work: true },
+  ];
+  const { context, page } = await freshPage({ seededLog: outcomeLog });
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+  await page.waitForSelector("#segStrength.active", { timeout: 5000 });
+  const outcomes = await page.evaluate(() => [
+    ["pev-1", "improved"], ["pev-4", "maintained"], ["pev-3", "declined"],
+  ].map(([id, expected]) => {
+    const key = window.__repforgeProgressEvidence.keyForExerciseId(id);
+    const record = window.__repforgeProgressEvidence.records("current-block").find((item) => item.exerciseId === key);
+    return { key, expected, outcome: record?.outcome };
+  }));
+  assert.deepEqual(outcomes.map(({ expected, outcome }) => [expected, outcome]), [
+    ["improved", "improved"], ["maintained", "maintained"], ["declined", "declined"],
+  ], "the production evidence producer supplies all three canonical outcomes");
+  await assertCanonicalOutcomeLabels(page, outcomes);
+
+  await page.addStyleTag({ content: "#strengthDash .listrow__sub { visibility: hidden !important; }" });
+  await assert.rejects(() => assertCanonicalOutcomeLabels(page, outcomes),
+    /the improved outcome label stays visible in its evidence row/,
+    "the deliberate color-only presentation failure is rejected by the rendered outcome oracle");
   await context.close();
 }
 
@@ -977,6 +1022,71 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
     three: window.__repforgeProgressEvidence.chartPresentation(3),
   }));
   assert.deepEqual(policy, { one: "snapshot", two: "comparison", three: "trend" });
+  await context.close();
+}
+
+// Canvas chart labels follow the app's text scale, including the 200% setting.
+{
+  const { context, page } = await freshPage();
+  const fonts = await page.evaluate(() => {
+    document.documentElement.style.fontSize = "200%";
+    const seen = [];
+    const prototype = CanvasRenderingContext2D.prototype;
+    const original = prototype.fillText;
+    prototype.fillText = function (...args) {
+      seen.push(this.font);
+      return original.apply(this, args);
+    };
+    try {
+      draw([
+        { date: "2026-09-14", e1rm: 60, top: 55 },
+        { date: "2026-09-16", e1rm: 62, top: 57 },
+        { date: "2026-09-18", e1rm: 65, top: 60 },
+      ], "#chart");
+    } finally {
+      prototype.fillText = original;
+    }
+    return {
+      root: parseFloat(getComputedStyle(document.documentElement).fontSize),
+      sizes: seen.map((font) => parseFloat(font)),
+    };
+  });
+  assert.ok(fonts.sizes.length >= 5, "the populated chart draws axis, value, and date labels");
+  assert.ok(fonts.sizes.every((size) => size >= fonts.root * 0.75 - 0.5),
+    `all chart labels use the frozen caption scale at 200% text (${JSON.stringify(fonts)})`);
+
+  async function assertEmptyChartFits(lang) {
+    const empty = await freshPage({ lang });
+    await empty.page.setViewportSize({ width: 320, height: 844 });
+    const lines = await empty.page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+      const canvas = document.querySelector("#chart");
+      const extents = [];
+      const prototype = CanvasRenderingContext2D.prototype;
+      const original = prototype.fillText;
+      prototype.fillText = function (text, x, y) {
+        const width = this.measureText(text).width;
+        extents.push({ width, x, align: this.textAlign, canvasWidth: canvas.clientWidth });
+        return original.call(this, text, x, y);
+      };
+      try {
+        draw([], "#chart");
+      } finally {
+        prototype.fillText = original;
+      }
+      return extents.map(({ width, x, align, canvasWidth }) => ({
+        left: align === "center" ? x - width / 2 : align === "right" ? x - width : x,
+        right: align === "center" ? x + width / 2 : align === "right" ? x : x + width,
+        canvasWidth,
+      }));
+    });
+    assert.ok(lines.length > 1, `the ${lang} empty-chart message wraps at 320px and 200% text`);
+    assert.ok(lines.every(({ left, right, canvasWidth }) => left >= 0 && right <= canvasWidth),
+      `the ${lang} empty-chart message stays inside the canvas at 320px and 200% text (${JSON.stringify(lines)})`);
+    await empty.context.close();
+  }
+  await assertEmptyChartFits("en");
+  await assertEmptyChartFits("pt");
   await context.close();
 }
 
