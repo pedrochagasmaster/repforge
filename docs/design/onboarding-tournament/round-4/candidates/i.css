@@ -73,7 +73,7 @@ input,textarea{caret-color:var(--pen)}
 :root[data-theme="dark"]:not([data-stock="kraft"]) .i-page{border-top:5px solid var(--tab)}
 .i-main{display:flex;flex-direction:column;gap:16px;padding:6px 0 28px;flex:1}
 :focus-visible{outline:3px solid var(--pen)!important;outline-offset:2px}
-h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:focus-visible,#iChange:focus-visible{outline:none!important}
+h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:focus-visible,#iChange:focus-visible,#iConflictBox:focus-visible{outline:none!important}
 
 /* ---------- print type ---------- */
 .i-display{font-family:var(--f-form);font-weight:900;font-size:clamp(2.35rem,11vw,3.1rem);line-height:.96;letter-spacing:-.012em;text-wrap:balance}
@@ -90,7 +90,8 @@ h1[tabindex="-1"]:focus-visible,h2[tabindex="-1"]:focus-visible,[data-focus]:foc
 .i-pen{font-family:var(--f-pen);font-weight:400;color:var(--pen);font-size:1.25rem;line-height:1.15;letter-spacing:.005em}
 .i-pen.is-fresh{animation:i-write .62s cubic-bezier(.33,.7,.25,1) both}
 @keyframes i-write{from{clip-path:inset(-10% 100% -20% 0);filter:blur(.6px)}to{clip-path:inset(-10% -4% -20% 0);filter:none}}
-.i-struck{display:inline;font-family:var(--f-pen);font-size:1.0625rem;color:var(--print-soft);text-decoration:none;margin-right:6px;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:var(--strike) no-repeat 0 58%/100% .7em}
+.i-struck{display:inline;font-family:var(--f-pen);font-size:1.0625rem;color:var(--print-soft);text-decoration:none;margin-right:6px;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:var(--strike) no-repeat 0 46%/100% .6em}
+.i-struckline{display:block}
 .i-struck.is-fresh{animation:i-strike .42s .1s cubic-bezier(.33,.7,.25,1) both}
 @keyframes i-strike{from{background-size:0% .7em}to{background-size:100% .7em}}
 
@@ -487,3 +488,13 @@ html[data-stock="kraft"] .i-lede,html[data-stock="kraft"] .i-note{color:var(--pr
 .i-today__day .i-day{order:1}
 :root[style*="200%"] .i-today .today.i-today__in{padding-bottom:calc(172px + env(safe-area-inset-bottom))}
 :root[style*="200%"] .i-today__name{font-size:1.25rem}
+/* 200%: the card head folds to the current field plus one line of the
+   filled answers, so the question and its first option share the first view. */
+:root[style*="200%"] .i-field.is-here .i-field__static{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:0 8px;min-height:44px}
+:root[style*="200%"] .i-field.is-here .i-blank{flex:1;min-width:3rem}
+:root[style*="200%"] .i-bar{min-height:48px}
+:root[style*="200%"] .i-route .i-main>.i-lede,:root[style*="200%"] .i-route .i-main>.i-opt-l,:root[style*="200%"] .i-route .i-main>.i-skip{order:1}
+:root[style*="200%"] .i-route .i-main{gap:10px}
+:root[style*="200%"] .i-group__l{font-size:.9375rem;margin-top:2px}
+:root[style*="200%"] .i-field.is-here .i-pen{font-size:.9375rem}
+:root[style*="200%"] .i-route .i-title{font-size:1.125rem}

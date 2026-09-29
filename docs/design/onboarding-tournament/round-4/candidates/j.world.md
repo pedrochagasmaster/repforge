@@ -13,7 +13,7 @@ presence.
 
 | Token | Role | Light | Dark | Contrast |
 | --- | --- | --- | --- | --- |
-| `--j-wall` + `--j-wall-print` | Wallpaper: sage-leaning concrete, printed with training notation ("3×8", "RIR 2", "+2,5 kg", "5×5", "8–12", "60 s") set in the world's own faces (Mono 600 for the prescriptions, Next 700 for the words), slightly rotated, drawn once into a 208×176 tile on a canvas after the fonts load. No ticks in the tile: ticks appear only on answers, where they mean something | `#d8e2dc`, notation at 8.5% ink | `#0e1113`, notation at 5% white | ink on wall 12.9:1 |
+| `--j-wall` + `--j-wall-print` | Wallpaper: sage-leaning concrete, printed with training notation ("3×8", "RIR 2", "+2,5 kg", "5×5", "8–12", "60 s") set in the world's own faces (Mono 400 for the prescriptions, Next 600 for the words, 12–15 px), slightly rotated, drawn once into a 208×176 tile on a canvas after the fonts load. No ticks in the tile: ticks appear only on answers, where they mean something | `#d8e2dc`, notation at 8.5% ink | `#0e1113`, notation at 5% white | ink on wall 12.9:1 |
 | `--j-in` / `--j-in-ink` / `--j-in-soft` | Taurifer's bubbles: white paper, ink, secondary | `#fff` / `#15191b` / `#566064` | `#1d2225` / `#e8eceb` / `#9aa5a9` | 17.7 / 6.5 · 13.5 / 6.4 |
 | `--j-out` / `--j-out-ink` / `--j-out-soft` | The lifter's voice: signal orange with ink text; unchanged in dark | `#ff6b2c` / `#1a0e07` / `#4a2410` | same | 6.7 / 4.8 |
 | `--j-bar` / `--j-bar-ink` / `--j-bar-soft` | Graphite app bar | `#15191b` / `#f4f6f5` / `#a9b3b6` | `#171b1d` / same | 16.3 / 8.3 |
@@ -48,7 +48,10 @@ and program name 1.625rem / 800 / -0.022em; questions 1.0625rem / 700; body
   "Taurifer" as the h1, a task status line, and one text action (Privacidade
   on the landing, Sair in setup). At 200% text the status takes its own row
   and wraps (it is the presence replacement, so it never truncates), and
-  Privacidade becomes a lock button with the same accessible name.
+  Privacidade becomes a lock button with the same accessible name. In the
+  composer the paperclip leaves the pill for its own 44 px round button beside
+  the send button, and the hint shortens to "Toque numa resposta", so the
+  composer stays within two text lines.
 - **Bubbles**: incoming white, outgoing orange; the first of a run gets a tail
   (drawn on the row so it never widens the control). Only the lifter's
   answers carry a time and ticks: one tick, the answer is in this setup; two

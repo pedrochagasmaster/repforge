@@ -588,7 +588,7 @@
     const items = chipList().map((c) => {
       const old = S.orig && S.orig[c.chip] !== undefined && S.orig[c.chip] !== c.text ? S.orig[c.chip] : null;
       const open = S.sheet && S.sheet.chip === c.chip;
-      return `<li class="i-field is-filled${old ? " is-corrected" : ""}"><button type="button" class="i-field__btn${open ? " is-open" : ""}" data-act="chip" data-chip="${c.chip}" aria-expanded="${open ? "true" : "false"}"${open ? ' aria-controls="iEdit"' : ""} aria-label="${esc(t("i.field.edit", { what: lcFirst(c.label), value: c.text }))}"><span class="i-field__l">${esc(c.label)}</span>${old ? `<del class="i-struck${fc.has(c.chip) ? " is-fresh" : ""}">${esc(old)}</del>` : ""}<span class="i-pen${fc.has(c.chip) ? " is-fresh" : ""}">${esc(c.text)}</span></button></li>`;
+      return `<li class="i-field is-filled${old ? " is-corrected" : ""}"><button type="button" class="i-field__btn${open ? " is-open" : ""}" data-act="chip" data-chip="${c.chip}" aria-expanded="${open ? "true" : "false"}"${open ? ' aria-controls="iEdit"' : ""} aria-label="${esc(t("i.field.edit", { what: lcFirst(c.label), value: c.text }))}"><span class="i-field__l">${esc(c.label)}</span>${old ? `<span class="i-struckline"><del class="i-struck${fc.has(c.chip) ? " is-fresh" : ""}">${esc(old)}</del></span>` : ""}<span class="i-pen${fc.has(c.chip) ? " is-fresh" : ""}">${esc(c.text)}</span></button></li>`;
     }).join("");
     return `<section class="i-head i-head--rev" aria-labelledby="iFieldsL"><h2 class="visually-hidden" id="iFieldsL">${esc(t("i.rail"))}</h2><ol class="i-fields">${items}</ol><p class="i-note i-head__hint">${esc(t("i.rev.fields_hint"))}</p>${editorView()}</section>`;
   }

@@ -62,6 +62,8 @@ markup over `TS.freeform.apply` and `TS.importReview.apply`. Non-core routes
 (custom, browse, build, file import, shared) work and share the vocabulary, but
 reuse the shared editor, muscle-emphasis and exercise-preference widgets
 restyled rather than rebuilt; that is the least-finished part of the world.
+Today is now this candidate's own markup over the same data as
+`TF.renderToday` (active program, week 1 of 6, 0 sessions, Day 1).
 
 The `import-review` / `import-preview` checkpoints are reached through the paste
 door (the gaps reply completed with 10–12 and 3), matching the core journey,
@@ -83,10 +85,38 @@ pseudo-element stripes). Remaining findings are advisories against the app's
 `DESIGN.md` palette, type ramp and radii, which this candidate deliberately does
 not use (its world is documented in `i.world.md`).
 
+## Finish review fix round (disposition FIX, eight fixes plus the ceiling)
+
+1. Empty `( )`, squares and number cells show no ink: `.i-x` and `.i-ring` are
+   hidden until `.is-on` / `.is-inked`.
+2. hub-existing stamps the current program a plain "ATIVO" (aria "Carimbo:
+   ativo") with no date; the date appears only on an activation happening now.
+3. Print, not pen: the import source line, "8 linhas coladas", the resume line,
+   the shared gate name, the current program name on the hub and on Today.
+4. PROVÁVEL / SEM CORRESPONDÊNCIA print in red stamp ink (specificity over the
+   shared `.impbadge.is-open`).
+5. Kickers removed: no route line above the paste door and import headings; the
+   Recommend name moved onto the canary card's index tab; no "Sessão de hoje"
+   above the day on Today (Today is now this candidate's own markup).
+6. 200% text: the card head folds to the current field plus one line of the
+   filled answers, the route name drops from the section line, and ledes, the
+   "Opcional" label and Skip move below the question, so the heading, the
+   question and the first option fit above the stub on every Recommend
+   section. Today reserves the dock's height at the bottom.
+7. The correction strike is a drawn SVG pen stroke per text line (wavering
+   path, revealed left to right at 420 ms on a fresh correction, 0 s under
+   reduced motion).
+8. Disabled activation keeps the stamp's double frame in faded ink; the punched
+   hole is removed.
+
+Ceiling, all three done: own Today capture as the landing proof
+(`round-4/assets/i/`, PROVENANCE.txt, `data-proof-own`, own PT/EN alt); Today
+renders Day 1 as the printed grid; the carbon sheet has a faint impression halo
+and the dark card box keeps each route's colour as a tint.
+
 ## Known gaps for the finish review
 
-- Today is the shared `TF.renderToday` markup restyled, with the stamped card
-  edge above it; at 320 px / 200% text the fixed shared dock sits over the last
-  line of Today's facts.
-- The hub's punched hole and the landing proof photo (the real Today capture,
-  taped to the card) are decorative additions the reviewer may want to judge.
+- The non-core routes reuse restyled shared widgets (see Structure).
+- At 200% text the Recommend goal and background sections show the top of the
+  first option above the stub, not the whole option (the options carry a
+  second line of explanation).

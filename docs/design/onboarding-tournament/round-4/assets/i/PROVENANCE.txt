@@ -1,0 +1,11 @@
+i
+today-ready-{pt,en}-{light,dark}.png: screen captures of candidate I's own Today
+(the activated-today state), 390x844 CSS px at 2x, taken 2026-09-29 with
+Playwright/Chromium from round-4/app.html?c=i&cp=activated-today&motion=reduced.
+The program is Rafael's real Recommend result ("Ganhar massa" / "Build Muscle",
+3 days, compiled by TF.compile and activated through TF.activate); Day 1 is the
+engine's "Hipertrofia de membros inferiores" / "Lower body hypertrophy" with six
+exercises. The stamped hand-over strip was removed from the DOM before the
+capture so the image carries no activation date. No image generation, no
+retouching. The landing marks the image data-proof-own and describes it with
+its own alt text (i.land.proof_alt in i.js).

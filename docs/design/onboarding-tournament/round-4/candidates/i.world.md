@@ -35,7 +35,9 @@ Light: the stock changes per route, like colour-coded cards in a gym's card box.
 | Dialog slip / editor paper | `--paper` | `#FBF9F2` | |
 
 Dark, **the carbon sheet**: navy-black carbon where print and pen read as pale
-impressions; the route's stock survives as the 5 px top edge and the index
+impressions (a faint halo on print and pen, like a carbon transfer); the
+route's stock survives as the 5 px top edge, the index tabs, and a 13% tint of
+each card in the card box, so the colour coding still reads in dark. The index
 tabs (`--tab`).
 
 | Role | Value | Contrast on `#161A2E` |
@@ -55,10 +57,11 @@ status is a stamped word; errors carry a sentence.
   question headings, column heads, field labels, buttons, the stamp).
 - **Sofia Sans** 400–800: running print (ledes, captions, option text, table
   rows).
-- **Kalam** 400/700: the lifter's ballpoint (answer fields, pasted program,
-  gap numbers, the current program name on Today). Short values only; long
-  machine text (the assistant's JSON reply, the prompt) stays in the system
-  monospace.
+- **Kalam** 400/700: the lifter's ballpoint, and only for what the lifter
+  authored: answer values, the pasted program, typed gap numbers, the source
+  names on import rows. Anything Taurifer says (program names, the source line,
+  the pasted-lines count, Today) is print. Long machine text (the assistant's
+  JSON reply, the prompt) stays in the system monospace.
 - All self-hosted under `round-4/fonts/` (OFL, Google Fonts).
 
 ## Components
@@ -67,7 +70,10 @@ status is a stamped word; errors carry a sentence.
   questions the earlier fields hold the answers in pen and are buttons back to
   that section; the current field is tinted and fills as the lifter marks; later
   fields stay blank. On the review every answer field is a button that opens the
-  inline correction; a corrected value keeps the old one struck through in pen.
+  inline correction; a corrected value keeps the old one struck through by a
+  drawn, slightly wavering pen stroke (an SVG line per text line), not a
+  typographic line-through. At 200% text the head folds to the current field
+  plus one line of the filled answers, and the lede moves below the question.
 - **Options**: printed parentheses `( )` for single choice (marked with a drawn
   X), printed squares for multiple choice (a drawn tick), numbers circled in pen.
   Full-row targets, 54 px minimum.
@@ -81,8 +87,13 @@ status is a stamped word; errors carry a sentence.
   dotted line and a note: the lifter logs the first load; Taurifer does not
   invent one. At 200% text the table reflows into labelled lines.
 - **Card box**: the route choice is a stack of coloured index cards with tabs
-  on a kraft ground; the canary card carries the goal question itself.
-- **Stamp**: `ATIVO · 29 SET 2026` in a double-ruled frame, ink-speckled by a
+  on a kraft ground. The canary card's tab carries its route name
+  ("Recomendar um programa") and the goal question is the card's heading;
+  there are no kickers above headings anywhere. The current program on
+  hub-existing is stamped a plain "ATIVO" with no date (the real activation
+  date is not known).
+- **Stamp**: `ATIVO · <today's date>` (only on an activation happening now) in a
+  double-ruled frame, ink-speckled by a
   noise mask, multiply-blended on light stock.
 - **Import rows**: the source name in pen, the library match printed, the status
   as a small rubber-stamped word (LIKELY in red, CONFIRMED in pen blue).
@@ -107,3 +118,20 @@ status is a stamped word; errors carry a sentence.
 3 px pen-blue outline; focus stays on the marked option after every answer and
 returns to the opener from every slip; the decorative blank card on the landing
 is one `role="img"` with a sentence.
+
+## Later additions (finish-review fix round)
+
+- **Empty boxes carry no ink**: the X, tick and circle are hidden until marked
+  (a zero-length round cap used to leave a dot).
+- **Disabled activation**: an unpressed stamp, the same double frame in faded
+  stamp ink on the bare card.
+- **No punched hole**: removed; the card has nothing underneath it to show.
+- **Import status marks**: PROVÁVEL and SEM CORRESPONDÊNCIA print in red stamp
+  ink (light and dark); matched and confirmed marks print in black or soft print.
+- **Today continues the card**: the program name in print, week and sessions
+  as a printed line and empty week boxes, and Day 1 as the same numbered tab
+  and EXERCÍCIO · SÉRIES · REPS · CARGA grid the lifter approved. Bottom padding
+  reserves the dock's height (172 px at 200% text).
+- **Landing proof**: the candidate's own Today capture
+  (`round-4/assets/i/today-ready-{pt,en}-{light,dark}.png`, `data-proof-own`,
+  own alt), taped to the card as a print.
