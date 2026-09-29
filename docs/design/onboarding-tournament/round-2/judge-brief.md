@@ -58,7 +58,9 @@ remaining disagreement is a matter of taste that the owner must decide.
 - Acceptance evidence: `round-2/acceptance/summary.md` and `results.json`
   (hard and soft checks, K-checks and journeys per candidate). Screenshots
   from the frozen run are on disk under `round-2/acceptance/shots/`
-  (gitignored; filename `{c}__{checkpoint}__{cell}.png`). Regenerate any you
+  (gitignored; filename `{c}__{checkpoint}__{lang}-{theme}-{width}-{text}[-reduced].png`
+  for the full page, plus a `-vp.png` viewport shot that shows pinned action
+  bars where the phone actually draws them). Regenerate any you
   need with
   `node docs/design/onboarding-tournament/tools/verify.mjs --round 2 --candidates <id> --out <your scratch dir>`,
   or render the phones yourself.

@@ -170,7 +170,16 @@ async function auditCheckpoint(page, cand, cp, cell, consoleErrors) {
     const a = await page.evaluate((o) => window.__audit.run(o), { checkpoint: cp, lang: cell.lang, vw: cell.vw, text: cell.text, motion: cell.motion || "normal" });
     r.hard.push(...a.hard); r.warn.push(...a.warn); r.data = a.data;
     for (const e of consoleErrors) r.hard.push(`console error: ${e.slice(0, 160)}`);
-    if (SHOTS) { const shot = join("shots", `${cand}__${cp}__${cell.lang}-${cell.theme}-${cell.vw}-${cell.text}${cell.motion === "reduced" ? "-reduced" : ""}.png`); await page.screenshot({ path: join(outDir, shot), fullPage: true }); r.shot = shot; }
+    if (SHOTS) {
+      /* The page is reused per cell, so park the pointer first: an earlier real
+         tap (the K-23 Privacy check) must not leave a hover state in this shot.
+         The full-page shot draws sticky pinned bars mid-page, so a viewport shot
+         (…-vp.png) is kept alongside it as the evidence for pinned placement. */
+      await page.mouse.move(0, 0);
+      const base = `${cand}__${cp}__${cell.lang}-${cell.theme}-${cell.vw}-${cell.text}${cell.motion === "reduced" ? "-reduced" : ""}`;
+      const shot = join("shots", `${base}.png`); await page.screenshot({ path: join(outDir, shot), fullPage: true }); r.shot = shot;
+      const vp = join("shots", `${base}-vp.png`); await page.screenshot({ path: join(outDir, vp), fullPage: false }); r.shotViewport = vp;
+    }
     if (a.data.k23) {
       /* K-23: the Privacy control opens the stub (real tap), Escape closes it. */
       const opener = page.locator("[data-privacy-open]").first();
@@ -182,6 +191,7 @@ async function auditCheckpoint(page, cand, cp, cell, consoleErrors) {
           const after = await page.evaluate(() => ({ closed: !document.querySelector("[data-privacy-stub]"), focus: !!document.activeElement?.closest("[data-privacy-open]") }));
           if (!after.closed) r.warn.push("K-23 Escape did not close the Privacy stub"); else if (!after.focus) r.warn.push("K-20 focus did not return to the Privacy control");
         }
+        await page.mouse.move(0, 0);
       }
     }
   } catch (e) { r.hard.push(`load/run failed: ${String(e.message || e).slice(0, 200)}`); }
