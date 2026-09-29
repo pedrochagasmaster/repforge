@@ -19,6 +19,7 @@ const SCOPE = [
   "AGENTS.md",
   "README.md",
   "docs/backlog.md",
+  "docs/post-058-open-pr-clearance-sequence.md",
   "docs/brand-guide.md",
   "docs/adr/0005-install-promotion-by-capability.md",
   "docs/adr/0006-first-run-ethos-hero.md",
@@ -523,11 +524,72 @@ for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"
   check(docs.get(p).includes("v3."), `${p}: shipped v3 setup format not documented`);
 }
 
-// Backlog status honesty: no Next rows remain anywhere, and no stale
-// Now-scoped claims survive the deferral.
+// Backlog status honesty: Next remains the long-term queue, with exactly the
+// owner-authorized already-open #255/#257/#258 exception allowed into the
+// post-058 candidate-construction window. Nothing here authorizes leakage into
+// Plan 058 or pulls unrelated Next work forward.
 {
   const backlog = docs.get("docs/backlog.md");
-  check(!/^\| Next \|/m.test(backlog), "backlog: Next rows remain scheduled");
+  const clearance = docs.get("docs/post-058-open-pr-clearance-sequence.md");
+  const headings = [...backlog.matchAll(/^## \d+\. (.+)$/gm)];
+  const section = (status) => {
+    const i = headings.findIndex((heading) => heading[1].split(/\W/u)[0] === status);
+    return i < 0 ? "" : backlog.slice(headings[i].index, headings[i + 1]?.index ?? backlog.length);
+  };
+  const now = section("Now");
+  const next = section("Next");
+  const nextIntro = next.split(/^\| Order \|/m)[0].replace(/\s+/g, " ");
+  check(!!now && !!next, "backlog: Now and Next sections must exist");
+  check(
+    /default post-launch-validation queue/i.test(nextIntro),
+    "backlog: Next must remain the default post-launch-validation queue",
+  );
+  for (const pr of ["#255", "#257", "#258"]) {
+    check(nextIntro.includes(pr), `backlog: pre-059 exception missing ${pr}`);
+    check(clearance.includes(pr), `post-058 sequence: missing authorized workfront ${pr}`);
+  }
+  check(
+    /No other Next item is pulled forward/i.test(nextIntro),
+    "backlog: pre-059 exception must stay bounded to the named workfronts",
+  );
+  check(
+    /nothing here may\s+leak into Plan 058/i.test(nextIntro),
+    "backlog: Next work must remain outside Plan 058",
+  );
+  check(!/^\|\s*Next\s*\|/mi.test(now), "backlog: Next status row appears in Now section");
+  check(!/^\|\s*Now\s*\|/mi.test(backlog.replace(now, "")), "backlog: Now status row appears outside Now section");
+
+  const nextWork = [...next.matchAll(/^\|\s*\d+\s*\|\s*([^|]+?)\s*\|/gm)].map((row) => row[1].trim());
+  check(nextWork.length > 0, "backlog: Next queue has no ordered work rows");
+  const allowedPre059 = new Map([
+    ["Historical migration foundation — Hevy, Strong, generic CSV", "#258"],
+    ["Free one-off sessions", "#257"],
+    ["Unsupported workout-grammar measurement", "#255"],
+  ]);
+  const overhaulPlans = readdirSync(join(ROOT, "plans")).filter((name) => /^0(49|5[0-8])-.*\.md$/.test(name));
+  for (const work of nextWork) {
+    check(!now.includes(work), `backlog: Next work is also scheduled as a Now table row ("${work}")`);
+    for (const name of overhaulPlans) {
+      const plan = `plans/${name}`;
+      check(!read(plan).includes(work), `backlog: Next work appears in ${plan} ("${work}")`);
+    }
+    if (allowedPre059.has(work)) {
+      check(
+        clearance.includes(allowedPre059.get(work)),
+        `post-058 sequence: pulled-forward Next work lacks its PR mapping ("${work}")`,
+      );
+    } else {
+      check(
+        !clearance.includes(`**${work}**`),
+        `post-058 sequence: unapproved Next work pulled forward ("${work}")`,
+      );
+    }
+  }
+  check(
+    docs.get("plans/059-public-launch-ui-validation.md")?.includes("post-058-open-pr-clearance-sequence.md") ??
+      read("plans/059-public-launch-ui-validation.md").includes("post-058-open-pr-clearance-sequence.md"),
+    "Plan 059: post-058 candidate-construction dependency is not recorded",
+  );
   check(!/already Now|under Now|Now-tier/.test(backlog), "backlog: stale Now-scoped claim");
 }
 
