@@ -20,7 +20,11 @@ Use `--list` for exact commands and `--explain` for files, reasons and scope.
 Lanes are `fast` (pure Node), `state`, `entry`, `workout`, `privacy`, `visual`
 (browser) and `service`. Local `edit`/`packet` selection is a latency tool owned
 by `tools/test-selection.mjs`; unknown executable inputs widen to everything. CI
-does not use it.
+does not use it. Once a coherent commit is focused-test green, push it promptly
+so remote CI starts while `packet` and independent review run in parallel.
+`packet` remains required local confidence evidence, but it is not a prerequisite
+for starting remote CI. Do not push half-implemented or known-red work merely to
+start CI early.
 
 ## What CI runs
 
