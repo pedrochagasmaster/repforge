@@ -356,7 +356,7 @@
   const choice = (o) => TS.choice(o);
   function group(id, label, inner, { role = "radiogroup", key, hint, cls = "" } = {}) {
     const miss = key && missingKeys().has(key);
-    return `<section class="g-group ${cls}" role="${role}" aria-labelledby="${id}"${miss ? ` aria-describedby="${id}Err"` : ""}><p class="t-label g-group__label" id="${id}">${esc(label)}</p>${hint ? `<p class="t-caption g-group__hint">${esc(hint)}</p>` : ""}${miss ? `<p class="field__error g-missing" id="${id}Err">${esc(t("g.q.missing"))}</p>` : ""}${inner}</section>`;
+    return `<section class="g-group ${cls}" role="${role}" aria-labelledby="${id}"${miss ? ` aria-describedby="${id}Err"` : ""}><header class="g-group__head"><p class="t-label g-group__label" id="${id}">${esc(label)}</p>${hint ? `<p class="t-caption g-group__hint">${esc(hint)}</p>` : ""}${miss ? `<p class="field__error g-missing" id="${id}Err">${esc(t("g.q.missing"))}</p>` : ""}</header>${inner}</section>`;
   }
   const numGrid = (key, values, sel, unit) => `<div class="g-num">${values.map((n) => choice({ key, val: n, title: n === 90 && key === "sessionMinutes" ? "90+" : String(n), cap: unit, selected: sel === n, cls: "choice--seg g-num__opt" })).join("")}</div>`;
   const restSelected = (a, v) => has(a, "preferredRestSeconds") && (a.preferredRestSeconds === null ? v === "auto" : v !== "auto" && +v === a.preferredRestSeconds);
@@ -392,7 +392,7 @@
       const prim = a.primaryMuscles || []; const st = o.sheet ? S.sheet.avoid : S.avoid;
       return group(`${p}Prim`, t("entry.priorities.primary"), `<div class="stack stack--tight">${choice({ key: "clearPriorities", val: "1", title: t("entry.priorities.none"), selected: prim.length === 0, cls: "choice--compact" })}<div class="grid-2 g-muscles">${TS.MUSCLES.map((m) => choice({ key: "primaryMuscles", val: m, title: t(`entry.muscle.${m}`), selected: prim.includes(m), role: "checkbox", cls: "choice--compact", disabled: prim.length >= 2 && !prim.includes(m) })).join("")}</div><p class="t-caption">${esc(t(prim.length >= 2 ? "g.q.none_limit" : "entry.priorities.lede"))}</p></div>`, { role: "group" })
         + group(`${p}Mov`, t("entry.priorities.movements"), `<div class="stack stack--tight">${TS.MOVEMENTS.map((m) => choice({ key: "priorityMovements", val: m, title: t(`entry.movement.${m}`), selected: (a.priorityMovements || []).includes(m), role: "checkbox", cls: "choice--compact" })).join("")}</div>`, { role: "group" })
-        + `<section class="g-group" aria-labelledby="${p}Avoid"><p class="t-label g-group__label" id="${p}Avoid">${esc(t("entry.priorities.avoid"))}</p>${TS.avoidSection(t, lang, { query: st.query, pending: st.pending, constraints: a.exerciseConstraints || [] }, { searchId: o.sheet ? "dSheetAvoid" : "avoidSearch" })}</section>`;
+        + `<section class="g-group" aria-labelledby="${p}Avoid"><header class="g-group__head"><p class="t-label g-group__label" id="${p}Avoid">${esc(t("entry.priorities.avoid"))}</p></header>${TS.avoidSection(t, lang, { query: st.query, pending: st.pending, constraints: a.exerciseConstraints || [] }, { searchId: o.sheet ? "dSheetAvoid" : "avoidSearch" })}</section>`;
     }
     if (step === "exercise_preferences") { const st = o.sheet ? S.sheet.pref : S.pref; return TS.exercisePrefs(t, lang, { query: st.query, pending: st.pending, mustHave: a.mustHaveExercises || [], constraints: a.exerciseConstraints || [] }); }
     if (step === "custom_shape") {
@@ -422,9 +422,9 @@
     if (S.view === "shared-gate" && S.shared) {
       const m = S.shared.program.meta; const n = S.shared.program.exercises.length;
       return `<main class="page g-land" data-checkpoint="shared-gate">${brand()}
-        <p class="t-label g-land__eyebrow">${esc(t("landing.shared.eyebrow"))}</p>
+        <header class="g-intro g-land__intro"><p class="t-label">${esc(t("landing.shared.eyebrow"))}</p>
         <h1 class="g-land__head" data-focus>${esc(t("landing.shared.headline"))}</h1>
-        <p class="t-lede">${esc(t("landing.shared.body"))}</p>
+        <p class="t-lede">${esc(t("landing.shared.body"))}</p></header>
         <section class="g-gate" aria-labelledby="dGateName"><h2 class="t-subtitle" id="dGateName" data-user-text>${esc(m.name)}</h2><p class="facts g-gate__facts"><span class="t-data">${esc(t("entry.catalogue.days_badge", { days: m.daysPerWeek }))}</span><span class="t-data">${esc(t("entry.preview.exercises", { n, exercise: TF.tp(t, n, "exercise") }))}</span></p>
           <p class="t-label g-gate__label">${esc(t("g.gate.what"))}</p><p class="t-small">${esc(t("x.shared.what"))}</p><p class="t-small">${esc(t("x.shared.nothing_saved"))}</p></section>
         <div class="stack stack--tight g-land__acts"><button type="button" id="firstRunSharedStart" class="btn btn--primary btn--accent" data-act="shared-start" aria-describedby="dGateCap">${esc(t("setup.shared.title"))}</button><p class="t-caption g-gate__cap" id="dGateCap"><span data-user-text>${esc(t(m.daysPerWeek === 1 ? "setup.shared.cap_one" : "setup.shared.cap_many", { name: m.name, n: m.daysPerWeek }))}</span></p></div>
@@ -432,8 +432,8 @@
     }
     const invalid = S.view === "shared-invalid";
     return `<main class="page g-land" data-checkpoint="${invalid ? "shared-invalid" : "landing"}">${brand()}
-      <h1 class="g-land__head" data-focus>${esc(t(invalid ? "landing.shared.invalid_headline" : "landing.headline"))}</h1>
-      <p class="t-lede">${esc(t(invalid ? "landing.shared.invalid_body" : "landing.body"))}</p>
+      <header class="g-intro g-land__intro"><h1 class="g-land__head" data-focus>${esc(t(invalid ? "landing.shared.invalid_headline" : "landing.headline"))}</h1>
+      <p class="t-lede">${esc(t(invalid ? "landing.shared.invalid_body" : "landing.body"))}</p></header>
       ${invalid ? `<p class="status-line g-invalid" role="status"><span class="icon-mask icon-mask--alert" aria-hidden="true"></span><span>${esc(t(TF.sharedErrorKey(S.sharedError)))}</span></p>` : ""}
       ${landingActions()}
       ${invalid ? "" : TS.landingProof(t, lang)}
@@ -466,10 +466,10 @@
     const active = TF.hasActiveProgram();
     return `<div class="page g-page g-app"><header class="g-head"><button type="button" class="btn btn--link g-head__btn" data-act="hub-back"><span class="chevron g-head__chev" aria-hidden="true"></span>${esc(t("entry.back"))}</button></header>
       <main class="g-main view-enter" data-checkpoint="${active ? "hub-existing" : "route-choice"}">
-        <h1 class="t-title" data-focus>${esc(t("entry.hub.title"))}</h1><p class="t-lede g-lede">${esc(active ? t("g.hub.lede_existing") : t("g.hub.lede_first"))}</p>
+        <header class="g-intro"><h1 class="t-title" data-focus>${esc(t("entry.hub.title"))}</h1><p class="t-lede">${esc(active ? t("g.hub.lede_existing") : t("g.hub.lede_first"))}</p></header>
         ${active ? `<div class="g-notice">${TS.activeNotice(t)}</div>` : ""}
         ${recoveryCard()}
-        <button type="button" class="btn btn--link g-help-toggle" id="dHelpToggle" data-act="help-toggle" aria-expanded="${S.help ? "true" : "false"}" aria-controls="dHelp">${esc(t("g.help.toggle"))}</button>${helpPanel()}
+        <div class="g-helpblock"><button type="button" class="btn btn--link g-help-toggle" id="dHelpToggle" data-act="help-toggle" aria-expanded="${S.help ? "true" : "false"}" aria-controls="dHelp">${esc(t("g.help.toggle"))}</button>${helpPanel()}</div>
         <section class="g-rec" aria-labelledby="gRecQ"><p class="t-label g-rec__eyebrow">${esc(t("g.rec.eyebrow"))}</p><h2 class="t-section g-rec__q" id="gRecQ">${esc(t("entry.desired_result.title"))}</h2><p class="t-small t-soft g-rec__facts">${esc(t("g.rec.facts", { n: QUESTIONS.recommend.length }))}</p>
           <div class="g-rec__opts" role="group" aria-labelledby="gRecQ">${TS.DESIRED.map((v) => `<button type="button" class="g-goal" data-act="start-rec" data-goal="${v}"><span class="icon-mask icon-mask--${TS.DESIRED_ICON[v]}" aria-hidden="true"></span><span class="g-goal__body"><span class="g-goal__t">${esc(t(`entry.desired_result.${v}.label`))}</span><span class="g-goal__c">${esc(t(`entry.desired_result.${v}.sub`))}</span></span><span class="chevron g-door__chev" aria-hidden="true"></span></button>`).join("")}</div></section>
         <section class="g-hubgroup" aria-labelledby="dG1"><p class="t-label g-hubgroup__label" id="dG1">${esc(t("entry.hub.group.written"))}</p>${door("custom")}</section>
@@ -594,17 +594,17 @@
       <div class="stack stack--tight g-edit__acts"><button type="button" class="btn btn--primary btn--noarrow" data-act="sheet-apply"${pending ? ' disabled aria-describedby="pendingAvoidNote"' : ""}>${esc(t("g.sheet.apply"))}</button><button type="button" class="btn btn--quiet" data-act="sheet-close">${esc(t("g.edit.keep"))}</button></div></section>`;
   }
   function chipsBlock() {
-    return `<section class="g-sec g-answers" aria-labelledby="gChipsLabel"><h2 class="t-label g-sec__label" id="gChipsLabel">${esc(t("g.chips.label"))}</h2><p class="t-caption">${esc(t("g.chips.hint"))}</p>
+    return `<section class="g-sec g-answers" aria-labelledby="gChipsLabel"><header class="g-sec__head"><h2 class="t-label g-sec__label" id="gChipsLabel">${esc(t("g.chips.label"))}</h2><p class="t-caption">${esc(t("g.chips.hint"))}</p></header>
       <div class="g-chips">${chipList().map((c) => `<button type="button" class="g-chip${S.sheet && S.sheet.chip === c.chip ? " is-open" : ""}" data-act="chip" data-chip="${c.chip}" aria-expanded="${!!(S.sheet && S.sheet.chip === c.chip)}"${S.sheet && S.sheet.chip === c.chip ? ' aria-controls="gEdit"' : ""} aria-label="${esc(t("g.chip.aria", { what: c.what, value: c.text }))}"><span>${esc(c.text)}</span><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span></button>`).join("")}</div>${editorView()}</section>`;
   }
   function reviewBody() {
-    if (!S.result) return `<h1 class="t-title" data-focus>${esc(t("g.rev.error_title"))}</h1><div class="notice notice--error" role="alert"><p>${esc(S.compileError || t("x.issue.compile"))}</p></div>`;
+    if (!S.result) return `<header class="g-intro"><h1 class="t-title" data-focus>${esc(t("g.rev.error_title"))}</h1></header><div class="notice notice--error" role="alert"><p>${esc(S.compileError || t("x.issue.compile"))}</p></div>`;
     const r = S.result, p = r.preview, f = TF.previewFacts(p), a = answers(), gen = generated();
     const eyebrow = S.route === "recommend" ? t("entry.result.title") : S.route === "custom" ? t("entry.result.custom_title") : t(`entry.preview.source.${S.route}`);
     const facts = [t("entry.catalogue.days_badge", { days: (p.days || []).length }), TF.durationLabel(t, p), t("entry.preview.exercises", { n: f.exercises, exercise: TF.tp(t, f.exercises, "exercise") }), t("entry.preview.sets", { n: f.sets })].filter(Boolean);
     const conflict = S.notice === "conflict" ? `<div id="dConflictBox" tabindex="-1" class="g-conflict">${TS.conflictNotice(t)}</div>` : "";
-    let out = `${conflict}<p class="t-label g-eyebrow">${esc(eyebrow)}</p><h1 class="t-feature g-progname" data-focus${S.route === "shared" || S.route === "import" ? " data-user-text" : ""}>${esc(name())}</h1>
-      <p class="facts g-facts" id="dFacts">${facts.map((x) => `<span class="t-data">${esc(x)}</span>`).join(" ")}</p>${changeLine()}
+    let out = `${conflict}<header class="g-intro g-intro--review"><p class="t-label">${esc(eyebrow)}</p><h1 class="t-feature g-progname" data-focus${S.route === "shared" || S.route === "import" ? " data-user-text" : ""}>${esc(name())}</h1>
+      <p class="facts g-facts" id="dFacts">${facts.map((x) => `<span class="t-data">${esc(x)}</span>`).join(" ")}</p></header>${changeLine()}
       ${TF.hasActiveProgram() && S.notice !== "conflict" ? `<div class="g-notice">${TS.activeNotice(t)}</div>` : ""}
       <section class="g-sec" aria-labelledby="dWeek"><h2 class="t-label g-sec__label" id="dWeek">${esc(t("entry.preview.days"))}</h2>${daysView(p, S.changeFrom && gen ? addedIds(S.changeFrom.preview, p) : new Set())}</section>`;
     if (gen) {
@@ -641,7 +641,7 @@
     const card = (c) => { const nm = lang === "pt" ? c.familyNamePt || c.familyName : c.familyName; const ex = c.structureFacts.map((x) => x.exerciseCount), sets = c.structureFacts.map((x) => x.setCount);
       return `<li><button type="button" class="g-card" data-act="card" data-id="${esc(c.id)}"><span class="g-card__top"><span class="g-card__name">${esc(nm)}</span><span class="t-data g-card__days">${esc(t("entry.catalogue.days_badge", { days: c.daysPerWeek }))}</span></span><span class="t-small t-soft">${esc(t(`entry.catalogue.purpose.${c.purpose}`))}</span><span class="facts g-card__facts"><span class="t-data">${esc(c.minutes[0] === c.minutes[1] ? t("entry.preview.minutes", { n: c.minutes[0] }) : t("entry.catalogue.minutes", { min: c.minutes[0], max: c.minutes[1] }))}</span><span class="t-data">${esc(range(ex, "entry.catalogue.exercises_exact", "entry.catalogue.exercises_range"))}</span><span class="t-data">${esc(range(sets, "entry.catalogue.sets_exact", "entry.catalogue.sets_range"))}</span></span><span class="t-caption">${esc(t("entry.catalogue.progression", { progression: c.progressionStrategies.map(label).join(" · ") }))}</span><span class="t-caption">${esc(t("entry.catalogue.equipment", { equipment: c.equipmentAssumptions.map((k) => t(`entry.equip.${k}`, undefined, k)).join(", ") }))}</span>${c.mismatch ? `<span class="t-small g-card__mismatch">${esc(t("entry.catalogue.mismatch_frequency", { requested: a.daysPerWeek, actual: c.daysPerWeek }))}</span>` : ""}</button></li>`; };
     const fits = cards.filter((c) => !c.mismatch), others = cards.filter((c) => c.mismatch);
-    return `<h1 class="t-title" data-focus>${esc(t("entry.catalogue.title"))}</h1><p class="t-lede g-lede">${esc(t("entry.catalogue.lede"))}</p>
+    return `<header class="g-intro"><h1 class="t-title" data-focus>${esc(t("entry.catalogue.title"))}</h1><p class="t-lede">${esc(t("entry.catalogue.lede"))}</p></header>
       <div class="g-context"><p class="facts"><span class="t-data">${esc(t("entry.catalogue.context_days", { days: a.daysPerWeek }))}</span><span class="t-data">${esc(t("entry.catalogue.context_minutes", { minutes: a.sessionMinutes }))}</span><span>${esc(t(`entry.environment.${a.environment ? a.environment.kind : "other"}`))}</span></p><button type="button" class="btn btn--sm" data-act="jump" data-step="schedule" aria-label="${esc(t("g.catalogue.change_aria"))}">${esc(t("x.change"))}</button></div>
       ${fits.length ? `<section class="g-sec" aria-labelledby="dFits"><h2 class="t-label g-sec__label" id="dFits">${esc(t("entry.catalogue.group_fits", { days: a.daysPerWeek }))}</h2><ul class="g-cards">${fits.map(card).join("")}</ul></section>` : `<div class="notice notice--error" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong><p>${esc(t("entry.catalogue.empty_body"))}</p></div>`}
       ${others.length ? `<details class="disclosure g-others"><summary><span>${esc(t("entry.catalogue.group_other"))} <span class="t-data">(${others.length})</span></span><span class="chevron" aria-hidden="true"></span></summary><div class="disclosure__body"><p class="t-caption">${esc(t("entry.catalogue.mismatch"))}</p><ul class="g-cards">${others.map(card).join("")}</ul></div></details>` : ""}`;
@@ -650,8 +650,8 @@
     const forBuild = S.route === "build" && !S.editing;
     const st = forBuild ? TS.build.status(t, S.build, { revAtStart: S.revAtStart }) : TS.build.status(t, S.build, { route: S.route, result: S.result, revAtStart: S.revAtStart });
     const head = forBuild
-      ? `<h1 class="t-feature g-progname" data-focus data-user-text>${esc(S.build.name || t("untitled_program"))}</h1><p class="facts g-facts"><span class="t-data">${esc(t("g.build.days_caption", { n: S.build.days.length }))}</span></p>`
-      : `<p class="t-label g-eyebrow">${esc(t("entry.preview.edit"))}</p><h1 class="t-feature g-progname" data-focus>${esc(name())}</h1><p class="t-lede g-lede">${esc(t("g.edit.lede"))}</p><button type="button" class="btn g-editdone" data-act="edit-done">${esc(t("g.edit.done"))}</button>`;
+      ? `<header class="g-intro"><h1 class="t-title g-progname" data-focus data-user-text>${esc(S.build.name || t("untitled_program"))}</h1><p class="facts g-facts"><span class="t-data">${esc(t("g.build.days_caption", { n: S.build.days.length }))}</span></p></header>`
+      : `<header class="g-intro"><p class="t-label">${esc(t("entry.preview.edit"))}</p><h1 class="t-title g-progname" data-focus>${esc(name())}</h1><p class="t-lede">${esc(t("g.edit.lede"))}</p><button type="button" class="btn g-editdone" data-act="edit-done">${esc(t("g.edit.done"))}</button></header>`;
     const status = TS.build.statusLine(st, { id: "editorStatus" });
     const tail = forBuild ? `<div class="g-more"><button type="button" class="btn btn--quiet" data-act="save-draft">${esc(t("entry.editor.save"))}</button></div>` : "";
     const inFlow = compact() || st.ready;
@@ -659,14 +659,14 @@
   }
   function buildSetupBody() {
     const a = S.answers; const miss = missingKeys();
-    return `<h1 class="t-title" data-focus>${esc(t("entry.build_setup.title"))}</h1><p class="t-lede g-lede">${esc(t("entry.build_setup.lede"))}</p>${TF.hasActiveProgram() ? `<div class="g-notice">${TS.activeNotice(t)}</div>` : ""}${validationNotice()}
+    return `<header class="g-intro"><h1 class="t-title" data-focus>${esc(t("entry.build_setup.title"))}</h1><p class="t-lede">${esc(t("entry.build_setup.lede"))}</p></header>${TF.hasActiveProgram() ? `<div class="g-notice">${TS.activeNotice(t)}</div>` : ""}${validationNotice()}
       <label class="field g-group"><span>${esc(t("entry.build_setup.name"))}</span><input id="dBuildName" type="text" maxlength="80" autocomplete="off" data-field="programName" value="${esc(a.programName || "")}" placeholder="${esc(t("entry.build_setup.name_placeholder"))}"${miss.has("programName") ? ' aria-invalid="true" class="is-invalid" aria-describedby="dNameErr"' : ""}>${miss.has("programName") ? `<span class="field__error" id="dNameErr">${esc(TS.issueText(t, ["program_name_required"]))}</span>` : ""}</label>
       ${group("qBDays", t("entry.build_setup.days"), numGrid("daysPerWeek", TS.DAYS, a.daysPerWeek, t("entry.schedule.days.sub")), { key: "daysPerWeek" })}`;
   }
   function importBody() {
     if (S.importDraft) {
       const d = S.importDraft; const c = TF.importCounts(d);
-      return { body: `<h1 class="t-title" data-focus>${esc(t("import.heading"))}</h1><p class="t-lede g-lede">${esc(t("import.lede"))}</p><p class="t-caption" data-user-text>${esc(t("import.file", { name: d.fileName || t("import.file_fallback"), n: c.total, exercise: TF.tp(t, c.total, "lift") }))}</p>
+      return { body: `<header class="g-intro"><h1 class="t-title" data-focus>${esc(t("import.heading"))}</h1><p class="t-lede">${esc(t("import.lede"))}</p><p class="t-caption" data-user-text>${esc(t("import.file", { name: d.fileName || t("import.file_fallback"), n: c.total, exercise: TF.tp(t, c.total, "lift") }))}</p></header>
         ${d.notImported.length ? `<p class="notice notice--info" role="status">${esc(t("entry.freeform.not_imported_notice", { items: d.notImported.map((x) => t(`entry.freeform.not_imported.${x}`)).join(", ") }))}</p>` : ""}
         <div class="g-sec">${TS.importReview.counts(t, d)}</div><div class="g-sec">${TS.importReview.rows(t, lang, d, { picker: S.picker })}</div>
         ${d.originalText ? `<details class="disclosure disclosure--plain"><summary>${esc(t("entry.freeform.view_original"))}</summary><pre class="t-caption" style="white-space:pre-wrap">${esc(d.originalText)}</pre></details>` : ""}
@@ -677,9 +677,9 @@
     const active = TF.hasActiveProgram() ? `<div class="g-notice">${TS.activeNotice(t)}</div>` : "";
     if (S.importMode === "freeform") {
       const gaps = S.ff.status === "gaps";
-      return { body: `<h1 class="t-title" data-focus>${esc(t(gaps ? "g.ff.gaps_title" : "entry.freeform.title"))}</h1><p class="t-lede g-lede">${esc(t(gaps ? "g.ff.gaps_lede" : "entry.freeform.lede"))}</p>${active}<div class="g-ff">${TS.freeform.body(t, lang, S.ff)}</div>${gaps ? "" : own}`, footer: "" };
+      return { body: `<header class="g-intro"><h1 class="t-title" data-focus>${esc(t(gaps ? "g.ff.gaps_title" : "entry.freeform.title"))}</h1><p class="t-lede">${esc(t(gaps ? "g.ff.gaps_lede" : "entry.freeform.lede"))}</p></header>${active}<div class="g-ff">${TS.freeform.body(t, lang, S.ff)}</div>${gaps ? "" : own}`, footer: "" };
     }
-    return { body: `<h1 class="t-title" data-focus>${esc(t("entry.import_source.title"))}</h1><p class="t-lede g-lede">${esc(t("entry.import_source.lede"))}</p>${active}<button type="button" class="btn btn--primary btn--noarrow g-pick" data-act="import-file"><span class="icon-mask icon-mask--download" aria-hidden="true"></span>${esc(t("entry.import_source.pick"))}</button><p class="t-caption">${esc(t("x.cost.file"))}</p>${own}`, footer: "" };
+    return { body: `<header class="g-intro"><h1 class="t-title" data-focus>${esc(t("entry.import_source.title"))}</h1><p class="t-lede">${esc(t("entry.import_source.lede"))}</p></header>${active}<button type="button" class="btn btn--primary btn--noarrow g-pick" data-act="import-file"><span class="icon-mask icon-mask--download" aria-hidden="true"></span>${esc(t("entry.import_source.pick"))}</button><p class="t-caption">${esc(t("x.cost.file"))}</p>${own}`, footer: "" };
   }
   function validationNotice() { return S.validation ? `<div class="notice notice--error g-validation" role="alert" tabindex="-1" id="dValidation"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>` : ""; }
   function routeView() {
@@ -690,7 +690,7 @@
       /* Skip only while the optional section is empty (Delta D-1). */
       const emptyPrio = !(S.answers.primaryMuscles || []).length && !(S.answers.priorityMovements || []).length && !(S.answers.exerciseConstraints || []).length && !S.avoid.pending;
       const skip = S.route === "recommend" && S.step === "priorities" && emptyPrio ? `<button type="button" class="btn btn--quiet g-skip" data-act="skip">${esc(t("g.q.skip"))}</button>` : "";
-      body = `<h1 class="t-title" data-focus>${esc(h.title)}</h1>${h.optional ? `<p class="t-label g-optional">${esc(t("entry.optional"))}</p>` : ""}${h.lede ? `<p class="t-lede g-lede">${esc(h.lede)}</p>` : ""}${skip}${validationNotice()}${questionBody(S.step, S.answers)}`;
+      body = `<header class="g-intro">${h.optional ? `<p class="t-label">${esc(t("entry.optional"))}</p>` : ""}<h1 class="t-title" data-focus>${esc(h.title)}</h1>${h.lede ? `<p class="t-lede">${esc(h.lede)}</p>` : ""}${skip}</header>${validationNotice()}${questionBody(S.step, S.answers)}`;
       const label = S.step === "custom_shape" ? t("entry.custom_shape.generate") : S.route === "recommend" && S.step === "priorities" ? t("g.q.show") : t("entry.next");
       footer = `<footer class="pinned g-pin" data-persistent-action><button type="button" class="btn btn--primary" id="dNext" data-advance data-act="next"${pending ? ' disabled aria-describedby="pendingAvoidNote"' : ""}>${esc(label)}</button></footer>`;
     } else if (S.step === "catalogue") body = catalogueBody();
