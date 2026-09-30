@@ -63,7 +63,7 @@ remediation owner; no product fix or retained suite was added here.
 
 | Finding | Post-058 status | Executable evidence | Smallest next owner |
 |---|---|---|---|
-| A01, P1 | OPEN | Both staged commands accept revision 0→1; promotion/reload drops one accepted field, checkpoint agrees with the losing aggregate, sidecars are gone | Narrow standalone DraftV2 safety fix in stage 4 before #255. Distinct from #271 |
+| A01, P1 | CLOSED by PR #284, fix commit `81e6e97bbc42bcccd2a2de4b2b4404e0cf849324` | `test/draftv2-staged-cas.mjs` rejects a second writer from the same predecessor and preserves the accepted aggregate through promotion and reload | No A01 follow-up |
 | A02, P2 | OPEN | History RIR=2 saves to both replicas with `rirMeasured:false`; reload remains `insufficient / missing-effort`. Flag-only control yields `sufficient / improved / progress` | Narrow evidence-correctness fix in stage 4 before #255; preserve provenance for load/date-only edits |
 | A03, P2 | OPEN | New York spring DST returns week 1 on March 9 and excludes today's session; block denominator also remains one week | Narrow evidence-correctness fix in stage 4 before #255; may share the A02 packet if ownership/proofs stay clear |
 | A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Narrow stage-4 focus-continuity fix before #255; D retains this utility |
@@ -71,38 +71,48 @@ remediation owner; no product fix or retained suite was added here.
 | N01, P3 | OPEN | PT sheet still says `Quadríceps · 2 sets` | Direction D #272's retained exercise-actions copy |
 | N02, P3 | OPEN | Live read-only Today Preview with an authoritative `effort_target@1` RIR 2–3 prescription shows sets/reps/muscle but no effort target | Direction D #272 decision 9 / Today preview retirement, with removal and no-draft evidence |
 
-None is already owned by #271. That PR changes a failed lock-held
-**state-journal rewrite**; A01 is the unlocked **draft-sidecar CAS** before
-that lock. Inspection of #271's published durable-state delta shows no repair
-to `compareAndSwapV2()`/`stageFor()`. Integrating/revalidating #271 remains the
-separate stage-4 task; this audit has not started it.
+A01 was separate from #271. That PR made a failed lock-held **state-journal
+rewrite** fail closed. It did not change the unlocked **draft-sidecar CAS** in
+`compareAndSwapV2()` or `stageFor()`. PR #284 closes that distinct race.
 
 ## Current observations and closing contracts
 
-### A01: concurrent staged DraftV2 commands lose acknowledged input
+### A01: concurrent staged DraftV2 commands lose acknowledged input (closed)
 
-Current owner is `durable-state.js`, `DraftStore.compareAndSwapV2()` at
-lines 323–345, especially `stageFor()` and the early `writeTarget()` branch.
-Promotion is `DraftStore.promote()` at lines 559–580. These production bytes
-are unchanged from the historical audit source `29fc1c36`; Plan 058 neither
-moved this owner nor changed the reproducer.
+PR #284 fixes A01 in commit
+`81e6e97bbc42bcccd2a2de4b2b4404e0cf849324`. The production owner remains
+`durable-state.js`: `DraftStore.compareAndSwapV2()`, `writeSidecar()`,
+`promote()`, and checkpoint handling. The regression in
+`test/draftv2-staged-cas.mjs` uses the production dispatcher, storage,
+journal, checkpoint, promotion, and boot path.
 
-The smallest deterministic interleaving is still: two tabs read the same
-DraftV2; hold `repforge:state-write`; queue a real state commit to publish a
-journal; pause tab A immediately before writing its draft sidecar; tab B
-edits reps to 12 and receives `applied`; release A to accept load 80; release
-the lock and reload. Both sidecars carry revision 1. The observed canonical
-and reloaded aggregate has null load and reps 12, losing accepted load 80.
-The checkpoint agrees with that canonical aggregate and both sidecars have
-been deleted. The barrier schedules the production Storage write; it does
-not replace the CAS, dispatcher, promotion, journal, or loader.
+**Pre-fix evidence.** Exact `origin/main` was
+`f7b516361ef1083b7395f144c613a32817706722`, the #271 merge. Test-only commit
+`7352ca38acef488af3c63e7d89f843f37c7c31c0` pinned the regression there. With
+a state journal pending, the test paused writer A before sidecar storage.
+Writer B accepted a reps edit, then writer A accepted a load edit from the
+same revision. Both returned `applied` and wrote revision 1. After promotion
+and reload, canonical storage and the checkpoint kept reps 12 and lost load
+80. Both sidecars were gone.
 
-This is current data loss on a device-local only copy, still P1. It must be
-fixed ahead of #255 and the redesign train because D retains the same draft
-commands. The repair must serialize predecessor comparison and acceptance
-without breaking pending state-transaction conflict behavior. At most one
-writer can accept the same predecessor; prove checkpoint, sidecar, canonical
-and reload preservation in the owning storage suite.
+**Fix and closing evidence.** Staged acceptance now compares and writes under
+the cross-tab `repforge:draft-write` lock. A second writer rechecks the latest
+sidecar while holding that lock and returns the existing `stale` outcome if
+its predecessor has advanced. Canonical commits and state-transaction
+settlement acquire `repforge:state-write` before `repforge:draft-write`.
+Promotion uses the draft lock and preserves a committed canonical aggregate
+when a stale sidecar has the same or an older revision. Boot waits for
+promotion to finish.
+
+At fix commit
+`81e6e97bbc42bcccd2a2de4b2b4404e0cf849324`, `test/draftv2-staged-cas.mjs` passed with both field
+orders, with the stale writer arriving before and after sidecar publication,
+and with a legitimate sequential edit from the accepted revision. It also
+checks checkpoint absence, reload before promotion, failed sidecar write and
+retry, stale-sidecar promotion, canonical state, checkpoint, and reload. The
+focused storage and durable-outcome suites passed. The durable-outcome suite
+retains #271's D4–D9 journal regression. The separate historical reproduction
+record remains unchanged.
 
 ### A02: corrected RIR is omitted from canonical Strength evidence
 
@@ -308,9 +318,13 @@ The pause is an isolated scheduling barrier at the storage write, not a replacem
 
 Requirement: Plan 051's stale-tab CAS and exact aggregate preservation; root AGENTS.md requires draft commands to use a cross-tab lock.
 
-Closing evidence: reproduce this pending-journal, two-writer interleaving in the owning browser suite. At most one command may accept the same predecessor revision. The other must remain visibly stale/recoverable, or be reapplied against the acknowledged successor. Verify canonical storage, checkpoint, staged artifacts, and reload. Preserve the existing state-transaction conflict behavior when introducing serialization.
-
-The controlled reproduction used the production draft dispatcher and lock, with a scheduling barrier immediately before sidecar storage. It recorded both accepted revisions and the post-reload aggregate.
+Disposition: CLOSED by PR #284, fix commit
+`81e6e97bbc42bcccd2a2de4b2b4404e0cf849324`. The pre-fix failure was pinned
+on #271 main by test commit `7352ca38acef488af3c63e7d89f843f37c7c31c0`.
+The closing regression is `test/draftv2-staged-cas.mjs`; it checks same-revision
+rejection, sequential writes, the pending transaction path, sidecar publication,
+checkpoint, canonical promotion, failure and retry, and reload. A02, A03, and
+A04 remain open in the current matrix.
 
 #### A02 · P2 · History RIR corrections remain excluded from strength evidence
 
