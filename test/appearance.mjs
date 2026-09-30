@@ -136,13 +136,10 @@ async function checkContrast(page, label) {
 // and vanished on the dark ground. So the stylesheet is read as text: outside
 // the two :root blocks, only these literals are allowed to remain.
 //
-// Shadows are black in both themes because their job is to darken what is
-// behind them, and the two plates carry the app icon's own warm ground.
+// Raster shadows stay black in both themes; the Settings identity mark is the
+// only remaining artwork plate outside the theme palettes.
 const LITERAL_ALLOWLIST = [
-  { re: /rgba\(0,0,0,[.\d]+\)/g, why: "shadow" },
-  { re: /rgba\(27,26,23,[.\d]+\)/g, why: "shadow" },
   { re: /rgba\(23,23,25,[.\d]+\)/g, why: "shadow" },
-  { re: /#161513(?=\s+url)/g, why: "install-banner icon plate" },
   { re: /#efe5df/g, why: "settings identity icon plate" },
 ];
 

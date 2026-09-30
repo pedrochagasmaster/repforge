@@ -200,10 +200,12 @@ adapter and application. Editing this section alone adds no runtime code.
   returning `splitChoices`, `compile`, and `browseCatalogue`. It is a
   test-only description of the future service contract, never a shipped
   generator.
-- Coverage: `test/program-entry.mjs` (pure graph, schemas, migration, resume,
-  switching, stale drafts), `test/program-entry-fixture-services.mjs`
-  (deterministic compile, closed inputs, 2–6 day coverage, catalogue
-  filtering), and `test/generative/properties/program-entry.mjs` with
+- Coverage: `test/program-entry.mjs` covers the pure graph, schemas,
+  migration, resume, switching, and stale drafts; production service behavior is
+  covered by `test/program-entry-production-adapter.mjs` and
+  `test/program-entry-browser.mjs`. The test-only fixture remains only as a
+  deterministic generator/model input for
+  `test/generative/properties/program-entry.mjs` with
   `test/generative/model/program-entry.mjs` (seeded route/switch/resume/
   restart/conflict journeys with active-program byte-equivalence invariants).
 
@@ -259,10 +261,9 @@ partially built next slice.
 
 - Plans 045, 046, and 047 are merged to `main`; this branch has merged current
   `origin/main` with an explicit merge commit.
-- Pure suite, `test/program-entry-fixture-services.mjs`, and the
-  `program-entry` generative suites pass, plus every browser suite in
-  `.github/workflows/simulation.yml` touching entry, first-run, install modes,
-  shared setup, and session summary.
+- The pure entry suite, production adapter suite, `program-entry`
+  generative suites, and production-backed browser journeys pass, including
+  first-run, install modes, shared setup, and session summary ownership.
 - Accessibility, privacy/leakage, and full light/dark screenshot catalogue
   regenerated for every route at 320 px and representative phone/tablet/desktop
   widths, in PT-BR and English.

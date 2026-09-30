@@ -1,0 +1,357 @@
+{
+  "sourceBaseSha": "9ebab797829feaa4a84a35e604f6757aa9fd76c2",
+  "sourceProductionDiffSha256": "764aa6acd6fd03869ea37f8b0920ec2d9b5b05af2174328e9edfef6716c5d3b0",
+  "sourceStatus": "The original 57 board PNGs use productionSourceHeadSha; captureScenarioDiffSha256 records the registered Today 200% scenario change. Two Build 200% PNGs were captured from supplemental source head 51b43f732f7e25588f72c7e1c22b95a04f4d061c. All eight registered variants of each Build screen passed capture contracts and matched the current production catalog byte-for-byte; only the selected EN/PT-BR 200% frames were added to this board. sourceProductionDiffSha256 identifies the P6 app.js/index.html/styles.css diff from sourceBaseSha. The unrelated local PostHog insertion is excluded.",
+  "generatedDate": "2026-09-28",
+  "captureTool": "tools/capture-ui-screens.mjs; original 57-frame P6 board includes Today-ready EN 200%; two Build 200% frames were added after recapturing their screens from the exact P6 head, with all eight variants per screen passing catalog contracts.",
+  "captureContracts": "59/59 board-frame contracts passed (57 original + 2 added); the 16 supplemental Build captures all passed",
+  "selectedScreenCount": 25,
+  "generatedFrameCount": 59,
+  "boardFrameCount": 59,
+  "surfaceGroupCount": 13,
+  "comparisonBaseline": {
+    "board": "owner-board-058-p5",
+    "sourceAppSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
+    "comparator": "tools/compare-ui-screens.mjs comparePngBuffers with default thresholds",
+    "framesWithPerceptualDelta": 43,
+    "framesExceedingComparatorThresholds": 9
+  },
+  "selected": [
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-390-light-en",
+      "path": "screens/onboarding-start/first-run__phone-390-light-en.png"
+    },
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-390-dark-en",
+      "path": "screens/onboarding-start/first-run__phone-390-dark-en.png"
+    },
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-390-light-pt",
+      "path": "screens/onboarding-start/first-run__phone-390-light-pt.png"
+    },
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-320-light-en",
+      "path": "screens/onboarding-start/first-run__phone-320-light-en.png"
+    },
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-390-light-en-text200",
+      "path": "screens/onboarding-start/first-run__phone-390-light-en-text200.png"
+    },
+    {
+      "key": "onboarding-start/hub",
+      "variant": "phone-390-light-en",
+      "path": "screens/onboarding-start/hub__phone-390-light-en.png"
+    },
+    {
+      "key": "onboarding-start/hub",
+      "variant": "phone-390-dark-en",
+      "path": "screens/onboarding-start/hub__phone-390-dark-en.png"
+    },
+    {
+      "key": "onboarding-start/hub",
+      "variant": "phone-390-light-pt",
+      "path": "screens/onboarding-start/hub__phone-390-light-pt.png"
+    },
+    {
+      "key": "onboarding-build/editor-empty",
+      "variant": "phone-390-light-en-text200",
+      "path": "screens/onboarding-build/editor-empty__phone-390-light-en-text200.png"
+    },
+    {
+      "key": "onboarding-build/editor-ready",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "today/no-program",
+      "variant": "phone-390-light-en",
+      "path": "screens/today/no-program__phone-390-light-en.png"
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-light-en",
+      "path": "screens/today/ready__phone-390-light-en.png"
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-dark-en",
+      "path": "screens/today/ready__phone-390-dark-en.png"
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-light-en-text200",
+      "path": "screens/today/ready__phone-390-light-en-text200.png"
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/today/ready__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "workout/focus",
+      "variant": "phone-390-light-en",
+      "path": "screens/workout/focus__phone-390-light-en.png"
+    },
+    {
+      "key": "workout/focus",
+      "variant": "phone-390-dark-en",
+      "path": "screens/workout/focus__phone-390-dark-en.png"
+    },
+    {
+      "key": "workout/focus",
+      "variant": "phone-320-light-en",
+      "path": "screens/workout/focus__phone-320-light-en.png"
+    },
+    {
+      "key": "workout/focus",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/focus__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "workout/rest-timer",
+      "variant": "phone-390-dark-en",
+      "path": "screens/workout/rest-timer__phone-390-dark-en.png"
+    },
+    {
+      "key": "workout/rest-timer",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/rest-timer__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "session/summary",
+      "variant": "phone-390-light-en",
+      "path": "screens/session/summary__phone-390-light-en.png"
+    },
+    {
+      "key": "session/summary",
+      "variant": "phone-390-dark-en",
+      "path": "screens/session/summary__phone-390-dark-en.png"
+    },
+    {
+      "key": "session/summary-declined",
+      "variant": "phone-390-light-en",
+      "path": "screens/session/summary-declined__phone-390-light-en.png"
+    },
+    {
+      "key": "session/summary-declined",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/session/summary-declined__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "progress/overview-action",
+      "variant": "phone-390-light-en",
+      "path": "screens/progress/overview-action__phone-390-light-en.png"
+    },
+    {
+      "key": "progress/overview-action",
+      "variant": "phone-390-dark-en",
+      "path": "screens/progress/overview-action__phone-390-dark-en.png"
+    },
+    {
+      "key": "progress/recovery-preview",
+      "variant": "phone-390-light-en",
+      "path": "screens/progress/recovery-preview__phone-390-light-en.png"
+    },
+    {
+      "key": "progress/recovery-preview",
+      "variant": "phone-320-light-en",
+      "path": "screens/progress/recovery-preview__phone-320-light-en.png"
+    },
+    {
+      "key": "progress/recovery-preview",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/progress/recovery-preview__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "history/list",
+      "variant": "phone-390-light-en",
+      "path": "screens/history/list__phone-390-light-en.png"
+    },
+    {
+      "key": "history/list",
+      "variant": "phone-390-dark-en",
+      "path": "screens/history/list__phone-390-dark-en.png"
+    },
+    {
+      "key": "history/list",
+      "variant": "phone-390-light-pt",
+      "path": "screens/history/list__phone-390-light-pt.png"
+    },
+    {
+      "key": "history/edit-invalid",
+      "variant": "phone-390-light-en",
+      "path": "screens/history/edit-invalid__phone-390-light-en.png"
+    },
+    {
+      "key": "history/edit-invalid",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/history/edit-invalid__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "program/overview",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/overview__phone-390-light-en.png"
+    },
+    {
+      "key": "program/overview",
+      "variant": "phone-390-dark-en",
+      "path": "screens/program/overview__phone-390-dark-en.png"
+    },
+    {
+      "key": "program/progression-editor",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/progression-editor__phone-390-light-en.png"
+    },
+    {
+      "key": "program/progression-editor",
+      "variant": "phone-390-light-pt",
+      "path": "screens/program/progression-editor__phone-390-light-pt.png"
+    },
+    {
+      "key": "program/exercise-picker",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/exercise-picker__phone-390-light-en.png"
+    },
+    {
+      "key": "program/share-ready",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/share-ready__phone-390-light-en.png"
+    },
+    {
+      "key": "program/share-ready",
+      "variant": "phone-390-dark-en",
+      "path": "screens/program/share-ready__phone-390-dark-en.png"
+    },
+    {
+      "key": "program/share-ready",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/program/share-ready__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "program/share-one-blocker",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/share-one-blocker__phone-390-light-en.png"
+    },
+    {
+      "key": "program/share-one-blocker",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/program/share-one-blocker__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "settings/main",
+      "variant": "phone-390-light-en",
+      "path": "screens/settings/main__phone-390-light-en.png"
+    },
+    {
+      "key": "settings/main",
+      "variant": "phone-390-dark-en",
+      "path": "screens/settings/main__phone-390-dark-en.png"
+    },
+    {
+      "key": "settings/main",
+      "variant": "phone-390-light-pt",
+      "path": "screens/settings/main__phone-390-light-pt.png"
+    },
+    {
+      "key": "settings/guides-replay",
+      "variant": "phone-390-light-en",
+      "path": "screens/settings/guides-replay__phone-390-light-en.png"
+    },
+    {
+      "key": "settings/guides-replay",
+      "variant": "phone-390-light-pt",
+      "path": "screens/settings/guides-replay__phone-390-light-pt.png"
+    },
+    {
+      "key": "settings/privacy-disclosure",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/settings/privacy-disclosure__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "library/list",
+      "variant": "phone-390-light-en",
+      "path": "screens/library/list__phone-390-light-en.png"
+    },
+    {
+      "key": "library/list",
+      "variant": "phone-390-dark-en",
+      "path": "screens/library/list__phone-390-dark-en.png"
+    },
+    {
+      "key": "library/list",
+      "variant": "phone-390-light-pt",
+      "path": "screens/library/list__phone-390-light-pt.png"
+    },
+    {
+      "key": "library/exercise-detail",
+      "variant": "phone-390-light-en",
+      "path": "screens/library/exercise-detail__phone-390-light-en.png"
+    },
+    {
+      "key": "library/exercise-detail",
+      "variant": "phone-390-light-pt",
+      "path": "screens/library/exercise-detail__phone-390-light-pt.png"
+    },
+    {
+      "key": "install/transfer-ready",
+      "variant": "phone-390-light-en",
+      "path": "screens/install/transfer-ready__phone-390-light-en.png"
+    },
+    {
+      "key": "install/transfer-ready",
+      "variant": "phone-390-dark-en",
+      "path": "screens/install/transfer-ready__phone-390-dark-en.png"
+    },
+    {
+      "key": "install/transfer-ready",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png"
+    }
+  ],
+  "sourceProductionDiffHashMethod": "SHA-256 of `git diff --binary <sourceBaseSha> -- app.js index.html styles.css`",
+  "pngSetSha256": "25ee2dd1bfd2ceae7f42b531cfb51bb7ced84f6b101baa85dd1fdee9c81fd170",
+  "pngSetHashMethod": "SHA-256 over sorted UTF-8 lines of POSIX paths relative to the board root, a TAB, and each PNG byte SHA-256, followed by one LF.",
+  "priorOwnerApproval": {
+    "owner": "Pedro",
+    "decision": "approved",
+    "date": "2026-09-28",
+    "approvedArtifact": "../owner-board-058-p5/",
+    "scope": "The owner approved the P5 representative board as the intended Taurifer visual direction. This P6 refresh is corrective evidence and does not claim a separate owner review.",
+    "provenance": "Direct owner message after P5 board review: “I reviewed and approved it.”"
+  },
+  "captureProcedure": "The registered Today-ready text200 scenario scrolls its live first exercise row to 420 CSS px from the viewport top, verifies 32px text, full-name fit, set values, and clearance above the floating dock, then captures the production screen.",
+  "productionSourceHeadSha": "f5939f6d5e695d6982ec12f1cd1eddc64a2ac838",
+  "captureScenarioDiffSha256": "3d1f0fbef370f0e3dd52388096da082b123c5e2f9afa1a0130bb40eb5a8095e3",
+  "postCaptureVisualStatus": "After these captures, motion-polish.css restored two coarse-pointer hover rules used only by pinned pre-058 app 3fbae92f. P6 also removed the unconsumed current-app selectors .blockreview, .tag-rec, .attn--add, and #blockStrategies; the registered current app does not render them. These changes do not alter the captured frames. sw.js cache revision 335 is not a rendering change. The two Build board frames were regenerated at P6 head 51b43f732f7e25588f72c7e1c22b95a04f4d061c; all 16 editor-empty/editor-ready registered captures passed and matched the committed catalog byte-for-byte.",
+  "supplementalCaptures": [
+    {
+      "sourceHeadSha": "51b43f732f7e25588f72c7e1c22b95a04f4d061c",
+      "commands": [
+        "CAPTURE_CONCURRENCY=1 node tools/capture-ui-screens.mjs --screen onboarding-build/editor-empty",
+        "CAPTURE_CONCURRENCY=1 node tools/capture-ui-screens.mjs --screen onboarding-build/editor-ready"
+      ],
+      "registeredCaptureCount": 16,
+      "result": "16/16 capture contracts passed; no current catalog PNG or semantic evidence changed",
+      "addedBoardFrames": [
+        {
+          "key": "onboarding-build/editor-empty",
+          "variant": "phone-390-light-en-text200",
+          "path": "screens/onboarding-build/editor-empty__phone-390-light-en-text200.png",
+          "sourceSha256": "de548ea6f014ae2f4569eb86204dc003cbcc377c13f43e3f5211fdef71e33cb3"
+        },
+        {
+          "key": "onboarding-build/editor-ready",
+          "variant": "phone-390-light-pt-text200",
+          "path": "screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png",
+          "sourceSha256": "bf430db5ff2a6e02210c33c99d487731cebd07e17283bcd07b1227b30db7af9d"
+        }
+      ]
+    }
+  ],
+  "supplementalCaptureProcedure": "From the exact P6 head, recapture all registered variants for editor-empty and editor-ready sequentially in one worktree. The selected 390px EN and PT-BR 200% production PNGs were copied byte-for-byte from the resulting checked-in catalog output into this representative board."
+}

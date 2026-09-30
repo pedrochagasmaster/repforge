@@ -30,6 +30,7 @@ export function domainsForAppDiff(source, diff) {
   const errors = validateAnnotations(source);
   if (errors.length) throw new Error(errors.join("\n"));
   if (!diff || !diff.includes("@@")) return new Set(["global"]);
+  if (diff.split("\n").some((line) => /^[+-]\s*\/\/ @ci-domain\b/.test(line))) return new Set(["global"]);
   const owners = [];
   let owner = "global";
   source.split("\n").forEach((line, i) => {
