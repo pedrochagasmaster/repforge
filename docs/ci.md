@@ -10,7 +10,7 @@ Browser-only dependencies live under `test/`.
 | --- | --- | --- |
 | Fix one contract | `node tools/run-tests.mjs <lane> --suite-id <id>` | Exact command; the failure output prints its ID. |
 | Edit | `node tools/run-tests.mjs edit` | Dirty worktree, or the latest commit if clean; fail fast. Feedback only. |
-| Packet | `node tools/run-tests.mjs packet --base <packet-start-sha>` | Coherent changes since an explicit base, plus dirty files; fail fast. |
+| Packet | `node tools/run-tests.mjs packet --base <packet-start-sha>` | Coherent changes since an explicit base, plus dirty files; supplemental fail-fast feedback, not merge evidence. |
 | Branch diagnostic | `node tools/run-tests.mjs branch --base origin/main` | Conservative merge-base impact. `affected` remains an alias. |
 | One CI shard | `node tools/run-tests.mjs shard <k>/<n>` | Exactly what CI runner `k` of `n` executes; keeps going after failures. |
 | Everything | `node tools/run-tests.mjs candidate` | The complete local inventory except the external service gate. |
@@ -21,10 +21,13 @@ Lanes are `fast` (pure Node), `state`, `entry`, `workout`, `privacy`, `visual`
 (browser) and `service`. Local `edit`/`packet` selection is a latency tool owned
 by `tools/test-selection.mjs`; unknown executable inputs widen to everything. CI
 does not use it. Once a coherent commit is focused-test green, push it promptly
-so remote CI starts while `packet` and independent review run in parallel.
-`packet` remains required local confidence evidence, but it is not a prerequisite
-for starting remote CI. Do not push half-implemented or known-red work merely to
-start CI early.
+so remote CI starts while independent review and any useful local `packet` run
+in parallel. `packet` is supplemental local feedback, not required completion or
+merge evidence. If the environment cannot complete it reliably or within its
+limits, report that limitation and keep it off the critical path instead of
+duplicating the complete remote inventory locally. Focused owning proofs,
+independent review, and a green `ci` on the exact final head are the completion
+evidence. Do not push half-implemented or known-red work merely to start CI early.
 
 ## What CI runs
 
