@@ -222,6 +222,7 @@ calls in `dir-e.js`, `dir-f.js` and `dir-g.js`.
 | `d.rest.skip` | D, E, F, G | Pular | Skip |
 | `d.rest.next` | D, E, F, G | Série {n}: manter {load} kg, buscar {reps} reps | Set {n}: hold {load} kg, aim for {reps} reps |
 | `d.rest.done` | D, E, F, G | Descanso concluído | Rest done |
+| `d.rest.done_over` | D, E, F, G | Descanso concluído · +{time} | Rest done · +{time} |
 | `d.why_short` | D, E, F, G | Por quê? | Why? |
 | `d.why.close` | D, E, F, G | Fechar | Close |
 | `d.why.ok` | D, E, F, G | Entendi | Got it |

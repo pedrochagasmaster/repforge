@@ -143,6 +143,7 @@
     "d.rest.skip": ["Pular", "Skip"],
     "d.rest.next": ["Série {n}: manter {load} kg, buscar {reps} reps", "Set {n}: hold {load} kg, aim for {reps} reps"],
     "d.rest.done": ["Descanso concluído", "Rest done"],
+    "d.rest.done_over": ["Descanso concluído · +{time}", "Rest done · +{time}"],
     "d.why_short": ["Por quê?", "Why?"],
     "d.why.close": ["Fechar", "Close"],
     "d.why.ok": ["Entendi", "Got it"],

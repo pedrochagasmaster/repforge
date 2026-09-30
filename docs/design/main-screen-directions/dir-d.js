@@ -87,7 +87,7 @@
   function header(ctx, idx, U, resting) {
     const running = resting && U.rest > 0;
     return `<div class="d-wtop">
-      <button class="d-icb" data-go="${ctx === MIXD ? "today-mixed" : "today"}" aria-label="${n("d.back_today")}">${ic("chev")}</button>
+      <button class="d-icb" data-go="${ctx === MIXD ? "today-mixed" : "today"}" aria-label="${n("d.back_today")}">${ic("chev", "rot-r")}</button>
       <p class="d-wtop__c">${n("d.head.day_ex", { day: T.two(ctx.dayName), n: idx + 1, m: ctx.lifts.length })}</p>
       <button class="d-icb d-timer${running ? " is-live" : ""}" data-sheet="timer" aria-label="${n("d.timer")}">${ic("timer")}${running ? `<span>${X.fmtTime(U.rest)}</span>` : ""}</button>
       <button class="d-icb" aria-label="${n("d.table_view")}">${ic("sheet")}</button>
@@ -123,7 +123,9 @@
 
   function restBlock(U) {
     const p = Math.max(0, U.rest) / U.restTotal;
-    if (U.rest <= 0) return `<div class="d-rest is-done" role="timer"><p class="d-rest__done">${ic("check")}${n("d.rest.done")}</p></div>`;
+    // At zero the clock collapses to one line and keeps counting up (owner
+    // decision 14). The check sits in the cue's mark column below it.
+    if (U.rest <= 0) return `<div class="d-rest is-done" role="timer"><p class="d-rest__done"><span class="d-rest__mk" aria-hidden="true">${ic("check")}</span><span>${U.rest < 0 ? n("d.rest.done_over", { time: X.fmtTime(-U.rest) }) : n("d.rest.done")}</span></p></div>`;
     return `<div class="d-rest" role="timer" aria-live="off">
       <div class="d-rest__row"><span class="d-rest__k">${n("d.rest.label")}</span><b class="d-rest__t">${X.fmtTime(U.rest)}</b><span class="d-rest__of">${n("d.rest.of", { t: X.fmtTime(U.restTotal) })}</span></div>
       <div class="d-rest__bar"><i style="transform:scaleX(${p.toFixed(4)})"></i></div>

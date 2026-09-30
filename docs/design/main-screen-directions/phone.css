@@ -1013,7 +1013,8 @@
 .dd .d-rest__bar{height:4px;margin-top:var(--space-12);border-radius:2px;background:var(--rule);overflow:hidden}
 /* The drain is a transform, stepped once a second on a linear curve. */
 .dd .d-rest__bar i{display:block;height:100%;background:var(--accent);transform-origin:left center;transition:transform 1s linear}
-.dd .d-rest__done{display:flex;align-items:center;gap:var(--space-8);font-size:var(--font-size-subtitle);color:var(--ink-soft)}
+.dd .d-rest__done{display:flex;align-items:center;gap:var(--space-8);font-size:var(--font-size-subtitle);color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.dd .d-rest__mk{display:inline-grid;place-items:center;flex:none;width:26px;height:26px;margin-left:-2px}
 .dd .d-rest__done .ic{width:18px;height:18px}
 .dd .d-rest.is-done+.d-cue{margin-top:var(--space-8)}
 .dd .d-nextcue{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--space-8);margin-top:var(--space-12);font-size:var(--font-size-subtitle);line-height:1.35}

@@ -330,7 +330,8 @@
   setInterval(() => {
     if (!U.running) return;
     const live = document.querySelectorAll('.ph[data-screen="rest"],.ph[data-screen="workout2"]');
-    if (!live.length || U.rest <= 0) return;
+    if (!live.length) return;
+    // Past zero the D family shows the overrun and keeps counting (decision 14).
     U.rest -= 1;
     live.forEach((ph) => {
       if (ph.querySelector("input:focus")) return;

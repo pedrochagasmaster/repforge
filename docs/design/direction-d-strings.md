@@ -45,7 +45,7 @@ Rules that apply to every row:
 | `log.set` | Reuse | Série | Set | Focus | `d.col.set` |
 | `log.skip` | Reuse | Pular | Skip | Focus | `d.rest.skip` |
 | `rest.inline.done` | New | Descanso concluído | Rest done | Focus (rest) | `d.rest.done` |
-| `rest.inline.done_over` | New | Descanso concluído · +{time} | Rest done · +{time} | Focus (rest) | `(decision 14)` |
+| `rest.inline.done_over` | New | Descanso concluído · +{time} | Rest done · +{time} | Focus (rest) | `d.rest.done_over` |
 | `rest.inline.label` | New | Descanso | Rest | Focus (rest) | `d.rest.label` |
 | `rest.inline.next` | New | Série {n}: manter {load} kg, buscar {reps} reps | Set {n}: hold {load} kg, aim for {reps} reps | Focus (rest) | `d.rest.next` |
 | `rest.inline.of` | New | de {t} | of {t} | Focus (rest) | `d.rest.of` |
