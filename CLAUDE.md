@@ -26,7 +26,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `durable-state.js` | Durable localStorage/IndexedDB writes, lock and journal coordination, replica recovery, and DraftV2 storage/checkpoint protocol. |
 | `workout-draft.js` | Pure DraftV2 aggregate, validation, commands, projection, and serialization. |
 | `program-transition.js` | Validated block-transition proposals, identity mapping, recovery eligibility, and recovery projections. `app.js` owns the production adapter and transition commit/recovery workflows. |
-| `progression-engine.js` | Deterministic progression calculations and strategy evaluation. |
+| `progression-engine.js` | Deterministic set-level progression recommendations, calculations, and strategy evaluation. |
 | `progress-model.js` | Pure Progress/history evidence and view-model projections. It consumes outcomes and recommendations from its caller. |
 | `program-entry.js`, `program-entry-adapter.js` | Entry state and shared entry vocabulary; production compiler/catalog integration and entry choices. |
 | `program-compiler.js` | Versioned program-family definitions, compilation, and structural validation. |
