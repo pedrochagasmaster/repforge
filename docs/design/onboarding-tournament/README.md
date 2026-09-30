@@ -44,6 +44,19 @@ normal/reduced motion. Each phone is a live `app.html` document; every control
 inside it works. Any phone can be opened alone with its `open ↗` link, e.g.
 `app.html?c=b&cp=rec-result&lang=pt&theme=dark&text=200&motion=reduced`.
 
+**Fullscreen, one candidate.** Add a suffix to `index.html`: `#h` opens H
+alone at landing, `#h/rec-result` at a state, and options follow a `?`
+(`#h/rec-result?lang=en&theme=dark&text=200&motion=reduced`). Candidate
+letters a–l are unique across rounds, so the round is inferred. On a wide
+window the phone keeps its width (`vw`, default 390) at full height; `w=full`
+stretches it. Each phone in the grid has a `fullscreen ↗` link.
+
+**Sharing.** `tools/serve.py [port]` serves this folder only (default port
+8190) and also maps clean paths to the fullscreen suffix: `/h`,
+`/h/rec-result?lang=en`, `/4/h`. For a public link, run a Cloudflare quick
+tunnel: `cloudflared tunnel --url http://127.0.0.1:8190`. The link lasts as
+long as both processes run.
+
 Acceptance run (writes `round-N/acceptance/{results.json,summary.md,shots/}`):
 
 ```bash
