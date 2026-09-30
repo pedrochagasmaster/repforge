@@ -59,6 +59,9 @@
   --control-adjustment-bg:var(--bg);--control-adjustment-ink:var(--ink);--control-adjustment-boundary:var(--boundary-required);
   --control-field-bg:var(--well);--control-field-ink:var(--ink);--control-field-boundary:var(--boundary-required);
   --control-quiet-ink:var(--ink);--control-focus-outline:2px solid var(--accent);--control-pressed-transform:translateY(1px) scale(.995);
+  /* Motion vocabulary from motion-layer.js: revealIn 200 ms [.2,.7,.2,1],
+     revealOut 150 ms [.4,0,.8,.2]; the shelf crossfade is 160 ms. */
+  --motion-in:.2s cubic-bezier(.2,.7,.2,1);--motion-out:.15s cubic-bezier(.4,0,.8,.2);--motion-cross:.16s ease;
   --control-error-boundary:var(--danger);
   --color-action-text:var(--accent-deep);--color-improved:var(--positive);--color-destructive:var(--danger);--color-disabled-reason:var(--ink-soft);
   container-type:inline-size;
@@ -804,6 +807,7 @@
 .dx .rot-180{transform:rotate(180deg)}
 .dx .x-mono{font-family:var(--font-training-data);font-weight:inherit}
 .dx :where(button){min-height:var(--control-target)}
+.dx :where(button){transition:transform .12s ease,background-color .12s ease}
 .dx :where(button):active{transform:var(--control-pressed-transform)}
 .dx :where(button):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 /* Pressed: the well ground, as the production .stepbtn and .btn. */
@@ -839,6 +843,10 @@
 /* One header band on every sheet: the handle, then the title on the
    section-title role with a 44 px reserve for the close button, which centres
    on the title's first line. */
+/* A sheet arrives: a short rise and fade on revealIn; its scrim fades with it. */
+.dx .x-sheet{transition:transform var(--motion-in),opacity var(--motion-in)}
+.dx .scrim{transition:opacity var(--motion-in)}
+@starting-style{.dx .x-sheet{transform:translateY(24px);opacity:0}.dx .scrim{opacity:0}}
 .dx .x-sheet .grab{flex:none;margin:8px auto 12px}
 .dx .x-close{position:absolute;top:19px;right:10px;display:grid;place-items:center;width:var(--control-target);height:var(--control-target);border-radius:var(--radius-round);color:var(--control-quiet-ink)}
 .dx .x-sheet__body{overflow-y:auto;padding:2px var(--gut) calc(var(--dock-b) + 8px);scrollbar-width:none;overscroll-behavior:contain}
@@ -879,7 +887,9 @@
 .dx .x-cta:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);cursor:default}
 .dx .x-cta:disabled:active{transform:none}
 .dx .x-cta:disabled .x-cta__ar{color:var(--ink-faint)}
-.dx .x-pads{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* The pad row and the rest controls swap with a 160 ms crossfade. */
+.dx .x-pads{display:grid;grid-template-columns:1fr 1fr;gap:8px;transition:opacity var(--motion-cross)}
+@starting-style{.dx .x-pads{opacity:0}}
 .dx .x-pads--4{grid-template-columns:repeat(4,1fr)}
 .dx .x-pads button{min-height:56px;padding:0 6px;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);font:var(--weight-medium) var(--font-size-control)/1.15 var(--font-language);text-align:center}
 
@@ -889,11 +899,14 @@
 .dx .x-pt{fill:var(--bg);stroke:var(--ink);stroke-width:1.5}
 .dx .x-pt--old{stroke:var(--ink-soft)}
 .dx .x-pt--sel{fill:var(--ink)}
-.dx .x-cursor{stroke:var(--rule-strong);stroke-width:1;stroke-dasharray:2 3}
+.dx .x-cursor{stroke:var(--rule-strong);stroke-width:1;stroke-dasharray:2 3;transition:opacity var(--motion-out)}
+@starting-style{.dx .x-cursor{opacity:0}}
 .dx .x-tick{fill:var(--ink)}
 /* The bottom gridline is the axis, one step stronger. */
 .dx .x-chart .ch-grid:first-of-type{stroke:var(--rule-strong)}
 .dx .x-spark .spark-l{stroke:var(--ink-soft)}
+
+@media (prefers-reduced-motion:reduce){.dx *,.dx *::before,.dx *::after{transition:none!important;animation:none!important}}
 
 /* 200 % text: the app adds is-text-scaled when the root font passes 16.1 px.
    Rows that hold a figure beside a name put the figure under it; the shelf
@@ -998,7 +1011,8 @@
 .dd .d-rest__t{font:var(--weight-medium) var(--font-size-rest-clock)/1 var(--font-training-data);letter-spacing:-.02em}
 .dd .d-rest__of{font:var(--weight-regular) var(--font-size-body) var(--font-training-data);color:var(--ink-soft)}
 .dd .d-rest__bar{height:4px;margin-top:var(--space-12);border-radius:2px;background:var(--rule);overflow:hidden}
-.dd .d-rest__bar i{display:block;height:100%;background:var(--accent)}
+/* The drain is a transform, stepped once a second on a linear curve. */
+.dd .d-rest__bar i{display:block;height:100%;background:var(--accent);transform-origin:left center;transition:transform 1s linear}
 .dd .d-rest__done{display:flex;align-items:center;gap:var(--space-8);font-size:var(--font-size-subtitle);color:var(--ink-soft)}
 .dd .d-rest__done .ic{width:18px;height:18px}
 .dd .d-rest.is-done+.d-cue{margin-top:var(--space-8)}
@@ -1016,6 +1030,10 @@
 .dd .d-set.is-open .d-set__n{color:var(--ink)}
 .dd .d-set.is-editing{border-radius:var(--radius-surface);box-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet);background:var(--well)}
 .dd .d-set.is-editing .d-set__n{color:var(--ink)}
+/* A row commits: its ground settles from the well over revealIn and the check lands. */
+.dd .d-set.is-done{transition:background-color var(--motion-in)}
+.dd .d-set.is-done .d-set__n .ic{transition:transform var(--motion-in),opacity var(--motion-in)}
+@starting-style{.dd .d-set.is-done{background:var(--well)}.dd .d-set.is-done .d-set__n .ic{transform:scale(.6);opacity:0}}
 /* While a set is being corrected, the open row steps back to the queued look. */
 .dd .d-set.is-open.is-demoted{margin:0;border-radius:0;border-bottom:1px solid var(--boundary-decorative);background:none;box-shadow:none}
 .dd .d-set.is-open.is-demoted .d-set__n{color:var(--ink-soft)}
@@ -1038,7 +1056,8 @@
 .dd .d-reason__lab{font-size:var(--font-size-body-small)!important;color:var(--ink-soft);margin:0 0 var(--space-4)!important}
 .dd .d-disc{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;border-bottom:1px solid var(--rule-on-surface);font-size:var(--font-size-control);font-weight:var(--weight-medium);color:var(--ink)}
 .dd .d-disc .ic{width:20px;height:20px}
-.dd .d-calcs{padding:var(--space-4) 0 var(--space-8);border-bottom:1px solid var(--rule-on-surface)}
+.dd .d-calcs{padding:var(--space-4) 0 var(--space-8);border-bottom:1px solid var(--rule-on-surface);transition:opacity var(--motion-in),transform var(--motion-in)}
+@starting-style{.dd .d-calcs{opacity:0;transform:translateY(-4px)}}
 .dd .d-calc__g{margin:var(--space-12) 0 var(--space-4);font-size:var(--font-size-body-small);color:var(--ink-soft)}
 .dd .d-calc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-4) var(--space-12);padding:var(--space-8) 0;font-size:var(--font-size-body-small)}
 .dd .d-calc__k{color:var(--ink-soft)}

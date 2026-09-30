@@ -126,7 +126,7 @@
     if (U.rest <= 0) return `<div class="d-rest is-done" role="timer"><p class="d-rest__done">${ic("check")}${n("d.rest.done")}</p></div>`;
     return `<div class="d-rest" role="timer" aria-live="off">
       <div class="d-rest__row"><span class="d-rest__k">${n("d.rest.label")}</span><b class="d-rest__t">${X.fmtTime(U.rest)}</b><span class="d-rest__of">${n("d.rest.of", { t: X.fmtTime(U.restTotal) })}</span></div>
-      <div class="d-rest__bar"><i style="width:${(p * 100).toFixed(1)}%"></i></div>
+      <div class="d-rest__bar"><i style="transform:scaleX(${p.toFixed(4)})"></i></div>
     </div>`;
   }
 

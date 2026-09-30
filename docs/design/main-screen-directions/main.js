@@ -332,7 +332,19 @@
     const live = document.querySelectorAll('.ph[data-screen="rest"],.ph[data-screen="workout2"]');
     if (!live.length || U.rest <= 0) return;
     U.rest -= 1;
-    live.forEach((ph) => { if (!ph.querySelector("input:focus")) refresh(ph); });
+    live.forEach((ph) => {
+      if (ph.querySelector("input:focus")) return;
+      // D updates the clock and the drain bar in place, as the app would, so
+      // the bar's 1 s linear transform runs instead of the node being rebuilt.
+      const clock = ph.querySelector(".d-rest__t"), bar = ph.querySelector(".d-rest__bar i"), head = ph.querySelector(".d-timer.is-live span");
+      if (clock && bar && U.rest > 0) {
+        clock.textContent = window.KIT.fmtTime(U.rest);
+        bar.style.transform = `scaleX(${(Math.max(0, U.rest) / U.restTotal).toFixed(4)})`;
+        if (head) head.textContent = window.KIT.fmtTime(U.rest);
+        return;
+      }
+      refresh(ph);
+    });
   }, 1000);
 
   window.addEventListener("hashchange", () => { readHash(); resetFor(U.screen); render(); });
