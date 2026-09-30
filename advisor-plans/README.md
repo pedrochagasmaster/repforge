@@ -43,7 +43,7 @@ Ordered by backlog status, then by the order the owner set within it.
 | [024](024-pilot-data-durability.md) | Request persistent storage after the first session; storage status in Settings | Now: browser persistence (Q606, Q620) | S | — | TODO |
 | [011](011-i18n-generator-check-in-ci.md) | CI runs `build-i18n --check`, which names what drifted | Now: CI/docs drift (Q612) | S | — | TODO |
 | [006](006-install-transfer-constant-drift-guard.md) | Test guards the transfer client against contract drift | Now: CI/docs drift (Q612) | S | — | TODO |
-| [005](005-claude-md-stale-architecture-table.md) | CLAUDE.md stops stating drifted numbers and facts | Now: CI/docs drift (Q614) | S | — | TODO |
+| [005](005-claude-md-stale-architecture-table.md) | CLAUDE.md points drifting architecture facts to live owners | Now: CI/docs drift (Q614) | S | — | DONE — PR #269 |
 | [004](004-reconcile-plan-index-status.md) | Plan index and status guidance reflect implemented 055–058 and the pre-059 window | Now: CI/docs drift (Q614, Q621) | S | PR #248 merged | DONE — PR #268 |
 | [009](009-generative-draft-store-model.md) | fast-check model of DraftV2 store commands with injected faults | Next (Q612) | L | 003 | TODO |
 | [016](016-durable-state-fault-hook-via-host.md) | `durable-state.js` takes its fault hook via `configureHost` | Next (Q612) | S | — (update 009's shim if landed) | TODO |
