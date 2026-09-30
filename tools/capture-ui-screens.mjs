@@ -17,6 +17,9 @@
  *   --screen <id>    capture one flow/screen key (repeatable)
  *   --canonical      only the phone-390 light English frame of each screen
  *   --keep-going     report failures instead of aborting the commit
+ *   --shard k/n      only every n-th frame, starting at the k-th (CI splits the sweep this way)
+ *   --verify         compare a fresh capture against the committed catalog and
+ *                    leave the working tree untouched; this is the CI gate
  *
  * A filtered run merges into a copy of the committed catalog, so the folder on
  * disk is always complete. Nothing replaces committed evidence until every
@@ -36,6 +39,9 @@ import { collectCatalogEvidence, configForCapture, validateCatalogEvidence, vali
 import { maybeStartLocalPreview } from "./local-preview.mjs";
 import { changedFilesForEdit, changedFilesForPacket } from "./test-selection.mjs";
 import { selectVisuals } from "./ci-selection.mjs";
+import { checkCatalog } from "./check-ui-screens.mjs";
+import { compareCatalog } from "./compare-ui-screens.mjs";
+import { parseShard } from "../test/suites.mjs";
 
 const MANIFEST = loadManifest();
 const CATALOG_METADATA_ERRORS = validateCatalogMetadata(MANIFEST);
@@ -67,12 +73,14 @@ const CAPTURE_ATTEMPTS = Number(process.env.CAPTURE_ATTEMPTS || 3);
 const CAPTURE_CONCURRENCY = Math.max(1, Number(process.env.CAPTURE_CONCURRENCY || 2));
 
 function parseArgs(argv) {
-  const options = { flows: [], screens: [], canonical: false, keepGoing: false, affected: false, listAffected: false, acceptVisualChange: false };
+  const options = { flows: [], screens: [], canonical: false, keepGoing: false, affected: false, listAffected: false, acceptVisualChange: false, verify: false, shard: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--flow") options.flows.push(argv[++i]);
     else if (argv[i] === "--screen") options.screens.push(argv[++i]);
     else if (argv[i] === "--canonical") options.canonical = true;
     else if (argv[i] === "--keep-going") options.keepGoing = true;
+    else if (argv[i] === "--verify") options.verify = true;
+    else if (argv[i] === "--shard") options.shard = parseShard(argv[++i]);
     else if (argv[i] === "--affected") options.affected = true;
     else if (argv[i] === "--list-affected") options.listAffected = true;
     else if (argv[i] === "--accept-visual-change") options.acceptVisualChange = true;
@@ -80,6 +88,9 @@ function parseArgs(argv) {
     else throw new Error(`Unknown or incomplete capture argument: ${argv[i]}`);
   }
   if (process.env.CAPTURE_FILTER) options.screens.push(process.env.CAPTURE_FILTER);
+  if (options.verify && (options.affected || options.listAffected || options.acceptVisualChange || options.keepGoing)) {
+    throw new Error("--verify compares against the committed catalog and cannot be combined with --affected, --accept-visual-change or --keep-going");
+  }
   return options;
 }
 
@@ -91,16 +102,69 @@ function stateFor(capture) {
   return isOnboarding(capture) ? onboardingState(key, lang) : appState(key, lang);
 }
 
-function selectCaptures(options) {
-  let captures = expandCaptures(MANIFEST);
-  if (options.flows.length) captures = captures.filter((c) => options.flows.includes(c.flow));
-  if (options.screens.length) captures = captures.filter((c) => options.screens.includes(screenKey(c)));
+export function selectCaptures(options, manifest = MANIFEST) {
+  let captures = expandCaptures(manifest);
+  if (options.flows?.length) captures = captures.filter((c) => options.flows.includes(c.flow));
+  if (options.screens?.length) captures = captures.filter((c) => options.screens.includes(screenKey(c)));
   if (options.canonical) {
     captures = captures.filter((c) =>
       c.viewport === "phone-390" && c.theme === "light" && c.locale === "en"
       && c.text === "normal" && c.motion === "normal");
   }
+  // Stripe rather than chunk: the expansion is screen-major, so every shard
+  // gets a similar mix of cheap and expensive screens and their variants.
+  if (options.shard) captures = captures.filter((_, index) => index % options.shard.count === options.shard.index - 1);
   return captures;
+}
+
+/**
+ * The CI gate. A fresh capture (or the requested shard of one) is compared in
+ * its staging tree against the committed catalog; nothing under docs/ is
+ * rewritten, so the committed frames are the immutable baseline by construction.
+ * Failing frames are copied beside the runner's evidence when it provides a
+ * directory, so a red run can be inspected without recapturing.
+ */
+export function verifyCatalog({ stagingRoot, semanticArtifact, artifactDir = process.env.REPFORGE_ARTIFACT_DIR, manifest = MANIFEST,
+  baselineRoot = ARTIFACT_ROOT, baselineSemanticPath = SEMANTIC_PATH } = {}) {
+  const currentSemanticPath = join(stagingRoot, "..", `${basename(stagingRoot)}-entry-semantics.json`);
+  writeFileSync(currentSemanticPath, `${JSON.stringify(semanticArtifact, null, 2)}\n`);
+  try {
+    const registration = checkCatalog(manifest, stagingRoot);
+    const comparison = compareCatalog({ manifest, baselineRoot, currentRoot: stagingRoot, baselineSemanticPath, currentSemanticPath });
+    const ok = !registration.length && comparison.ok;
+    console.log(`Registration: ${registration.length ? `${registration.length} problem(s)` : "complete"}`);
+    for (const problem of registration.slice(0, 24)) console.log(`  - ${problem}`);
+    console.log(`Perceptual comparison: ${comparison.compared}/${comparison.expected} frames match the committed catalog`);
+    for (const failure of comparison.failures.slice(0, 24)) console.log(`  - ${failure.path}: ${failure.reasons.join("; ")}`);
+    if (comparison.failures.length > 24) console.log(`  ... ${comparison.failures.length - 24} more failure(s)`);
+    console.log(`Semantic comparison: ${comparison.semantic.ok ? "exact match" : "failed"}`);
+    for (const reason of (comparison.semantic.reasons || []).slice(0, 12)) console.log(`  - ${reason}`);
+    if (artifactDir) {
+      const failures = join(artifactDir, "visual-failures");
+      for (const failure of comparison.failures) {
+        for (const [label, root] of [["baseline", baselineRoot], ["current", stagingRoot]]) {
+          const source = join(root, failure.path);
+          if (!existsSync(source)) continue;
+          const target = join(failures, label, failure.path);
+          mkdirSync(dirname(target), { recursive: true });
+          cpSync(source, target);
+        }
+      }
+      if (!comparison.semantic.ok) {
+        mkdirSync(failures, { recursive: true });
+        cpSync(currentSemanticPath, join(failures, "current-entry-semantics.json"));
+      }
+      mkdirSync(artifactDir, { recursive: true });
+      writeFileSync(join(artifactDir, "visual-report.json"), `${JSON.stringify({ ok, registration, comparison }, null, 2)}\n`);
+    }
+    if (!ok) {
+      console.error("\nThe committed catalog no longer matches the app. Regenerate and review it:");
+      console.error("  node tools/capture-ui-screens.mjs --affected --accept-visual-change");
+    }
+    return ok;
+  } finally {
+    rmSync(currentSemanticPath, { force: true });
+  }
 }
 
 function writeReadme() {
@@ -210,7 +274,7 @@ async function main(options = parseArgs(process.argv.slice(2))) {
     return 1;
   }
   const captures = selectCaptures(options);
-  const filtered = Boolean(options.flows.length || options.screens.length || options.canonical);
+  const filtered = Boolean(options.flows.length || options.screens.length || options.canonical || options.shard);
   if (!captures.length) {
     console.error("no captures matched the requested filter");
     return 1;
@@ -378,6 +442,11 @@ async function main(options = parseArgs(process.argv.slice(2))) {
     if (!validation.ok && !options.keepGoing) {
       console.error(`\nsemantic evidence failed validation: ${validation.reasons.join("; ")}`);
       return 1;
+    }
+
+    if (options.verify) {
+      console.log(`\nCaptured ${captures.length} frame(s) into staging; comparing against the committed catalog.`);
+      return verifyCatalog({ stagingRoot, semanticArtifact: artifact }) ? 0 : 1;
     }
 
     replaceCatalog(stagingRoot, ARTIFACT_ROOT);

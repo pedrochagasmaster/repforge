@@ -20,6 +20,8 @@ import { checkCatalog } from "../tools/check-ui-screens.mjs";
 import { expandCaptures, loadManifest, variantSlug } from "../tools/ui-screens/manifest.mjs";
 import { APP_SCENARIOS } from "../tools/ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS } from "../tools/ui-screens/screens-onboarding.mjs";
+import { selectCaptures } from "../tools/capture-ui-screens.mjs";
+import { SUITES, parseShard } from "./suites.mjs";
 import {
   compareSemanticArtifacts, normalizeSemanticRecords, normalizeSemanticValue, validateSemanticArtifact,
 } from "../tools/ui-screens/semantics.mjs";
@@ -27,7 +29,7 @@ import {
 const root = resolve(new URL("..", import.meta.url).pathname);
 const manifest = loadManifest();
 const captures = expandCaptures(manifest);
-const workflow = readFileSync(resolve(root, ".github/workflows/simulation.yml"), "utf8");
+const workflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
 const toolsReadme = readFileSync(resolve(root, "tools/README.md"), "utf8");
 const capture = readFileSync(resolve(root, "tools/capture-ui-screens.mjs"), "utf8");
 const session = readFileSync(resolve(root, "tools/ui-screens/session.mjs"), "utf8");
@@ -129,21 +131,18 @@ assert.doesNotMatch(capture, /CATALOG_CONTRACT/, "capture runs the catalog contr
 
 // --------------------------------------------------------------------- CI
 
-assert.match(workflow, /baseline="\$\(mktemp -d\)"/, "CI snapshots a private baseline before regenerating");
-assert.match(workflow, /cp -a docs\/ui-screens\/screens "\$baseline\/"/, "CI baselines the whole screen tree");
-assert.match(workflow, /cp -a docs\/ui-screens\/entry-semantics\.json "\$baseline\/"/, "CI baselines semantic evidence");
-assert.match(workflow, /chmod -R a-w "\$baseline"/, "CI makes the baseline read-only");
-assert.match(workflow, /trap cleanup EXIT/, "CI cleans its baseline up on exit");
-assert.match(workflow, /node tools\/check-ui-screens\.mjs/, "CI runs the registration gate");
-assert.match(workflow, /node tools\/compare-ui-screens\.mjs --baseline "\$baseline\/screens"/,
-  "CI compares every regenerated frame with the baseline");
-assert.match(workflow, /--baseline-semantic "\$baseline\/entry-semantics\.json"/,
-  "CI compares regenerated semantic evidence");
+// The recapture gate is an inventory command (tools/capture-ui-screens.mjs
+// --verify --shard k/n) that CI runs inside its browser shards. Verify mode
+// captures into a staging tree and compares it with the committed catalog, so
+// the committed frames are the immutable baseline and nothing is rewritten.
+const visualGate = SUITES.visual.map((suite) => suite.args);
+assert.ok(visualGate.length >= 1, "the inventory schedules the recapture gate");
+assert.ok(visualGate.every((args) => args[0] === "--verify" && args[1] === "--shard"), "every visual command verifies a shard");
+const union = SUITES.visual.flatMap((suite) => selectCaptures({ shard: parseShard(suite.args[2]) }).map((capture) => JSON.stringify(capture)));
+assert.equal(new Set(union).size, captures.length, "the visual shards partition every registered frame exactly once");
+assert.equal(union.length, captures.length, "no frame is captured by two shards");
+assert.match(workflow, /node tools\/run-tests\.mjs shard/, "CI runs the inventory shards, which include the recapture gate");
 assert.doesNotMatch(workflow, /git diff --exit-code -- docs\/ui-screens/, "CI does not byte-compare rasterised evidence");
-const order = ["cp -a docs/ui-screens/screens", "node tools/capture-ui-screens.mjs",
-  "node tools/check-ui-screens.mjs", "node tools/compare-ui-screens.mjs"].map((needle) => workflow.indexOf(needle));
-assert.ok(order.every((index, i) => index >= 0 && (i === 0 || index > order[i - 1])),
-  "CI baselines, captures, checks, then compares");
 assert.match(toolsReadme, /node tools\/capture-ui-screens\.mjs/, "the tools README documents the capture command");
 
 // ------------------------------------------------------------ determinism
@@ -266,19 +265,6 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
   // screen's normal-text frame is the signature of that, and of any future
   // variant state that stops being applied.
   //
-  // One frame is exempt, and not because the state fails to apply: the root
-  // really is 32px there. `onboarding-build/editor-ready` is scrolled wholly
-  // into the program editor, whose typography is still px-based (Plan 051's
-  // surface, unconverted), so that subtree renders identically at any root
-  // size and the two frames coincide. That is a real enlarged-text finding
-  // against the editor rather than against the catalog harness, it predates
-  // this branch, and converting the editor's type scale is Plan 055/058
-  // work. It is named here so the gap stays visible instead of being hidden
-  // by narrowing the oracle to the flows that happen to pass.
-  const INERT_TEXT_STATE_EXEMPT = new Map([
-    ["onboarding-build/editor-ready__phone-390-light-pt-text200",
-      "program editor typography is px-based; out of Plan 054 scope"],
-  ]);
   const byVariant = new Map();
   for (const item of captures) {
     byVariant.set(`${item.flow}/${item.screen}__${variantSlug(item)}`, item);
@@ -293,24 +279,10 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
     const normalPath = join(screensRoot, normal.flow, `${normal.screen}__${variantSlug(normal)}.png`);
     if (!existsSync(enlargedPath) || !existsSync(normalPath)) continue;
     if (!readFileSync(enlargedPath).equals(readFileSync(normalPath))) continue;
-    if (INERT_TEXT_STATE_EXEMPT.has(key)) continue;
     inertTextStates.push(key);
   }
   assert.deepEqual(inertTextStates, [],
     `enlarged-text frames differ from their normal-text counterpart: ${inertTextStates.slice(0, 6).join("; ")}`);
-  // The exemption list may not rot into cover for a fixed screen.
-  const staleExemptions = [...INERT_TEXT_STATE_EXEMPT.keys()].filter((key) => {
-    const item = byVariant.get(key);
-    if (!item) return true;
-    const normal = byVariant.get(`${item.flow}/${item.screen}__${variantSlug({ ...item, text: "normal" })}`);
-    if (!normal) return true;
-    const a = join(screensRoot, item.flow, `${item.screen}__${variantSlug(item)}.png`);
-    const b = join(screensRoot, normal.flow, `${normal.screen}__${variantSlug(normal)}.png`);
-    return existsSync(a) && existsSync(b) && !readFileSync(a).equals(readFileSync(b));
-  });
-  assert.deepEqual(staleExemptions, [],
-    `every enlarged-text exemption is still needed: ${staleExemptions.join("; ")}`);
-
   // The committed catalog is its own valid baseline: exercises the manifest
   // walk and the dimension checks without letting a test rewrite evidence.
   const selfComparison = compareCatalog({ baselineRoot: screensRoot, currentRoot: screensRoot });

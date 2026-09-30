@@ -1936,6 +1936,10 @@ export async function runSharedSetupFlow(browser) {
       await clearSite(page);
       await persistState(page, seed);
       await page.reload({ waitUntil: "domcontentloaded" });
+      // The same-document #setup navigation below is handled by the app's
+      // hashchange listener, which boot() registers only after its async
+      // startup. Wait for the boot contract so the navigation is not lost.
+      await waitForAppBoot(page, { timeout: 15000, base: BASE });
       await dismissGates(page);
       const encoded = await encodeSharedPayload(page, cloneFixture(REPRESENTATIVE_PAYLOAD));
       const fragment = encoded.ok ? encoded.value : wireFragment(REPRESENTATIVE_PAYLOAD);

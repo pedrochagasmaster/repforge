@@ -1148,7 +1148,11 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
   g.querySelector(".glossary__body").textContent=t(`glossary.${termKey}`)||"";
   g.classList.remove("hidden");
-  const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
+  const r=anchor.getBoundingClientRect(),viewportWidth=document.documentElement.clientWidth||window.innerWidth;
+  const bounds=g.getBoundingClientRect(),left=Math.max(8,Math.min(r.left,viewportWidth-bounds.width-8));
+  const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
+  const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
+  g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
 const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 const normalizeRestSec=v=>{const n=+v;if(!Number.isFinite(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
@@ -2695,8 +2699,9 @@ window.__repforgeWeeklySnapshot=weeklySnapshot;
 function mesocycleLifecycle(programMeta){
   const meta=programMeta||{},total=+meta.mesocycleLengthWeeks||6,s=meta.started;
   let elapsedWeek=null;
-  if(s){const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
-    const days=Math.floor((now-start)/86400000);elapsedWeek=days<0?1:Math.floor(days/7)+1}
+  if(s){const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+    const days=Model?Model.calendarDayDistance(s,today()):Math.round((Date.UTC(...today().split("-").map((n,i)=>i===1?n-1:+n))-Date.UTC(...String(s).split("-").map((n,i)=>i===1?n-1:+n)))/86400000);
+    elapsedWeek=days<0?1:Math.floor(days/7)+1}
   const current=elapsedWeek==null?null:Math.min(elapsedWeek,total);
   const overrunWeeks=elapsedWeek==null?0:Math.max(0,elapsedWeek-total);
   const isFinalWeek=elapsedWeek!=null&&elapsedWeek>=total;
@@ -2881,7 +2886,7 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
     ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
   if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
@@ -2958,7 +2963,7 @@ function bindReviewActions(){
 function legacyReviewPanel(el){
   const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
   const weekLine=snap.isComplete?t("meso.complete"):snap.isFinalWeek?t("meso.week_ready",{n:snap.weekCurrent,total:snap.weekTotal}):t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal});
-  el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  el.innerHTML=`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:snap.completedSessions,planned:snap.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:snap.improvedLifts,flat:snap.flatLifts,stalled:snap.stalledLifts}))}</p>`+
@@ -3512,6 +3517,7 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   // migration of a valid committed state.
   const durableOpts=Object.assign({},opts,{liveBase});
   const callerPreflight=opts.preflight;
+  durableOpts.preflightJournalPending=typeof callerPreflight==="function";
   durableOpts.preflight=async context=>{
     const checked=typeof callerPreflight==="function"?await callerPreflight(context):null;
     if(checked?.reject)return checked;
@@ -5999,7 +6005,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
       (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
-      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
+      `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
   // A saved session means today is spent: Today recaps it instead of offering the
   // day again. An unsaved draft still outranks it — that session is not over.
@@ -6034,7 +6040,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       const isToday=iso===today(),done=trained.has(iso);
       const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
       return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
-    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters">${cells}</div>`}
+    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters" data-progress-dimension="week" data-progress-scope="current-week-trained-days">${cells}</div>`}
   const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(dayLabel(next))}</div>`+
@@ -6341,8 +6347,13 @@ function renderExActionsSheet(exId) {
         const type = set.role === "warmup" ? "markWorking" : "markWarmup";
         const res = await WorkoutSession.dispatch(type, { exerciseInstanceId: exId, setId: sid });
         if (res.status === "applied") {
+          // The rerender replaces this button; carry keyboard focus to the same set's new control.
+          const hadFocus = document.activeElement === btn && sheet.classList.contains("is-open");
           renderWorkout();
           renderExActionsSheet(exId);
+          if (hadFocus && sheet.classList.contains("is-open")) {
+            warmupList.querySelector(`[data-warm-toggle-set="${CSS.escape(sid)}"]`)?.focus({ preventScroll: true });
+          }
         }
       };
     });
@@ -6833,7 +6844,7 @@ function bindWorkout(){
         `<button type="button" class="focusnav" id="woPrev" aria-label="${esc(t("focus.prev_ex"))}"${at<=0?" disabled":""}>‹</button>`+
         `<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
         `<button type="button" class="focusnav" id="woNext" aria-label="${esc(t("focus.next_ex"))}"${at>=fl.length-1?" disabled":""}>›</button></div>`+
-        `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
+        `<div class="segbar segbar--ex" data-progress-dimension="exercise-set" data-progress-scope="workout-exercise-order">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
       $("#woPrev").onclick=()=>focusAnimateTo(-1);
       $("#woNext").onclick=()=>focusAnimateTo(1)}
     const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
@@ -7188,7 +7199,7 @@ function sessionSummaryHtml(s){
     const segs=Math.max(s.week.planned,s.week.done,1),done=Math.min(s.week.done,segs);
     out.push(`<p class="section-label">${esc(t("summary.week.title"))}</p>`+
       `<p class="sum-week">${esc(t("today.sessions_done",{done:s.week.done,planned:s.week.planned}))}</p>`+
-      `<div class="segbar sum-segbar" aria-hidden="true">`+
+      `<div class="segbar sum-segbar" data-progress-dimension="week" data-progress-scope="completed-session-week" aria-hidden="true">`+
       Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`)}
   if(s.next)
     out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
@@ -7373,7 +7384,7 @@ function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
   const segs=Math.max(w.plannedSessions,w.completedSessions,1),done=Math.min(w.completedSessions,segs);
   el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.in_progress"))}</div>`+
     `<div class="ov-week-line">${esc(t("stats.this_week.progress",{sessions:`${w.completedSessions} / ${w.plannedSessions}`,sets:`${w.completedWorkingSets} / ${w.plannedWorkingSets}`}))}</div>`+
-    `<div class="ov-week-bar" aria-hidden="true">`+
+    `<div class="ov-week-bar" data-progress-dimension="week" data-progress-scope="current-week-sessions" aria-hidden="true">`+
     Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
     `<div class="statrow">`+
     `<div class="statrow__cell" data-week-metric="sessions"><div class="statrow__val">${w.completedSessions}</div><div class="statrow__cap">${esc(t("stats.this_week.sessions"))}</div></div>`+
@@ -7417,7 +7428,7 @@ function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
     const fillClass=row.statusKey==="high"?" is-high":row.statusKey==="on-target"?" is-on":"";
     const statusClass=row.statusKey==="on-target"?" is-on":"";
     return `<button type="button" class="vrow" data-muscle="${esc(row.muscle)}"><span class="vrow__name">${esc(muscleLabel(row.muscle))}</span>`+
-      `<span class="vrow__bar"><span class="vrow__fill${fillClass}" style="width:${row.pct}%"></span></span>`+
+      `<span class="vrow__bar" data-progress-dimension="week" data-progress-scope="current-week-muscle-sets"><span class="vrow__fill${fillClass}" style="width:${row.pct}%"></span></span>`+
       `<span class="vrow__num">${fmt(row.completed7)} / ${fmt(row.planned)}</span>`+
       `<span class="vrow__status${statusClass}">${esc(row.status)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+
       (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
@@ -8773,6 +8784,8 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   const completed=volumeMapFromRows(ev.completedRows,state.program);
   const names=new Set([...plannedMap.keys(),...completed.keys()]);
   if(!names.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;return}
+  const progressDimension=volumeScope==="this-week"?"week":"block";
+  const progressScope=volumeScope==="this-week"?"current-week-muscle-sets":"block-to-date-muscle-sets";
   const rows=[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(m=>{
     const planned=volEff(plannedMap,m),done=volEff(completed,m);
     const inProgress=ev.periodStatus!=="complete"&&ev.period.end&&String(ev.period.end)>=today();
@@ -8780,7 +8793,7 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
       :inProgress?t("stats.volume.in_progress",{done:fmt(done),planned:fmt(planned)}):""):"";
     const detail=volumeDetailTable(m,ev);
     return `<button type="button" class="vrow evrow" data-volume-muscle="${esc(m)}" aria-expanded="false"><span class="vrow__name">${esc(muscleLabel(m))}</span>`+
-      `<span class="vrow__bar" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
+      `<span class="vrow__bar" data-progress-dimension="${progressDimension}" data-progress-scope="${progressScope}" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
       `<span class="vrow__num">${fmt(done)} / ${fmt(planned)}</span>`+
       `<span class="vrow__status${inProgress?"":""}">${esc(caption)}</span><span class="chevron" aria-hidden="true"></span></button>`+
       `<div class="evrow__detail" data-volume-detail="${esc(m)}" hidden>${detail}</div>`}).join("");
@@ -8867,16 +8880,19 @@ function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=
 function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
 window.__repforgeChartLabelDecimals=chartLabelDecimals;
 function chartPalette(){
-  const css=getComputedStyle(document.documentElement);
+  const css=getComputedStyle(document.documentElement),rootSize=parseFloat(css.fontSize)||16;
   const tok=n=>(css.getPropertyValue(n)||"").trim();
   return{
     accent:tok("--accent")||"#E04E14",
-    deep:tok("--accent-deep")||"#B8410E",
-    text:tok("--ink-faint")||"#716D66",
-    ink:tok("--ink")||"#1B1A17",
-    rule:tok("--rule")||"#E4E1DA",
+    deep:tok("--color-action-text")||"#B8410E",
+    text:tok("--color-ink-secondary")||"#6E6A63",
+    ink:tok("--color-ink")||"#1B1A17",
+    rule:tok("--boundary-decorative")||"#E4E1DA",
     bg:tok("--bg")||"#F4F2EF",
-    surface:tok("--surface")||"#FFFFFF"
+    surface:tok("--color-surface")||"#FFFFFF",
+    captionSize:rootSize*(parseFloat(tok("--font-size-caption"))||.75),
+    fontFamily:tok("--font-language")||"sans-serif",
+    strongWeight:tok("--weight-semibold")||"600"
   }}
 window.__repforgeChartPalette=chartPalette;
 function draw(rows,sel="#chart"){
@@ -8884,16 +8900,32 @@ function draw(rows,sel="#chart"){
   const ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
   const pal=chartPalette(),C={accent:pal.accent,steel:pal.text,dim:pal.text,rule:pal.rule,mist:pal.ink};
-  const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
-  ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="middle";
-  if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText(t("stats.chart.empty"),w/2,h/2);return}
+  const fontSize=`${pal.captionSize}px`,fontFamily=pal.fontFamily;
+  ctx.font=`${fontSize} ${fontFamily}`;ctx.textBaseline="middle";
+  if(!rows.length){
+    ctx.fillStyle=C.steel;ctx.textAlign="center";
+    const lines=[];
+    for(const word of t("stats.chart.empty").split(/\s+/)){
+      const current=lines.at(-1),candidate=current?`${current} ${word}`:word;
+      if(current&&ctx.measureText(candidate).width>w-24)lines.push(word);
+      else if(current)lines[lines.length-1]=candidate;
+      else lines.push(word)
+    }
+    const lineHeight=pal.captionSize*1.35,startY=h/2-(lines.length-1)*lineHeight/2;
+    lines.forEach((line,index)=>ctx.fillText(line,w/2,startY+index*lineHeight));return
+  }
   const vals=rows.map(r=>r.e1rm??r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
   const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
-  const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
   const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?fmt(+d.toFixed(1)):fmt(Math.round(d))};
+  const tickLabels=Array.from({length:4},(_,i)=>`${yLabel(hi-(rng*i/3))} ${unitLabel()}`);
+  const measuredLeft=Math.max(...tickLabels.map(label=>ctx.measureText(label).width));
+  const padL=Math.max(42,Math.ceil(measuredLeft)+12),padR=14;
+  const padT=Math.max(22,pal.captionSize*1.35),padB=Math.max(26,pal.captionSize*1.5);
+  const iw=Math.max(1,w-padL-padR),ih=Math.max(1,h-padT-padB);
+  const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
   const accent=pal.accent;
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
-  for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val)+` ${unitLabel()}`,padL-8,gy)}
+  for(let i=0;i<=3;i++){const gy=padT+ih*i/3;ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(tickLabels[i],padL-8,gy)}
   // Sparse-evidence policy (UI-29 / G-27): one point is a snapshot with no
   // connector, two points a comparison with a restrained secondary connector,
   // three or more a trend. The line never draws before the evidence supports it.
@@ -8907,9 +8939,11 @@ function draw(rows,sel="#chart"){
   else window.__repforgeChartLastPresentation=presentation;
   rows.forEach((r,i)=>{const v=r.e1rm??r.top,last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(v),last?4:3.5,0,7);
     ctx.fillStyle=accent;ctx.fill()});
-  const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV);ctx.fillStyle=pal.deep;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Sans",sans-serif';
-  ctx.fillText(`${fmt(Math.round(toDisplay(lastV)))} ${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
-  ctx.fillStyle=C.dim;ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="alphabetic";
+  const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV),valueLabel=`${fmt(Math.round(toDisplay(lastV)))} ${unitLabel()}`;
+  ctx.fillStyle=pal.deep;ctx.font=`${pal.strongWeight} ${fontSize} ${fontFamily}`;
+  const alignRight=lx+ctx.measureText(valueLabel).width+10>w-padR;ctx.textAlign=alignRight?"right":"left";
+  ctx.fillText(valueLabel,lx+(alignRight?-10:9),ly-pal.captionSize*.75);
+  ctx.fillStyle=C.dim;ctx.font=`${fontSize} ${fontFamily}`;ctx.textBaseline="alphabetic";
   ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
   if(rows.length>2){ctx.textAlign="center";ctx.fillText(shortDate(rows[Math.floor(rows.length/2)].date),padL+iw/2,h-8)}
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
@@ -8942,6 +8976,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
 window.__repforgeHistory=HistoryUi;
 window.__repforgeSaveSessionEdit=HistoryUi.saveSessionEdit;
 
+// @ci-domain global
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
 function exerciseSessionsDetail(key){const m=new Map();
@@ -9611,13 +9646,13 @@ function renderProgram(){
   // seam, but leaves it out of the visual layout like the prior editor did.
   setProgramMetadataHidden(programEditMode||programReadyView,{inert:programReadyView});
   if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
-  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
+  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
   // Advanced remains part of the installed editor. It is inside the editor
   // host, so hiding the disclosure here would strand the raw import/export
   // controls whenever the visual editor is open.
-  [end,lede,addDay,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
+  [end,lede,addDay].forEach(el=>el?.classList.toggle("hidden",programEditMode));
   if(programEditMode){if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
-  renderProgramHeader();renderProgramEditor();renderVolume();
+  renderProgramHeader();renderProgramEditor();
   // Candidate edits can invalidate a paired relation while the exercise picker
   // is closing. Focus after the editor DOM has been rebuilt, rather than racing
   // the picker animation's one-shot focus attempt.
@@ -9672,7 +9707,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
     `<div class="prog-overview__meta">${[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ")}</div>`+
     (mc.current!=null||mc.isComplete?`<div class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</div>`+
-      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
+      `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
     (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
     `<div class="statrow">`+
     `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.days_7d"))}</div></div>`+
@@ -9697,7 +9732,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
   $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
   const readyLink=$("#programReadyLink");if(readyLink)readyLink.onclick=()=>{captureEvent("program_readiness_navigated",{ready_count_bucket:coarseCountBucket(ready.length)});programReadyView=true;renderProgram();window.scrollTo({top:0})};
-  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
+  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram()};
   const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
@@ -10027,7 +10062,7 @@ function bindEditor(){
         return}
       if(!isText&&(inp.value===captured||inp.value===priorValue))
         inp.value=String(programEditorProgram().find(inp.dataset.id)?.[field]??captured);
-      renderVolume();updateGauge();updateSaveMeta()};
+      updateGauge();updateSaveMeta()};
     if(inp.type==="number"){
       inp.onfocus=()=>inp.select();
       inp.onchange=()=>{const e=programEditorProgram().find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
@@ -10054,7 +10089,7 @@ function bindEditor(){
         const shown=editorFieldText(e,field);
         if(inp.value!==shown)inp.value=shown;
         onFocusText=null;
-        renderVolume();updateGauge();updateSaveMeta()};
+        updateGauge();updateSaveMeta()};
     }
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
@@ -10159,13 +10194,6 @@ async function editorAction(act,ds){
     if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
-function renderVolume(){
-  const arr=[...programEditorProgram().volume().entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff);
-  const max=Math.max(...arr.map(x=>x.eff),1);
-  $("#volume").innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(x.name))}</span>`+
-    `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
-    `<span class="vrow__num"><b>${fmt(x.eff)}</b> ${esc(tp(x.eff,"set"))}</span></div>`).join(""):`<div class="table"><div class="empty">${esc(t("program.empty.no_program_exercises"))}</div></div>`;
-}
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
 function persistProgram(nextProgram=programEditorProgram()){
@@ -10637,7 +10665,22 @@ function focusShareSetupRepair(token){
   const remaining=$$("#shareSetupBlockers [data-share-repair]");
   const exact=token?.exerciseInstanceId?shareSetupRepairButton(token.exerciseInstanceId):null;
   const target=[exact,...remaining,$("#shareSetupBlockerSummary"),$("#shareSetupStatus"),$("#shareSetupCopy"),$("#shareSetupClose")].find(canTakeFocus);
-  if(canTakeFocus(target)){try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}}
+  if(canTakeFocus(target)){
+    try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}
+    if(target.matches("[data-share-repair]")){
+      const body=$("#shareSetupSheet .sheet__body");
+      if(body){
+        const maxScroll=Math.max(0,body.scrollHeight-body.clientHeight);
+        body.scrollTop=maxScroll;
+        const bodyRect=body.getBoundingClientRect(),targetRect=target.getBoundingClientRect();
+        const bodyTop=bodyRect.top+body.clientTop,bodyBottom=bodyTop+body.clientHeight;
+        if(targetRect.top<bodyTop||targetRect.bottom>bodyBottom){
+          const targetCenter=targetRect.top-bodyTop+body.scrollTop+targetRect.height/2;
+          body.scrollTop=Math.max(0,Math.min(maxScroll,targetCenter-body.clientHeight/2))
+        }
+      }
+    }
+  }}
 function reopenShareAfterRepair(){
   const token=shareRepairReturn;
   shareRepairReturn=null;
@@ -11825,7 +11868,13 @@ function renderLibraryBar(){
   primary.textContent=libFlow.step==="configure"
     ?t("library.save_day",{day:dayLabel(libFlow.day)})
     :t("library.add_n",{n,day:dayLabel(libFlow.day)});
-  primary.disabled=n===0}
+  primary.disabled=n===0;
+  syncLibraryBarClearance()}
+function syncLibraryBarClearance(){
+  const bar=$("#libBar"),wrap=$("#library .libwrap");if(!bar||!wrap)return;
+  if(bar.classList.contains("is-hidden")){wrap.style.removeProperty("--libbar-clearance");return}
+  wrap.style.setProperty("--libbar-clearance",`${Math.ceil(bar.getBoundingClientRect().height+16)}px`)}
+window.addEventListener("resize",syncLibraryBarClearance,{passive:true});
 
 /* ---- configure step ---- */
 
@@ -11892,8 +11941,8 @@ async function commitLibrarySelection(){
   setDayCollapsed(target,false);
   closeLibrary({toProgram:true});
   if(editorScope&&setupEditorOpen){
-    // The full-library detour commits through the legacy library controller,
-    // while the shared editor still owns its private in-memory document. Pull
+    // The full-library detour commits through the shared program-editor
+    // transaction, while the setup editor still owns its private document. Pull
     // the committed candidate back into that editor before the next action.
     // Every edit made before the detour was already staged in this same setup
     // draft, so discard here is a synchronization operation, not user-facing
@@ -13472,9 +13521,12 @@ function renderExercisePreferencesStep(){
   const included=entryState?.answers?.mustHaveExercises||[];
   const constraints=entryState?.answers?.exerciseConstraints||[];
   const matches=entryExerciseMatches(entryExerciseQuery);
-  const resultRows=matches.map(entry=>`<div class="entry__exercise-result" role="listitem"><span class="entry__exercise-name">${esc(libraryName(entry))}</span><span class="entry__exercise-actions">`+
-    `<button type="button" class="entry__exercise-action" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="include">${esc(t("entry.exercise_preferences.include"))}</button>`+
-    `<button type="button" class="entry__exercise-action entry__exercise-action--avoid" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="avoid">${esc(t("entry.exercise_preferences.avoid"))}</button></span></div>`).join("");
+  const resultRows=matches.map(entry=>{const exercise=libraryName(entry);
+    const includeLabel=`${t("entry.exercise_preferences.include")} ${exercise}`;
+    const avoidLabel=`${t("entry.exercise_preferences.avoid")} ${exercise}`;
+    return `<div class="entry__exercise-result" role="listitem"><span class="entry__exercise-name">${esc(exercise)}</span><span class="entry__exercise-actions">`+
+    `<button type="button" class="entry__exercise-action" aria-label="${esc(includeLabel)}" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="include">${esc(t("entry.exercise_preferences.include"))}</button>`+
+    `<button type="button" class="entry__exercise-action" aria-label="${esc(avoidLabel)}" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="avoid">${esc(t("entry.exercise_preferences.avoid"))}</button></span></div>`}).join("");
   const pending=entryPendingAvoid?(()=>{
     const entry=libraryEntry(entryPendingAvoid),exercise=entry?libraryName(entry):entryPendingAvoid;
     const reasonLab=t("entry.exercise_preferences.avoid_reason",{exercise});
@@ -13895,9 +13947,9 @@ function renderCatalogueStep(){
     range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
     effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
   const contextFacts=[
-    entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):"",
-    entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):"",
-    entryEnvironmentLabel()].filter(Boolean);
+    {kind:"data",text:entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):""},
+    {kind:"data",text:entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):""},
+    {kind:"language",text:entryEnvironmentLabel()}].filter(fact=>fact.text);
   function renderCard(card){
     const familyName=isPt()?card.familyNamePt||card.familyName:card.familyName;
     const name=isPt()?card.namePt||card.name:card.name;
@@ -13931,7 +13983,7 @@ function renderCatalogueStep(){
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
     `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
-    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div>`+
+    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${esc(fact.text)}</span>`).join("")}</div>`+
     /* Every family is released at every frequency, so a flat list is twenty
        near-identical rows. Split the ones that match the answered schedule from
        the rest, which is the comparison the reader is actually making. */
@@ -14930,10 +14982,6 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   render();toast(t("toast.onboarding_saved"));
   maybeShowInstallBanner();
   return result}
-function saveOnboardingProgram(io){
-  return activateEntryPreview({destination:"log"})}
-function editOnboardingProgram(io){
-  return activateEntryPreview({destination:"program-edit"})}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
@@ -16289,7 +16337,7 @@ async function applyBootDecision(decision){
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   await refreshRecoveryProjectionCache(state);
-  DraftStore.promote(null,draftContextFingerprint(state));
+  await DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
   applyGotoParam();
   const migrated=migrateLog();

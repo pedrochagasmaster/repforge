@@ -17,7 +17,7 @@ const cases = {
   appGlobal: { files: ["app.js"], appDiff: "@@ -1 +1 @@\n+// synthetic unannotated global edit" },
   durable: ["durable-state.js"], draft: ["workout-draft.js"],
   telemetry: ["telemetry.js"], serviceWorker: ["sw.js"], css: ["styles.css"],
-  workflow: [".github/workflows/simulation.yml"], baseline: ["docs/ui-screens/screens/history/list__phone-390-light-en.png"],
+  workflow: [".github/workflows/ci.yml"], baseline: ["docs/ui-screens/screens/history/list__phone-390-light-en.png"],
   capture: ["tools/capture-ui-screens.mjs"],
 };
 const result = Object.fromEntries(Object.entries(cases).map(([name, entry]) => {

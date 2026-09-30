@@ -18,15 +18,28 @@ before starting any child plan; it owns the dependency DAG, serialization of
 shared files, finding/decision disposition, owner gates, and public-launch
 boundary.
 
-Do not start an implementation branch until the planning PR is owner-approved.
-That approval is merged, and so are Plans 049 (PR #222), 050 (PR #227), 051
-(PR #226), 052 (PR #228), owner-approved 053 (PR #235), and the post-053
-durable-state bridge (PR #240). Current main is
-`3710f34bb677c59674a3677c03d2fc1427e07cef`. Plan 054 is the active
-implementation. Plans 054–059 absorb the remaining PR239 findings as explicit
-acceptance deltas and proceed in the sequence DAG's order. The
-post-Wave-3 product roadmap remains deferred; none of its unrelated features
-may be pulled into these plans.
+The planning approval and Plans 049–058 are merged, together with the
+post-053 durable-state bridge. Plans 055, 056, 057 and 058 landed through
+PRs #243, #244, #248 and #256 respectively. Implementation completion does
+not close the remaining audit findings or physical-device launch gates.
+
+The current workfront is the post-058, pre-059 candidate-construction window
+ratified by PR #281 and amended on 2026-09-30. Follow the canonical backlog and its
+[post-058 clearance sequence](../docs/post-058-open-pr-clearance-sequence.md)
+for repository-truth cleanup, stabilization, the concurrently developed
+standalone alpha-readiness work, then the unified redesign
+([Plan 064](./064-unified-redesign-convergence.md): landing, Direction D /
+Plan 063 and onboarding in one production PR), then selected already-open
+Next work. Plan 059 remains planned and validates the resulting stable
+candidate last. This bounded exception does not pull unrelated Later/Gated
+work forward.
+
+Plan 063 (Direction D) is owner-selected and lives on PR #272's branch until
+Plan 064's R0 slice migrates it; it keeps its number as the main-app
+specification consumed by Plan 064. No other work may use the number 063;
+PR #258's branch-local plan of that number is renumbered when that work
+resumes. The Opus orchestrator's starting brief is
+[`docs/agents/prompts/plan-064-opus-orchestrator.md`](../docs/agents/prompts/plan-064-opus-orchestrator.md).
 
 ### Owner-approved UI overhaul
 
@@ -39,17 +52,25 @@ may be pulled into these plans.
 | [053](./053-ios-install-transfer-foundation.md) | 2C | **IMPLEMENTED — PR #235** | Build the narrowly scoped one-hour encrypted iOS install transfer and recovery snapshot. |
 | [Bridge](../docs/taurifer-architecture-refactoring-plan.md#owner-ratified-disposition-after-plan-053) | 2D | **IMPLEMENTED — PR #240** | One durable outcome and one settlement/recovery owner under accepted Plans 051–053; no new numbered plan or second queue. |
 | [054](./054-landing-and-program-entry.md) | 3 | **IMPLEMENTED — PR #241** | Deliver the selected product-led landing, adaptive shared entry, five-job hierarchy, install policy, guides, and Privacy page. |
-| [055](./055-focus-only-workout.md) | 4 | **PLANNED — DEPENDS ON 051** | Reach capability parity in Focus, add read-only Preview/scope layers, then delete List. |
-| [056](./056-progress-and-block-lifecycle.md) | 5 | **PLANNED — DEPENDS ON 052** | Correct Progress scope/evidence and expose only exact, confirmed block transitions. |
-| [057](./057-management-surfaces.md) | 6 | **PLANNED — DEPENDS ON 054–056** | Make History read-first, Share repairable/fail-closed, and converge management hierarchy. |
-| [058](./058-design-system-convergence.md) | 7 | **PLANNED — PRINCIPAL SURFACES FIRST** | Inventory and migrate every public surface to bounded semantic roles and rendered-role AA. |
+| [055](./055-focus-only-workout.md) | 4 | **IMPLEMENTED — PR #243** | Reach capability parity in Focus, add read-only Preview/scope layers, then delete List. |
+| [056](./056-progress-and-block-lifecycle.md) | 5 | **IMPLEMENTED — PR #244** | Correct Progress scope/evidence and expose only exact, confirmed block transitions. |
+| [057](./057-management-surfaces.md) | 6 | **IMPLEMENTED — PR #248** | Make History read-first, Share repairable/fail-closed, and converge management hierarchy. |
+| [058](./058-design-system-convergence.md) | 7 | **IMPLEMENTED — PR #256** | Inventory and migrate every public surface to bounded semantic roles and rendered-role AA. |
 | [059](./059-public-launch-ui-validation.md) | 8 | **PLANNED — FINAL OWNER GATE** | Bind catalog, automated, physical-device, accessibility, privacy, and telemetry evidence to one candidate SHA. |
+
+### Post-058 candidate construction
+
+| Plan | State | Outcome |
+|---|---|---|
+| 063 (on PR #272, `redesign/direction-d`) | **OWNER-SELECTED SPECIFICATION — consumed by 064** | Direction D: the main-app reference for Today, Focus and rest, Why, session summary, Progress, History and Program (ADR 0016). Its P-slices are executed as Plan 064 slice R3. |
+| [064](./064-unified-redesign-convergence.md) | **PLANNED — AWAITING OWNER APPROVAL OF THE SPECIFICATION** | One unified redesign production PR: shared system, landing, Direction D, owner-selected onboarding, cross-surface journeys, full convergence and adversarial review, orchestrated by Opus with Sonnet workers. Precedes #258/#257 integration and Plan 059. |
 
 Phase 2 has three independently mergeable plans because workout data loss,
 program-transition provenance, and temporary backend security have distinct
 failure and rollback boundaries. Their combined completion gate closes the
 phase. The owner-ratified unnumbered bridge followed 053 and merged in PR #240.
-Plans 055–059 remain governed by their existing dependencies and owner gates.
+Plan 059 retains its owner gates and the post-058 candidate-construction
+prerequisites linked above.
 
 Implementation PRs stop at **OWNER REVIEW** after their engineering gates pass.
 Only an explicit owner instruction authorizes merge. A merged predecessor does
@@ -59,7 +80,7 @@ not grant merge authority for the next plan.
 
 | Plan | State | Meaning |
 |---|---|---|
-| [062](./062-ci-agent-feedback-loop.md) | **PROPOSED** | Refactors CI and local verification around explicit edit, packet and candidate loops so coding agents get fast targeted feedback while final persistence, race, privacy, offline, accessibility, generative and visual gates remain strict. |
+| [062](./062-ci-agent-feedback-loop.md) | **IMPLEMENTED — PR #248** | Refactors CI and local verification around explicit edit, packet and candidate loops so coding agents get fast targeted feedback while final persistence, race, privacy, offline, accessibility, generative and visual gates remain strict. |
 | [061](./061-import-exercise-matching.md) | **IMPLEMENTED IN PR #230** | Fixes shared import exercise matching: stopword/equipment/containment scoring, up to three candidates per review row, curated aliases via the curation file, gated on a two-tier fixture corpus. Independent of Plan 060 and of PR #225. |
 | [060](./060-free-form-import-grilling-reconciliation.md) | **IMPLEMENTED ACROSS PRS #225/#230** | Reconciles two independent grilling sessions on the PR #225 free-form import hand-off into one executable contract. Amends ADR 0014 on persistence and telemetry enumerations. Independent of Plans 049–059; do not sequence it into their DAG. |
 

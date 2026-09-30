@@ -765,6 +765,10 @@ try {
 
       await persistState(page, existingState);
       await page.reload({ waitUntil: "domcontentloaded" });
+      // The same-document #setup navigation below is handled by the app's
+      // hashchange listener, which boot() registers only after its async
+      // startup. Wait for the boot contract so the navigation is not lost.
+      await waitForAppBoot(page, { base: BASE });
       await dismissGates(page);
 
       const encoded = await encodeSharedPayload(page, sentinelPayload);
@@ -835,6 +839,10 @@ try {
 
       await persistState(page, historyState);
       await page.reload({ waitUntil: "domcontentloaded" });
+      // The same-document #setup navigation below is handled by the app's
+      // hashchange listener, which boot() registers only after its async
+      // startup. Wait for the boot contract so the navigation is not lost.
+      await waitForAppBoot(page, { base: BASE });
       await dismissGates(page);
 
       const encoded = await encodeSharedPayload(page, sentinelPayload);

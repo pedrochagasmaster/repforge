@@ -3,13 +3,12 @@
 // Sparse policy 0/1/2/3+, current-block vs all-history scope, this-week and
 // block-to-date denominators against model-backed values, mobile drill-ins.
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
-import { assertServingApp } from "./browser.mjs";
+import { assertServingApp, launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 await assertServingApp(base);
-const browser = await chromium.launch();
+const browser = await launchChromium();
 const errors = [];
 
 // Known log: bench 3 block points (trend), rdl 2 (comparison), squat 1
@@ -37,8 +36,8 @@ const log = [
 const meta = seedProgramMeta({ id: "evidence-program", started });
 
 async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta = meta, seededProgram = program,
-  seededHistory = [], fixedNow = "2026-09-17T12:00:00.000Z" } = {}) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  seededHistory = [], fixedNow = "2026-09-17T12:00:00.000Z", timezoneId = "UTC" } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId });
   await context.addInitScript((fixedNow) => {
     globalThis.__repforgeTestNow = sessionStorage.getItem("__repforge_test_now") || fixedNow;
     const NativeDate = Date;
@@ -86,6 +85,17 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   await page.evaluate(() => document.querySelector('nav button[data-view="stats"]')?.click());
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   return { context, page };
+}
+
+async function assertCanonicalOutcomeLabels(page, outcomes) {
+  for (const { key, outcome } of outcomes) {
+    const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
+    const label = await page.evaluate((value) => window.RepForgeI18n.t(`stats.outcome.${value}`), outcome);
+    const status = row.locator(".listrow__sub");
+    assert.ok(await status.isVisible(), `the ${outcome} outcome label stays visible in its evidence row`);
+    assert.ok((await status.textContent()).includes(label),
+      `the ${outcome} outcome keeps its localized text distinction in the rendered row`);
+  }
 }
 
 // Strength: sparse policy, scopes, drill-in.
@@ -172,6 +182,40 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
     return !!d && d.querySelectorAll("tbody tr").length > 0;
   });
   assert.equal(detailVisible, true, "drill-in shows the full per-lift table");
+  await context.close();
+}
+
+// Outcome words stay visible beside their canonical improved/maintained/declined facts.
+// The final assertion deliberately hides those words: the rendered semantic
+// oracle must reject a presentation that leaves outcome meaning to color alone.
+{
+  const outcomeLog = [
+    { session: "outcome-better-1", date: "2026-09-14", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 60, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-better-2", date: "2026-09-16", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 65, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-steady-1", date: "2026-09-14", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-steady-2", date: "2026-09-16", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-worse-1", date: "2026-09-14", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 8, rir: 2, set: 1, work: true },
+    { session: "outcome-worse-2", date: "2026-09-16", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 85, reps: 7, rir: 2, set: 1, work: true },
+  ];
+  const { context, page } = await freshPage({ seededLog: outcomeLog });
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+  await page.waitForSelector("#segStrength.active", { timeout: 5000 });
+  const outcomes = await page.evaluate(() => [
+    ["pev-1", "improved"], ["pev-4", "maintained"], ["pev-3", "declined"],
+  ].map(([id, expected]) => {
+    const key = window.__repforgeProgressEvidence.keyForExerciseId(id);
+    const record = window.__repforgeProgressEvidence.records("current-block").find((item) => item.exerciseId === key);
+    return { key, expected, outcome: record?.outcome };
+  }));
+  assert.deepEqual(outcomes.map(({ expected, outcome }) => [expected, outcome]), [
+    ["improved", "improved"], ["maintained", "maintained"], ["declined", "declined"],
+  ], "the production evidence producer supplies all three canonical outcomes");
+  await assertCanonicalOutcomeLabels(page, outcomes);
+
+  await page.addStyleTag({ content: "#strengthDash .listrow__sub { visibility: hidden !important; }" });
+  await assert.rejects(() => assertCanonicalOutcomeLabels(page, outcomes),
+    /the improved outcome label stays visible in its evidence row/,
+    "the deliberate color-only presentation failure is rejected by the rendered outcome oracle");
   await context.close();
 }
 
@@ -978,6 +1022,129 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   }));
   assert.deepEqual(policy, { one: "snapshot", two: "comparison", three: "trend" });
   await context.close();
+}
+
+// Canvas chart labels follow the app's text scale, including the 200% setting.
+{
+  const { context, page } = await freshPage();
+  const fonts = await page.evaluate(() => {
+    document.documentElement.style.fontSize = "200%";
+    const seen = [];
+    const prototype = CanvasRenderingContext2D.prototype;
+    const original = prototype.fillText;
+    prototype.fillText = function (...args) {
+      seen.push(this.font);
+      return original.apply(this, args);
+    };
+    try {
+      draw([
+        { date: "2026-09-14", e1rm: 60, top: 55 },
+        { date: "2026-09-16", e1rm: 62, top: 57 },
+        { date: "2026-09-18", e1rm: 65, top: 60 },
+      ], "#chart");
+    } finally {
+      prototype.fillText = original;
+    }
+    return {
+      root: parseFloat(getComputedStyle(document.documentElement).fontSize),
+      sizes: seen.map((font) => parseFloat(font)),
+    };
+  });
+  assert.ok(fonts.sizes.length >= 5, "the populated chart draws axis, value, and date labels");
+  assert.ok(fonts.sizes.every((size) => size >= fonts.root * 0.75 - 0.5),
+    `all chart labels use the frozen caption scale at 200% text (${JSON.stringify(fonts)})`);
+
+  async function assertEmptyChartFits(lang) {
+    const empty = await freshPage({ lang });
+    await empty.page.setViewportSize({ width: 320, height: 844 });
+    const lines = await empty.page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+      const canvas = document.querySelector("#chart");
+      const extents = [];
+      const prototype = CanvasRenderingContext2D.prototype;
+      const original = prototype.fillText;
+      prototype.fillText = function (text, x, y) {
+        const width = this.measureText(text).width;
+        extents.push({ width, x, align: this.textAlign, canvasWidth: canvas.clientWidth });
+        return original.call(this, text, x, y);
+      };
+      try {
+        draw([], "#chart");
+      } finally {
+        prototype.fillText = original;
+      }
+      return extents.map(({ width, x, align, canvasWidth }) => ({
+        left: align === "center" ? x - width / 2 : align === "right" ? x - width : x,
+        right: align === "center" ? x + width / 2 : align === "right" ? x : x + width,
+        canvasWidth,
+      }));
+    });
+    assert.ok(lines.length > 1, `the ${lang} empty-chart message wraps at 320px and 200% text`);
+    assert.ok(lines.every(({ left, right, canvasWidth }) => left >= 0 && right <= canvasWidth),
+      `the ${lang} empty-chart message stays inside the canvas at 320px and 200% text (${JSON.stringify(lines)})`);
+    await empty.context.close();
+  }
+  await assertEmptyChartFits("en");
+  await assertEmptyChartFits("pt");
+  await context.close();
+}
+
+// A03: numbered weeks are calendar days, not elapsed local milliseconds. In
+// America/New_York 2026-03-02 -> 2026-03-09 is 167 hours (spring DST), which
+// once selected week 1 and planned one elapsed week on the start of week 2.
+{
+  const seeded = seedProgram();
+  const mkRow = (session, date, reps) => ({ session, date, day: "Day 1", exerciseId: seeded[0].id, name: seeded[0].name,
+    primary: seeded[0].primary, load: 50, reps, rir: 2, set: 1, work: true });
+  const evidenceAt = async (started, fixedNow, dates) => {
+    const { context, page } = await freshPage({ timezoneId: "America/New_York", fixedNow, seededProgram: seeded,
+      seededMeta: seedProgramMeta({ id: "dst-program", started }),
+      seededLog: dates.map((date, i) => mkRow(`d${i + 1}`, date, 8 + i)) });
+    const result = await page.evaluate(() => ({
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      today: new Date().toLocaleDateString("en-CA"),
+      week: window.__repforgeProgressEvidence.volume("this-week"),
+      block: window.__repforgeProgressEvidence.volume("block-to-date"),
+      lifecycle: window.__repforgeMesocycleWeek(),
+    }));
+    await context.close();
+    return result;
+  };
+  const dst = await evidenceAt("2026-03-02", "2026-03-09T16:00:00.000Z", ["2026-03-02", "2026-03-09"]);
+  assert.equal(dst.tz, "America/New_York");
+  assert.equal(dst.today, "2026-03-09", "the fixed browser clock is 2026-03-09 local");
+  assert.equal(dst.week.period.weekNumber, 2, "March 9 is numbered week 2 across spring DST");
+  assert.equal(dst.week.start, "2026-03-09");
+  assert.equal(dst.week.end, "2026-03-15");
+  assert.deepEqual(dst.week.completedRows.map((r) => r.session), ["d2"], "the March 9 session is in this week");
+  assert.equal(dst.block.period.elapsedNumberedWeeks, 2, "block-to-date elapses two numbered weeks");
+  assert.equal(dst.block.plannedSessions, 6);
+  assert.equal(dst.block.plannedWorkingSets, 72);
+  assert.equal(dst.week.plannedSessions, 3);
+  assert.equal(dst.week.plannedWorkingSets, 36);
+  assert.equal(dst.block.completedSessions, 2);
+  assert.equal(dst.lifecycle.elapsedWeek, 2, "app lifecycle (mesocycleLifecycle) numbers March 9 as week 2");
+  assert.equal(dst.lifecycle.current, 2);
+
+  // Fall DST: 2026-10-26 -> 2026-11-02 spans 169 hours and stays week 2.
+  const fall = await evidenceAt("2026-10-26", "2026-11-02T17:00:00.000Z", ["2026-10-26", "2026-11-02"]);
+  assert.equal(fall.today, "2026-11-02");
+  assert.equal(fall.week.period.weekNumber, 2);
+  assert.equal(fall.week.start, "2026-11-02");
+  assert.equal(fall.week.end, "2026-11-08");
+  assert.deepEqual(fall.week.completedRows.map((r) => r.session), ["d2"]);
+  assert.equal(fall.block.period.elapsedNumberedWeeks, 2);
+  assert.equal(fall.block.plannedWorkingSets, 72);
+  assert.equal(fall.lifecycle.elapsedWeek, 2);
+
+  // Ordinary control, same zone, no DST in the span: unchanged.
+  const plain = await evidenceAt("2026-09-14", "2026-09-21T16:00:00.000Z", ["2026-09-14", "2026-09-21"]);
+  assert.equal(plain.week.period.weekNumber, 2);
+  assert.equal(plain.week.start, "2026-09-21");
+  assert.equal(plain.block.period.elapsedNumberedWeeks, 2);
+  assert.equal(plain.block.plannedSessions, 6);
+  assert.equal(plain.block.plannedWorkingSets, 72);
+  assert.equal(plain.lifecycle.elapsedWeek, 2);
 }
 
 assert.deepEqual(errors, [], "no page errors during evidence journeys");

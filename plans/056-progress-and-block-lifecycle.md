@@ -7,7 +7,7 @@ and owner gates only.
 
 - **Plan number:** 056
 - **Phase:** 5 — Progress and block lifecycle
-- **Status:** In implementation; 056-P1 baseline and evidence characterization
+- **Status:** Implemented in PR #244. Progress and block-lifecycle implementation is merged; final launch validation remains Plan 059 work.
 - **Owner approval state:** Flow and evidence policy plus recovery policy
   version 2 are approved; implementation must preserve the closed recovery
   contract and still provide its required evidence

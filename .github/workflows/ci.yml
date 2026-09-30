@@ -1,0 +1,178 @@
+# One workflow, one aggregate check ("ci"). Every pull request and every push
+# to main runs the complete inventory from test/suites.mjs; the only shortcut is
+# that a prose-only change skips the test jobs. Browser work is split across
+# balanced shards so the wall time is a few minutes instead of forty. Shard
+# count lives in test/suites.mjs (CI_SHARDS); the account allows 20 concurrent
+# jobs, so two overlapping runs queue some shards for one shard's duration.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Pull requests test the reviewed head commit, not GitHub's synthetic merge
+  # commit, so a red run reproduces locally with `git checkout <sha>` and the
+  # generative seeds derived from this value are stable.
+  CI_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.plan.outputs.run }}
+      reason: ${{ steps.plan.outputs.reason }}
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - id: plan
+        run: node tools/ci-plan.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  fast:
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      - run: npm ci --prefix test
+      - run: node tools/run-tests.mjs --check
+      - run: node tools/run-tests.mjs fast --keep-going
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-${{ github.run_attempt }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 7
+
+  browser:
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    env:
+      REPFORGE_DIAGNOSTIC_REPLAY: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          # Historical migration contracts read older commits with `git show`.
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      - name: Install pinned test dependencies and the headless Chromium shell
+        working-directory: test
+        run: |
+          npm ci
+          npx playwright install --with-deps --only-shell chromium
+      - name: Run browser shard ${{ matrix.shard }}
+        run: node tools/run-tests.mjs shard "${{ matrix.shard }}" --keep-going
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ strategy.job-index }}-${{ github.run_attempt }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 7
+
+  service:
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/install-transfer/package-lock.json
+      - run: npm ci
+        working-directory: services/install-transfer
+      - run: node tools/run-tests.mjs service --keep-going
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-${{ github.run_attempt }}
+          path: .ci-results/service/
+          include-hidden-files: true
+          retention-days: 7
+
+  # The aggregate status check. It passes only when every selected job
+  # passed, and it applies the catalog-wide UI-system rule that no single shard
+  # can decide on its own.
+  ci:
+    needs: [plan, fast, browser, service]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Decided here, not by the checked-out planner: a branch cut before this
+      # workflow carries an older tools/ci-plan.mjs that never emits `run`, so
+      # every test job would be skipped and its gate script would still exit 0.
+      - name: Require a run decision from the current planner
+        env:
+          RUN: ${{ needs.plan.outputs.run }}
+          PLAN: ${{ needs.plan.result }}
+        run: |
+          if [ "$RUN" != "true" ] && [ "$RUN" != "false" ]; then
+            echo "::error::The plan job (${PLAN}) produced no run decision, so no tests ran. This branch predates the sharded CI: merge main into it so tools/ci-plan.mjs matches .github/workflows/ci.yml."
+            exit 1
+          fi
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Require every selected job to pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node tools/ci-plan.mjs gate
+      - if: needs.plan.outputs.run == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shard-*
+          path: .ci-results/shards
+      - if: needs.plan.outputs.run == 'true'
+        name: Merge the UI-system shard reports
+        run: node tools/ci-plan.mjs merge-ui-system .ci-results/shards
