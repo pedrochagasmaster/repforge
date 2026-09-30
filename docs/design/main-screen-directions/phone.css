@@ -44,6 +44,7 @@
   --elevation-sheet-shadow:0 -8px 40px rgba(var(--shadow-rgb),.18);
   --elevation-nav-shadow:var(--dock-shadow);--elevation-nav-selected-shadow:var(--dock-pill-shadow);
   --boundary-decorative:var(--rule);--boundary-required:var(--ink-soft);--boundary-selected:var(--accent-deep);
+  --boundary-floating:var(--rule-strong);--boundary-modal:var(--rule-strong);--boundary-persistent:var(--rule-strong);
   /* D rations orange (DIRECTION-D-SPEC §3): the shelf's selected field and the
      open ledger row mark selection in ink. Proposed to 058's contract review. */
   --boundary-selected-quiet:var(--ink);
@@ -821,13 +822,14 @@
 .dx .x-sec{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:54px;padding:0 16px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:1.2;text-align:center}
 .dx .x-sec .ic{width:20px;height:20px}
 .dx .x-ctabar{position:absolute;z-index:36;left:var(--gut);right:var(--gut);bottom:calc(var(--dock-b) + var(--dock-h) + 12px)}
-.dx .x-actbar{position:absolute;z-index:36;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px var(--gut) var(--dock-b);background:var(--bg);border-top:1px solid var(--boundary-decorative)}
+.dx .x-actbar{position:absolute;z-index:36;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px var(--gut) var(--dock-b);background:var(--bg);border-top:1px solid var(--boundary-persistent)}
 .dx .x-actbar .x-cta{padding:0 16px}
 
 /* exercise art: 56 px, header only. Non-illustrated and custom movements get the empty tile. */
 .dx .x-art{flex:none;display:block;width:56px;height:56px;border-radius:var(--radius-surface);overflow:hidden;background:var(--art-bg)}
 .dx .x-art img{width:100%;height:100%;object-fit:cover}
-.dx .x-art--empty{background:var(--well);box-shadow:inset 0 0 0 1px var(--rule)}
+/* The production .exthumb--empty recipe: a well ground with a decorative ring that steps up to the strong rule in dark. */
+.dx .x-art--empty{background:var(--well);box-shadow:inset 0 0 0 1px var(--rule-on-surface)}
 
 /* sheets: modal radius and depth */
 .dx .x-sheet{position:absolute;z-index:45;left:0;right:0;bottom:0;max-height:88%;display:flex;flex-direction:column;border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;background:var(--surface);box-shadow:var(--elevation-sheet-shadow)}
@@ -847,8 +849,10 @@
 .dx .x-seg button{min-height:var(--control-target);padding:4px 8px;border-radius:var(--radius-compact);color:var(--ink-soft);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:1.2;text-align:center}
 .dx .x-seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:var(--weight-semibold);box-shadow:0 0 0 1px var(--boundary-decorative)}
 
-/* the shelf: persistent-action layer */
-.dx .x-shelf{position:absolute;z-index:36;left:0;right:0;bottom:0;display:grid;gap:8px;padding:12px var(--gut) var(--dock-b);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;background:var(--surface);box-shadow:var(--elevation-persistent-shadow)}
+/* the shelf: persistent-action layer, a shallow edge and depth. Dark keeps the
+   theme's shadow channel (black, so it never casts pale) and is set apart by
+   the surface step plus the edge. */
+.dx .x-shelf{position:absolute;z-index:36;left:0;right:0;bottom:0;display:grid;gap:8px;padding:11px var(--gut) var(--dock-b);border-top:1px solid var(--boundary-persistent);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;background:var(--surface);box-shadow:var(--elevation-persistent-shadow)}
 .dx .x-fields{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px}
 .dx .x-field{display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:56px;padding:5px 12px;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);background:var(--control-field-bg);color:var(--control-field-ink)}
 .dx .x-field small{font-size:var(--font-size-caption);color:var(--ink-soft);line-height:1.2}
@@ -941,7 +945,7 @@
 .dd .d-wtop{display:grid;grid-template-columns:var(--control-target) minmax(0,1fr) auto var(--control-target) var(--control-target);align-items:center;gap:0;padding:var(--space-4) 5px 0}
 .dd .d-wtop__c{font-size:var(--font-size-body-small);line-height:1.25;color:var(--ink-soft);text-align:center;text-wrap:balance;padding:0 var(--space-4)}
 .dd .d-timer{width:auto;min-width:var(--control-target);padding:0 var(--space-8);border-radius:var(--radius-pill);display:flex;gap:var(--space-4);font:var(--weight-medium) var(--font-size-body-small) var(--font-training-data)}
-.dd .d-timer.is-live{background:var(--well);box-shadow:inset 0 0 0 1px var(--rule)}
+.dd .d-timer.is-live{background:var(--well);box-shadow:inset 0 0 0 1px var(--rule-on-surface)}
 .dd .d-timer.is-live .ic{width:18px;height:18px}
 .dd .d-seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:var(--space-4);margin:var(--space-8) var(--gut) 0}
 .dd .d-seg i{height:3px;border-radius:2px;background:var(--rule-strong)}
