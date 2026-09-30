@@ -156,8 +156,13 @@ const EXPLICIT_INPUT_RULES = [
     why: "generative property input",
   },
   {
-    match: /^\.github\/workflows\/simulation\.yml$|^tools\/(?:ci-plan|revision-diff|visual-domains)\.mjs$|^test\/suites\.mjs$/,
+    match: /^\.github\/workflows\/[^/]+\.ya?ml$|^tools\/(?:ci-plan|revision-diff|visual-domains)\.mjs$|^test\/suites\.mjs$/,
     suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
+  },
+  {
+    match: /^tools\/(?:capture-ui-screens|check-ui-screens|compare-ui-screens)\.mjs$/,
+    suiteFiles: ["test/ci.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
+    why: "catalog capture/verification tooling; the full recapture is the candidate/CI gate",
   },
   {
     match: /^tools\/ui-screens\/screens-(?:app|onboarding)\.mjs$/,
@@ -193,7 +198,7 @@ const EXPLICIT_INPUT_RULES = [
 ];
 
 const DOMAIN_RULES = [
-  { match: /^(services\/install-transfer\/|\.github\/workflows\/install-transfer-service\.yml$)/, lanes: ["service"], why: "install-transfer service gate" },
+  { match: /^services\/install-transfer\//, lanes: ["service"], why: "install-transfer service gate" },
   { match: /^(telemetry\.js|posthog-(?:adapter|init)\.js|posthog-config\.js|scripts\/generate-posthog-config\.mjs)$/, lanes: ["fast", "privacy"], why: "telemetry boundary" },
   { match: /^durable-state\.js$/, lanes: ["fast", "state", "workout"], why: "durable state and persistence engine" },
   { match: /^workout-draft\.js$/, lanes: ["fast", "state", "workout"], why: "durable workout draft" },

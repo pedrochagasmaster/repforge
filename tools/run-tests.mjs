@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { SUITES, BROWSER_LANES, commandArgs, inventoryErrors, suiteId } from "../test/suites.mjs";
+import { SUITES, BROWSER_LANES, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId } from "../test/suites.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, formatAffected, selectBranch, selectPacket, selectEdit } from "./test-selection.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
 export { maybeStartLocalPreview } from "./local-preview.mjs";
@@ -159,9 +159,11 @@ async function main() {
     return;
   }
   const target = argv.shift();
-  if (!["all", "affected", "edit", "packet", "branch", "candidate"].includes(target) && !Object.hasOwn(SUITES, target || "")) {
-    throw new Error("Usage: node tools/run-tests.mjs fast|state|entry|workout|privacy|all|edit|packet|branch|candidate|affected [--list] [--explain] [--suite file-or-stem] [--base ref] [--fail-fast|--keep-going] [--verbose], or --check");
+  if (!["all", "affected", "edit", "packet", "branch", "candidate", "shard"].includes(target) && !Object.hasOwn(SUITES, target || "")) {
+    throw new Error("Usage: node tools/run-tests.mjs fast|state|entry|workout|privacy|visual|all|edit|packet|branch|candidate|shard <k/n>|affected [--list] [--explain] [--suite file-or-stem] [--base ref] [--fail-fast|--keep-going] [--verbose], or --check");
   }
+  // `shard k/n` is the CI unit: the whole browser inventory, balanced across n runners.
+  const shard = target === "shard" ? parseShard(argv.shift()) : null;
   let list = false, explain = false, verbose = false, filter, filterId, ids, base, failurePolicy, evidence;
   while (argv.length) {
     const arg = argv.shift();
@@ -179,7 +181,7 @@ async function main() {
 
   let groups;
   const invocationStarted = Date.now();
-  if (evidence && (list || ids || ["all", "candidate", "branch", "packet", "affected", "edit"].includes(target))) {
+  if (evidence && (list || ids || ["all", "candidate", "branch", "packet", "affected", "edit", "shard"].includes(target))) {
     throw new Error("--evidence requires an executing exact lane with --suite");
   }
   let sourceBefore, evidenceFd;
@@ -193,16 +195,18 @@ async function main() {
     sourceBefore = sourceAtHead();
     if (sourceBefore.status) throw new Error("--evidence requires a clean source worktree");
   }
-  if (["affected", "branch", "edit", "packet", "candidate"].includes(target)) {
+  if (["affected", "branch", "edit", "packet", "candidate", "shard"].includes(target)) {
     if (filter || filterId) throw new Error(`${target} already selects suites; use a lane plus --suite-id for one explicit rerun`);
     if (target === "affected") console.warn("affected is the branch-wide compatibility alias; use edit or packet for local feedback.");
     const changed = target === "edit" ? changedFilesForEdit({ cwd: ROOT })
       : target === "packet" ? changedFilesForPacket({ cwd: ROOT, base: base || process.env.REPFORGE_PACKET_BASE })
-      : target === "candidate" ? { base: "HEAD", files: null }
+      : target === "candidate" || target === "shard" ? { base: "HEAD", files: null }
       : changedFilesForTests({ cwd: ROOT, base });
     const selectionBase = changed.base === "HEAD (working tree)" ? "HEAD" : changed.base;
     const plan = target === "candidate"
       ? { mode: "all", entries: Object.entries(SUITES).filter(([lane]) => lane !== "service").flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite }))), files: [], reasons: ["Complete local candidate gate; service requires its external environment."] }
+      : target === "shard"
+      ? shardPlan(shard)
       : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT, base: selectionBase });
     const selectionDurationMs = Date.now() - invocationStarted;
     console.log(`${target} base: ${changed.base || "unavailable"}`);
@@ -221,7 +225,7 @@ async function main() {
     const source = sourceIdentity(ROOT, process.env);
     const preview = await maybeStartLocalPreview(plan.entries, { cwd: ROOT });
     try {
-      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? target !== "candidate", source });
+      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? !["candidate", "shard"].includes(target), source });
       writeInvocation(target, plan.entries, reports, selectionDurationMs, invocationStarted);
     } finally { preview?.cleanup?.(); }
     return;
@@ -265,6 +269,14 @@ async function main() {
     }
     if (failure) throw failure;
   }
+}
+
+/** One CI shard: deterministic from the committed inventory, so every runner computes the same split. */
+export function shardPlan({ index, count }) {
+  const bins = shardSuites(browserEntries(), count);
+  const { entries, seconds } = bins[index - 1];
+  return { mode: "shard", entries, files: [],
+    reasons: [`Browser shard ${index}/${count}: ${entries.length} of ${browserEntries().length} browser command(s), about ${Math.round(seconds)}s measured (heaviest shard ${Math.round(Math.max(...bins.map((bin) => bin.seconds)))}s).`] };
 }
 
 function sourceAtHead() {

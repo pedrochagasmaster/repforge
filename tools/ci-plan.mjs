@@ -1,108 +1,102 @@
 #!/usr/bin/env node
-/** One inventory-backed plan for PR feedback and exact-SHA candidate CI. */
-import { execFileSync } from "node:child_process";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { SUITES, BROWSER_LANES, suiteId } from "../test/suites.mjs";
-import { selectPacket, selectBranch } from "./test-selection.mjs";
-import { selectVisuals } from "./ci-selection.mjs";
+/**
+ * CI planning for .github/workflows/ci.yml.
+ *
+ *   node tools/ci-plan.mjs        decide whether this change needs the test
+ *                                 matrix and publish the shard list
+ *   node tools/ci-plan.mjs gate   fail unless every job the plan selected passed
+ *
+ * The only narrowing CI does is "prose-only changes skip the tests". Anything
+ * else — an unknown file, an API failure, a push to main — runs the complete
+ * inventory. Test selection by ownership stays a local feedback tool
+ * (tools/test-selection.mjs); the merge gate never guesses.
+ */
+import { appendFileSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { CI_SHARDS } from "../test/suites.mjs";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SHA = /^[0-9a-f]{40}$/i;
-const git = (args, cwd = ROOT) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+const PROSE = /(?:^|\/)(?:[^/]+\.(?:md|txt)|\.gitignore|LICENSE)$/;
+const COMPARE_PAGE = 100;
+const COMPARE_LIMIT = 300;
 
-export function makeCiPlan({ event, draft = false, requestedMode, baseSha, headSha, expectedSha,
-  resolvedSha = headSha, files, manifest, cwd = ROOT }) {
-  if (!SHA.test(headSha || "")) throw new Error("CI plan needs a resolved 40-character head SHA");
-  const mode = event === "push" ? "candidate" : requestedMode || (draft ? "feedback" : "candidate");
-  if (!["feedback", "candidate"].includes(mode)) throw new Error(`Unknown CI mode: ${mode}`);
-  if (event === "workflow_dispatch") {
-    if (!SHA.test(expectedSha || "") || expectedSha !== resolvedSha || headSha !== resolvedSha) {
-      throw new Error(`Candidate ref SHA mismatch: expected ${expectedSha || "(missing)"}, resolved ${resolvedSha}`);
-    }
-  }
-  if (mode === "feedback" && (!SHA.test(baseSha || "") || !files)) {
-    throw new Error("Feedback requires a resolved base SHA and changed-file list");
-  }
-  const selectionContext = { cwd, base: baseSha };
-  const selected = mode === "candidate"
-    ? Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })))
-    : selectPacket(files, selectionContext).entries;
-  const tests = Object.fromEntries(Object.keys(SUITES).map((lane) =>
-    [lane, selected.filter((entry) => entry.lane === lane).map(({ suite }) => suiteId(suite))]));
-  const visual = event === "push"
-    ? selectVisuals([], manifest, { force: true })
-    : selectVisuals(files, manifest, { cwd, base: baseSha });
-  const browser = [...BROWSER_LANES].filter((lane) => tests[lane].length);
-  const legacyIds = mode === "feedback" ? selectBranch(files, selectionContext).entries.map(({ suite }) => suiteId(suite)) : [];
-  const selectedIds = new Set(Object.values(tests).flat());
-  return {
-    schemaVersion: 1, mode, event, baseSha: baseSha || null, headSha, tests,
-    service: { required: tests.service.length > 0, commands: tests.service },
-    browser, visual,
-    shadow: mode === "feedback" ? { legacyCount: legacyIds.length,
-      omittedFromFeedback: legacyIds.filter((id) => !selectedIds.has(id)),
-      reason: "Candidate-tier commands remain in the exhaustive candidate/main gate unless directly changed or high-risk-owned." } : null,
-    reasons: mode === "candidate"
-      ? ["Exhaustive exact-SHA contract gate; visual evidence is change-proportional on PR candidates and widens to full on unknown ownership."]
-      : selectPacket(files, selectionContext).reasons,
-  };
+export function classifyChange(files) {
+  if (!Array.isArray(files)) return { run: true, reason: "Changed files are unknown; run everything rather than guess." };
+  if (!files.length) return { run: true, reason: "No changed files were reported; run everything." };
+  const code = files.filter((file) => !PROSE.test(file));
+  if (!code.length) return { run: false, reason: `Only prose changed (${files.length} file(s)); nothing executable can differ.` };
+  return { run: true, reason: `Executable or unknown input changed: ${code.slice(0, 6).join(", ")}${code.length > 6 ? ` and ${code.length - 6} more` : ""}.` };
 }
 
-export function requireSelectedCiResults(needs, { log = console.log } = {}) {
-  const outputs = needs?.plan?.outputs || {};
-  const selected = (name) =>
-    name === "plan" ||
-    name === "verification-evidence" ||
-    name === "interaction-runtime" && Boolean(outputs.fast) ||
-    name === "browser" && outputs.browser !== "[]" ||
-    name === "install-transfer-service" && outputs.service === "true" ||
-    name === "visual-evidence" && outputs.visual !== "none";
-  const failures = [];
-  for (const [name, job] of Object.entries(needs || {})) {
-    const required = selected(name);
-    const expected = required ? "success" : "skipped";
-    log(`${name}: ${job.result}${required ? " (required)" : " (not selected)"}`);
-    if (job.result !== expected) failures.push(`${name}: expected ${expected}, got ${job.result}`);
-  }
-  if (failures.length) throw new Error(`CI aggregate failed: ${failures.join("; ")}`);
+export function shardMatrix(count = CI_SHARDS) {
+  return Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 }
 
-export function resolveCiInputs(env = process.env, cwd = ROOT) {
+/** Files a pull request changes relative to its merge base, from the compare API; null when that is not knowable. */
+export async function pullRequestFiles({ apiUrl, repository, base, head, token, fetchImpl = globalThis.fetch }) {
+  const files = [];
+  for (let page = 1; files.length < COMPARE_LIMIT; page++) {
+    const response = await fetchImpl(`${apiUrl}/repos/${repository}/compare/${base}...${head}?per_page=${COMPARE_PAGE}&page=${page}`, {
+      headers: { accept: "application/vnd.github+json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!response.ok) throw new Error(`compare API answered HTTP ${response.status}`);
+    const body = await response.json();
+    const batch = (body.files || []).map((file) => file.filename);
+    files.push(...batch);
+    for (const file of body.files || []) if (file.previous_filename) files.push(file.previous_filename);
+    if (batch.length < COMPARE_PAGE) return files;
+  }
+  // The compare API caps the file list; a change this large is not "prose only".
+  return null;
+}
+
+export async function resolvePlan(env = process.env, { fetchImpl } = {}) {
   const event = env.GITHUB_EVENT_NAME || "workflow_dispatch";
   const payload = env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8")) : {};
-  const headSha = git(["rev-parse", "HEAD"], cwd);
-  let baseSha = payload.pull_request?.base?.sha || env.CI_BASE_SHA || payload.before || null;
-  if (!baseSha && event === "workflow_dispatch") {
-    for (const ref of ["origin/main", "main"]) {
-      try { baseSha = git(["merge-base", "HEAD", ref], cwd); break; } catch {}
-    }
-  }
-  const draft = Boolean(payload.pull_request?.draft);
-  const requestedMode = payload.inputs?.mode || env.CI_MODE;
-  const expectedSha = payload.inputs?.expected_sha || env.CI_EXPECTED_SHA;
+  const head = payload.pull_request?.head?.sha || env.GITHUB_SHA || null;
+  if (event !== "pull_request") return { event, head, ...classifyChange(null), reason: `${event} runs the complete inventory.` , files: null };
   let files = null;
-  if (baseSha && SHA.test(baseSha)) {
-    try {
-      files = git(["diff", "--name-only", "--no-renames", baseSha, "HEAD", "--"], cwd).split("\n").filter(Boolean);
-    } catch { files = null; }
+  try {
+    files = await pullRequestFiles({ apiUrl: env.GITHUB_API_URL || "https://api.github.com", repository: env.GITHUB_REPOSITORY,
+      base: payload.pull_request.base.sha, head: payload.pull_request.head.sha, token: env.GITHUB_TOKEN, fetchImpl });
+  } catch (error) {
+    console.warn(`Could not list changed files (${error.message}); running everything.`);
   }
-  return { event, draft, requestedMode, expectedSha, baseSha, headSha, resolvedSha: headSha, files };
+  return { event, head, files, ...classifyChange(files) };
+}
+
+/** The aggregate: every job the plan selected must have succeeded, and nothing selected may have been skipped. */
+export function gateResults(needs, { log = console.log } = {}) {
+  const plan = needs?.plan;
+  if (plan?.result !== "success") throw new Error(`CI gate: plan job ${plan?.result || "missing"}`);
+  const run = plan.outputs?.run === "true";
+  const failures = [];
+  for (const [name, job] of Object.entries(needs)) {
+    if (name === "plan") continue;
+    const expected = run ? "success" : "skipped";
+    log(`${name}: ${job.result}${run ? " (required)" : " (not selected)"}`);
+    if (job.result !== expected) failures.push(`${name}: expected ${expected}, got ${job.result}`);
+  }
+  if (failures.length) throw new Error(`CI gate failed: ${failures.join("; ")}`);
+  log(run ? "Every selected job passed." : `Nothing to run: ${plan.outputs?.reason || "prose-only change"}.`);
+}
+
+async function main(argv) {
+  if (argv[0] === "gate") {
+    gateResults(JSON.parse(process.env.NEEDS || "{}"));
+    return;
+  }
+  const plan = await resolvePlan();
+  const shards = shardMatrix();
+  console.log(`${plan.event} ${plan.head}: run=${plan.run} — ${plan.reason}`);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
+    `run=${plan.run}\nreason=${plan.reason.replaceAll("\n", " ")}\nshards=${JSON.stringify(shards)}\n`);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+    `## CI plan\n\n- Source: ${plan.head}\n- Run tests: **${plan.run ? "yes" : "no"}** — ${plan.reason}\n- Browser shards: ${shards.length}\n` +
+    (plan.files ? `- Changed files: ${plan.files.length}\n` : ""));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  try {
-    const manifest = JSON.parse(readFileSync(join(ROOT, "docs/ui-screens/manifest.json"), "utf8"));
-    const plan = makeCiPlan({ ...resolveCiInputs(), manifest });
-    mkdirSync(join(ROOT, ".ci-results"), { recursive: true });
-    writeFileSync(join(ROOT, ".ci-results/ci-plan.json"), JSON.stringify(plan, null, 2) + "\n");
-    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
-      `mode=${plan.mode}\nhead=${plan.headSha}\nbrowser=${JSON.stringify(plan.browser)}\nfast=${plan.tests.fast.join(",")}\nprivacy=${plan.tests.privacy.join(",")}\nservice=${plan.service.required}\nvisual=${plan.visual.mode}\n`);
-    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-      `## ${plan.mode === "candidate" ? "Candidate CI — exhaustive contracts" : "Feedback CI — not merge evidence"}\n\nBase: ${plan.baseSha || "—"}  \nHead: ${plan.headSha}\n\n` +
-      Object.entries(plan.tests).map(([lane, ids]) => `- ${lane}: ${ids.length} commands`).join("\n") +
-      `\n- visual: ${plan.visual.mode}${plan.visual.screens.length ? ` (${plan.visual.screens.length} screens)` : ""}\n\nWhy: ${plan.reasons.join("; ")}\n`);
-    console.log(`${plan.mode} ${plan.headSha}: ${Object.values(plan.tests).reduce((n, ids) => n + ids.length, 0)} commands; visual ${plan.visual.mode}`);
-  } catch (error) { console.error(error.stack || error); process.exitCode = 1; }
+  main(process.argv.slice(2)).catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
 }
