@@ -6347,8 +6347,13 @@ function renderExActionsSheet(exId) {
         const type = set.role === "warmup" ? "markWorking" : "markWarmup";
         const res = await WorkoutSession.dispatch(type, { exerciseInstanceId: exId, setId: sid });
         if (res.status === "applied") {
+          // The rerender replaces this button; carry keyboard focus to the same set's new control.
+          const hadFocus = document.activeElement === btn && sheet.classList.contains("is-open");
           renderWorkout();
           renderExActionsSheet(exId);
+          if (hadFocus && sheet.classList.contains("is-open")) {
+            warmupList.querySelector(`[data-warm-toggle-set="${CSS.escape(sid)}"]`)?.focus({ preventScroll: true });
+          }
         }
       };
     });

@@ -66,7 +66,7 @@ remediation owner; no product fix or retained suite was added here.
 | A01, P1 | CLOSED by PR #284: core acceptance/promotion fix `8d5f77ed397c866c298cbebc3a249f73f5173777`; staged-new-draft correction `2c7c1732d1f06eaab033a556e31d400ea413d431` | `test/draftv2-staged-cas.mjs` rejects a second writer from the same predecessor and preserves the accepted aggregate through promotion and reload | No A01 follow-up |
 | A02, P2 | CLOSED by fix branch `fix/a02-history-rir-provenance`: `history-ui.js` marks a valid History RIR entry `rirMeasured:true` | `test/history-edit.mjs` saves RIR 2 through the real editor to both replicas, reloads, and the Strength evidence owner no longer reports `missing-effort`; load, reps and date-only edits, invalid RIR, cancel and sibling rows preserve provenance | No A02 follow-up; the evidence filter is unchanged |
 | A03, P2 | CLOSED by fix branch `fix/a03-calendar-week-arithmetic`: `progress-model.js` routes every numbered-day count through one UTC calendar-day helper | `test/progress-evidence.mjs` runs the production Volume evidence in `America/New_York` at 2026-03-09 (week 2, March 9–15, March 9 session included, block-to-date 2 weeks, 6 sessions/72 sets) with fall-DST and ordinary controls; `window.__repforgeMesocycleWeek()` in the same browser test covers the app lifecycle; `test/progress-model-dst.mjs` covers week status, Review checkpoint and completion boundary, this-week and block-to-date Volume | No A03 follow-up |
-| A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Narrow stage-4 focus-continuity fix before #255; D retains this utility |
+| A04, P2 | CLOSED by fix branch `fix/a04-exercise-actions-focus`: the set-role toggle handler in `app.js` restores focus to the same set's new `[data-warm-toggle-set]` control after a successful dispatch | `test/focus-exercise-actions.mjs` (390px, reduced motion) presses Enter on the first toggle in both directions, asserts focus on the same set's control, and that the next Tab goes to the DOM-order successor and stays inside the sheet; a pointer click still flips the role; a stale set id moves no focus | No A04 follow-up; Next/Previous arrow focus parity remains a separate retained gap |
 | A05, former P2 | CLOSED — fixed by #256, History convergence `dbf55da1`, with EN/PT computed typography proof | Catalog and external computed-root 200% both double data, headings and action labels; scaling survives reload | No fix. Preserve scaling proof in D and final 059 evidence |
 | N01, P3 | OPEN | PT sheet still says `Quadríceps · 2 sets` | Direction D #272's retained exercise-actions copy |
 | N02, P3 | OPEN | Live read-only Today Preview with an authoritative `effort_target@1` RIR 2–3 prescription shows sets/reps/muscle but no effort target | Direction D #272 decision 9 / Today preview retirement, with removal and no-draft evidence |
@@ -339,7 +339,7 @@ exact #271 main `f7b516361ef1083b7395f144c613a32817706722` by test commit
 The closing regression is `test/draftv2-staged-cas.mjs`; it checks same-revision
 rejection, sequential writes, the pending transaction path, sidecar publication,
 checkpoint, canonical promotion, failure and retry, and reload. A02 is closed by the History editor fix described in its finding
-section; A03 and A04 remain open in the current matrix.
+section; A03 and A04 are closed by their fix branches.
 
 #### A02 · P2 · History RIR corrections remain excluded from strength evidence
 
@@ -383,7 +383,11 @@ This implementation was introduced by Plan 055. Next/Previous exercise arrows al
 
 Requirement: Plan 055's keyboard parity and correct sheet focus behavior.
 
+Closed: after a successful dispatch, the toggle handler records whether the pressed button held focus in an open sheet, rerenders, and focuses the new control with the same `data-warm-toggle-set` (`preventScroll`). A failed or stale dispatch never reaches that code, and focus that was not on the toggle is left alone.
+
 Closing evidence: preserve or restore focus to the corresponding set control after rendering. Assert focus and next Tab position after both warm-up and working-set toggles. Cover the navigation-arrow continuity separately.
+
+Closing evidence (fix branch `fix/a04-exercise-actions-focus`): `test/focus-exercise-actions.mjs` failed on unmodified code (`activeElement` BODY; Tab went to `#exActionSubstBtn` instead of the DOM-order successor) and passes after the fix in both directions. The navigation-arrow gap is untouched.
 
 The browser reproduction ran at 390px with reduced motion. It used keyboard activation, inspected `document.activeElement`, and checked the next Tab destination.
 
