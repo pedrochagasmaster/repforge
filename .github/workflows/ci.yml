@@ -145,6 +145,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Decided here, not by the checked-out planner: a branch cut before this
+      # workflow carries an older tools/ci-plan.mjs that never emits `run`, so
+      # every test job would be skipped and its gate script would still exit 0.
+      - name: Require a run decision from the current planner
+        env:
+          RUN: ${{ needs.plan.outputs.run }}
+          PLAN: ${{ needs.plan.result }}
+        run: |
+          if [ "$RUN" != "true" ] && [ "$RUN" != "false" ]; then
+            echo "::error::The plan job (${PLAN}) produced no run decision, so no tests ran. This branch predates the sharded CI: merge main into it so tools/ci-plan.mjs matches .github/workflows/ci.yml."
+            exit 1
+          fi
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
