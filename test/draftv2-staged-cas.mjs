@@ -240,6 +240,56 @@ async function runSamePredecessorRace({ pausedWriter, pausedField, competingFiel
   return observation;
 }
 
+async function verifyStaleWriterAfterSidecarPublication() {
+  const context = await newContext();
+  const owner = await startWorkout(context, { seed: true });
+  const acceptedWriter = await startWorkout(context);
+  const staleWriter = await startWorkout(context);
+  const predecessors = await Promise.all([acceptedWriter, staleWriter].map((page) => page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    return { draftId: draft.draftId, revision: draft.revision };
+  })));
+  assert.deepEqual(predecessors[0], predecessors[1], "both production dispatchers read one predecessor before either edit");
+  const predecessor = (await stored(acceptedWriter)).raw;
+
+  await holdStateTransaction(owner);
+  const accepted = await dispatchField(acceptedWriter, "load");
+  const staged = await stored(owner);
+  const stagedDraft = draftEdits(staged.sidecars.at(-1)?.value?.raw);
+  const stale = await dispatchField(staleWriter, "reps");
+  const beforePromotion = await stored(owner);
+  const stateResult = await releaseStateTransaction(owner);
+  const promoted = await stored(owner);
+  await acceptedWriter.reload({ waitUntil: "domcontentloaded" });
+  await acceptedWriter.waitForFunction(() => window.__repforgeBooted === true);
+  const reloaded = await stored(acceptedWriter);
+  const observation = {
+    predecessor: draftEdits(predecessor), accepted: accepted.status, stale: stale.status,
+    staged: stagedDraft, checkpointBeforePromotion: draftEdits(staged.checkpoint?.raw),
+    sidecarsBeforePromotion: staged.sidecars.length, sidecarsAfterStaleAttempt: beforePromotion.sidecars.length,
+    stateTransaction: { code: stateResult.code, conflict: stateResult.conflict === true,
+      localOk: stateResult.localOk, idbOk: stateResult.idbOk },
+    promoted: draftEdits(promoted.raw), checkpointMatches: promoted.checkpoint?.raw === promoted.raw,
+    sidecarsAfterPromotion: promoted.sidecars.length, reloaded: draftEdits(reloaded.raw),
+    reloadExact: reloaded.raw === promoted.raw, reloadCheckpointMatches: reloaded.checkpoint?.raw === reloaded.raw,
+    reloadSidecars: reloaded.sidecars.length,
+  };
+  assert.equal(accepted.status, "applied", JSON.stringify(observation));
+  assert.equal(stagedDraft.revision, predecessors[0].revision + 1, JSON.stringify(observation));
+  assert.equal(stagedDraft.load, "80", JSON.stringify(observation));
+  assert.equal(staged.checkpoint?.raw, predecessor, JSON.stringify(observation));
+  assert.equal(stale.status, "stale", JSON.stringify(observation));
+  assert.equal(beforePromotion.sidecars.length, 1, JSON.stringify(observation));
+  assert.equal(draftEdits(beforePromotion.sidecars[0].value.raw).load, "80", JSON.stringify(observation));
+  assert.equal(draftEdits(promoted.raw).load, "80", JSON.stringify(observation));
+  assert.equal(promoted.checkpoint?.raw, promoted.raw, JSON.stringify(observation));
+  assert.equal(promoted.sidecars.length, 0, JSON.stringify(observation));
+  assert.equal(reloaded.raw, promoted.raw, JSON.stringify(observation));
+  assert.equal(reloaded.checkpoint?.raw, reloaded.raw, JSON.stringify(observation));
+  assert.equal(reloaded.sidecars.length, 0, JSON.stringify(observation));
+  return observation;
+}
+
 async function verifyCheckpointMissingFailsClosed() {
   const context = await newContext();
   const owner = await startWorkout(context, { seed: true });
@@ -375,6 +425,7 @@ async function verifyStaleSidecarCannotRegressCanonical() {
 try {
   await runSamePredecessorRace({ pausedWriter: "A", pausedField: "load", competingField: "reps" });
   await runSamePredecessorRace({ pausedWriter: "B", pausedField: "reps", competingField: "load" });
+  await verifyStaleWriterAfterSidecarPublication();
   await verifyCheckpointMissingFailsClosed();
   await verifyReloadReplaysBeforePromotion();
   await verifyFailedSidecarWriteCanRetry();
