@@ -39,6 +39,24 @@ share a screen language with.
 | F19 | `rec-schedule`, `rec-priorities` · pt/light/390 | Three rows of chrome above the h1 (route + counter, segbar, answer rail) with 4–8 px between them; the title arrives cramped. | Chrome keeps every element; the counter moves in line with the segbar's row, the rail gets 12 px above and 20 below, so the h1 is the first thing with air around it. | D §3 space |
 | F20 | `landing`, `shared-gate` · pt/light/390 | The landing is the strongest screen and the one the visual gate protects; only its brand row (44 px mark, .24em wordmark) and 14 px stack are off the new scale. | Brand row on the scale (16 below), wordmark .2em; no other change. | 058 landing contextual variant (kept) |
 
+## Notes after the pass
+
+- F01: the strip's cells are `dias de treino · min por sessão · exercícios
+  · séries de trabalho` (new `g.facts.*` strings, PT first); the value
+  column is left-aligned like a ledger, not centred.
+- F03: the week's index column is a Mono number, and the exercise list is
+  indented to the day name (34 px) at 100% text and flush at 200%.
+- F09: the region keeps the sticky `.pinned` recipe and adds a solid
+  ground and hairline in G's scope; the page's own bottom padding already
+  keeps content clear of it at scroll end.
+- F11: at 200% the before/after grid stacks (label over value) and the
+  values use caption, so K-28 holds at 320.
+- F13: the featured block keeps the accent outline and eyebrow; only the
+  head tint went.
+- F14: the enter animation is added when the editor or statement is
+  revealed, not on every re-render, so picking inside an editor never
+  re-plays it.
+
 ## What is not a finding
 
 - The full-page acceptance shots show the pinned action mid-page: that is

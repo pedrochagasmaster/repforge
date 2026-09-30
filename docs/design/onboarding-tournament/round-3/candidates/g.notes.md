@@ -60,6 +60,49 @@ fix the judges found.
   environment). The owner did not decide F's single filter screen, so the
   spec default stands.
 
+## Polish pass (after Round 4)
+
+The owner found G too timid: today's onboarding, tidied up. A polish pass
+(`round-3/polish/AUDIT.md`, commits listed in `round-3/manifest.md`)
+changed only how G looks and moves. Structure, steps, controls, routes,
+information, copy meaning and every Q622–Q637 decision are as above.
+
+What G now does that D's source did not:
+
+- **Type.** Group questions are body 16/600 sentence case (not uppercase
+  labels); review section heads are subtitle 18/600; the program name is
+  the page title (30). The label tier is kept for eyebrows, "Você faz /
+  Você recebe", ANTES/AGORA and "novo".
+- **The review's facts** are a strip of four Mono metric values with their
+  unit in caption (2×2 at 320 and at 200%). The catalog facts sentence
+  stays as the strip's accessible text, so meaning is unchanged. New
+  strings: `g.facts.days`, `g.facts.day_one`, `g.facts.minutes`,
+  `g.facts.sets` (PT and EN).
+- **Bands, not boxes.** Inside a route page the week, the carried goal,
+  cards (`.card`), disclosures and the import metrics are hairline-ruled
+  bands. These are scoped compositions over base recipes
+  (`.g-main .day`, `.g-main .card`, `.g-main .disclosure`,
+  `.g-main .metrics`); no base recipe is redefined. One override reaches
+  into the shared import review's inline padding
+  (`.g-main .card>div[style^="padding:0 14px"]`) so its rows sit on the
+  page grid; it is noted as a shared-harness proposal.
+- **Spacing.** One scale, 4 · 8 · 12 · 16 · 20 · 28; page heads are an
+  intro stack; no negative margins.
+- **Accent budget.** Reason and constraint icons, free-form stage heads
+  and the quiet Build link are ink. The accent marks the primary arrow,
+  progress, selection, the featured outline, the change rail and "novo".
+- **States.** Numeric cards carry Mono metric values; every selection
+  control has the shared pressed transform and a short transition; answer
+  chips have no per-chip icon and use the selection boundary.
+- **Pinned region.** Solid ground with a hairline; the disabled primary
+  drops its arrow and keeps its reason line above it.
+- **Dark.** Decision panels (editor, change statement, helper) and the
+  "novo" row use the surface material so they read as raised bands.
+- **Motion.** Editor, change statement and "novo" rows rise 6 px over 200
+  ms once, when revealed (`.g-enter`, added in `revealEditor` and
+  `showChange`); the day chevron turns; Today enters with the shared view
+  fade. Reduced motion is the shared rule.
+
 ## Verification
 
-Frozen run (`round-3/acceptance/summary.md`): 360/360 checkpoint cells with no warnings, 122/122 journeys, 61/61 interaction checks.
+Frozen run (`round-3/acceptance/summary.md`): 360/360 checkpoint cells with no warnings, 122/122 journeys, 61/61 interaction checks. The polish pass reproduced that result before and after its commits (`round-3/manifest.md`, "Polish pass").

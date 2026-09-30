@@ -245,6 +245,16 @@ no judges (Q626). G passed 360 of 360 checkpoint cells, 122 of 122 journeys
 and 61 of 61 interaction checks. Rafael reaches Today in 13 taps
 (`round-3/manifest.md`). G is today's onboarding, polished and fixed.
 
+After Round 4 the owner asked for G at a premium finish without a
+redesign. A polish pass (`round-3/polish/AUDIT.md`, nine commits in
+`round-3/manifest.md`) put the review's facts in a Mono metric strip, made
+the week and every group a hairline band instead of nested cards, set
+questions and section heads in sentence case on the 058 body and subtitle
+roles, rationed the accent to the arrow, progress, selection and the
+change rail, and gave options and chips one height and a pressed state.
+Structure, taps (13 / 6 / 5) and every Q622–Q637 decision are unchanged;
+acceptance is again 360/360, 122/122 and 61/61.
+
 ### Round 4
 
 After seeing G, the owner found it too timid and asked for five

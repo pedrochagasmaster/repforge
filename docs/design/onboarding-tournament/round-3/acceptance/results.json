@@ -1,8 +1,8 @@
 {
- "base": "http://127.0.0.1:8123/docs/design/onboarding-tournament/",
+ "base": "http://127.0.0.1:8000/docs/design/onboarding-tournament/",
  "round": "3",
  "doc": "round-3/app.html",
- "generatedAt": "2026-09-29T15:44:55.606Z",
+ "generatedAt": "2026-09-30T02:08:55.671Z",
  "cells": [
   {
    "n": 1,
@@ -237,8 +237,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -262,8 +262,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -287,8 +287,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -312,8 +312,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Onde você treina"
@@ -337,8 +337,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Prioridades e restrições"
@@ -362,8 +362,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Ganhar massa"
@@ -387,8 +387,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Onde você treina"
@@ -412,8 +412,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Treine em qualquer lugar"
@@ -437,8 +437,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Prioridades e restrições"
@@ -462,8 +462,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Ganhar massa"
@@ -487,8 +487,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -531,8 +531,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Massa + força · 4 dias"
@@ -556,8 +556,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Prioridades musculares"
@@ -581,8 +581,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Preferências de exercícios"
@@ -606,8 +606,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "A estrutura do seu programa"
@@ -631,8 +631,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Massa + força"
@@ -656,8 +656,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Montar um programa"
@@ -681,8 +681,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.12
+      "height": 107,
+      "share": 0.126
      }
     ],
     "title": "Meu programa"
@@ -706,8 +706,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.12
+      "height": 107,
+      "share": 0.126
      }
     ],
     "title": "Meu programa"
@@ -731,8 +731,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Meu programa"
@@ -908,8 +908,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.12
+      "height": 107,
+      "share": 0.126
      }
     ],
     "title": "Revise os exercícios"
@@ -933,8 +933,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Treino do Rafael"
@@ -977,8 +977,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Programa do treinador"
@@ -1040,8 +1040,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.117
+      "height": 103,
+      "share": 0.122
      }
     ],
     "title": "Ganhar massa"
@@ -1065,8 +1065,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.117
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Ganhar massa"
@@ -1128,8 +1128,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -1153,8 +1153,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Ganhar massa"
@@ -1255,8 +1255,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Your goal and recent training"
@@ -1280,8 +1280,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Your goal and recent training"
@@ -1305,8 +1305,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Fit training into your week"
@@ -1330,8 +1330,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Where you train"
@@ -1355,8 +1355,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Priorities and constraints"
@@ -1380,8 +1380,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Build Muscle"
@@ -1405,8 +1405,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Where you train"
@@ -1430,8 +1430,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Train Anywhere"
@@ -1455,8 +1455,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Priorities and constraints"
@@ -1480,8 +1480,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Build Muscle"
@@ -1505,8 +1505,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Fit training into your week"
@@ -1549,8 +1549,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Muscle + Strength · 4 days"
@@ -1574,8 +1574,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Muscle priorities"
@@ -1599,8 +1599,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Exercise preferences"
@@ -1624,8 +1624,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Your weekly structure"
@@ -1649,8 +1649,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Muscle + Strength"
@@ -1674,8 +1674,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Build a program"
@@ -1699,8 +1699,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.12
+      "height": 107,
+      "share": 0.126
      }
     ],
     "title": "My program"
@@ -1724,8 +1724,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.12
+      "height": 107,
+      "share": 0.126
      }
     ],
     "title": "My program"
@@ -1749,8 +1749,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "My program"
@@ -1926,8 +1926,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.12
+      "height": 107,
+      "share": 0.126
      }
     ],
     "title": "Review the exercises"
@@ -1951,8 +1951,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Rafael's program"
@@ -1995,8 +1995,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Coach program"
@@ -2058,8 +2058,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.117
+      "height": 103,
+      "share": 0.122
      }
     ],
     "title": "Build Muscle"
@@ -2083,8 +2083,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.117
+      "height": 103,
+      "share": 0.122
      }
     ],
     "title": "Build Muscle"
@@ -2146,8 +2146,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Fit training into your week"
@@ -2171,8 +2171,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.088
+      "height": 79,
+      "share": 0.094
      }
     ],
     "title": "Build Muscle"
@@ -2272,8 +2272,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -2297,8 +2297,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -2322,8 +2322,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -2347,8 +2347,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Onde você treina"
@@ -2372,8 +2372,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.173
+      "height": 103,
+      "share": 0.182
      }
     ],
     "title": "Prioridades e restrições"
@@ -2397,8 +2397,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Ganhar massa"
@@ -2422,8 +2422,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Onde você treina"
@@ -2447,8 +2447,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Treine em qualquer lugar"
@@ -2472,8 +2472,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.173
+      "height": 103,
+      "share": 0.182
      }
     ],
     "title": "Prioridades e restrições"
@@ -2497,8 +2497,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Ganhar massa"
@@ -2522,8 +2522,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -2566,8 +2566,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Massa + força · 4 dias"
@@ -2591,8 +2591,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Prioridades musculares"
@@ -2616,8 +2616,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Preferências de exercícios"
@@ -2641,8 +2641,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "A estrutura do seu programa"
@@ -2666,8 +2666,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Massa + força"
@@ -2691,8 +2691,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Montar um programa"
@@ -2716,8 +2716,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Meu programa"
@@ -2741,8 +2741,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Meu programa"
@@ -2766,8 +2766,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Meu programa"
@@ -2943,8 +2943,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Revise os exercícios"
@@ -2968,8 +2968,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Treino do Rafael"
@@ -3012,8 +3012,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Programa do treinador"
@@ -3075,8 +3075,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.173
+      "height": 103,
+      "share": 0.182
      }
     ],
     "title": "Ganhar massa"
@@ -3100,8 +3100,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.173
+      "height": 103,
+      "share": 0.182
      }
     ],
     "title": "Ganhar massa"
@@ -3163,8 +3163,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -3188,8 +3188,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.13
+      "height": 79,
+      "share": 0.139
      }
     ],
     "title": "Ganhar massa"
@@ -3289,8 +3289,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -3314,8 +3314,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -3339,8 +3339,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -3364,8 +3364,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Onde você treina"
@@ -3389,8 +3389,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.145
+      "height": 127,
+      "share": 0.15
      }
     ],
     "title": "Prioridades e restrições"
@@ -3414,8 +3414,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Ganhar massa"
@@ -3439,8 +3439,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Onde você treina"
@@ -3464,8 +3464,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Treine em qualquer lugar"
@@ -3489,8 +3489,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.145
+      "height": 127,
+      "share": 0.15
      }
     ],
     "title": "Prioridades e restrições"
@@ -3514,8 +3514,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Ganhar massa"
@@ -3539,8 +3539,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -3583,8 +3583,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Massa + força · 4 dias"
@@ -3608,8 +3608,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Prioridades musculares"
@@ -3633,8 +3633,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Preferências de exercícios"
@@ -3658,8 +3658,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "A estrutura do seu programa"
@@ -3683,8 +3683,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Massa + força"
@@ -3708,8 +3708,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Montar um programa"
@@ -3733,8 +3733,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Meu programa"
@@ -3758,8 +3758,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Meu programa"
@@ -3783,8 +3783,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Meu programa"
@@ -3960,8 +3960,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Revise os exercícios"
@@ -3985,8 +3985,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Treino do Rafael"
@@ -4029,8 +4029,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Programa do treinador"
@@ -4092,8 +4092,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.145
+      "height": 127,
+      "share": 0.15
      }
     ],
     "title": "Ganhar massa"
@@ -4117,8 +4117,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.145
+      "height": 127,
+      "share": 0.15
      }
     ],
     "title": "Ganhar massa"
@@ -4180,8 +4180,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -4205,8 +4205,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.097
+      "height": 87,
+      "share": 0.103
      }
     ],
     "title": "Ganhar massa"
@@ -4310,8 +4310,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Your goal and recent training"
@@ -4336,8 +4336,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Your goal and recent training"
@@ -4362,8 +4362,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Fit training into your week"
@@ -4388,8 +4388,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Where you train"
@@ -4414,8 +4414,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Priorities and constraints"
@@ -4440,8 +4440,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Build Muscle"
@@ -4466,8 +4466,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Where you train"
@@ -4492,8 +4492,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Train Anywhere"
@@ -4518,8 +4518,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Priorities and constraints"
@@ -4544,8 +4544,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Build Muscle"
@@ -4570,8 +4570,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Fit training into your week"
@@ -4616,8 +4616,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Muscle + Strength · 4 days"
@@ -4642,8 +4642,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Muscle priorities"
@@ -4668,8 +4668,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Exercise preferences"
@@ -4694,8 +4694,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Your weekly structure"
@@ -4720,8 +4720,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Muscle + Strength"
@@ -4746,8 +4746,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Build a program"
@@ -4772,8 +4772,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.109
+      "height": 107,
+      "share": 0.114
      }
     ],
     "title": "My program"
@@ -4798,8 +4798,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.109
+      "height": 107,
+      "share": 0.114
      }
     ],
     "title": "My program"
@@ -4824,8 +4824,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "My program"
@@ -5010,8 +5010,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.109
+      "height": 107,
+      "share": 0.114
      }
     ],
     "title": "Review the exercises"
@@ -5036,8 +5036,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Rafael's program"
@@ -5082,8 +5082,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Coach program"
@@ -5148,8 +5148,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.106
+      "height": 103,
+      "share": 0.111
      }
     ],
     "title": "Build Muscle"
@@ -5174,8 +5174,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.106
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Build Muscle"
@@ -5240,8 +5240,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Fit training into your week"
@@ -5266,8 +5266,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Build Muscle"
@@ -5368,8 +5368,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -5393,8 +5393,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -5418,8 +5418,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -5443,8 +5443,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Onde você treina"
@@ -5468,8 +5468,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Prioridades e restrições"
@@ -5493,8 +5493,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Ganhar massa"
@@ -5518,8 +5518,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Onde você treina"
@@ -5543,8 +5543,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Treine em qualquer lugar"
@@ -5568,8 +5568,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Prioridades e restrições"
@@ -5593,8 +5593,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Ganhar massa"
@@ -5618,8 +5618,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -5662,8 +5662,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Massa + força · 4 dias"
@@ -5687,8 +5687,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Prioridades musculares"
@@ -5712,8 +5712,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Preferências de exercícios"
@@ -5737,8 +5737,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "A estrutura do seu programa"
@@ -5762,8 +5762,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Massa + força"
@@ -5787,8 +5787,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Montar um programa"
@@ -5812,8 +5812,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Meu programa"
@@ -5837,8 +5837,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Meu programa"
@@ -5862,8 +5862,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Meu programa"
@@ -6039,8 +6039,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Revise os exercícios"
@@ -6064,8 +6064,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Treino do Rafael"
@@ -6108,8 +6108,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Programa do treinador"
@@ -6171,8 +6171,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 162,
-      "share": 0.285
+      "height": 167,
+      "share": 0.294
      }
     ],
     "title": "Ganhar massa"
@@ -6196,8 +6196,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 162,
-      "share": 0.285
+      "height": 167,
+      "share": 0.294
      }
     ],
     "title": "Ganhar massa"
@@ -6259,8 +6259,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -6284,8 +6284,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Ganhar massa"
@@ -6385,8 +6385,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -6410,8 +6410,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Seu objetivo e seu treino recente"
@@ -6435,8 +6435,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -6460,8 +6460,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Onde você treina"
@@ -6485,8 +6485,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Prioridades e restrições"
@@ -6510,8 +6510,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Ganhar massa"
@@ -6535,8 +6535,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Onde você treina"
@@ -6560,8 +6560,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Treine em qualquer lugar"
@@ -6585,8 +6585,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Prioridades e restrições"
@@ -6610,8 +6610,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Ganhar massa"
@@ -6635,8 +6635,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -6679,8 +6679,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Massa + força · 4 dias"
@@ -6704,8 +6704,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Prioridades musculares"
@@ -6729,8 +6729,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Preferências de exercícios"
@@ -6754,8 +6754,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "A estrutura do seu programa"
@@ -6779,8 +6779,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Massa + força"
@@ -6804,8 +6804,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Montar um programa"
@@ -6829,8 +6829,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.109
+      "height": 107,
+      "share": 0.114
      }
     ],
     "title": "Meu programa"
@@ -6854,8 +6854,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.109
+      "height": 107,
+      "share": 0.114
      }
     ],
     "title": "Meu programa"
@@ -6879,8 +6879,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Meu programa"
@@ -7056,8 +7056,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 102,
-      "share": 0.109
+      "height": 107,
+      "share": 0.114
      }
     ],
     "title": "Revise os exercícios"
@@ -7081,8 +7081,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Treino do Rafael"
@@ -7125,8 +7125,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Programa do treinador"
@@ -7188,8 +7188,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.106
+      "height": 103,
+      "share": 0.111
      }
     ],
     "title": "Ganhar massa"
@@ -7213,8 +7213,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 98,
-      "share": 0.106
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Ganhar massa"
@@ -7276,8 +7276,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Encaixe o treino na sua semana"
@@ -7301,8 +7301,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 74,
-      "share": 0.079
+      "height": 79,
+      "share": 0.085
      }
     ],
     "title": "Ganhar massa"
@@ -7406,8 +7406,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Your goal and recent training"
@@ -7432,8 +7432,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Your goal and recent training"
@@ -7458,8 +7458,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Fit training into your week"
@@ -7484,8 +7484,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Where you train"
@@ -7510,8 +7510,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Priorities and constraints"
@@ -7536,8 +7536,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Build Muscle"
@@ -7562,8 +7562,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Where you train"
@@ -7588,8 +7588,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Train Anywhere"
@@ -7614,8 +7614,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Priorities and constraints"
@@ -7640,8 +7640,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Build Muscle"
@@ -7666,8 +7666,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Fit training into your week"
@@ -7712,8 +7712,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Muscle + Strength · 4 days"
@@ -7738,8 +7738,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Muscle priorities"
@@ -7764,8 +7764,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Exercise preferences"
@@ -7790,8 +7790,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 122,
-      "share": 0.215
+      "height": 127,
+      "share": 0.224
      }
     ],
     "title": "Your weekly structure"
@@ -7816,8 +7816,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Muscle + Strength"
@@ -7842,8 +7842,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Build a program"
@@ -7868,8 +7868,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "My program"
@@ -7894,8 +7894,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "My program"
@@ -7920,8 +7920,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "My program"
@@ -8106,8 +8106,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Review the exercises"
@@ -8132,8 +8132,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Rafael's program"
@@ -8178,8 +8178,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Coach program"
@@ -8244,8 +8244,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 162,
-      "share": 0.285
+      "height": 167,
+      "share": 0.294
      }
     ],
     "title": "Build Muscle"
@@ -8270,8 +8270,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 162,
-      "share": 0.285
+      "height": 167,
+      "share": 0.294
      }
     ],
     "title": "Build Muscle"
@@ -8336,8 +8336,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Fit training into your week"
@@ -8362,8 +8362,8 @@
     "regions": [
      {
       "el": "footer.pinned.g-pin",
-      "height": 82,
-      "share": 0.144
+      "height": 87,
+      "share": 0.153
      }
     ],
     "title": "Build Muscle"
@@ -9367,9 +9367,9 @@
        }
       ],
       "changeView": {
-       "top": 223,
-       "bottom": 259,
-       "limit": 770,
+       "top": 256,
+       "bottom": 299,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -9798,9 +9798,9 @@
        }
       ],
       "changeView": {
-       "top": 494,
-       "bottom": 628,
-       "limit": 446,
+       "top": 500,
+       "bottom": 638,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
@@ -10671,7 +10671,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 1178
+      "scrollY": 797
      },
      "device": {
       "active": null,
@@ -11062,7 +11062,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 2683
+      "scrollY": 2702
      },
      "device": {
       "active": null,
@@ -12715,9 +12715,9 @@
        }
       ],
       "changeView": {
-       "top": 222,
-       "bottom": 258,
-       "limit": 770,
+       "top": 258,
+       "bottom": 301,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -13024,15 +13024,15 @@
        }
       ],
       "changeView": {
-       "top": 12,
-       "bottom": 146,
-       "limit": 446,
+       "top": 10,
+       "bottom": 147,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 482
+      "scrollY": 494
      },
      "device": {
       "active": null,
@@ -13835,13 +13835,13 @@
        {
         "n": 2,
         "total": 16,
-        "text": "Edição aplicada. 2 dos 16 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 16 exercícios · 43 séries de trabalho"
+        "text": "Edição aplicada. 2 dos 16 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora16 exercícios · 43 séries de trabalho"
        }
       ],
       "changeView": {
-       "top": 222,
-       "bottom": 296,
-       "limit": 770,
+       "top": 258,
+       "bottom": 388,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -14170,19 +14170,19 @@
        {
         "n": 2,
         "total": 16,
-        "text": "Edição aplicada. 2 dos 16 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 16 exercícios · 43 séries de trabalho"
+        "text": "Edição aplicada. 2 dos 16 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora16 exercícios · 43 séries de trabalho"
        }
       ],
       "changeView": {
-       "top": 12,
-       "bottom": 352,
-       "limit": 446,
+       "top": 10,
+       "bottom": 357,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 482
+      "scrollY": 494
      },
      "device": {
       "active": null,
@@ -14546,7 +14546,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 244
+      "scrollY": 233
      },
      "device": {
       "active": null,
@@ -14599,7 +14599,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 722
+      "scrollY": 498
      },
      "device": {
       "active": null,
@@ -14963,7 +14963,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 645
+      "scrollY": 658
      },
      "device": {
       "active": null,
@@ -15016,7 +15016,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 1909
+      "scrollY": 1917
      },
      "device": {
       "active": null,
@@ -18220,9 +18220,9 @@
        }
       ],
       "changeView": {
-       "top": 219,
-       "bottom": 255,
-       "limit": 770,
+       "top": 252,
+       "bottom": 296,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -18326,9 +18326,9 @@
       }
      ],
      "changeView": {
-      "top": 219,
-      "bottom": 255,
-      "limit": 770,
+      "top": 252,
+      "bottom": 296,
+      "limit": 765,
       "vh": 844
      },
      "improws": [],
@@ -18452,9 +18452,9 @@
        }
       ],
       "changeView": {
-       "top": 492,
-       "bottom": 625,
-       "limit": 446,
+       "top": 498,
+       "bottom": 636,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
@@ -18558,9 +18558,9 @@
       }
      ],
      "changeView": {
-      "top": 492,
-      "bottom": 625,
-      "limit": 446,
+      "top": 498,
+      "bottom": 636,
+      "limit": 441,
       "vh": 568
      },
      "improws": [],
@@ -22949,7 +22949,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 351
+      "scrollY": 366
      },
      "device": {
       "active": null,
@@ -23666,9 +23666,9 @@
        }
       ],
       "changeView": {
-       "top": 219,
-       "bottom": 255,
-       "limit": 770,
+       "top": 252,
+       "bottom": 296,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -23946,9 +23946,9 @@
        }
       ],
       "changeView": {
-       "top": 492,
-       "bottom": 625,
-       "limit": 446,
+       "top": 498,
+       "bottom": 636,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
@@ -24776,7 +24776,7 @@
       ],
       "today": "",
       "landing": false,
-      "scrollY": 433
+      "scrollY": 437
      },
      "device": {
       "active": null,
@@ -25224,7 +25224,7 @@
       ],
       "today": "",
       "landing": false,
-      "scrollY": 1172
+      "scrollY": 1184
      },
      "device": {
       "active": null,
@@ -25834,7 +25834,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 975
+      "scrollY": 1009
      },
      "device": {
       "active": null,
@@ -25905,7 +25905,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 975
+      "scrollY": 1009
      },
      "device": {
       "active": null,
@@ -25981,7 +25981,7 @@
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 975
+     "scrollY": 1009
     },
     "device": {
      "active": null,
@@ -26171,7 +26171,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 3822
+      "scrollY": 3764
      },
      "device": {
       "active": null,
@@ -26242,7 +26242,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 3822
+      "scrollY": 3764
      },
      "device": {
       "active": null,
@@ -26318,7 +26318,7 @@
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 3822
+     "scrollY": 3764
     },
     "device": {
      "active": null,
@@ -26442,7 +26442,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 45
+      "scrollY": 62
      },
      "device": {
       "active": null,
@@ -26481,7 +26481,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 51
+      "scrollY": 68
      },
      "device": {
       "active": null,
@@ -26525,7 +26525,7 @@
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 51
+     "scrollY": 68
     },
     "device": {
      "active": null,
@@ -26649,7 +26649,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 709
+      "scrollY": 734
      },
      "device": {
       "active": null,
@@ -26688,7 +26688,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 1541
+      "scrollY": 1581
      },
      "device": {
       "active": null,
@@ -26732,7 +26732,7 @@
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 1541
+     "scrollY": 1581
     },
     "device": {
      "active": null,
@@ -28538,7 +28538,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 95
+      "scrollY": 99
      },
      "device": {
       "active": {
@@ -28912,7 +28912,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 612
+      "scrollY": 740
      },
      "device": {
       "active": null,
@@ -28984,7 +28984,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 612
+      "scrollY": 740
      },
      "device": {
       "active": null,
@@ -29065,9 +29065,9 @@
        }
       ],
       "changeView": {
-       "top": 222,
-       "bottom": 258,
-       "limit": 770,
+       "top": 255,
+       "bottom": 298,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -29159,9 +29159,9 @@
       }
      ],
      "changeView": {
-      "top": 219,
-      "bottom": 255,
-      "limit": 770,
+      "top": 252,
+      "bottom": 296,
+      "limit": 765,
       "vh": 844
      },
      "improws": [],
@@ -29375,7 +29375,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 2088
+      "scrollY": 2134
      },
      "device": {
       "active": null,
@@ -29447,7 +29447,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 2299
+      "scrollY": 2305
      },
      "device": {
       "active": null,
@@ -29528,9 +29528,9 @@
        }
       ],
       "changeView": {
-       "top": 494,
-       "bottom": 628,
-       "limit": 446,
+       "top": 500,
+       "bottom": 638,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
@@ -29622,9 +29622,9 @@
       }
      ],
      "changeView": {
-      "top": 492,
-      "bottom": 625,
-      "limit": 446,
+      "top": 498,
+      "bottom": 636,
+      "limit": 441,
       "vh": 568
      },
      "improws": [],
@@ -29932,42 +29932,42 @@
     {
      "label": "goal",
      "ok": true,
-     "detail": "top 368 bottom 422 limit 844 viewport 844 on top"
+     "detail": "top 414 bottom 468 limit 844 viewport 844 on top"
     },
     {
      "label": "exp",
      "ok": true,
-     "detail": "top 625 bottom 679 limit 844 viewport 844 on top"
+     "detail": "top 688 bottom 742 limit 844 viewport 844 on top"
     },
     {
      "label": "cons",
      "ok": true,
-     "detail": "top 625 bottom 679 limit 844 viewport 844 on top"
+     "detail": "top 688 bottom 742 limit 844 viewport 844 on top"
     },
     {
      "label": "days",
      "ok": true,
-     "detail": "top 720 bottom 774 limit 844 viewport 844 on top"
+     "detail": "top 768 bottom 822 limit 844 viewport 844 on top"
     },
     {
      "label": "minutes",
      "ok": true,
-     "detail": "top 720 bottom 774 limit 844 viewport 844 on top"
+     "detail": "top 769 bottom 823 limit 844 viewport 844 on top"
     },
     {
      "label": "rest",
      "ok": true,
-     "detail": "top 720 bottom 774 limit 844 viewport 844 on top"
+     "detail": "top 768 bottom 822 limit 844 viewport 844 on top"
     },
     {
      "label": "env",
      "ok": true,
-     "detail": "top 771 bottom 825 limit 844 viewport 844 on top"
+     "detail": "top 769 bottom 823 limit 844 viewport 844 on top"
     },
     {
      "label": "prio",
      "ok": true,
-     "detail": "top 771 bottom 825 limit 844 viewport 844 on top"
+     "detail": "top 768 bottom 822 limit 844 viewport 844 on top"
     }
    ],
    "notOffered": [],
@@ -30034,7 +30034,7 @@
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 975
+     "scrollY": 1009
     },
     "device": {
      "active": null,
@@ -30336,42 +30336,42 @@
     {
      "label": "goal",
      "ok": true,
-     "detail": "top 447 bottom 549 limit 568 viewport 568 on top"
+     "detail": "top 443 bottom 545 limit 568 viewport 568 on top"
     },
     {
      "label": "exp",
      "ok": true,
-     "detail": "top 446 bottom 548 limit 568 viewport 568 on top"
+     "detail": "top 444 bottom 546 limit 568 viewport 568 on top"
     },
     {
      "label": "cons",
      "ok": true,
-     "detail": "top 446 bottom 548 limit 568 viewport 568 on top"
+     "detail": "top 444 bottom 546 limit 568 viewport 568 on top"
     },
     {
      "label": "days",
      "ok": true,
-     "detail": "top 447 bottom 549 limit 568 viewport 568 on top"
+     "detail": "top 443 bottom 545 limit 568 viewport 568 on top"
     },
     {
      "label": "minutes",
      "ok": true,
-     "detail": "top 448 bottom 550 limit 568 viewport 568 on top"
+     "detail": "top 443 bottom 545 limit 568 viewport 568 on top"
     },
     {
      "label": "rest",
      "ok": true,
-     "detail": "top 447 bottom 549 limit 568 viewport 568 on top"
+     "detail": "top 443 bottom 545 limit 568 viewport 568 on top"
     },
     {
      "label": "env",
      "ok": true,
-     "detail": "top 446 bottom 548 limit 568 viewport 568 on top"
+     "detail": "top 443 bottom 545 limit 568 viewport 568 on top"
     },
     {
      "label": "prio",
      "ok": true,
-     "detail": "top 447 bottom 549 limit 568 viewport 568 on top"
+     "detail": "top 444 bottom 546 limit 568 viewport 568 on top"
     }
    ],
    "notOffered": [],
@@ -30438,7 +30438,7 @@
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 2802
+     "scrollY": 2705
     },
     "device": {
      "active": null,
@@ -30631,13 +30631,13 @@
        {
         "n": 5,
         "total": 22,
-        "text": "Resposta alterada. 5 dos 22 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 22 exercícios · 60 séries de trabalho"
+        "text": "Resposta alterada. 5 dos 22 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora22 exercícios · 60 séries de trabalho"
        }
       ],
       "changeView": {
-       "top": 222,
-       "bottom": 296,
-       "limit": 770,
+       "top": 258,
+       "bottom": 388,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -30718,13 +30718,13 @@
       {
        "n": 5,
        "total": 22,
-       "text": "Resposta alterada. 5 dos 22 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 22 exercícios · 60 séries de trabalho"
+       "text": "Resposta alterada. 5 dos 22 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora22 exercícios · 60 séries de trabalho"
       }
      ],
      "changeView": {
-      "top": 219,
-      "bottom": 294,
-      "limit": 770,
+      "top": 252,
+      "bottom": 382,
+      "limit": 765,
       "vh": 844
      },
      "improws": [],
@@ -30923,19 +30923,19 @@
        {
         "n": 5,
         "total": 22,
-        "text": "Resposta alterada. 5 dos 22 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 22 exercícios · 60 séries de trabalho"
+        "text": "Resposta alterada. 5 dos 22 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora22 exercícios · 60 séries de trabalho"
        }
       ],
       "changeView": {
-       "top": 12,
-       "bottom": 352,
-       "limit": 446,
+       "top": 10,
+       "bottom": 357,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 482
+      "scrollY": 494
      },
      "device": {
       "active": null,
@@ -31010,19 +31010,19 @@
       {
        "n": 5,
        "total": 22,
-       "text": "Resposta alterada. 5 dos 22 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 22 exercícios · 60 séries de trabalho"
+       "text": "Resposta alterada. 5 dos 22 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora22 exercícios · 60 séries de trabalho"
       }
      ],
      "changeView": {
-      "top": 10,
-      "bottom": 350,
-      "limit": 446,
+      "top": 4,
+      "bottom": 351,
+      "limit": 441,
       "vh": 568
      },
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 482
+     "scrollY": 494
     },
     "device": {
      "active": null,
@@ -31252,13 +31252,13 @@
        {
         "n": 15,
         "total": 15,
-        "text": "Resposta alterada. 15 dos 15 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 15 exercícios · 42 séries de trabalho"
+        "text": "Resposta alterada. 15 dos 15 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora15 exercícios · 42 séries de trabalho"
        }
       ],
       "changeView": {
-       "top": 222,
-       "bottom": 296,
-       "limit": 770,
+       "top": 256,
+       "bottom": 406,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -31344,13 +31344,13 @@
       {
        "n": 15,
        "total": 15,
-       "text": "Resposta alterada. 15 dos 15 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 15 exercícios · 42 séries de trabalho"
+       "text": "Resposta alterada. 15 dos 15 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora15 exercícios · 42 séries de trabalho"
       }
      ],
      "changeView": {
-      "top": 219,
-      "bottom": 294,
-      "limit": 770,
+      "top": 252,
+      "bottom": 402,
+      "limit": 765,
       "vh": 844
      },
      "improws": [],
@@ -31588,19 +31588,19 @@
        {
         "n": 15,
         "total": 15,
-        "text": "Resposta alterada. 15 dos 15 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 15 exercícios · 42 séries de trabalho"
+        "text": "Resposta alterada. 15 dos 15 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora15 exercícios · 42 séries de trabalho"
        }
       ],
       "changeView": {
-       "top": 12,
-       "bottom": 391,
-       "limit": 446,
+       "top": 10,
+       "bottom": 396,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 526
+      "scrollY": 538
      },
      "device": {
       "active": null,
@@ -31680,19 +31680,19 @@
       {
        "n": 15,
        "total": 15,
-       "text": "Resposta alterada. 15 dos 15 exercícios mudaram.Antes 18 exercícios · 49 séries de trabalhoAgora 15 exercícios · 42 séries de trabalho"
+       "text": "Resposta alterada. 15 dos 15 exercícios mudaram.Antes18 exercícios · 49 séries de trabalhoAgora15 exercícios · 42 séries de trabalho"
       }
      ],
      "changeView": {
-      "top": 10,
-      "bottom": 389,
-      "limit": 446,
+      "top": 4,
+      "bottom": 391,
+      "limit": 441,
       "vh": 568
      },
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 526
+     "scrollY": 538
     },
     "device": {
      "active": null,
@@ -31920,9 +31920,9 @@
        }
       ],
       "changeView": {
-       "top": 222,
-       "bottom": 258,
-       "limit": 770,
+       "top": 258,
+       "bottom": 301,
+       "limit": 765,
        "vh": 844
       },
       "improws": [],
@@ -32021,9 +32021,9 @@
       }
      ],
      "changeView": {
-      "top": 219,
-      "bottom": 255,
-      "limit": 770,
+      "top": 252,
+      "bottom": 296,
+      "limit": 765,
       "vh": 844
      },
      "improws": [],
@@ -32256,15 +32256,15 @@
        }
       ],
       "changeView": {
-       "top": 12,
-       "bottom": 146,
-       "limit": 446,
+       "top": 11,
+       "bottom": 149,
+       "limit": 441,
        "vh": 568
       },
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 482
+      "scrollY": 494
      },
      "device": {
       "active": null,
@@ -32357,15 +32357,15 @@
       }
      ],
      "changeView": {
-      "top": 10,
-      "bottom": 143,
-      "limit": 446,
+      "top": 4,
+      "bottom": 142,
+      "limit": 441,
       "vh": 568
      },
      "improws": [],
      "today": "",
      "landing": false,
-     "scrollY": 482
+     "scrollY": 494
     },
     "device": {
      "active": null,
@@ -32648,7 +32648,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 301
+      "scrollY": 384
      },
      "probe": {
       "blocked": true,
@@ -32693,7 +32693,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 276
+      "scrollY": 361
      },
      "probe": {
       "blocked": true,
@@ -32786,7 +32786,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 368
+      "scrollY": 462
      },
      "probe": {
       "blocked": true,
@@ -32834,7 +32834,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 342
+      "scrollY": 438
      },
      "probe": {
       "blocked": true,
@@ -33310,7 +33310,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 974
+      "scrollY": 1005
      },
      "probe": {
       "blocked": true,
@@ -33355,7 +33355,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 1496
+      "scrollY": 1550
      },
      "probe": {
       "blocked": true,
@@ -33448,7 +33448,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 821
+      "scrollY": 844
      },
      "probe": {
       "blocked": true,
@@ -33496,7 +33496,7 @@
       "improws": [],
       "today": "",
       "landing": false,
-      "scrollY": 1322
+      "scrollY": 1349
      },
      "probe": {
       "blocked": true,

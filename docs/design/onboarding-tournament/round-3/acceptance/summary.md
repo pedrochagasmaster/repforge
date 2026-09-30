@@ -1,6 +1,6 @@
 # Acceptance — round 3
 
-Generated 2026-09-29T15:44:55.619Z against `http://127.0.0.1:8123/docs/design/onboarding-tournament/round-3/app.html` by `tools/verify.mjs --round 3`.
+Generated 2026-09-30T02:08:55.681Z against `http://127.0.0.1:8000/docs/design/onboarding-tournament/round-3/app.html` by `tools/verify.mjs --round 3`.
 
 Cells (§12.1): 1 pt/light/390/100 · 2 en/dark/390/100 · 3 pt/light/320/100 · 4 pt/light/390/200 · 5 en/light/430/100/reduced · 6 pt/light/320/200 · 7 pt/light/430/100 · 8 en/dark/320/200/reduced.
 Journeys (§12.2) run in cells 1 and 6. Every hard check is a failure; warnings are listed separately.
