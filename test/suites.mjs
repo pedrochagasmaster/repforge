@@ -95,6 +95,7 @@ export const SUITES = {
     s("test/install-transfer-ui.mjs", [], { seconds: 19 }),
     s("test/recover-gate.mjs"),
     s("test/workout-draft-storage.mjs", [], { seconds: 31 }),
+    s("test/draftv2-staged-cas.mjs", [], { domains: ["persistence"], cost: "normal" }),
     s("test/workout-draft-sw-upgrade.mjs"),
     s("test/progression-strategies-offline.mjs"),
     s("test/adversarial-draft-transactions.mjs", [], { seconds: 9 }),

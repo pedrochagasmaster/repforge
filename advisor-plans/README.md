@@ -36,7 +36,7 @@ Ordered by backlog status, then by the order the owner set within it.
 | Plan | Title | Backlog (decision) | Effort | Depends on | Status |
 |------|-------|--------------------|--------|------------|--------|
 | [022](022-remove-committed-posthog-config-tag.md) | Remove the committed deploy-generated `posthog-config.js` tag and guard against it | Blocker on PR #248, comment posted (Q605) | S | — | TODO (in #248) |
-| [003](003-durable-state-rebase-journal-write.md) | Failed rebase-journal write aborts instead of being swallowed | Now: data-safety (1) (Q609) | S | — | TODO |
+| [003](003-durable-state-rebase-journal-write.md) | Failed rebase-journal write aborts instead of being swallowed | Now: data-safety (1) (Q609) | S | — | DONE |
 | [001](001-setup-link-eligibility-decision.md) | Activation archives an un-onboarded device's program instead of discarding it | Now: data-safety (2) (Q607, Q619) | S | — | TODO |
 | [002](002-sw-never-cache-error-responses.md) | Service worker never caches error responses over good copies | Now: data-safety (3) (Q609) | S | — | TODO |
 | [023](023-wire-alpha-trust-telemetry.md) | Emit the alpha's recommendation-trust events; guard against unwired events | Now: measurement (Q610, Q616–Q618) | M | before Plan 059's evidence gate | TODO |

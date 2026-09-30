@@ -479,17 +479,18 @@ async function crashRecoveryReassessmentWhileQueued({ locker, writer, survivor }
   return journal;
 }
 
-// Compatibility vehicle for a journal written by the pre-c4aa8c19 worker. The
-// old version-2 shape is production-created, then its newly introduced marker
-// is removed from the exact persisted bytes before boot. This keeps the
-// compatibility proof on the real recovery writer rather than a hand-built
-// carrier or journal substitute.
-async function removeRecoveryTransactionMarker(page, journal) {
+// Compatibility vehicle for a journal written before the recovery and
+// preflight markers existed. The old version-2 shape is production-created,
+// then both later-added markers are removed from the exact persisted bytes
+// before boot. This keeps the compatibility proof on the real recovery writer
+// rather than a hand-built carrier or journal substitute.
+async function removePostLegacyRecoveryMarkers(page, journal) {
   await page.evaluate((key) => {
     const raw = localStorage.getItem(key);
     if (raw == null) throw new Error("missing pending recovery journal");
     const journal = JSON.parse(raw);
     delete journal.recoveryTransaction;
+    delete journal.preflightPending;
     localStorage.setItem(key, JSON.stringify(journal));
   }, journal.key);
 }
@@ -2893,11 +2894,12 @@ async function main() {
         const marked = JSON.parse(journal.raw);
         check(marked.recoveryTransaction === true,
           "compatibility fixture begins with the current production recovery marker", marked);
-        await removeRecoveryTransactionMarker(survivor, journal);
+        await removePostLegacyRecoveryMarkers(survivor, journal);
         const legacyJournal = await readJournal(survivor);
         const legacy = JSON.parse(legacyJournal.raw);
-        check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction"),
-          "compatibility fixture is the historical unmarked version-2 journal", legacy);
+        check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction") &&
+          !Object.prototype.hasOwnProperty.call(legacy, "preflightPending"),
+        "compatibility fixture is the historical version-2 journal without newer markers", legacy);
 
         const beforeReload = await readFullReplicas(survivor);
         const beforeReloadBytes = await readReplicaBytes(survivor);
@@ -2994,12 +2996,13 @@ async function main() {
         await bootOthers([locker, writer]);
         const journal = await crashRecoveryReassessmentWhileQueued(env, reassessArgs);
         const marked = JSON.parse(journal.raw);
-        check(marked.recoveryTransaction === true,
-          "pre-c4 reassessment fixture begins with the current marker", marked);
-        await removeRecoveryTransactionMarker(survivor, journal);
+        check(marked.recoveryTransaction === true && marked.preflightPending === true,
+          "pre-c4 reassessment fixture begins with the current recovery and preflight markers", marked);
+        await removePostLegacyRecoveryMarkers(survivor, journal);
         const legacy = JSON.parse((await readJournal(survivor)).raw);
-        check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction"),
-          "pre-c4 reassessment fixture is the historical unmarked journal", legacy);
+        check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction") &&
+          !Object.prototype.hasOwnProperty.call(legacy, "preflightPending"),
+        "pre-c4 reassessment fixture is the historical unmarked journal", legacy);
         const drafts = await readDraftBytes(survivor);
         const beforeRevision = before.local?._storageRevision;
         await survivor.reload({ waitUntil: "domcontentloaded" });
@@ -3059,10 +3062,11 @@ async function main() {
         const marked = JSON.parse(journal.raw);
         check(marked.recoveryTransaction === true,
           "two-appended fixture begins with the current marked recovery journal", marked);
-        await removeRecoveryTransactionMarker(survivor, journal);
+        await removePostLegacyRecoveryMarkers(survivor, journal);
         await appendRecoveryRecordToJournal(survivor, journal, secondResult.record);
         const legacy = JSON.parse((await readJournal(survivor)).raw);
         check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction") &&
+          !Object.prototype.hasOwnProperty.call(legacy, "preflightPending") &&
           carrierRecords(legacy.proposal).length === 2,
         "two-appended fixture is unmarked with two valid recovery records", legacy.proposal?.recoveryTransitions);
         await assertUnmarkedRecoveryDiscard(survivor, source, sourceBytes,
@@ -3149,13 +3153,14 @@ async function main() {
             const marked = JSON.parse(journal.raw);
             check(marked.recoveryTransaction === true,
               "multiple-reassessment fixture begins with the current marked journal", marked);
-            await removeRecoveryTransactionMarker(survivor, journal);
+            await removePostLegacyRecoveryMarkers(survivor, journal);
             await changeRecoveryJournalRecordOutcomes(survivor, journal, { 0: "Worse" });
             const legacy = JSON.parse((await readJournal(survivor)).raw);
             const legacyRecords = carrierRecords(legacy.proposal);
             const changed = legacyRecords.filter((record, index) =>
               record?.diff?.recoveryWeek?.reassessmentOutcome !== records[index]?.diff?.recoveryWeek?.reassessmentOutcome);
             check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction") &&
+              !Object.prototype.hasOwnProperty.call(legacy, "preflightPending") &&
               legacyRecords.length === 2 && changed.length === 2,
             "multiple-reassessment fixture is unmarked with two changed records", { legacyRecords, changed: changed.length });
             await assertUnmarkedRecoveryDiscard(survivor, source, sourceBytes,
@@ -3190,10 +3195,11 @@ async function main() {
         const marked = JSON.parse(journal.raw);
         check(marked.recoveryTransaction === true,
           "malformed-metadata fixture begins with the current marked journal", marked);
-        await removeRecoveryTransactionMarker(survivor, journal);
+        await removePostLegacyRecoveryMarkers(survivor, journal);
         await corruptRecoveryJournalMetadata(survivor, journal, "expectedProgramFingerprint", null);
         const legacy = JSON.parse((await readJournal(survivor)).raw);
         check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction") &&
+          !Object.prototype.hasOwnProperty.call(legacy, "preflightPending") &&
           legacy.expectedProgramFingerprint === null,
         "malformed-metadata fixture is an unmarked journal missing its program fingerprint", legacy);
         await assertUnmarkedRecoveryDiscard(survivor, source, sourceBytes,

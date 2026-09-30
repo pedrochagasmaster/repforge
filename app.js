@@ -3516,6 +3516,7 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   // migration of a valid committed state.
   const durableOpts=Object.assign({},opts,{liveBase});
   const callerPreflight=opts.preflight;
+  durableOpts.preflightJournalPending=typeof callerPreflight==="function";
   durableOpts.preflight=async context=>{
     const checked=typeof callerPreflight==="function"?await callerPreflight(context):null;
     if(checked?.reject)return checked;
@@ -16324,7 +16325,7 @@ async function applyBootDecision(decision){
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   await refreshRecoveryProjectionCache(state);
-  DraftStore.promote(null,draftContextFingerprint(state));
+  await DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
   applyGotoParam();
   const migrated=migrateLog();

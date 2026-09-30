@@ -4,7 +4,7 @@
  * Owns:
  * - Dual-replica storage coordination (localStorage "repforge_v1" + IndexedDB "repforge"/"kv")
  * - Write-Ahead Logging (WAL) via localStorage "repforge_pending_v1:*"
- * - Cross-tab locking via WebLocks ("repforge:state-write") and fallback queue
+ * - Cross-tab state and DraftV2 locking via WebLocks
  * - Transaction closing markers, draft coordination sidecars, and crash recovery
  * - Boot-time replica resolution, replay of interrupted journals, and replica self-healing
  * - Normalized durable outcome contract distinguishing committed, rejected, deferred, and failed states
@@ -27,6 +27,7 @@
   const STORAGE_SETUP_TXN = "_storageSetupActivation";
   const SHARED_IMPORT = "_sharedSetupImport";
   const STORAGE_LOCK = "repforge:state-write";
+  const DRAFT_WRITE_LOCK = "repforge:draft-write";
   const PENDING = "repforge_pending_v1";
   const PENDING_PREFIX = "repforge_pending_v1:";
   const PENDING_EFFECT_MAX_RAW = 1000000;
@@ -225,12 +226,12 @@
     const value=checkpoint.value;
     const underCheckpointLock=async operation=>{
       if(!navigator.locks?.request)return{status:"lock-unavailable",raw:read.raw};
-      return navigator.locks.request(STORAGE_LOCK,async()=>{
+      return navigator.locks.request(STORAGE_LOCK,()=>withDraftWriteLock(async()=>{
         const current=DraftStore.readCanonicalStatus(),currentCheckpoint=DraftStore.readV2Checkpoint();
         if(current.status!=="ok")return current;
         if(current.raw!==read.raw||currentCheckpoint.raw!==checkpoint.raw)
           return{status:"stale-recovery",raw:current.raw};
-        return operation(current)})};
+        return operation(current)}))};
     const clearProtected=async(reason,draft)=>{
       if(read.raw!=null)retainDraftRecovery(read.raw,reason);
       return underCheckpointLock(current=>{
@@ -328,20 +329,51 @@
       if(typeof nextRaw!=="string"||nextRaw.length>PENDING_EFFECT_MAX_RAW)
         return{status:"invalid-next"};
       const candidate=workoutDraft()?.parse(nextRaw);if(candidate?.kind!=="valid")return{status:"invalid-next"};
-      // A state transaction has already published its exact draft precondition
-      // before waiting for the shared lock. Preserve a newer workout command in
-      // that transaction's ordered sidecar so its lock-held preflight sees the
-      // conflict and the workout survives when the transaction closes.
+      // Staged writers take only the draft lock. Canonical writers and state
+      // transaction settlement take the state lock before the draft lock.
       const stageFor=target=>{if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
         const currentRaw=this.readRaw(),current=workoutDraft()?.parse(currentRaw);
         if(expectedRaw!==undefined?currentRaw!==expectedRaw:
           current?.kind!=="valid"||current.draft.draftId!==expectedDraftId||current.draft.revision!==expectedRevision)
           return{status:"stale",raw:currentRaw,draft:current?.draft};
+        if(current?.kind==="valid"){
+          const checkpoint=this.readV2Checkpoint();
+          const context=draftContextFingerprint(currentStateSnapshot());
+          const latestSidecar=this.pending().entries.filter(entry=>entry.value.programFingerprint===context).at(-1);
+          const staged=latestSidecar?.value.raw===currentRaw;
+          if(checkpoint.status==="absent"){
+            const canonical=this.readCanonicalStatus();
+            if(!staged||canonical.status!=="ok"||canonical.raw!==null)
+              return{status:"checkpoint-missing",raw:currentRaw};}
+          else if(checkpoint.status!=="valid")return{status:"checkpoint-unreadable",raw:currentRaw};
+          else if(checkpoint.value.kind==="committed"){
+            const authoritative=workoutDraft()?.parse(checkpoint.value.raw);
+            if(checkpoint.value.raw!==currentRaw&&(!staged||authoritative?.kind!=="valid"||
+              authoritative.draft.draftId!==current.draft.draftId||
+              authoritative.draft.revision>=current.draft.revision)){
+              if(authoritative?.kind==="valid"&&authoritative.draft.draftId!==current.draft.draftId||
+                authoritative?.kind==="valid"&&authoritative.draft.revision>current.draft.revision)
+                return{status:"stale",raw:checkpoint.value.raw,draft:authoritative.draft};
+              return{status:"checkpoint-conflict",raw:checkpoint.value.raw,draft:authoritative?.draft};}}
+          else if(checkpoint.value.kind==="pending"&&checkpoint.value.operationId===operationId){
+            if(checkpoint.value.raw!==nextRaw)return{status:"operation-conflict",raw:currentRaw};
+            if(currentRaw!==checkpoint.value.baseRaw&&currentRaw!==checkpoint.value.raw)
+              return{status:"checkpoint-conflict",raw:currentRaw};}
+          else if(checkpoint.value.kind==="tombstone"&&staged){}
+          else return{status:"checkpoint-conflict",raw:currentRaw};}
         if(!this.stage(target,nextRaw))return{status:"stage-failed"};
+        const acceptedRaw=this.readRaw();
+        if(acceptedRaw!==nextRaw){
+          const accepted=workoutDraft()?.parse(acceptedRaw);
+          return{status:"stale",raw:acceptedRaw,draft:accepted?.draft};}
         return{status:"applied",raw:nextRaw,draft:candidate.draft,staged:true}};
       const target=this.writeTarget();
-      if(target)return stageFor(target);
-      return navigator.locks.request(STORAGE_LOCK,async()=>{
+      if(target){
+        const staged=await withDraftWriteLock(()=>{
+          const currentTarget=this.writeTarget();
+          return currentTarget?stageFor(currentTarget):null});
+        if(staged)return staged;}
+      return navigator.locks.request(STORAGE_LOCK,()=>withDraftWriteLock(async()=>{
         if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
         const queuedTarget=this.writeTarget();if(queuedTarget)return stageFor(queuedTarget);
         const read=this.readCanonicalStatus();
@@ -398,7 +430,7 @@
         if(!this.writeV2Checkpoint(v2CheckpointRecord(parsed.draft,verify.raw,operationId)))
           return{status:"checkpoint-commit-failed",raw:verify.raw,draft:parsed.draft};
         return{status:"applied",raw:verify.raw,draft:parsed.draft}
-      })},
+      }))},
     async removeV2({expectedDraftId,expectedRevision,operationId}){
       if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
       if(!navigator.locks?.request)return{status:"lock-unavailable"};
@@ -514,7 +546,13 @@
       if(typeof transactionId!=="string"||!transactionId||
         !(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
       const writer=getJournalWriterId();
-      const order=pendingJournalOrder(),key=`${DRAFT_PENDING_PREFIX}${transactionId}:${writer}`;
+      const order=pendingJournalOrder(),latestAt=this.pending().entries.reduce(
+        (latest,entry)=>Math.max(latest,entry.value.order.at),0);
+      if(latestAt>=order.at){
+        if(latestAt>=Number.MAX_SAFE_INTEGER)return false;
+        order.at=latestAt+1;
+        pendingJournalClock=Math.max(pendingJournalClock,order.at)}
+      const key=`${DRAFT_PENDING_PREFIX}${transactionId}:${writer}`;
       const value={version:1,transactionId,writer,order,
         programFingerprint:draftContextFingerprint(currentStateSnapshot()),raw};
       try{
@@ -526,7 +564,7 @@
       if(installTransferMutationFrozen())return false;
       if(!target||typeof target.id!=="string")return false;
       if(!this.writeSidecar(target.id,raw))return false;
-      if(!this.transactionOwned(target.id))return this.promote(target.id).settled;
+      if(!this.transactionOwned(target.id))return this.promoteUnlocked(target.id).settled;
       return true},
     readRaw(){
       const contextFingerprint=draftContextFingerprint(currentStateSnapshot());
@@ -556,17 +594,31 @@
         if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key);
         return true}
       catch{return false}},
-    promote(transactionId,contextFingerprint=null){
+    async promote(transactionId,contextFingerprint=null){
+      return withDraftWriteLock(()=>this.promoteUnlocked(transactionId,contextFingerprint))},
+    promoteUnlocked(transactionId,contextFingerprint=null){
       if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
       const pending=this.related(transactionId,contextFingerprint);
       if(!pending.entries.length&&!pending.invalid.length)
         return{settled:true,hadWrites:false,raw:undefined};
       const latest=pending.entries.at(-1);
+      let promotedRaw=latest?.value.raw;
       if(latest){
-        if(!this.publishCanonical(latest.value.raw))return{settled:false,hadWrites:true,raw:latest.value.raw};
-        const parsed=workoutDraft()?.parse(latest.value.raw);
-        if(parsed?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(parsed.draft,latest.value.raw)))
-          return{settled:false,hadWrites:true,raw:latest.value.raw}}
+        const canonical=this.readCanonicalStatus(),current=canonical.status==="ok"?
+          workoutDraft()?.parse(canonical.raw):null;
+        const checkpoint=this.readV2Checkpoint(),incoming=workoutDraft()?.parse(latest.value.raw);
+        const acknowledgedCanonical=canonical.status==="ok"&&current?.kind==="valid"&&
+          checkpoint.status==="valid"&&checkpoint.value.kind==="committed"&&
+          checkpoint.value.raw===canonical.raw;
+        const superseded=acknowledgedCanonical&&incoming?.kind==="valid"&&
+          (current.draft.draftId!==incoming.draft.draftId||current.draft.revision>=incoming.draft.revision);
+        if(superseded){
+          if(canonical.raw!==latest.value.raw)retainDraftRecovery(latest.value.raw,"superseded-v2-sidecar");
+          promotedRaw=canonical.raw;
+        }else{
+          if(!this.publishCanonical(latest.value.raw))return{settled:false,hadWrites:true,raw:latest.value.raw};
+          if(incoming?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(incoming.draft,latest.value.raw)))
+            return{settled:false,hadWrites:true,raw:latest.value.raw}}}
       for(const entry of pending.entries){if(!this.clearSidecar(entry))return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"}}
       for(const invalid of pending.invalid){
         if(installTransferMutationFrozen())return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"};
@@ -574,10 +626,10 @@
         catch{}}
       const remaining=this.related(transactionId,contextFingerprint);
       return{settled:remaining.entries.length===0&&remaining.invalid.length===0,
-        hadWrites:true,raw:latest?.value.raw}},
+        hadWrites:true,raw:promotedRaw}},
     restoreEffect(transactionId,effect,contextFingerprint=null){
       if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
-      const promoted=this.promote(transactionId,contextFingerprint);
+      const promoted=this.promoteUnlocked(transactionId,contextFingerprint);
       if(!promoted.settled)return promoted;
       const outcome=normalizeDraftEffectOutcome(effect);
       if(outcome.status!==DRAFT_EFFECT_VALID)return promoted;
@@ -619,14 +671,15 @@
       if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
       try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
       catch{return{settled:false,hadWrites:false}}
-      return this.promote(transactionId,contextFingerprint)}
+      return this.promoteUnlocked(transactionId,contextFingerprint)}
   };
 
   function installTransferMutationFrozen() {
     return isMutationFrozen();
   }
 
-  function settleOrphanDraftArtifacts(snapshot){
+  async function settleOrphanDraftArtifacts(snapshot){
+    return withDraftWriteLock(async()=>{
     const activeTransaction=pendingDraftTransaction(snapshot);
     const journalIds=new Set(readPendingJournal().entries.map(record=>record.journal.id));
     const pending=DraftStore.pending();
@@ -638,7 +691,7 @@
     for(const transactionId of transactionIds){
       if(activeTransaction?.id===transactionId||journalIds.has(transactionId))continue;
       if(DraftStore.endClose(transactionId).settled!==true)settled=false}
-    return{settled}}
+    return{settled}})}
 
   function readSetupDraftRaw() {
     return hostFunction("readSetupDraftRaw")();
@@ -828,6 +881,7 @@
     const stale = !!(result?.stale || result?.staleRevision || result?.staleBlock);
     const code = result?.code || (
       transferFrozen ? "install-transfer-frozen" :
+      pendingJournalCleanup ? "journal_cleanup_pending" :
       journalFailed ? "journal_failed" :
       draftConflict ? "draft_conflict" :
       stale ? "stale_proposal" :
@@ -850,17 +904,18 @@
       committed = true;
       settled = !pendingJournalCleanup;
       rejected = false;
-    } else if (journalFailed) {
-      status = "failed";
-      kind = "rejected_failure";
+    } else if (pendingJournalCleanup) {
+      // A proposal whose WAL cannot be removed may still be replayed. Until
+      // cleanup succeeds it is neither a durable rejection nor a commit, even
+      // when the operation that required cleanup also failed.
+      status = "deferred";
+      kind = "deferred_pending";
       committed = false;
       settled = false;
       rejected = false;
-    } else if (pendingJournalCleanup) {
-      // A proposal whose WAL cannot be removed may still be replayed. Until
-      // cleanup succeeds it is neither a durable rejection nor a commit.
-      status = "deferred";
-      kind = "deferred_pending";
+    } else if (journalFailed) {
+      status = "failed";
+      kind = "rejected_failure";
       committed = false;
       settled = false;
       rejected = false;
@@ -1045,6 +1100,10 @@
     if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,guarded);
     return guarded()}
 
+  function withDraftWriteLock(op){
+    if(navigator.locks?.request)return navigator.locks.request(DRAFT_WRITE_LOCK,op);
+    return Promise.resolve().then(op)}
+
   function enqueueWrite(op) {
     const run = () => op();
     const next = writeTail.then(run, run);
@@ -1225,7 +1284,7 @@
     pending=pendingDraftRelatedState(effect,transactionId,contextFingerprint);
     if(pending.expectedWrites.length)
       return{settled:false,hadWrites:false,conflict:false};
-    const promoted=DraftStore.promote(transactionId,contextFingerprint);
+    const promoted=DraftStore.promoteUnlocked(transactionId,contextFingerprint);
     return Object.assign({},promoted,{conflict:promoted.hadWrites})}
 
     function settlePendingDraftRecord(record,{transactionId=record?.journal?.id||null,effect=null,
@@ -1315,6 +1374,9 @@
       if(Object.prototype.hasOwnProperty.call(journal,"customMutationIntent")){
         customMutationIntent=normalizeCustomMutationIntent(journal.customMutationIntent);
         if(!customMutationIntent)return null}
+      if(journal.preflightPending!=null&&typeof journal.preflightPending!=="boolean")return null;
+      const preflightPending=journal.preflightPending===true;
+      if(preflightPending&&customMutationIntent)return null;
       const transitionPayloadMalformed=rawTransitionMetadataMalformed(journal.proposal);
       const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
         journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
@@ -1345,7 +1407,7 @@
         expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
         expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
         effectOutcome,effect:effectOutcome.effect,recoveryTransaction,recoveryTransactionPresent,
-        customMutationRecovery,customMutationIntent,
+        customMutationRecovery,customMutationIntent,preflightPending,
         transitionPayloadMalformed,rollback}}}
     catch{return null}}
 
@@ -1402,7 +1464,7 @@
 
     function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
     expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
-    reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false,
+    reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false,preflightPending=false,
     customMutationRecovery=null,customMutationIntent=null}={}){
     const recoveryMarker=customMutationRecovery==null?null:normalizeCustomMutationRecovery(customMutationRecovery);
     if(customMutationRecovery!=null&&!recoveryMarker)return null;
@@ -1422,6 +1484,7 @@
     // recovery crash protocol without inferring ownership from a carrier delta
     // that could belong to another state-changing workflow.
     if(recoveryTransaction)journal.recoveryTransaction=true;
+    if(preflightPending)journal.preflightPending=true;
     if(recoveryMarker)journal.customMutationRecovery=recoveryMarker;
     if(mutationIntent)journal.customMutationIntent=mutationIntent;
     const outcome=normalizeDraftEffectOutcome(effectOutcome);
@@ -1539,7 +1602,8 @@
     const rollback=rejectedDraftTransactionSnapshot(snapshot);
     const result=rollback?await writeSnapshot(rollback,io):{revision:readRevision(snapshot),localOk:false,idbOk:false};
     const durable=!!(result.localOk||result.idbOk);
-    const restored=durable?DraftStore.restoreEffect(transactionId,effect,contextFingerprint):{settled:false};
+    const restored=durable?await withDraftWriteLock(()=>
+      DraftStore.restoreEffect(transactionId,effect,contextFingerprint)):{settled:false};
     return{settled:durable&&restored.settled,snapshot:rollback,result}}
 
     async function executeDraftTransaction({record=null,transactionId=record?.journal?.id||null,effect=null,
@@ -1553,14 +1617,14 @@
       record?.journal?draftContextFingerprint(record.journal.liveBase):null;
     const coordinated=draftEffectRequiresCoordination(effectOutcome);
     const beginClose=()=>!id||DraftStore.beginClose(id);
-    const close=(restoreEffect,allowWrites=false)=>{
+    const close=async(restoreEffect,allowWrites=false)=>{
       if(!id)return{settled:clearPendingJournal(record),hadWrites:false};
       if(!beginClose())return{settled:false,hadWrites:false,closeFailed:true};
-      return settlePendingDraftRecord(record,
+      return withDraftWriteLock(()=>settlePendingDraftRecord(record,
         {transactionId:id,effect:effectOutcome,restoreEffect:!!restoreEffect,
-          allowWrites:!!allowWrites,contextFingerprint})};
+          allowWrites:!!allowWrites,contextFingerprint}))};
     if(discard){
-      const closed=close(false,true);
+      const closed=await close(false,true);
       return{kind:closed.settled?"discarded":"close-failed",accepted:false,rejected:false,
         settled:closed.settled,closed,snapshot:null,result:null}}
     requireAdapter(io,"executeDraftTransaction");
@@ -1572,7 +1636,7 @@
     const preEffectPending=pendingDraftRelatedState(effectOutcome,id,contextFingerprint);
     if(writePrepared&&(preEffectState.status==="conflict"||
       preEffectPending.entries.length||preEffectPending.invalid.length)){
-      const closed=close(false,true);
+      const closed=await close(false,true);
       return{kind:"precondition-rejected",accepted:false,rejected:true,settled:closed.settled,
         closed,snapshot:null,result:null}}
     let result=preparedResult;
@@ -1584,8 +1648,8 @@
       if(!(result.localOk||result.idbOk)){
         let closed=null;
         if(retainRecordOnWriteFailure){
-          if(coordinated&&id)DraftStore.endClose(id)}
-        else closed=close(false,true);
+          if(coordinated&&id)await withDraftWriteLock(()=>DraftStore.endClose(id))}
+        else closed=await close(false,true);
         return{kind:"write-failed",accepted:false,rejected:false,settled:!!closed?.settled,
           closed,snapshot:prepared,result}}}
     const checked=writePrepared?pendingJournalEffectState(effectOutcome):preEffectState;
@@ -1596,18 +1660,18 @@
       prepared,snapshot,effectOutcome,checked,io,provisionalResult,finalizeRecovery);
     if(!settlement.accepted){
       if(settlement.rejected&&settlement.settled){
-        const closed=close(true);
+        const closed=await close(true);
         return Object.assign({},settlement,{kind:"rejected",settled:closed.settled,closed})}
       return Object.assign({},settlement,
         {kind:settlement.deferred?"settlement-deferred":"rejected"})}
     if(settlement.deferred)
       return Object.assign({},settlement,{kind:"settlement-deferred"});
-    const closed=close(false);
+    const closed=await close(false);
     if(coordinated&&(closed.hadWrites||
       !pendingDraftSettlementAccepted(effectOutcome,id,contextFingerprint))){
       const compensation=await compensatePendingDraftTransaction(prepared,io,id,effectOutcome);
       if(compensation.settled){
-        const restored=close(true);
+        const restored=await close(true);
         return Object.assign({kind:"compensated",accepted:false,rejected:true},compensation,
           {settled:restored.settled,closed,restored})}
       if(closed.conflict)
@@ -1628,7 +1692,7 @@
     function enqueueStateChangeRaw(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
     expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
     expectedSetupDraftRaw=undefined,
-    reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,recoveryTransaction=false,
+    reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,preflightJournalPending=undefined,recoveryTransaction=false,
     customMutationIntent=null}={}){
     requireAdapter(io,"enqueueStateChange");
     if(io===storageIO&&installTransferMutationFrozen())
@@ -1655,18 +1719,22 @@
           expectedStorageRevision,
           expectedFirstRunEmpty,
           reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
-          effectOutcome:frozenEffectOutcome,recoveryTransaction,customMutationIntent})
+          effectOutcome:frozenEffectOutcome,recoveryTransaction,
+          preflightPending:(preflightJournalPending===undefined
+            ?typeof preflight==="function":preflightJournalPending===true)&&!customMutationIntent,
+          customMutationIntent})
       :null;
     if(io===storageIO&&!pendingRecord){
       const failed={revision:readRevision(frozenBase),localOk:false,idbOk:false,journalFailed:true};
       if(frozenEffect?.required===true)failed.draftConflict=true;
       noteWriteHealth(failed);
       return Promise.resolve(failed)}
-    const discardPending=async result=>{
+    const discardPending=async(result,{pendingJournalCleanup=false}={})=>{
       const pendingJournalId=pendingRecord?.journal.id||null;
       const discarded=await executeDraftTransaction({record:pendingRecord,
         transactionId:pendingRecord?.journal.id||null,effect:frozenEffectOutcome,discard:true});
-      return Object.assign({},result,{pendingJournalCleanup:discarded.settled!==true,pendingJournalId})};
+      return Object.assign({},result,{pendingJournalCleanup:pendingJournalCleanup||discarded.settled!==true,
+        pendingJournalId})};
     const cancelUnstarted=()=>{
       const transactionId=pendingRecord?.journal.id||null;
       const related=transactionId?DraftStore.related(transactionId):{entries:[],invalid:[]};
@@ -1704,19 +1772,40 @@
       if(typeof preflight==="function"){
         const checked=await preflight({head:cloneSnapshot(head),proposal:cloneSnapshot(workingProposal)});
         if(io===storageIO&&installTransferMutationFrozen())return cancelUnstarted();
-        if(checked?.proposal){
-          workingProposal=cloneSnapshot(checked.proposal);
+        if(checked?.proposal)workingProposal=cloneSnapshot(checked.proposal);
+        if(!checked?.reject&&pendingRecord&&!pendingRecord.journal.customMutationIntent&&
+          (checked?.proposal||pendingRecord.journal.preflightPending)){
           // Keep crash recovery pointed at the proposal that survived the
           // lock-held semantic rebase, not the stale copy written before it.
-          if(pendingRecord&&!pendingRecord.journal.customMutationIntent){
-            try{
+          let rebasedRecord=null;
+          let rebasedRaw=null;
+          let rewriteAttempted=false;
+          let journalCleanupPending=false;
+          try{
+            const currentRaw=localStorage.getItem(pendingRecord.key);
+            if(currentRaw===pendingRecord.raw){
               const journal=JSON.parse(pendingRecord.raw);
               journal.proposal=unversionedSnapshot(workingProposal);
-              const raw=JSON.stringify(journal);
-              localStorage.setItem(pendingRecord.key,raw);
-              pendingRecord=decodePendingJournal(pendingRecord.key,raw)||pendingRecord;
-            }catch{}
-          }
+              delete journal.preflightPending;
+              rebasedRaw=JSON.stringify(journal);
+              rewriteAttempted=true;
+              localStorage.setItem(pendingRecord.key,rebasedRaw);
+              if(localStorage.getItem(pendingRecord.key)===rebasedRaw)
+                rebasedRecord=decodePendingJournal(pendingRecord.key,rebasedRaw);
+            }else if(currentRaw!==null)journalCleanupPending=true;
+          }catch(e){console.warn("pending rebase journal failed",e)}
+          if(!rebasedRecord){
+            if(rewriteAttempted){
+              try{
+                const currentRaw=localStorage.getItem(pendingRecord.key);
+                if(currentRaw===pendingRecord.raw||currentRaw===rebasedRaw){
+                  if(currentRaw!==null)localStorage.removeItem(pendingRecord.key);
+                  journalCleanupPending=localStorage.getItem(pendingRecord.key)!==null;
+                }else if(currentRaw!==null)journalCleanupPending=true;
+              }catch{journalCleanupPending=true}}
+            return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+              journalFailed:true},{pendingJournalCleanup:journalCleanupPending})}
+          pendingRecord=rebasedRecord;
         }
         if(checked?.reject){
           return discardPending(Object.assign(
@@ -1816,7 +1905,7 @@
         const discarded=await executeDraftTransaction({record,transactionId:record.journal.id,
           effect:record.journal.effectOutcome,discard:true});
         if(discarded.settled!==true)pendingJournalCleanup=true}
-      if(!settleOrphanDraftArtifacts(head).settled)pendingJournalCleanup=true;
+      if(!(await settleOrphanDraftArtifacts(head)).settled)pendingJournalCleanup=true;
       return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
         alreadyCommitted:true,pendingJournalCleanup})})
   }
@@ -1914,6 +2003,14 @@
           replayed=true;
           continue;
         }
+        if(journal.preflightPending){
+          const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+            effect:journal.effectOutcome,discard:true});
+          if(!discarded.settled)
+            return{kind:"unresolved",reason:"preflight-pending-journal",
+              local:readLocalStatus(),idb:await readIdbStatus()};
+          draftConflict=true;
+          continue}
         if(journal.effectOutcome.status===DRAFT_EFFECT_INVALID){
           const discarded=await executeDraftTransaction({record,transactionId:journal.id,
             effect:journal.effectOutcome,discard:true});
@@ -2040,7 +2137,7 @@
         head=execution.snapshot;
         if(execution.kind!=="committed")draftConflict=true;
         replayed=true}
-      if(!settleOrphanDraftArtifacts(head).settled)
+      if(!(await settleOrphanDraftArtifacts(head)).settled)
         return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
       if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict,
         recoveryChanged:!!decision.recoveryChanged};
@@ -2765,7 +2862,7 @@
     forceFinalization=false){
     const transaction=pendingDraftTransaction(prepared),transactionId=transaction?.id||null;
     const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
-    const applied=applyPendingJournalEffect(effect);
+    const applied=await withDraftWriteLock(()=>applyPendingJournalEffect(effect));
     if(applied.status==="failed"){
       const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
       return Object.assign({accepted:false,rejected:true},compensation)}
