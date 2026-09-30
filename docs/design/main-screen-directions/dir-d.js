@@ -44,7 +44,7 @@
         <span class="d-tgt">${ops(r.target)}</span>
       </div>`;
     }).join("");
-    const tally = D.tally(recs).map((t) => `<span class="d-tally__i">${mark(t.glyph)}${t.text}</span>`).join(`<span class="d-dot" aria-hidden="true">·</span>`);
+    const tally = D.tally(recs).map((t) => `<span class="d-tally__i">${mark(t.glyph)}${t.text}</span>`).join("");
     const body = `
       <div class="d-pg">
         <div class="d-top">

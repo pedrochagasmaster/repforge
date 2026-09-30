@@ -150,6 +150,7 @@
     if (meta) meta.content = U.theme === "dark" ? "#141310" : "#F4F2EF";
     $("stage").innerHTML = `<div class="play-frame" style="width:${w * scale}px;height:${h * scale}px"><div class="ph d${U.dir}${fam} ${p.cls}" data-theme="${U.theme}" data-dir="${U.dir}" data-phone="main" data-screen="${U.screen}" lang="${U.lang === "pt" ? "pt-BR" : "en"}" style="width:${w}px;height:${h}px;transform:scale(${scale});transform-origin:top left">${p.html}</div></div>`;
     history.replaceState(null, "", location.pathname + location.search + "#" + U.screen);
+    layoutPass();
   }
 
   function render() {
@@ -172,6 +173,23 @@
       $("stage").innerHTML = `<div class="rv-all-head">${ideaHTML(D)}</div>` + list.map(([id, label]) => `<figure class="rv-cell">${device(U.dir, id, sc, id)}<figcaption><b>${label}</b>${noteFor(D, id)}</figcaption></figure>`).join("");
     }
     history.replaceState(null, "", "#" + U.dir + "-" + s);
+    layoutPass();
+  }
+
+  // Layout pass after every render, for what CSS alone cannot know: a tally
+  // separator never starts a wrapped line.
+  function layoutPass() {
+    for (const t of document.querySelectorAll(".ph.dx .d-tally")) {
+      let top = null;
+      for (const i of t.querySelectorAll(".d-tally__i")) {
+        const y = i.offsetTop;
+        // Items on one line differ by a few px (marks centre on the text); a
+        // new line is at least half a line further down.
+        const newLine = top !== null && y > top + i.offsetHeight / 2;
+        i.classList.toggle("is-line-start", newLine);
+        if (top === null || newLine) top = y;
+      }
+    }
   }
 
   // Re-render one phone in place, keeping its scroll positions.
@@ -184,6 +202,7 @@
     ph.innerHTML = p.html;
     const n = ph.querySelector(".scr"); if (n) n.scrollTop = top;
     const nb = ph.querySelector(".x-sheet__body"); if (nb) nb.scrollTop = stop;
+    layoutPass();
   }
 
   function go(screen, ph, after) {
@@ -310,4 +329,6 @@
   window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 120); });
   resetFor(U.screen);
   render();
+  // Line wraps move once the web fonts arrive; measure again then.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutPass);
 })();
