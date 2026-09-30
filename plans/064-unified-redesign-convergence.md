@@ -233,7 +233,7 @@ comment asking for OG-1 through OG-5 together so the owner decides once.
 | **OG-3 Landing final page** | Accept `docs/design/landing-candidates/final/` as the landing to implement, or name what changes. The branch records no explicit owner selection; "definitive" is the agent's word | R2 | The final page and its screens, plus the list of catalog values it quotes |
 | **OG-4 Direction D polish proposals** | Accept or reject the five open proposals from the 2026-09-30 polish comment on #272 (focal-name role, section-heading role, exercise-complete shelf drawing, invalid-set reason string, overrun after Skip) and the seven proposed 058 content jobs | The affected R3 sub-slices only | The polish audit and comment link; the contract-review text for each content job |
 | **OG-5 Retirements with a telemetry effect** | Confirm the `program_readiness_navigated` allowlist deletion (already decided 2026-09-26 for #272) applies inside this workfront | R3 Program slice | The `telemetry.js` and fixture diff |
-| **OG-6 P1 drawings** | Approve each "needs drawing" Direction D screen on the review page, by flow, as Plan 063 §Owner gates already defines | The states those drawings cover | Four review rounds: Today, workout sheets, Progress, History edit |
+| **OG-6 P1 drawings** | Approve each "needs drawing" Direction D screen on the review page, by flow, as Plan 063 §Owner gates already defines | The states those drawings cover | Four review rounds: Today, workout sheets, Progress, History edit. The review page stays on `redesign/direction-d` as the drawing surface (its code never ships); each approved drawing is recorded in the reconciliation document by branch SHA and path |
 | **OG-7 Changed-frame boards** | Approve each slice's sampled board (every changed state at 390 PT light and EN dark plus the worst 360 PT 200% case) | The next dependent slice's merge into the integration branch is not blocked; the completion gate is | Board per slice, linked from the PR body |
 | **OG-8 Whole-product read** | The owner's phone read of the complete journey at R7: landing → entry → activation → Today → Focus → save → summary → Progress / History / Program, in PT and EN, light and dark | The completion gate (§14) | The R7 review report and the final catalog |
 
@@ -809,12 +809,14 @@ Rules:
   with the acceptance contract from `docs/agents/implementation-evidence.md`.
   It stops at OWNER REVIEW; only an explicit owner instruction merges it.
 - **Source PRs #272, #276, #279:** remain open as reference artifacts, with
-  a comment linking to the workfront PR, until the corresponding migration
-  commit exists on the workfront branch (R0 for #272's documents, R2 for
-  #276's copy and page, R4 for the selected onboarding brief). Each is then
-  closed, not merged, with a closing comment naming the workfront commit
-  that carries its useful content and the SHA at which it was read. Their
-  branches are retained unmerged for provenance; nothing deletes them.
+  a comment linking to the workfront PR, until their content has been
+  consumed: #276 after R2 (copy and page migrated), #279 after R4 (selected
+  brief migrated), #272 after R3 (its documents migrate in R0, but its review
+  page remains the OG-6 drawing surface until the last Direction D sub-slice
+  is integrated). Each is then closed, not merged, with a closing comment
+  naming the workfront commit that carries its useful content and the SHA at
+  which it was read. Their branches are retained unmerged for provenance;
+  nothing deletes them.
 - **Never** merge their Git histories into the production branch. The
   prototype code, candidate rounds and tournament captures do not enter
   `main`; `docs/design/plan-064-reconciliation.md` records where each source

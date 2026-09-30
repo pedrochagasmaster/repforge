@@ -43,9 +43,10 @@ if that approval is not recorded on the planning PR, stop and ask.
   section from `docs/agents/implementation-evidence.md`, a slice status
   table (R0–R7), an owner-gate table (OG-1–OG-8) and "Next exact steps".
 - Comment on #272, #276 and #279 linking the workfront PR. Do not close
-  them yet; close each only after its migration commit exists (R0, R2, R4),
-  with the closing comment Plan 064 §11.2 describes. Never merge their
-  histories. Never delete their branches.
+  them yet; close #276 after R2, #279 after R4 and #272 after R3 (its review
+  page is the OG-6 drawing surface until then), with the closing comment
+  Plan 064 §11.2 describes. Never merge their histories. Never delete their
+  branches.
 - Push after every focused-green slice commit. Read CI on every head. Never
   rebase, amend or force-push the published branch. Merge `main` explicitly
   at slice boundaries only.
