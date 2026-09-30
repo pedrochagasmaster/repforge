@@ -86,7 +86,8 @@
     const h = state.vw === "320" ? 568 : state.vw === "430" ? 932 : 844;
     $("#frames").innerHTML = ids.map((id) => {
       const src = `${round.doc}?c=${id}&cp=${encodeURIComponent(state.cp)}&lang=${state.lang}&theme=${state.theme}&text=${state.text}&motion=${state.motion}`;
-      return `<div class="frame"><div class="frame__label"><b>${round.candidates[id].name}</b><a href="${src}" target="_blank" rel="noopener">open ↗</a></div><div class="frame__phone"><iframe title="${round.candidates[id].name} — ${state.cp}" src="${src}" width="${state.vw}" height="${h}"></iframe></div></div>`;
+      const full = `#${id}/${encodeURIComponent(state.cp)}?lang=${state.lang}&theme=${state.theme}&text=${state.text}&motion=${state.motion}&vw=${state.vw}`;
+      return `<div class="frame"><div class="frame__label"><b>${round.candidates[id].name}</b><span><a href="${full}" target="_blank" rel="noopener">fullscreen ↗</a> · <a href="${src}" target="_blank" rel="noopener">open ↗</a></span></div><div class="frame__phone"><iframe title="${round.candidates[id].name} — ${state.cp}" src="${src}" width="${state.vw}" height="${h}"></iframe></div></div>`;
     }).join("");
     const url = new URL(location.href); for (const [k, v] of Object.entries({ round: state.round, cands: state.cands, s: state.scenario, cp: state.cp, lang: state.lang, theme: state.theme, vw: state.vw, text: state.text, motion: state.motion })) url.searchParams.set(k, v);
     history.replaceState(null, "", url);
@@ -115,6 +116,39 @@
   try { if (localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true); } catch (e) { /* ignore */ }
   function step(delta) { const L = visibleCps(); const i = L.findIndex((c) => c.id === state.cp); const n = L[(i + delta + L.length) % L.length]; state.cp = n.id; state.scenario = n.scenario; render(); }
   $("#prev").onclick = () => step(-1); $("#next").onclick = () => step(1);
-  /* A link that names a state but no scenario opens on that state. */
-  loadContract().then(() => { if (params.get("cp") && !params.get("s")) { const c = CHECKPOINTS.find((x) => x.id === params.get("cp")); if (c) state.scenario = c.scenario; } render(); });
+  /* Fullscreen: one candidate, no harness chrome, named by a URL suffix.
+       index.html#h                     H at landing
+       index.html#h/rec-result          H at a state
+       index.html#h/rec-result?lang=en&theme=dark&text=200&motion=reduced
+     Candidate letters are unique across rounds, so the round is inferred; a
+     leading "4/" or "r4/" is accepted. On a wide window the phone keeps its
+     width (vw, default 390) at full height; `w=full` stretches it. */
+  function parseFull() {
+    const raw = decodeURIComponent(location.hash.slice(1)); if (!raw) return null;
+    const [path, query = ""] = raw.split("?");
+    const seg = path.split("/").filter(Boolean);
+    if (/^r?\d$/i.test(seg[0] || "")) seg.shift();
+    const id = (seg[0] || "").toLowerCase();
+    const round = Object.keys(ROUNDS).find((r) => ROUNDS[r].candidates[id]); if (!round) return null;
+    const q = new URLSearchParams(query);
+    return { round, id, cp: seg[1] || "landing", lang: q.get("lang") || "pt", theme: q.get("theme") || "light", text: q.get("text") || "100", motion: q.get("motion") || "normal", vw: q.get("vw") || "390", fill: q.get("w") === "full" };
+  }
+  function renderFull(f) {
+    const round = ROUNDS[f.round], name = round.candidates[f.id].name;
+    const src = `${round.doc}?c=${f.id}&cp=${encodeURIComponent(f.cp)}&lang=${f.lang}&theme=${f.theme}&text=${f.text}&motion=${f.motion}`;
+    const box = $("#full"); box.style.setProperty("--full-w", f.fill ? "100vw" : `${parseInt(f.vw, 10) || 390}px`);
+    box.innerHTML = `<iframe title="${name} — ${f.cp}" src="${src}"></iframe>`;
+    document.body.classList.add("is-full"); document.title = `${name} · ${f.cp}`;
+  }
+  let gridReady = false; const gridTitle = document.title;
+  function route() {
+    const f = parseFull(); if (f) { renderFull(f); return; }
+    document.body.classList.remove("is-full"); $("#full").innerHTML = ""; document.title = gridTitle;
+    if (gridReady) { render(); return; }
+    gridReady = true;
+    /* A link that names a state but no scenario opens on that state. */
+    loadContract().then(() => { if (params.get("cp") && !params.get("s")) { const c = CHECKPOINTS.find((x) => x.id === params.get("cp")); if (c) state.scenario = c.scenario; } render(); });
+  }
+  window.addEventListener("hashchange", route);
+  route();
 })();

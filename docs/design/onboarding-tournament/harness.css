@@ -33,3 +33,9 @@ body.is-compact .hd,body.is-compact .desc{display:none}
 .thesis h3{margin:0 0 4px;font-size:14px}
 .thesis p{margin:0;color:var(--h-soft);font-size:13px}
 .thesis .axis{margin-top:6px;font-size:12px}
+.full{display:none}
+body.is-full{overflow:hidden;background:#111}
+body.is-full .hd,body.is-full .ctl,body.is-full .desc,body.is-full .frames,body.is-full .theses{display:none}
+body.is-full .full{display:flex;justify-content:center;position:fixed;inset:0}
+.full iframe{display:block;border:0;height:100%;width:var(--full-w,390px);max-width:100%;background:#F4F2EF}
+@media (max-width:600px){.full iframe{width:100%}}
