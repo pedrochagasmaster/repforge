@@ -828,6 +828,7 @@
     const stale = !!(result?.stale || result?.staleRevision || result?.staleBlock);
     const code = result?.code || (
       transferFrozen ? "install-transfer-frozen" :
+      pendingJournalCleanup ? "journal_cleanup_pending" :
       journalFailed ? "journal_failed" :
       draftConflict ? "draft_conflict" :
       stale ? "stale_proposal" :
@@ -850,17 +851,18 @@
       committed = true;
       settled = !pendingJournalCleanup;
       rejected = false;
-    } else if (journalFailed) {
-      status = "failed";
-      kind = "rejected_failure";
+    } else if (pendingJournalCleanup) {
+      // A proposal whose WAL cannot be removed may still be replayed. Until
+      // cleanup succeeds it is neither a durable rejection nor a commit, even
+      // when the operation that required cleanup also failed.
+      status = "deferred";
+      kind = "deferred_pending";
       committed = false;
       settled = false;
       rejected = false;
-    } else if (pendingJournalCleanup) {
-      // A proposal whose WAL cannot be removed may still be replayed. Until
-      // cleanup succeeds it is neither a durable rejection nor a commit.
-      status = "deferred";
-      kind = "deferred_pending";
+    } else if (journalFailed) {
+      status = "failed";
+      kind = "rejected_failure";
       committed = false;
       settled = false;
       rejected = false;
@@ -1662,11 +1664,12 @@
       if(frozenEffect?.required===true)failed.draftConflict=true;
       noteWriteHealth(failed);
       return Promise.resolve(failed)}
-    const discardPending=async result=>{
+    const discardPending=async(result,{pendingJournalCleanup=false}={})=>{
       const pendingJournalId=pendingRecord?.journal.id||null;
       const discarded=await executeDraftTransaction({record:pendingRecord,
         transactionId:pendingRecord?.journal.id||null,effect:frozenEffectOutcome,discard:true});
-      return Object.assign({},result,{pendingJournalCleanup:discarded.settled!==true,pendingJournalId})};
+      return Object.assign({},result,{pendingJournalCleanup:pendingJournalCleanup||discarded.settled!==true,
+        pendingJournalId})};
     const cancelUnstarted=()=>{
       const transactionId=pendingRecord?.journal.id||null;
       const related=transactionId?DraftStore.related(transactionId):{entries:[],invalid:[]};
@@ -1710,19 +1713,32 @@
           // lock-held semantic rebase, not the stale copy written before it.
           if(pendingRecord&&!pendingRecord.journal.customMutationIntent){
             let rebasedRecord=null;
+            let rebasedRaw=null;
+            let rewriteAttempted=false;
+            let journalCleanupPending=false;
             try{
-              if(localStorage.getItem(pendingRecord.key)===pendingRecord.raw){
+              const currentRaw=localStorage.getItem(pendingRecord.key);
+              if(currentRaw===pendingRecord.raw){
                 const journal=JSON.parse(pendingRecord.raw);
                 journal.proposal=unversionedSnapshot(workingProposal);
-                const raw=JSON.stringify(journal);
-                localStorage.setItem(pendingRecord.key,raw);
-                if(localStorage.getItem(pendingRecord.key)===raw)
-                  rebasedRecord=decodePendingJournal(pendingRecord.key,raw);
-              }
+                rebasedRaw=JSON.stringify(journal);
+                rewriteAttempted=true;
+                localStorage.setItem(pendingRecord.key,rebasedRaw);
+                if(localStorage.getItem(pendingRecord.key)===rebasedRaw)
+                  rebasedRecord=decodePendingJournal(pendingRecord.key,rebasedRaw);
+              }else if(currentRaw!==null)journalCleanupPending=true;
             }catch(e){console.warn("pending rebase journal failed",e)}
             if(!rebasedRecord){
+              if(rewriteAttempted){
+                try{
+                  const currentRaw=localStorage.getItem(pendingRecord.key);
+                  if(currentRaw===pendingRecord.raw||currentRaw===rebasedRaw){
+                    if(currentRaw!==null)localStorage.removeItem(pendingRecord.key);
+                    journalCleanupPending=localStorage.getItem(pendingRecord.key)!==null;
+                  }else if(currentRaw!==null)journalCleanupPending=true;
+                }catch{journalCleanupPending=true}}
               return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
-                journalFailed:true})}
+                journalFailed:true},{pendingJournalCleanup:journalCleanupPending})}
             pendingRecord=rebasedRecord;
           }
         }
