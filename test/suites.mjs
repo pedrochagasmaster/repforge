@@ -57,6 +57,7 @@ export const SUITES = {
     s("test/progression-engine.mjs"),
     s("test/progression-range-simulation.mjs"),
     s("test/progress-model.mjs"),
+    s("test/progress-model-dst.mjs"),
     s("test/progression-strategies-simulation.mjs"),
     s("test/vendor-runtimes.mjs"),
     s("test/telemetry-unit.mjs"),

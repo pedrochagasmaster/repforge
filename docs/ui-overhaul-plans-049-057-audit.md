@@ -65,7 +65,7 @@ remediation owner; no product fix or retained suite was added here.
 |---|---|---|---|
 | A01, P1 | CLOSED by PR #284: core acceptance/promotion fix `8d5f77ed397c866c298cbebc3a249f73f5173777`; staged-new-draft correction `2c7c1732d1f06eaab033a556e31d400ea413d431` | `test/draftv2-staged-cas.mjs` rejects a second writer from the same predecessor and preserves the accepted aggregate through promotion and reload | No A01 follow-up |
 | A02, P2 | CLOSED by fix branch `fix/a02-history-rir-provenance`: `history-ui.js` marks a valid History RIR entry `rirMeasured:true` | `test/history-edit.mjs` saves RIR 2 through the real editor to both replicas, reloads, and the Strength evidence owner no longer reports `missing-effort`; load, reps and date-only edits, invalid RIR, cancel and sibling rows preserve provenance | No A02 follow-up; the evidence filter is unchanged |
-| A03, P2 | OPEN | New York spring DST returns week 1 on March 9 and excludes today's session; block denominator also remains one week | Narrow evidence-correctness fix in stage 4 before #255; may share the A02 packet if ownership/proofs stay clear |
+| A03, P2 | CLOSED by fix branch `fix/a03-calendar-week-arithmetic`: `progress-model.js` routes every numbered-day count through one UTC calendar-day helper | `test/progress-evidence.mjs` runs the production Volume evidence in `America/New_York` at 2026-03-09 (week 2, March 9–15, March 9 session included, block-to-date 2 weeks, 6 sessions/72 sets) with fall-DST and ordinary controls; `test/progress-model-dst.mjs` covers week status, Review checkpoint and completion boundary, this-week and block-to-date Volume | No A03 follow-up |
 | A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Narrow stage-4 focus-continuity fix before #255; D retains this utility |
 | A05, former P2 | CLOSED — fixed by #256, History convergence `dbf55da1`, with EN/PT computed typography proof | Catalog and external computed-root 200% both double data, headings and action labels; scaling survives reload | No fix. Preserve scaling proof in D and final 059 evidence |
 | N01, P3 | OPEN | PT sheet still says `Quadríceps · 2 sets` | Direction D #272's retained exercise-actions copy |
@@ -370,6 +370,8 @@ Requirement: Plan 056's exact numbered-week scope and denominators.
 Closing evidence: use calendar-day arithmetic and a real non-UTC browser test across spring DST. Assert the current-week interval, included sessions, block-to-date denominator, and completion boundary.
 
 The browser reproduction used a persisted legacy session, edited it through History, saved, reloaded, and queried the production Strength evidence hook. The DST case used the production Progress model in an `America/New_York` context.
+
+Closing evidence (fix branch `fix/a03-calendar-week-arithmetic`): `calendarDayDistance()` in `progress-model.js` counts whole days between validated ISO dates on UTC midnight, and `elapsedWeekOf()`, `buildWeekStatus()`, the Review completion boundary and both Volume scopes use it. `shiftIso()` and `weekStartOf()` use local-noon `setDate`, which is calendar-based and DST-safe, so they are unchanged. Both new regressions failed on unmodified code (week 1 instead of 2) and pass after the fix.
 
 #### A04 · P2 · Warm-up toggle destroys keyboard focus
 

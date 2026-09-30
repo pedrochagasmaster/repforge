@@ -111,6 +111,23 @@
     return new Date(`${isoDate(value)}T12:00:00`);
   }
 
+  // Canonical numbered-day distance between two ISO dates: whole calendar
+  // days from `from` to `to` (negative when `to` is earlier), NaN when either
+  // is not a valid YYYY-MM-DD. Both dates are placed on UTC midnight, so the
+  // difference is an exact multiple of DAY_MS; elapsed local milliseconds
+  // would lose an hour across a spring DST change and floor to one day short.
+  function calendarDayDistance(from, to) {
+    const parse = (value) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate(value));
+      if (!m) return NaN;
+      const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+      const t = Date.UTC(y, mo - 1, d);
+      const check = new Date(t);
+      return check.getUTCFullYear() === y && check.getUTCMonth() === mo - 1 && check.getUTCDate() === d ? t : NaN;
+    };
+    return Math.round((parse(to) - parse(from)) / DAY_MS);
+  }
+
   function shiftIso(date, days) {
     const d = dateAtNoon(date);
     d.setDate(d.getDate() + days);
@@ -215,7 +232,7 @@
 
   function elapsedWeekOf(started, now, weeks) {
     if (!started) return null;
-    const days = Math.floor((dateAtNoon(now) - dateAtNoon(started)) / DAY_MS);
+    const days = calendarDayDistance(started, now);
     if (Number.isNaN(days)) return null;
     return Math.min(Math.max(Math.floor(days / 7) + 1, 1), weeks);
   }
@@ -261,7 +278,7 @@
         completedSessions: 0, plannedWorkingSets: norm.plannedWorkingSetsPerWeek, completedWorkingSets: 0,
         status: "not-started", outcome: undefined };
     }
-    const days = Math.floor((dateAtNoon(today) - dateAtNoon(norm.started)) / DAY_MS);
+    const days = calendarDayDistance(norm.started, today);
     if (days >= norm.weeks * 7) {
       return { week: norm.weeks, start: null, end: null, plannedSessions: 0, completedSessions: 0,
         plannedWorkingSets: 0, completedWorkingSets: 0, status: "complete", outcome: undefined };
@@ -330,7 +347,7 @@
     };
     if (!norm.started) return { ...base, lifecycle: "no-block", end: null, structuralActions: [] };
     const end = addDays(norm.started, norm.weeks * 7 - 1);
-    const days = Math.floor((dateAtNoon(today) - dateAtNoon(norm.started)) / DAY_MS);
+    const days = calendarDayDistance(norm.started, today);
     const isComplete = meta?.mesocycleStatus === "completed" || (Number.isFinite(days) && days >= norm.weeks * 7);
     if (!isComplete) return { ...base, lifecycle: "active-block", end, structuralActions: [] };
     // "repeat" is the neutral continue path: always available at a completed
@@ -427,7 +444,7 @@
           start: null, end: null, completedSessions: 0, completedWorkingSets: 0, plannedSessions: 0, plannedWorkingSets: 0,
           periodStatus: "not-started", evidenceState: "insufficient", reason: "not-started" };
       }
-      const days = Math.floor((dateAtNoon(today) - dateAtNoon(norm.started)) / DAY_MS);
+      const days = calendarDayDistance(norm.started, today);
       const beyondBlock = days >= norm.weeks * 7;
       const weekIndex = Math.min(Math.max(0, Math.floor(days / 7)), norm.weeks - 1);
       const start = addDays(norm.started, weekIndex * 7);
@@ -457,7 +474,7 @@
         start: null, end: null, completedSessions: 0, completedWorkingSets: 0, completedRows: [], plannedSessions: 0, plannedWorkingSets: 0,
         periodStatus: "not-started", evidenceState: "insufficient", reason: "not-started" };
     }
-    const days = Math.floor((dateAtNoon(today) - dateAtNoon(norm.started)) / DAY_MS);
+    const days = calendarDayDistance(norm.started, today);
     if (days < 0) {
       return { scope, period: { start: norm.started, end: null, elapsedNumberedWeeks: 0, plannedSessions: 0, plannedWorkingSets: 0, periodStatus: "not-started" },
         start: norm.started, end: null, completedSessions: 0, completedWorkingSets: 0, completedRows: [], plannedSessions: 0, plannedWorkingSets: 0,
