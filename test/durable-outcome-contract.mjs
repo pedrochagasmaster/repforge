@@ -896,6 +896,27 @@ function installReplicaHarness(base) {
         local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
         idb: idbValues.get("repforge_v1")._storageRevision,
       });
+    const firstBoot = await DurableState.resolveBootReplicas();
+    check(firstBoot.kind === "unresolved" &&
+      JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision === 7 &&
+      idbValues.get("repforge_v1")._storageRevision === 7,
+      "Boot does not replay a stale pre-rebase WAL while cleanup is still failing", {
+        bootKind: firstBoot.kind, bootRevision: firstBoot.snapshot?._storageRevision,
+        local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb: idbValues.get("repforge_v1")._storageRevision,
+      });
+    mockLocalStorage.removeItem = removeItem;
+    const settledBoot = await DurableState.resolveBootReplicas();
+    check(settledBoot.kind === "chosen" && settledBoot.snapshot?._storageRevision === 7 &&
+      JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision === 7 &&
+      idbValues.get("repforge_v1")._storageRevision === 7 &&
+      DurableState.readPendingJournal().entries.length === 0,
+      "Boot retry discards the unapproved proposal without advancing either replica", {
+        bootKind: settledBoot.kind, bootRevision: settledBoot.snapshot?._storageRevision,
+        local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb: idbValues.get("repforge_v1")._storageRevision,
+        pending: DurableState.readPendingJournal().entries.length,
+      });
   } finally {
     mockLocalStorage.setItem = setItem;
     mockLocalStorage.removeItem = removeItem;
@@ -958,6 +979,37 @@ function installReplicaHarness(base) {
       "Ordinary preflight rejection writes neither replica and clears its WAL", {
         local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
         idb: idbValues.get("repforge_v1")._storageRevision,
+        pending: DurableState.readPendingJournal().entries.length,
+      });
+  } finally {
+    DurableState.clearAllPendingJournal();
+    restore();
+  }
+}
+
+// Fault Test D9: A successful preflight with no replacement proposal still
+// completes its journal gate before the durable write.
+{
+  mockLocalStorage.clear();
+  const base = { program: [], log: [], programHistory: [], settings: {}, programMeta: {}, _storageRevision: 7 };
+  const proposal = { ...base, settings: { units: "lb" } };
+  mockLocalStorage.setItem("repforge_v1", JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const { idbValues, restore } = installReplicaHarness(base);
+  try {
+    const outcome = await DurableState.enqueueStateChange(base, proposal, DurableState.storageIO, {
+      preflight: () => null,
+    });
+    const local = JSON.parse(mockLocalStorage.getItem("repforge_v1"));
+    const idb = idbValues.get("repforge_v1");
+    check(outcome.kind === "committed" && outcome.committed === true && outcome.settled === true,
+      "Successful preflight without a replacement proposal commits normally", outcome);
+    check(local._storageRevision === 8 && idb._storageRevision === 8 &&
+      local.settings.units === "lb" && idb.settings.units === "lb" &&
+      DurableState.readPendingJournal().entries.length === 0,
+      "The no-rebase preflight clears its gate before replicas advance", {
+        localRevision: local._storageRevision, idbRevision: idb._storageRevision,
+        localSettings: local.settings, idbSettings: idb.settings,
         pending: DurableState.readPendingJournal().entries.length,
       });
   } finally {
