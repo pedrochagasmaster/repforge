@@ -1,4 +1,4 @@
-# One workflow, one required check ("ci"). Every pull request and every push
+# One workflow, one aggregate check ("ci"). Every pull request and every push
 # to main runs the complete inventory from test/suites.mjs; the only shortcut is
 # that a prose-only change skips the test jobs. Browser work is split across
 # balanced shards so the wall time is a few minutes instead of forty. Shard
@@ -136,7 +136,7 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
-  # The one required status check. It passes only when every selected job
+  # The aggregate status check. It passes only when every selected job
   # passed, and it applies the catalog-wide UI-system rule that no single shard
   # can decide on its own.
   ci:

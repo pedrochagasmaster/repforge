@@ -54,6 +54,8 @@ test("inventory schedules each command once and classifies support explicitly", 
   assert.match(inventoryErrors([...files, "test/forgotten.mjs"]).join("\n"), /Unclassified/);
   assert.match(inventoryErrors(files.filter((f) => f !== "test/shared-setup-unit.mjs")).join("\n"), /Missing suite/);
   assert.match(inventoryErrors(files, { ...SUITES, duplicate: [SUITES.fast[0]] }).join("\n"), /Duplicate command/);
+  assert.match(inventoryErrors(files, { hidden: [SUITES.fast[0]] }).join("\n"), /Unknown lane: hidden/,
+    "a new inventory lane must not disappear outside the workflow's known execution owners");
   assert.ok(SUITES.fast.some((s) => s.file === "test/shared-setup-unit.mjs"));
   assert.equal(Object.values(SUITES).flat().filter((s) => s.file === "test/vendor-runtimes.mjs").length, 1);
   assert.deepEqual(SUITES.service.map((s) => s.file), ["test/install-transfer-service.mjs"]);
@@ -99,7 +101,11 @@ test("shards partition the whole browser inventory deterministically and evenly"
   for (const bin of bins) assert.ok(bin.seconds <= ceiling, `shard of ${bin.seconds}s exceeds the balance ceiling ${ceiling.toFixed(0)}s`);
   assert.ok(bins.every((bin) => bin.entries.length), "no shard is empty");
   assert.deepEqual(shardPlan({ index: 1, count: CI_SHARDS }).entries, bins[0].entries);
-  assert.match(shardPlan({ index: CI_SHARDS, count: CI_SHARDS }).reasons.join(" "), /Browser shard/);
+  const last = shardPlan({ index: CI_SHARDS, count: CI_SHARDS });
+  assert.match(last.reasons.join(" "), /Browser shard/);
+  assert.ok(last.entries.length, "the last one-based shard has work");
+  assert.throws(() => shardPlan({ index: entries.length + 1, count: entries.length + 1 }), /non-empty shards/,
+    "an oversized matrix must not report a successful empty runner");
   assert.deepEqual(parseShard("3/16"), { index: 3, count: 16 });
   for (const bad of ["0/4", "5/4", "1", "1/0", "a/b", "", undefined]) assert.throws(() => parseShard(bad), /Shard must be k\/n/);
   assert.throws(() => shardSuites(entries, 0), /positive integer/);
@@ -109,10 +115,14 @@ test("the two catalog sweeps are split into inventory commands whose shards cove
   const uiSystem = SUITES.workout.filter((suite) => suite.file === "tools/check-ui-system.mjs");
   assert.equal(uiSystem.length, UI_SYSTEM_SHARDS);
   assert.deepEqual(uiSystem.map((suite) => suite.args), Array.from({ length: UI_SYSTEM_SHARDS }, (_, i) => ["--shard", `${i + 1}/${UI_SYSTEM_SHARDS}`]));
-  const renders = Array.from({ length: 23 }, (_, i) => ({ i }));
+  const manifestForRoles = loadManifest();
+  const roleStates = manifestForRoles.screens.length * 2 * Object.keys(manifestForRoles.locales).length;
+  const renders = Array.from({ length: roleStates }, (_, i) => ({ i }));
   const parts = uiSystem.map((suite) => shardCaptures(renders, parseShard(suite.args[1])));
   assert.deepEqual(parts.flat().map((r) => r.i).sort((a, b) => a - b), renders.map((r) => r.i));
   assert.ok(Math.max(...parts.map((p) => p.length)) - Math.min(...parts.map((p) => p.length)) <= 1, "striping is even");
+  assert.ok(parts.every((part) => part.length > 0), "no UI-system shard is empty for the committed catalog");
+  assert.throws(() => shardCaptures(renders, parseShard(`${renders.length + 1}/${renders.length + 1}`)), /non-empty shards/);
   assert.deepEqual(shardCaptures(renders, null), renders);
 
   assert.equal(SUITES.visual.length, VISUAL_SHARDS);
@@ -121,6 +131,7 @@ test("the two catalog sweeps are split into inventory commands whose shards cove
   assert.equal(captured.flat().length, frames.length);
   assert.equal(new Set(captured.flat().map((c) => JSON.stringify(c))).size, frames.length);
   assert.ok(Math.max(...captured.map((c) => c.length)) - Math.min(...captured.map((c) => c.length)) <= 1);
+  assert.ok(captured.every((part) => part.length > 0), "no visual shard is empty for the committed frame catalog");
   assert.equal(selectCaptures({}).length, frames.length);
 });
 
@@ -129,26 +140,43 @@ test("UI-system shard reports merge into the catalog-wide never-rendered rule", 
     components: [{ id: "a", selector: ".a" }, { id: "b", selector: ".b", sourceOnly: true }, { id: "c", selector: ".c" }],
     exceptions: [{ selector: ".x" }, { selector: ".y", sourceOnlyReason: "documented" }],
   };
-  const one = { shard: { index: 1, count: 2 }, screens: 3, matched: ["a"], matchedExceptions: [".x"], problems: 0 };
-  const two = { shard: { index: 2, count: 2 }, screens: 2, matched: ["c"], matchedExceptions: [], problems: 0 };
-  assert.deepEqual(mergeShardReports([one, two], inventory), { problems: [], shards: 2, screens: 5 });
-  assert.match(mergeShardReports([one], inventory).problems.join("\n"), /shard 2\/2 reported 0 time\(s\)/);
-  assert.match(mergeShardReports([one, one, two], inventory).problems.join("\n"), /shard 1\/2 reported 2 time\(s\)/);
-  assert.match(mergeShardReports([one, { ...two, shard: { index: 2, count: 3 } }], inventory).problems.join("\n"), /disagree/);
-  assert.match(mergeShardReports([one, { ...two, problems: 4 }], inventory).problems.join("\n"), /shard\(s\) 2\/2 reported role problems/);
-  assert.deepEqual(mergeShardReports([one, { ...two, matched: [] }], inventory).problems, ["inventory selector never rendered: .c"]);
-  assert.deepEqual(mergeShardReports([{ ...one, matchedExceptions: [] }, two], inventory).problems, ["inventory exception never rendered: .x"]);
-  assert.match(mergeShardReports([], inventory).problems.join("\n"), /no ui-system shard reports/);
+  const one = { schemaVersion: 1, shard: { index: 1, count: 2 }, screens: 3, matched: ["a"], matchedExceptions: [".x"], problems: 0 };
+  const two = { schemaVersion: 1, shard: { index: 2, count: 2 }, screens: 2, matched: ["c"], matchedExceptions: [], problems: 0 };
+  const expected = { expectedShardCount: 2, expectedScreenCount: 5 };
+  assert.deepEqual(mergeShardReports([one, two], inventory, expected), { problems: [], shards: 2, screens: 5 });
+  assert.match(mergeShardReports([one], inventory, expected).problems.join("\n"), /shard 2\/2 reported 0 time\(s\)/);
+  assert.match(mergeShardReports([one, one, two], inventory, expected).problems.join("\n"), /shard 1\/2 reported 2 time\(s\)/);
+  assert.match(mergeShardReports([one, { ...two, shard: { index: 2, count: 3 } }], inventory, expected).problems.join("\n"), /disagree/);
+  assert.match(mergeShardReports([one, { ...two, problems: 4 }], inventory, expected).problems.join("\n"), /shard\(s\) 2\/2 reported role problems/);
+  assert.deepEqual(mergeShardReports([one, { ...two, matched: [] }], inventory, expected).problems, ["inventory selector never rendered: .c"]);
+  assert.deepEqual(mergeShardReports([{ ...one, matchedExceptions: [] }, two], inventory, expected).problems, ["inventory exception never rendered: .x"]);
+  assert.match(mergeShardReports([], inventory, expected).problems.join("\n"), /expected 2 reports, got 0/);
+  assert.match(mergeShardReports([{ ...one, shard: { index: 1, count: 1 }, matched: ["a", "c"], matchedExceptions: [".x"], screens: 5 }], inventory, expected).problems.join("\n"), /declared 1 shards, expected 2/,
+    "a self-consistent partial report must not lower the required catalog sweep");
+  assert.match(mergeShardReports([{ ...one, schemaVersion: 2 }, two], inventory, expected).problems.join("\n"), /unsupported schemaVersion/);
+  assert.match(mergeShardReports([one, { ...two, screens: 1 }], inventory, expected).problems.join("\n"), /rendered 4 catalog states, expected 5/);
+  assert.match(mergeShardReports([one, { ...two, matched: "c" }], inventory, expected).problems.join("\n"), /matched must be an array/);
   const root = scratch(t);
-  for (const [name, report] of [["shard-0/workout/x/initial", one], ["shard-1/workout/y/initial", two]]) {
+  const realManifest = loadManifest();
+  const expectedScreens = realManifest.screens.length * 2 * Object.keys(realManifest.locales).length;
+  const perShard = Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) => ({
+    schemaVersion: 1,
+    shard: { index: index + 1, count: UI_SYSTEM_SHARDS },
+    screens: Math.floor((expectedScreens + UI_SYSTEM_SHARDS - index - 1) / UI_SYSTEM_SHARDS),
+    matched: index === 0 ? ["a"] : index === 1 ? ["c"] : [],
+    matchedExceptions: index === 0 ? [".x"] : [],
+    problems: 0,
+  }));
+  for (const [index, report] of perShard.entries()) {
+    const name = `shard-${index}/workout/x-${index}/initial`;
     mkdirSync(join(root, name), { recursive: true });
     writeFileSync(join(root, name, "ui-system-shard.json"), JSON.stringify(report));
     writeFileSync(join(root, name, "output.log"), "noise");
   }
-  assert.equal(findShardReports(root).length, 2);
+  assert.equal(findShardReports(root).length, UI_SYSTEM_SHARDS);
   assert.deepEqual(findShardReports(join(root, "missing")), []);
-  const gateMerge = mergeUiSystemReports(root, { inventory, manifest: loadManifest() });
-  assert.equal(gateMerge.shards, 2, "the gate merges the same reports");
+  const gateMerge = mergeUiSystemReports(root, { inventory, manifest: realManifest });
+  assert.equal(gateMerge.shards, UI_SYSTEM_SHARDS, "the gate requires the complete declared sweep");
   assert.equal(gateMerge.problems.some((p) => /never rendered/.test(p)), false);
 });
 
@@ -191,6 +219,9 @@ test("CI runs everything unless a change is provably prose-only", () => {
   assert.equal(classifyChange(null).run, true);
   assert.equal(classifyChange([]).run, true);
   assert.equal(classifyChange(["README.md", "docs/backlog.md", "plans/062.md", ".gitignore", "LICENSE", "docs/ui-screens/README.md"]).run, false);
+  for (const fixture of ["test/fixtures/coach-program.txt", "docs/fixtures/catalog-notes.md"]) {
+    assert.equal(classifyChange([fixture]).run, true, `${fixture} can be executable test input despite its prose extension`);
+  }
   for (const file of ["app.js", "docs/design/prototype.html", "test/fixtures/x.json", ".github/workflows/ci.yml", "docs/ui-screens/screens/app/today__phone-390-light-en.png", "mystery.bin", "tools/serve.py"]) {
     const plan = classifyChange(["docs/note.md", file]);
     assert.equal(plan.run, true, file);
@@ -231,6 +262,9 @@ test("pull-request file lists come from the compare API and fail safe when it ca
   const push = await resolvePlan({ GITHUB_EVENT_NAME: "push", GITHUB_SHA: "m".repeat(40) });
   assert.equal(push.run, true);
   assert.equal(push.head, "m".repeat(40));
+  const manual = await resolvePlan({ GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_SHA: "d".repeat(40) });
+  assert.equal(manual.run, true, "manual dispatch cannot select a weaker scope");
+  assert.equal(manual.head, "d".repeat(40));
 });
 
 test("the gate accepts skipped jobs only when the plan skipped them", () => {
@@ -242,16 +276,29 @@ test("the gate accepts skipped jobs only when the plan skipped them", () => {
   assert.doesNotThrow(() => gateResults(prose, { log() {} }));
   assert.throws(() => gateResults({ ...prose, fast: { result: "success" } }, { log() {} }), /fast: expected skipped, got success/);
   assert.throws(() => gateResults({ ...selected, plan: { result: "failure" } }, { log() {} }), /plan job failure/);
-  assert.throws(() => gateResults({}, { log() {} }), /plan job missing/);
+  assert.throws(() => gateResults({}, { log() {} }), /missing required job plan/);
+  const missingService = { ...selected };
+  delete missingService.service;
+  assert.throws(() => gateResults(missingService, { log() {} }), /missing required job service/);
+  const unplanned = { ...prose, plan: { result: "success", outputs: {} } };
+  assert.throws(() => gateResults(unplanned, { log() {} }), /run output must be "true" or "false"/);
+  for (const run of ["yes", "", null]) {
+    assert.throws(() => gateResults({ ...prose, plan: { result: "success", outputs: { run } } }, { log() {} }), /run output must be "true" or "false"/);
+  }
 });
 
-test("the workflow is one sharded matrix behind one required check", () => {
+test("the workflow is one sharded matrix behind one aggregate check", () => {
   const workflow = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
   assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/, "the shard list comes from the inventory, not the YAML");
   assert.match(workflow, /node tools\/run-tests\.mjs shard "\$\{\{ matrix\.shard \}\}" --keep-going/);
   assert.match(workflow, /node tools\/ci-plan\.mjs gate/);
   assert.match(workflow, /node tools\/ci-plan\.mjs merge-ui-system/);
   assert.match(workflow, /needs: \[plan, fast, browser, service\]\n\s+if: always\(\)/, "the gate observes every job");
+  const jobsSection = workflow.split(/^jobs:\s*$/m)[1] || "";
+  const declaredJobs = [...jobsSection.matchAll(/^  ([a-z][a-z0-9-]*):$/gm)].map(([, name]) => name);
+  const aggregateNeeds = jobsSection.match(/^    needs: \[([^\]]+)\]$/m)?.[1].split(",").map((name) => name.trim()) || [];
+  assert.deepEqual(aggregateNeeds.sort(), declaredJobs.filter((name) => name !== "ci").sort(),
+    "the aggregate waits for every workflow job, including any newly added verification lane");
   assert.equal((workflow.match(/if: needs\.plan\.outputs\.run == 'true'/g) || []).length >= 3, true, "test jobs obey the plan");
   assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
   assert.doesNotMatch(workflow, /expected_sha|simulation-feedback|candidate/, "there is one mode");

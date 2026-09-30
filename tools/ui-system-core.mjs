@@ -201,29 +201,95 @@ export function neverRenderedProblems(inventory, matched, matchedExceptions) {
  */
 export function shardCaptures(captures, shard) {
   if (!shard) return captures;
+  if (!Number.isSafeInteger(shard.index) || !Number.isSafeInteger(shard.count)
+    || shard.index < 1 || shard.index > shard.count || shard.count < 1) {
+    throw new Error(`Invalid capture shard ${JSON.stringify(shard)}`);
+  }
+  if (captures.length < shard.count) {
+    throw new Error(`Cannot distribute ${captures.length} capture(s) across ${shard.count} non-empty shards`);
+  }
   return captures.filter((_, index) => index % shard.count === shard.index - 1);
 }
 
 export const SHARD_REPORT = "ui-system-shard.json";
 
 /** Union the per-shard reports of one complete sweep and apply the catalog-wide rules. */
-export function mergeShardReports(reports, inventory) {
+export function mergeShardReports(reports, inventory, { expectedShardCount, expectedScreenCount } = {}) {
   const problems = [];
-  const counts = new Set(reports.map((report) => report.shard?.count));
-  if (!reports.length) problems.push("no ui-system shard reports found");
-  if (counts.size > 1) problems.push(`shard reports disagree on shard count: ${[...counts].join(", ")}`);
-  const count = reports[0]?.shard?.count || 0;
-  const indices = reports.map((report) => report.shard?.index);
-  for (let index = 1; index <= count; index++) {
-    const seen = indices.filter((value) => value === index).length;
-    if (seen !== 1) problems.push(`shard ${index}/${count} reported ${seen} time(s)`);
+  if (!Array.isArray(reports)) return { problems: ["ui-system shard reports must be an array"], shards: 0, screens: 0 };
+  if (!Number.isSafeInteger(expectedShardCount) || expectedShardCount < 1) problems.push("expected shard count must be a positive integer");
+  if (!Number.isSafeInteger(expectedScreenCount) || expectedScreenCount < 1) problems.push("expected screen count must be a positive integer");
+  if (Number.isSafeInteger(expectedShardCount) && reports.length !== expectedShardCount) {
+    problems.push(`expected ${expectedShardCount} reports, got ${reports.length}`);
   }
-  const matched = new Set(reports.flatMap((report) => report.matched || []));
-  const matchedExceptions = new Set(reports.flatMap((report) => report.matchedExceptions || []));
-  const failed = reports.filter((report) => report.problems > 0).map((report) => `${report.shard.index}/${report.shard.count}`);
+  const counts = new Set();
+  const indices = [];
+  const matched = new Set();
+  const matchedExceptions = new Set();
+  const componentIds = new Set((inventory.components || []).map((item) => item.id));
+  const exceptionSelectors = new Set((inventory.exceptions || []).map((item) => item.selector));
+  const failed = [];
+  let screens = 0;
+  for (const [row, report] of reports.entries()) {
+    if (!report || typeof report !== "object" || Array.isArray(report)) {
+      problems.push(`report ${row + 1} must be an object`);
+      continue;
+    }
+    if (report.schemaVersion !== 1) problems.push(`report ${row + 1} has unsupported schemaVersion ${JSON.stringify(report.schemaVersion)}`);
+    const shard = report.shard;
+    const validShard = shard && Number.isSafeInteger(shard.index) && Number.isSafeInteger(shard.count)
+      && shard.index >= 1 && shard.index <= shard.count && shard.count >= 1;
+    if (!validShard) {
+      problems.push(`report ${row + 1} has an invalid shard identity`);
+    } else {
+      counts.add(shard.count);
+      indices.push(shard.index);
+      if (Number.isSafeInteger(expectedShardCount) && shard.count !== expectedShardCount) {
+        problems.push(`shard ${shard.index} declared ${shard.count} shards, expected ${expectedShardCount}`);
+      }
+    }
+    if (!Number.isSafeInteger(report.screens) || report.screens < 0) {
+      problems.push(`report ${row + 1} has an invalid screen count`);
+    } else {
+      screens += report.screens;
+    }
+    if (!Array.isArray(report.matched) || report.matched.some((value) => typeof value !== "string")
+      || new Set(report.matched).size !== report.matched.length) {
+      problems.push(`report ${row + 1} matched must be an array of unique strings`);
+    } else {
+      for (const id of report.matched) {
+        if (!componentIds.has(id)) problems.push(`report ${row + 1} names unknown component id ${id}`);
+        else matched.add(id);
+      }
+    }
+    if (!Array.isArray(report.matchedExceptions) || report.matchedExceptions.some((value) => typeof value !== "string")
+      || new Set(report.matchedExceptions).size !== report.matchedExceptions.length) {
+      problems.push(`report ${row + 1} matchedExceptions must be an array of unique strings`);
+    } else {
+      for (const selector of report.matchedExceptions) {
+        if (!exceptionSelectors.has(selector)) problems.push(`report ${row + 1} names unknown exception selector ${selector}`);
+        else matchedExceptions.add(selector);
+      }
+    }
+    if (!Number.isSafeInteger(report.problems) || report.problems < 0) {
+      problems.push(`report ${row + 1} has an invalid problems count`);
+    } else if (report.problems > 0 && validShard) {
+      failed.push(`${shard.index}/${shard.count}`);
+    }
+  }
+  if (counts.size > 1) problems.push(`shard reports disagree on shard count: ${[...counts].join(", ")}`);
+  if (Number.isSafeInteger(expectedShardCount) && expectedShardCount > 0) {
+    for (let index = 1; index <= expectedShardCount; index++) {
+      const seen = indices.filter((value) => value === index).length;
+      if (seen !== 1) problems.push(`shard ${index}/${expectedShardCount} reported ${seen} time(s)`);
+    }
+  }
+  if (Number.isSafeInteger(expectedScreenCount) && screens !== expectedScreenCount) {
+    problems.push(`reports rendered ${screens} catalog states, expected ${expectedScreenCount}`);
+  }
   if (failed.length) problems.push(`shard(s) ${failed.join(", ")} reported role problems; see their own logs`);
   if (!problems.length) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
-  return { problems, shards: reports.length, screens: reports.reduce((sum, report) => sum + (report.screens || 0), 0) };
+  return { problems, shards: reports.length, screens };
 }
 
 export function findShardReports(root) {

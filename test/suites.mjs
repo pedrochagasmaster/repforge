@@ -236,6 +236,7 @@ export function parseShard(value) {
  */
 export function shardSuites(entries, count) {
   if (!Number.isInteger(count) || count < 1) throw new Error(`Shard count must be a positive integer, got ${count}`);
+  if (entries.length < count) throw new Error(`Cannot distribute ${entries.length} command(s) across ${count} non-empty shards`);
   const bins = Array.from({ length: count }, () => ({ seconds: 0, entries: [] }));
   const ordered = entries.map((entry, order) => ({ entry, order, seconds: suiteSeconds(entry.suite) }))
     .sort((a, b) => b.seconds - a.seconds || a.order - b.order);
@@ -259,7 +260,9 @@ export function inventoryErrors(files, suites = SUITES, support = SUPPORT) {
   const ids = new Set();
   const scheduled = new Set();
   const available = new Set(files);
+  const executableLanes = new Set(["fast", "service", ...BROWSER_LANES]);
   for (const [lane, entries] of Object.entries(suites)) {
+    if (!executableLanes.has(lane)) errors.push(`Unknown lane: ${lane}`);
     if (!entries.length) errors.push(`Empty lane: ${lane}`);
     for (const entry of entries) {
       if (!available.has(entry.file)) errors.push(`Missing suite: ${entry.file}`);

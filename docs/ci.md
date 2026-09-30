@@ -33,17 +33,21 @@ every push to `main` runs the same thing:
 | `fast` | `--check` plus the complete `fast` lane (pure Node, no browser). | 1 min |
 | `browser` × `CI_SHARDS` | Every browser command in the inventory, balanced across runners by measured duration. Includes the UI-system role audit and the screen-catalog recapture, each split into shard commands. | 6–7 min |
 | `service` | The install-transfer Worker gate (`check`, tests, dry deploy). | 1 min |
-| `ci` | The one required status check: every selected job passed, and the UI-system shard reports merge cleanly. | 20 s |
+| `ci` | The aggregate check: every selected job passed, and the UI-system shard reports merge cleanly. | 20 s |
 
 The only shortcut is in `plan`: a pull request whose changed files are all prose
 (`*.md`, `*.txt`, `.gitignore`, `LICENSE`) skips the test jobs and `ci` passes
-on the plan alone. Any other file, an unknown file, a change list the compare
-API cannot deliver, a push to `main` or a manual dispatch runs everything. There
-is no draft/ready distinction and no separate candidate mode: a green `ci` on
+on the plan alone. Files in `fixture`, `fixtures` or `__fixtures__` paths run CI
+even when their extension is allowlisted. Any other file, an unknown file, a
+change list the compare API cannot deliver, a push to `main` or a manual
+dispatch runs everything. There is no draft/ready distinction and no separate
+candidate mode: a green `ci` on
 the PR head is the merge evidence. Pull requests test their head commit, so a
 red run reproduces with `git checkout <sha>` and the printed rerun command.
-Enable "require branches to be up to date" on `main` if you also want the
-merge result proven against the current base.
+This workflow emits an aggregate status check named `ci`. At the time this CI
+change was refreshed, `main` had branch protection disabled and no required
+status contexts. This PR does not change branch protection. If it is enabled in
+a separate change, requiring `ci` is a separate repository configuration step.
 
 A newer push to the same pull request cancels the run in progress; pushes to
 `main` never cancel each other.
@@ -54,9 +58,11 @@ A newer push to the same pull request cancels the run in progress; pushes to
 browser inventory longest-first into that many bins using each command's
 `seconds` (measured on `ubuntu-latest`; a missing value falls back on `cost`).
 The split is a pure function of the committed inventory, so every runner and
-every local `shard k/n` computes the same plan. Adding a suite needs no workflow
-edit; give a command that runs longer than about twenty seconds a `seconds`
-value so the packing stays balanced. `node tools/run-tests.mjs shard 1/16 --explain`
+every local `shard k/n` computes the same plan. Adding a command to an existing
+inventory lane needs no workflow edit; give a command that runs longer than
+about twenty seconds a `seconds` value so packing stays balanced. An unknown
+lane fails `--check` instead of being silently omitted.
+`node tools/run-tests.mjs shard 1/14 --explain`
 prints the estimate for that shard and the heaviest one. The account allows 20
 concurrent jobs, so a run that overlaps another one queues a few shards for
 about one shard's duration; that is why the count is not simply "as many as

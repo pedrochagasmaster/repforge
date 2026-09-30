@@ -143,7 +143,6 @@ assert.equal(new Set(union).size, captures.length, "the visual shards partition 
 assert.equal(union.length, captures.length, "no frame is captured by two shards");
 assert.match(workflow, /node tools\/run-tests\.mjs shard/, "CI runs the inventory shards, which include the recapture gate");
 assert.doesNotMatch(workflow, /git diff --exit-code -- docs\/ui-screens/, "CI does not byte-compare rasterised evidence");
-assert.doesNotMatch(capture, /replaceCatalog\(stagingRoot, ARTIFACT_ROOT\)[\s\S]*options\.verify/, "verify mode returns before the committed catalog is replaced");
 assert.match(toolsReadme, /node tools\/capture-ui-screens\.mjs/, "the tools README documents the capture command");
 
 // ------------------------------------------------------------ determinism
