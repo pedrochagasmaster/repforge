@@ -310,6 +310,11 @@ test("the workflow is one sharded matrix behind one aggregate check", () => {
   assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/, "the shard list comes from the inventory, not the YAML");
   assert.match(workflow, /node tools\/run-tests\.mjs shard "\$\{\{ matrix\.shard \}\}" --keep-going/);
   assert.match(workflow, /node tools\/ci-plan\.mjs gate/);
+  const gateJob = workflow.slice(workflow.indexOf("\n  ci:\n"));
+  const guard = gateJob.indexOf('if [ "$RUN" != "true" ] && [ "$RUN" != "false" ]; then');
+  assert.ok(guard > 0 && guard < gateJob.indexOf("uses: actions/checkout"),
+    "the gate rejects a missing run decision in YAML, before it trusts any checked-out planner code");
+  assert.match(gateJob, /RUN: \$\{\{ needs\.plan\.outputs\.run \}\}/);
   assert.match(workflow, /node tools\/ci-plan\.mjs merge-ui-system/);
   assert.match(workflow, /needs: \[plan, fast, browser, service\]\n\s+if: always\(\)/, "the gate observes every job");
   const jobsSection = workflow.split(/^jobs:\s*$/m)[1] || "";
