@@ -338,12 +338,15 @@
           return{status:"stale",raw:currentRaw,draft:current?.draft};
         if(current?.kind==="valid"){
           const checkpoint=this.readV2Checkpoint();
-          if(checkpoint.status==="absent")return{status:"checkpoint-missing",raw:currentRaw};
-          if(checkpoint.status!=="valid")return{status:"checkpoint-unreadable",raw:currentRaw};
           const context=draftContextFingerprint(currentStateSnapshot());
           const latestSidecar=this.pending().entries.filter(entry=>entry.value.programFingerprint===context).at(-1);
           const staged=latestSidecar?.value.raw===currentRaw;
-          if(checkpoint.value.kind==="committed"){
+          if(checkpoint.status==="absent"){
+            const canonical=this.readCanonicalStatus();
+            if(!staged||canonical.status!=="ok"||canonical.raw!==null)
+              return{status:"checkpoint-missing",raw:currentRaw};}
+          else if(checkpoint.status!=="valid")return{status:"checkpoint-unreadable",raw:currentRaw};
+          else if(checkpoint.value.kind==="committed"){
             const authoritative=workoutDraft()?.parse(checkpoint.value.raw);
             if(checkpoint.value.raw!==currentRaw&&(!staged||authoritative?.kind!=="valid"||
               authoritative.draft.draftId!==current.draft.draftId||
