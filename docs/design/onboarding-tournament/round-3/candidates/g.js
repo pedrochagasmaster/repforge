@@ -116,6 +116,7 @@
       "g.catalogue.change_aria": "Alterar dias, tempo e local",
       "g.gate.what": "O que chega",
       "g.rev.error_title": "Não foi possível montar o programa",
+      "g.facts.days": "dias de treino", "g.facts.day_one": "dia de treino", "g.facts.minutes": "min por sessão", "g.facts.sets": "séries de trabalho",
     },
     en: {
       "g.name": "G · Synthesis",
@@ -209,6 +210,7 @@
       "g.catalogue.change_aria": "Change days, time and place",
       "g.gate.what": "What arrives",
       "g.rev.error_title": "The program could not be built",
+      "g.facts.days": "training days", "g.facts.day_one": "training day", "g.facts.minutes": "min a session", "g.facts.sets": "working sets",
     },
   };
   const STEPS = TF.Entry.ROUTE_STEPS;
@@ -549,11 +551,11 @@
     const b = S.changeFrom.preview, a = S.result.preview, d = TF.identityDiff(b, a);
     const fb = TF.previewFacts(b), fa = TF.previewFacts(a); const cons = S.changeFrom.ctx === "g.change.constraints";
     const facts = (f) => t("g.change.facts", { ex: t("entry.preview.exercises", { n: f.exercises, exercise: TF.tp(t, f.exercises, "exercise") }), sets: t("entry.preview.sets", { n: f.sets }) });
-    return `<div class="g-change" id="gChange" tabindex="-1" role="status" aria-live="polite" data-change-statement data-changed="${d.n}" data-total="${d.total}"><p class="g-change__line">${esc(t(S.changeFrom.ctx))} ${esc(TS.changeText(t, d))}</p>${d.n === 0 && fb.sets === fa.sets ? "" : `<p class="g-change__ba"><span><span class="g-change__k">${esc(t(cons ? "g.change.without" : "g.change.before"))}</span> ${esc(facts(fb))}</span><span><span class="g-change__k">${esc(t(cons ? "g.change.with" : "g.change.after"))}</span> ${esc(facts(fa))}</span></p>`}</div>`;
+    return `<div class="g-change" id="gChange" tabindex="-1" role="status" aria-live="polite" data-change-statement data-changed="${d.n}" data-total="${d.total}"><p class="g-change__line">${esc(t(S.changeFrom.ctx))} ${esc(TS.changeText(t, d))}</p>${d.n === 0 && fb.sets === fa.sets ? "" : `<dl class="g-change__ba"><dt class="g-change__k">${esc(t(cons ? "g.change.without" : "g.change.before"))}</dt><dd class="g-change__v t-data">${esc(facts(fb))}</dd><dt class="g-change__k">${esc(t(cons ? "g.change.with" : "g.change.after"))}</dt><dd class="g-change__v t-data">${esc(facts(fa))}</dd></dl>`}</div>`;
   }
   function daysView(preview, added) {
     const days = preview.days || [];
-    return `<div class="stack">${days.map((d, i) => {
+    return `<div class="g-week">${days.map((d, i) => {
       const ex = d.exercises || []; const sets = ex.reduce((n, e) => n + (+e.sets || 0), 0);
       const meta = [t("entry.preview.exercises", { n: ex.length, exercise: TF.tp(t, ex.length, "exercise") }), t("entry.preview.sets", { n: sets }), d.estimateMinutes ? t("entry.preview.minutes", { n: d.estimateMinutes }) : ""].filter(Boolean).join(" · ");
       const open = i === 0 || ex.some((e) => added.has(e.id));
@@ -602,9 +604,13 @@
     const r = S.result, p = r.preview, f = TF.previewFacts(p), a = answers(), gen = generated();
     const eyebrow = S.route === "recommend" ? t("entry.result.title") : S.route === "custom" ? t("entry.result.custom_title") : t(`entry.preview.source.${S.route}`);
     const facts = [t("entry.catalogue.days_badge", { days: (p.days || []).length }), TF.durationLabel(t, p), t("entry.preview.exercises", { n: f.exercises, exercise: TF.tp(t, f.exercises, "exercise") }), t("entry.preview.sets", { n: f.sets })].filter(Boolean);
+    /* F01: the payoff's facts as a strip of Mono values with their units. */
+    const nDays = (p.days || []).length;
+    const cells = [[String(nDays), t(nDays === 1 ? "g.facts.day_one" : "g.facts.days")], f.minMinutes ? [f.minMinutes === f.maxMinutes ? String(f.minMinutes) : `${f.minMinutes}–${f.maxMinutes}`, t("g.facts.minutes")] : null, [String(f.exercises), TF.tp(t, f.exercises, "exercise")], [String(f.sets), t("g.facts.sets")]].filter(Boolean);
+    const strip = `<p class="visually-hidden">${facts.map(esc).join(" · ")}</p><dl class="g-facts g-strip" id="dFacts" aria-hidden="true">${cells.map(([v, u]) => `<div class="g-strip__cell"><dt class="g-strip__unit">${esc(u)}</dt><dd class="g-strip__value t-data">${esc(v)}</dd></div>`).join("")}</dl>`;
     const conflict = S.notice === "conflict" ? `<div id="dConflictBox" tabindex="-1" class="g-conflict">${TS.conflictNotice(t)}</div>` : "";
     let out = `${conflict}<header class="g-intro g-intro--review"><p class="t-label">${esc(eyebrow)}</p><h1 class="t-title g-progname" data-focus${S.route === "shared" || S.route === "import" ? " data-user-text" : ""}>${esc(name())}</h1>
-      <p class="facts g-facts" id="dFacts">${facts.map((x) => `<span class="t-data">${esc(x)}</span>`).join(" ")}</p></header>${changeLine()}
+      ${strip}</header>${changeLine()}
       ${TF.hasActiveProgram() && S.notice !== "conflict" ? `<div class="g-notice">${TS.activeNotice(t)}</div>` : ""}
       <section class="g-sec" aria-labelledby="dWeek"><h2 class="t-subtitle g-sec__label" id="dWeek">${esc(t("entry.preview.days"))}</h2>${daysView(p, S.changeFrom && gen ? addedIds(S.changeFrom.preview, p) : new Set())}</section>`;
     if (gen) {
