@@ -58,7 +58,7 @@ Telemetry event names and allowed properties live in `telemetry.js`; `AGENTS.md`
 
 ## Working and verification
 
-The app has no build step or root application dependency install. Test-only dependencies live under `test/`. Start with the owning suite or `node tools/run-tests.mjs edit`; after a coherent packet, follow `docs/ci.md`. Candidate CI must name the exact reviewed source SHA. `test/suites.mjs` and `tools/run-tests.mjs` own test selection; do not copy a test list into this file.
+The app has no build step or root application dependency install. Test-only dependencies live under `test/`. Start with the owning suite or `node tools/run-tests.mjs edit`; after a coherent packet, follow `docs/ci.md`. For a non-prose PR, `ci` runs the complete inventory on the pushed head; genuinely prose-only PRs verify the plan and skip test jobs. Pushes to `main` and manual runs verify the full inventory. A green `ci` check on the final head is completion evidence. `test/suites.mjs` and `tools/run-tests.mjs` own test selection; do not copy a test list into this file.
 
 For browser tests and the screen catalog, use the worktree-owned preview and capture procedures in `AGENTS.md` and `docs/ci.md`. Do not treat browser automation as physical iOS or Android validation.
 

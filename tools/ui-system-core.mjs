@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./ui-screens/manifest.mjs";
 
@@ -180,4 +180,159 @@ export function contrastRatio(a, b) {
   const lum = (rgb) => 0.2126 * linear(rgb[0] / 255) + 0.7152 * linear(rgb[1] / 255) + 0.0722 * linear(rgb[2] / 255);
   const [light, dark] = [lum(a), lum(b)].sort((x, y) => y - x);
   return (light + 0.05) / (dark + 0.05);
+}
+
+/** Components and exceptions that no rendered state matched. Only meaningful over the complete catalog. */
+export function neverRenderedProblems(inventory, matched, matchedExceptions) {
+  const problems = [];
+  for (const item of inventory.components) {
+    if (!matched.has(item.id) && !item.sourceOnly) problems.push(`inventory selector never rendered: ${item.selector}`);
+  }
+  for (const item of inventory.exceptions) {
+    if (!matchedExceptions.has(item.selector) && !item.sourceOnlyReason) problems.push(`inventory exception never rendered: ${item.selector}`);
+  }
+  return problems;
+}
+
+/**
+ * Stripe the render list across shards: render i belongs to shard (i mod n)+1.
+ * The list is screen-major, so every shard sees every screen roughly equally
+ * often and the union of all shards is exactly the unsharded list.
+ */
+export function shardCaptures(captures, shard) {
+  if (!shard) return captures;
+  if (!Number.isSafeInteger(shard.index) || !Number.isSafeInteger(shard.count)
+    || shard.index < 1 || shard.index > shard.count || shard.count < 1) {
+    throw new Error(`Invalid capture shard ${JSON.stringify(shard)}`);
+  }
+  if (captures.length < shard.count) {
+    throw new Error(`Cannot distribute ${captures.length} capture(s) across ${shard.count} non-empty shards`);
+  }
+  return captures.filter((_, index) => index % shard.count === shard.index - 1);
+}
+
+export const SHARD_REPORT = "ui-system-shard.json";
+
+/** Union the per-shard reports of one complete sweep and apply the catalog-wide rules. */
+export function mergeShardReports(reports, inventory, { expectedShardCount, expectedScreenCount, expectedCaptureKeysByShard } = {}) {
+  const problems = [];
+  if (!Array.isArray(reports)) return { problems: ["ui-system shard reports must be an array"], shards: 0, screens: 0 };
+  if (!Number.isSafeInteger(expectedShardCount) || expectedShardCount < 1) problems.push("expected shard count must be a positive integer");
+  if (!Number.isSafeInteger(expectedScreenCount) || expectedScreenCount < 1) problems.push("expected screen count must be a positive integer");
+  if (expectedCaptureKeysByShard !== undefined
+    && (!Array.isArray(expectedCaptureKeysByShard) || expectedCaptureKeysByShard.length !== expectedShardCount
+      || expectedCaptureKeysByShard.some((keys) => !Array.isArray(keys) || keys.some((key) => typeof key !== "string")
+        || new Set(keys).size !== keys.length))) {
+    problems.push("expected per-shard capture keys must be complete arrays of unique strings");
+  }
+  if (Number.isSafeInteger(expectedShardCount) && reports.length !== expectedShardCount) {
+    problems.push(`expected ${expectedShardCount} reports, got ${reports.length}`);
+  }
+  const counts = new Set();
+  const indices = [];
+  const matched = new Set();
+  const matchedExceptions = new Set();
+  const componentIds = new Set((inventory.components || []).map((item) => item.id));
+  const exceptionSelectors = new Set((inventory.exceptions || []).map((item) => item.selector));
+  const captureKeys = new Set();
+  const failed = [];
+  let screens = 0;
+  for (const [row, report] of reports.entries()) {
+    if (!report || typeof report !== "object" || Array.isArray(report)) {
+      problems.push(`report ${row + 1} must be an object`);
+      continue;
+    }
+    if (report.schemaVersion !== 2) problems.push(`report ${row + 1} has unsupported schemaVersion ${JSON.stringify(report.schemaVersion)}`);
+    const shard = report.shard;
+    const validShard = shard && Number.isSafeInteger(shard.index) && Number.isSafeInteger(shard.count)
+      && shard.index >= 1 && shard.index <= shard.count && shard.count >= 1;
+    if (!validShard) {
+      problems.push(`report ${row + 1} has an invalid shard identity`);
+    } else {
+      counts.add(shard.count);
+      indices.push(shard.index);
+      if (Number.isSafeInteger(expectedShardCount) && shard.count !== expectedShardCount) {
+        problems.push(`shard ${shard.index} declared ${shard.count} shards, expected ${expectedShardCount}`);
+      }
+    }
+    if (!Number.isSafeInteger(report.screens) || report.screens < 0) {
+      problems.push(`report ${row + 1} has an invalid screen count`);
+    } else {
+      screens += report.screens;
+    }
+    if (!Array.isArray(report.captureKeys) || report.captureKeys.some((value) => typeof value !== "string")
+      || new Set(report.captureKeys).size !== report.captureKeys.length) {
+      problems.push(`report ${row + 1} captureKeys must be an array of unique strings`);
+    } else {
+      if (Number.isSafeInteger(report.screens) && report.captureKeys.length !== report.screens) {
+        problems.push(`report ${row + 1} lists ${report.captureKeys.length} capture key(s), but reports ${report.screens} rendered states`);
+      }
+      for (const key of report.captureKeys) {
+        if (captureKeys.has(key)) problems.push(`report ${row + 1} duplicates capture key ${key}`);
+        captureKeys.add(key);
+      }
+      if (validShard && Array.isArray(expectedCaptureKeysByShard)
+        && JSON.stringify(report.captureKeys) !== JSON.stringify(expectedCaptureKeysByShard[shard.index - 1])) {
+        problems.push(`report ${row + 1} capture keys do not match shard ${shard.index}/${shard.count}`);
+      }
+    }
+    if (!Array.isArray(report.matched) || report.matched.some((value) => typeof value !== "string")
+      || new Set(report.matched).size !== report.matched.length) {
+      problems.push(`report ${row + 1} matched must be an array of unique strings`);
+    } else {
+      for (const id of report.matched) {
+        if (!componentIds.has(id)) problems.push(`report ${row + 1} names unknown component id ${id}`);
+        else matched.add(id);
+      }
+    }
+    if (!Array.isArray(report.matchedExceptions) || report.matchedExceptions.some((value) => typeof value !== "string")
+      || new Set(report.matchedExceptions).size !== report.matchedExceptions.length) {
+      problems.push(`report ${row + 1} matchedExceptions must be an array of unique strings`);
+    } else {
+      for (const selector of report.matchedExceptions) {
+        if (!exceptionSelectors.has(selector)) problems.push(`report ${row + 1} names unknown exception selector ${selector}`);
+        else matchedExceptions.add(selector);
+      }
+    }
+    if (!Number.isSafeInteger(report.problems) || report.problems < 0) {
+      problems.push(`report ${row + 1} has an invalid problems count`);
+    } else if (report.problems > 0 && validShard) {
+      failed.push(`${shard.index}/${shard.count}`);
+    }
+  }
+  if (counts.size > 1) problems.push(`shard reports disagree on shard count: ${[...counts].join(", ")}`);
+  if (Number.isSafeInteger(expectedShardCount) && expectedShardCount > 0) {
+    for (let index = 1; index <= expectedShardCount; index++) {
+      const seen = indices.filter((value) => value === index).length;
+      if (seen !== 1) problems.push(`shard ${index}/${expectedShardCount} reported ${seen} time(s)`);
+    }
+  }
+  if (Number.isSafeInteger(expectedScreenCount) && screens !== expectedScreenCount) {
+    problems.push(`reports rendered ${screens} catalog states, expected ${expectedScreenCount}`);
+  }
+  if (Array.isArray(expectedCaptureKeysByShard) && expectedCaptureKeysByShard.length === expectedShardCount) {
+    const expectedKeys = expectedCaptureKeysByShard.flat();
+    const expectedSet = new Set(expectedKeys);
+    const missing = expectedKeys.filter((key) => !captureKeys.has(key));
+    const unexpected = [...captureKeys].filter((key) => !expectedSet.has(key));
+    if (expectedSet.size !== expectedKeys.length) problems.push("expected per-shard capture keys overlap");
+    if (missing.length) problems.push(`reports are missing ${missing.length} catalog capture key(s), including ${missing.slice(0, 3).join(", ")}`);
+    if (unexpected.length) problems.push(`reports contain ${unexpected.length} unknown catalog capture key(s), including ${unexpected.slice(0, 3).join(", ")}`);
+  }
+  if (failed.length) problems.push(`shard(s) ${failed.join(", ")} reported role problems; see their own logs`);
+  if (!problems.length) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
+  return { problems, shards: reports.length, screens };
+}
+
+export function findShardReports(root) {
+  const found = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (entry === SHARD_REPORT) found.push(JSON.parse(readFileSync(path, "utf8")));
+    }
+  };
+  if (existsSync(root)) walk(root);
+  return found;
 }
