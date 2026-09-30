@@ -2699,8 +2699,9 @@ window.__repforgeWeeklySnapshot=weeklySnapshot;
 function mesocycleLifecycle(programMeta){
   const meta=programMeta||{},total=+meta.mesocycleLengthWeeks||6,s=meta.started;
   let elapsedWeek=null;
-  if(s){const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
-    const days=Math.floor((now-start)/86400000);elapsedWeek=days<0?1:Math.floor(days/7)+1}
+  if(s){const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+    const days=Model?Model.calendarDayDistance(s,today()):Math.round((Date.UTC(...today().split("-").map((n,i)=>i===1?n-1:+n))-Date.UTC(...String(s).split("-").map((n,i)=>i===1?n-1:+n)))/86400000);
+    elapsedWeek=days<0?1:Math.floor(days/7)+1}
   const current=elapsedWeek==null?null:Math.min(elapsedWeek,total);
   const overrunWeeks=elapsedWeek==null?0:Math.max(0,elapsedWeek-total);
   const isFinalWeek=elapsedWeek!=null&&elapsedWeek>=total;

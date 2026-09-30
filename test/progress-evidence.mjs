@@ -3,13 +3,12 @@
 // Sparse policy 0/1/2/3+, current-block vs all-history scope, this-week and
 // block-to-date denominators against model-backed values, mobile drill-ins.
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
-import { assertServingApp } from "./browser.mjs";
+import { assertServingApp, launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 await assertServingApp(base);
-const browser = await chromium.launch();
+const browser = await launchChromium();
 const errors = [];
 
 // Known log: bench 3 block points (trend), rdl 2 (comparison), squat 1
@@ -37,8 +36,8 @@ const log = [
 const meta = seedProgramMeta({ id: "evidence-program", started });
 
 async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta = meta, seededProgram = program,
-  seededHistory = [], fixedNow = "2026-09-17T12:00:00.000Z" } = {}) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  seededHistory = [], fixedNow = "2026-09-17T12:00:00.000Z", timezoneId = "UTC" } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId });
   await context.addInitScript((fixedNow) => {
     globalThis.__repforgeTestNow = sessionStorage.getItem("__repforge_test_now") || fixedNow;
     const NativeDate = Date;
@@ -1088,6 +1087,64 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await assertEmptyChartFits("en");
   await assertEmptyChartFits("pt");
   await context.close();
+}
+
+// A03: numbered weeks are calendar days, not elapsed local milliseconds. In
+// America/New_York 2026-03-02 -> 2026-03-09 is 167 hours (spring DST), which
+// once selected week 1 and planned one elapsed week on the start of week 2.
+{
+  const seeded = seedProgram();
+  const mkRow = (session, date, reps) => ({ session, date, day: "Day 1", exerciseId: seeded[0].id, name: seeded[0].name,
+    primary: seeded[0].primary, load: 50, reps, rir: 2, set: 1, work: true });
+  const evidenceAt = async (started, fixedNow, dates) => {
+    const { context, page } = await freshPage({ timezoneId: "America/New_York", fixedNow, seededProgram: seeded,
+      seededMeta: seedProgramMeta({ id: "dst-program", started }),
+      seededLog: dates.map((date, i) => mkRow(`d${i + 1}`, date, 8 + i)) });
+    const result = await page.evaluate(() => ({
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      today: new Date().toLocaleDateString("en-CA"),
+      week: window.__repforgeProgressEvidence.volume("this-week"),
+      block: window.__repforgeProgressEvidence.volume("block-to-date"),
+      lifecycle: window.__repforgeMesocycleWeek(),
+    }));
+    await context.close();
+    return result;
+  };
+  const dst = await evidenceAt("2026-03-02", "2026-03-09T16:00:00.000Z", ["2026-03-02", "2026-03-09"]);
+  assert.equal(dst.tz, "America/New_York");
+  assert.equal(dst.today, "2026-03-09", "the fixed browser clock is 2026-03-09 local");
+  assert.equal(dst.week.period.weekNumber, 2, "March 9 is numbered week 2 across spring DST");
+  assert.equal(dst.week.start, "2026-03-09");
+  assert.equal(dst.week.end, "2026-03-15");
+  assert.deepEqual(dst.week.completedRows.map((r) => r.session), ["d2"], "the March 9 session is in this week");
+  assert.equal(dst.block.period.elapsedNumberedWeeks, 2, "block-to-date elapses two numbered weeks");
+  assert.equal(dst.block.plannedSessions, 6);
+  assert.equal(dst.block.plannedWorkingSets, 72);
+  assert.equal(dst.week.plannedSessions, 3);
+  assert.equal(dst.week.plannedWorkingSets, 36);
+  assert.equal(dst.block.completedSessions, 2);
+  assert.equal(dst.lifecycle.elapsedWeek, 2, "app lifecycle (mesocycleLifecycle) numbers March 9 as week 2");
+  assert.equal(dst.lifecycle.current, 2);
+
+  // Fall DST: 2026-10-26 -> 2026-11-02 spans 169 hours and stays week 2.
+  const fall = await evidenceAt("2026-10-26", "2026-11-02T17:00:00.000Z", ["2026-10-26", "2026-11-02"]);
+  assert.equal(fall.today, "2026-11-02");
+  assert.equal(fall.week.period.weekNumber, 2);
+  assert.equal(fall.week.start, "2026-11-02");
+  assert.equal(fall.week.end, "2026-11-08");
+  assert.deepEqual(fall.week.completedRows.map((r) => r.session), ["d2"]);
+  assert.equal(fall.block.period.elapsedNumberedWeeks, 2);
+  assert.equal(fall.block.plannedWorkingSets, 72);
+  assert.equal(fall.lifecycle.elapsedWeek, 2);
+
+  // Ordinary control, same zone, no DST in the span: unchanged.
+  const plain = await evidenceAt("2026-09-14", "2026-09-21T16:00:00.000Z", ["2026-09-14", "2026-09-21"]);
+  assert.equal(plain.week.period.weekNumber, 2);
+  assert.equal(plain.week.start, "2026-09-21");
+  assert.equal(plain.block.period.elapsedNumberedWeeks, 2);
+  assert.equal(plain.block.plannedSessions, 6);
+  assert.equal(plain.block.plannedWorkingSets, 72);
+  assert.equal(plain.lifecycle.elapsedWeek, 2);
 }
 
 assert.deepEqual(errors, [], "no page errors during evidence journeys");
