@@ -3516,6 +3516,7 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   // migration of a valid committed state.
   const durableOpts=Object.assign({},opts,{liveBase});
   const callerPreflight=opts.preflight;
+  durableOpts.preflightJournalPending=typeof callerPreflight==="function";
   durableOpts.preflight=async context=>{
     const checked=typeof callerPreflight==="function"?await callerPreflight(context):null;
     if(checked?.reject)return checked;

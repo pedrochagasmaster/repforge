@@ -828,6 +828,7 @@
     const stale = !!(result?.stale || result?.staleRevision || result?.staleBlock);
     const code = result?.code || (
       transferFrozen ? "install-transfer-frozen" :
+      pendingJournalCleanup ? "journal_cleanup_pending" :
       journalFailed ? "journal_failed" :
       draftConflict ? "draft_conflict" :
       stale ? "stale_proposal" :
@@ -850,17 +851,18 @@
       committed = true;
       settled = !pendingJournalCleanup;
       rejected = false;
-    } else if (journalFailed) {
-      status = "failed";
-      kind = "rejected_failure";
+    } else if (pendingJournalCleanup) {
+      // A proposal whose WAL cannot be removed may still be replayed. Until
+      // cleanup succeeds it is neither a durable rejection nor a commit, even
+      // when the operation that required cleanup also failed.
+      status = "deferred";
+      kind = "deferred_pending";
       committed = false;
       settled = false;
       rejected = false;
-    } else if (pendingJournalCleanup) {
-      // A proposal whose WAL cannot be removed may still be replayed. Until
-      // cleanup succeeds it is neither a durable rejection nor a commit.
-      status = "deferred";
-      kind = "deferred_pending";
+    } else if (journalFailed) {
+      status = "failed";
+      kind = "rejected_failure";
       committed = false;
       settled = false;
       rejected = false;
@@ -1315,6 +1317,9 @@
       if(Object.prototype.hasOwnProperty.call(journal,"customMutationIntent")){
         customMutationIntent=normalizeCustomMutationIntent(journal.customMutationIntent);
         if(!customMutationIntent)return null}
+      if(journal.preflightPending!=null&&typeof journal.preflightPending!=="boolean")return null;
+      const preflightPending=journal.preflightPending===true;
+      if(preflightPending&&customMutationIntent)return null;
       const transitionPayloadMalformed=rawTransitionMetadataMalformed(journal.proposal);
       const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
         journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
@@ -1345,7 +1350,7 @@
         expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
         expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
         effectOutcome,effect:effectOutcome.effect,recoveryTransaction,recoveryTransactionPresent,
-        customMutationRecovery,customMutationIntent,
+        customMutationRecovery,customMutationIntent,preflightPending,
         transitionPayloadMalformed,rollback}}}
     catch{return null}}
 
@@ -1402,7 +1407,7 @@
 
     function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
     expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
-    reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false,
+    reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false,preflightPending=false,
     customMutationRecovery=null,customMutationIntent=null}={}){
     const recoveryMarker=customMutationRecovery==null?null:normalizeCustomMutationRecovery(customMutationRecovery);
     if(customMutationRecovery!=null&&!recoveryMarker)return null;
@@ -1422,6 +1427,7 @@
     // recovery crash protocol without inferring ownership from a carrier delta
     // that could belong to another state-changing workflow.
     if(recoveryTransaction)journal.recoveryTransaction=true;
+    if(preflightPending)journal.preflightPending=true;
     if(recoveryMarker)journal.customMutationRecovery=recoveryMarker;
     if(mutationIntent)journal.customMutationIntent=mutationIntent;
     const outcome=normalizeDraftEffectOutcome(effectOutcome);
@@ -1628,7 +1634,7 @@
     function enqueueStateChangeRaw(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
     expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
     expectedSetupDraftRaw=undefined,
-    reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,recoveryTransaction=false,
+    reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,preflightJournalPending=undefined,recoveryTransaction=false,
     customMutationIntent=null}={}){
     requireAdapter(io,"enqueueStateChange");
     if(io===storageIO&&installTransferMutationFrozen())
@@ -1655,18 +1661,22 @@
           expectedStorageRevision,
           expectedFirstRunEmpty,
           reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
-          effectOutcome:frozenEffectOutcome,recoveryTransaction,customMutationIntent})
+          effectOutcome:frozenEffectOutcome,recoveryTransaction,
+          preflightPending:(preflightJournalPending===undefined
+            ?typeof preflight==="function":preflightJournalPending===true)&&!customMutationIntent,
+          customMutationIntent})
       :null;
     if(io===storageIO&&!pendingRecord){
       const failed={revision:readRevision(frozenBase),localOk:false,idbOk:false,journalFailed:true};
       if(frozenEffect?.required===true)failed.draftConflict=true;
       noteWriteHealth(failed);
       return Promise.resolve(failed)}
-    const discardPending=async result=>{
+    const discardPending=async(result,{pendingJournalCleanup=false}={})=>{
       const pendingJournalId=pendingRecord?.journal.id||null;
       const discarded=await executeDraftTransaction({record:pendingRecord,
         transactionId:pendingRecord?.journal.id||null,effect:frozenEffectOutcome,discard:true});
-      return Object.assign({},result,{pendingJournalCleanup:discarded.settled!==true,pendingJournalId})};
+      return Object.assign({},result,{pendingJournalCleanup:pendingJournalCleanup||discarded.settled!==true,
+        pendingJournalId})};
     const cancelUnstarted=()=>{
       const transactionId=pendingRecord?.journal.id||null;
       const related=transactionId?DraftStore.related(transactionId):{entries:[],invalid:[]};
@@ -1704,19 +1714,40 @@
       if(typeof preflight==="function"){
         const checked=await preflight({head:cloneSnapshot(head),proposal:cloneSnapshot(workingProposal)});
         if(io===storageIO&&installTransferMutationFrozen())return cancelUnstarted();
-        if(checked?.proposal){
-          workingProposal=cloneSnapshot(checked.proposal);
+        if(checked?.proposal)workingProposal=cloneSnapshot(checked.proposal);
+        if(!checked?.reject&&pendingRecord&&!pendingRecord.journal.customMutationIntent&&
+          (checked?.proposal||pendingRecord.journal.preflightPending)){
           // Keep crash recovery pointed at the proposal that survived the
           // lock-held semantic rebase, not the stale copy written before it.
-          if(pendingRecord&&!pendingRecord.journal.customMutationIntent){
-            try{
+          let rebasedRecord=null;
+          let rebasedRaw=null;
+          let rewriteAttempted=false;
+          let journalCleanupPending=false;
+          try{
+            const currentRaw=localStorage.getItem(pendingRecord.key);
+            if(currentRaw===pendingRecord.raw){
               const journal=JSON.parse(pendingRecord.raw);
               journal.proposal=unversionedSnapshot(workingProposal);
-              const raw=JSON.stringify(journal);
-              localStorage.setItem(pendingRecord.key,raw);
-              pendingRecord=decodePendingJournal(pendingRecord.key,raw)||pendingRecord;
-            }catch{}
-          }
+              delete journal.preflightPending;
+              rebasedRaw=JSON.stringify(journal);
+              rewriteAttempted=true;
+              localStorage.setItem(pendingRecord.key,rebasedRaw);
+              if(localStorage.getItem(pendingRecord.key)===rebasedRaw)
+                rebasedRecord=decodePendingJournal(pendingRecord.key,rebasedRaw);
+            }else if(currentRaw!==null)journalCleanupPending=true;
+          }catch(e){console.warn("pending rebase journal failed",e)}
+          if(!rebasedRecord){
+            if(rewriteAttempted){
+              try{
+                const currentRaw=localStorage.getItem(pendingRecord.key);
+                if(currentRaw===pendingRecord.raw||currentRaw===rebasedRaw){
+                  if(currentRaw!==null)localStorage.removeItem(pendingRecord.key);
+                  journalCleanupPending=localStorage.getItem(pendingRecord.key)!==null;
+                }else if(currentRaw!==null)journalCleanupPending=true;
+              }catch{journalCleanupPending=true}}
+            return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+              journalFailed:true},{pendingJournalCleanup:journalCleanupPending})}
+          pendingRecord=rebasedRecord;
         }
         if(checked?.reject){
           return discardPending(Object.assign(
@@ -1914,6 +1945,14 @@
           replayed=true;
           continue;
         }
+        if(journal.preflightPending){
+          const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+            effect:journal.effectOutcome,discard:true});
+          if(!discarded.settled)
+            return{kind:"unresolved",reason:"preflight-pending-journal",
+              local:readLocalStatus(),idb:await readIdbStatus()};
+          draftConflict=true;
+          continue}
         if(journal.effectOutcome.status===DRAFT_EFFECT_INVALID){
           const discarded=await executeDraftTransaction({record,transactionId:journal.id,
             effect:journal.effectOutcome,discard:true});

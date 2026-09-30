@@ -227,6 +227,21 @@ console.log("\n1. Pure outcome contract normalizer");
     "Journal failure preserves its operational failure code");
 }
 
+// A failed journal write with unfinished cleanup is recoverable work, not a
+// settled storage rejection. A retained WAL may still be replayed at boot.
+{
+  const outcome = DurableState.normalizeDurableOutcome({
+    localOk: false,
+    idbOk: false,
+    journalFailed: true,
+    pendingJournalCleanup: true,
+  });
+  check(outcome.kind === "deferred_pending" && outcome.committed === false,
+    "Journal failure with pending cleanup remains deferred", outcome);
+  check(outcome.recoveryPending === true && outcome.code === "journal_cleanup_pending",
+    "Journal failure with pending cleanup exposes recovery work", outcome);
+}
+
 // Idempotent durable state can coexist with unfinished journal cleanup. The
 // operation is committed, but the workflow is not yet settled.
 {
@@ -345,6 +360,61 @@ const mockLocalStorage = (() => {
 })();
 
 globalThis.localStorage = mockLocalStorage;
+
+function installReplicaHarness(base) {
+  const idbValues = new Map([["repforge_v1", base]]);
+  const database = {
+    objectStoreNames: { contains: () => true }, createObjectStore() {}, close() {},
+    transaction() {
+      const transaction = {
+        oncomplete: null, onerror: null, error: null,
+        objectStore() {
+          return {
+            get(key) {
+              const request = { onsuccess: null, onerror: null, error: null, result: undefined };
+              queueMicrotask(() => { request.result = idbValues.get(key); request.onsuccess?.(); });
+              return request;
+            },
+            put(value, key) {
+              idbValues.set(key, value);
+              queueMicrotask(() => transaction.oncomplete?.());
+            },
+            delete(key) {
+              idbValues.delete(key);
+              queueMicrotask(() => transaction.oncomplete?.());
+            },
+          };
+        },
+      };
+      return transaction;
+    },
+  };
+  const indexedDbDescriptor = Object.getOwnPropertyDescriptor(globalThis, "indexedDB");
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "indexedDB", {
+    configurable: true,
+    value: {
+      open() {
+        const request = { result: database, error: null, onupgradeneeded: null, onsuccess: null, onerror: null };
+        queueMicrotask(() => request.onsuccess?.());
+        return request;
+      },
+    },
+  });
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { locks: { request: async (_name, callback) => callback() } },
+  });
+  return {
+    idbValues,
+    restore() {
+      if (indexedDbDescriptor) Object.defineProperty(globalThis, "indexedDB", indexedDbDescriptor);
+      else delete globalThis.indexedDB;
+      if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+      else delete globalThis.navigator;
+    },
+  };
+}
 
 // Fault Test A: writeSnapshot with failing adapter
 {
@@ -643,6 +713,308 @@ globalThis.localStorage = mockLocalStorage;
     else delete globalThis.indexedDB;
     if(navigatorDescriptor)Object.defineProperty(globalThis,"navigator",navigatorDescriptor);
     else delete globalThis.navigator;
+  }
+}
+
+// Fault Test D4: A rebased proposal must not commit when its WAL rewrite fails.
+{
+  mockLocalStorage.clear();
+  const base={program:[],log:[],programHistory:[],settings:{},programMeta:{},_storageRevision:7};
+  const proposal={...base,settings:{units:"lb"}};
+  const rebased={...base,settings:{units:"lb",lang:"pt"}};
+  mockLocalStorage.setItem("repforge_v1",JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const idbValues=new Map([["repforge_v1",base]]);
+  const database={
+    objectStoreNames:{contains:()=>true},createObjectStore(){},close(){},
+    transaction(_store,mode){
+      const transaction={oncomplete:null,onerror:null,error:null,objectStore(){return{
+        get(key){const request={onsuccess:null,onerror:null,error:null,result:undefined};
+          queueMicrotask(()=>{request.result=idbValues.get(key);request.onsuccess?.()});return request},
+        put(value,key){idbValues.set(key,value);queueMicrotask(()=>transaction.oncomplete?.())},
+        delete(key){idbValues.delete(key);queueMicrotask(()=>transaction.oncomplete?.())}
+      }}};
+      return transaction}
+  };
+  const indexedDbDescriptor=Object.getOwnPropertyDescriptor(globalThis,"indexedDB");
+  const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
+  Object.defineProperty(globalThis,"indexedDB",{configurable:true,value:{open(){
+    const request={result:database,error:null,onupgradeneeded:null,onsuccess:null,onerror:null};
+    queueMicrotask(()=>request.onsuccess?.());return request
+  }}});
+  Object.defineProperty(globalThis,"navigator",{configurable:true,value:{locks:{request:async(_name,callback)=>callback()}}});
+  const setItem=mockLocalStorage.setItem;
+  let failNextPending=false;
+  let pendingSetAttempts=0;
+  let injectedSetAttempt=null;
+  let preflightProposal=null;
+  mockLocalStorage.setItem=(key,value)=>{
+    if(key.startsWith("repforge_pending_v1:")){
+      pendingSetAttempts++;
+      if(failNextPending){
+        failNextPending=false;
+        injectedSetAttempt=pendingSetAttempts;
+        throw Object.assign(new Error("injected quota"),{name:"QuotaExceededError"})}}
+    return setItem(key,value)};
+  try{
+    const outcome=await DurableState.enqueueStateChange(base,proposal,DurableState.storageIO,{
+      preflight:({proposal:currentProposal})=>{
+        preflightProposal=currentProposal;
+        failNextPending=true;
+        return{proposal:rebased}}
+    });
+    check(preflightProposal?.settings?.units==="lb"&&preflightProposal?.settings?.lang===undefined&&
+      JSON.stringify(preflightProposal)!==JSON.stringify(rebased),
+      "Preflight supplies a distinct rebased proposal",{preflightProposal,rebased});
+    check(pendingSetAttempts===2&&injectedSetAttempt===2,
+      "Fault injection hits the post-preflight rebase-journal write",{
+        pendingSetAttempts,injectedSetAttempt
+      });
+    check(outcome.committed===false&&outcome.kind==="rejected_failure",
+      "Failed rebase-journal write aborts the transaction",outcome);
+    check(JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision===7&&
+      idbValues.get("repforge_v1")._storageRevision===7,
+      "Neither replica is written after the rebase-journal failure",{
+        local:JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb:idbValues.get("repforge_v1")._storageRevision
+      });
+    const remainingPending=DurableState.readPendingJournal();
+    check(outcome.pendingJournalCleanup===false&&outcome.recoveryPending===false&&
+      remainingPending.entries.length===0&&remainingPending.invalid.length===0,
+      "Failed rebased proposal leaves no stale journal available for replay",{
+        pendingJournalCleanup:outcome.pendingJournalCleanup,
+        recoveryPending:outcome.recoveryPending,
+        remainingPending
+      });
+  }finally{
+    mockLocalStorage.setItem=setItem;
+    DurableState.clearAllPendingJournal();
+    if(indexedDbDescriptor)Object.defineProperty(globalThis,"indexedDB",indexedDbDescriptor);
+    else delete globalThis.indexedDB;
+    if(navigatorDescriptor)Object.defineProperty(globalThis,"navigator",navigatorDescriptor);
+    else delete globalThis.navigator;
+  }
+}
+
+// Fault Test D5: A one-shot WAL readback failure after the rebase write must
+// remove that unacknowledged journal before boot can replay it.
+{
+  mockLocalStorage.clear();
+  const base = { program: [], log: [], programHistory: [], settings: {}, programMeta: {}, _storageRevision: 7 };
+  const proposal = { ...base, settings: { units: "lb" } };
+  const rebased = { ...base, settings: { units: "lb", lang: "pt" } };
+  mockLocalStorage.setItem("repforge_v1", JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const { idbValues, restore } = installReplicaHarness(base);
+  const setItem = mockLocalStorage.setItem;
+  const getItem = mockLocalStorage.getItem;
+  let pendingSetAttempts = 0;
+  let injectedReadback = false;
+  mockLocalStorage.setItem = (key, value) => {
+    if (key.startsWith("repforge_pending_v1:")) pendingSetAttempts++;
+    return setItem(key, value);
+  };
+  mockLocalStorage.getItem = (key) => {
+    if (key.startsWith("repforge_pending_v1:") && pendingSetAttempts === 2 && !injectedReadback) {
+      injectedReadback = true;
+      throw new Error("injected one-shot WAL readback failure");
+    }
+    return getItem(key);
+  };
+  try {
+    const outcome = await DurableState.enqueueStateChange(base, proposal, DurableState.storageIO, {
+      preflight: () => ({ proposal: rebased }),
+    });
+    check(injectedReadback && pendingSetAttempts === 2,
+      "Readback fault occurs after the successful rebase-journal write", { injectedReadback, pendingSetAttempts });
+    check(outcome.status === "failed" && outcome.committed === false &&
+      outcome.pendingJournalCleanup === false && outcome.recoveryPending === false,
+      "One-shot readback failure is rejected after journal cleanup", outcome);
+    check(DurableState.readPendingJournal().entries.length === 0 &&
+      JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision === 7 &&
+      idbValues.get("repforge_v1")._storageRevision === 7,
+      "Failed rebased proposal leaves no WAL and neither replica advances", {
+        pending: DurableState.readPendingJournal().entries.length,
+        local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb: idbValues.get("repforge_v1")._storageRevision,
+      });
+    const boot = await DurableState.resolveBootReplicas();
+    check(boot.kind === "chosen" && boot.snapshot?._storageRevision === 7 &&
+      JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision === 7 &&
+      idbValues.get("repforge_v1")._storageRevision === 7,
+      "Boot cannot replay a proposal whose rebase write was not acknowledged", {
+        bootKind: boot.kind, bootRevision: boot.snapshot?._storageRevision,
+        local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb: idbValues.get("repforge_v1")._storageRevision,
+      });
+  } finally {
+    mockLocalStorage.setItem = setItem;
+    mockLocalStorage.getItem = getItem;
+    DurableState.clearAllPendingJournal();
+    restore();
+  }
+}
+
+// Fault Test D6: If rebase journaling fails and WAL removal also fails, the
+// operation must surface recoverable pending work rather than a settled failure.
+{
+  mockLocalStorage.clear();
+  const base = { program: [], log: [], programHistory: [], settings: {}, programMeta: {}, _storageRevision: 7 };
+  const proposal = { ...base, settings: { units: "lb" } };
+  const rebased = { ...base, settings: { units: "lb", lang: "pt" } };
+  mockLocalStorage.setItem("repforge_v1", JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const { idbValues, restore } = installReplicaHarness(base);
+  const setItem = mockLocalStorage.setItem;
+  const removeItem = mockLocalStorage.removeItem;
+  let pendingSetAttempts = 0;
+  mockLocalStorage.setItem = (key, value) => {
+    if (key.startsWith("repforge_pending_v1:")) {
+      pendingSetAttempts++;
+      if (pendingSetAttempts === 2) throw new Error("injected rebase WAL write failure");
+    }
+    return setItem(key, value);
+  };
+  mockLocalStorage.removeItem = (key) => {
+    if (key.startsWith("repforge_pending_v1:")) throw new Error("injected WAL cleanup failure");
+    return removeItem(key);
+  };
+  try {
+    const outcome = await DurableState.enqueueStateChange(base, proposal, DurableState.storageIO, {
+      preflight: () => ({ proposal: rebased }),
+    });
+    check(pendingSetAttempts === 2, "Cleanup failure follows the rebase-journal write attempt", pendingSetAttempts);
+    check(outcome.journalFailed === true && outcome.pendingJournalCleanup === true &&
+      outcome.kind === "deferred_pending" && outcome.committed === false &&
+      outcome.recoveryPending === true,
+      "A retained failed-write WAL is exposed as recoverable pending work", outcome);
+    check(DurableState.readPendingJournal().entries.length === 1 &&
+      JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision === 7 &&
+      idbValues.get("repforge_v1")._storageRevision === 7,
+      "Cleanup failure retains its WAL while canonical replicas remain unchanged", {
+        pending: DurableState.readPendingJournal().entries.length,
+        local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb: idbValues.get("repforge_v1")._storageRevision,
+      });
+    const firstBoot = await DurableState.resolveBootReplicas();
+    check(firstBoot.kind === "unresolved" &&
+      JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision === 7 &&
+      idbValues.get("repforge_v1")._storageRevision === 7,
+      "Boot does not replay a stale pre-rebase WAL while cleanup is still failing", {
+        bootKind: firstBoot.kind, bootRevision: firstBoot.snapshot?._storageRevision,
+        local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb: idbValues.get("repforge_v1")._storageRevision,
+      });
+    mockLocalStorage.removeItem = removeItem;
+    const settledBoot = await DurableState.resolveBootReplicas();
+    check(settledBoot.kind === "chosen" && settledBoot.snapshot?._storageRevision === 7 &&
+      JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision === 7 &&
+      idbValues.get("repforge_v1")._storageRevision === 7 &&
+      DurableState.readPendingJournal().entries.length === 0,
+      "Boot retry discards the unapproved proposal without advancing either replica", {
+        bootKind: settledBoot.kind, bootRevision: settledBoot.snapshot?._storageRevision,
+        local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb: idbValues.get("repforge_v1")._storageRevision,
+        pending: DurableState.readPendingJournal().entries.length,
+      });
+  } finally {
+    mockLocalStorage.setItem = setItem;
+    mockLocalStorage.removeItem = removeItem;
+    DurableState.clearAllPendingJournal();
+    restore();
+  }
+}
+
+// Fault Test D7: A verified preflight rebase still commits its exact proposal.
+{
+  mockLocalStorage.clear();
+  const base = { program: [], log: [], programHistory: [], settings: {}, programMeta: {}, _storageRevision: 7 };
+  const proposal = { ...base, settings: { units: "lb" } };
+  const rebased = { ...base, settings: { units: "lb", lang: "pt" } };
+  mockLocalStorage.setItem("repforge_v1", JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const { idbValues, restore } = installReplicaHarness(base);
+  try {
+    const outcome = await DurableState.enqueueStateChange(base, proposal, DurableState.storageIO, {
+      preflight: () => ({ proposal: rebased }),
+    });
+    const local = JSON.parse(mockLocalStorage.getItem("repforge_v1"));
+    const idb = idbValues.get("repforge_v1");
+    check(outcome.kind === "committed" && outcome.committed === true && outcome.settled === true,
+      "Verified preflight rebase commits normally", outcome);
+    check(local._storageRevision === 8 && idb._storageRevision === 8 &&
+      JSON.stringify(local.settings) === JSON.stringify(rebased.settings) &&
+      JSON.stringify(idb.settings) === JSON.stringify(rebased.settings) &&
+      DurableState.readPendingJournal().entries.length === 0,
+      "Both replicas contain the exact rebased proposal and its WAL is settled", {
+        localRevision: local._storageRevision, idbRevision: idb._storageRevision,
+        localSettings: local.settings, idbSettings: idb.settings,
+        pending: DurableState.readPendingJournal().entries.length,
+      });
+  } finally {
+    DurableState.clearAllPendingJournal();
+    restore();
+  }
+}
+
+// Fault Test D8: An ordinary lock-held preflight rejection remains a conflict
+// and leaves both durable replicas untouched after its journal is removed.
+{
+  mockLocalStorage.clear();
+  const base = { program: [], log: [], programHistory: [], settings: {}, programMeta: {}, _storageRevision: 7 };
+  const proposal = { ...base, settings: { units: "lb" } };
+  mockLocalStorage.setItem("repforge_v1", JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const { idbValues, restore } = installReplicaHarness(base);
+  try {
+    const outcome = await DurableState.enqueueStateChange(base, proposal, DurableState.storageIO, {
+      preflight: () => ({ reject: true, result: { conflict: true, reason: "preflight-reject" } }),
+    });
+    check(outcome.kind === "rejected_conflict" && outcome.rejected === true &&
+      outcome.committed === false && outcome.recoveryPending === false,
+      "Ordinary preflight rejection keeps its settled conflict outcome", outcome);
+    check(JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision === 7 &&
+      idbValues.get("repforge_v1")._storageRevision === 7 &&
+      DurableState.readPendingJournal().entries.length === 0,
+      "Ordinary preflight rejection writes neither replica and clears its WAL", {
+        local: JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb: idbValues.get("repforge_v1")._storageRevision,
+        pending: DurableState.readPendingJournal().entries.length,
+      });
+  } finally {
+    DurableState.clearAllPendingJournal();
+    restore();
+  }
+}
+
+// Fault Test D9: A successful preflight with no replacement proposal still
+// completes its journal gate before the durable write.
+{
+  mockLocalStorage.clear();
+  const base = { program: [], log: [], programHistory: [], settings: {}, programMeta: {}, _storageRevision: 7 };
+  const proposal = { ...base, settings: { units: "lb" } };
+  mockLocalStorage.setItem("repforge_v1", JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const { idbValues, restore } = installReplicaHarness(base);
+  try {
+    const outcome = await DurableState.enqueueStateChange(base, proposal, DurableState.storageIO, {
+      preflight: () => null,
+    });
+    const local = JSON.parse(mockLocalStorage.getItem("repforge_v1"));
+    const idb = idbValues.get("repforge_v1");
+    check(outcome.kind === "committed" && outcome.committed === true && outcome.settled === true,
+      "Successful preflight without a replacement proposal commits normally", outcome);
+    check(local._storageRevision === 8 && idb._storageRevision === 8 &&
+      local.settings.units === "lb" && idb.settings.units === "lb" &&
+      DurableState.readPendingJournal().entries.length === 0,
+      "The no-rebase preflight clears its gate before replicas advance", {
+        localRevision: local._storageRevision, idbRevision: idb._storageRevision,
+        localSettings: local.settings, idbSettings: idb.settings,
+        pending: DurableState.readPendingJournal().entries.length,
+      });
+  } finally {
+    DurableState.clearAllPendingJournal();
+    restore();
   }
 }
 
