@@ -39,6 +39,8 @@ share a screen language with.
 | F19 | `rec-schedule`, `rec-priorities` · pt/light/390 | Three rows of chrome above the h1 (route + counter, segbar, answer rail) with 4–8 px between them; the title arrives cramped. | Chrome keeps every element; the counter moves in line with the segbar's row, the rail gets 12 px above and 20 below, so the h1 is the first thing with air around it. | D §3 space |
 | F20 | `landing`, `shared-gate` · pt/light/390 | The landing is the strongest screen and the one the visual gate protects; only its brand row (44 px mark, .24em wordmark) and 14 px stack are off the new scale. | Brand row on the scale (16 below), wordmark .2em; no other change. | 058 landing contextual variant (kept) |
 
+| F21 | every screen with a glyph · all cells | Raised by the owner after the pass: the shared icon masks are low quality. The flexed arm is an unreadable blob, the balance reads as a hanger, the kettlebell as a cloud, the rack as two posts, the gear is a sun; stroke weights range from 1.6 to 2.2 and the wand's sparkles are the only filled shapes. | A set of 28 icons drawn for G on a 24 grid: 1.75 stroke (2 for the four glyphs), round caps and joins, 2.5 px safe area, one optical weight; masks scoped to the candidate root with G's own arrow and check, so the primary's arrow and the selected mark match. Before/after contact sheets in `round-3/polish/ICONS__sheet__*.png`. | 058 `--control-icon-size`, glyph as control facet; brand guide "UI glyphs" |
+
 ## Notes after the pass
 
 - F01: the strip's cells are `dias de treino · min por sessão · exercícios

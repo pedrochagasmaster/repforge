@@ -52,6 +52,8 @@ is `round-3/polish/AUDIT.md`; before/after pairs for every finding, at
 | Dark theme | `70c43ed` | Decision panels and the "novo" row on the surface material; resume rail kept in both themes; no focus ring on the conflict alert's own border | all dark cells |
 | Motion | `6944b61` | Editor, change statement and "novo" rows rise once as they appear; day chevron turns; Today enters with the view fade; reduced motion unchanged (shared rule) | any apply, editor open, `activated-today` |
 | Edge states | `68d3304` | Invalid-link reason as a body band; free-form gap labels sentence case; stage heads in ink; "not imported" note as body-small; quiet Build link in ink | `shared-invalid`, `ff-*`, `import-source` |
+| Records and pairs | `fa5a57f` | Manifest, notes, final-report §13, acceptance, before/after PNGs | none |
+| Icons | `147b92d` | A 28-glyph icon set drawn for G (24 grid, 1.75 stroke, one optical weight), scoped to the candidate root with its own arrow and check; generator and contact sheets in `round-3/polish/` | every screen with a glyph: chooser, goals, environments, reasons, import, free-form, landing arrows |
 
 Checks before each commit: `tools/verify.mjs --round 3 --quick` plus a
 cell and journey subset (`--quick` narrows only Round 1; for Round 3 the

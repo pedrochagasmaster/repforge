@@ -102,6 +102,17 @@ What G now does that D's source did not:
   ms once, when revealed (`.g-enter`, added in `revealEditor` and
   `showChange`); the day chevron turns; Today enters with the shared view
   fade. Reduced motion is the shared rule.
+- **Icons.** The owner found the shared glyphs low quality, so G carries
+  its own set: 28 icons on a 24 grid, 1.75 stroke (2 for check, arrow,
+  plus, minus and close), round caps and joins, a 2.5 px safe area and one
+  optical weight, drawn from scratch (a real gear, a readable flexed arm, a
+  kettlebell with a handle, a loaded bar in a rack, a balance with pans).
+  They are masks scoped to the candidate root (`#root .icon-mask--*`,
+  `#root .chevron`) and the root's own `--arrow` / `--check`, so the
+  primary's arrow and the selected choice mark use the same drawings; the
+  shared `base.css` and `tokens.css` are untouched. The generator is
+  `round-3/polish/icons.mjs`; the contact sheets are
+  `round-3/polish/ICONS__sheet__*.png`.
 
 ## Verification
 
