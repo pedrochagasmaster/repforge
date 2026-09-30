@@ -64,7 +64,7 @@ remediation owner; no product fix or retained suite was added here.
 | Finding | Post-058 status | Executable evidence | Smallest next owner |
 |---|---|---|---|
 | A01, P1 | CLOSED by PR #284: core acceptance/promotion fix `8d5f77ed397c866c298cbebc3a249f73f5173777`; staged-new-draft correction `2c7c1732d1f06eaab033a556e31d400ea413d431` | `test/draftv2-staged-cas.mjs` rejects a second writer from the same predecessor and preserves the accepted aggregate through promotion and reload | No A01 follow-up |
-| A02, P2 | OPEN | History RIR=2 saves to both replicas with `rirMeasured:false`; reload remains `insufficient / missing-effort`. Flag-only control yields `sufficient / improved / progress` | Narrow evidence-correctness fix in stage 4 before #255; preserve provenance for load/date-only edits |
+| A02, P2 | CLOSED by fix branch `fix/a02-history-rir-provenance`: `history-ui.js` marks a valid History RIR entry `rirMeasured:true` | `test/history-edit.mjs` saves RIR 2 through the real editor to both replicas, reloads, and the Strength evidence owner no longer reports `missing-effort`; load, reps and date-only edits, invalid RIR, cancel and sibling rows preserve provenance | No A02 follow-up; the evidence filter is unchanged |
 | A03, P2 | OPEN | New York spring DST returns week 1 on March 9 and excludes today's session; block denominator also remains one week | Narrow evidence-correctness fix in stage 4 before #255; may share the A02 packet if ownership/proofs stay clear |
 | A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Narrow stage-4 focus-continuity fix before #255; D retains this utility |
 | A05, former P2 | CLOSED — fixed by #256, History convergence `dbf55da1`, with EN/PT computed typography proof | Catalog and external computed-root 200% both double data, headings and action labels; scaling survives reload | No fix. Preserve scaling proof in D and final 059 evidence |
@@ -338,8 +338,8 @@ exact #271 main `f7b516361ef1083b7395f144c613a32817706722` by test commit
 `7352ca38acef488af3c63e7d89f843f37c7c31c0`.
 The closing regression is `test/draftv2-staged-cas.mjs`; it checks same-revision
 rejection, sequential writes, the pending transaction path, sidecar publication,
-checkpoint, canonical promotion, failure and retry, and reload. A02, A03, and
-A04 remain open in the current matrix.
+checkpoint, canonical promotion, failure and retry, and reload. A02 is closed by the History editor fix described in its finding
+section; A03 and A04 remain open in the current matrix.
 
 #### A02 · P2 · History RIR corrections remain excluded from strength evidence
 
@@ -350,6 +350,8 @@ Missing historical RIR migrates to `rirMeasured:false`. Editing that RIR to 2 th
 The specialist's independent control changed only that flag and obtained `sufficient / improved`. The lead independently reran the save/reload failure. The defect is present in #248 and affects Plan 056's canonical evidence and downstream eligibility.
 
 Requirement: Plan 057's explicit historical correction must remain consistent with Plan 056's canonical evidence producer.
+
+Closed: `historyApplyWorkingInput()` now sets `rirMeasured:true` on the working-copy row when a valid RIR value is entered (including re-entering the same number, as explicit confirmation). Load, reps and date edits, invalid RIR, cancelled edits and other rows keep their provenance, and the Strength evidence filter is unchanged. `test/history-edit.mjs` proves it through the real editor, both replicas and reload.
 
 Closing evidence: edit missing RIR through the actual History controls, save, verify both replicas, reload, and assert restored evidence. Also prove a load-only or date-only edit does not falsely mark an unmeasured default RIR as measured.
 

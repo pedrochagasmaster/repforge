@@ -198,7 +198,9 @@ function historyApplyWorkingInput(event){
   const target=event.target,card=target.closest(".session--edit");if(!card||historySelection.mode!=="editing")return;
   const row=target.closest(".edrow[data-edidx]");if(row){const i=Number(row.dataset.edidx),key=String(target.dataset.ek||"").split("|")[0];
     const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value):key==="rir"?parseRirValue(target.value):null;
-    if(historySelection.workingCopy?.[i]&&key&&parsed&&!parsed.field)historySelection.workingCopy[i][key]=parsed.value}
+    if(historySelection.workingCopy?.[i]&&key&&parsed&&!parsed.field){historySelection.workingCopy[i][key]=parsed.value;
+      // A valid RIR entry is the user's explicit correction, so it is measured evidence.
+      if(key==="rir")historySelection.workingCopy[i].rirMeasured=true}}
   if(target.matches('[data-ed="date"]')){
     const parsed=parseCalendarDate(target.value);
     if(!parsed.field)for(const row of historySelection.workingCopy||[])row.date=parsed.value}

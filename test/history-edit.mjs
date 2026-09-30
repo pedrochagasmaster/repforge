@@ -587,6 +587,114 @@ async function main() {
     assert(canonical(afterDelete.local) === canonical(afterDelete.idb),
       "Delete leaves localStorage and IndexedDB at the same session result");
 
+    // A02: an explicit RIR correction is measured evidence. Legacy rows carry
+    // numeric RIR with rirMeasured:false; Strength evidence filters those, so the
+    // History editor must record user intent. Semantics: a valid input to a RIR
+    // field marks that row measured, even when the typed value equals the old one.
+    const legacyRow = (session, date, set, load, measured, rir = 1) => ({
+      session, date, day: day1.day, name: day1.name, exerciseId: day1.id, set, load, reps: 8, rir,
+      ...(measured === undefined ? {} : { rirMeasured: measured }),
+      notes: "", created: `${date}T12:00:00.000Z`, primary: "Chest", secondary: "Front delts", work: true,
+    });
+    const seedA02 = async (rows) => {
+      await writeState(page, { ...historyBaseline, log: rows });
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      await page.locator('nav button[data-view="history"]').click();
+    };
+    const openEdit = async (sid) => {
+      await page.evaluate((id) => window.__repforgeHistory.startReading(id), sid);
+      await page.locator(`[data-history-edit="${sid}"]`).click();
+      await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
+    };
+    const editor = (sid) => page.locator(`.session--edit[data-editing="${sid}"]`);
+    const saveEdit = async (sid) => {
+      await page.locator(`[data-edsave="${sid}"]`).click();
+      await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { state: "detached", timeout: 5000 });
+      await page.evaluate(() => window.__repforgeStorage.flush());
+      return readReplicas(page);
+    };
+    const flags = (replicas, sid) => replicas.local.log.filter((row) => row.session === sid)
+      .sort((a, b) => a.set - b.set).map((row) => `${row.set}:${row.rir}/${row.rirMeasured}`);
+    const a02Rows = () => [
+      legacyRow("a02-old", "2026-08-10", 1, 50, false, 0),
+      legacyRow("a02-new", "2026-08-17", 1, 50, true, 2),
+    ];
+
+    // Production path: real editor -> durable save -> reload -> Strength evidence owner.
+    await seedA02(a02Rows());
+    await openEdit("a02-old");
+    await editor("a02-old").locator('input[data-ek="rir|0"]').fill("2");
+    const a02Saved = await saveEdit("a02-old");
+    const a02Row = a02Saved.local.log.find((row) => row.session === "a02-old");
+    assert(canonical(a02Saved.local) === canonical(a02Saved.idb) && a02Row.rir === 2 && a02Row.rirMeasured === true,
+      "A02 History RIR correction persists rir:2 with rirMeasured:true in both replicas",
+      JSON.stringify({ rir: a02Row.rir, rirMeasured: a02Row.rirMeasured }));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const a02Evidence = await page.evaluate(() => window.__repforgeProgressEvidence.records().filter((r) => r.evidenceCount));
+    const a02Reloaded = (await readReplicas(page)).local.log.find((row) => row.session === "a02-old");
+    assert(a02Reloaded.rir === 2 && a02Reloaded.rirMeasured === true &&
+      a02Evidence.length > 0 && a02Evidence[0].reason !== "missing-effort" && a02Evidence[0].evidenceState === "sufficient",
+      "A02 reloaded Strength evidence accepts the corrected RIR instead of missing-effort",
+      JSON.stringify({ rir: a02Reloaded.rir, rirMeasured: a02Reloaded.rirMeasured, evidence: a02Evidence }));
+
+    // Non-RIR edits preserve provenance; an explicit RIR edit marks only its own row.
+    const a02Controls = () => [
+      legacyRow("a02-old", "2026-08-10", 1, 50, false, 1),
+      legacyRow("a02-old", "2026-08-10", 2, 50, false, 1),
+      legacyRow("a02-old", "2026-08-10", 3, 50, true, 1),
+      legacyRow("a02-new", "2026-08-17", 1, 50, false, 1),
+    ];
+    const allFalse = ["1:1/false", "2:1/false", "3:1/true"];
+    for (const [label, mutate] of [
+      ["load-only", (ed) => ed.locator('input[data-ek="load|0"]').fill("55")],
+      ["reps-only", (ed) => ed.locator('input[data-ek="reps|0"]').fill("9")],
+      ["date-only", (ed) => ed.locator('[data-ed="date"]').fill("2026-08-11")],
+    ]) {
+      await seedA02(a02Controls());
+      await openEdit("a02-old");
+      await mutate(editor("a02-old"));
+      const saved = await saveEdit("a02-old");
+      assert(flags(saved, "a02-old").join() === allFalse.join() && flags(saved, "a02-new").join() === "1:1/false",
+        `A02 ${label} edit preserves rirMeasured provenance (false stays false, true stays true)`,
+        JSON.stringify(flags(saved, "a02-old")));
+    }
+
+    await seedA02(a02Controls());
+    await openEdit("a02-old");
+    await editor("a02-old").locator('input[data-ek="rir|0"]').fill("2");
+    await editor("a02-old").locator('input[data-ek="rir|2"]').fill("3");
+    const rirSaved = await saveEdit("a02-old");
+    assert(flags(rirSaved, "a02-old").join() === "1:2/true,2:1/false,3:3/true" && flags(rirSaved, "a02-new").join() === "1:1/false",
+      "A02 RIR edit on one row marks only that row; sibling rows and other sessions keep provenance; measured stays measured",
+      JSON.stringify({ old: flags(rirSaved, "a02-old"), other: flags(rirSaved, "a02-new") }));
+
+    await seedA02(a02Controls());
+    await openEdit("a02-old");
+    await editor("a02-old").locator('input[data-ek="rir|1"]').fill("1");
+    assert(flags(await saveEdit("a02-old"), "a02-old")[1] === "2:1/true",
+      "A02 explicitly re-entering the same RIR value confirms it as measured");
+
+    await seedA02(a02Controls());
+    await openEdit("a02-old");
+    const beforeInvalid = await readReplicas(page);
+    await editor("a02-old").locator('input[data-ek="rir|0"]').fill("abc");
+    await page.locator('[data-edsave="a02-old"]').click();
+    await page.waitForFunction(() => document.querySelector('.session--edit [data-ek="rir|0"][aria-invalid="true"]'), undefined, { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const afterInvalid = await readReplicas(page);
+    assert(canonical(afterInvalid.local) === canonical(beforeInvalid.local) && flags(afterInvalid, "a02-old").join() === allFalse.join(),
+      "A02 invalid RIR is rejected and does not upgrade provenance");
+
+    await editor("a02-old").locator('input[data-ek="rir|0"]').fill("2");
+    await page.locator('[data-edcancel]').click();
+    await page.waitForSelector('.session--read[data-reading="a02-old"]', { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const afterA02Cancel = await readReplicas(page);
+    assert(canonical(afterA02Cancel.local) === canonical(beforeInvalid.local) && canonical(afterA02Cancel.idb) === canonical(beforeInvalid.idb),
+      "A02 cancelled RIR edit persists nothing");
+
     await context.close();
   } finally {
     await browser.close();
