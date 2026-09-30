@@ -16325,7 +16325,7 @@ async function applyBootDecision(decision){
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   await refreshRecoveryProjectionCache(state);
-  DraftStore.promote(null,draftContextFingerprint(state));
+  await DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
   applyGotoParam();
   const migrated=migrateLog();
