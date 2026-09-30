@@ -56,8 +56,8 @@ if that approval is not recorded on the planning PR, stop and ask.
 R0 authority and reconciliation → R1 shared system → R2 landing and copy
 (R2b copy first) → R3 Direction D (R3a gate first; then up to four workers
 on disjoint regions) ∥ R4 onboarding (only after OG-1) → R5 journeys → R6
-convergence, full catalog and one shell revision → R7 adversarial review →
-OWNER REVIEW.
+convergence, full catalog and the final cache-revision reconciliation → R7
+adversarial review → OWNER REVIEW.
 
 Plan 064 §9 has each slice's objective, owned files, consumed contracts,
 unchanged behaviour with its proving suites, prerequisites, parallelism,
@@ -70,8 +70,12 @@ quote them.
 Ask OG-1 (onboarding direction), OG-2 (PT terminology, issue #274), OG-3
 (landing final page), OG-4 (Direction D polish proposals) and OG-5
 (`program_readiness_navigated` deletion) in one batch comment at the end of
-R0, with the board and inventories Plan 064 §6 lists. OG-6 (P1 drawings)
-runs in four rounds during R3. OG-7 (changed-frame boards) is per slice.
+R0, with the board and inventories Plan 064 §6 lists. Build the OG-1 board
+from existing sources only: the tournament's candidate renders beside
+Direction D's owner-approved Today and Focus drawings from the review page
+at the pinned #272 SHA, both normalized to Plan 058's roles and the Plan 064
+§8 rules. No R1 or R3 screen exists at that point; do not wait for one and
+do not present one. OG-6 (P1 drawings) runs in four rounds during R3. OG-7 (changed-frame boards) is per slice.
 OG-8 (whole-product phone read) is requested after R7.
 
 An approval is an owner reply on the workfront PR or a linked issue. A
@@ -84,7 +88,8 @@ explicit owner instruction to split).
 ## Delegation constraints
 
 - You are the only writer of: `sw.js`, `index.html` script tags and shell
-  IDs, `test/exercise-library.mjs` revisions, `telemetry.js`, `i18n.js`,
+  IDs, `test/exercise-library.mjs` revisions (a precached behaviour change
+  bumps the revision in its own commit; R6 reconciles the whole lineage), `telemetry.js`, `i18n.js`,
   PNGs, `tools/ui-role-inventory.json` outside R1/R6 rows, `docs/backlog.md`,
   `plans/README.md`, the clearance sequence, and `app.js` boot, routing and
   persistence regions.

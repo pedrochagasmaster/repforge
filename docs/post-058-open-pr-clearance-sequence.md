@@ -56,7 +56,7 @@ The order below is the default merge order. “Parallel preparation” means rea
 | 4 | **Still-live #280 blocker fixes** | Narrow PRs only | Fix A01–A05/N01–N02 only where still reachable. Do not build throwaway UI that Direction D explicitly retires; closure-by-supersession must be evidenced in the owning redesign. |
 | 4 | **Standalone alpha-readiness work: advisor plans 001, 002, 023, 024** | Develop concurrently on four branches; integrate one at a time with a merge-time cache revision and exact-head green `ci` (Plan 064 §11.1) | Alpha safety items 2–3, approved measurement producers and browser-persistence mitigation land before the redesign branch is cut so it absorbs them once. Plan 002 starts from a characterization of the live `sw.js`, which already guards `response.ok`; plan 023's producers attach at the DraftV2 commit, Why-open, skip and review boundaries so the redesign keeps them by construction. |
 | 5 | **#255 — Unsupported workout-grammar measurement** | Develop concurrently with stage 4; merge current main, rewrite its shell hunk for the release-asset `ASSETS` structure, replace old post-059 gate, final privacy proof on the exact head, merge | Small, mature, evidence-generating change. Land before the redesign branch is cut so it absorbs it once. This does not authorize executable grammar expansion. |
-| 6 | **Unified redesign — Plan 064 (sources: #276 landing, #272 Direction D / Plan 063, #279 onboarding)** | Cut one branch from the post-stage-5 `main`; one draft production PR; slices R0–R7 under an Opus orchestrator with Sonnet workers; owner gates for the onboarding direction, PT terminology (#274), the landing final page and the Direction D polish proposals; close #276/#272/#279 as superseded once their content is migrated; stop at OWNER REVIEW | Replaces the former stages 6–8. None of the three source PRs is a production implementation; one PR gives one vocabulary, one token set, one catalog baseline and one shell revision. Direction D keeps Plan 063 as the main-app specification; Plan 064 is the umbrella authority. |
+| 6 | **Unified redesign — Plan 064 (sources: #276 landing, #272 Direction D / Plan 063, #279 onboarding)** | Cut one branch from the post-stage-5 `main`; one draft production PR; slices R0–R7 under an Opus orchestrator with Sonnet workers; owner gates for the onboarding direction, PT terminology (#274), the landing final page and the Direction D polish proposals; close #276/#272/#279 as superseded once their content is migrated; stop at OWNER REVIEW | Replaces the former stages 6–8. None of the three source PRs is a production implementation; one PR gives one vocabulary, one token set, one catalog baseline and one controlled cache-revision lineage (interim bumps per precached behaviour change, one final R6 reconciliation) instead of three branches allocating revisions against one another. Direction D keeps Plan 063 as the main-app specification; Plan 064 is the umbrella authority. |
 | 7 | **#258 — Historical migration foundation — Hevy, Strong, generic CSV** | Resolve real-provider evidence, renumber its branch-local plan (Plan 063 stays Direction D's), integrate the merged unified-redesign History contract, finish and merge | Canonical Next priority remains switching friction first. If provider evidence is still unavailable, do not invent it; owner must narrow/defer rather than block forever on synthetic fixtures. |
 | 8 | **#257 — Free one-off sessions** | Integrate the merged unified-redesign Today/Workout/History, settle DraftV2/transfer/consumer semantics, finish and merge | Avoid implementing one-off consumers against screens the redesign is about to replace. Keep program-aware Pro planning gated. |
 | 9 | **Final convergence** | Re-run open-PR inventory, canonical docs, cache/query contract, catalog and candidate selection | No stale “post-059”, “058 → D → 059” or three-separate-redesign-merge claims; no obsolete open workfront accidentally treated as a dependency. |
@@ -106,19 +106,22 @@ merge boundary; a new PR is not automatically a pre-059 dependency.
   #257's original red entry result remains red, and its production/transfer/
   consumer gates stay open. #258's real-provider evidence and branch-local Plan
   063 collision remain unresolved.
-- **#276:** still draft at `336b492d`; rounds 1–5 and the final page remain
+- **#276:** draft at `336b492d` on 2026-09-29 and unchanged at the
+  2026-09-30 amendment; rounds 1–5 and the final page remain
   review/implementation work, including production recommendation/i18n copy.
   Main has no landing redesign from this branch. *2026-09-30:* its production
   diff is three `rec.*.text` rewrites and a stale v302 bump; the final page is
   a standalone document. It is a source branch for Plan 064 slice R2.
-- **#272:** still draft at `964f827e`; Direction D owns Plan 063. Its 143-screen
+- **#272:** draft; `964f827e` was its head at the 2026-09-29 refresh
+  (historical), and `2f2fc044` is its current head at the 2026-09-30
+  amendment. Direction D owns Plan 063. Its 143-screen
   inventory and old `058 → D → 059` shorthand must be refreshed from the live
   148-screen baseline and this expanded sequence. Shared rules still cover
   onboarding; their dependency is unchanged. *2026-09-30:* at `2f2fc044` the
   branch is specification plus a review-page prototype; only slice P2 is
   implemented. Its governing documents migrate to the Plan 064 branch in R0
   and its P-slices become R3.
-- **#279:** advanced during this clearance to `0b2e9dbf` (initially `de26b2f7`). The branch's Round 3 manifest records G
+- **#279:** advanced during the 2026-09-29 clearance to `0b2e9dbf` (initially `de26b2f7`; both historical); its current head at the 2026-09-30 amendment is `1acee97a`. The branch's Round 3 manifest records G
   synthesis and closed PD-1–PD-4 decisions; its Round 4 brief records the owner's
   subsequent request for bolder exploration. The PR body/final report still
   stopping at Round 2 are stale. No production winner or blanket reopening of
