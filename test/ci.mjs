@@ -11,7 +11,7 @@ import { classifyChange, gateResults, pullRequestFiles, resolvePlan, shardMatrix
 import { findShardReports, mergeShardReports, shardCaptures } from "../tools/ui-system-core.mjs";
 import { mergeUiSystemReports } from "../tools/ci-plan.mjs";
 import { selectCaptures, verifyCatalog } from "../tools/capture-ui-screens.mjs";
-import { capturePath, expandCaptures, loadManifest } from "../tools/ui-screens/manifest.mjs";
+import { captureKey, capturePath, expandCaptures, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit, selectPacket } from "../tools/test-selection.mjs";
@@ -140,9 +140,9 @@ test("UI-system shard reports merge into the catalog-wide never-rendered rule", 
     components: [{ id: "a", selector: ".a" }, { id: "b", selector: ".b", sourceOnly: true }, { id: "c", selector: ".c" }],
     exceptions: [{ selector: ".x" }, { selector: ".y", sourceOnlyReason: "documented" }],
   };
-  const one = { schemaVersion: 1, shard: { index: 1, count: 2 }, screens: 3, matched: ["a"], matchedExceptions: [".x"], problems: 0 };
-  const two = { schemaVersion: 1, shard: { index: 2, count: 2 }, screens: 2, matched: ["c"], matchedExceptions: [], problems: 0 };
-  const expected = { expectedShardCount: 2, expectedScreenCount: 5 };
+  const one = { schemaVersion: 2, shard: { index: 1, count: 2 }, screens: 3, captureKeys: ["state/a", "state/b", "state/c"], matched: ["a"], matchedExceptions: [".x"], problems: 0 };
+  const two = { schemaVersion: 2, shard: { index: 2, count: 2 }, screens: 2, captureKeys: ["state/d", "state/e"], matched: ["c"], matchedExceptions: [], problems: 0 };
+  const expected = { expectedShardCount: 2, expectedScreenCount: 5, expectedCaptureKeysByShard: [one.captureKeys, two.captureKeys] };
   assert.deepEqual(mergeShardReports([one, two], inventory, expected), { problems: [], shards: 2, screens: 5 });
   assert.match(mergeShardReports([one], inventory, expected).problems.join("\n"), /shard 2\/2 reported 0 time\(s\)/);
   assert.match(mergeShardReports([one, one, two], inventory, expected).problems.join("\n"), /shard 1\/2 reported 2 time\(s\)/);
@@ -153,16 +153,27 @@ test("UI-system shard reports merge into the catalog-wide never-rendered rule", 
   assert.match(mergeShardReports([], inventory, expected).problems.join("\n"), /expected 2 reports, got 0/);
   assert.match(mergeShardReports([{ ...one, shard: { index: 1, count: 1 }, matched: ["a", "c"], matchedExceptions: [".x"], screens: 5 }], inventory, expected).problems.join("\n"), /declared 1 shards, expected 2/,
     "a self-consistent partial report must not lower the required catalog sweep");
-  assert.match(mergeShardReports([{ ...one, schemaVersion: 2 }, two], inventory, expected).problems.join("\n"), /unsupported schemaVersion/);
+  assert.match(mergeShardReports([{ ...one, schemaVersion: 1 }, two], inventory, expected).problems.join("\n"), /unsupported schemaVersion/);
   assert.match(mergeShardReports([one, { ...two, screens: 1 }], inventory, expected).problems.join("\n"), /rendered 4 catalog states, expected 5/);
   assert.match(mergeShardReports([one, { ...two, matched: "c" }], inventory, expected).problems.join("\n"), /matched must be an array/);
+  assert.match(mergeShardReports([one, { ...two, captureKeys: ["state/c", "state/e"] }], inventory, expected).problems.join("\n"), /capture keys do not match shard/,
+    "equal screen counts cannot conceal a cross-shard substitution");
+  assert.match(mergeShardReports([one, { ...two, captureKeys: ["state/d"] }], inventory, expected).problems.join("\n"), /capture key\(s\), but reports 2 rendered states/,
+    "a report cannot claim more rendered states than its capture evidence identifies");
   const root = scratch(t);
   const realManifest = loadManifest();
-  const expectedScreens = realManifest.screens.length * 2 * Object.keys(realManifest.locales).length;
+  const roleCaptureKeys = realManifest.screens.flatMap((screen) => ["light", "dark"].flatMap((theme) =>
+    Object.keys(realManifest.locales).map((locale) => captureKey({
+      flow: screen.flow, screen: screen.id, viewport: "phone-390", theme, locale, text: "normal", motion: "normal",
+    }))));
+  const roleKeysByShard = Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) =>
+    shardCaptures(roleCaptureKeys, { index: index + 1, count: UI_SYSTEM_SHARDS }));
+  const expectedScreens = roleCaptureKeys.length;
   const perShard = Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) => ({
-    schemaVersion: 1,
+    schemaVersion: 2,
     shard: { index: index + 1, count: UI_SYSTEM_SHARDS },
-    screens: Math.floor((expectedScreens + UI_SYSTEM_SHARDS - index - 1) / UI_SYSTEM_SHARDS),
+    screens: roleKeysByShard[index].length,
+    captureKeys: roleKeysByShard[index],
     matched: index === 0 ? ["a"] : index === 1 ? ["c"] : [],
     matchedExceptions: index === 0 ? [".x"] : [],
     problems: 0,
@@ -218,7 +229,10 @@ test("verify mode compares a staged capture with the committed catalog and keeps
 test("CI runs everything unless a change is provably prose-only", () => {
   assert.equal(classifyChange(null).run, true);
   assert.equal(classifyChange([]).run, true);
-  assert.equal(classifyChange(["README.md", "docs/backlog.md", "plans/062.md", ".gitignore", "LICENSE", "docs/ui-screens/README.md"]).run, false);
+  assert.equal(classifyChange(["docs/backlog.md", "plans/062.md", ".gitignore", "LICENSE", "docs/ui-screens/README.md"]).run, false);
+  for (const document of ["README.md", "NOTICE.md", "docs/recovery-week-policy.md", "tools/README.md"]) {
+    assert.equal(classifyChange([document]).run, true, `${document} is an input to a verification contract`);
+  }
   for (const fixture of ["test/fixtures/coach-program.txt", "docs/fixtures/catalog-notes.md"]) {
     assert.equal(classifyChange([fixture]).run, true, `${fixture} can be executable test input despite its prose extension`);
   }
@@ -268,11 +282,12 @@ test("pull-request file lists come from the compare API and fail safe when it ca
 });
 
 test("the gate accepts skipped jobs only when the plan skipped them", () => {
-  const selected = { plan: { result: "success", outputs: { run: "true" } }, fast: { result: "success" }, browser: { result: "success" }, service: { result: "success" } };
+  const fullShards = JSON.stringify(shardMatrix(CI_SHARDS));
+  const selected = { plan: { result: "success", outputs: { run: "true", shards: fullShards } }, fast: { result: "success" }, browser: { result: "success" }, service: { result: "success" } };
   assert.doesNotThrow(() => gateResults(selected, { log() {} }));
   assert.throws(() => gateResults({ ...selected, browser: { result: "failure" } }, { log() {} }), /browser: expected success, got failure/);
   assert.throws(() => gateResults({ ...selected, service: { result: "skipped" } }, { log() {} }), /service: expected success, got skipped/);
-  const prose = { plan: { result: "success", outputs: { run: "false", reason: "Only prose changed" } }, fast: { result: "skipped" }, browser: { result: "skipped" }, service: { result: "skipped" } };
+  const prose = { plan: { result: "success", outputs: { run: "false", reason: "Only prose changed", shards: fullShards } }, fast: { result: "skipped" }, browser: { result: "skipped" }, service: { result: "skipped" } };
   assert.doesNotThrow(() => gateResults(prose, { log() {} }));
   assert.throws(() => gateResults({ ...prose, fast: { result: "success" } }, { log() {} }), /fast: expected skipped, got success/);
   assert.throws(() => gateResults({ ...selected, plan: { result: "failure" } }, { log() {} }), /plan job failure/);
@@ -284,6 +299,9 @@ test("the gate accepts skipped jobs only when the plan skipped them", () => {
   assert.throws(() => gateResults(unplanned, { log() {} }), /run output must be "true" or "false"/);
   for (const run of ["yes", "", null]) {
     assert.throws(() => gateResults({ ...prose, plan: { result: "success", outputs: { run } } }, { log() {} }), /run output must be "true" or "false"/);
+  }
+  for (const shards of [undefined, "not-json", JSON.stringify(shardMatrix(CI_SHARDS).slice(1)), JSON.stringify(["1/14", "1/14"])]) {
+    assert.throws(() => gateResults({ ...selected, plan: { result: "success", outputs: { run: "true", shards } } }, { log() {} }), /plan shards output/);
   }
 });
 

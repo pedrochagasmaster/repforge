@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Live Plan 058 role inventory. Existing CSS literals are debt until P6. */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { ROOT, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
+import { ROOT, captureKey, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
 import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures } from "./ui-system-core.mjs";
 import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
@@ -202,15 +202,15 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
   const manifest = loadManifest();
   const inventory = loadRoleInventory();
   const problems = validateRoleInventory(inventory, manifest);
-  if (problems.length) return { problems, screens: 0, matched: [] };
+  if (problems.length) return { problems, screens: 0, captureKeys: [], matched: [] };
   if (flow && !manifest.screens.some((screen) => screen.flow === flow)) problems.push(`unknown catalog flow ${flow}`);
   if (stateKey && !manifest.screens.some((screen) => `${screen.flow}/${screen.id}` === stateKey)) problems.push(`unknown catalog state ${stateKey}`);
   if (flow && stateKey && !stateKey.startsWith(`${flow}/`)) problems.push(`catalog state ${stateKey} is outside flow ${flow}`);
   const locales = locale ? [locale] : Object.keys(manifest.locales);
-  const themes = theme ? [theme] : ["light", "dark"];
+  const themes = theme ? [theme] : manifest.themes;
   for (const value of locales) if (!manifest.locales[value]) problems.push(`unknown catalog locale ${value}`);
-  for (const value of themes) if (!["light", "dark"].includes(value)) problems.push(`unknown catalog theme ${value}`);
-  if (problems.length) return { problems, screens: 0, matched: [] };
+  for (const value of themes) if (!manifest.themes.includes(value) || !["light", "dark"].includes(value)) problems.push(`unknown catalog theme ${value}`);
+  if (problems.length) return { problems, screens: 0, captureKeys: [], matched: [] };
   const scenarios = { ...APP_SCENARIOS, ...ONBOARDING_SCENARIOS };
   const captures = shardCaptures(manifest.screens.filter((screen) => (!flow || screen.flow === flow) && (!stateKey || `${screen.flow}/${screen.id}` === stateKey))
     .flatMap((screen) => themes.flatMap((captureTheme) => locales.map((captureLocale) => ({
@@ -266,7 +266,7 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
   } finally { await browser.close(); preview.cleanup(); }
   // A partial sweep cannot know what the other shards rendered; `ci-plan.mjs merge-ui-system` applies this rule over all of them.
   if (!flow && !stateKey && !shard) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
-  return { problems, screens: captures.length, matched: [...matched], matchedExceptions: [...matchedExceptions], measurements };
+  return { problems, screens: captures.length, captureKeys: captures.map(captureKey), matched: [...matched], matchedExceptions: [...matchedExceptions], measurements };
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
@@ -313,7 +313,7 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
     if (shard) {
       const reportDir = resolve(ROOT, process.env.REPFORGE_ARTIFACT_DIR || ".ci-results");
       mkdirSync(reportDir, { recursive: true });
-      writeFileSync(join(reportDir, SHARD_REPORT), JSON.stringify({ schemaVersion: 1, shard, screens: result.screens,
+      writeFileSync(join(reportDir, SHARD_REPORT), JSON.stringify({ schemaVersion: 2, shard, screens: result.screens, captureKeys: result.captureKeys,
         matched: result.matched, matchedExceptions: result.matchedExceptions, problems: result.problems.length }, null, 2) + "\n");
       console.log(`Shard ${shard.index}/${shard.count}: ${result.screens} rendered states; report in ${join(reportDir, SHARD_REPORT)}`);
     }

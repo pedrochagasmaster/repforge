@@ -35,13 +35,15 @@ every push to `main` runs the same thing:
 | `service` | The install-transfer Worker gate (`check`, tests, dry deploy). | 1 min |
 | `ci` | The aggregate check: every selected job passed, and the UI-system shard reports merge cleanly. | 20 s |
 
-The only shortcut is in `plan`: a pull request whose changed files are all prose
-(`*.md`, `*.txt`, `.gitignore`, `LICENSE`) skips the test jobs and `ci` passes
-on the plan alone. Files in `fixture`, `fixtures` or `__fixtures__` paths run CI
-even when their extension is allowlisted. Any other file, an unknown file, a
-change list the compare API cannot deliver, a push to `main` or a manual
+The only shortcut is in `plan`: a pull request whose changed files are all
+prose (`*.md`, `*.txt`, `.gitignore`, `LICENSE`) skips the test jobs and `ci`
+passes on the plan alone. `README.md`, `NOTICE.md`, `docs/recovery-week-policy.md`
+and `tools/README.md` are verification inputs, so changes to them run CI despite
+their Markdown extension. Files in `fixture`, `fixtures` or `__fixtures__` paths
+also run CI even when their extension is allowlisted. Any other file, an unknown
+file, a change list the compare API cannot deliver, a push to `main` or a manual
 dispatch runs everything. There is no draft/ready distinction and no separate
-candidate mode: a green `ci` on
+remote candidate mode: a green `ci` on
 the PR head is the merge evidence. Pull requests test their head commit, so a
 red run reproduces with `git checkout <sha>` and the printed rerun command.
 This workflow emits an aggregate status check named `ci`. At the time this CI

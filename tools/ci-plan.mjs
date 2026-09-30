@@ -18,18 +18,26 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { CI_SHARDS, UI_SYSTEM_SHARDS } from "../test/suites.mjs";
-import { loadManifest } from "./ui-screens/manifest.mjs";
-import { findShardReports, loadRoleInventory, mergeShardReports, validateRoleInventory } from "./ui-system-core.mjs";
+import { captureKey, loadManifest } from "./ui-screens/manifest.mjs";
+import { findShardReports, loadRoleInventory, mergeShardReports, shardCaptures, validateRoleInventory } from "./ui-system-core.mjs";
 
 const PROSE = /(?:^|\/)(?:[^/]+\.(?:md|txt)|\.gitignore|LICENSE)$/;
 const FIXTURE_PATH = /(?:^|\/)(?:fixtures?|__fixtures__)(?:\/|$)/;
+// These Markdown files are inputs to committed verification contracts. A
+// prose-only shortcut must still run those contracts when their input changes.
+const VERIFICATION_DOCUMENTS = new Set([
+  "README.md",
+  "NOTICE.md",
+  "docs/recovery-week-policy.md",
+  "tools/README.md",
+]);
 const COMPARE_PAGE = 100;
 const COMPARE_LIMIT = 300;
 
 export function classifyChange(files) {
   if (!Array.isArray(files)) return { run: true, reason: "Changed files are unknown; run everything rather than guess." };
   if (!files.length) return { run: true, reason: "No changed files were reported; run everything." };
-  const code = files.filter((file) => FIXTURE_PATH.test(file) || !PROSE.test(file));
+  const code = files.filter((file) => FIXTURE_PATH.test(file) || VERIFICATION_DOCUMENTS.has(file) || !PROSE.test(file));
   if (!code.length) return { run: false, reason: `Only prose changed (${files.length} file(s)); nothing executable can differ.` };
   return { run: true, reason: `Executable or unknown input changed: ${code.slice(0, 6).join(", ")}${code.length > 6 ? ` and ${code.length - 6} more` : ""}.` };
 }
@@ -83,6 +91,16 @@ export function gateResults(needs, { log = console.log } = {}) {
   if (plan?.result !== "success") throw new Error(`CI gate: plan job ${plan?.result || "missing"}`);
   const runOutput = plan.outputs?.run;
   if (runOutput !== "true" && runOutput !== "false") throw new Error(`CI gate: plan run output must be "true" or "false", got ${JSON.stringify(runOutput)}`);
+  let shards;
+  try {
+    shards = JSON.parse(plan.outputs?.shards);
+  } catch {
+    throw new Error("CI gate: plan shards output must be valid JSON");
+  }
+  const expectedShards = shardMatrix(CI_SHARDS);
+  if (JSON.stringify(shards) !== JSON.stringify(expectedShards)) {
+    throw new Error(`CI gate: plan shards output must exactly match ${JSON.stringify(expectedShards)}`);
+  }
   const run = runOutput === "true";
   const failures = [];
   for (const [name, job] of Object.entries(needs)) {
@@ -98,10 +116,16 @@ export function gateResults(needs, { log = console.log } = {}) {
 /** The catalog-wide UI-system rule over every shard's report; browser-free so the gate job needs no test dependencies. */
 export function mergeUiSystemReports(root, { inventory = loadRoleInventory(), manifest = loadManifest() } = {}) {
   const problems = validateRoleInventory(inventory, manifest);
-  const expectedScreenCount = manifest.screens.length * 2 * Object.keys(manifest.locales).length;
+  const captureKeys = manifest.screens.flatMap((screen) => manifest.themes.flatMap((theme) =>
+    Object.keys(manifest.locales).map((locale) => captureKey({
+      flow: screen.flow, screen: screen.id, viewport: "phone-390", theme, locale, text: "normal", motion: "normal",
+    }))));
+  const expectedCaptureKeysByShard = Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) =>
+    shardCaptures(captureKeys, { index: index + 1, count: UI_SYSTEM_SHARDS }));
   const merged = mergeShardReports(findShardReports(root), inventory, {
     expectedShardCount: UI_SYSTEM_SHARDS,
-    expectedScreenCount,
+    expectedScreenCount: captureKeys.length,
+    expectedCaptureKeysByShard,
   });
   return { ...merged, problems: [...problems, ...merged.problems] };
 }

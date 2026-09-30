@@ -87,7 +87,7 @@ worktree and attach them to CI or the PR. The evidence records execution outcome
 and Git state before and after. Its successful result
 means **command passed on an unchanged clean commit**, not **phase complete**.
 
-Evidence has a scope and a source SHA. Correct with the exact suite or `edit`; after a coherent commit use `packet --base <packet-start-sha>`; push, and the `ci` check runs the complete inventory on that head; do not duplicate it with a full local candidate run first unless diagnosing a remote-only failure. The green `ci` check on the final head is the candidate evidence. The runner retains `.ci-results/` logs and bounded terminal excerpts.
+Evidence has a scope and a source SHA. Correct with the exact suite or `edit`; after a coherent commit use `packet --base <packet-start-sha>`; push, and `ci` runs the complete inventory for non-prose PR heads, main pushes, and manual runs. Genuinely prose-only PRs verify the plan and skip test jobs. Do not duplicate full CI with a local `candidate` run unless diagnosing a remote-only failure. A green `ci` check on the final head is completion evidence. The runner retains `.ci-results/` logs and bounded terminal excerpts.
 
 - Name the exact assertion and its limitations beside each report.
 - Record failing cases too. A failed command must remain distinguishable from
