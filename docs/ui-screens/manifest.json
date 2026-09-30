@@ -243,6 +243,92 @@
         "text": "text200",
         "motion": "normal"
       }
+    ],
+    "demandingDockText": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "reduced"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      }
     ]
   },
   "catalogChecks": {
@@ -504,35 +590,35 @@
       "flow": "onboarding-browse",
       "label": "Browse 1 — real week",
       "scenario": "Days per week and session length, the only questions Browse asks.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "environment",
       "flow": "onboarding-browse",
       "label": "Browse 2 — environment",
       "scenario": "Environment shortcuts before the catalogue is filtered.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "catalogue",
       "flow": "onboarding-browse",
       "label": "Browse — catalogue",
       "scenario": "Released, complete, tested programs with purpose, frequency and mismatches.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "preview",
       "flow": "onboarding-browse",
       "label": "Browse — review",
       "scenario": "The common review surface for a catalogue program.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "setup",
       "flow": "onboarding-build",
       "label": "Build 1 — name and days",
       "scenario": "The build_setup step: program name and day count before the editor opens.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "editor-empty",
@@ -644,21 +730,21 @@
       "flow": "onboarding-shared",
       "label": "Shared setup — review",
       "scenario": "The editable preview a shared payload lands in before explicit activation.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "resume",
       "flow": "onboarding-recovery",
       "label": "Resume setup",
       "scenario": "The resumable notice after reload: route, step, recency, Resume, Start over.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "rules-drift",
       "flow": "onboarding-recovery",
       "label": "Rules changed",
       "scenario": "A draft whose compiler rules are stale. Rebuild is required before activation.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "no-program",
@@ -671,28 +757,42 @@
       "id": "ready",
       "flow": "today",
       "label": "Today — ready to start",
-      "scenario": "A seeded program on its next scheduled day.",
-      "variants": "standard"
+      "scenario": "A seeded program with recent max-rep evidence makes the readiness shortcut visible.",
+      "variants": "demandingDockText"
+    },
+    {
+      "id": "rest-bar",
+      "flow": "today",
+      "label": "Today — running rest bar",
+      "scenario": "The rest countdown remains visible after leaving the active workout.",
+      "variants": "demandingText"
     },
     {
       "id": "day-picker",
       "flow": "today",
       "label": "Today — choose another day",
       "scenario": "The day picker sheet open.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "done",
       "flow": "today",
       "label": "Today — session complete",
       "scenario": "The state after the day's session is logged.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "focus",
       "flow": "workout",
       "label": "Workout — focus mode",
       "scenario": "One exercise at a time.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-glossary",
+      "flow": "workout",
+      "label": "Workout — Focus glossary definition",
+      "scenario": "A definition is open after tapping a glossary term in Focus.",
       "variants": "demandingText"
     },
     {
@@ -721,6 +821,13 @@
       "flow": "workout",
       "label": "Workout — rest timer",
       "scenario": "The rest timer sheet.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "rest-timer-paused",
+      "flow": "workout",
+      "label": "Workout — paused rest timer",
+      "scenario": "The rest timer sheet with its countdown held.",
       "variants": "demandingText"
     },
     {
@@ -1008,7 +1115,14 @@
       "flow": "library",
       "label": "Exercise library",
       "scenario": "The searchable movement library.",
-      "variants": "standard"
+      "variants": "demandingText"
+    },
+    {
+      "id": "list-selected",
+      "flow": "library",
+      "label": "Exercise library — selected movement",
+      "scenario": "One movement is selected and the persistent add bar is visible.",
+      "variants": "demandingText"
     },
     {
       "id": "exercise-preview",
@@ -1023,6 +1137,13 @@
       "label": "Exercise library — detail",
       "scenario": "The full movement detail surface.",
       "variants": "standard"
+    },
+    {
+      "id": "exercise-detail-glossary",
+      "flow": "library",
+      "label": "Exercise library — detail glossary definition",
+      "scenario": "A definition is open after tapping a term in movement detail.",
+      "variants": "demandingText"
     },
     {
       "id": "no-program",

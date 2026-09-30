@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /** Run isolated suites with terse default output; full logs always go to .ci-results. */
 import { spawn, execFileSync } from "node:child_process";
-import { appendFileSync, closeSync, mkdirSync, openSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { SUITES, BROWSER_LANES, commandArgs, inventoryErrors, suiteId } from "../test/suites.mjs";
@@ -63,13 +64,40 @@ export function execute(suite, { cwd = ROOT, outputDir, env = process.env, timeo
   });
 }
 
+function sourceIdentity(cwd, env) {
+  const fromEnv = env.CI_SOURCE_SHA || env.GITHUB_SHA || null;
+  try {
+    const gitOptions = { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+    const head = fromEnv || execFileSync("git", ["rev-parse", "HEAD"], gitOptions).trim();
+    const status = execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], gitOptions).trim();
+    return { head, dirty: Boolean(status) };
+  } catch {
+    return { head: fromEnv, dirty: null };
+  }
+}
+
+function writeBrowserEvidence({ suiteDir, row, source }) {
+  const log = readFileSync(join(suiteDir, "initial", "output.log"));
+  const evidence = {
+    schemaVersion: 1, kind: "browser-contract-execution", source,
+    command: row.command, result: row.status, startedAt: row.initial.startedAt,
+    durationMs: row.initial.durationMs,
+    outputSha256: createHash("sha256").update(log).digest("hex"),
+    rerun: row.command.join(" "),
+  };
+  const path = join(suiteDir, "evidence.json");
+  writeFileSync(path, JSON.stringify(evidence, null, 2) + "\n");
+  return path;
+}
+
 export async function runLane(lane, entries, {
   cwd = ROOT, outputDir = join(ROOT, ".ci-results", lane), env = process.env,
   diagnosticReplay = false, browser = BROWSER_LANES.has(lane), summaryPath = env.GITHUB_STEP_SUMMARY, verbose = false,
-  failFast = false,
+  failFast = false, source = null,
 } = {}) {
   mkdirSync(outputDir, { recursive: true });
-  const report = { lane, revision: env.CI_SOURCE_SHA || env.GITHUB_SHA || null, results: [] };
+  const executionSource = source || sourceIdentity(cwd, env);
+  const report = { lane, revision: executionSource.head, results: [] };
   const save = () => writeFileSync(join(outputDir, "results.json"), JSON.stringify(report, null, 2) + "\n");
   for (const suite of entries) {
     const id = suiteId(suite);
@@ -81,6 +109,7 @@ export async function runLane(lane, entries, {
     row.initial = await execute(suite, { cwd, outputDir: join(suiteDir, "initial"), env, verbose });
     row.status = row.initial.status;
     if (row.status === "failed") row.failureClass = row.initial.timedOut ? "timeout" : row.initial.error ? "workflow/infrastructure" : "product/test assertion or test-harness synchronization";
+    if (browser) row.evidence = relative(outputDir, writeBrowserEvidence({ suiteDir, row, source: executionSource })).replaceAll("\\", "/");
     save();
     const seconds = (row.initial.durationMs / 1000).toFixed(2);
     console.log(`${row.status === "passed" ? "✓" : "✗"} ${row.command.join(" ")}  ${seconds}s`);
@@ -117,7 +146,7 @@ export async function runLane(lane, entries, {
 
 function repositoryFiles() {
   return execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "test", "tools", "scripts"],
-    { cwd: ROOT, encoding: "utf8" }).split("\0").filter(Boolean);
+    { cwd: ROOT, encoding: "utf8" }).split("\0").filter(Boolean).filter((file) => existsSync(resolve(ROOT, file)));
 }
 
 
@@ -171,9 +200,10 @@ async function main() {
       : target === "packet" ? changedFilesForPacket({ cwd: ROOT, base: base || process.env.REPFORGE_PACKET_BASE })
       : target === "candidate" ? { base: "HEAD", files: null }
       : changedFilesForTests({ cwd: ROOT, base });
+    const selectionBase = changed.base === "HEAD (working tree)" ? "HEAD" : changed.base;
     const plan = target === "candidate"
       ? { mode: "all", entries: Object.entries(SUITES).filter(([lane]) => lane !== "service").flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite }))), files: [], reasons: ["Complete local candidate gate; service requires its external environment."] }
-      : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT });
+      : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT, base: selectionBase });
     const selectionDurationMs = Date.now() - invocationStarted;
     console.log(`${target} base: ${changed.base || "unavailable"}`);
     console.log(formatAffected(plan));
@@ -188,9 +218,10 @@ async function main() {
     }
     if (!plan.entries.length) return;
     groups = Object.entries(SUITES).map(([lane]) => [lane, plan.entries.filter((entry) => entry.lane === lane).map((entry) => entry.suite)]).filter(([, entries]) => entries.length);
+    const source = sourceIdentity(ROOT, process.env);
     const preview = await maybeStartLocalPreview(plan.entries, { cwd: ROOT });
     try {
-      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? target !== "candidate" });
+      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? target !== "candidate", source });
       writeInvocation(target, plan.entries, reports, selectionDurationMs, invocationStarted);
     } finally { preview?.cleanup?.(); }
     return;
@@ -208,11 +239,12 @@ async function main() {
     return;
   }
   const previewEntries = groups.flatMap(([lane, entries]) => entries.map((suite) => ({ lane, suite })));
+  const source = sourceIdentity(ROOT, process.env);
   const preview = await maybeStartLocalPreview(previewEntries, { cwd: ROOT });
   if (evidence) evidenceFd = openSync(evidence, "wx", 0o600);
   let failure, reports;
   const startedAt = new Date().toISOString();
-  try { reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? Boolean(filter) }); }
+  try { reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? Boolean(filter), source }); }
   catch (error) { failure = error; throw error; }
   finally {
     try { preview?.cleanup?.(); }
@@ -252,12 +284,12 @@ function writeInvocation(scope, entries, reports, selectionDurationMs, started) 
   }, null, 2) + "\n");
 }
 
-async function runGroups(groups, { verbose, env = process.env, failFast = false }) {
+async function runGroups(groups, { verbose, env = process.env, failFast = false, source = null }) {
   let failed = false;
   const reports = [];
   for (const [lane, entries] of groups) {
     if (!entries.length) continue;
-    const report = await runLane(lane, entries, { env, diagnosticReplay: env.REPFORGE_DIAGNOSTIC_REPLAY === "1", verbose, failFast });
+    const report = await runLane(lane, entries, { env, diagnosticReplay: env.REPFORGE_DIAGNOSTIC_REPLAY === "1", verbose, failFast, source });
     reports.push(report);
     failed ||= report.failed > 0 || report.notRun > 0;
     if (report.failed) {

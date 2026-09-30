@@ -114,10 +114,12 @@ async function main() {
       // Check previous-session band minimum / existence
       const prevBand = page.locator(".exercise.is-current .fcard__ledger");
       await prevBand.scrollIntoViewIfNeeded();
+      const firstPreviousRow = prevBand.locator(".ledger__row.is-past").first();
+      await firstPreviousRow.scrollIntoViewIfNeeded();
       const prevBandBox = await prevBand.boundingBox();
       const contextBox = await page.locator(".exercise.is-current .fcard__context").boundingBox();
       assert(await prevBand.locator(".ledger__row.is-past").count() === 2, "previous-session proof uses actual history");
-      const firstPrevious = await prevBand.locator(".ledger__row.is-past").first().boundingBox();
+      const firstPrevious = await firstPreviousRow.boundingBox();
       assert(prevBandBox != null && firstPrevious.y >= contextBox.y && firstPrevious.y + firstPrevious.height <= Math.min(prevBandBox.y + prevBandBox.height, contextBox.y + contextBox.height) + 1,
         `previous-session header and at least one complete row remain readable at ${width}px`);
       const safe = await page.evaluate(() => {

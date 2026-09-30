@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 143 screens,
-819 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 148 screens,
+915 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -85,16 +85,16 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Browse 1 — real week](screens/onboarding-browse/schedule__phone-390-light-en.png) | 3 | Days per week and session length, the only questions Browse asks. |
-| [Browse 2 — environment](screens/onboarding-browse/environment__phone-390-light-en.png) | 3 | Environment shortcuts before the catalogue is filtered. |
-| [Browse — catalogue](screens/onboarding-browse/catalogue__phone-390-light-en.png) | 3 | Released, complete, tested programs with purpose, frequency and mismatches. |
-| [Browse — review](screens/onboarding-browse/preview__phone-390-light-en.png) | 3 | The common review surface for a catalogue program. |
+| [Browse 1 — real week](screens/onboarding-browse/schedule__phone-390-light-en.png) | 7 | Days per week and session length, the only questions Browse asks. |
+| [Browse 2 — environment](screens/onboarding-browse/environment__phone-390-light-en.png) | 7 | Environment shortcuts before the catalogue is filtered. |
+| [Browse — catalogue](screens/onboarding-browse/catalogue__phone-390-light-en.png) | 7 | Released, complete, tested programs with purpose, frequency and mismatches. |
+| [Browse — review](screens/onboarding-browse/preview__phone-390-light-en.png) | 7 | The common review surface for a catalogue program. |
 
 ### Onboarding — Build my own
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Build 1 — name and days](screens/onboarding-build/setup__phone-390-light-en.png) | 3 | The build_setup step: program name and day count before the editor opens. |
+| [Build 1 — name and days](screens/onboarding-build/setup__phone-390-light-en.png) | 7 | The build_setup step: program name and day count before the editor opens. |
 | [Build — empty days](screens/onboarding-build/editor-empty__phone-390-light-en.png) | 8 | Real empty day containers, Add exercise, Save draft, activation disabled. |
 | [Build — partial draft](screens/onboarding-build/editor-partial__phone-390-light-en.png) | 8 | One populated day and one incomplete day. Activation stays disabled. |
 | [Build — activation ready](screens/onboarding-build/editor-ready__phone-390-light-en.png) | 8 | A complete manual draft with supported progression and activation enabled. |
@@ -120,23 +120,24 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Shared setup — adaptive landing](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start. |
 | [Shared setup — invalid landing](screens/onboarding-shared/invalid__phone-390-light-en.png) | 3 | An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available. |
-| [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 3 | The editable preview a shared payload lands in before explicit activation. |
+| [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 7 | The editable preview a shared payload lands in before explicit activation. |
 
 ### Onboarding — resume and rule drift
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Resume setup](screens/onboarding-recovery/resume__phone-390-light-en.png) | 3 | The resumable notice after reload: route, step, recency, Resume, Start over. |
-| [Rules changed](screens/onboarding-recovery/rules-drift__phone-390-light-en.png) | 3 | A draft whose compiler rules are stale. Rebuild is required before activation. |
+| [Resume setup](screens/onboarding-recovery/resume__phone-390-light-en.png) | 7 | The resumable notice after reload: route, step, recency, Resume, Start over. |
+| [Rules changed](screens/onboarding-recovery/rules-drift__phone-390-light-en.png) | 7 | A draft whose compiler rules are stale. Rebuild is required before activation. |
 
 ### Today
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
-| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 3 | A seeded program on its next scheduled day. |
-| [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 3 | The day picker sheet open. |
-| [Today — session complete](screens/today/done__phone-390-light-en.png) | 3 | The state after the day's session is logged. |
+| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 12 | A seeded program with recent max-rep evidence makes the readiness shortcut visible. |
+| [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | The rest countdown remains visible after leaving the active workout. |
+| [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
+| [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
 | [Read-only session preview](screens/today/preview__phone-390-light-en.png) | 8 | Read-only session preview through production controls. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls. |
 
@@ -145,10 +146,12 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. |
+| [Workout — Focus glossary definition](screens/workout/focus-glossary__phone-390-light-en.png) | 8 | A definition is open after tapping a glossary term in Focus. |
 | [Workout — stale draft recovery](screens/workout/stale-draft__phone-390-light-en.png) | 8 | A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value. |
 | [Workout — draft persistence retry](screens/workout/persist-retry__phone-390-light-en.png) | 8 | A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions. |
 | [Workout — invalid draft recovery](screens/workout/invalid-draft__phone-390-light-en.png) | 8 | An unreadable local draft remains untouched and offers a non-destructive copy action. |
 | [Workout — rest timer](screens/workout/rest-timer__phone-390-light-en.png) | 8 | The rest timer sheet. |
+| [Workout — paused rest timer](screens/workout/rest-timer-paused__phone-390-light-en.png) | 8 | The rest timer sheet with its countdown held. |
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
 | [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector. |
 | [Session details and map](screens/workout/session__phone-390-light-en.png) | 8 | Session details and map through production controls. |
@@ -217,9 +220,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Exercise library](screens/library/list__phone-390-light-en.png) | 3 | The searchable movement library. |
+| [Exercise library](screens/library/list__phone-390-light-en.png) | 8 | The searchable movement library. |
+| [Exercise library — selected movement](screens/library/list-selected__phone-390-light-en.png) | 8 | One movement is selected and the persistent add bar is visible. |
 | [Exercise library — preview](screens/library/exercise-preview__phone-390-light-en.png) | 3 | An illustrated movement preview. |
 | [Exercise library — detail](screens/library/exercise-detail__phone-390-light-en.png) | 3 | The full movement detail surface. |
+| [Exercise library — detail glossary definition](screens/library/exercise-detail-glossary__phone-390-light-en.png) | 8 | A definition is open after tapping a term in movement detail. |
 
 ### Program
 

@@ -266,19 +266,6 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
   // screen's normal-text frame is the signature of that, and of any future
   // variant state that stops being applied.
   //
-  // One frame is exempt, and not because the state fails to apply: the root
-  // really is 32px there. `onboarding-build/editor-ready` is scrolled wholly
-  // into the program editor, whose typography is still px-based (Plan 051's
-  // surface, unconverted), so that subtree renders identically at any root
-  // size and the two frames coincide. That is a real enlarged-text finding
-  // against the editor rather than against the catalog harness, it predates
-  // this branch, and converting the editor's type scale is Plan 055/058
-  // work. It is named here so the gap stays visible instead of being hidden
-  // by narrowing the oracle to the flows that happen to pass.
-  const INERT_TEXT_STATE_EXEMPT = new Map([
-    ["onboarding-build/editor-ready__phone-390-light-pt-text200",
-      "program editor typography is px-based; out of Plan 054 scope"],
-  ]);
   const byVariant = new Map();
   for (const item of captures) {
     byVariant.set(`${item.flow}/${item.screen}__${variantSlug(item)}`, item);
@@ -293,24 +280,10 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
     const normalPath = join(screensRoot, normal.flow, `${normal.screen}__${variantSlug(normal)}.png`);
     if (!existsSync(enlargedPath) || !existsSync(normalPath)) continue;
     if (!readFileSync(enlargedPath).equals(readFileSync(normalPath))) continue;
-    if (INERT_TEXT_STATE_EXEMPT.has(key)) continue;
     inertTextStates.push(key);
   }
   assert.deepEqual(inertTextStates, [],
     `enlarged-text frames differ from their normal-text counterpart: ${inertTextStates.slice(0, 6).join("; ")}`);
-  // The exemption list may not rot into cover for a fixed screen.
-  const staleExemptions = [...INERT_TEXT_STATE_EXEMPT.keys()].filter((key) => {
-    const item = byVariant.get(key);
-    if (!item) return true;
-    const normal = byVariant.get(`${item.flow}/${item.screen}__${variantSlug({ ...item, text: "normal" })}`);
-    if (!normal) return true;
-    const a = join(screensRoot, item.flow, `${item.screen}__${variantSlug(item)}.png`);
-    const b = join(screensRoot, normal.flow, `${normal.screen}__${variantSlug(normal)}.png`);
-    return existsSync(a) && existsSync(b) && !readFileSync(a).equals(readFileSync(b));
-  });
-  assert.deepEqual(staleExemptions, [],
-    `every enlarged-text exemption is still needed: ${staleExemptions.join("; ")}`);
-
   // The committed catalog is its own valid baseline: exercises the manifest
   // walk and the dimension checks without letting a test rewrite evidence.
   const selfComparison = compareCatalog({ baselineRoot: screensRoot, currentRoot: screensRoot });

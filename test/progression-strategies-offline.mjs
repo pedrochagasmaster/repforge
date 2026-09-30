@@ -81,10 +81,10 @@ try {
   assert(saved.program?.[0]?.progression?.strategy?.id === "rep_goal",
     "an offline staged edit remains local and preserves its progression", JSON.stringify(saved.program?.[0]?.progression));
   const config = await page.evaluate(async () => {
-    try { const response = await fetch("./posthog-config.js"); return { ok: response.ok, status: response.status }; }
+    try { const response = await fetch("./posthog-config.js"); return { ok: response.ok, status: response.status, type: response.headers.get("content-type") || "" }; }
     catch (error) { return { ok: false, error: String(error) }; }
   });
-  assert(config.ok || config.status === 404, "optional analytics config never blocks offline progression", JSON.stringify(config));
+  assert(config.ok || (config.status === 503 && !/^text\/html\b/i.test(config.type)), "optional analytics config never blocks offline progression or returns HTML as JavaScript", JSON.stringify(config));
 } finally {
   await context.setOffline(false).catch(() => {});
   await browser.close();

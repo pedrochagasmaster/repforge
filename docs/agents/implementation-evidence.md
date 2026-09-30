@@ -87,7 +87,7 @@ worktree and attach them to CI or the PR. The evidence records execution outcome
 and Git state before and after. Its successful result
 means **command passed on an unchanged clean commit**, not **phase complete**.
 
-Evidence has a scope and candidate SHA. Correct with the exact suite or `edit`; after a coherent commit use `packet --base <packet-start-sha>`; run the final candidate gate at the plan-defined clean SHA. A feedback CI pass is not a candidate pass. The runner retains `.ci-results/` logs and bounded terminal excerpts.
+Evidence has a scope and candidate SHA. Correct with the exact suite or `edit`; after a coherent commit use `packet --base <packet-start-sha>`; dispatch the final remote candidate gate at the plan-defined clean SHA; do not duplicate it with a full local candidate run first unless diagnosing a remote-only failure. A feedback CI pass is not a candidate pass. The runner retains `.ci-results/` logs and bounded terminal excerpts.
 
 - Name the exact assertion and its limitations beside each report.
 - Record failing cases too. A failed command must remain distinguishable from
