@@ -675,15 +675,31 @@ globalThis.localStorage = mockLocalStorage;
   Object.defineProperty(globalThis,"navigator",{configurable:true,value:{locks:{request:async(_name,callback)=>callback()}}});
   const setItem=mockLocalStorage.setItem;
   let failNextPending=false;
+  let pendingSetAttempts=0;
+  let injectedSetAttempt=null;
+  let preflightProposal=null;
   mockLocalStorage.setItem=(key,value)=>{
-    if(failNextPending&&key.startsWith("repforge_pending_v1:")){
-      failNextPending=false;
-      throw Object.assign(new Error("injected quota"),{name:"QuotaExceededError"})}
+    if(key.startsWith("repforge_pending_v1:")){
+      pendingSetAttempts++;
+      if(failNextPending){
+        failNextPending=false;
+        injectedSetAttempt=pendingSetAttempts;
+        throw Object.assign(new Error("injected quota"),{name:"QuotaExceededError"})}}
     return setItem(key,value)};
   try{
     const outcome=await DurableState.enqueueStateChange(base,proposal,DurableState.storageIO,{
-      preflight:()=>{failNextPending=true;return{proposal:rebased}}
+      preflight:({proposal:currentProposal})=>{
+        preflightProposal=currentProposal;
+        failNextPending=true;
+        return{proposal:rebased}}
     });
+    check(preflightProposal?.settings?.units==="lb"&&preflightProposal?.settings?.lang===undefined&&
+      JSON.stringify(preflightProposal)!==JSON.stringify(rebased),
+      "Preflight supplies a distinct rebased proposal",{preflightProposal,rebased});
+    check(pendingSetAttempts===2&&injectedSetAttempt===2,
+      "Fault injection hits the post-preflight rebase-journal write",{
+        pendingSetAttempts,injectedSetAttempt
+      });
     check(outcome.committed===false&&outcome.kind==="rejected_failure",
       "Failed rebase-journal write aborts the transaction",outcome);
     check(JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision===7&&
@@ -691,6 +707,14 @@ globalThis.localStorage = mockLocalStorage;
       "Neither replica is written after the rebase-journal failure",{
         local:JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
         idb:idbValues.get("repforge_v1")._storageRevision
+      });
+    const remainingPending=DurableState.readPendingJournal();
+    check(outcome.pendingJournalCleanup===false&&outcome.recoveryPending===false&&
+      remainingPending.entries.length===0&&remainingPending.invalid.length===0,
+      "Failed rebased proposal leaves no stale journal available for replay",{
+        pendingJournalCleanup:outcome.pendingJournalCleanup,
+        recoveryPending:outcome.recoveryPending,
+        remainingPending
       });
   }finally{
     mockLocalStorage.setItem=setItem;
