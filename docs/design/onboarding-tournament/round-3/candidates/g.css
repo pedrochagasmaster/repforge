@@ -311,3 +311,17 @@
 :root[data-theme="dark"] .g-app .g-edit,:root[data-theme="dark"] .g-app .g-change,:root[data-theme="dark"] .g-app .g-help,:root[data-theme="dark"] .g-app .ex.is-new{background:var(--surface)}
 :root[data-theme="dark"] .g-main .day__num,:root[data-theme="dark"] .g-main .ex__rx{color:var(--ink-soft)}
 :root[data-theme="dark"] .g-strip__value{font-weight:500}
+
+/* ================= Motion (F14) =================
+   Motion says what happened, once, and is interruptible: a view enters
+   (shared .view-enter); an inline editor or a change statement rises 6 px
+   as it appears; a "novo" row rises with the statement; a day's chevron
+   turns; a control answers a tap with the shared pressed transform and a
+   short colour transition. Nothing loops or bounces. Under
+   data-motion="reduced" (and prefers-reduced-motion) base.css zeroes every
+   duration, which is the one reduced-motion decision. */
+@keyframes g-rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.g-enter{animation:g-rise .2s ease-out both}
+.g-app details.day>summary .chevron{transition:transform .15s ease}
+.g-main .choice{transition:border-color .15s ease,background .15s ease,box-shadow .15s ease,transform .12s ease}
+.g-main .chip{transition:border-color .15s ease,background .15s ease,box-shadow .15s ease,transform .12s ease}

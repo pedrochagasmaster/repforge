@@ -719,7 +719,7 @@
     return "";
   }
   function view() {
-    if (S.view === "today") return `<div class="g-app">${TF.renderToday(t, lang)}</div>` + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : "");
+    if (S.view === "today") return `<div class="g-app view-enter">${TF.renderToday(t, lang)}</div>` + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : "");
     if (S.view === "hub") return hubView() + overlayView();
     if (S.view === "route") return routeView() + sheetView() + overlayView() + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : "");
     return landingView();
@@ -760,6 +760,7 @@
      (the pinned activation is hidden while an editor is open). */
   function revealEditor() {
     const ed = root.querySelector("#gEdit"); if (!ed) return;
+    ed.classList.add("g-enter");
     const h = ed.querySelector("h2"); try { h.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
     const ok = ed.querySelector('[data-act="sheet-apply"]'); const r = ed.getBoundingClientRect(); const o = ok.getBoundingClientRect();
     if (o.bottom - r.top + 24 <= window.innerHeight) scrollToEl(ed); else window.scrollTo(0, Math.max(0, o.bottom + window.scrollY - window.innerHeight + 16));
@@ -768,6 +769,7 @@
   /* After an apply: focus and scroll to the change statement (K-28). */
   function showChange() {
     const c = root.querySelector("#gChange"); if (!c) { TS.focusHeading(root); return; }
+    c.classList.add("g-enter"); for (const row of root.querySelectorAll(".ex.is-new")) row.classList.add("g-enter");
     /* Prefer the top of the review (name, facts and statement together);
        otherwise bring the statement itself just below the top edge. */
     const pin = root.querySelector("[data-persistent-action]"); const limit = pin ? pin.getBoundingClientRect().top + window.scrollY : Infinity;
