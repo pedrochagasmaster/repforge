@@ -63,7 +63,7 @@ remediation owner; no product fix or retained suite was added here.
 
 | Finding | Post-058 status | Executable evidence | Smallest next owner |
 |---|---|---|---|
-| A01, P1 | CLOSED by PR #284, fix commit `81e6e97bbc42bcccd2a2de4b2b4404e0cf849324` | `test/draftv2-staged-cas.mjs` rejects a second writer from the same predecessor and preserves the accepted aggregate through promotion and reload | No A01 follow-up |
+| A01, P1 | CLOSED by PR #284, fix commit `2c7c1732d1f06eaab033a556e31d400ea413d431` | `test/draftv2-staged-cas.mjs` rejects a second writer from the same predecessor and preserves the accepted aggregate through promotion and reload | No A01 follow-up |
 | A02, P2 | OPEN | History RIR=2 saves to both replicas with `rirMeasured:false`; reload remains `insufficient / missing-effort`. Flag-only control yields `sufficient / improved / progress` | Narrow evidence-correctness fix in stage 4 before #255; preserve provenance for load/date-only edits |
 | A03, P2 | OPEN | New York spring DST returns week 1 on March 9 and excludes today's session; block denominator also remains one week | Narrow evidence-correctness fix in stage 4 before #255; may share the A02 packet if ownership/proofs stay clear |
 | A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Narrow stage-4 focus-continuity fix before #255; D retains this utility |
@@ -80,7 +80,7 @@ rewrite** fail closed. It did not change the unlocked **draft-sidecar CAS** in
 ### A01: concurrent staged DraftV2 commands lose acknowledged input (closed)
 
 PR #284 fixes A01 in commit
-`81e6e97bbc42bcccd2a2de4b2b4404e0cf849324`. The production owner remains
+`2c7c1732d1f06eaab033a556e31d400ea413d431`. The production owner remains
 `durable-state.js`: `DraftStore.compareAndSwapV2()`, `writeSidecar()`,
 `promote()`, and checkpoint handling. The regression in
 `test/draftv2-staged-cas.mjs` uses the production dispatcher, storage,
@@ -98,21 +98,27 @@ and reload, canonical storage and the checkpoint kept reps 12 and lost load
 **Fix and closing evidence.** Staged acceptance now compares and writes under
 the cross-tab `repforge:draft-write` lock. A second writer rechecks the latest
 sidecar while holding that lock and returns the existing `stale` outcome if
-its predecessor has advanced. Canonical commits and state-transaction
-settlement acquire `repforge:state-write` before `repforge:draft-write`.
+its predecessor has advanced. A missing checkpoint is accepted only when the
+predecessor is the exact staged V2 sidecar and canonical storage is still
+empty, preserving sequential writes to a newly created draft during a pending
+state transaction. Canonical commits and state-transaction settlement acquire
+`repforge:state-write` before `repforge:draft-write`.
 Promotion uses the draft lock and preserves a committed canonical aggregate
 when a stale sidecar has the same or an older revision. Boot waits for
 promotion to finish.
 
-At fix commit
-`81e6e97bbc42bcccd2a2de4b2b4404e0cf849324`, `test/draftv2-staged-cas.mjs` passed with both field
-orders, with the stale writer arriving before and after sidecar publication,
-and with a legitimate sequential edit from the accepted revision. It also
-checks checkpoint absence, reload before promotion, failed sidecar write and
-retry, stale-sidecar promotion, canonical state, checkpoint, and reload. The
-focused storage and durable-outcome suites passed. The durable-outcome suite
-retains #271's D4–D9 journal regression. The separate historical reproduction
-record remains unchanged.
+At source commit
+`2c7c1732d1f06eaab033a556e31d400ea413d431`, `test/draftv2-staged-cas.mjs`
+passed with both field orders, with the stale writer arriving before and after
+sidecar publication, and with a legitimate sequential edit from the accepted
+revision. It also checks checkpoint absence, reload before promotion, failed
+sidecar write and retry, stale-sidecar promotion, canonical state, checkpoint,
+and reload. `test/program-draft-day-rename.mjs` passed its absent-draft
+same-day conflict and boot-replay cases, preserving sequential edits while a
+state journal is pending. The source-owner edit passed all 42 fast and 35
+state commands, including focused storage and durable-outcome suites. The
+durable-outcome suite retains #271's D4–D9 journal regression. The separate
+historical reproduction record remains unchanged.
 
 ### A02: corrected RIR is omitted from canonical Strength evidence
 
