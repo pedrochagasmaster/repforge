@@ -3,14 +3,14 @@
 **Audit date:** 9 September 2026<br>
 **Repository:** `pedrochagasmaster/repforge`<br>
 **Historical audit snapshot:** `77c6a011e1bba5121ebd2ee15db85d77275c6ee5` (9 September 2026)<br>
-**Current-main reconciliation:** `e4a5e31c0fdc695beffbda02e4bcc3d6a0e81e6d` (10 September 2026, after PR228 and merged PR238)<br>
+**Historical main reconciliation:** `e4a5e31c0fdc695beffbda02e4bcc3d6a0e81e6d` (10 September 2026, after PR228 and merged PR238)<br>
 **Status:** Proposed engineering guidance; no runtime or product changes. This document does not create a second backlog, authorize a plan, or override approved product decisions.
 
 The measured inventory, local test count, failure evidence, line anchors, and S1–S19 source links below describe the historical `77c6a011` snapshot. They remain historical evidence and are not claims about current main.
 
-## Baseline and current-main reconciliation
+## Baseline and historical main reconciliation
 
-Current main is `e4a5e31c0fdc695beffbda02e4bcc3d6a0e81e6d`, the merge of PR238 on top of PR228's Plan 052 block-transition provenance merge at `e3c798855c6f25963543f4578a4288df741772fd`. The head retains `program-transition.js`, the transition and recovery contract, the recovery-carrier and block-identity implementation, and related `app.js` and test changes. It also integrates PR238's test-runner, affected-selection, and visual-selection changes. Those are CI operating contracts, not application-architecture guidance. At this head, `app.js` is 15,280 lines, `program-transition.js` is present, and `docs/ci.md` records 109 executable commands. The detailed measurements below stay pinned to `77c6a011`; they are not a new current-main audit.
+Main at the 10 September 2026 reconciliation was `e4a5e31c0fdc695beffbda02e4bcc3d6a0e81e6d`, the merge of PR238 on top of PR228's Plan 052 block-transition provenance merge at `e3c798855c6f25963543f4578a4288df741772fd`. The head retains `program-transition.js`, the transition and recovery contract, the recovery-carrier and block-identity implementation, and related `app.js` and test changes. It also integrates PR238's test-runner, affected-selection, and visual-selection changes. Those are CI operating contracts, not application-architecture guidance. At this head, `app.js` is 15,280 lines, `program-transition.js` is present, and `docs/ci.md` records 109 executable commands. The detailed measurements below stay pinned to `77c6a011`; they are not a new current-main audit.
 
 Plan 052 is integrated at this current head. Structural transitions require both the localStorage and IndexedDB replicas for a `committed` result. A one-replica or partial write remains an explicit deferred, partial, or recovery outcome. Any later durable-state extraction must preserve Plan 052's whole-state reconciliation, `recoveryTransitions` quarantine, opaque block identity, reassessment CAS, DraftV2 checkpoint authority, and `_storageDraftTransaction` semantics.
 
@@ -291,7 +291,9 @@ matrix. PR #228 and PR #238 are integrated, and PR #239 is merged. The original
 77c6a011 measurements, e4a5e31 reconciliation, old line numbers, and historical
 candidate-order suggestions remain unchanged; they are not current code or
 current scheduling authority. The bridge was implemented in PR #240 and merged
-at `3710f34bb677c59674a3677c03d2fc1427e07cef`; Plan 054 is the active consumer.
+at `3710f34bb677c59674a3677c03d2fc1427e07cef`. Plans 054–058 have since merged; the current workfront is governed by
+the [post-058 clearance sequence](post-058-open-pr-clearance-sequence.md),
+with Plan 059 still planned as the final validation boundary.
 
 References: [PR #235 merge and final candidate](https://github.com/pedrochagasmaster/repforge/pull/235),
 [final acceptance matrix](https://github.com/pedrochagasmaster/repforge/pull/235#issuecomment-5637065102),

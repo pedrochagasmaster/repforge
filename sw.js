@@ -1,10 +1,13 @@
-const CACHE = "repforge-v302";
+const CACHE = "repforge-v341";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=302",
-  "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=302", "./program-compiler.js", "./program-compiler.js?v=302", "./program-entry.js", "./program-entry.js?v=302", "./program-entry-adapter.js", "./program-entry-adapter.js?v=302", "./program-editor.js", "./program-editor.js?v=302",
-  "./shared-setup.js", "./shared-setup.js?v=302", "./workout-draft.js", "./workout-draft.js?v=302", "./program-transition.js", "./program-transition.js?v=302", "./install-policy.js", "./install-policy.js?v=302", "./guide-registry.js", "./guide-registry.js?v=302", "./durable-state.js", "./durable-state.js?v=302", "./history-ui.js", "./history-ui.js?v=302", "./app.js", "./app.js?v=302",
+  { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
+  { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
+  { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
+  "./motion-layer.js", "./motion-layer.js?v=307",
+  "./telemetry.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
+  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=307", "./program-compiler.js", "./program-compiler.js?v=307", "./program-entry.js", "./program-entry.js?v=307", "./program-entry-adapter.js", "./program-entry-adapter.js?v=307", "./program-editor.js", "./program-editor.js?v=307",
+  "./shared-setup.js", "./shared-setup.js?v=307", "./workout-draft.js", "./workout-draft.js?v=307", "./program-transition.js", "./program-transition.js?v=307", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=307", "./durable-state.js", "./durable-state.js?v=308", "./history-ui.js", "./history-ui.js?v=307", "./app.js", "./app.js?v=309",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -37,10 +40,83 @@ const ASSETS = [
   "./fonts/plexmono-400.woff2", "./fonts/plexmono-500.woff2", "./fonts/plexmono-600.woff2"
 ];
 
+const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+function shellPathname(pathname) {
+  if (!SCOPE_PATH) return pathname;
+  return pathname === SCOPE_PATH ? "/" :
+    pathname.startsWith(`${SCOPE_PATH}/`) ? pathname.slice(SCOPE_PATH.length) : pathname;
+}
+
+// ASSETS is the one release/cache inventory. Plain URLs are required and
+// network-first; optional runtimes carry their owner and cache policy inline.
+const RELEASE_ASSETS = ASSETS.map(entry => {
+  const asset = typeof entry === "string" ? { url: entry } : entry;
+  const resolved = new URL(asset.url, self.registration.scope);
+  return {
+    ...asset,
+    required: asset.required !== false,
+    immutable: asset.immutable === true,
+    resolved,
+    path: shellPathname(resolved.pathname),
+    search: resolved.search,
+  };
+});
+const APP_SHELL_PATHS = new Set(RELEASE_ASSETS
+  .filter(asset => asset.path === "/" || /\.(?:html?|css|m?js|webmanifest)$/i.test(asset.path))
+  .map(asset => asset.path));
+
+function releaseAssetForRequest(url) {
+  const path = shellPathname(url.pathname);
+  const exact = RELEASE_ASSETS.find(asset => asset.path === path && asset.search === url.search);
+  if (exact) return exact;
+  return RELEASE_ASSETS.find(asset => asset.path === path && !asset.search && asset.required === false) || null;
+}
+
+function expectedCodeType(path) {
+  if (/\.css$/i.test(path)) return ["text/css"];
+  if (/\.(?:m?js)$/i.test(path)) return ["application/javascript", "text/javascript", "application/ecmascript", "text/ecmascript", "application/x-javascript"];
+  return null;
+}
+
+function validCodeResponse(path, response) {
+  if (!response?.ok || response.type === "opaque") return false;
+  const acceptedTypes = expectedCodeType(path);
+  if (!acceptedTypes) return false;
+  const type = (response.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
+  return acceptedTypes.includes(type);
+}
+
+function unavailableCodeResponse() {
+  return new Response("Code asset unavailable", {
+    status: 503,
+    headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+  });
+}
+
+async function installReleaseAssets() {
+  const cache = await caches.open(CACHE);
+  const failures = await Promise.all(RELEASE_ASSETS.map(async asset => {
+    try {
+      const response = await fetch(asset.resolved.href, { cache: "reload" });
+      if (!response.ok || response.type === "opaque" ||
+          (expectedCodeType(asset.path) && !validCodeResponse(asset.path, response))) {
+        throw new Error(`Invalid release asset response: ${asset.url}`);
+      }
+      await cache.put(asset.resolved.href, response);
+      return null;
+    } catch (error) {
+      return asset.required ? error : null;
+    }
+  }));
+  const failure = failures.find(Boolean);
+  if (failure) {
+    await caches.delete(CACHE);
+    throw failure;
+  }
+}
+
 self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+  event.waitUntil(installReleaseAssets().then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", event => {
@@ -51,58 +127,67 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/history-ui.js", "/workout-draft.js", "/program-transition.js", "/durable-state.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/install-policy.js", "/guide-registry.js", "/install-transfer-contract.js", "/install-transfer.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
-const IMMUTABLE_RUNTIMES = new Set(["/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.runtime.js"]);
-const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
-function shellPathname(pathname) {
-  if (!SCOPE_PATH) return pathname;
-  return pathname === SCOPE_PATH ? "/" :
-    pathname.startsWith(`${SCOPE_PATH}/`) ? pathname.slice(SCOPE_PATH.length) : pathname;
-}
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   const path = shellPathname(url.pathname);
-  if (IMMUTABLE_RUNTIMES.has(path)) {
+  const codeTypes = expectedCodeType(path);
+
+  if (codeTypes) {
     event.respondWith((async () => {
-      const cached = await caches.match(event.request);
-      if (cached) return cached;
+      const cache = await caches.open(CACHE);
+      const asset = releaseAssetForRequest(url);
+      const cachedResponse = async () => {
+        let cached = await cache.match(event.request);
+        if (!cached && asset?.required === false) {
+          cached = await cache.match(event.request, { ignoreSearch: true });
+        }
+        return validCodeResponse(path, cached) ? cached : null;
+      };
+
+      if (asset?.immutable) {
+        const cached = await cachedResponse();
+        if (cached) return cached;
+      }
       try {
         const response = await fetch(event.request);
-        const cache = await caches.open(CACHE);
-        await cache.put(event.request, response.clone());
-        return response;
-      } catch {
-        return new Response("", { status: 503, statusText: "Runtime unavailable" });
-      }
+        if (validCodeResponse(path, response)) {
+          if (asset) await cache.put(event.request, response.clone());
+          return response;
+        }
+      } catch {}
+      return (await cachedResponse()) || unavailableCodeResponse();
     })());
     return;
   }
-  const isShell = event.request.mode === "navigate" ||
-    SHELL.has(path) || SHELL.has(path.replace(/\/$/, "/index.html"));
+
+  const isShell = event.request.mode === "navigate" || APP_SHELL_PATHS.has(path);
   if (isShell) {
     event.respondWith((async () => {
       try {
         const response = await fetch(event.request);
-        const cache = await caches.open(CACHE);
-        await cache.put(event.request, response.clone());
-        return response;
-      } catch {
-        return (await caches.match(event.request)) || (await caches.match("./index.html"));
-      }
+        if (response.ok) {
+          const cache = await caches.open(CACHE);
+          await cache.put(event.request, response.clone());
+          return response;
+        }
+      } catch {}
+      return (await caches.match(event.request)) || (await caches.match("./index.html")) ||
+        new Response("Document unavailable", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
     })());
     return;
   }
+
   event.respondWith((async () => {
-    const cached = await caches.match(event.request);
+    const cache = await caches.open(CACHE);
+    const cached = await cache.match(event.request);
     if (cached) return cached;
     try {
       const response = await fetch(event.request);
-      const cache = await caches.open(CACHE);
-      await cache.put(event.request, response.clone());
+      if (response.ok) await cache.put(event.request, response.clone());
       return response;
     } catch {
-      return await caches.match("./index.html");
+      return new Response("Asset unavailable", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
     }
   })());
 });

@@ -68,7 +68,7 @@
     <span class="gauge__fill"></span>
     <span class="gauge__label" data-i18n="top.gauge.forge">steady</span>
   </button>
-  <button id="installBtn" class="btn btn--ghost hidden" data-i18n="top.install" tabindex="-1">Install</button>
+  <button id="installBtn" class="btn btn--ghost hidden" data-i18n="top.install">Install</button>
 
   <main>
     <section id="log" class="view active" data-i18n-aria="log.aria" aria-label="Log workout">
@@ -99,7 +99,7 @@
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
         <button type="button" class="btn btn--steel today-otherday" id="previewSession" data-i18n="today.preview">Preview session</button>
         <button type="button" class="btn btn--steel today-otherday" id="chooseAnotherDay" data-i18n="today.choose_day">Choose another day</button>
-        <button type="button" class="btn btn--steel hidden" id="reviewTodaySession" data-i18n="today.done_review">View today's session</button>
+        <button type="button" class="btn btn--steel hidden" id="reviewTodaySession"><span data-i18n="today.done_review">View today's session</span><span class="chevron" aria-hidden="true"></span></button>
         <button type="button" class="text-link text-link--center hidden" id="logAnotherSession" data-i18n="today.done_another">Log another session</button>
         <p class="section-label" id="todayWeekLabel" data-i18n="today.this_week">This week</p>
         <div id="todayWeek" class="today-week"></div>
@@ -295,6 +295,8 @@
         <button type="button" class="btn btn--cta" id="programSetupProgram" data-i18n="today.no_program.cta">Set up a program</button>
       </div>
       <div id="programOverview"></div>
+      <!-- Kept as an inert target for cached pre-058 app.js during boot. -->
+      <div id="volume" class="hidden" hidden inert aria-hidden="true"></div>
       <div id="programMeta" class="pmeta visually-hidden" data-i18n-aria="program.summary_aria" aria-label="Program summary"></div>
       <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="programEditorWrap" class="is-hidden">
@@ -312,9 +314,6 @@
             <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program file</span><input id="importProgram" type="file" accept=".json,.txt,application/json,text/plain"></label>
           </div>
         </details>
-        <h3 class="subhead program-volume-head" data-i18n="program.planned_volume">Planned weekly volume</h3>
-        <p class="lede program-volume-lede" data-i18n="program.planned_volume.lede" data-i18n-html>These totals count each training day once per week. See <b>Stats → Completed hard sets</b> to compare them with your log.</p>
-        <div id="volume" class="volume"></div>
       </div>
     </section>
 
@@ -325,7 +324,7 @@
         <div class="exview-head__right"><button type="button" class="link-accent" id="libClose" data-i18n="dialog.close">Close</button></div>
       </div>
       <div class="libwrap">
-        <div id="libStep" class="libstep hidden"></div>
+        <div id="libStep" class="libstep hidden" data-progress-dimension="task" data-progress-scope="exercise-picker-step"></div>
         <div id="libBrowse">
           <input id="libSearch" type="search" class="pick__search" data-i18n-placeholder="library.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search by name, muscle or equipment" autocomplete="off" enterkeyhint="search">
           <div id="libTabs" class="picktabs" role="tablist" data-i18n-aria="picker.tabs_aria" aria-label="Exercise sources"></div>
@@ -561,7 +560,7 @@
           <div class="onb__title" id="onbEyebrow" data-i18n="entry.eyebrow">Create a program</div>
           <div></div>
           <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
-          <div id="onbSegbar" class="segbar" style="grid-column:1/-1"></div>
+          <div id="onbSegbar" class="segbar" data-progress-dimension="task" data-progress-scope="entry-route-step" style="grid-column:1/-1"></div>
         </div>
         <h2 id="onbTitle" class="visually-hidden">Create a program</h2>
         <div id="onbBody" class="onb__body"></div>
@@ -814,7 +813,7 @@ Progress.</p>
       <div class="installsheet__head">
         <span class="installsheet__mark" aria-hidden="true"></span>
         <div class="installsheet__titles">
-          <p class="installsheet__title" id="iosInstallTitle" data-i18n="install.ios.title">Install on iPhone</p>
+          <p class="installsheet__title" id="iosInstallTitle" data-catalog-layout data-i18n="install.ios.title">Install on iPhone</p>
           <p class="installsheet__sub" data-i18n="install.ios.sub">Add Taurifer to your Home Screen.</p>
         </div>
         <button type="button" class="whysheet__close installsheet__close" id="iosInstallClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
@@ -1184,24 +1183,24 @@ Progress.</p>
        modules that use them, and both are optional by construction — without
        Motion every caller keeps a stylesheet-only path, and without @dnd-kit
        reordering stays reachable through each row's Move controls. -->
-  <script src="vendor/motion/motion.js"></script>
-  <script src="vendor/dnd-kit/dnd-kit.js"></script>
+  <script src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"></script>
+  <script src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=302"></script>
-  <script src="program-compiler.js?v=302"></script>
-  <script src="program-entry.js?v=302"></script>
-  <script src="program-entry-adapter.js?v=302"></script>
-  <script src="program-editor.js?v=302"></script>
-  <script src="shared-setup.js?v=302"></script>
-  <script src="workout-draft.js?v=302"></script>
-  <script src="program-transition.js?v=302"></script>
+  <script src="motion-layer.js?v=307"></script>
+  <script src="program-compiler.js?v=307"></script>
+  <script src="program-entry.js?v=307"></script>
+  <script src="program-entry-adapter.js?v=307"></script>
+  <script src="program-editor.js?v=307"></script>
+  <script src="shared-setup.js?v=307"></script>
+  <script src="workout-draft.js?v=307"></script>
+  <script src="program-transition.js?v=307"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=302"></script>
-  <script src="guide-registry.js?v=302"></script>
-  <script src="durable-state.js?v=302"></script>
-  <script src="progress-model.js?v=302"></script>
-  <script src="history-ui.js?v=302"></script>
-  <script src="app.js?v=302"></script>
+  <script src="install-policy.js?v=307"></script>
+  <script src="guide-registry.js?v=307"></script>
+  <script src="durable-state.js?v=308"></script>
+  <script src="progress-model.js?v=307"></script>
+  <script src="history-ui.js?v=307"></script>
+  <script src="app.js?v=309"></script>
 </body>
 </html>

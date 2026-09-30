@@ -10,7 +10,7 @@ assert.equal(committedIndex.status, 0, committedIndex.stderr);
 
 assert.doesNotMatch(
   committedIndex.stdout,
-  /^\s*<script src="posthog-config\.js\?v=[^"]+"><\/script>\r?$/m,
+  /^\s*<script src="posthog-config\.js\?v=[^"]+" data-optional-runtime="RepForgeTelemetry"><\/script>\r?$/m,
   "committed index.html must not contain a deploy-generated PostHog config tag",
 );
 
@@ -39,7 +39,7 @@ function run(environment) {
   assert.match(generated, /"sdkVersion":"1\.400\.0"/);
   assert.match(generated, /"appVersion":"abcdef123456"/);
   assert.match(generated, /"releaseChannel":"production"/);
-  assert.match(readFileSync(resolve(directory, "index.html"), "utf8"), /posthog-config\.js\?v=abcdef123456/);
+  assert.match(readFileSync(resolve(directory, "index.html"), "utf8"), /posthog-config\.js\?v=abcdef123456" data-optional-runtime="RepForgeTelemetry"/);
 }
 
 {

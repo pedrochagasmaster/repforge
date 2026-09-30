@@ -165,6 +165,7 @@ try {
       .map((cell) => cell.textContent.trim())
       .filter((text) => /ready/i.test(text)),
     reviewRole: document.querySelector("#reviewBlockLink")?.dataset.actionRole || "",
+    volumeAuditAction: Boolean(document.querySelector("#seeVolumeAudit")),
   }));
   check(overview.disclosures.length > 0 && overview.disclosures.every((item) =>
     (item.expanded === "true" || item.expanded === "false") && item.role === "expansion"),
@@ -172,6 +173,12 @@ try {
   check(!overview.readyLink && overview.readyStats.length === 0,
     "zero readiness renders no ready action or 0-ready chip", overview);
   check(overview.reviewRole === "navigation", "Review block is marked as navigation", overview.reviewRole);
+  check(overview.volumeAuditAction, "effective-set audit action remains in Program overview", overview);
+  await page.click("#seeVolumeAudit");
+  await page.waitForSelector("#programEditorWrap:not(.is-hidden) #programEditor [data-role=\"editor\"]", { timeout: 5000 });
+  check(await page.locator("#programOverview.is-hidden").count() === 1, "effective-set action enters the installed Program editor");
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
 
   await page.click("#programEditToggle");
   await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 5000 });

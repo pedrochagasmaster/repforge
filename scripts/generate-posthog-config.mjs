@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const INDEX_PATH = "index.html";
 const CONFIG_PATH = "posthog-config.js";
 const POSTHOG_INIT_TAG = '  <script src="posthog-init.js"></script>';
-const GENERATED_TAG_PATTERN = /^\s*<script src="posthog-config\.js\?v=[^"]+"><\/script>\r?\n/m;
+const GENERATED_TAG_PATTERN = /^\s*<script src="posthog-config\.js\?v=[^"]+" data-optional-runtime="RepForgeTelemetry"><\/script>\r?\n/m;
 const SDK_VERSION = "1.400.0";
 
 const branch = process.env.CF_PAGES_BRANCH || "";
@@ -49,7 +49,7 @@ if (!html.includes(POSTHOG_INIT_TAG)) {
   throw new Error(`Could not find ${POSTHOG_INIT_TAG} in ${INDEX_PATH}.`);
 }
 
-const configTag = `  <script src="${CONFIG_PATH}?v=${revision}"></script>`;
+const configTag = `  <script src="${CONFIG_PATH}?v=${revision}" data-optional-runtime="RepForgeTelemetry"></script>`;
 html = html.replace(POSTHOG_INIT_TAG, `${configTag}\n${POSTHOG_INIT_TAG}`);
 writeFileSync(INDEX_PATH, html, "utf8");
 

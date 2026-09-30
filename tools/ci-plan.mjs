@@ -25,14 +25,17 @@ export function makeCiPlan({ event, draft = false, requestedMode, baseSha, headS
   if (mode === "feedback" && (!SHA.test(baseSha || "") || !files)) {
     throw new Error("Feedback requires a resolved base SHA and changed-file list");
   }
+  const selectionContext = { cwd, base: baseSha };
   const selected = mode === "candidate"
     ? Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })))
-    : selectPacket(files, { cwd }).entries;
+    : selectPacket(files, selectionContext).entries;
   const tests = Object.fromEntries(Object.keys(SUITES).map((lane) =>
     [lane, selected.filter((entry) => entry.lane === lane).map(({ suite }) => suiteId(suite))]));
-  const visual = mode === "candidate" ? selectVisuals([], manifest, { force: true }) : selectVisuals(files, manifest, { cwd, base: baseSha });
+  const visual = event === "push"
+    ? selectVisuals([], manifest, { force: true })
+    : selectVisuals(files, manifest, { cwd, base: baseSha });
   const browser = [...BROWSER_LANES].filter((lane) => tests[lane].length);
-  const legacyIds = mode === "feedback" ? selectBranch(files, { cwd }).entries.map(({ suite }) => suiteId(suite)) : [];
+  const legacyIds = mode === "feedback" ? selectBranch(files, selectionContext).entries.map(({ suite }) => suiteId(suite)) : [];
   const selectedIds = new Set(Object.values(tests).flat());
   return {
     schemaVersion: 1, mode, event, baseSha: baseSha || null, headSha, tests,
@@ -42,16 +45,40 @@ export function makeCiPlan({ event, draft = false, requestedMode, baseSha, headS
       omittedFromFeedback: legacyIds.filter((id) => !selectedIds.has(id)),
       reason: "Candidate-tier commands remain in the exhaustive candidate/main gate unless directly changed or high-risk-owned." } : null,
     reasons: mode === "candidate"
-      ? ["Exhaustive exact-SHA candidate/main gate"]
-      : selectPacket(files, { cwd }).reasons,
+      ? ["Exhaustive exact-SHA contract gate; visual evidence is change-proportional on PR candidates and widens to full on unknown ownership."]
+      : selectPacket(files, selectionContext).reasons,
   };
+}
+
+export function requireSelectedCiResults(needs, { log = console.log } = {}) {
+  const outputs = needs?.plan?.outputs || {};
+  const selected = (name) =>
+    name === "plan" ||
+    name === "verification-evidence" ||
+    name === "interaction-runtime" && Boolean(outputs.fast) ||
+    name === "browser" && outputs.browser !== "[]" ||
+    name === "install-transfer-service" && outputs.service === "true" ||
+    name === "visual-evidence" && outputs.visual !== "none";
+  const failures = [];
+  for (const [name, job] of Object.entries(needs || {})) {
+    const required = selected(name);
+    const expected = required ? "success" : "skipped";
+    log(`${name}: ${job.result}${required ? " (required)" : " (not selected)"}`);
+    if (job.result !== expected) failures.push(`${name}: expected ${expected}, got ${job.result}`);
+  }
+  if (failures.length) throw new Error(`CI aggregate failed: ${failures.join("; ")}`);
 }
 
 export function resolveCiInputs(env = process.env, cwd = ROOT) {
   const event = env.GITHUB_EVENT_NAME || "workflow_dispatch";
   const payload = env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8")) : {};
   const headSha = git(["rev-parse", "HEAD"], cwd);
-  const baseSha = payload.pull_request?.base?.sha || env.CI_BASE_SHA || payload.before || null;
+  let baseSha = payload.pull_request?.base?.sha || env.CI_BASE_SHA || payload.before || null;
+  if (!baseSha && event === "workflow_dispatch") {
+    for (const ref of ["origin/main", "main"]) {
+      try { baseSha = git(["merge-base", "HEAD", ref], cwd); break; } catch {}
+    }
+  }
   const draft = Boolean(payload.pull_request?.draft);
   const requestedMode = payload.inputs?.mode || env.CI_MODE;
   const expectedSha = payload.inputs?.expected_sha || env.CI_EXPECTED_SHA;
@@ -73,7 +100,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
       `mode=${plan.mode}\nhead=${plan.headSha}\nbrowser=${JSON.stringify(plan.browser)}\nfast=${plan.tests.fast.join(",")}\nprivacy=${plan.tests.privacy.join(",")}\nservice=${plan.service.required}\nvisual=${plan.visual.mode}\n`);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-      `## ${plan.mode === "candidate" ? "Candidate CI — exhaustive" : "Feedback CI — not merge evidence"}\n\nBase: ${plan.baseSha || "—"}  \nHead: ${plan.headSha}\n\n` +
+      `## ${plan.mode === "candidate" ? "Candidate CI — exhaustive contracts" : "Feedback CI — not merge evidence"}\n\nBase: ${plan.baseSha || "—"}  \nHead: ${plan.headSha}\n\n` +
       Object.entries(plan.tests).map(([lane, ids]) => `- ${lane}: ${ids.length} commands`).join("\n") +
       `\n- visual: ${plan.visual.mode}${plan.visual.screens.length ? ` (${plan.visual.screens.length} screens)` : ""}\n\nWhy: ${plan.reasons.join("; ")}\n`);
     console.log(`${plan.mode} ${plan.headSha}: ${Object.values(plan.tests).reduce((n, ids) => n + ids.length, 0)} commands; visual ${plan.visual.mode}`);

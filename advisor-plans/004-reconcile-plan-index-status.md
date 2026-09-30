@@ -20,6 +20,7 @@
 - **Category**: docs
 - **Planned at**: commit `ff9991cf`, 2026-09-22
 - **Backlog**: **Now**: the "CI and documentation drift" row. Run only **after PR #248 merges**, as one small docs change that also records Plan 057's state (Q614, Q621).
+- **Execution:** IN PROGRESS — draft branch `advisor/004-plan-index-status`, seeded from `main` at `29fc1c36180abec3ff1839e4889f6d44a39fa6dc`. Re-run every drift check against the live branch before implementing; this line records execution kickoff only and does not override repository source-of-truth documents.
 
 ## Why this matters
 

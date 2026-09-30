@@ -2,11 +2,11 @@
 /**
  * What the running app actually emits.
  *
- * test/telemetry-call-sites.mjs reads source text; it can only prove which
- * event names appear in app.js. It cannot tell whether an event fires when a
- * screen merely appears, whether a whole cohort is silently dropped, or
- * whether one user action produces two events. This drives the real app in a
- * real browser and reads the events that reach the boundary's adapter.
+ * tools/check-production-syntax.mjs guards the closed telemetry producer
+ * boundary and declared event names. It cannot tell whether an event fires
+ * when a screen merely appears, whether a whole cohort is silently dropped,
+ * or whether one user action produces two events. This drives the real app in
+ * a real browser and reads the events that reach the boundary's adapter.
  *
  * Every assertion here is about behavior:
  *   - opening the app is not choosing a program route;

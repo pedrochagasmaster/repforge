@@ -63,12 +63,12 @@ assert(dndBootstrap.includes('script.src = "vendor/dnd-kit/dnd-kit.runtime.js"')
 assert(!/https?:\/\//.test(dndBootstrap.replace(/^\/\*[\s\S]*?\*\//, "")),
   "the dnd bootstrap cannot reach a third-party origin");
 
-assert(sw.includes('"./vendor/dnd-kit/dnd-kit.runtime.js"') &&
-       sw.includes('"/vendor/dnd-kit/dnd-kit.runtime.js"'),
-  "the deferred runtime remains in the atomic offline shell");
-assert(/IMMUTABLE_RUNTIMES = new Set\([^\n]+dnd-kit\/dnd-kit\.runtime\.js/.test(sw) &&
-       /if \(IMMUTABLE_RUNTIMES\.has\(path\)\)[\s\S]{0,240}caches\.match\(event\.request\)/.test(sw),
-  "pinned runtime requests prefer the precache instead of re-downloading online");
+assert(sw.includes('{ url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true }'),
+  "the deferred runtime is optional immutable code in the release inventory");
+assert(/if \(asset\?\.immutable\)[\s\S]{0,120}cachedResponse\(\)/.test(sw) &&
+       /function validCodeResponse\([\s\S]{0,320}expectedCodeType/.test(sw),
+  "pinned runtime requests prefer cached, correctly typed code before the network");
+assert(!/const\s+IMMUTABLE_RUNTIMES\s*=/.test(sw), "immutable runtime policy has no second path list");
 
 assert(builder.includes('out: join("vendor", "dnd-kit", "dnd-kit.runtime.js")') &&
        builder.includes('bootstrapOut: join("vendor", "dnd-kit", "dnd-kit.js")'),

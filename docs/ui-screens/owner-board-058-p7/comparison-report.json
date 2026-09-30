@@ -1,0 +1,1204 @@
+{
+  "schemaVersion": 1,
+  "baselineBoard": "owner-board-058-p5",
+  "baselineBoardSourceSha": "dd70f11ad0e6a4bca8a491c7f37b3296d83c3166",
+  "currentBoard": "owner-board-058-p7",
+  "currentProductionSourceSha": "0eec72030c7df79fbd90825d4453cdd2e0e8a486",
+  "comparator": "tools/compare-ui-screens.mjs comparePngFiles; 64 board frames remain unchanged through the current production source and the PT-BR 200% install/transfer-ready frame is refreshed for the final accessibility correction.",
+  "thresholds": {
+    "changedCellDelta": 0.08,
+    "maxChangedCellRatio": 0.045,
+    "maxMeanCellDelta": 0.018,
+    "maxMeanEdgeDelta": 0.025,
+    "maxChangedEdgeRatio": 0.08,
+    "maxHistogramDelta": 0.08,
+    "materialMeanCellDelta": 0.035,
+    "materialHistogramDelta": 0.16
+  },
+  "comparableFrames": 56,
+  "newRepresentativeFrames": [
+    {
+      "key": "onboarding-build/editor-empty",
+      "variant": "phone-390-light-en-text200",
+      "path": "screens/onboarding-build/editor-empty__phone-390-light-en-text200.png"
+    },
+    {
+      "key": "onboarding-build/editor-ready",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/onboarding-build/editor-ready__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-light-en-text200",
+      "path": "screens/today/ready__phone-390-light-en-text200.png"
+    },
+    {
+      "key": "today/rest-bar",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/today/rest-bar__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "workout/focus-glossary",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/focus-glossary__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "library/list-selected",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/library/list-selected__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "library/exercise-detail-glossary",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/library/exercise-detail-glossary__phone-390-light-pt-text200.png"
+    },
+    {
+      "key": "workout/rest-timer-paused",
+      "variant": "phone-390-dark-en",
+      "path": "screens/workout/rest-timer-paused__phone-390-dark-en.png",
+      "reason": "New paused-timer state added for the required non-text boundary proof; no equivalent P5 frame exists."
+    },
+    {
+      "key": "workout/rest-timer-paused",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/rest-timer-paused__phone-390-light-pt-text200.png",
+      "reason": "New paused-timer state added for the required non-text boundary proof; no equivalent P5 frame exists."
+    }
+  ],
+  "passCount": 49,
+  "thresholdExceededCount": 7,
+  "comparisons": [
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-390-light-en",
+      "path": "screens/onboarding-start/first-run__phone-390-light-en.png",
+      "currentSha256": "9788250d280da40f460acc7af09d5555b633d2e5b32ecad55235d36fba48dc6b",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-390-dark-en",
+      "path": "screens/onboarding-start/first-run__phone-390-dark-en.png",
+      "currentSha256": "8a3066e8fd323d1c3cd31a04b73fd10635e58ddb324ddb55dacc090f9a06c9c3",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-390-light-pt",
+      "path": "screens/onboarding-start/first-run__phone-390-light-pt.png",
+      "currentSha256": "aceafc4137200ba3efbe65caf9d1c21db2f2a3045694fb1505a19c6e20e03a0b",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-320-light-en",
+      "path": "screens/onboarding-start/first-run__phone-320-light-en.png",
+      "currentSha256": "4e839d1e86e00a8eda2a7d1b70161704d13df0e3aa50c81c90974f6b449be406",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 640,
+        "height": 1136,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "onboarding-start/first-run",
+      "variant": "phone-390-light-en-text200",
+      "path": "screens/onboarding-start/first-run__phone-390-light-en-text200.png",
+      "currentSha256": "bcc675167ef87eae3b31d7545efb2896b3ff33792922986c1c58c97fd27a7dfa",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "onboarding-start/hub",
+      "variant": "phone-390-light-en",
+      "path": "screens/onboarding-start/hub__phone-390-light-en.png",
+      "currentSha256": "794ad86d480429752f2b00adeda85540b018ac3fc8cbe83144aef609f028e64c",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": false,
+        "meanCellDelta": 0.022135767779709725,
+        "changedCellRatio": 0.09537760416666667,
+        "meanEdgeDelta": 0.0272748837793312,
+        "changedEdgeRatio": 0.11962056504599211,
+        "histogramDelta": 0.02718098022887716,
+        "reasons": [
+          "changed-cell ratio 9.54% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      },
+      "disposition": "Visual review: the page title, four-route order, featured action, and action hierarchy match the approved direction; the measured difference is the shared typography and spacing recipe migration."
+    },
+    {
+      "key": "onboarding-start/hub",
+      "variant": "phone-390-dark-en",
+      "path": "screens/onboarding-start/hub__phone-390-dark-en.png",
+      "currentSha256": "b8a94588679b360dff73891199d1797016fc4b5068b4b1579ab4094d8589ced9",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": false,
+        "meanCellDelta": 0.022853420054198673,
+        "changedCellRatio": 0.09716796875,
+        "meanEdgeDelta": 0.027508793975766284,
+        "changedEdgeRatio": 0.12007227332457293,
+        "histogramDelta": 0.024739564338233322,
+        "reasons": [
+          "changed-cell ratio 9.72% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      },
+      "disposition": "Visual review: the page title, four-route order, featured action, and action hierarchy match the approved direction; the measured difference is the shared typography and spacing recipe migration."
+    },
+    {
+      "key": "onboarding-start/hub",
+      "variant": "phone-390-light-pt",
+      "path": "screens/onboarding-start/hub__phone-390-light-pt.png",
+      "currentSha256": "d7927e60c1ceb3ec18b1440ac626b1993474f790cf98a73ff17de96b1dce62fd",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": false,
+        "meanCellDelta": 0.02500636063115291,
+        "changedCellRatio": 0.10880533854166667,
+        "meanEdgeDelta": 0.03023357321440919,
+        "changedEdgeRatio": 0.13391097240473063,
+        "histogramDelta": 0.027587889027927304,
+        "reasons": [
+          "changed-cell ratio 10.88% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      },
+      "disposition": "Visual review: the page title, four-route order, featured action, and action hierarchy match the approved direction; the measured difference is the shared typography and spacing recipe migration."
+    },
+    {
+      "key": "today/no-program",
+      "variant": "phone-390-light-en",
+      "path": "screens/today/no-program__phone-390-light-en.png",
+      "currentSha256": "313234d1cc4734a2b22ab667d600c3a20d80a2183d9819e853e31607ece2d20b",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.022819909660313595,
+        "changedCellRatio": 0.004475911458333333,
+        "meanEdgeDelta": 0.0016173135156347935,
+        "changedEdgeRatio": 0.006118593955321945,
+        "histogramDelta": 0.0023600272979820147,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-light-en",
+      "path": "screens/today/ready__phone-390-light-en.png",
+      "currentSha256": "59563dad1ebc185a50097e20d7b783dbdb1c19c94213b7302f4aa0e6cfed5de3",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0006426071468309495,
+        "changedCellRatio": 0.0029296875,
+        "meanEdgeDelta": 0.0007061427752836149,
+        "changedEdgeRatio": 0.0035726018396846256,
+        "histogramDelta": 0.001383473223540932,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-dark-en",
+      "path": "screens/today/ready__phone-390-dark-en.png",
+      "currentSha256": "0e5827aad73c30dca9265aaea04a2b626b6cdfd408455f3da70d0a149e3c17ed",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0006740637856171653,
+        "changedCellRatio": 0.0027669270833333335,
+        "meanEdgeDelta": 0.0006750256977192127,
+        "changedEdgeRatio": 0.0033672798948751644,
+        "histogramDelta": 0.0011393021850381047,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "today/ready",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/today/ready__phone-390-light-pt-text200.png",
+      "currentSha256": "a02c125d3971b20ae708528284d1cc9b63ae5a6ba670ce53d6482f4325429908",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": false,
+        "meanCellDelta": 0.08768391115331031,
+        "changedCellRatio": 0.23583984375,
+        "meanEdgeDelta": 0.0779428222010453,
+        "changedEdgeRatio": 0.26010183968462547,
+        "histogramDelta": 0.020019532516016625,
+        "reasons": [
+          "mean colour delta 8.77% exceeds 3.50%",
+          "changed-cell ratio 23.58% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      },
+      "disposition": "Expected P6 text-scale repair: complete exercise labels and values remain visible, and the dock actions remain reachable after reflow."
+    },
+    {
+      "key": "workout/focus",
+      "variant": "phone-390-light-en",
+      "path": "screens/workout/focus__phone-390-light-en.png",
+      "currentSha256": "6a67f0829a24e4efbdda47b14fd4d8fb22714f1905ba3a64c823d905b5730692",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 5.212243012118383e-05,
+        "changedCellRatio": 0.000244140625,
+        "meanEdgeDelta": 8.17388609423744e-05,
+        "changedEdgeRatio": 0.00036957950065703024,
+        "histogramDelta": 0.00032552098855376244,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "workout/focus",
+      "variant": "phone-390-dark-en",
+      "path": "screens/workout/focus__phone-390-dark-en.png",
+      "currentSha256": "9d8111323b1004e1d426ab756688be55bb7f243027093e28dc2ba48650897f0d",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 4.7048871216778245e-05,
+        "changedCellRatio": 0.000244140625,
+        "meanEdgeDelta": 7.522567303829218e-05,
+        "changedEdgeRatio": 0.00036957950065703024,
+        "histogramDelta": 0.00024413922801613808,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "workout/focus",
+      "variant": "phone-320-light-en",
+      "path": "screens/workout/focus__phone-320-light-en.png",
+      "currentSha256": "f81aed3904d7e3bae2ff26baae89d94f1bea7ea9d7e29a0efe78f7d7dafe8b7a",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 640,
+        "height": 1136,
+        "ok": true,
+        "meanCellDelta": 0.00013468351909307354,
+        "changedCellRatio": 0.0006510416666666666,
+        "meanEdgeDelta": 0.00017455355331556243,
+        "changedEdgeRatio": 0.0007802233902759526,
+        "histogramDelta": 0.00048828095896169543,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "workout/focus",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/focus__phone-390-light-pt-text200.png",
+      "currentSha256": "e192f8a4a0611802e1546524e8ad58974908b0bde424ef8c04bf5806fa952218",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.00015742043048530443,
+        "changedCellRatio": 0.0005696614583333334,
+        "meanEdgeDelta": 0.00018810316352430687,
+        "changedEdgeRatio": 0.0008212877792378449,
+        "histogramDelta": 0.0004068893613293767,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "workout/rest-timer",
+      "variant": "phone-390-dark-en",
+      "path": "screens/workout/rest-timer__phone-390-dark-en.png",
+      "currentSha256": "1e30b500518eeee3e5288deebd4c7a0734632e38896e6a4b93345fefccde66f2",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 1.740487779801169e-05,
+        "changedCellRatio": 0.00016276041666666666,
+        "meanEdgeDelta": 3.069252297086409e-05,
+        "changedEdgeRatio": 0.00024638633377135346,
+        "histogramDelta": 0.0001627691090106964,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "workout/rest-timer",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/workout/rest-timer__phone-390-light-pt-text200.png",
+      "currentSha256": "156cc262f1b00092feebf11e5e098a5f6edae0b31d8982c0dd489a5c14aa5ba8",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.00011303542530937431,
+        "changedCellRatio": 0.0006510416666666666,
+        "meanEdgeDelta": 0.00013113488123780325,
+        "changedEdgeRatio": 0.0008212877792378449,
+        "histogramDelta": 0.0004069040296599269,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "session/summary",
+      "variant": "phone-390-light-en",
+      "path": "screens/session/summary__phone-390-light-en.png",
+      "currentSha256": "8fb1013ee3d6a066169e1d85ef8a1e31da68d6ae58f7855cf46130ed9771f527",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "session/summary",
+      "variant": "phone-390-dark-en",
+      "path": "screens/session/summary__phone-390-dark-en.png",
+      "currentSha256": "2366fd7a4b11322c4fbf16273f9fe50fe64210c794fd887c4e9d6a962810cf5c",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "session/summary-declined",
+      "variant": "phone-390-light-en",
+      "path": "screens/session/summary-declined__phone-390-light-en.png",
+      "currentSha256": "8fb1013ee3d6a066169e1d85ef8a1e31da68d6ae58f7855cf46130ed9771f527",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "session/summary-declined",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/session/summary-declined__phone-390-light-pt-text200.png",
+      "currentSha256": "b57956defa01bd75bcc45e73fbf1393ae4cc9e519c4bdbae51bd715ab22b9711",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0,
+        "changedCellRatio": 0,
+        "meanEdgeDelta": 0,
+        "changedEdgeRatio": 0,
+        "histogramDelta": 0,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "progress/overview-action",
+      "variant": "phone-390-light-en",
+      "path": "screens/progress/overview-action__phone-390-light-en.png",
+      "currentSha256": "9b334a39ede0e9fb04ca614af263e0ec18858e69423b4c81bcae7837a9debf71",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0005787788572432861,
+        "changedCellRatio": 0.0027669270833333335,
+        "meanEdgeDelta": 0.0006174879973453229,
+        "changedEdgeRatio": 0.0032851511169513796,
+        "histogramDelta": 0.0006510300445370376,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "progress/overview-action",
+      "variant": "phone-390-dark-en",
+      "path": "screens/progress/overview-action__phone-390-dark-en.png",
+      "currentSha256": "236bf5b248d3995638fb57c0876042f8af8fca1e80bfff44e7c9e1db6fe6a19a",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0006242271121439738,
+        "changedCellRatio": 0.0028483072916666665,
+        "meanEdgeDelta": 0.0006043466784637642,
+        "changedEdgeRatio": 0.0031208935611038106,
+        "histogramDelta": 0.0006510619423352182,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "progress/recovery-preview",
+      "variant": "phone-390-light-en",
+      "path": "screens/progress/recovery-preview__phone-390-light-en.png",
+      "currentSha256": "827598dbc0ac0833bb1a67427ce512fc91d07258129dd7b38af9d85495491d8d",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0005787788572432861,
+        "changedCellRatio": 0.0027669270833333335,
+        "meanEdgeDelta": 0.0006174879973453229,
+        "changedEdgeRatio": 0.0032851511169513796,
+        "histogramDelta": 0.0006510276580229402,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "progress/recovery-preview",
+      "variant": "phone-320-light-en",
+      "path": "screens/progress/recovery-preview__phone-320-light-en.png",
+      "currentSha256": "67d2c4d44efa66a904eed1097c3288ed36b55dc99d0e5c67d5d2d7f27b831cfc",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 640,
+        "height": 1136,
+        "ok": true,
+        "meanCellDelta": 0.0008264539531792465,
+        "changedCellRatio": 0.004069010416666667,
+        "meanEdgeDelta": 0.001053529335051266,
+        "changedEdgeRatio": 0.005215177398160315,
+        "histogramDelta": 0.001302086551731918,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "progress/recovery-preview",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/progress/recovery-preview__phone-390-light-pt-text200.png",
+      "currentSha256": "e94e616b96d965a2b14ed0e57f478191dc071e6aec9549d6f66ee19890f14e29",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": false,
+        "meanCellDelta": 0.09863158258601251,
+        "changedCellRatio": 0.2831217447916667,
+        "meanEdgeDelta": 0.0981165609804671,
+        "changedEdgeRatio": 0.3252299605781866,
+        "histogramDelta": 0.06681313042645343,
+        "reasons": [
+          "mean colour delta 9.86% exceeds 3.50%",
+          "changed-cell ratio 28.31% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      },
+      "disposition": "Expected P6 text-scale repair: content continues in its scroll region; the dock wraps to two rows with all four destinations visible."
+    },
+    {
+      "key": "history/list",
+      "variant": "phone-390-light-en",
+      "path": "screens/history/list__phone-390-light-en.png",
+      "currentSha256": "4fb6f9d8616a1261f53e9f7ecd8a012a056a43f4cee9dbcd9a24c6b2513bf6eb",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0007648786397945985,
+        "changedCellRatio": 0.003662109375,
+        "meanEdgeDelta": 0.0008190260899012098,
+        "changedEdgeRatio": 0.0041475032851511166,
+        "histogramDelta": 0.0015462439550901763,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "history/list",
+      "variant": "phone-390-dark-en",
+      "path": "screens/history/list__phone-390-dark-en.png",
+      "currentSha256": "2ccc4c88813c02af83b1f9e2f4f9a5f536e2570cd4fb182c9e36dbce66aaa653",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0007885610755735448,
+        "changedCellRatio": 0.003662109375,
+        "meanEdgeDelta": 0.0007914609879098646,
+        "changedEdgeRatio": 0.004106438896189225,
+        "histogramDelta": 0.0018717647835728712,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "history/list",
+      "variant": "phone-390-light-pt",
+      "path": "screens/history/list__phone-390-light-pt.png",
+      "currentSha256": "92e843205be2aae639d580968a0675c550f4d858ec9229023db5fa1986397005",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0007636334796249644,
+        "changedCellRatio": 0.003662109375,
+        "meanEdgeDelta": 0.0008261468795063304,
+        "changedEdgeRatio": 0.004229632063074902,
+        "histogramDelta": 0.0015462141127500217,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "history/edit-invalid",
+      "variant": "phone-390-light-en",
+      "path": "screens/history/edit-invalid__phone-390-light-en.png",
+      "currentSha256": "c0edaa22d3a394a881914189f99ca38b8aaf58617b60a784ed97d0bcabe9bd38",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.000548585523020235,
+        "changedCellRatio": 0.0026041666666666665,
+        "meanEdgeDelta": 0.0005478433305189581,
+        "changedEdgeRatio": 0.0029155716162943494,
+        "histogramDelta": 0.0008138219418469816,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "history/edit-invalid",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/history/edit-invalid__phone-390-light-pt-text200.png",
+      "currentSha256": "75812c1a13a65485a1a66074b985b6a561dbe5e7028fe6007ea02b35f70f92b0",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.011072568563608552,
+        "changedCellRatio": 0.03759765625,
+        "meanEdgeDelta": 0.009719097629463625,
+        "changedEdgeRatio": 0.039380749014454666,
+        "histogramDelta": 0.009602882928447798,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/overview",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/overview__phone-390-light-en.png",
+      "currentSha256": "cfc47f9576f07c3e2eeb10a3121d33bbfda723fb3a6cdbcf7bdb20bf9e7b1b66",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.001598542148891712,
+        "changedCellRatio": 0.007568359375,
+        "meanEdgeDelta": 0.002003040534300967,
+        "changedEdgeRatio": 0.009362680683311432,
+        "histogramDelta": 0.002278636326082051,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/overview",
+      "variant": "phone-390-dark-en",
+      "path": "screens/program/overview__phone-390-dark-en.png",
+      "currentSha256": "4537c8f28092b5d2513d13029b548cd1be8fb202c6c2d56d4904887b3066e8a1",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0016494975441423657,
+        "changedCellRatio": 0.007486979166666667,
+        "meanEdgeDelta": 0.001986027652405095,
+        "changedEdgeRatio": 0.008828843626806833,
+        "histogramDelta": 0.0017903746920637786,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/progression-editor",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/progression-editor__phone-390-light-en.png",
+      "currentSha256": "6ff44d1dda2fc07a28728aaa39cf84cef7795abc1728c730c732588797e744ed",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.001226761505530583,
+        "changedCellRatio": 0.006673177083333333,
+        "meanEdgeDelta": 0.001769685897481739,
+        "changedEdgeRatio": 0.009280551905387648,
+        "histogramDelta": 0.0019531148827809375,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/progression-editor",
+      "variant": "phone-390-light-pt",
+      "path": "screens/program/progression-editor__phone-390-light-pt.png",
+      "currentSha256": "61c4403303e150983cda873ef9c876da3c0936aaf504b335a73c68623223fd3b",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0014425372377375111,
+        "changedCellRatio": 0.007731119791666667,
+        "meanEdgeDelta": 0.0019263416655978455,
+        "changedEdgeRatio": 0.009937582128777924,
+        "histogramDelta": 0.002522777063859394,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/exercise-picker",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/exercise-picker__phone-390-light-en.png",
+      "currentSha256": "909de3247f67f7edf4a6fd598335c8c41492238e8374e8ab4356732c5a90aa7c",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0021621610425260696,
+        "changedCellRatio": 0.008544921875,
+        "meanEdgeDelta": 0.0026895920385003247,
+        "changedEdgeRatio": 0.011087385019710906,
+        "histogramDelta": 0.0020345147349871695,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/share-ready",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/share-ready__phone-390-light-en.png",
+      "currentSha256": "58f77f0440ecea69990a5321c2afd5e0242dd3b47d7728561a0e1f89e84e9bed",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.004345979774618986,
+        "changedCellRatio": 0.018473307291666668,
+        "meanEdgeDelta": 0.005453550305741297,
+        "changedEdgeRatio": 0.02361202365308804,
+        "histogramDelta": 0.00276692739862483,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/share-ready",
+      "variant": "phone-390-dark-en",
+      "path": "screens/program/share-ready__phone-390-dark-en.png",
+      "currentSha256": "01cf1d24210acaaad532d9d2e560efb1323ed1472ab6af68527a02a54e78b815",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0030382842663841405,
+        "changedCellRatio": 0.012532552083333334,
+        "meanEdgeDelta": 0.003796881951425964,
+        "changedEdgeRatio": 0.01646681997371879,
+        "histogramDelta": 0.0034993551671504974,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/share-ready",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/program/share-ready__phone-390-light-pt-text200.png",
+      "currentSha256": "5fb8e63c4528a5797a76ae8584a0ccbae046240b55876d2fa9512beb3d47c8dd",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.008166299878228851,
+        "changedCellRatio": 0.037923177083333336,
+        "meanEdgeDelta": 0.008861212272187217,
+        "changedEdgeRatio": 0.04020203679369251,
+        "histogramDelta": 0.0104166679084301,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/share-one-blocker",
+      "variant": "phone-390-light-en",
+      "path": "screens/program/share-one-blocker__phone-390-light-en.png",
+      "currentSha256": "e4f88a9778abe5b796be1e318dc65a7f9cc53cb5e332836798b72cd141d1ca1a",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.005271069852664504,
+        "changedCellRatio": 0.021809895833333332,
+        "meanEdgeDelta": 0.006669639866143152,
+        "changedEdgeRatio": 0.028170170827858082,
+        "histogramDelta": 0.003824859086307697,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "program/share-one-blocker",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/program/share-one-blocker__phone-390-light-pt-text200.png",
+      "currentSha256": "c5c44cc2919db801e5ff42205288576a5720a7a5b4546845a87a87fc08d45042",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.00791251163639508,
+        "changedCellRatio": 0.036946614583333336,
+        "meanEdgeDelta": 0.008596887594179474,
+        "changedEdgeRatio": 0.039134362680683314,
+        "histogramDelta": 0.009277342876885086,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "settings/main",
+      "variant": "phone-390-light-en",
+      "path": "screens/settings/main__phone-390-light-en.png",
+      "currentSha256": "d8c9e0eeb923f3986dcb3d33e3ce62ae5656d65da50584fd7c1efd5320d08765",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.00017647363980490764,
+        "changedCellRatio": 0.000732421875,
+        "meanEdgeDelta": 0.00023961099508400816,
+        "changedEdgeRatio": 0.0011087385019710907,
+        "histogramDelta": 0.000569650437682867,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "settings/main",
+      "variant": "phone-390-dark-en",
+      "path": "screens/settings/main__phone-390-dark-en.png",
+      "currentSha256": "923c8351b06b0e96f636b2e8347f3f8125f1d56e1926e5e1dae096968e23f6c9",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0002515240750183624,
+        "changedCellRatio": 0.0010579427083333333,
+        "meanEdgeDelta": 0.00035804924867195465,
+        "changedEdgeRatio": 0.0016836399474375822,
+        "histogramDelta": 0.0008951626150519587,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "settings/main",
+      "variant": "phone-390-light-pt",
+      "path": "screens/settings/main__phone-390-light-pt.png",
+      "currentSha256": "457bce80bfd211e804c2ff22a1ffe074660ad2cd7768b468fc3896e1b115d96e",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 6.583616457476367e-05,
+        "changedCellRatio": 0.000244140625,
+        "meanEdgeDelta": 0.00011396185836403504,
+        "changedEdgeRatio": 0.0004927726675427069,
+        "histogramDelta": 0.0004069097340106964,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "settings/guides-replay",
+      "variant": "phone-390-light-en",
+      "path": "screens/settings/guides-replay__phone-390-light-en.png",
+      "currentSha256": "adee77ac6a7c23b4cf05977122d589a1a1aa4b8a3980a1b3dad566f0c4d8ba8a",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 3.193252597099704e-05,
+        "changedCellRatio": 0.000244140625,
+        "meanEdgeDelta": 5.630104656915001e-05,
+        "changedEdgeRatio": 0.00041064388961892245,
+        "histogramDelta": 0.00016275979578495026,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "settings/guides-replay",
+      "variant": "phone-390-light-pt",
+      "path": "screens/settings/guides-replay__phone-390-light-pt.png",
+      "currentSha256": "7b1d21d19a1940c7714f5201add7495e3b352e790c9a571bff9d339672e2b2ba",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 3.193252597099704e-05,
+        "changedCellRatio": 0.000244140625,
+        "meanEdgeDelta": 5.630104656915001e-05,
+        "changedEdgeRatio": 0.00041064388961892245,
+        "histogramDelta": 0.00016275886446237564,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "settings/privacy-disclosure",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/settings/privacy-disclosure__phone-390-light-pt-text200.png",
+      "currentSha256": "ee791305b7851755aab71b6f0b6f8bdeae69c668325044ff1655910ba5907348",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": false,
+        "meanCellDelta": 0.02463037135247063,
+        "changedCellRatio": 0.11376953125,
+        "meanEdgeDelta": 0.031022650621704142,
+        "changedEdgeRatio": 0.1472568988173456,
+        "histogramDelta": 0.013427733050775714,
+        "reasons": [
+          "changed-cell ratio 11.38% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      },
+      "disposition": "Expected P6 text-scale repair: disclosure title, close action, and copy retain their order and remain reachable in the dialog."
+    },
+    {
+      "key": "library/list",
+      "variant": "phone-390-light-en",
+      "path": "screens/library/list__phone-390-light-en.png",
+      "currentSha256": "d88fdc68033a40851c78332ab20e2d36f978dbff11f7425167ad1d43406e0e99",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0008574910972272182,
+        "changedCellRatio": 0.0035807291666666665,
+        "meanEdgeDelta": 0.0011208822752462894,
+        "changedEdgeRatio": 0.004352825229960578,
+        "histogramDelta": 0.002115895098540932,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "library/list",
+      "variant": "phone-390-dark-en",
+      "path": "screens/library/list__phone-390-dark-en.png",
+      "currentSha256": "fa7e10c78eb77445540d388d2aa9d361fe472603432a9bf8fe1e701779d64a0c",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0009172367921812041,
+        "changedCellRatio": 0.003662109375,
+        "meanEdgeDelta": 0.0011751589000606898,
+        "changedEdgeRatio": 0.004352825229960578,
+        "histogramDelta": 0.001790364971384406,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "library/list",
+      "variant": "phone-390-light-pt",
+      "path": "screens/library/list__phone-390-light-pt.png",
+      "currentSha256": "4d0b9739322bed5adaf5c662484a375102e2dd5bad774f66d53c1d8ce51bef6a",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0012070725733511801,
+        "changedCellRatio": 0.004801432291666667,
+        "meanEdgeDelta": 0.0014980671347244966,
+        "changedEdgeRatio": 0.006241787122207621,
+        "histogramDelta": 0.002360010170377791,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "library/exercise-detail",
+      "variant": "phone-390-light-en",
+      "path": "screens/library/exercise-detail__phone-390-light-en.png",
+      "currentSha256": "69bee969124e59a9deb6088e2c70d18359b73a36ff52bc748064e5c0d5306824",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0012236464166074771,
+        "changedCellRatio": 0.004964192708333333,
+        "meanEdgeDelta": 0.0015786566028711674,
+        "changedEdgeRatio": 0.007022010512483574,
+        "histogramDelta": 0.0018717352068051696,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "library/exercise-detail",
+      "variant": "phone-390-light-pt",
+      "path": "screens/library/exercise-detail__phone-390-light-pt.png",
+      "currentSha256": "665f402c5f02ee0808d9c410fab48bd30fef49b264aefd99fde356b41be3293d",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.001054177687226944,
+        "changedCellRatio": 0.004557291666666667,
+        "meanEdgeDelta": 0.001387639409334995,
+        "changedEdgeRatio": 0.00603646517739816,
+        "histogramDelta": 0.0026855269679799676,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "install/transfer-ready",
+      "variant": "phone-390-light-en",
+      "path": "screens/install/transfer-ready__phone-390-light-en.png",
+      "currentSha256": "6d72e98b01466e8125ecedf918225aab0b3895e146a7e69a58dddcdf471c6d24",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0009256313774069748,
+        "changedCellRatio": 0.0032552083333333335,
+        "meanEdgeDelta": 0.0011948989465607527,
+        "changedEdgeRatio": 0.004886662286465177,
+        "histogramDelta": 0.008219402458053082,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "install/transfer-ready",
+      "variant": "phone-390-dark-en",
+      "path": "screens/install/transfer-ready__phone-390-dark-en.png",
+      "currentSha256": "32e7d56890257e3be57494c2a2f4915f0fd5a502289765719511b2029a63557f",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": true,
+        "meanCellDelta": 0.0005855886823379061,
+        "changedCellRatio": 0.0026041666666666665,
+        "meanEdgeDelta": 0.0008592031568438108,
+        "changedEdgeRatio": 0.003818988173455979,
+        "histogramDelta": 0.0017903887783177197,
+        "reasons": []
+      },
+      "disposition": "Within the fixed P5 comparison thresholds."
+    },
+    {
+      "key": "install/transfer-ready",
+      "variant": "phone-390-light-pt-text200",
+      "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png",
+      "currentSha256": "5f7cc3472b5356f477e0efe1696488c725c983c73701850c748c49a52a0297cd",
+      "hasP5Match": true,
+      "comparison": {
+        "width": 780,
+        "height": 1688,
+        "ok": false,
+        "meanCellDelta": 0.07501071139680797,
+        "changedCellRatio": 0.23966471354166666,
+        "meanEdgeDelta": 0.06855000231265727,
+        "changedEdgeRatio": 0.2596501314060447,
+        "histogramDelta": 0.008544909651391208,
+        "reasons": [
+          "mean colour delta 7.50% exceeds 3.50%",
+          "changed-cell ratio 23.97% exceeds 4.50%",
+          "colour change is broad rather than isolated raster noise",
+          "edge structure changed across the capture"
+        ]
+      },
+      "disposition": "Reviewed intentional accessibility correction: at PT-BR 200% text the install-transfer title now wraps inside its title column instead of overflowing toward the close control. The sheet hierarchy and actions are unchanged; vertical reflow is required to keep the enlarged localized title reachable and non-overlapping."
+    }
+  ],
+  "reviewNotes": [
+    "Final P6 dock correction: the selected Today/ready EN and PT-BR 200% frames were refreshed from source faa0bc494ab6e04c4537da7179705c89d80115c6. Their capture now uses measured row-bottom/dock-top scrolling, so the complete exercise row is visible above the same two-row dock. This is an evidence framing correction; the computed-root CSS repair preserves the approved layout and action hierarchy.",
+    "Final merge-readiness accessibility correction: install/transfer-ready PT-BR 200% was refreshed from production source 0eec72030c7df79fbd90825d4453cdd2e0e8a486. The title wraps within its column instead of overflowing toward the close control; this intentional reflow exceeds the generic P5 pixel threshold while preserving sheet hierarchy and actions."
+  ],
+  "refreshedBoardFrames": [
+    {
+      "path": "screens/today/no-program__phone-390-light-en.png",
+      "beforeSha256": "7ab437a553673745999cd39919acfbafe616d69172d2d01d5d276cd56aa55f47",
+      "afterSha256": "313234d1cc4734a2b22ab667d600c3a20d80a2183d9819e853e31607ece2d20b"
+    },
+    {
+      "path": "screens/today/ready__phone-390-light-en-text200.png",
+      "beforeSha256": "2cb64a119ba6e42c94e80f6c350a82bb02dbb46c20a33d76b1affdb7cd2f0b38",
+      "afterSha256": "a50e2f19c2333a75393af4d760fc399e5fc692f1e547d4a25e3eeceda1535327"
+    },
+    {
+      "path": "screens/today/ready__phone-390-light-pt-text200.png",
+      "beforeSha256": "723e902ce19e03286ceaf61abdd397f1adb450e4fe68768cc158b735e5d1c85f",
+      "afterSha256": "a02c125d3971b20ae708528284d1cc9b63ae5a6ba670ce53d6482f4325429908"
+    },
+    {
+      "path": "screens/program/progression-editor__phone-390-light-en.png",
+      "beforeSha256": "28b5fffc900c9b988d4cf508e7f90cd9dab7f91a672a1efe896aae6072b8b0fe",
+      "afterSha256": "6ff44d1dda2fc07a28728aaa39cf84cef7795abc1728c730c732588797e744ed"
+    },
+    {
+      "path": "screens/program/progression-editor__phone-390-light-pt.png",
+      "beforeSha256": "8e518cbb3a37a5055d2409532561591ec44e821808190cea6ac335abd456ade6",
+      "afterSha256": "61c4403303e150983cda873ef9c876da3c0936aaf504b335a73c68623223fd3b"
+    },
+    {
+      "path": "screens/install/transfer-ready__phone-390-light-pt-text200.png",
+      "beforeSha256": "4ba0b982463a8cc4ab65224885820cdffa6ad4c88a69e456a9a0b8ae6ed9879c",
+      "afterSha256": "5f7cc3472b5356f477e0efe1696488c725c983c73701850c748c49a52a0297cd",
+      "reason": "PT-BR 200% install-title accessibility wrap correction."
+    }
+  ]
+}

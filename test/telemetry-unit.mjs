@@ -187,6 +187,11 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
 // vocabulary, matching the fixture contract exactly. An event added without
 // one cannot be defined at all: the module throws while building EVENTS.
 assert.deepEqual([...Telemetry.DUPLICATE_POLICIES], [...DUPLICATE_POLICY_VOCABULARY]);
+assert.deepEqual(
+  VALID_ALPHA_EVENTS.map(([name]) => name).sort(),
+  [...Telemetry.getEventNames()].sort(),
+  "every production alpha event has one minimum valid schema fixture",
+);
 assert.deepEqual([...Telemetry.getEventNames()].sort(), Object.keys(EVENT_DUPLICATE_POLICIES).sort());
 for (const [name, expected] of Object.entries(EVENT_DUPLICATE_POLICIES)) {
   assert.equal(Telemetry.getEventPolicy(name), expected, `${name} duplicate policy`);
