@@ -207,6 +207,95 @@ async function main() {
     assert(roleAfterWorking === "working", "set 1 role restored to working in DraftV2", roleAfterWorking);
 
     /* ======================================================================
+     * 4b. Keyboard focus continuity after a set-role toggle (audit A04)
+     * ====================================================================== */
+    console.log("\nSet-role toggle: keyboard focus survives the rerender");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const SEL = "#exActionsWarmupList [data-warm-toggle-set]";
+    const roleOf = (idx) => page.evaluate((i) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const ex = draft.exercises[window.__repforgeFocus.list()[window.__repforgeFocus.at()].id];
+      return ex.sets[ex.setOrder[i]].role;
+    }, idx);
+    const setIdOf = (idx) => page.evaluate((i) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const ex = draft.exercises[window.__repforgeFocus.list()[window.__repforgeFocus.at()].id];
+      return ex.setOrder[i];
+    }, idx);
+    const focusState = () => page.evaluate(() => {
+      const a = document.activeElement;
+      return { tag: a?.tagName, set: a?.getAttribute?.("data-warm-toggle-set") || null, id: a?.id || null, text: a?.tagName === "BUTTON" ? a.textContent.trim() : null };
+    });
+    // Next focusable after the active element in DOM order, computed from the sheet itself.
+    const expectedNextTab = (sid) => page.evaluate((sid) => {
+      const sheet = document.querySelector("#exActionsSheet");
+      const cand = [...sheet.querySelectorAll("button, a[href], input, select, textarea, [tabindex]")]
+        .filter((el) => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden");
+      const i = cand.indexOf(sheet.querySelector(`[data-warm-toggle-set="${CSS.escape(sid)}"]`));
+      const n = cand[i + 1];
+      return i < 0 || !n ? null : { tag: n.tagName, set: n.getAttribute("data-warm-toggle-set"), id: n.id || null, text: n.textContent.trim() };
+    }, sid);
+    const waitFreshToggle = () => page.waitForFunction((sel) => {
+      const b = document.querySelector(sel);
+      return b && !b.__stale;
+    }, SEL);
+    const keyToggle = async (dir, fromRole, toRole) => {
+      const sid = await setIdOf(0);
+      assert(await roleOf(0) === fromRole, `${dir}: set 1 starts as ${fromRole}`);
+      const btn = page.locator(SEL).first();
+      await btn.focus();
+      await page.evaluate((sel) => { document.querySelectorAll(sel).forEach((b) => { b.__stale = true; }); }, SEL);
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(([i, role]) => {
+        const d = window.__repforgeWorkoutDraft.current();
+        const ex = d.exercises[window.__repforgeFocus.list()[window.__repforgeFocus.at()].id];
+        return ex.sets[ex.setOrder[i]].role === role;
+      }, [0, toRole]);
+      await waitFreshToggle();
+      const fs = await focusState();
+      const expected = await expectedNextTab(sid);
+      assert(expected, `${dir}: a DOM-order successor exists`);
+      await page.keyboard.press("Tab");
+      const after = await focusState();
+      const tabOk = after.tag === expected.tag && after.set === expected.set && after.id === expected.id;
+      assert(fs.set === sid && fs.tag === "BUTTON" && tabOk,
+        `${dir}: focus returns to the same set's new control after Enter and Tab follows DOM order`,
+        JSON.stringify({ focusAfterEnter: fs, expectedTab: expected, focusAfterTab: after }));
+      assert(await page.evaluate(() => !!document.activeElement.closest("#exActionsSheet")),
+        `${dir}: modal focus trap keeps focus inside the sheet`);
+    };
+    await keyToggle("working->warm-up", "working", "warmup");
+    await keyToggle("warm-up->working", "warmup", "working");
+
+    // Pointer operation still works.
+    await page.locator(SEL).first().click();
+    await page.waitForFunction(() => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const ex = d.exercises[window.__repforgeFocus.list()[window.__repforgeFocus.at()].id];
+      return ex.sets[ex.setOrder[0]].role === "warmup";
+    });
+    assert(await roleOf(0) === "warmup", "pointer click still flips the set role");
+    await page.locator(SEL).first().click();
+    await page.waitForFunction(() => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const ex = d.exercises[window.__repforgeFocus.list()[window.__repforgeFocus.at()].id];
+      return ex.sets[ex.setOrder[0]].role === "working";
+    });
+
+    // A rejected/stale toggle (set id no longer in the draft) must not invent focus movement.
+    await page.locator(SEL).first().focus();
+    await page.evaluate((sel) => { document.querySelector(sel).setAttribute("data-warm-toggle-set", "stale-set-id"); }, SEL);
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(250);
+    const stale = await page.evaluate((sel) => ({
+      staleStillFocused: document.activeElement === document.querySelector(sel) && document.activeElement.getAttribute("data-warm-toggle-set") === "stale-set-id",
+    }), SEL);
+    assert(stale.staleStillFocused, "stale set toggle leaves focus untouched (no invented movement)", JSON.stringify(stale));
+    assert(await roleOf(0) === "working", "stale set toggle changes no role");
+    await page.evaluate(() => window.__repforgeExActions.render(window.__repforgeFocus.list()[window.__repforgeFocus.at()].id));
+
+    /* ======================================================================
      * 5. Substitution: replaces by explicit ID, preserves provenance, reversible
      * ====================================================================== */
     console.log("\nSubstitution: explicit current ID replacement and restore");
