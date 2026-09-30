@@ -71,8 +71,10 @@
 .g-bordered::after{content:"";position:absolute;right:18px;top:50%;transform:translateY(-50%);width:22px;height:22px;background:currentColor;-webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain}
 .g-land__privacy{margin:0}
 .g-land .landing-proof{margin:0}
-.g-invalid{color:var(--ink)}
-.g-invalid .icon-mask{color:var(--danger)}
+/* F16: the invalid-link reason is a hairline band in body type, not a
+   floating status line. Only the icon carries the danger colour. */
+.g-invalid{color:var(--ink);font-size:var(--font-size-body);line-height:var(--line-standard);padding:14px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);align-items:flex-start;gap:12px}
+.g-invalid .icon-mask{color:var(--danger);width:22px;height:22px;margin-top:1px}
 .g-gate{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:16px 0}
 .g-gate__facts{margin:0}
 .g-gate__label{margin-top:8px}
@@ -194,6 +196,7 @@
 .g-pick{align-self:stretch}
 .g-switches{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .g-switch{padding-left:0}
+.g-switch.btn--link{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
 .g-safe{margin:0}
 
 
@@ -325,3 +328,15 @@
 .g-app details.day>summary .chevron{transition:transform .15s ease}
 .g-main .choice{transition:border-color .15s ease,background .15s ease,box-shadow .15s ease,transform .12s ease}
 .g-main .chip{transition:border-color .15s ease,background .15s ease,box-shadow .15s ease,transform .12s ease}
+
+/* ================= Edge states (F02, F04, F17) =================
+   Free-form gaps: field labels are sentence-case body-small (a question,
+   not a column head); the "not imported" note reads as a quiet band; the
+   stage labels ("Abrir no ChatGPT ou Claude", "Colar a resposta") are ink
+   sentence-case heads with their glyph, so the accent stays rationed. */
+.g-ff .field>span:first-child{font-size:var(--font-size-body-small);font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink)}
+.g-ff .t-label--accent{color:var(--ink);font-size:var(--font-size-body);font-weight:600;letter-spacing:0;text-transform:none;line-height:var(--line-standard)}
+.g-ff .t-label--accent .icon-mask{color:var(--ink-soft)}
+.g-main .notice--info{font-size:var(--font-size-body-small);color:var(--ink-soft);line-height:var(--line-standard)}
+.g-main .notice--quiet{padding:10px 14px}
+.g-ff .field__hint{color:var(--ink-soft)}
