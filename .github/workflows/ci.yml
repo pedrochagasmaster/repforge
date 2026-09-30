@@ -1,7 +1,9 @@
 # One workflow, one required check ("ci"). Every pull request and every push
 # to main runs the complete inventory from test/suites.mjs; the only shortcut is
 # that a prose-only change skips the test jobs. Browser work is split across
-# balanced shards so the wall time is a few minutes instead of forty.
+# balanced shards so the wall time is a few minutes instead of forty. Shard
+# count lives in test/suites.mjs (CI_SHARDS); the account allows 20 concurrent
+# jobs, so two overlapping runs queue some shards for one shard's duration.
 name: CI
 
 on:
@@ -161,4 +163,4 @@ jobs:
           path: .ci-results/shards
       - if: needs.plan.outputs.run == 'true'
         name: Merge the UI-system shard reports
-        run: node tools/check-ui-system.mjs --merge .ci-results/shards
+        run: node tools/ci-plan.mjs merge-ui-system .ci-results/shards

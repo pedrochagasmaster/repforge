@@ -8,7 +8,8 @@ import test from "node:test";
 import { BROWSER_LANES, CI_SHARDS, SUITES, SUPPORT, UI_SYSTEM_SHARDS, VISUAL_SHARDS, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId, suiteSeconds } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
 import { classifyChange, gateResults, pullRequestFiles, resolvePlan, shardMatrix } from "../tools/ci-plan.mjs";
-import { findShardReports, mergeShardReports, shardCaptures } from "../tools/check-ui-system.mjs";
+import { findShardReports, mergeShardReports, shardCaptures } from "../tools/ui-system-core.mjs";
+import { mergeUiSystemReports } from "../tools/ci-plan.mjs";
 import { selectCaptures, verifyCatalog } from "../tools/capture-ui-screens.mjs";
 import { capturePath, expandCaptures, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
@@ -146,6 +147,9 @@ test("UI-system shard reports merge into the catalog-wide never-rendered rule", 
   }
   assert.equal(findShardReports(root).length, 2);
   assert.deepEqual(findShardReports(join(root, "missing")), []);
+  const gateMerge = mergeUiSystemReports(root, { inventory, manifest: loadManifest() });
+  assert.equal(gateMerge.shards, 2, "the gate merges the same reports");
+  assert.equal(gateMerge.problems.some((p) => /never rendered/.test(p)), false);
 });
 
 test("verify mode compares a staged capture with the committed catalog and keeps evidence for failures", (t) => {
@@ -246,7 +250,7 @@ test("the workflow is one sharded matrix behind one required check", () => {
   assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/, "the shard list comes from the inventory, not the YAML");
   assert.match(workflow, /node tools\/run-tests\.mjs shard "\$\{\{ matrix\.shard \}\}" --keep-going/);
   assert.match(workflow, /node tools\/ci-plan\.mjs gate/);
-  assert.match(workflow, /node tools\/check-ui-system\.mjs --merge/);
+  assert.match(workflow, /node tools\/ci-plan\.mjs merge-ui-system/);
   assert.match(workflow, /needs: \[plan, fast, browser, service\]\n\s+if: always\(\)/, "the gate observes every job");
   assert.equal((workflow.match(/if: needs\.plan\.outputs\.run == 'true'/g) || []).length >= 3, true, "test jobs obey the plan");
   assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);

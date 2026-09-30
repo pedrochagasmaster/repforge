@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /** Live Plan 058 role inventory. Existing CSS literals are debt until P6. */
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ROOT, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests } from "./ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures } from "./ui-system-core.mjs";
 import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
@@ -198,63 +198,6 @@ export async function auditFocusRoles(page, { key, components, pixels }) {
   return { problems, measurements };
 }
 
-/** Components and exceptions that no rendered state matched. Only meaningful over the complete catalog. */
-export function neverRenderedProblems(inventory, matched, matchedExceptions) {
-  const problems = [];
-  for (const item of inventory.components) {
-    if (!matched.has(item.id) && !item.sourceOnly) problems.push(`inventory selector never rendered: ${item.selector}`);
-  }
-  for (const item of inventory.exceptions) {
-    if (!matchedExceptions.has(item.selector) && !item.sourceOnlyReason) problems.push(`inventory exception never rendered: ${item.selector}`);
-  }
-  return problems;
-}
-
-/**
- * Stripe the render list across shards: render i belongs to shard (i mod n)+1.
- * The list is screen-major, so every shard sees every screen roughly equally
- * often and the union of all shards is exactly the unsharded list.
- */
-export function shardCaptures(captures, shard) {
-  if (!shard) return captures;
-  return captures.filter((_, index) => index % shard.count === shard.index - 1);
-}
-
-export const SHARD_REPORT = "ui-system-shard.json";
-
-/** Union the per-shard reports of one complete sweep and apply the catalog-wide rules. */
-export function mergeShardReports(reports, inventory) {
-  const problems = [];
-  const counts = new Set(reports.map((report) => report.shard?.count));
-  if (!reports.length) problems.push("no ui-system shard reports found");
-  if (counts.size > 1) problems.push(`shard reports disagree on shard count: ${[...counts].join(", ")}`);
-  const count = reports[0]?.shard?.count || 0;
-  const indices = reports.map((report) => report.shard?.index);
-  for (let index = 1; index <= count; index++) {
-    const seen = indices.filter((value) => value === index).length;
-    if (seen !== 1) problems.push(`shard ${index}/${count} reported ${seen} time(s)`);
-  }
-  const matched = new Set(reports.flatMap((report) => report.matched || []));
-  const matchedExceptions = new Set(reports.flatMap((report) => report.matchedExceptions || []));
-  const failed = reports.filter((report) => report.problems > 0).map((report) => `${report.shard.index}/${report.shard.count}`);
-  if (failed.length) problems.push(`shard(s) ${failed.join(", ")} reported role problems; see their own logs`);
-  if (!problems.length) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
-  return { problems, shards: reports.length, screens: reports.reduce((sum, report) => sum + (report.screens || 0), 0) };
-}
-
-export function findShardReports(root) {
-  const found = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir)) {
-      const path = join(dir, entry);
-      if (statSync(path).isDirectory()) walk(path);
-      else if (entry === SHARD_REPORT) found.push(JSON.parse(readFileSync(path, "utf8")));
-    }
-  };
-  if (existsSync(root)) walk(root);
-  return found;
-}
-
 export async function auditCatalog({ allowProgressDebt = false, flow = null, stateKey = null, theme = null, locale = null, shard = null, onProgress = () => {} } = {}) {
   const manifest = loadManifest();
   const inventory = loadRoleInventory();
@@ -321,7 +264,7 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
       if ((index + 1) % 25 === 0) { await browser.close(); browser = await launchChromium(); }
     }
   } finally { await browser.close(); preview.cleanup(); }
-  // A partial sweep cannot know what the other shards rendered; `--merge` applies this rule over all of them.
+  // A partial sweep cannot know what the other shards rendered; `ci-plan.mjs merge-ui-system` applies this rule over all of them.
   if (!flow && !stateKey && !shard) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
   return { problems, screens: captures.length, matched: [...matched], matchedExceptions: [...matchedExceptions], measurements };
 }
@@ -330,16 +273,7 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
   const manifest = loadManifest(), inventory = loadRoleInventory();
   const metadata = validateRoleInventory(inventory, manifest);
   const args = process.argv.slice(2), requestedCss = [];
-  const mergeArgument = args.indexOf("--merge");
-  if (mergeArgument >= 0) {
-    const root = args[mergeArgument + 1];
-    if (!root || root.startsWith("--")) throw new Error("--merge needs a directory holding ui-system-shard.json reports");
-    const merged = mergeShardReports(findShardReports(resolve(ROOT, root)), inventory);
-    metadata.push(...merged.problems);
-    console.log(`UI system merge: ${merged.shards} shard report(s), ${merged.screens} rendered states, ${metadata.length} problem(s).`);
-    for (const error of metadata) console.error(`FAIL: ${error}`);
-    process.exitCode = metadata.length ? 1 : 0;
-  } else {
+
   for (let index = 0; index < args.length; index++) {
     if (args[index] !== "--css") continue;
     const path = args[index + 1];
@@ -388,5 +322,4 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
   for (const error of shown) console.error(`FAIL: ${error}`);
   if (metadata.length > shown.length) console.error(`... ${metadata.length - shown.length} more failures`);
   if (metadata.length) process.exitCode = 1;
-  }
 }

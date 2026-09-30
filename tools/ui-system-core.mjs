@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./ui-screens/manifest.mjs";
 
@@ -180,4 +180,61 @@ export function contrastRatio(a, b) {
   const lum = (rgb) => 0.2126 * linear(rgb[0] / 255) + 0.7152 * linear(rgb[1] / 255) + 0.0722 * linear(rgb[2] / 255);
   const [light, dark] = [lum(a), lum(b)].sort((x, y) => y - x);
   return (light + 0.05) / (dark + 0.05);
+}
+
+/** Components and exceptions that no rendered state matched. Only meaningful over the complete catalog. */
+export function neverRenderedProblems(inventory, matched, matchedExceptions) {
+  const problems = [];
+  for (const item of inventory.components) {
+    if (!matched.has(item.id) && !item.sourceOnly) problems.push(`inventory selector never rendered: ${item.selector}`);
+  }
+  for (const item of inventory.exceptions) {
+    if (!matchedExceptions.has(item.selector) && !item.sourceOnlyReason) problems.push(`inventory exception never rendered: ${item.selector}`);
+  }
+  return problems;
+}
+
+/**
+ * Stripe the render list across shards: render i belongs to shard (i mod n)+1.
+ * The list is screen-major, so every shard sees every screen roughly equally
+ * often and the union of all shards is exactly the unsharded list.
+ */
+export function shardCaptures(captures, shard) {
+  if (!shard) return captures;
+  return captures.filter((_, index) => index % shard.count === shard.index - 1);
+}
+
+export const SHARD_REPORT = "ui-system-shard.json";
+
+/** Union the per-shard reports of one complete sweep and apply the catalog-wide rules. */
+export function mergeShardReports(reports, inventory) {
+  const problems = [];
+  const counts = new Set(reports.map((report) => report.shard?.count));
+  if (!reports.length) problems.push("no ui-system shard reports found");
+  if (counts.size > 1) problems.push(`shard reports disagree on shard count: ${[...counts].join(", ")}`);
+  const count = reports[0]?.shard?.count || 0;
+  const indices = reports.map((report) => report.shard?.index);
+  for (let index = 1; index <= count; index++) {
+    const seen = indices.filter((value) => value === index).length;
+    if (seen !== 1) problems.push(`shard ${index}/${count} reported ${seen} time(s)`);
+  }
+  const matched = new Set(reports.flatMap((report) => report.matched || []));
+  const matchedExceptions = new Set(reports.flatMap((report) => report.matchedExceptions || []));
+  const failed = reports.filter((report) => report.problems > 0).map((report) => `${report.shard.index}/${report.shard.count}`);
+  if (failed.length) problems.push(`shard(s) ${failed.join(", ")} reported role problems; see their own logs`);
+  if (!problems.length) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
+  return { problems, shards: reports.length, screens: reports.reduce((sum, report) => sum + (report.screens || 0), 0) };
+}
+
+export function findShardReports(root) {
+  const found = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (entry === SHARD_REPORT) found.push(JSON.parse(readFileSync(path, "utf8")));
+    }
+  };
+  if (existsSync(root)) walk(root);
+  return found;
 }

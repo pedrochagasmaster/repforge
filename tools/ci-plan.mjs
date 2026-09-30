@@ -5,6 +5,9 @@
  *   node tools/ci-plan.mjs        decide whether this change needs the test
  *                                 matrix and publish the shard list
  *   node tools/ci-plan.mjs gate   fail unless every job the plan selected passed
+ *   node tools/ci-plan.mjs merge-ui-system <dir>
+ *                                 union the ui-system-shard.json reports under
+ *                                 <dir> and apply the catalog-wide rules
  *
  * The only narrowing CI does is "prose-only changes skip the tests". Anything
  * else — an unknown file, an API failure, a push to main — runs the complete
@@ -15,6 +18,8 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { CI_SHARDS } from "../test/suites.mjs";
+import { loadManifest } from "./ui-screens/manifest.mjs";
+import { findShardReports, loadRoleInventory, mergeShardReports, validateRoleInventory } from "./ui-system-core.mjs";
 
 const PROSE = /(?:^|\/)(?:[^/]+\.(?:md|txt)|\.gitignore|LICENSE)$/;
 const COMPARE_PAGE = 100;
@@ -82,9 +87,24 @@ export function gateResults(needs, { log = console.log } = {}) {
   log(run ? "Every selected job passed." : `Nothing to run: ${plan.outputs?.reason || "prose-only change"}.`);
 }
 
+/** The catalog-wide UI-system rule over every shard's report; browser-free so the gate job needs no test dependencies. */
+export function mergeUiSystemReports(root, { inventory = loadRoleInventory(), manifest = loadManifest() } = {}) {
+  const problems = validateRoleInventory(inventory, manifest);
+  const merged = mergeShardReports(findShardReports(root), inventory);
+  return { ...merged, problems: [...problems, ...merged.problems] };
+}
+
 async function main(argv) {
   if (argv[0] === "gate") {
     gateResults(JSON.parse(process.env.NEEDS || "{}"));
+    return;
+  }
+  if (argv[0] === "merge-ui-system") {
+    if (!argv[1]) throw new Error("merge-ui-system needs a directory holding ui-system-shard.json reports");
+    const merged = mergeUiSystemReports(resolve(argv[1]));
+    console.log(`UI system merge: ${merged.shards} shard report(s), ${merged.screens} rendered states, ${merged.problems.length} problem(s).`);
+    for (const problem of merged.problems) console.error(`FAIL: ${problem}`);
+    if (merged.problems.length) process.exitCode = 1;
     return;
   }
   const plan = await resolvePlan();

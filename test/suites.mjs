@@ -9,7 +9,7 @@ const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
  * shard. `seconds` is the measured wall time on ubuntu-latest (2026-09-30)
  * and only drives shard balancing; a missing value falls back on `cost`.
  */
-export const CI_SHARDS = 16;
+export const CI_SHARDS = 14;
 export const UI_SYSTEM_SHARDS = 6;
 export const VISUAL_SHARDS = 6;
 const DEFAULT_SECONDS = { tiny: 1, normal: 5, long: 60 };

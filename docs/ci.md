@@ -31,7 +31,7 @@ every push to `main` runs the same thing:
 | --- | --- | --- |
 | `plan` | Decides whether anything executable changed and publishes the shard list. | 20 s |
 | `fast` | `--check` plus the complete `fast` lane (pure Node, no browser). | 1 min |
-| `browser` × `CI_SHARDS` | Every browser command in the inventory, balanced across runners by measured duration. Includes the UI-system role audit and the screen-catalog recapture, each split into shard commands. | 6 min |
+| `browser` × `CI_SHARDS` | Every browser command in the inventory, balanced across runners by measured duration. Includes the UI-system role audit and the screen-catalog recapture, each split into shard commands. | 6–7 min |
 | `service` | The install-transfer Worker gate (`check`, tests, dry deploy). | 1 min |
 | `ci` | The one required status check: every selected job passed, and the UI-system shard reports merge cleanly. | 20 s |
 
@@ -57,7 +57,10 @@ The split is a pure function of the committed inventory, so every runner and
 every local `shard k/n` computes the same plan. Adding a suite needs no workflow
 edit; give a command that runs longer than about twenty seconds a `seconds`
 value so the packing stays balanced. `node tools/run-tests.mjs shard 1/16 --explain`
-prints the estimate for that shard and the heaviest one.
+prints the estimate for that shard and the heaviest one. The account allows 20
+concurrent jobs, so a run that overlaps another one queues a few shards for
+about one shard's duration; that is why the count is not simply "as many as
+possible".
 
 Two catalog sweeps used to be single commands of 29 and 26 minutes. They are
 now inventory commands with a `--shard k/n` argument:
@@ -66,7 +69,8 @@ now inventory commands with a `--shard k/n` argument:
   screen × theme × locale matrix and writes `ui-system-shard.json` beside its
   evidence. The rule "every inventory selector rendered somewhere" needs the
   union of all stripes, so the `ci` job downloads the shard artifacts and runs
-  `node tools/check-ui-system.mjs --merge .ci-results/shards`.
+  `node tools/ci-plan.mjs merge-ui-system .ci-results/shards` (browser-free, so
+  the gate installs nothing).
 - `tools/capture-ui-screens.mjs --verify --shard k/6` captures one stripe of the
   915 frames into a staging tree and compares the complete staged catalog with
   the committed one (`check-ui-screens` registration plus `compare-ui-screens`
