@@ -36,7 +36,7 @@
       return `<div class="d-row d-row--rx${manual ? " is-manual" : ""}">
         ${mark(r.glyph)}
         <div class="d-row__name">${D.name(k)}<small>${subLine(k, r, ctx.iso)}</small></div>
-        <span class="d-fig"${X.tgt(r)}>${num(r.load)}</span>
+        <span class="d-fig"${X.tgt(r)}>${num(r.load)}<i class="d-unit">${U_}</i></span>
         <span class="d-tgt">${r.target}</span>
       </div>`;
     }).join("");

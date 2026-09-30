@@ -64,6 +64,9 @@
   readHash();
 
   const $ = (id) => document.getElementById(id);
+  // The app adds is-text-scaled when the root font passes 16.1 px (app.js);
+  // the D family reflows its rows and shelf on that class.
+  const textScaled = () => (parseFloat(getComputedStyle(document.documentElement).fontSize) > 16.1 ? " is-text-scaled" : "");
   const baseScreen = (s) => PARENT[s] || s;
   const stateFor = (key) => (DIRS[key] && DIRS[key].family ? UD : U);
   const family = () => DIRS.d || Object.values(DIRS).find((d) => d.family);
@@ -96,7 +99,7 @@
   function device(dirKey, screen, scale, id) {
     const h = HEIGHT[U.w];
     const p = phoneHTML(dirKey, screen);
-    const fam = DIRS[dirKey].family ? " dx" : "";
+    const fam = DIRS[dirKey].family ? " dx" + textScaled() : "";
     return `<div class="dev" style="width:${((U.w + 22) * scale).toFixed(1)}px;height:${((h + 22) * scale).toFixed(1)}px">
       <div class="device" style="transform:scale(${scale})"><div class="ph d${dirKey}${fam} ${p.cls}" data-theme="${U.theme}" data-dir="${dirKey}" data-phone="${id}" data-screen="${screen}" data-drawn="${p.drawn}" lang="${U.lang === "pt" ? "pt-BR" : "en"}" style="width:${U.w}px;height:${h}px">${p.html}</div></div>
     </div>`;
@@ -139,7 +142,7 @@
     const w = bare ? window.innerWidth : 390, h = bare ? window.innerHeight : 844;
     const scale = bare ? 1 : Math.min(1, (window.innerHeight - 32) / h);
     const p = phoneHTML(U.dir, U.screen);
-    const fam = DIRS[U.dir].family ? " dx" : "";
+    const fam = DIRS[U.dir].family ? " dx" + textScaled() : "";
     document.body.classList.toggle("is-bare", bare);
     document.documentElement.lang = U.lang === "pt" ? "pt-BR" : "en";
     document.title = `${letter(U.dir)}. ${DIRS[U.dir].name} · Taurifer`;
@@ -177,7 +180,7 @@
     const scr = ph.querySelector(".scr"), top = scr ? scr.scrollTop : 0;
     const sb = ph.querySelector(".x-sheet__body"), stop = sb ? sb.scrollTop : 0;
     const p = phoneHTML(key, screen);
-    ph.className = `ph d${key}${DIRS[key].family ? " dx" : ""} ${p.cls}`;
+    ph.className = `ph d${key}${DIRS[key].family ? " dx" + textScaled() : ""} ${p.cls}`;
     ph.innerHTML = p.html;
     const n = ph.querySelector(".scr"); if (n) n.scrollTop = top;
     const nb = ph.querySelector(".x-sheet__body"); if (nb) nb.scrollTop = stop;
