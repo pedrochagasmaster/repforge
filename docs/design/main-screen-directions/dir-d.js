@@ -18,6 +18,10 @@
   const weekRule = (cur, total) => `<div class="d-weeks" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="${i + 1 < cur ? "done" : i + 1 === cur ? "now" : ""}"></i>`).join("")}</div>`;
   const colHead = (cells, cls) => `<div class="d-cols ${cls}" aria-hidden="true">${cells.map((c) => `<span>${c}</span>`).join("")}</div>`;
   const setsOnly = (k, iso) => D.loggedSets(k, iso);
+  // Operators and units inside a Mono cell step back to soft ink so the figures lead.
+  const ops = (x) => String(x).replace(/×/g, '<i class="d-op">×</i>').replace(/\bkg\b/g, '<i class="d-op">kg</i>');
+  // "{label}: {value}" with the value in Mono: language in Sans, figures in Mono.
+  const withMono = (str, value) => str.replace("\u0000", `<b class="x-mono">${value}</b>`);
 
   // Today sub-line: last session, first time, or the shipped stalled reason.
   function subLine(k, r, iso) {
@@ -37,7 +41,7 @@
         ${mark(r.glyph)}
         <div class="d-row__name">${D.name(k)}<small>${subLine(k, r, ctx.iso)}</small></div>
         <span class="d-fig"${X.tgt(r)}>${num(r.load)}<i class="d-unit">${U_}</i></span>
-        <span class="d-tgt">${r.target}</span>
+        <span class="d-tgt">${ops(r.target)}</span>
       </div>`;
     }).join("");
     const tally = D.tally(recs).map((t) => `<span class="d-tally__i">${mark(t.glyph)}${t.text}</span>`).join(`<span class="d-dot" aria-hidden="true">·</span>`);
@@ -192,8 +196,9 @@
       : `<div class="d-calc${c.sum ? " d-calc--sum" : ""}${c.text ? " d-calc--t" : ""}"><span class="d-calc__k">${c.k}</span><span class="d-calc__v">${c.v}${c.rir ? `<em>${c.rir}</em>` : ""}</span>${c.sub ? `<small>${c.sub}</small>` : ""}</div>`).join("");
     const calc = w.calc.length ? `<button class="d-disc" data-toggle="calc" aria-expanded="${!!U.calcOpen}">${U.calcOpen ? n("d.why.calc_hide") : n("d.why.calc")}${ic("chev", U.calcOpen ? "rot-180" : "")}</button>${U.calcOpen ? `<div class="d-calcs">${calcRows}</div>` : ""}` : "";
     const glyph = variant === "set2" ? "hold" : r.glyph;
+    const head = String(w.head).replace(num(r.load), `<b class="x-mono">${num(r.load)}</b>`);
     const body = `<p class="d-sheet__eyebrow">${s("why.title")}</p>
-      <h2 class="d-sheet__cue">${w.noMark ? "" : mark(glyph)}<span>${w.head}</span></h2>
+      <h2 class="d-sheet__cue">${w.noMark ? "" : mark(glyph)}<span>${head}</span></h2>
       <div class="d-reasons">${blocks}</div>
       ${calc}
       ${w.evidence ? `<p class="d-evidence">${variant === "set2" ? `${s("why.session")}, ${n("d.set_label", { n: 1 })}` : w.evidence}</p>` : ""}
@@ -213,9 +218,9 @@
       const word = first ? "" : `<span class="d-out${o.state === "insufficient" ? " is-insuf" : ""}" data-outcome="${o.k}@${o.iso}">${o.word}</span>`;
       return `<div class="d-grp">
         <div class="d-grp__h"><span class="d-grp__n">${D.name(k)}</span>${word}</div>
-        <p class="d-grp__sets">${D.setsLine(setsOnly(k, iso), true)}</p>
+        <p class="d-grp__sets">${ops(D.setsLine(setsOnly(k, iso), true))}</p>
         ${pr ? `<p class="d-pr">PR · ${D.prLine(pr)}</p>` : ""}
-        <p class="d-grp__next"${X.tgt(nx)}>${mark(nx.glyph)}<span>${n("d.next_target", { target: nx.next })}</span></p>
+        <p class="d-grp__next"${X.tgt(nx)}>${mark(nx.glyph)}<span>${withMono(n("d.next_target", { target: "\u0000" }), ops(nx.next))}</span></p>
       </div>`;
     }).join("");
     const ms = D.musclesOf(iso, mix), shown = U.musclesAll ? ms : ms.slice(0, 6);
@@ -294,12 +299,14 @@
     const figs = c.metric === "top"
       ? [[num(Math.max(...c.vals)), n("d.chart.fig.top")], [(c.vals[c.vals.length - 1] - c.vals[0] >= 0 ? "+" : "−") + num(Math.abs(c.vals[c.vals.length - 1] - c.vals[0])), n("d.chart.fig.change")], [S.length, n("d.chart.fig.sessions")]]
       : [[num(Math.max(...c.vals), 1), n("d.chart.fig.e1rm")], [(c.vals[c.vals.length - 1] - c.vals[0] >= 0 ? "+" : "−") + num(Math.abs(c.vals[c.vals.length - 1] - c.vals[0]), 1), n("d.chart.fig.change")], [S.length, n("d.chart.fig.sessions")]];
-    const readout = n("d.chart.readout", { date: date.short(sel.date), metric: c.label, value: c.metric === "top" ? num(sel.top) : num(sel.e1rm, 1), set: X.setOf(sel) });
+    const readout = n("d.chart.readout", { date: date.short(sel.date), metric: c.label, value: `<b>${c.metric === "top" ? num(sel.top) : num(sel.e1rm, 1)}</b>`, set: `<b>${ops(X.setOf(sel))}</b>` });
+    // Loads padded to five Mono cells so "×" and the reps align down the column.
+    const setOfPad = (z) => num(z.top).padStart(5, "\u00A0") + ops(` × ${z.topReps}`);
     const rows = S.map((z, i) => ({ z, i })).reverse().map(({ z, i }) => {
       const prev = S[i - 1];
       const v = c.metric === "top" ? z.top : z.e1rm, pv = prev ? (c.metric === "top" ? prev.top : prev.e1rm) : null;
       const dl = pv == null ? "–" : Math.abs(v - pv) < 0.05 ? "0" : (v > pv ? "+" : "−") + num(Math.abs(v - pv), c.metric === "top" ? undefined : 1);
-      return `<button class="d-hrow${i === c.sel ? " is-sel" : ""}${z.block ? "" : " is-old"}" data-pt="${i}" aria-pressed="${i === c.sel}"><span>${date.short(z.date)}</span><span class="d-mono">${X.setOf(z)}</span><span class="d-mono">${num(z.e1rm, 1)}</span><span class="d-mono d-soft">${dl}</span></button>`;
+      return `<button class="d-hrow${i === c.sel ? " is-sel" : ""}${z.block ? "" : " is-old"}" data-pt="${i}" aria-pressed="${i === c.sel}"><span>${date.short(z.date)}</span><span class="d-mono">${setOfPad(z)}</span><span class="d-mono">${num(z.e1rm, 1)}</span><span class="d-mono d-soft">${dl}</span></button>`;
     }).join("");
     const body = `
       <div class="d-pg">
@@ -326,7 +333,7 @@
     return `<button class="d-sess" data-go="${iso === T.TODAY ? "session" : "history"}">
       <span class="d-sess__d"><small>${date.wd(iso)}</small><b>${dd}</b></span>
       <span class="d-sess__m"><b>${T.two(sn.dayName)}</b><small>${mus}</small></span>
-      <span class="d-sess__n"><span>${n("d.history.sets", { n: sn.sets })}</span><span>${num(sn.vol, 0)} ${U_}</span>${p ? `<span class="d-pr">${n(p > 1 ? "d.history.prs_many" : "d.history.prs", { n: p })}</span>` : ""}</span>
+      <span class="d-sess__n"><span>${n("d.history.sets", { n: `<b>${sn.sets}</b>` })}</span><span><b>${num(sn.vol, 0)}</b> ${U_}</span>${p ? `<span class="d-pr">${n(p > 1 ? "d.history.prs_many" : "d.history.prs", { n: p })}</span>` : ""}</span>
     </button>`;
   }
   /* ---------- History frequency views (owner Q7: five shapes to compare) ----------
@@ -453,7 +460,7 @@
       const rows = d.lifts.map((k) => {
         const r = di === 0 ? D.rec(k, T.TODAY) : D.rec(k, "2026-09-22", "next");
         const e = T.EX[k];
-        return `<div class="d-prow"><span class="d-row__name">${D.name(k)}<small>${s("program.progression.strategy." + D.strategyOf(k))}</small></span><span class="d-mono">${e.n} × ${e.r[0]}–${e.r[1]}</span><span class="d-prow__n"${X.tgt(r)}>${mark(r.glyph)}${num(r.load)}</span></div>`;
+        return `<div class="d-prow"><span class="d-row__name">${D.name(k)}<small>${s("program.progression.strategy." + D.strategyOf(k))}</small></span><span class="d-mono">${ops(`${e.n} × ${e.r[0]}–${e.r[1]}`)}</span><span class="d-prow__n"${X.tgt(r)}>${mark(r.glyph)}${num(r.load)}</span></div>`;
       }).join("");
       return `<div class="d-day"><div class="d-day__h"><b>${T.two(d.name)}</b><span>${n("d.program.day_meta", { muscles: T.muList(T.dayMuscles(di).slice(0, 3)), sets: T.daySets(di) })}</span></div>
         ${colHead([n("d.col.exercise"), n("d.col.sets_range"), n("d.col.next")], "d-cols--prog")}
