@@ -32,7 +32,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `program-compiler.js` | Versioned program-family definitions, compilation, and structural validation. |
 | `program-editor.js` | Reusable program editor. Its host supplies data and handles returned intents. |
 | `history-ui.js` | History rendering and interactions through dependencies supplied by the app. |
-| `shared-setup.js` | Setup-link validation and retained `v1.`, `v2.`, and `v3.` envelope codec. Read `AGENTS.md` for version semantics and privacy rules. |
+| `shared-setup.js` | Setup-link codec and validation; this module and `AGENTS.md` own the current format, compatibility, and privacy contract. |
 | `install-transfer.js`, `install-transfer-contract.js` | Browser transfer client and its shared request/envelope contract. `services/install-transfer/` owns the service. |
 | `install-policy.js`, `guide-registry.js` | Install-prompt eligibility and versioned contextual-guide definitions/state. |
 | `motion-layer.js` | Motion vocabulary, reduced-motion decision, gesture controller, and fallback. `app.js` mounts and disposes the controller through this layer. |
@@ -52,7 +52,7 @@ For query-versioned runtime scripts, use `transitionAssets` in `test/exercise-li
 
 ## Setup links and privacy
 
-Setup links carry a validated proposal in the URL fragment and retain multiple readable envelope versions. Consult `AGENTS.md`, `shared-setup.js`, and ADR 0007 before changing encoding, compatibility, cookies, import eligibility, or sharing. The install-transfer cookie and setup-proposal handoff are separate mechanisms.
+Setup-link encoding, validation, and compatibility are owned by `shared-setup.js`. Consult `AGENTS.md` and ADR 0007 before changing cookies, import eligibility, or sharing. The install-transfer cookie and setup-proposal handoff are separate mechanisms.
 
 Telemetry event names and allowed properties live in `telemetry.js`; `AGENTS.md` and relevant ADRs define the data boundary.
 
