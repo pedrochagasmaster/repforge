@@ -63,7 +63,7 @@ remediation owner; no product fix or retained suite was added here.
 
 | Finding | Post-058 status | Executable evidence | Smallest next owner |
 |---|---|---|---|
-| A01, P1 | CLOSED by PR #284, fix commit `2c7c1732d1f06eaab033a556e31d400ea413d431` | `test/draftv2-staged-cas.mjs` rejects a second writer from the same predecessor and preserves the accepted aggregate through promotion and reload | No A01 follow-up |
+| A01, P1 | CLOSED by PR #284: core acceptance/promotion fix `8d5f77ed397c866c298cbebc3a249f73f5173777`; staged-new-draft correction `2c7c1732d1f06eaab033a556e31d400ea413d431` | `test/draftv2-staged-cas.mjs` rejects a second writer from the same predecessor and preserves the accepted aggregate through promotion and reload | No A01 follow-up |
 | A02, P2 | OPEN | History RIR=2 saves to both replicas with `rirMeasured:false`; reload remains `insufficient / missing-effort`. Flag-only control yields `sufficient / improved / progress` | Narrow evidence-correctness fix in stage 4 before #255; preserve provenance for load/date-only edits |
 | A03, P2 | OPEN | New York spring DST returns week 1 on March 9 and excludes today's session; block denominator also remains one week | Narrow evidence-correctness fix in stage 4 before #255; may share the A02 packet if ownership/proofs stay clear |
 | A04, P2 | OPEN | Enter on both warm-up/working toggles leaves `BODY` focused in an open sheet; next Tab jumps to Substitute | Narrow stage-4 focus-continuity fix before #255; D retains this utility |
@@ -79,7 +79,10 @@ rewrite** fail closed. It did not change the unlocked **draft-sidecar CAS** in
 
 ### A01: concurrent staged DraftV2 commands lose acknowledged input (closed)
 
-PR #284 fixes A01 in commit
+PR #284 closes A01 with core synchronization in commit
+`8d5f77ed397c866c298cbebc3a249f73f5173777`, cache/query alignment and
+regression updates in `81e6e97bbc42bcccd2a2de4b2b4404e0cf849324`, and the
+staged-new-draft checkpoint correction in
 `2c7c1732d1f06eaab033a556e31d400ea413d431`. The production owner remains
 `durable-state.js`: `DraftStore.compareAndSwapV2()`, `writeSidecar()`,
 `promote()`, and checkpoint handling. The regression in
@@ -107,8 +110,9 @@ Promotion uses the draft lock and preserves a committed canonical aggregate
 when a stale sidecar has the same or an older revision. Boot waits for
 promotion to finish.
 
-At source commit
-`2c7c1732d1f06eaab033a556e31d400ea413d431`, `test/draftv2-staged-cas.mjs`
+At final source commit
+`2c7c1732d1f06eaab033a556e31d400ea413d431`, following the core fix in
+`8d5f77ed397c866c298cbebc3a249f73f5173777`, `test/draftv2-staged-cas.mjs`
 passed with both field orders, with the stale writer arriving before and after
 sidecar publication, and with a legitimate sequential edit from the accepted
 revision. It also checks checkpoint absence, reload before promotion, failed
@@ -324,9 +328,14 @@ The pause is an isolated scheduling barrier at the storage write, not a replacem
 
 Requirement: Plan 051's stale-tab CAS and exact aggregate preservation; root AGENTS.md requires draft commands to use a cross-tab lock.
 
-Disposition: CLOSED by PR #284, fix commit
-`81e6e97bbc42bcccd2a2de4b2b4404e0cf849324`. The pre-fix failure was pinned
-on #271 main by test commit `7352ca38acef488af3c63e7d89f843f37c7c31c0`.
+Disposition: CLOSED by PR #284. Core synchronization is in commit
+`8d5f77ed397c866c298cbebc3a249f73f5173777`; commit
+`81e6e97bbc42bcccd2a2de4b2b4404e0cf849324` aligns cache/query revisions and
+extends the regression; commit
+`2c7c1732d1f06eaab033a556e31d400ea413d431` preserves staged writes to a new
+draft when its checkpoint is absent. The pre-fix failure was pinned against
+exact #271 main `f7b516361ef1083b7395f144c613a32817706722` by test commit
+`7352ca38acef488af3c63e7d89f843f37c7c31c0`.
 The closing regression is `test/draftv2-staged-cas.mjs`; it checks same-revision
 rejection, sequential writes, the pending transaction path, sidecar publication,
 checkpoint, canonical promotion, failure and retry, and reload. A02, A03, and
