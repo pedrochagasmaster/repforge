@@ -10,6 +10,12 @@ so this report surfaces the decision instead of running Round 3.
 Nothing here changes production. Every artifact lives under
 `docs/design/onboarding-tournament/`.
 
+**Later rounds.** The owner then closed the open decisions (Q622–Q637) and
+had the synthesis built as one candidate, G (Round 3), checked by acceptance
+only. After seeing G, the owner asked for bolder exploration: Round 4, five
+directions in their own visual worlds. §13 covers both rounds. §10–12 list
+their files, the review page and the commits.
+
 ## 1. Baseline
 
 - **Visual and behavioural baseline:** PR #256, branch
@@ -184,14 +190,24 @@ Build on D's architecture: `ROUTE_STEPS` unchanged, and no product decision.
 | Round 2 brief, interface, candidates | `round-2/generator-brief.md`, `round-2/JOURNEYS.md`, `round-2/candidates/{d,e,f}.*` |
 | Round 2 manifest and acceptance | `round-2/manifest.md`, `round-2/acceptance/summary.md`, `results.json` |
 | Round 2 judge brief and reports | `round-2/judge-brief.md`, `round-2/judges/judge-charlie.md`, `round-2/judges/judge-delta.md` |
-| Acceptance tool | `tools/verify.mjs` (self-tests `tools/audit-selftest.mjs`, `tools/harness-selftest.mjs`) |
+| Round 3 candidate, manifest, acceptance | `round-3/candidates/g.*`, `round-3/manifest.md`, `round-3/acceptance-checks.md`, `round-3/acceptance/summary.md` |
+| Round 4 brief and production finding | `round-4/brief.md`, `round-4/production-findings.md` |
+| Round 4 candidates and worlds | `round-4/candidates/{h,i,j,k,l}.{js,css,notes.md,world.md}`, page `round-4/app.html`, fonts `round-4/fonts/`, own Today captures `round-4/assets/{h,i}/` |
+| Round 4 direction contracts | `.impeccable/surfaces/arding-tournament-round-4-candidates-<id>-js-*.md` |
+| Round 4 manifest | `round-4/manifest.md` (freeze commit, acceptance, taps, review process) |
+| Acceptance tool | `tools/verify.mjs` (self-tests `tools/audit-selftest.mjs`, `tools/harness-selftest.mjs`; `--round 4` runs the core states and journeys only) |
 
 ## 11. Review URL
 
-https://claude.ai/artifact/Q8YjdRmRknQtz7H4fMh6Kw. It shows both rounds on the
-same data: set Round to 1 or 2, then choose scenario, state, language,
-theme, width, text size and motion. The link is private until it is
-shared.
+https://claude.ai/artifact/Q8YjdRmRknQtz7H4fMh6Kw. It shows every round on
+the same data: set Round to 1, 2, 3 or 4, then choose scenario, state,
+language, theme, width, text size and motion. Round 4 lists only its 21 core
+states. `index.html?round=4&cands=all&cp=rec-result` puts all five Round 4
+directions side by side. The link is private until it is shared.
+
+The published page has not yet been updated with Round 4. This session had
+no tool that can republish it. Locally, `index.html?round=4&cands=all&cp=rec-result`
+renders all five with no console errors.
 
 ## 12. Branch, commits and PR
 
@@ -207,3 +223,63 @@ shared.
 | `5839977` | Round 2 generator allocation |
 | `2396890`, `0af5848` | Round 2 candidates and freeze |
 | `841b519` | Round 2 judge reports |
+| `d89c31d` | This report (stop after Round 2) |
+| `108bacb` | Owner decisions Q622–Q637 |
+| `13718e3` | Round 3 acceptance checks K-25–K-32 |
+| `6724648` | Round 3 (G) freeze |
+| `2ab74ce` | Round 4 brief, font tool, core acceptance mode, K-18 relaxation for PD-4 |
+| `793e274` | Production finding PF-1 |
+| `b4efd7b` | K-23 accepts a candidate's own Today capture |
+| `d4d7b2e` | Round 4 registered in the review page |
+| `e519d68`, `2e24110`, `1dbf357`, `099c433`, `0c0d15c` | Round 4 finish: H complete, L rebuilt, J complete, I fixes, I complete |
+| `b7753d9` | Verifier clips over-tall evidence shots; Round 4 freeze (acceptance run at this commit); the manifest and this section follow it |
+
+## 13. Rounds 3 and 4
+
+### Round 3
+
+The owner closed PD-1 to PD-4 and the taste calls in Q622–Q637
+(`docs/product-grilling-decision-register.md`). The synthesis in §8 was
+built as one candidate, G · Síntese, and checked by acceptance only, with
+no judges (Q626). G passed 360 of 360 checkpoint cells, 122 of 122 journeys
+and 61 of 61 interaction checks. Rafael reaches Today in 13 taps
+(`round-3/manifest.md`). G is today's onboarding, polished and fixed.
+
+### Round 4
+
+After seeing G, the owner found it too timid and asked for five
+deliberately different ideas of onboarding. Each has its own committed
+visual world and is built to finish quality on the core journey only (21
+states, 12 journeys). A direction may reopen a closed product decision if it
+says so openly. The owner picks what advances. G stays in the harness as the
+conventional arm.
+
+| Id | Name | Thesis | Taps to Today | Reopens |
+| --- | --- | --- | --- | --- |
+| H | Concreto | Each screen is a concrete-poetry composition (Jost, black rules, one vermilion field). | 18 | None |
+| I | Ficha | Filling in your own gym training card: print, BIC-blue pen, a red "ATIVO" date stamp, coloured cardstock. | 13 | None |
+| J | Conversa | Setup as a message thread: quick replies; correct the program by replying to a line. | 11 | PD-1 (Q622): no chooser |
+| K | Linhas | São Paulo metro wayfinding: routes are lines, steps are stations, one terminal. | 14 | None |
+| L | Pino | The program exists before the questions; each answer is a pin on a weight stack; activation stays locked until every pin is set. | 10 | PD-4 (Q624): a program before any answer |
+
+Process: one builder per direction, then a fresh `impeccable-finish-reviewer`
+review, one fix batch and a verdict pass. L was rebuilt after its first
+review and reviewed again. The freeze run at `b7753d9` is in progress (H complete, zero
+failures); every builder's last run passed 168/168 cells and 30/30 journeys. Details, the acceptance table and the optional polish left
+undone are in `round-4/manifest.md`.
+
+Two harness changes came out of the round. K-23 now accepts a candidate's
+own Today capture marked `data-proof-own` with its own alt of 40 or more
+characters (`b4efd7b`), because the production alt describes a different
+week. K-18 lets a PD-4 direction show a program before the answers, as long
+as activation stays impossible until every answer is the lifter's own.
+
+One production finding (PF-1, `round-4/production-findings.md`): the growth
+3-day Day 1 is named "Lower body hypertrophy" but contains upper-body work.
+This is engine and catalog truth, and no candidate changes it. It needs its
+own production PR.
+
+**Open for the owner:** which direction, or which parts, advance. Advancing J
+or L also means reopening Q622 or Q624. Q636's path (a passing onboarding
+candidate becomes a plan before Plan 059) is unchanged until the owner
+decides.
