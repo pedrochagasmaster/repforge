@@ -14,13 +14,16 @@
    4 Parity    outcome words match an oracle built from app.js; targets match the engine
    5 Strings   no Regrediu, no em dash, no EN "Hold" pause; no hard-coded copy in the renderers */
 import { createRequire } from "module";
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import vm from "vm";
 
 const here = new URL(".", import.meta.url);
 const root = new URL("../../../../", import.meta.url);
 const require = createRequire(new URL("test/package.json", root));
 const { chromium } = require("playwright");
+// REPFORGE_CHROME points at a preinstalled Chromium, as test/browser.mjs does.
+const CHROME = process.env.REPFORGE_CHROME;
+const launch = () => chromium.launch(CHROME && existsSync(CHROME) ? { executablePath: CHROME } : {});
 
 const BASE = process.env.REVIEW_URL || "http://localhost:8000/docs/design/main-screen-directions/";
 const DIRS = (process.env.DIRS || "d,e,f,g").split(",");
@@ -117,7 +120,7 @@ const fail = (k, x) => results[k].push(x);
 async function main() {
   const buildSessionDelta = appOracle();
   const { TX, DX, ENG, I18N } = loadFixtures();
-  const browser = await chromium.launch();
+  const browser = await launch();
   const page = await browser.newPage({ viewport: { width: 1300, height: 1100 } });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));

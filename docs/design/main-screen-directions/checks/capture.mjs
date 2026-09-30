@@ -8,11 +8,13 @@
    captures of Today, focus, Why, rest and summary, the landing-page shots
    (§8), are also written to ../captures/ for the PR. */
 import { createRequire } from "module";
-import { mkdirSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 
 const here = new URL(".", import.meta.url);
 const require = createRequire(new URL("../../../../test/package.json", import.meta.url));
 const { chromium } = require("playwright");
+// REPFORGE_CHROME points at a preinstalled Chromium, as test/browser.mjs does.
+const CHROME = process.env.REPFORGE_CHROME;
 
 const BASE = process.env.REVIEW_URL || "http://localhost:8000/docs/design/main-screen-directions/";
 const OUT = process.argv[2] || "/tmp/main-screen-captures";
@@ -24,7 +26,7 @@ const attach = new URL("../captures/", here).pathname;
 mkdirSync(OUT, { recursive: true });
 mkdirSync(attach, { recursive: true });
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(CHROME && existsSync(CHROME) ? { executablePath: CHROME } : {});
 const page = await browser.newPage({ viewport: { width: 1300, height: 1100 }, deviceScaleFactor: 2 });
 let n = 0;
 for (const w of [360, 390, 430]) for (const lang of ["pt", "en"]) for (const theme of ["light", "dark"]) {
