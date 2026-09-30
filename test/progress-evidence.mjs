@@ -1105,6 +1105,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
       today: new Date().toLocaleDateString("en-CA"),
       week: window.__repforgeProgressEvidence.volume("this-week"),
       block: window.__repforgeProgressEvidence.volume("block-to-date"),
+      lifecycle: window.__repforgeMesocycleWeek(),
     }));
     await context.close();
     return result;
@@ -1122,6 +1123,8 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.equal(dst.week.plannedSessions, 3);
   assert.equal(dst.week.plannedWorkingSets, 36);
   assert.equal(dst.block.completedSessions, 2);
+  assert.equal(dst.lifecycle.elapsedWeek, 2, "app lifecycle (mesocycleLifecycle) numbers March 9 as week 2");
+  assert.equal(dst.lifecycle.current, 2);
 
   // Fall DST: 2026-10-26 -> 2026-11-02 spans 169 hours and stays week 2.
   const fall = await evidenceAt("2026-10-26", "2026-11-02T17:00:00.000Z", ["2026-10-26", "2026-11-02"]);
@@ -1132,6 +1135,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.deepEqual(fall.week.completedRows.map((r) => r.session), ["d2"]);
   assert.equal(fall.block.period.elapsedNumberedWeeks, 2);
   assert.equal(fall.block.plannedWorkingSets, 72);
+  assert.equal(fall.lifecycle.elapsedWeek, 2);
 
   // Ordinary control, same zone, no DST in the span: unchanged.
   const plain = await evidenceAt("2026-09-14", "2026-09-21T16:00:00.000Z", ["2026-09-14", "2026-09-21"]);
@@ -1140,6 +1144,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.equal(plain.block.period.elapsedNumberedWeeks, 2);
   assert.equal(plain.block.plannedSessions, 6);
   assert.equal(plain.block.plannedWorkingSets, 72);
+  assert.equal(plain.lifecycle.elapsedWeek, 2);
 }
 
 assert.deepEqual(errors, [], "no page errors during evidence journeys");

@@ -573,6 +573,7 @@
     normalizeEvidenceRecord,
     normalizeEvidenceRecords,
     compareChronology,
+    calendarDayDistance,
     buildWeekStatus,
     buildProgramActionQueue,
     buildReviewCheckpoint,
