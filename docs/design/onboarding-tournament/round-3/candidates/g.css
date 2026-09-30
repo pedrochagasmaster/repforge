@@ -110,8 +110,6 @@
 .g-own__body{padding:0 0 8px 16px;border-left:2px solid var(--rule);margin-left:14px}
 .g-own__body .g-door:last-child{border-bottom:0}
 .g-recover{margin:0}
-.g-resume{border-left:3px solid var(--accent)}
-.g-main .g-resume .card__body{padding-left:14px}
 .g-resume .status-line{color:var(--ink)}
 .g-resume .status-line .icon-mask{color:var(--ink-soft)}
 
@@ -146,6 +144,8 @@
 .g-main .card{border-left:0;border-right:0;border-radius:0;background:transparent;box-shadow:none}
 .g-main .card__body{padding:14px 0}
 .g-main .card+.card{border-top:0}
+.g-main .card.g-resume{border-left:3px solid var(--accent)}
+.g-main .card.g-resume .card__body{padding-left:14px}
 .g-main .card>div[style^="padding:0 14px"]{padding:0!important}
 .g-main .disclosure:not(.disclosure--plain){border-left:0;border-right:0;border-radius:0;padding:0;background:transparent}
 .g-main .disclosure--plain>summary{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
@@ -167,7 +167,7 @@
 .g-cons__btn{flex:none;margin-left:auto}
 .g-det{margin:0}
 .g-more{margin-top:8px}
-.g-conflict{outline:none}
+.g-conflict,.g-conflict:focus-visible{outline:none}
 .g-editdone{align-self:flex-start}
 .g-editor{margin:0}
 .g-editor>.stack{gap:0}
@@ -302,3 +302,12 @@
 :root[style*="200%"] .g-rec__q{font-size:var(--font-size-subtitle)}
 .g-app details.day>summary .chevron{transform:rotate(90deg)}
 .g-app details.day[open]>summary .chevron{transform:rotate(270deg)}
+
+/* ================= Dark theme (F15) =================
+   Tuned, not inverted. In dark the well is darker than the page, so the
+   panels that carry a decision (inline editor, change statement, helper)
+   and the "novo" row use the surface material and read as raised bands,
+   the same grammar as the controls around them. */
+:root[data-theme="dark"] .g-app .g-edit,:root[data-theme="dark"] .g-app .g-change,:root[data-theme="dark"] .g-app .g-help,:root[data-theme="dark"] .g-app .ex.is-new{background:var(--surface)}
+:root[data-theme="dark"] .g-main .day__num,:root[data-theme="dark"] .g-main .ex__rx{color:var(--ink-soft)}
+:root[data-theme="dark"] .g-strip__value{font-weight:500}
