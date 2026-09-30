@@ -182,7 +182,17 @@ async function auditCheckpoint(page, cand, cp, cell, consoleErrors) {
          (…-vp.png) is kept alongside it as the evidence for pinned placement. */
       await page.mouse.move(0, 0);
       const base = `${cand}__${cp}__${cell.lang}-${cell.theme}-${cell.vw}-${cell.text}${cell.motion === "reduced" ? "-reduced" : ""}`;
-      const shot = join("shots", `${base}.png`); await page.screenshot({ path: join(outDir, shot), fullPage: true }); r.shot = shot;
+      /* Chromium cannot capture a surface much taller than 16,384 device px
+         (J's thread at 320 px / 200% text runs past 20,000 at DPR 2), and a
+         failed capture can take the browser down. Past 16,000 the full-page
+         shot is clipped from the top and marked; the audit above has already
+         read the whole page. */
+      const fullH = await page.evaluate(() => document.documentElement.scrollHeight);
+      const maxH = Math.floor(16000 / 2);
+      const shot = join("shots", `${base}.png`);
+      if (fullH > maxH) { await page.screenshot({ path: join(outDir, shot), fullPage: true, clip: { x: 0, y: 0, width: cell.vw, height: maxH } }); r.shotClipped = { pageHeight: fullH, shownHeight: maxH }; }
+      else await page.screenshot({ path: join(outDir, shot), fullPage: true });
+      r.shot = shot;
       const vp = join("shots", `${base}-vp.png`); await page.screenshot({ path: join(outDir, vp), fullPage: false }); r.shotViewport = vp;
     }
     if (a.data.k23) {
