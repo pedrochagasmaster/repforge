@@ -12,15 +12,18 @@ and contracted per decision and finding in
 Unrelated roadmap items below stay deferred; none may be pulled into an
 overhaul PR to "complete" a surface.
 
-**Owner sequencing amendment (2026-09-28; refreshed 2026-09-29):** Plan 058 /
-PR #256 is complete and merged. Taurifer now
+**Owner sequencing amendment (2026-09-28; refreshed 2026-09-29; topology
+amended 2026-09-30):** Plan 058 / PR #256 is complete and merged. Taurifer now
 constructs the actual pre-059 alpha candidate through the bounded sequence in
 [`docs/post-058-open-pr-clearance-sequence.md`](post-058-open-pr-clearance-sequence.md):
-post-058 truth/safety cleanup, selected mature work, the landing redesign,
-Direction D / Plan 063, the onboarding redesign, and any owner-selected
-already-open Next work that clears its own gates. Plan 059 remains the final
-same-SHA launch-validation boundary. This amendment does not authorize unrelated
-Later/Gated work or allow a Next feature to leak into Plan 058 itself.
+post-058 truth/safety cleanup, the standalone alpha-readiness work developed
+concurrently and integrated one at a time, then one unified redesign PR
+([Plan 064](../plans/064-unified-redesign-convergence.md)) that delivers the
+landing redesign, Direction D / Plan 063 and the onboarding redesign as one
+product, and any owner-selected already-open Next work that clears its own
+gates. Plan 059 remains the final same-SHA launch-validation boundary. This
+amendment does not authorize unrelated Later/Gated work or allow a Next
+feature to leak into Plan 058 itself.
 
 **Governing product sources:**
 [`business-product-thesis.md`](business-product-thesis.md),
@@ -56,14 +59,14 @@ separate teams or synchronized delivery dates.
 | Work | Required outcome | Governing detail |
 |---|---|---|
 | Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. The [post-058 audit](ui-overhaul-plans-049-057-audit.md) closes A01 through PR #284 and keeps A02–A04 open for narrow stage-4 evidence and focus fixes before #255. It assigns N01/N02 to Direction D acceptance and closes A05 with Plan 058 typography proof. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
-| Construct the post-058 pre-059 alpha candidate | With Plan 058 merged, clear stale/duplicate open PRs, reconcile repository truth, land live data-safety/audit blockers, then integrate the owner-selected landing, Direction D and onboarding redesigns plus explicitly pulled-forward mature work without weakening their gates. Plan 059 starts only after this candidate can be frozen on one SHA. | [post-058 clearance sequence](post-058-open-pr-clearance-sequence.md) |
+| Construct the post-058 pre-059 alpha candidate | With Plan 058 merged, clear stale/duplicate open PRs, reconcile repository truth, land live data-safety/audit blockers and the standalone alpha-readiness work (developed concurrently, integrated one at a time), then integrate the owner-selected landing, Direction D and onboarding redesigns as one unified production PR plus explicitly pulled-forward mature work without weakening their gates. Plan 059 starts only after this candidate can be frozen on one SHA. | [post-058 clearance sequence](post-058-open-pr-clearance-sequence.md), [Plan 064](../plans/064-unified-redesign-convergence.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
 | Alpha data-safety fixes | A lifter's only copy of their data must not be lost or corrupted by a storage failure, a restored backup, or a deploy window. In this order: (1) a failed crash-journal update during a lock-held rebase aborts the write instead of being swallowed; (2) activation on every entry route archives any existing program content instead of discarding it (Q607, Q619); (3) the service worker never stores an error response over a good cached copy. Each lands with its regression test. Standalone PRs, per Q604. | Q604, Q607, Q609; advisor plans [003](../advisor-plans/003-durable-state-rebase-journal-write.md), [001](../advisor-plans/001-setup-link-eligibility-decision.md), [002](../advisor-plans/002-sw-never-cache-error-responses.md) |
 | Alpha measurement producers | The alpha must be able to measure whether lifters follow and understand recommendations. Emit the already-approved `set_saved`, `recommendation_explained`, `exercise_skipped`, and `block_review_viewed` using the Q616–Q618 definitions, and add a CI guard that fails when an approved event has neither a producer nor a reserved reason. No new event or property. Finish before Plan 059's evidence gate. | Q610, Q616–Q618; advisor plan [023](../advisor-plans/023-wire-alpha-trust-telemetry.md) |
 | Browser-persistence mitigation | Pilot data lives only in evictable browser storage. Request persistent storage once after the first completed session (never at first boot), and show in Settings whether the browser keeps Taurifer's data, advising regular backups when it does not. Replaces the deferred pilot-data-protection row; the proactive backup reminder stays Later. | Q606, Q620; advisor plan [024](../advisor-plans/024-pilot-data-durability.md) |
 | CI and documentation drift | Agents act on stale orientation docs and on generated files CI never re-checks. Run `build-i18n --check` in CI, with diagnostics that name the drift; guard the install-transfer client against contract drift; correct CLAUDE.md's drifted facts; reconcile the plan index with implemented Plans 055–058 and the post-058 candidate window (Q621). | Q612, Q614, Q621; advisor plans [011](../advisor-plans/011-i18n-generator-check-in-ci.md), [006](../advisor-plans/006-install-transfer-constant-drift-guard.md), [005](../advisor-plans/005-claude-md-stale-architecture-table.md), [004](../advisor-plans/004-reconcile-plan-index-status.md) |
 
-> Advisor-plan items (Q603–Q621) ship as standalone PRs and are never pulled into an overhaul PR (Q604). Each advisor plan edits the shared cache revision, so run them one at a time.
+> Advisor-plan items (Q603–Q621) ship as standalone PRs and are never pulled into an overhaul PR (Q604). Most advisor plans edit the shared cache revision: develop them concurrently if useful, but integrate them one at a time, allocating the revision from the then-live `main` at merge time (owner decision, 2026-09-30; clearance sequence decision 6).
 
 > The remaining PR #239 architecture findings are not a second queue. They are absorbed into Plans 054–059 as explicit implementation/acceptance deltas: entry/lifecycle ownership in 054/057; workout-session and gesture ownership in 055; historical projections in 056; release/cache, presentation and obsolete-path convergence in 058; and final architecture/evidence closure in 059.
 

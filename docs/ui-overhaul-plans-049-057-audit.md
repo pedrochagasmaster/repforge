@@ -277,6 +277,11 @@ train. N01/N02 belong to D's owning UI acceptance. Preserve #281's remaining
 Now work and landing → D → onboarding → #258 → #257 → convergence → 059
 sequence. No remediation, redesign or later PR was started here.
 
+*2026-09-30 addendum:* A02–A04 merged in PRs #286–#288. The landing, Direction
+D and onboarding steps above are now one unified redesign PR under
+[Plan 064](../plans/064-unified-redesign-convergence.md); N01/N02 close inside
+its Direction D slice (R3). The rest of the sequence is unchanged.
+
 ## Historical pre-058 audit
 
 The following is the original 2026-09-26 record at `29fc1c36`. Its locations,

@@ -27,7 +27,10 @@ person's uncommitted changes into an advisor-plan commit. Every plan that edits
 a precached file includes the cache-revision ritual (`sw.js` `CACHE` + every
 `?v=NN` in `sw.js` and `index.html` + `expectedRevision` in
 `test/exercise-library.mjs`). Because every such plan bumps the same number,
-**run them one at a time**, never in parallel branches.
+**integrate them one at a time**. Development may run in parallel branches
+(owner decision, 2026-09-30, recorded in the post-058 clearance sequence);
+each branch allocates its revision from the then-live `main` at merge time,
+never from the plan text, and merges only with a green `ci` on its exact head.
 
 ## Execution order & status
 
@@ -71,7 +74,9 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with a one-line reason) | PA
 - **016 and 009**: if 009 landed first, 016's Step 4 removes 009's `globalThis.workoutDraftFault` shim.
 - **025 after 001**: 001 guarantees that activation archives any existing program; 025's archive-and-replace design depends on it.
 - **023 and 025**: 025 may produce `program_transition_selected`; 023's `RESERVED` list must then drop it.
-- **Serialize everything that touches `app.js` or bumps the cache revision**: 001, 002, 003, 007, 008, 012, 013, 014, 016, 017, 019, 020, 023, 024. They share the revision number, and most share `app.js`.
+- **Serialize the integration of everything that touches `app.js` or bumps the cache revision**: 001, 002, 003, 007, 008, 012, 013, 014, 016, 017, 019, 020, 023, 024. They share the revision number, and most share `app.js`; concurrent development is allowed, merges are one at a time.
+- **002 against current `main`**: the live `sw.js` already checks `response.ok` before every `cache.put` after the release-asset restructure. Start with the plan's characterization test; if it passes on `main`, the deliverable is the regression suite and a doc line, not a revision bump.
+- **023 and the redesign**: attach producers at the DraftV2 commit, Why-open, individual skip dispatch and review-navigation boundaries, not to the `.saveset` DOM handler, so the Direction D shelf (Plan 064) keeps them by construction.
 - **004 / PR #268**: status reconciliation follows merged PR #248 and Plan 058; historical plan narratives remain evidence, not current scheduling.
 - **002 and 022** are complementary: 022 removes the phantom request, and 002 stops any 404 from being cached.
 

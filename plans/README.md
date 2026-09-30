@@ -24,12 +24,22 @@ PRs #243, #244, #248 and #256 respectively. Implementation completion does
 not close the remaining audit findings or physical-device launch gates.
 
 The current workfront is the post-058, pre-059 candidate-construction window
-ratified by PR #281. Follow the canonical backlog and its
+ratified by PR #281 and amended on 2026-09-30. Follow the canonical backlog and its
 [post-058 clearance sequence](../docs/post-058-open-pr-clearance-sequence.md)
-for repository-truth cleanup, stabilization, selected mature work, landing,
-Direction D / Plan 063, onboarding and selected already-open Next work.
-Plan 059 remains planned and validates the resulting stable candidate last.
-This bounded exception does not pull unrelated Later/Gated work forward.
+for repository-truth cleanup, stabilization, the concurrently developed
+standalone alpha-readiness work, then the unified redesign
+([Plan 064](./064-unified-redesign-convergence.md): landing, Direction D /
+Plan 063 and onboarding in one production PR), then selected already-open
+Next work. Plan 059 remains planned and validates the resulting stable
+candidate last. This bounded exception does not pull unrelated Later/Gated
+work forward.
+
+Plan 063 (Direction D) is owner-selected and lives on PR #272's branch until
+Plan 064's R0 slice migrates it; it keeps its number as the main-app
+specification consumed by Plan 064. No other work may use the number 063;
+PR #258's branch-local plan of that number is renumbered when that work
+resumes. The Opus orchestrator's starting brief is
+[`docs/agents/prompts/plan-064-opus-orchestrator.md`](../docs/agents/prompts/plan-064-opus-orchestrator.md).
 
 ### Owner-approved UI overhaul
 
@@ -47,6 +57,13 @@ This bounded exception does not pull unrelated Later/Gated work forward.
 | [057](./057-management-surfaces.md) | 6 | **IMPLEMENTED — PR #248** | Make History read-first, Share repairable/fail-closed, and converge management hierarchy. |
 | [058](./058-design-system-convergence.md) | 7 | **IMPLEMENTED — PR #256** | Inventory and migrate every public surface to bounded semantic roles and rendered-role AA. |
 | [059](./059-public-launch-ui-validation.md) | 8 | **PLANNED — FINAL OWNER GATE** | Bind catalog, automated, physical-device, accessibility, privacy, and telemetry evidence to one candidate SHA. |
+
+### Post-058 candidate construction
+
+| Plan | State | Outcome |
+|---|---|---|
+| 063 (on PR #272, `redesign/direction-d`) | **OWNER-SELECTED SPECIFICATION — consumed by 064** | Direction D: the main-app reference for Today, Focus and rest, Why, session summary, Progress, History and Program (ADR 0016). Its P-slices are executed as Plan 064 slice R3. |
+| [064](./064-unified-redesign-convergence.md) | **PLANNED — AWAITING OWNER APPROVAL OF THE SPECIFICATION** | One unified redesign production PR: shared system, landing, Direction D, owner-selected onboarding, cross-surface journeys, full convergence and adversarial review, orchestrated by Opus with Sonnet workers. Precedes #258/#257 integration and Plan 059. |
 
 Phase 2 has three independently mergeable plans because workout data loss,
 program-transition provenance, and temporary backend security have distinct
