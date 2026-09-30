@@ -116,12 +116,14 @@
     if (metric === "top") {
       d = S.map((z, i) => (i ? `H${x(i).toFixed(1)} V${y(vals[i]).toFixed(1)}` : `M${x(i).toFixed(1)} ${y(vals[i]).toFixed(1)}`)).join(" ");
     } else d = S.map((z, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(vals[i]).toFixed(1)}`).join(" ");
+    // The cursor sits under the series and its points, never across a dot.
+    g += `<line x1="${x(sel).toFixed(1)}" x2="${x(sel).toFixed(1)}" y1="${padT - 6}" y2="${H - padB}" class="x-cursor"/>`;
     g += `<path d="${d}" class="ch-line"/>`;
     S.forEach((z, i) => {
-      if (metric === "top" && z.up && i > 0) g += `<path d="M${(x(i) - 4).toFixed(1)} ${(H - padB - 2).toFixed(1)} l4 -6 l4 6 z" class="x-tick"/>`;
+      // A load increase: a small tick 4 px above the axis, clear of the bottom gridline.
+      if (metric === "top" && z.up && i > 0) g += `<path d="M${(x(i) - 4).toFixed(1)} ${(H - padB - 6).toFixed(1)} l4 -6 l4 6 z" class="x-tick"/>`;
       g += `<circle cx="${x(i).toFixed(1)}" cy="${y(vals[i]).toFixed(1)}" r="${i === sel ? 5 : 3}" class="${i === sel ? "x-pt x-pt--sel" : z.block ? "x-pt" : "x-pt x-pt--old"}"/>`;
     });
-    g += `<line x1="${x(sel).toFixed(1)}" x2="${x(sel).toFixed(1)}" y1="${padT - 6}" y2="${H - padB}" class="x-cursor"/>`;
     g += `<text x="${padL}" y="${H - 6}" class="ch-ax">${T.date.short(S[0].date)}</text><text x="${W - padR}" y="${H - 6}" class="ch-ax" text-anchor="end">${T.date.short(S[S.length - 1].date)}</text>`;
     const label = metric === "top" ? s("stats.metric.top_load") : s("stats.metric.best_e1rm");
     const xs = S.map((z, i) => ((x(i) / W) * 100).toFixed(2)).join(",");

@@ -179,6 +179,14 @@
   // Layout pass after every render, for what CSS alone cannot know: a tally
   // separator never starts a wrapped line.
   function layoutPass() {
+    // The tab row's paper fade draws only while the row overflows and is not
+    // scrolled to its end.
+    for (const tabs of document.querySelectorAll(".ph.dx .x-tabs")) {
+      const row = tabs.querySelector(".x-tabs__in");
+      if (!row) continue;
+      tabs.classList.toggle("is-overflow", row.scrollWidth > row.clientWidth + 1);
+      tabs.classList.toggle("is-end", row.scrollLeft + row.clientWidth >= row.scrollWidth - 1);
+    }
     for (const t of document.querySelectorAll(".ph.dx .d-tally")) {
       let top = null;
       for (const i of t.querySelectorAll(".d-tally__i")) {
@@ -283,6 +291,8 @@
     const inp = e.target.closest && e.target.closest("[data-input]");
     if (inp && e.key === "Enter") { UD.editing = false; refresh(inp.closest(".ph")); }
   });
+
+  document.addEventListener("scroll", (e) => { if (e.target && e.target.classList && e.target.classList.contains("x-tabs__in")) layoutPass(); }, true);
 
   // Chart taps. A/B/C draw per-point rects; D-family plots snap to the nearest session.
   document.addEventListener("pointerdown", (e) => {

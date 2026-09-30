@@ -263,10 +263,14 @@
       const lastLoad = Math.max(...setsOnly(k, last).map((x) => x.load));
       const fig = r.load !== lastLoad ? `${num(lastLoad)}→${num(r.load)} ${U_}` : kg(r.load);
       const count = D.sessionsOf(k).filter((d) => d >= D.CONTEXT.blockStart).length;
+      // Name and figure share the first baseline; the verdict and its evidence
+      // run the full width under them instead of wrapping beside an empty column.
       return `<button class="d-att" data-go="chart" data-lift="${k}">
         ${mark(r.glyph)}
-        <span class="d-att__m"><b>${D.name(k)}</b><span class="d-att__v">${r.label}. ${r.text}</span><small>${n("d.progress.evidence", { kind: D.evidenceKind(count), n: count })}</small></span>
+        <b class="d-att__n">${D.name(k)}</b>
         <span class="d-att__f">${fig}${ic("chev", "rot-l")}</span>
+        <span class="d-att__v">${r.label}. ${r.text}</span>
+        <small class="d-att__e">${n("d.progress.evidence", { kind: D.evidenceKind(count), n: count })}</small>
       </button>`;
     }).join("");
   }
