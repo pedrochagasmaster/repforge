@@ -101,10 +101,10 @@
     const [l, r, rir] = vals;
     const idx = opts.label || String(i + 1);
     const prevLine = prev ? (D.hasEffort(prev) ? n("d.prev_line", { load: num(prev.load), reps: prev.reps, rir: num(prev.rir) }) : n("d.prev_line_norir", { load: num(prev.load), reps: prev.reps })) : "";
-    const cells = `<span class="d-set__n">${st === "done" ? ic("check") : idx}</span><span class="d-set__v">${num(l)}</span><span class="d-set__v">${r}</span><span class="d-set__v">${rir == null ? "–" : rir}</span>`;
+    const cells = `<span class="d-set__n">${st === "done" && !opts.editing ? ic("check") : idx}</span><span class="d-set__v">${num(l)}</span><span class="d-set__v">${r}</span><span class="d-set__v">${rir == null ? "–" : rir}</span>`;
     const inner = `${cells}${prevLine ? `<small class="d-set__prev">${prevLine}</small>` : ""}`;
-    if (st === "done") return `<button class="d-set is-done${opts.editing ? " is-editing" : ""}" data-edit="${i}" aria-label="${s("focus.edit_set_aria", { n: i + 1 })}">${inner}</button>`;
-    return `<div class="d-set is-${st}">${inner}</div>`;
+    if (st === "done") return `<button class="d-set is-done${opts.editing ? " is-editing" : ""}" data-edit="${i}" aria-label="${s("focus.edit_set_aria", { n: i + 1 })}"${opts.editing ? ' aria-pressed="true"' : ""}>${inner}</button>`;
+    return `<div class="d-set is-${st}${opts.demoted ? " is-demoted" : ""}">${inner}</div>`;
   }
 
   function cueBlock(r, k, ctx, whyGo) {
@@ -141,9 +141,12 @@
     let ledger = "";
     const targets = r.glyph === "manual" ? Array.from({ length: r.manual.sets }, () => ({ load: r.load, reps: `${r.manual.lo}–${r.manual.hi}` })) : r.sets;
     const rirT = (t) => (t.targetRirMin != null ? `${t.targetRirMin}–${t.targetRirMax}` : `0–${t.targetRir != null ? t.targetRir : 2}`);
+    const correcting = U.correct != null;
     targets.forEach((t, i) => {
-      if (resting && i === 0) ledger += setRow(0, "done", [102.5, 7, 1], prev[0], { editing: U.correct === 0 });
-      else if ((resting && i === 1) || (!resting && i === 0)) ledger += setRow(i, "open", [U.load, U.reps, U.rir], prev[i]);
+      // The corrected row holds the shelf's live values; the open row steps back.
+      if (resting && i === 0) ledger += correcting ? setRow(0, "done", [U.load, U.reps, U.rir], prev[0], { editing: true }) : setRow(0, "done", [102.5, 7, 1], prev[0]);
+      else if (resting && i === 1) ledger += correcting ? setRow(1, "open", [s2.load, s2.reps, s2.rir], prev[1], { demoted: true }) : setRow(1, "open", [U.load, U.reps, U.rir], prev[1]);
+      else if (!resting && i === 0) ledger += setRow(i, "open", [U.load, U.reps, U.rir], prev[i]);
       else ledger += setRow(i, "queued", [resting ? s2.load : t.load, resting ? s2.reps : t.reps, r.glyph === "manual" ? null : rirT(t)], prev[i]);
     });
     const nextK = ctx.lifts[idx + 1];

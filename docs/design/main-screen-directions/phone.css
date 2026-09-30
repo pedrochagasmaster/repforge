@@ -806,6 +806,9 @@
 .dx :where(button){min-height:var(--control-target)}
 .dx :where(button):active{transform:var(--control-pressed-transform)}
 .dx :where(button):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+/* Pressed: the well ground, as the production .stepbtn and .btn. */
+.dx :is(.x-sec,.x-pads button,.x-field,.x-seg button,.x-tabs button,.x-close):active{background:var(--well)}
+@media (hover:hover){.dx :is(.x-sec,.x-pads button,.x-field,.x-seg button:not([aria-pressed="true"]),.x-close):hover{background:var(--well)}}
 
 /* dock: the production capsule */
 .dx .x-dock{position:absolute;z-index:35;left:14px;right:14px;bottom:var(--dock-b);height:var(--dock-h);display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:6px;border:1px solid var(--dock-edge);border-radius:var(--radius-pill);background:var(--dock-glass);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);box-shadow:var(--elevation-nav-shadow)}
@@ -854,12 +857,23 @@
    the surface step plus the edge. */
 .dx .x-shelf{position:absolute;z-index:36;left:0;right:0;bottom:0;display:grid;gap:8px;padding:11px var(--gut) var(--dock-b);border-top:1px solid var(--boundary-persistent);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;background:var(--surface);box-shadow:var(--elevation-persistent-shadow)}
 .dx .x-fields{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:8px}
-.dx .x-field{display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:56px;padding:5px 12px;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);background:var(--control-field-bg);color:var(--control-field-ink)}
+/* A field is two rows, caption label over metric value, in its button form
+   and in its input form alike, so turning into an input moves nothing. */
+.dx .x-field{--fld-label:calc(var(--font-size-caption) * 1.2);--fld-value:calc(var(--font-size-metric) * var(--line-tight));position:relative;display:grid;grid-template-rows:var(--fld-label) var(--fld-value);align-content:start;gap:2px;min-height:56px;padding:8px 12px 0;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);background:var(--control-field-bg);color:var(--control-field-ink);text-align:left}
 .dx .x-field small{font-size:var(--font-size-caption);color:var(--ink-soft);line-height:1.2}
-.dx .x-field b{font:var(--weight-medium) var(--font-size-metric)/var(--line-tight) var(--font-training-data)}
+.dx .x-field b{font:var(--weight-medium) var(--font-size-metric)/var(--line-tight) var(--font-training-data);color:var(--ink)}
+.dx .x-field.is-untouched b{color:var(--ink-soft)}
 .dx .x-field.is-sel{border-color:var(--boundary-selected-quiet);box-shadow:inset 0 0 0 1px var(--boundary-selected-quiet);background:var(--surface)}
-.dx .x-field.is-edit{position:relative}
-.dx .x-field input{position:absolute;inset:0;width:100%;min-width:0;height:100%;border:0;padding:20px 12px 4px;border-radius:var(--radius-control);background:none;color:var(--ink);font:var(--weight-medium) var(--font-size-metric)/var(--line-tight) var(--font-training-data);outline:none}
+/* The input covers the whole 56 px field (the target) and its padding puts the
+   text exactly on the value row, so the label stays where it was. */
+.dx .x-field input{position:absolute;inset:0;width:100%;min-width:0;height:100%;margin:0;border:0;padding:calc(8px + var(--fld-label) + 2px) 12px calc(54px - 8px - var(--fld-label) - 2px - var(--fld-value));border-radius:var(--radius-control);background:none;color:var(--ink);font:var(--weight-medium) var(--font-size-metric)/var(--line-tight) var(--font-training-data);outline:none;caret-color:var(--ink)}
+.dx .x-field input::selection{background:rgba(var(--accent-rgb),.24)}
+/* The editing field is focused by definition; its 2 px ink boundary is the
+   focus indication, so no second ring is drawn. */
+.dx .x-field.is-invalid{border-color:var(--control-error-boundary);box-shadow:inset 0 0 0 1px var(--control-error-boundary)}
+.dx .x-cta:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);cursor:default}
+.dx .x-cta:disabled:active{transform:none}
+.dx .x-cta:disabled .x-cta__ar{color:var(--ink-faint)}
 .dx .x-pads{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .dx .x-pads--4{grid-template-columns:repeat(4,1fr)}
 .dx .x-pads button{min-height:56px;padding:0 6px;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);font:var(--weight-medium) var(--font-size-control)/1.15 var(--font-language);text-align:center}
@@ -879,7 +893,9 @@
    stacks its fields; the dock takes two columns as the production dock does. */
 .dx.is-text-scaled{--shelf-h:calc(12px + 56px * 3 + 8px * 2 + 8px + 56px + 8px + 54px + var(--dock-b))}
 .dx.is-text-scaled .x-fields{grid-template-columns:1fr}
-.dx.is-text-scaled .x-field{flex-direction:row;align-items:baseline;justify-content:space-between;gap:12px}
+.dx.is-text-scaled .x-field{grid-template-rows:none;grid-template-columns:auto minmax(0,1fr);align-items:baseline;align-content:center;gap:12px;padding:8px 12px}
+.dx.is-text-scaled .x-field b,.dx.is-text-scaled .x-field input{text-align:right}
+.dx.is-text-scaled .x-field input{position:static;height:auto;padding:0}
 .dx.is-text-scaled{--dock-h:calc(14px + 2 * (30px + var(--font-size-label)))}
 .dx.is-text-scaled .x-dock{grid-template-columns:1fr 1fr;border-radius:var(--radius-prominent)}
 .dx.is-text-scaled .x-dock__b{border-radius:var(--radius-surface)}
@@ -992,6 +1008,12 @@
 .dd .d-set.is-open .d-set__v{color:var(--ink-soft)}
 .dd .d-set.is-open .d-set__n{color:var(--ink)}
 .dd .d-set.is-editing{border-radius:var(--radius-surface);box-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet);background:var(--well)}
+.dd .d-set.is-editing .d-set__n{color:var(--ink)}
+/* While a set is being corrected, the open row steps back to the queued look. */
+.dd .d-set.is-open.is-demoted{margin:0;border-radius:0;border-bottom:1px solid var(--boundary-decorative);background:none;box-shadow:none}
+.dd .d-set.is-open.is-demoted .d-set__n{color:var(--ink-soft)}
+.dd :is(.d-set.is-done,.d-att,.d-str,.d-sess,.d-hrow,.d-next,.d-dayopt,.d-act,.d-disc,.d-presets button):active{background:var(--well)}
+@media (hover:hover){.dd :is(.d-presets button,.d-disc):hover{background:var(--well)}}
 .dd .d-next{display:flex;align-items:center;justify-content:space-between;gap:var(--space-8);width:100%;min-height:48px;margin-top:var(--space-12);font-size:var(--font-size-body);color:var(--ink-soft);text-align:left}
 .dd .d-next b{color:var(--ink);font-weight:var(--weight-medium)}
 

@@ -27,7 +27,7 @@
     load: 102.5, reps: 7, rir: 1, field: "load", rest: 84, restTotal: 120, running: true, pt: null, day: 0,
   };
   // D-family phones keep their own shelf and view state; the rest clock is shared.
-  const UD = window.UID = { load: 102.5, reps: 7, rir: 1, field: "reps", editing: false, correct: null, shelfMode: null, calcOpen: false, sheet: null, musclesAll: false, metric: "top", scope: "block", pt: null, lift: "sq" };
+  const UD = window.UID = { load: 102.5, reps: 7, rir: 1, field: "reps", editing: false, correct: null, shelfMode: null, calcOpen: false, sheet: null, musclesAll: false, metric: "top", scope: "block", pt: null, lift: "sq", touched: {} };
   Object.defineProperties(UD, {
     rest: { get: () => U.rest }, restTotal: { get: () => U.restTotal }, running: { get: () => U.running },
   });
@@ -75,7 +75,7 @@
     U.field = "load"; U.load = 102.5; U.rir = 1; U.reps = 7;
     if (screen === "rest" || screen === "why-set2") { U.rest = 84; U.running = true; }
     if (screen !== "chart") U.pt = null;
-    Object.assign(UD, { field: "reps", editing: false, correct: null, shelfMode: null, calcOpen: false, sheet: null, musclesAll: false, open: null });
+    Object.assign(UD, { field: "reps", editing: false, correct: null, shelfMode: null, calcOpen: false, sheet: null, musclesAll: false, open: null, touched: {} });
     if (screen !== "chart") { UD.pt = null; UD.lift = "sq"; UD.metric = "top"; UD.scope = "block"; }
     const fam = family();
     if (fam && fam.seed) Object.assign(UD, fam.seed(screen));
@@ -231,7 +231,7 @@
     const fam = S === UD;
     if (t.dataset.log && fam && S.correct != null) {
       const f = family();
-      S.correct = null; Object.assign(S, f && f.seed ? f.seed(ph.dataset.screen) : {}); S.field = "reps"; S.editing = false; S.shelfMode = null;
+      S.correct = null; Object.assign(S, f && f.seed ? f.seed(ph.dataset.screen) : {}); S.field = "reps"; S.editing = false; S.shelfMode = null; S.touched = {};
       return refresh(ph);
     }
     if (t.dataset.go) return go(t.dataset.go, ph, t.dataset.lift ? () => { UD.lift = t.dataset.lift; } : null);
@@ -240,7 +240,8 @@
     if (t.dataset.toggle) { if (t.dataset.toggle === "calc") S.calcOpen = !S.calcOpen; if (t.dataset.toggle === "muscles") S.musclesAll = !S.musclesAll; return refresh(ph); }
     if (t.dataset.scope) { S.scope = t.dataset.scope; S.pt = null; return refresh(ph); }
     if (t.dataset.metric) { S.metric = t.dataset.metric; return refresh(ph); }
-    if (t.dataset.edit != null) { S.correct = +t.dataset.edit; S.load = 102.5; S.reps = 7; S.rir = 1; S.field = "reps"; S.editing = false; S.shelfMode = "pads"; return refresh(ph); }
+    // A logged set's values are the lifter's own, so they open touched (ink).
+    if (t.dataset.edit != null) { S.correct = +t.dataset.edit; S.load = 102.5; S.reps = 7; S.rir = 1; S.field = "reps"; S.editing = false; S.shelfMode = "pads"; S.touched = { load: true, reps: true, rir: true }; return refresh(ph); }
     if (t.dataset.pt != null) { S.pt = +t.dataset.pt; return refresh(ph); }
     if (t.dataset.day != null) { U.day = +t.dataset.day; return refresh(ph); }
     if (t.dataset.f) U.field = t.dataset.f;
@@ -263,7 +264,7 @@
       if (f === "load") S.load = Math.max(0, Math.round((S.load + d * 2.5) * 10) / 10);
       else if (f === "reps") S.reps = Math.max(0, S.reps + d);
       else S.rir = Math.min(10, Math.max(0, S.rir + d));
-      if (fam) S.editing = false;
+      if (fam) { S.editing = false; if (S.touched) S.touched[f] = true; }
     }
     if (a === "rest-30") U.rest = Math.max(0, U.rest - 30);
     if (a === "rest+30") U.rest += 30;
@@ -276,6 +277,7 @@
     const inp = e.target.closest && e.target.closest("[data-input]");
     if (!inp) return;
     UD[inp.dataset.input] = inp.dataset.input === "load" ? parseNum(inp.value) : Math.round(parseNum(inp.value));
+    UD.touched[inp.dataset.input] = true;
   });
   document.addEventListener("keydown", (e) => {
     const inp = e.target.closest && e.target.closest("[data-input]");

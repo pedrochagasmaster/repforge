@@ -47,12 +47,20 @@
     const f = U.field || "reps";
     const vals = { load: num(U.load), reps: U.reps, rir: U.rir };
     const labels = { load: n("d.field.load"), reps: s("stats.table.reps"), rir: s("stats.table.rir") };
+    // States: untouched (the engine's value, soft ink until the lifter confirms
+    // it), selected, editing (a real input) and invalid (the field owns the
+    // error; the CTA waits). Values the lifter typed or stepped are ink.
+    const touched = U.touched || {};
+    const invalid = { load: !(U.load > 0), reps: !(U.reps >= 1), rir: !(U.rir >= 0) };
+    const anyInvalid = invalid.load || invalid.reps || invalid.rir;
     const field = (id) => {
       const on = f === id;
+      const cls = `x-field${on ? " is-sel" : ""}${touched[id] ? "" : " is-untouched"}${invalid[id] ? " is-invalid" : ""}`;
+      const name = `${labels[id]}, ${n("d.set_label", { n: setNo })}`;
       if (on && U.editing) {
-        return `<label class="x-field is-sel is-edit"><small>${labels[id]}</small><input inputmode="decimal" data-input="${id}" value="${vals[id]}" aria-label="${labels[id]}"></label>`;
+        return `<label class="${cls} is-edit"><small>${labels[id]}</small><input inputmode="decimal" data-input="${id}" value="${vals[id]}" aria-label="${name}"${invalid[id] ? ' aria-invalid="true"' : ""}></label>`;
       }
-      return `<button class="x-field${on ? " is-sel" : ""}" data-field="${id}" aria-pressed="${on}"><small>${labels[id]}</small><b>${vals[id]}</b></button>`;
+      return `<button class="${cls}" data-field="${id}" aria-pressed="${on}" aria-label="${name}"><small>${labels[id]}</small><b>${vals[id]}</b></button>`;
     };
     const showRest = resting && U.shelfMode !== "pads" && U.rest > 0;
     const pads = showRest
@@ -70,7 +78,7 @@
     return `<div class="x-shelf" role="region" aria-label="${cta}">
       <div class="x-fields">${field("load")}${field("reps")}${field("rir")}</div>
       ${pads}
-      <button class="x-cta" data-go="${resting ? "summary" : "rest"}" data-log="1">${cta}</button>
+      <button class="x-cta" data-go="${resting ? "summary" : "rest"}" data-log="1"${anyInvalid ? " disabled" : ""}>${cta}</button>
     </div>`;
   }
 
