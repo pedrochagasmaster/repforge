@@ -7630,6 +7630,124 @@
         "today/draft-resume",
         "program/overview"
       ]
+    },
+    {
+      "id": "ledgerline-open",
+      "selector": ".ledgerline--open",
+      "roles": {
+        "elevation": "selected",
+        "boundary": "required"
+      },
+      "variant": "ledger-open-row",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The open or corrected ledger row is a selected child on the flat ledger: well ground and a 2px inset boundary in the quiet selected boundary (ink), no outward shadow. The ring is the selected cue and reaches 3:1 on the well and on the page ground in both themes (OG-4).",
+      "owner": "plan-064/r1b",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3c (Focus ledger and correction). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
+      "catalogStates": [
+        "workout/focus",
+        "workout/correction"
+      ]
+    },
+    {
+      "id": "tabrow",
+      "selector": ".tabrow",
+      "roles": {
+        "elevation": "flat",
+        "boundary": "decorative"
+      },
+      "variant": "tab-row-ink-indicator",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The row of tabs sits on one decorative hairline; each tab's selected state, not the hairline, carries the required cue. The paper fade drawn while the row overflows is a gradient the rendered-role audit cannot measure, so it is not part of this component.",
+      "owner": "plan-064/r1b",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3i (Progress tab row). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
+      "catalogStates": [
+        "progress/overview",
+        "progress/strength",
+        "progress/volume",
+        "progress/prs"
+      ]
+    },
+    {
+      "id": "tabrow-tab-not-id",
+      "selector": ".tabrow__tab:not([id])",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": "tab-row-ink-indicator",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Changes the visible evidence panel or scope without committing data. The selected tab carries a 2px indicator in the quiet selected boundary (ink), 3:1 or better on the page ground and the surface in both themes (OG-4); a consumer that needs an id gets its own exact row.",
+      "owner": "plan-064/r1b",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3i (Progress tab row). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
+      "catalogStates": [
+        "progress/overview",
+        "progress/strength",
+        "progress/volume",
+        "progress/prs"
+      ]
+    },
+    {
+      "id": "freqcount",
+      "selector": ".freqcount",
+      "roles": {
+        "elevation": "flat",
+        "boundary": [
+          "decorative",
+          "required"
+        ]
+      },
+      "variant": "frequency-count",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Frequency counts are flat, non-interactive bars of sessions per week and per weekday: one labelled image for assistive technology, bars in ink, a decorative hairline baseline, and an optional planned marker on the required boundary token, never --rule-strong (OG-4). The bar's progress classification is decided in R3j under the contract's progress rules.",
+      "owner": "plan-064/r1b",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3j (History frequency counts). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "workshelf",
+      "selector": ".workshelf",
+      "roles": {
+        "elevation": "persistent-action"
+      },
+      "variant": "workout-shelf",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The workout shelf keeps the set-logging actions reachable under Focus: persistent-action with a shallow top edge and the persistent depth, the existing prominent top radius, and no second raised card inside. Within it the field and adjustment roles take the drawn grounds (well and page ground); fields, pads and the primary action are separate rows added by the slice that renders them (OG-4).",
+      "owner": "plan-064/r1b",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3c (Focus shelf). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
+      "catalogStates": [
+        "workout/focus"
+      ]
     }
   ],
   "contextualVariants": [

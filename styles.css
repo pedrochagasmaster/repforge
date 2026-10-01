@@ -173,6 +173,55 @@
   --control-disabled-opacity:.4;
   --control-selected-boundary:var(--boundary-selected);
   --control-error-boundary:var(--color-destructive);
+  /* Plan 064 R1b: owner-approved shared tokens (OG-3, OG-4; recorded in the
+     contract's Plan 064 amendment). Nothing in the app reads them yet; each
+     is first used by the slice its inventory row names. */
+  /* Quiet selection: the selected boundary where orange is rationed (shelf
+     fields, the open ledger row, the tab indicator). It aliases ink and reuses
+     the contract's 2px inset recipe; it adds no width. */
+  --boundary-selected-quiet:var(--ink);
+  --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  /* Decorative separator drawn on --surface (sheets, the shelf). Never the sole
+     cue for a required mark. */
+  --rule-on-surface:var(--rule);
+  /* Spacing scale and page gutter (DESIGN.md: 4 / 8 / 12 / 14 / 16 / 18 / 26 /
+     32). Lengths, not themed, so they are declared once. */
+  --space-4:4px;
+  --space-8:8px;
+  --space-12:12px;
+  --space-14:14px;
+  --space-16:16px;
+  --space-18:18px;
+  --space-26:26px;
+  --space-32:32px;
+  --gut:16px;
+  /* Workout shelf grounds, on the shelf only: fields sit on the well, pads on
+     the page ground. */
+  --shelf-field-bg:var(--well);
+  --shelf-pad-bg:var(--bg);
+  /* Landing bands (OG-3). Night is the dark palette in both themes; the mark
+     that was #4A453D (1.79:1 and 1.95:1) is the required boundary below. */
+  --band-night-bg:#141310;
+  --band-night-raised:#1E1C18;
+  --band-night-ink:#F2EFE9;
+  --band-night-ink-soft:#ADA79D;
+  --band-night-ink-faint:#99938A;
+  --band-night-rule:#2E2B26;
+  --band-night-accent:#F2703B;
+  --band-night-accent-text:#FF8A3D;
+  --band-night-boundary-required:var(--band-night-ink-soft);
+  --band-night-cta-bg:#DED7CC;
+  --band-night-cta-ink:#161513;
+  /* Orange band: the live accent as the field, always carrying near-black ink. */
+  --band-orange-bg:var(--accent);
+  --band-orange-ink:#141310;
+  --band-orange-cta-ink:#F4F2EF;
+  --band-orange-cta-mark:#F2703B;
+  /* Ink band: the live ink as the field, the page ground as its ink. */
+  --band-ink-bg:var(--ink);
+  --band-ink-ink:var(--bg);
+  --band-ink-ink-soft:rgba(var(--bg-rgb),.78);
+  --band-ink-rule:rgba(var(--bg-rgb),.22);
   /* Settings is one text column: the caption of a group, the label of every row
      in it, and the rule between those rows all begin at this inset. */
   --settings-inset:16px;
@@ -261,6 +310,33 @@
   --dock-sheen:rgba(255,255,255,.04);
   --dock-pill:rgba(255,255,255,.07);
   --dock-pill-sheen:rgba(255,255,255,.05);
+  /* Plan 064 R1b: the same tokens as the light block. A separator on --surface
+     needs the stronger rule here; the bands hold identical values in both
+     themes. */
+  --boundary-selected-quiet:var(--ink);
+  --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  --rule-on-surface:var(--rule-strong);
+  --shelf-field-bg:var(--well);
+  --shelf-pad-bg:var(--bg);
+  --band-night-bg:#141310;
+  --band-night-raised:#1E1C18;
+  --band-night-ink:#F2EFE9;
+  --band-night-ink-soft:#ADA79D;
+  --band-night-ink-faint:#99938A;
+  --band-night-rule:#2E2B26;
+  --band-night-accent:#F2703B;
+  --band-night-accent-text:#FF8A3D;
+  --band-night-boundary-required:var(--band-night-ink-soft);
+  --band-night-cta-bg:#DED7CC;
+  --band-night-cta-ink:#161513;
+  --band-orange-bg:var(--accent);
+  --band-orange-ink:#141310;
+  --band-orange-cta-ink:#F4F2EF;
+  --band-orange-cta-mark:#F2703B;
+  --band-ink-bg:var(--ink);
+  --band-ink-ink:var(--bg);
+  --band-ink-ink-soft:rgba(var(--bg-rgb),.78);
+  --band-ink-rule:rgba(var(--bg-rgb),.22);
   --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
@@ -6026,15 +6102,14 @@ body.is-entry-editor #entryProgramName,
 /* ---- Plan 064 shared components ----
    Every component block declared in this section must be named by a
    component row in tools/ui-role-inventory.json (checked by
-   tools/check-ui-system.mjs). R1a adds the first four, unrendered until R3.
-   Four components on existing Plan 058 roles. Nothing renders these classes
-   yet, so no frame can change; each first renders in the slice its inventory
-   row names. They add no token, tier, radius step, shadow or palette value.
-   Layout lengths are the ones Plan 064 section 8.3 and 8.6 state (48 and 56
-   rows, 44 close reserve) or the shipped sheet geometry (38 by 5 handle, 16
-   gutter); the spacing scale is an owner-gated token and is not introduced
-   here. Excluded until their gates resolve: the selected or open row
-   boundary, the tab-row indicator, the shelf shell and the rest clock. */
+   tools/check-ui-system.mjs). R1a added the first four; R1b adds four more
+   on the owner-approved tokens (OG-3, OG-4), recorded in the contract's Plan
+   064 amendment. Nothing renders these classes yet, so no frame can change;
+   each first renders in the slice its inventory row names. Layout lengths are
+   the ones Plan 064 section 8.3 and 8.6 state (48 and 56 rows, 44 close
+   reserve), the shipped sheet geometry (38 by 5 handle) or the --space-*
+   scale. The rest clock's new clamp is not here: it changes rest frames and
+   lands with R3f. */
 
 /* Verdict mark: the glyph beside a rec.*.label word. The word carries the
    meaning and the glyph is redundant, so consumers mark the glyph
@@ -6061,8 +6136,8 @@ body.is-entry-editor #entryProgramName,
 
 /* Sheet header band: one band for every sheet. Handle, section-title title,
    an optional body-small line, and a 44px close reserve whose button is
-   centred on the first title line. The band draws no separator; separators
-   inside sheets wait on the --rule-on-surface decision. */
+   centred on the first title line. The band draws no separator; a consumer
+   that needs one inside a sheet uses --rule-on-surface (decorative only). */
 .sheetband{
   display:grid;grid-template-columns:minmax(0,1fr) var(--control-target);
   grid-template-areas:"handle handle" "title close" "sub sub";
@@ -6094,8 +6169,8 @@ body.is-entry-editor #entryProgramName,
 
 /* Ledger row base: flat, read-only data on one decorative hairline per break.
    At least 48px; the two-line row (value line plus previous-set line) is 56px.
-   Values are right-aligned Mono on a shared 12px inset. The selected and open
-   row boundary is not here: it waits on the quiet-selected boundary decision. */
+   Values are right-aligned Mono on a shared 12px inset. The open row's selected
+   boundary is the .ledgerline--open modifier at the end of this section. */
 .ledgerline__head,.ledgerline{
   display:grid;grid-template-columns:2.4rem minmax(0,1fr);column-gap:12px;align-items:center;
   width:100%;padding-inline:12px;font-variant-numeric:tabular-nums;
@@ -6150,3 +6225,85 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);
 }
 .rxrow__op,.rxrow__unit{color:var(--color-ink-secondary)}
+
+/* Ledger open row: the row being edited or corrected. Layer selected: a well
+   ground and the quiet 2px inset boundary (ink, aliased from --ink), no
+   outward shadow, no orange. The inset ring is the selected cue and it reaches
+   3:1 on the well and on the page ground in both themes; the hairline gives
+   way to it. Values keep their ink and the previous-set line stays ink-soft. */
+.ledgerline--open{
+  border-bottom-color:transparent;border-radius:var(--radius-surface);
+  background:var(--well);box-shadow:var(--elevation-selected-quiet-shadow);
+}
+
+/* Tab row: a hairline-underlined row of selection controls, each at least 44
+   by 44. The selected tab carries a 2px indicator in the quiet selected
+   boundary, never orange. The row scrolls sideways without a scrollbar; the
+   paper fade that the drawing shows while it overflows is a gradient the
+   rendered-role audit cannot measure, so it is not drawn here. */
+.tabrow{
+  display:flex;gap:var(--space-4);overflow-x:auto;margin:0;padding:0;
+  border-bottom:1px solid var(--boundary-decorative);scrollbar-width:none;
+}
+.tabrow::-webkit-scrollbar{display:none}
+.tabrow__tab{
+  flex:none;min-width:var(--control-target);min-height:var(--control-target);margin:0;padding:0 var(--space-12);
+  border:0;border-bottom:2px solid transparent;border-radius:var(--radius-none);
+  background:var(--control-quiet-bg);color:var(--color-ink-secondary);cursor:pointer;white-space:nowrap;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+}
+.tabrow__tab[aria-selected="true"]{
+  border-bottom-color:var(--boundary-selected-quiet);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
+}
+.tabrow__tab:hover:not(:disabled){background:var(--well)}
+.tabrow__tab:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.tabrow__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.tabrow__tab:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
+
+/* Frequency counts: small bars of sessions per week and per weekday, ink on
+   the page ground. Not interactive: the host gives the block one image role
+   and one label with the block total, so the counts stay out of the reading
+   order (aria-hidden). The baseline is a decorative hairline; the planned
+   marker, when drawn, is a required boundary (--boundary-required), never
+   --rule-strong, which measures 1.31:1 on the page ground in light. Bar
+   height is --freq-share (0 to 1) set by the host; the marker sits at
+   --freq-plan. The bar's progress classification is decided in R3j. */
+.freqcount{display:flex;align-items:stretch;margin:0;color:var(--color-ink)}
+.freqcount__bar{
+  flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding-inline:var(--space-4);
+}
+.freqcount__n{
+  margin-bottom:var(--space-4);
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.freqcount__track{position:relative;display:flex;align-items:flex-end;justify-content:center;width:100%;height:4rem}
+.freqcount--planned .freqcount__track::after{
+  content:"";position:absolute;left:calc(-1 * var(--space-4));right:calc(-1 * var(--space-4));bottom:calc(var(--freq-plan,0) * 100%);
+  border-top:1px dashed var(--boundary-required);
+}
+.freqcount__fill{
+  display:block;width:var(--space-12);height:calc(var(--freq-share,0) * 100%);
+  border-radius:var(--radius-compact) var(--radius-compact) var(--radius-none) var(--radius-none);background:var(--color-ink);
+}
+.freqcount__label{
+  align-self:stretch;padding-top:var(--space-4);border-top:1px solid var(--boundary-decorative);text-align:center;
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.freqcount__bar--now .freqcount__label{color:var(--color-ink);font-weight:var(--weight-semibold)}
+
+/* Workout shelf shell: the persistent-action layer under Focus, a full-width
+   sheet-like surface with the existing top radius step (--radius-prominent),
+   a shallow top edge and the persistent depth. Inside it the field and
+   adjustment roles take the drawn grounds (fields on the well, pads on the
+   page ground); that override is scoped here, so no other surface changes.
+   The host positions the shell and reserves scroll room under it. Fields,
+   pads and the primary action are R3c's, each on its existing control role. */
+.workshelf{
+  --control-field-bg:var(--shelf-field-bg);--control-adjustment-bg:var(--shelf-pad-bg);
+  display:grid;gap:var(--space-8);width:100%;margin:0;
+  padding:var(--space-12) var(--gut) calc(var(--space-16) + env(safe-area-inset-bottom,0px));
+  border:0;border-top:1px solid var(--boundary-persistent);
+  border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none);
+  background:var(--color-surface);box-shadow:var(--elevation-persistent-shadow);color:var(--color-ink);
+}
