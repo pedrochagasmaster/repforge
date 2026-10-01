@@ -32201,6 +32201,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -32274,6 +32280,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -32349,6 +32361,12 @@
           "text": "Importar um arquivo Taurifer",
           "name": "Importar um arquivo Taurifer",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
         }
       ]
     },
@@ -32418,6 +32436,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -32489,6 +32513,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -32558,6 +32588,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -32629,6 +32665,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -32698,6 +32740,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -32769,6 +32817,12 @@
           "text": "Importar um arquivo Taurifer",
           "name": "Importar um arquivo Taurifer",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
         }
       ]
     },
@@ -32838,6 +32892,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -33257,8 +33317,8 @@
         {
           "tag": "p",
           "role": "status",
-          "text": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer regista séries de trabalho e repetições.",
-          "name": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer regista séries de trabalho e repetições."
+          "text": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer registra séries de trabalho e repetições.",
+          "name": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer registra séries de trabalho e repetições."
         },
         {
           "tag": "span",
@@ -33569,14 +33629,14 @@
         {
           "tag": "p",
           "role": "status",
-          "text": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer regista séries de trabalho e repetições.",
-          "name": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer regista séries de trabalho e repetições."
+          "text": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer registra séries de trabalho e repetições.",
+          "name": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer registra séries de trabalho e repetições."
         },
         {
           "tag": "p",
           "role": "alert",
-          "text": "Introduza valores válidos para os campos assinalados.",
-          "name": "Introduza valores válidos para os campos assinalados."
+          "text": "Informe valores válidos nos campos destacados.",
+          "name": "Informe valores válidos nos campos destacados."
         },
         {
           "tag": "span",
@@ -33695,6 +33755,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -33782,6 +33848,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -33871,6 +33943,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -33958,6 +34036,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -34047,6 +34131,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -34126,14 +34216,20 @@
         },
         {
           "tag": "button",
-          "text": "Copiar o pedido",
-          "name": "Copiar o pedido",
+          "text": "Copiar o comando",
+          "name": "Copiar o comando",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Importar um arquivo Taurifer",
           "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
           "type": "button"
         }
       ]
@@ -34222,6 +34318,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -34318,6 +34420,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -34412,6 +34520,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -34508,6 +34622,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -34602,6 +34722,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -34698,6 +34824,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -34793,6 +34925,12 @@
           "text": "Importar um arquivo Taurifer",
           "name": "Importar um arquivo Taurifer",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
+          "type": "button"
         }
       ]
     },
@@ -34887,6 +35025,12 @@
           "tag": "button",
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
           "type": "button"
         }
       ]
@@ -35010,6 +35154,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -35132,6 +35282,12 @@
           "text": "Import a Taurifer file instead",
           "name": "Import a Taurifer file instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -35253,6 +35409,12 @@
           "tag": "button",
           "text": "Importar um arquivo Taurifer",
           "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
           "type": "button"
         }
       ]
@@ -36346,25 +36508,32 @@
         },
         {
           "tag": "button",
-          "text": "‹ Back",
-          "name": "‹ Back",
+          "text": "Back",
+          "name": "Back",
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
           "tag": "h1",
-          "text": "Import program"
-        },
-        {
-          "tag": "p",
-          "text": "catalog-program.json · 3 lifts"
-        },
-        {
-          "tag": "h2",
-          "text": "Review the exercises"
+          "text": "Review the exercises",
+          "tabindex": "-1"
         },
         {
           "tag": "p",
           "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
         },
         {
           "tag": "div",
@@ -36502,16 +36671,15 @@
           "text": "Your history will not be changed."
         },
         {
-          "tag": "button",
-          "text": "2 still to review",
-          "name": "2 still to review",
-          "disabled": true,
-          "type": "button"
+          "tag": "p",
+          "text": "2 still to review"
         },
         {
           "tag": "button",
-          "text": "Cancel this import",
-          "name": "Cancel this import",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "2 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -36533,25 +36701,32 @@
         },
         {
           "tag": "button",
-          "text": "‹ Back",
-          "name": "‹ Back",
+          "text": "Back",
+          "name": "Back",
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
           "tag": "h1",
-          "text": "Import program"
-        },
-        {
-          "tag": "p",
-          "text": "catalog-program.json · 3 lifts"
-        },
-        {
-          "tag": "h2",
-          "text": "Review the exercises"
+          "text": "Review the exercises",
+          "tabindex": "-1"
         },
         {
           "tag": "p",
           "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
         },
         {
           "tag": "div",
@@ -36689,16 +36864,15 @@
           "text": "Your history will not be changed."
         },
         {
-          "tag": "button",
-          "text": "2 still to review",
-          "name": "2 still to review",
-          "disabled": true,
-          "type": "button"
+          "tag": "p",
+          "text": "2 still to review"
         },
         {
           "tag": "button",
-          "text": "Cancel this import",
-          "name": "Cancel this import",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "2 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -36720,25 +36894,32 @@
         },
         {
           "tag": "button",
-          "text": "‹ Back",
-          "name": "‹ Back",
+          "text": "Back",
+          "name": "Back",
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
           "tag": "h1",
-          "text": "Import program"
-        },
-        {
-          "tag": "p",
-          "text": "catalog-program.json · 3 lifts"
-        },
-        {
-          "tag": "h2",
-          "text": "Review the exercises"
+          "text": "Review the exercises",
+          "tabindex": "-1"
         },
         {
           "tag": "p",
           "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
         },
         {
           "tag": "div",
@@ -36876,16 +37057,15 @@
           "text": "Your history will not be changed."
         },
         {
-          "tag": "button",
-          "text": "2 still to review",
-          "name": "2 still to review",
-          "disabled": true,
-          "type": "button"
+          "tag": "p",
+          "text": "2 still to review"
         },
         {
           "tag": "button",
-          "text": "Cancel this import",
-          "name": "Cancel this import",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "2 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -36907,25 +37087,32 @@
         },
         {
           "tag": "button",
-          "text": "‹ Back",
-          "name": "‹ Back",
+          "text": "Back",
+          "name": "Back",
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
           "tag": "h1",
-          "text": "Import program"
-        },
-        {
-          "tag": "p",
-          "text": "catalog-program.json · 3 lifts"
-        },
-        {
-          "tag": "h2",
-          "text": "Review the exercises"
+          "text": "Review the exercises",
+          "tabindex": "-1"
         },
         {
           "tag": "p",
           "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
         },
         {
           "tag": "div",
@@ -37063,16 +37250,15 @@
           "text": "Your history will not be changed."
         },
         {
-          "tag": "button",
-          "text": "2 still to review",
-          "name": "2 still to review",
-          "disabled": true,
-          "type": "button"
+          "tag": "p",
+          "text": "2 still to review"
         },
         {
           "tag": "button",
-          "text": "Cancel this import",
-          "name": "Cancel this import",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "2 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -37094,25 +37280,32 @@
         },
         {
           "tag": "button",
-          "text": "‹ Back",
-          "name": "‹ Back",
+          "text": "Back",
+          "name": "Back",
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
           "tag": "h1",
-          "text": "Import program"
-        },
-        {
-          "tag": "p",
-          "text": "catalog-program.json · 3 lifts"
-        },
-        {
-          "tag": "h2",
-          "text": "Review the exercises"
+          "text": "Review the exercises",
+          "tabindex": "-1"
         },
         {
           "tag": "p",
           "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
         },
         {
           "tag": "div",
@@ -37250,16 +37443,15 @@
           "text": "Your history will not be changed."
         },
         {
-          "tag": "button",
-          "text": "2 still to review",
-          "name": "2 still to review",
-          "disabled": true,
-          "type": "button"
+          "tag": "p",
+          "text": "2 still to review"
         },
         {
           "tag": "button",
-          "text": "Cancel this import",
-          "name": "Cancel this import",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "2 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -37281,25 +37473,32 @@
         },
         {
           "tag": "button",
-          "text": "‹ Voltar",
-          "name": "‹ Voltar",
+          "text": "Voltar",
+          "name": "Voltar",
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Importar um treino"
+        },
+        {
           "tag": "h1",
-          "text": "Importar treino"
-        },
-        {
-          "tag": "p",
-          "text": "catalog-program.json · 3 exercícios"
-        },
-        {
-          "tag": "h2",
-          "text": "Revise os exercícios"
+          "text": "Revise os exercícios",
+          "tabindex": "-1"
         },
         {
           "tag": "p",
           "text": "Vincule os nomes à biblioteca ou mantenha-os como estão."
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 exercícios"
         },
         {
           "tag": "div",
@@ -37437,16 +37636,15 @@
           "text": "Seu histórico não será alterado."
         },
         {
-          "tag": "button",
-          "text": "2 ainda por revisar",
-          "name": "2 ainda por revisar",
-          "disabled": true,
-          "type": "button"
+          "tag": "p",
+          "text": "2 ainda por revisar"
         },
         {
           "tag": "button",
-          "text": "Cancelar esta importação",
-          "name": "Cancelar esta importação",
+          "text": "Revisar rascunho",
+          "name": "Revisar rascunho",
+          "describedBy": "2 ainda por revisar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -37468,25 +37666,32 @@
         },
         {
           "tag": "button",
-          "text": "‹ Back",
-          "name": "‹ Back",
+          "text": "Back",
+          "name": "Back",
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
           "tag": "h1",
-          "text": "Import program"
-        },
-        {
-          "tag": "p",
-          "text": "catalog-program.json · 3 lifts"
-        },
-        {
-          "tag": "h2",
-          "text": "Review the exercises"
+          "text": "Review the exercises",
+          "tabindex": "-1"
         },
         {
           "tag": "p",
           "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
         },
         {
           "tag": "div",
@@ -37624,16 +37829,15 @@
           "text": "Your history will not be changed."
         },
         {
-          "tag": "button",
-          "text": "2 still to review",
-          "name": "2 still to review",
-          "disabled": true,
-          "type": "button"
+          "tag": "p",
+          "text": "2 still to review"
         },
         {
           "tag": "button",
-          "text": "Cancel this import",
-          "name": "Cancel this import",
+          "text": "Review draft",
+          "name": "Review draft",
+          "describedBy": "2 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -37686,6 +37890,12 @@
           "text": "Paste a program instead",
           "name": "Paste a program instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -37737,6 +37947,12 @@
           "text": "Paste a program instead",
           "name": "Paste a program instead",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "I'd rather write it from scratch",
+          "name": "I'd rather write it from scratch",
+          "type": "button"
         }
       ]
     },
@@ -37787,6 +38003,12 @@
           "tag": "button",
           "text": "Colar um treino",
           "name": "Colar um treino",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Prefiro escrever do zero",
+          "name": "Prefiro escrever do zero",
           "type": "button"
         }
       ]
