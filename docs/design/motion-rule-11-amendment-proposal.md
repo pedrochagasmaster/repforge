@@ -55,7 +55,7 @@ production behavior. "Amend" means it needs this proposal.
 | P1 | Why this weight calculation | A · existing disclosure height | In scope |
 | P2 | Summary muscles list | A · existing disclosure height | Audit row only |
 | M1 | Shelf value on a pad tap | B · directional 6 px, 120 ms | Amend |
-| M2 | Summary totals | A · keep the existing 600 ms count ramp | In scope |
+| M2 | Summary totals | A · keep the existing 600 ms count ramp; the row stagger stays removed | In scope |
 | M3 | Changed targets on Today | C · no emphasis; the verdict mark carries it | In scope |
 | C1 | Chart line | A · clip wipe on open; only the new segment on extension | Amend |
 | C2 | Chart scope change | B · shared sessions travel; metric changes crossfade | Amend |
@@ -163,7 +163,8 @@ export is needed; the vendored entry file does not widen.
 ## 7. Unchanged by this proposal
 
 The sheet and deck physics, press compression, the ≤160 ms set
-acknowledgement, the 140 ms view fade, the summary count ramp and stagger, the
-toast transitions, the toggle, and every reduced-motion path already in
-production stay as they are. No palette value, type tier, radius step,
+acknowledgement, the 140 ms view fade, the summary count ramp, the toast
+transitions, the toggle, and every reduced-motion path already in production
+stay as they are. The summary's row stagger stays removed, per the owner's
+earlier Plan 064 decision; only the count ramp is kept. No palette value, type tier, radius step,
 elevation role or control role is added.
