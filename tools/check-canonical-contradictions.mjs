@@ -36,6 +36,8 @@ const SCOPE = [
   "plans/049-ui-overhaul-canonical-reconciliation.md",
   "plans/047-taurifer-program-families-compiler.md",
   "plans/048-program-entry-onboarding-redesign.md",
+  "plans/064-unified-redesign-convergence.md",
+  "docs/design/plan-064-reconciliation.md",
   "docs/ui-overhaul-disposition-register.md",
   "docs/recovery-week-policy.md",
   "docs/block-transition-provenance.md",
