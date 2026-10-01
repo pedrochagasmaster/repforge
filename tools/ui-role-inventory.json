@@ -6054,7 +6054,8 @@
         "workout/substituted-actions",
         "workout/warmup-actions",
         "onboarding-recommend/result-avoided",
-        "onboarding-browse/catalogue"
+        "onboarding-browse/catalogue",
+        "history/session"
       ]
     },
     {
@@ -7708,7 +7709,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); R3b (Today prescription rows) and R3h (session summary) add their catalog states when they render it.",
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); R3b (Today prescription rows) and R3h (session summary) add their catalog states when they render it. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark.",
       "owner": "plan-064/r1a",
       "catalogStates": [
         "onboarding-shared/gate",
@@ -7721,7 +7722,8 @@
         "onboarding-start/first-run-track",
         "onboarding-start/first-run-ways",
         "today/draft-resume",
-        "today/ready"
+        "today/ready",
+        "history/session"
       ]
     },
     {
@@ -7798,7 +7800,8 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "history/session"
       ]
     },
     {

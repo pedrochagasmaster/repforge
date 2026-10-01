@@ -65,8 +65,8 @@ const IMPLEMENTED_D_STATES = new Set([
   // R3d: the workout sheets drawn in OG-6 round 1 (workout/exercise-actions stays pending: its round 2 redraw is not approved).
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions",
-  // R3j: History's week list with the frequency counts and the calendar sheet.
-  "history/list",
+  // R3j: History's week list with the frequency counts and the calendar sheet, and the session page.
+  "history/list", "history/session",
 ]);
 export const DIRECTION_D_STATES = D_STATE_KEYS.map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 

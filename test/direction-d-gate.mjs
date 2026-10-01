@@ -45,7 +45,7 @@ console.log("\nD-owned state list");
   "the gate's state list is exactly those 35 states", `${DIRECTION_D_STATES.length} listed`);
   const built = ["workout/focus", "workout/focus-glossary", "workout/correction",
     "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
-    "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list"];
+    "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session"];
   check(DIRECTION_D_STATES.every((item) => (item.status === "implemented") === built.includes(item.key)) &&
     DIRECTION_D_STATES.filter((item) => item.status === "implemented").length === built.length,
   "only the states an R3 sub-slice has built are implemented; every other D state is pending",

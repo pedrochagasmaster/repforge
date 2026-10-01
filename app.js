@@ -9264,8 +9264,13 @@ function historyBlockContext(){
       name:entry?.meta?.name||"",start:entry?.meta?.started||null,
       end:entry?.completedAt?String(entry.completedAt).slice(0,10):null,
       planned:new Set((entry?.program||[]).map(ex=>ex?.day).filter(Boolean)).size}))}}
+/** A lift's outcome in one saved session: the comparison the summary and Progress
+ *  read (CONTEXT.md, Session outcome), against what the program calls the lift today. */
+function historySessionOutcome(rows){
+  const ex=currentExerciseForLiftKey(liftKey(rows[0]))||exerciseIdentityFromRow(rows[0]);
+  return compareExerciseSession(ex,rows)}
 const HistoryUi=window.RepForgeHistoryUi.create({
-  locTag, blockContext:historyBlockContext, openModal, closeModal, reducedMotion,
+  locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
   displayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,

@@ -403,18 +403,70 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
   const result=await commitProposedState(proposal,{preflight});
   await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
   return result}
+// ---- The session as a page (Plan 064 R3j) ----
+// Read mode: totals, then one group per lift with its outcome, the previous
+// exposure and the numbered sets. Outcomes come from the same comparison the
+// summary and Progress read; nothing here derives a second one.
+function historyWeekOf(date){
+  const d=isoDayNumber(date);if(d==null)return null;
+  for(const block of historyBlocks(historyContext())){
+    const start=isoDayNumber(block.start),end=block.end?isoDayNumber(block.end):null;
+    if(d>=start&&(end==null||d<=end))return Math.floor((d-start)/7)+1}
+  return null}
+/** "100 × 8, 8, 8" when one load, otherwise one "load × reps" per set. */
+function historySetsLine(rows){
+  const work=rows.filter(r=>isWork(r)&&+r.load>0&&+r.reps>0).sort((a,b)=>Number(a.set)-Number(b.set));
+  if(!work.length)return"";
+  const same=work.every(r=>+r.load===+work[0].load);
+  return same?`${fmtLoad(work[0].load)} × ${work.map(r=>r.reps).join(", ")}`
+    :work.map(r=>`${fmtLoad(r.load)} × ${r.reps}`).join(", ")}
+function historyOutcomeMark(group,sid){
+  const cmp=typeof deps.sessionOutcome==="function"?deps.sessionOutcome(group.rows):null;
+  if(!cmp)return"";
+  const kind={improved:" verdictmark--up",flat:" verdictmark--maintained",regressed:" verdictmark--down"}[cmp.status];
+  const exerciseId=group.rows[0]?.exerciseId;
+  const parity=exerciseId?` data-parity-outcome="${esc(exerciseId)}" data-parity-session="${esc(sid)}"`:"";
+  return`<span class="verdictmark${kind||" is-insufficient"}"${parity}>`+
+    (kind?`<span class="verdictmark__glyph" aria-hidden="true"></span>`:"")+`${esc(cmp.label)}</span>`}
 function historyReadingView(s,rows){
-  const setRows=rows.map(row=>`<div class="history-read__row"><span class="history-read__name">${esc(displayName(row))}</span>`+
-    `<span class="history-read__set">#${esc(row.set)}</span><span>${esc(fmtLoad(row.load))}</span>`+
-    `<span>${esc(String(row.reps??"—"))}</span><span>${esc(fmt(row.rir))}</span></div>`).join("");
+  const sid=String(s.session),index=historyIndexFor(state.log);
   const volume=sum(rows.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
-  return`<article class="session session--read" data-reading="${esc(s.session)}" data-sess="${esc(s.session)}">`+
-    `<div class="history-read__title"><div><div class="session__day">${esc(dayLabel(s.day))}</div>`+
-    `<p class="session__sub">${esc(t("history.session_meta",{sets:rows.length,vol:kfmt(toDisplay(volume)),unit:unitLabel()}))}</p></div></div>`+
-    `<div class="history-read__head"><span>${esc(t("history.exercise"))}</span><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span></div>`+
-    `<div class="history-read__rows">${setRows}</div>`+
-    `<div class="history-read__actions"><button type="button" class="btn btn--cta" data-history-edit="${esc(s.session)}">${esc(t("history.session.edit"))}</button>`+
-    `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`}
+  const prLifts=historyPrLifts(index).get(sid)||new Set();
+  const groups=[],byLift=new Map();
+  for(const row of rows){
+    const key=liftKey(row);
+    if(!byLift.has(key)){const g={key,rows:[]};byLift.set(key,g);groups.push(g)}
+    byLift.get(key).rows.push(row)}
+  const setCount=rows.length;
+  const lifts=groups.map(g=>{
+    const pred=index.liftPred.get(`${sid}|${g.key}`)||[];
+    const before=pred.length?t("history.before",{date:historyShortDate(pred[0].date),sets:historySetsLine(pred)}):"";
+    const record=prLifts.has(g.key)
+      ?`<span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("history.pr"))}</span>`:"";
+    const setRows=g.rows.map(row=>`<div class="ledgerline"><span class="ledgerline__idx">${esc(row.warmup?"W"+row.set:row.set)}</span>`+
+      `<span class="ledgerline__vals"><span class="fx-col">${esc(fmtLoad(row.load))}</span>`+
+      `<span class="fx-col">${esc(row.reps==null||row.reps===""?"–":row.reps)}</span>`+
+      `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span></span></div>`).join("");
+    return`<section class="histlift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(displayName(g.rows[0]))}</h3>`+
+      `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
+      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
+  const total=(value,label)=>`<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
+  return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
+    `<div class="histpage__totals">`+
+    total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
+    total(historyInt(toDisplay(volume)),t("summary.stat.moved",{unit:unitLabel()}))+
+    total(historyInt(prLifts.size),t("stats.metric.prs"))+`</div>`+
+    `<div class="ledgerline__head histpage__cols"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
+    `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span></span></div>`+
+    lifts+
+    `<div class="histpage__actions"><button type="button" class="btn btn--steel" data-history-edit="${esc(sid)}"><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span>${esc(t("history.session.edit"))}</button>`+
+    `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
+/** Back, the day's name as the page title, and the date with its block week. */
+function historySessionHead(record){
+  const longDate=formatLongDate(String(record.date||"")),week=historyWeekOf(record.date);
+  return`<div class="histpage__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
+    `<h2 class="page-title histpage__title" data-history-selection-heading tabindex="-1">${esc(dayLabel(record.day))}</h2>`+
+    `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}</p></div>`}
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
     '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
@@ -659,10 +711,15 @@ function renderHistory(source=state.log){
     else if(mode==="editing")body=sessionEditor(record,copy);
     else if(mode==="deleting")body=historyDeleteView(record);
     else body=historyConflictView(record,mode,historySelection.operation);
-    selectionEl.innerHTML=`<div class="history-selection__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
+    // The session page owns the whole top of the view; the edit, delete and
+    // conflict states keep the head they have always had.
+    $("#history")?.classList.toggle("is-session-page",mode==="reading");
+    selectionEl.innerHTML=mode==="reading"?historySessionHead(record)
+      :`<div class="history-selection__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
       `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3 data-history-selection-heading tabindex="-1">${esc(longDate)}</h3></div></div>`;
     $("#sessions").innerHTML=body;$("#historyTable").innerHTML="";
     bindHistorySelection();return}
+  $("#history")?.classList.remove("is-session-page");
   recent?.classList.remove("hidden");tableDetails?.classList.remove("hidden");
   listControls.forEach(b=>b?.classList.remove("hidden"));selectionEl?.classList.add("hidden");selectionEl&&(selectionEl.innerHTML="");
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}

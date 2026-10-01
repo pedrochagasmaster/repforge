@@ -3125,17 +3125,6 @@ button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;co
 #history .history-selection__date h3{margin:2px 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 #history .history-editing__heading{margin:0 0 4px;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 #history .history-editing__status{margin:0 0 14px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#history .history-read__title{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px}
-#history .history-read__head,#history .history-read__row{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,20%) minmax(0,17%) minmax(0,17%);gap:8px;align-items:center}
-#history .history-read__head{padding:0 0 5px;border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
-#history .history-read__head span:not(:first-child),#history .history-read__row span:not(:first-child){text-align:right}
-#history .history-read__row{padding:10px 0;border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);font-variant-numeric:tabular-nums;color:var(--color-ink)}
-#history .history-read__row span:not(:first-child){font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard)}
-#history .history-read__name{min-width:0;overflow-wrap:anywhere;white-space:normal}
-#history .history-read__set{color:var(--color-ink-secondary)}
-#history .history-read__actions{display:flex;align-items:center;gap:10px;margin-top:16px}
-#history .history-read__actions .btn{flex:1}
-#history .history-read__actions .session__del{padding:12px}
 #history .history-delete__icon{display:grid;place-items:center;width:40px;height:40px;margin-bottom:12px;border:1px solid var(--boundary-required);border-radius:var(--radius-round);color:var(--color-destructive);font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight)}
 #history .history-operation{padding:16px 0}
 #history .session--delete h3,#history .history-operation h3{margin:0 0 8px;font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
@@ -4184,29 +4173,29 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
    Weeks, not a calendar strip: sessions group under their block week, the
    calendar is one button away as a sheet, and two small counts sit above the
    list. Flat reading content on hairlines; ink only, with no accent. */
+#history>.pagehead{flex-wrap:wrap}
 #history .hist-block{margin:var(--space-32) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere}
 #history .hist-month{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-4) var(--space-12);margin:var(--space-26) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink)}
 #history .hist-month b{font-weight:var(--weight-semibold)}
 #history .hist-month span{font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 #history .hist-week{margin:var(--space-18) 0 0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 #history .hist-row{display:block;min-height:0;padding:0;border-bottom:1px solid var(--boundary-decorative);cursor:default}
-#history .session__open{display:grid;grid-template-columns:2.5rem minmax(0,1fr) auto;align-items:start;column-gap:var(--space-12);flex:none;width:100%;min-height:56px;margin:0;padding:var(--space-12) 0;background:var(--control-quiet-bg);border:0;border-radius:var(--radius-none);cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-quiet-ink)}
+#history .session__open{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--space-4) var(--space-12);flex:none;width:100%;min-height:56px;margin:0;padding:var(--space-12) 0;background:var(--control-quiet-bg);border:0;border-radius:var(--radius-none);cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-quiet-ink)}
 #history .session__open:hover:not(:disabled){background:var(--well)}
 #history .session__open:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 #history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-#history .hist-sess__d{display:flex;flex-direction:column;align-items:flex-start;font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-medium);line-height:var(--line-tight)}
+#history .hist-sess__d{flex:0 0 2.5rem;display:flex;flex-direction:column;align-items:flex-start;font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-medium);line-height:var(--line-tight)}
 #history .hist-sess__d small{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#history .hist-sess__m{min-width:0}
+#history .hist-sess__m{flex:1 1 9rem;min-width:0}
 #history .hist-sess__m b{display:block;font-weight:var(--weight-medium);overflow-wrap:anywhere}
 #history .hist-sess__m small{display:block;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
-#history .hist-sess__n{display:flex;flex-direction:column;align-items:flex-end;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap}
+#history .hist-sess__n{flex:0 0 auto;margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap}
 #history .hist-sess__n b{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
 #history .hist-sess__pr{font-weight:var(--weight-medium);color:var(--color-improved)}
-@media (max-width:360px){#history .hist-sess__n{white-space:normal}}
 
 #history .histfreq{margin:var(--space-14) 0 0}
 #history .histfreq__title{margin:0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-#history .histfreq__plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-18);margin-top:var(--space-12)}
+#history .histfreq__plots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:var(--space-18);margin-top:var(--space-12)}
 #history .histfreq__plots--stack{grid-template-columns:minmax(0,1fr);gap:var(--space-16)}
 #history .histfreq__col{min-width:0}
 #history .histfreq__cap{margin:0 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
@@ -4216,12 +4205,47 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #history .freqcount__bar{padding-inline:0}
 #history .freqcount--planned .freqcount__track::after{left:0;right:0}
 
+/* ---- History session page (Plan 064 R3j) ----
+   Back, the day's name, the date with its block week, three totals, then one
+   hairline group per lift: outcome and record, the previous exposure, and the
+   numbered sets on the shared ledger. Groups are bands, never cards. */
+#history.is-session-page>.pagehead{display:none}
+#history .histpage__head{display:flex;flex-direction:column;align-items:flex-start}
+#history .histpage__head .back-link{margin-left:calc(-1 * var(--space-4))}
+#history .histpage__title{margin:var(--space-4) 0 0;font-family:var(--font-language);overflow-wrap:anywhere}
+#history .histpage__title:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+#history .histpage__lede{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+#history .histpage__totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,6rem),1fr));gap:var(--space-12);margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
+#history .histpage__totals b{display:block;font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);white-space:nowrap;color:var(--color-ink)}
+#history .histpage__totals span{display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#history .histpage__cols{margin-top:var(--space-26);min-height:var(--control-target);align-items:center}
+#history .histpage__cols,#history .histlift__sets .ledgerline{grid-template-columns:3rem minmax(0,1fr)}
+#history .histpage__cols .ledgerline__vals{letter-spacing:0}
+#history .histpage__cols .ledgerline__vals,#history .histlift__sets .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);gap:var(--space-8)}
+#history .histpage__cols .ledgerline__vals>.fx-col,#history .histlift__sets .ledgerline__vals>.fx-col{min-width:0}
+#history .histpage__cols .ledgerline__vals{font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
+#history .histlift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}
+#history .histlift:last-of-type{border-bottom:0}
+#history .histlift__head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-12)}
+#history .histlift__name{flex:1 1 8rem;min-width:0;margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+#history .histlift__tags{display:flex;flex:none;align-items:baseline;gap:var(--space-12)}
+#history .verdictmark.is-insufficient{font-weight:var(--weight-regular);color:var(--color-ink-secondary)}
+#history .histlift__before{margin:var(--space-4) 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+#history .histlift__sets .ledgerline:last-child{border-bottom:0}
+#history .histlift__sets .ledgerline__idx{color:var(--color-ink-secondary)}
+#history .histpage__actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:var(--space-12);align-items:center;margin-top:var(--space-26)}
+#history .histpage__actions .btn{width:100%;min-height:var(--control-target);white-space:normal}
+#history .histpage__actions .session__del{padding:0 var(--space-8)}
+
 #historyCalSheet{height:auto}
 #historyCalSheet .sheetband{flex:none;touch-action:none}
 #historyCalSheet .histcal__body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 16px}
 #historyCalSheet .cal{margin:0}
 #historyCalSheet .cal-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 var(--space-4)}
 #historyCalSheet .cal-head .chevron{color:var(--color-ink)}
+#historyCalSheet :is(#calPrev,#calNext):hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+#historyCalSheet :is(#calPrev,#calNext):active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+#historyCalSheet :is(#calPrev,#calNext):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #historyCalSheet .cal-head__prev{transform:rotate(180deg)}
 #historyCalSheet .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-4);text-align:center}
 #historyCalSheet .cal-grid__dow{padding:var(--space-4) 0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary)}
@@ -4233,7 +4257,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #historyCalSheet button.cal-grid__day:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #historyCalSheet .histcal__hint{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 
-#history .back-link{gap:var(--space-4);padding-left:0;color:var(--control-quiet-ink)}
+#history .back-link{gap:var(--space-4);padding-left:0}
 #history .back-link .chevron{transform:rotate(180deg);color:inherit}
 
 /* "Every set" stays one table per set, so its seven columns have to share the
@@ -6194,7 +6218,7 @@ body.is-entry-editor #entryProgramName,
 #history :is(#historyExportBtn,#calPrev,#calNext,#historySearchBtn):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #history #historyExportBtn:disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
 #history :is(#calPrev,#calNext,#historySearchBtn):disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
-#history .back-link{min-height:var(--control-target);background:var(--control-quiet-bg);color:var(--color-action-text);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
+#history .back-link{min-height:var(--control-target);background:var(--control-quiet-bg);color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
 #history .session__open:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 #history .session__open:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)}

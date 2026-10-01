@@ -1360,6 +1360,7 @@
   "history.freq.title": "Frequency this block",
   "history.freq.total": "{done} of {planned} sessions this block, week {n} of {total}",
   "history.freq.wk": "W{n}",
+  "history.pr": "PR",
   "history.prs": "{n} PR",
   "history.prs_many": "{n} PRs",
   "history.saved_week": "{date}, week {n}",

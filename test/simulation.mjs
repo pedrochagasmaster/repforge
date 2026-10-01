@@ -4504,13 +4504,18 @@ async function main() {
     "Clear state → save one hard set → Stats Overview → #thisWeek stays neutral without legacy warning copy"
   );
   await nav(page, "history");
-  const newLiftDelta = await page.locator(".session__delta").first().textContent();
+  // The list row no longer carries outcome counts (Direction D, History list); the lift's
+  // outcome word lives on the session page, from the same comparison.
+  await page.locator("#sessions .session__open").first().click();
+  await page.waitForSelector(".session--read .histlift__tags .verdictmark");
+  const newLiftOutcome = await page.locator(".session--read .histlift__tags .verdictmark").allTextContents();
   assert(
-    /1 new lift/.test(newLiftDelta || ""),
-    "History session delta names new lifts",
-    `delta=${newLiftDelta}`,
-    "Clear state → save first lift → History → session card shows '1 new lift'"
+    newLiftOutcome.length === 1 && /^New$/.test(newLiftOutcome[0].trim()),
+    "History session page names a new lift",
+    `outcomes=${JSON.stringify(newLiftOutcome)}`,
+    "Clear state → save first lift → History → open the session → its lift reads New"
   );
+  await page.click("[data-history-back]");
   await nav(page, "log");
   assert(
     loggedEx0.length === 1 && +loggedEx0[0].set === 1,
@@ -7925,19 +7930,22 @@ async function main() {
     "persistState seed + UI save with more reps"
   );
   await nav(page, "history");
-  const deltaCard = await page.locator(".session").first().textContent();
+  await page.locator("#sessions .session__open").first().click();
+  await page.waitForSelector(".session--read .histlift__tags .verdictmark");
+  const deltaPage = await page.locator(".session--read").first().textContent();
   assert(
-    /improved/i.test(deltaCard),
-    "History session card shows delta improved summary",
-    `Card: ${deltaCard?.slice(0, 160)}`,
-    "History → newest card after improved session"
+    /improved/i.test(deltaPage),
+    "History session page shows the improved outcome",
+    `Page: ${deltaPage?.slice(0, 160)}`,
+    "History → open the newest session after an improved session"
   );
   assert(
-    (await page.locator(".session__delta").count()) > 0,
-    "History session card renders session__delta element",
-    "No .session__delta on history cards",
-    "History → session card includes delta line"
+    (await page.locator(".session--read [data-parity-outcome]").count()) > 0,
+    "History session page marks its outcome words for the parity gate",
+    "No [data-parity-outcome] on the session page",
+    "History → session page outcome words carry the parity markup"
   );
+  await page.click("[data-history-back]");
 
   beginPhase("Phase: command parser");
   const parseCmd = (t) => page.evaluate((x) => window.__repforgeParseCommand(x), t);
