@@ -1040,6 +1040,12 @@ async function main() {
     });
     assert(ptClipboard.every((v) => v && !/^entry\.freeform\./.test(v)),
       "every clipboard string is translated for Portuguese", JSON.stringify(ptClipboard));
+
+    // The repair notices are Brazilian Portuguese (Plan 064 R4c), not European.
+    const ptRepair = await page.evaluate(() => ["gap_error", "not_imported_notice"]
+      .map((k) => window.RepForgeI18n.t("entry.freeform." + k, { items: "x" }, "pt")));
+    assert(ptRepair.every((v) => v && !/\b(Introduza|regista|assinalados?)\b/i.test(v)),
+      "the gap and not-imported notices read as Brazilian Portuguese", JSON.stringify(ptRepair));
   } finally {
     await context.close();
     await browser.close();
