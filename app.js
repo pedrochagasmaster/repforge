@@ -2029,6 +2029,37 @@ async function discardRecoveredWorkoutDraft(){
     operationId:`discard-${uid()}`});
   if(removed.status!=="applied"){showDraftInitializationRecovery(removed);return false}
   resetDraftSessionState();clearDraftUiRecovery();renderToday();return true}
+/* Alpha trust telemetry for the Workout lifecycle attaches to an applied DraftV2
+   command, not to a control, so any logger UI that dispatches through
+   WorkoutSession is measured the same way (Q616, Q618). */
+/** Q616: a working set matches when its load is within half of the lifter's
+ *  minJump of the suggestion. Loads only; draft loads and minJump are canonical kg. */
+function setVsSuggestion(set){
+  const suggested=set?.programmed?.suggestedLoad,load=parseDec(set?.edited?.load);
+  if(suggested==null||!Number.isFinite(+suggested)||!Number.isFinite(load))return"no_suggestion";
+  const delta=load-+suggested,half=(+state.settings.minJump||2.5)/2;
+  return Math.abs(delta)<half?"matched":delta>0?"raised":"lowered"}
+/* Which working sets this device has already counted in the open draft. An edit
+   uncommits a set and commits it again, which must not count twice; the draft
+   still records the set as committed until that uncommit, so it is read there. */
+let countedWorkingSets={draftId:null,keys:new Set()};
+function noteCommittedWorkingSets(draft){
+  if(!draft)return;
+  if(countedWorkingSets.draftId!==draft.draftId)countedWorkingSets={draftId:draft.draftId,keys:new Set()};
+  for(const [exerciseId,exercise] of Object.entries(draft.exercises||{}))
+    for(const [setId,set] of Object.entries(exercise?.sets||{}))
+      if(set.role!=="warmup"&&set.completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
+function captureDraftCommandTelemetry(command,before,after,ui){
+  try{
+    noteCommittedWorkingSets(before);
+    if(command.type==="completeSet"){
+      const set=after?.exercises?.[command.exerciseInstanceId]?.sets?.[command.setId];
+      if(set&&set.role!=="warmup"&&!countedWorkingSets.keys.has(`${command.exerciseInstanceId}\u0000${command.setId}`))
+        captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set)})}
+    noteCommittedWorkingSets(after);
+    // Q618: the lifter's own skips only; the bulk "skip flagged" offer opts out.
+    if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"})}
+  catch{}}
 function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
   const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
@@ -2043,7 +2074,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
     const now=new Date().toISOString(),command={type,...payload,operationId,expectedRevision:activeWorkoutDraft.revision,
       updatedAt:now,writer:draftWriter(operationId)};
     if(type==="completeSet"&&!command.completedAt)command.completedAt=now;
-    const next=WorkoutDraft.reduce(activeWorkoutDraft,command);
+    const before=activeWorkoutDraft,next=WorkoutDraft.reduce(before,command);
     if(WorkoutDraft.isDomainError(next))return{status:"domain-error",error:next};
     if(type==="refreshUntouchedSuggestions"&&next===activeWorkoutDraft)
       return{status:"applied",draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,noOp:true};
@@ -2056,6 +2087,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
     }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
+      captureDraftCommandTelemetry(command,before,written.draft,ui);
       hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
     else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus});
     return written});
@@ -2256,7 +2288,7 @@ async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
   for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
 let focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
 let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
@@ -2707,6 +2739,16 @@ function mesocycleLifecycle(programMeta){
   const isFinalWeek=elapsedWeek!=null&&elapsedWeek>=total;
   const isComplete=meta.mesocycleStatus==="completed";
   return{elapsedWeek,current,total,overrunWeeks,isFinalWeek,isComplete}}
+/** Q617: extended past the planned length; complete in or after the final
+ *  week; partial at least halfway; otherwise early. */
+function blockCompletionBucket(life){
+  if(life.overrunWeeks>0)return"extended";
+  if(life.isComplete||life.current>=life.total)return"complete";
+  return life.current>=Math.ceil(life.total/2)?"partial":"early"}
+/** The lifter opening the block review. Navigation calls this; render does not. */
+function captureBlockReviewViewed(){
+  if(!state.programMeta?.started)return;
+  captureEvent("block_review_viewed",{completion:blockCompletionBucket(mesocycleLifecycle(state.programMeta))})}
 function programWeek(){return mesocycleLifecycle(state.programMeta).elapsedWeek}
 function mesocycleWeek(){return mesocycleLifecycle(state.programMeta)}
 function mesocycleWeekCopy(mc,ofKey="today.week_of"){
@@ -3167,9 +3209,7 @@ function capturePendingBlock(strategy,review){
 function hasArchivableProgram(snapshot){
   const meta=snapshot?.programMeta;
   const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
-  if(!meta||!hasDefinition)return false;
-  return meta.onboarded===true||Array.isArray(snapshot?.log)&&snapshot.log.length>0||
-    Array.isArray(snapshot?.programHistory)&&snapshot.programHistory.length>0}
+  return !!meta&&!!hasDefinition}
 function captureProgramReplacementIntent(snapshot=state,review=null){
   const meta=snapshot?.programMeta;
   if(!hasArchivableProgram(snapshot))return null;
@@ -4753,12 +4793,15 @@ function setStatsSeg(seg){
   // Legacy one-level values route to their Evidence view (Plan 056 migration).
   if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
   if(!STATS_SEG[seg])seg="overview";
+  // Opening the review is the move onto it, not re-selecting it while it is showing.
+  const opensReview=seg==="review"&&!(statsSeg==="review"&&!evidenceView&&$("#stats")?.classList.contains("active"));
   statsSeg=seg;evidenceView=null;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   if(seg==="overview")redrawChart();else if(seg==="review")renderReview();
+  if(opensReview)captureBlockReviewViewed();
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
 window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
 // Read-only evidence seam: suites assert the model-backed values the Evidence
@@ -7078,6 +7121,13 @@ async function finish(io,{expectedDraft=null,completion="normal"}={}){
   return{result,completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
   return Object.freeze({start,leave,finish,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,flush:drainDraftWork})})();
 
+// Asked once, at the first completed session: a device with nothing logged has
+// nothing to protect, and Firefox turns the request into a permission prompt.
+// No preference is stored; persisted() is the source of truth.
+async function requestPersistentStorage(){try{
+  if(!navigator.storage?.persist||await navigator.storage.persisted?.())return;
+  await navigator.storage.persist()}catch{}}
+
 async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   const {result,completed,capturedRaw}=await WorkoutSession.finish(io,{expectedDraft,completion});
   if(!completed){
@@ -7096,7 +7146,7 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   const {rows,prevLog,session,date,day:savedDay,startedAt,draftId}=completed;
   if(typeof window.__repforgeDraftAfterSaveCommit==="function")
     await window.__repforgeDraftAfterSaveCommit({session,draftId});
-  if(!prevLog.some(isWork)&&rows.some(isWork))captureEvent("first_set_logged",{});
+  if(!prevLog.some(isWork)&&rows.some(isWork)){captureEvent("first_set_logged",{});requestPersistentStorage()}
   captureEvent("session_completed",{
     set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
     exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
@@ -10358,6 +10408,18 @@ function renderGuideReplayList(){
   $$("#guideReplayList [data-guide-replay]").forEach(button=>{
     button.onclick=()=>replayContextualGuide(button.dataset.guideReplay)
   })}
+// The browser's own answer, appended to the backup line. A stale answer from an
+// earlier render must not overwrite a newer one, and a browser without the API
+// reads the same as one that will not promise.
+let storageNoteGen=0;
+function paintStorageNote(backupLine){
+  const sn=$("#storageNote");if(!sn)return;
+  sn.textContent=backupLine;
+  const gen=++storageNoteGen;
+  (async()=>{let kept=false;try{kept=(await navigator.storage?.persisted?.())===true}catch{}
+    if(gen!==storageNoteGen)return;
+    sn.textContent=`${backupLine} ${t(kept?"settings.storage.persisted":"settings.storage.not_persisted")}`})()}
+
 function renderSettings(){
   renderGuideReplayList();
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
@@ -10381,7 +10443,7 @@ function renderSettings(){
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
-  const sn=$("#storageNote");if(sn)sn.textContent=ago;
+  paintStorageNote(ago);
   const deg=$("#storageDegraded");
   if(deg){const on=!!DurableState.getStorageHealth().degraded;deg.textContent=on?t("settings.storage.degraded"):"";deg.classList.toggle("hidden",!on);deg.hidden=!on}
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
@@ -15468,6 +15530,8 @@ function openWhySheet(exId,opener){
 function openWhySheetFor(ex,opener){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
+  // Focus is the only workout-logging surface; the exercise page is the other opener.
+  captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
   const rec=recommendation(ex);
   const decision=$("#whyDecision");if(decision)decision.textContent=rec.label;
   const target=$("#whyTarget");
@@ -16191,9 +16255,12 @@ function init(){
     }
     if(programEditMode)finishInstalledEditor();
     exView=null;workoutActive=false;workoutLeft=true;
+    // Progress remembers its segment, so arriving there can itself open the review.
+    const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-    $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render();
+    if(opensReview)captureBlockReviewViewed()});
   $("#exBack").onclick=closeExerciseView;
   $("nav button.active")?.setAttribute("aria-current","page");
   render();

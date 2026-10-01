@@ -77,3 +77,36 @@ if (/(?:window|globalThis)\.posthog|\.capture\([^\n]*telemetry_schema_version/.t
   process.exit(1);
 }
 console.log(`telemetry boundary: ${captured.length} reviewed producer call(s) use declared events`);
+
+// The converse guard: every declared event has a producer or an explicit
+// reserved reason. A declared event nobody emits reads as "nobody did it" in a
+// funnel, so the alpha scorecard would mistake a dead producer for behaviour.
+// Reserving an event says the feature behind it does not exist yet; when it
+// ships, its change drops the entry and adds the producer.
+const RESERVED = new Map([
+  ["recommendation_overridden", "needs a product definition of a deliberate override"],
+  ["session_abandoned", "needs an explicit abandon action with stage and reason UI"],
+  ["substitution_used", "needs a substitution reason question; a reason is never fabricated"],
+  ["equipment_context_selected", "equipment contexts are deferred (backlog section 5)"],
+  ["one_off_started", "one-off sessions are deferred (backlog section 5)"],
+  ["one_off_completed", "one-off sessions are deferred (backlog section 5)"],
+  ["program_transition_selected", "next-program transition choice is not emitted yet"],
+]);
+const produced = new Set(captured);
+// Events outside the product phases (the late install transfer) are emitted by
+// telemetry.js itself, so its own capture() call counts as their producer.
+const productEvents = new Set(Telemetry.getEventNames());
+for (const name of allowedEvents) {
+  if (!productEvents.has(name) && new RegExp(`\\bcapture\\("${name}"`).test(telemetry)) produced.add(name);
+}
+const orphaned = [...allowedEvents].filter((name) => !produced.has(name) && !RESERVED.has(name));
+const unknownReserved = [...RESERVED.keys()].filter((name) => !allowedEvents.has(name));
+const staleReserved = [...RESERVED.keys()].filter((name) => produced.has(name));
+if (orphaned.length || unknownReserved.length || staleReserved.length) {
+  if (orphaned.length) console.error(`Declared telemetry event(s) without a producer or a reserved reason: ${orphaned.join(", ")}`);
+  if (unknownReserved.length) console.error(`RESERVED names undeclared event(s): ${unknownReserved.join(", ")}`);
+  if (staleReserved.length) console.error(`Event(s) both produced and reserved; drop them from RESERVED: ${staleReserved.join(", ")}`);
+  process.exit(1);
+}
+console.log(`telemetry producers: ${allowedEvents.size - RESERVED.size} of ${allowedEvents.size} declared events produced, ${RESERVED.size} reserved`);
+
