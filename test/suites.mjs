@@ -153,6 +153,7 @@ export const SUITES = {
     s("test/notifications.mjs", [], { seconds: 13 }),
     s("test/appearance.mjs"),
     s("test/ui-system.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 13 }),
+    s("test/direction-d-gate.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 15 }),
     ...shards(UI_SYSTEM_SHARDS).map((shard) =>
       s("tools/check-ui-system.mjs", ["--shard", shard], { domains: RENDERED_DOMAINS, cost: "long", tier: "packet", timeoutMs: 900000, seconds: 300 })),
     s("test/accessibility.mjs", [], { seconds: 46 }),
