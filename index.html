@@ -595,144 +595,261 @@
     </div>
   </dialog>
   <!-- One-time entry landing. Shared links adapt this surface before any
-       proposal is stored; every product render has a localized equivalent. -->
+       proposal is stored; every product render has a localized equivalent.
+       Plan 064 R2: the final page's bands. Number-bearing copy is filled by
+       renderFirstRun* in app.js from the engine and the i18n templates; the
+       proof's pinned stage is built and torn down by the proof controller, so
+       the seven steps below read as static cards without it. -->
   <div id="firstRun" class="firstrun hidden ph-no-capture" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
     <div class="firstrun__inner">
-      <header class="firstrun__header">
-        <div class="firstrun__brand">
-          <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
-          <span class="firstrun__wordmark">Taurifer</span>
-        </div>
-        <div class="firstrun__utility">
-          <button type="button" class="firstrun__utility-action hidden" id="firstRunInstallLink">
-            <span class="firstrun__install-icon" aria-hidden="true"></span>
-            <span data-i18n="landing.install">Install app</span>
-          </button>
-          <button type="button" class="firstrun__utility-action" id="firstRunPrivacy" data-i18n="privacy.title">Privacy</button>
-        </div>
-      </header>
+      <section class="firstrun-band firstrun-band--night firstrun-hero" data-landing-section="hero" aria-labelledby="firstRunHeadline">
+        <div class="firstrun-wrap">
+          <header class="firstrun__header">
+            <div class="firstrun__brand">
+              <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
+              <span class="firstrun__wordmark">Taurifer</span>
+            </div>
+            <div class="firstrun__utility">
+              <button type="button" class="firstrun__utility-action hidden" id="firstRunInstallLink">
+                <span class="firstrun__install-icon" aria-hidden="true"></span>
+                <span data-i18n="landing.install">Install app</span>
+              </button>
+              <button type="button" class="firstrun__utility-action" id="firstRunPrivacy" data-i18n="privacy.title">Privacy</button>
+            </div>
+          </header>
 
-      <section class="firstrun-hero">
-        <div class="firstrun-hero__copy">
-          <p class="firstrun__eyebrow firstrun__shared-only" data-i18n="landing.shared.eyebrow">Program received</p>
-          <h1 class="firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Walk into the gym knowing exactly what to do.</h1>
-          <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.body">Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.</p>
+          <div class="firstrun-hero__copy">
+            <p class="firstrun__eyebrow firstrun__shared-only" data-i18n="landing.shared.eyebrow">Program received</p>
+            <h1 class="firstrun-h1 firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Walk into the gym knowing exactly what to do.</h1>
+            <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.hero.sub">You log each set in seconds. Taurifer looks at what you did and tells you the weight and reps for next time, with the reason spelled out. A spreadsheet only stores numbers; Taurifer tells you what to do with them.</p>
 
-          <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
-          <div id="firstRunStandardProgram" class="firstrun__actions">
-            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunCreate">
-              <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
-            <button type="button" class="firstrun__cta firstrun__cta--secondary" id="firstRunImport">
-              <span data-i18n="landing.track">Track my current program</span><span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
+            <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
+            <div id="firstRunStandardProgram" class="firstrun__actions">
+              <button type="button" class="firstrun__cta" id="firstRunCreate">
+                <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="firstrun__link" id="firstRunImport" data-i18n="landing.track">Track my current program</button>
+            </div>
+            <div id="firstRunSharedProgram" class="firstrun__actions hidden">
+              <button type="button" class="firstrun__cta" id="firstRunSharedStart">
+                <span class="firstrun-row__text">
+                  <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
+                  <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
+                </span>
+                <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
+                <span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
+            </div>
+            <ul class="firstrun-chips" data-i18n-aria="landing.hero.chips_aria" aria-label="At a glance">
+              <li data-i18n="landing.hero.chip.account">No account</li>
+              <li data-i18n="landing.hero.chip.offline">Works offline once opened</li>
+              <li data-i18n="landing.hero.chip.free">Free to build and log</li>
+            </ul>
           </div>
-          <div id="firstRunSharedProgram" class="firstrun__actions hidden">
-            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunSharedStart">
-              <span class="firstrun-row__text">
-                <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
-                <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
-              </span>
-              <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
-              <span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
-          </div>
         </div>
-
-        <figure class="firstrun-hero__figure">
-          <img class="firstrun-shot" data-shot="today-ready" src="assets/brand/today-ready-en-light.webp"
-               width="903" height="1832" fetchpriority="high" decoding="async"
-               data-i18n-alt="landing.shot.today_ready.alt"
-               alt="The Today screen: Full body, week 5 of 6, zero of three sessions completed. Today's session is Day 1, with five exercises and a Start workout button.">
-        </figure>
       </section>
 
-      <div class="firstrun-beats">
-        <section class="firstrun-beat">
-          <div class="firstrun-beat__copy">
-            <p class="firstrun-beat__index"><b>01</b><span data-i18n="landing.program.index"> / Getting started</span></p>
-            <h2 class="firstrun-beat__title" data-i18n="landing.program.title">Answer five questions, or paste what you already run.</h2>
-            <p class="firstrun-beat__body" data-i18n="landing.program.body">Either way, Taurifer turns it into a full program: six weeks, split across the days you train, with every set editable before you start.</p>
-            <ul class="firstrun-facts">
-              <li><dfn data-i18n="landing.program.fact1.label">Recommend</dfn><b data-i18n="landing.program.fact1.value">5 questions → a program</b></li>
-              <li><dfn data-i18n="landing.program.fact2.label">Bring your own</dfn><b data-i18n="landing.program.fact2.value">Paste text or import a file</b></li>
-              <li><dfn data-i18n="landing.program.fact3.label">This week</dfn><b data-i18n="landing.program.fact3.value">Week 5 of 6 · 3 days · 15 sets</b></li>
-            </ul>
+      <section class="firstrun-band firstrun-band--raised firstrun-proof" id="firstRunProof" data-landing-section="proof" aria-labelledby="firstRunProofTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunProofTitle" data-i18n="landing.demo.title">See it in practice.</h2>
+          <p class="firstrun-sub" data-i18n="landing.demo.sub">This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does.</p>
+        </div>
+        <div class="firstrun-proof__track" id="firstRunProofTrack">
+          <div class="firstrun-wrap firstrun-proof__stage" id="firstRunProofStage">
+            <ol class="firstrun-steps" id="firstRunProofSteps">
+              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="">
+                <div class="firstrun-step__crop firstrun-step__crop--screen"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s1.title">One screen per exercise.</h3>
+                <p class="firstrun-step__text" data-i18n="landing.demo.s1.text">Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps.</p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="cue">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s2.title">Already filled in.</h3>
+                <p class="firstrun-step__text" data-landing-fill="s2"></p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="log">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-landing-fill="s3"></h3>
+                <p class="firstrun-step__text" data-i18n="landing.demo.s3.text">One tap logs the set. With rest time on, the timer starts counting.</p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="rest" data-read="dial">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-rest-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s4.title">Rest.</h3>
+                <p class="firstrun-step__text" data-i18n="landing.demo.s4.text">The timer counts your rest. With notifications on, it tells you when it's up.</p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="actions" data-read="swap">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-actions-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s5.title">Swap.</h3>
+                <p class="firstrun-step__text" data-landing-fill="s5"></p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="note" data-read="text">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-note-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s6.title">Notes.</h3>
+                <p class="firstrun-step__text" data-i18n="landing.demo.s6.text">Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise.</p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="last cue">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s7.title">Next session</h3>
+                <p class="firstrun-step__result"><span class="firstrun-step__value" data-landing-fill="s7.value"></span><span class="firstrun-step__unit" data-landing-fill="s7.sets"></span></p>
+                <p class="firstrun-step__text" data-landing-fill="s7"></p>
+              </li>
+            </ol>
           </div>
-          <figure class="firstrun-beat__figure">
-            <div class="firstrun-stage firstrun-stage--pair">
-              <img class="firstrun-shot firstrun-stage__back" data-shot="recommend-result" src="assets/brand/recommend-result-en-light.webp" width="903" height="1832" loading="lazy" decoding="async" data-i18n-alt="landing.shot.recommend_result.alt" alt="The recommended program screen: Build Muscle, three days, about 55 to 59 minutes, with the reasons the program fits.">
-              <img class="firstrun-shot firstrun-stage__front" data-shot="entry-hub" src="assets/brand/entry-hub-en-light.webp" width="903" height="1832" loading="lazy" decoding="async" data-i18n-alt="landing.shot.entry_hub.alt" alt="The Create a program screen offering routes to recommend, customize, browse, paste, or import a program.">
+        </div>
+      </section>
+
+      <section class="firstrun-band firstrun-ways" data-landing-section="ways" aria-labelledby="firstRunWaysTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunWaysTitle" data-i18n="landing.ways.title">Three ways to start your program.</h2>
+        </div>
+        <ol class="firstrun-ways__list">
+          <li class="firstrun-way firstrun-way--field">
+            <div class="firstrun-wrap">
+              <h3 class="firstrun-way__title" data-i18n="landing.ways.written.title">Taurifer builds your program</h3>
+              <p data-landing-fill="ways.written"></p>
             </div>
+          </li>
+          <li class="firstrun-way firstrun-way--surface">
+            <div class="firstrun-wrap">
+              <h3 class="firstrun-way__title" data-i18n="landing.ways.browse.title">Choose a ready-made program</h3>
+              <p data-i18n="landing.ways.browse.body">Complete Taurifer programs, sorted by goal and by how many days a week you train.</p>
+            </div>
+          </li>
+          <li class="firstrun-way firstrun-way--ink">
+            <div class="firstrun-wrap">
+              <h3 class="firstrun-way__title" data-i18n="landing.ways.own.title">Bring or build your own</h3>
+              <p data-i18n="landing.ways.own.body">Start with empty days, paste your current program, or import a Taurifer file.</p>
+              <button type="button" class="firstrun-disclosure" id="firstRunHandBtn" aria-expanded="false" aria-controls="firstRunHand">
+                <span data-i18n="landing.ways.paste.toggle">See how pasting a program works</span><i aria-hidden="true"></i>
+              </button>
+              <div class="firstrun-hand" id="firstRunHand" hidden>
+                <div class="firstrun-msg">
+                  <div class="firstrun-msg__who"><b data-i18n="landing.ways.paste.coach">Message from your coach</b><span data-i18n="landing.ways.paste.time">7:42 AM</span></div>
+                  <pre data-i18n="landing.ways.paste.message">DAY A · chest and triceps
+Bench press 3x8-10
+Incline DB press 3x10-12
+Cable fly 3x12-15
+Triceps pushdown 3x12-15</pre>
+                </div>
+                <p data-i18n="landing.ways.paste.prompt">You copy Taurifer's prompt, paste it into ChatGPT or Claude along with your program, and bring the reply back. Before anything is saved, you check every exercise.</p>
+                <p class="firstrun-seeing" data-i18n="landing.ways.paste.seeing">Below, the app screen where you check the exercises.</p>
+                <figure class="firstrun-shot-figure"><img class="firstrun-shot" data-shot="paste-review" data-landing-shot width="780" height="1162" src="assets/brand/paste-review-en-light.webp" alt="" loading="lazy" decoding="async"></figure>
+                <p class="firstrun-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span data-i18n="entry.freeform.privacy">What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.</span></p>
+                <p data-landing-fill="ways.where"></p>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="firstrun-band firstrun-track" data-landing-section="track" aria-labelledby="firstRunTrackTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunTrackTitle" data-i18n="landing.outcomes.title">Your next target follows what you did.</h2>
+          <p class="firstrun-sub" data-i18n="landing.outcomes.sub">The weight doesn't always go up. These are examples of what Taurifer says after a session.</p>
+          <ul class="firstrun-outcomes">
+            <li data-landing-outcome="add">
+              <div class="firstrun-oc"><span class="verdictmark verdictmark--up"><span class="verdictmark__glyph" aria-hidden="true"></span><span data-i18n="rec.add.label">Add load</span></span><span class="firstrun-oc__n"><span class="visually-hidden" data-i18n="landing.outcomes.next_label">Next session</span> <span data-landing-next></span></span></div>
+              <div class="firstrun-oc__ex" data-landing-exercise></div>
+              <p data-landing-explain></p>
+            </li>
+            <li data-landing-outcome="hold">
+              <div class="firstrun-oc"><span class="verdictmark verdictmark--maintained"><span class="verdictmark__glyph" aria-hidden="true"></span><span data-i18n="rec.hold_add_reps.label">Hold · add reps</span></span><span class="firstrun-oc__n"><span class="visually-hidden" data-i18n="landing.outcomes.next_label">Next session</span> <span data-landing-next></span></span></div>
+              <div class="firstrun-oc__ex" data-landing-exercise></div>
+              <p data-landing-explain></p>
+            </li>
+            <li data-landing-outcome="reduce">
+              <div class="firstrun-oc"><span class="verdictmark verdictmark--down"><span class="verdictmark__glyph" aria-hidden="true"></span><span data-i18n="rec.reduce.label">Back off</span></span><span class="firstrun-oc__n"><span class="visually-hidden" data-i18n="landing.outcomes.next_label">Next session</span> <span data-landing-next></span></span></div>
+              <div class="firstrun-oc__ex" data-landing-exercise></div>
+              <p data-landing-explain></p>
+            </li>
+          </ul>
+          <figure class="firstrun-chart" data-landing-chart>
+            <img class="firstrun-chart__img" data-shot="exercise-chart" data-landing-shot width="903" height="1832" src="assets/brand/exercise-chart-en-light.webp" alt="" loading="lazy" decoding="async">
+            <figcaption data-landing-fill="chart.caption"></figcaption>
           </figure>
-        </section>
-
-        <section class="firstrun-signature">
-          <div class="firstrun-signature__copy">
-            <p class="firstrun-beat__index"><b>02</b><span data-i18n="landing.system.index"> / What happens after you log a set</span></p>
-            <h2 class="firstrun-signature__title" data-i18n="landing.system.title">Log the work. Taurifer decides what's next.</h2>
-            <p class="firstrun-beat__body" data-i18n="landing.system.body">Every set logs load, reps and effort. Taurifer reads them against the rule for this exercise, shows you why, and the next target is already set before you get there.</p>
-
-            <div class="firstrun-loop">
-              <p class="firstrun-loop__step"><dfn data-i18n="landing.system.step1.label">Target</dfn><b data-i18n="landing.system.step1.value">5–8 reps · RIR 0–2</b></p>
-              <span class="firstrun-loop__arrow" aria-hidden="true"></span>
-              <p class="firstrun-loop__step"><dfn data-i18n="landing.system.step2.label">You logged</dfn><b data-i18n="landing.system.step2.value">100 kg × 8 · RIR 1</b></p>
-            </div>
-
-            <blockquote class="firstrun-quote">
-              <p data-i18n="landing.system.quote">The range still has room, so the load stays while reps climb.</p>
-              <cite data-i18n="landing.system.cite">Taurifer · Why this weight</cite>
-            </blockquote>
-
-            <p class="firstrun-verdict">
-              <span class="firstrun-verdict__label" data-i18n="landing.system.verdict.label">Next session</span>
-              <b class="firstrun-verdict__value" data-i18n="landing.system.verdict.value">Hold 100 kg</b>
-            </p>
-
-            <ul class="firstrun-facts">
-              <li><dfn data-i18n="landing.system.fact1.label">Session</dfn><b data-i18n="landing.system.fact1.value">15 sets · 8,123 kg</b></li>
-              <li><dfn data-i18n="landing.system.fact2.label">Lifts</dfn><b data-i18n="landing.system.fact2.value">5 improved</b></li>
-            </ul>
-          </div>
-
-          <figure class="firstrun-signature__figure">
-            <div class="firstrun-stage firstrun-stage--signature">
-              <img class="firstrun-shot" data-shot="focus" src="assets/brand/focus-en-light.webp" width="903" height="1832" loading="lazy" decoding="async" data-i18n-alt="landing.shot.focus.alt" alt="The focused set view for barbell back squat, set 1 of 3, with the target, prior sets, recommendation, load, reps, RIR, and Log set button.">
-            </div>
-            <div class="firstrun-stage firstrun-stage--signature-crop">
-              <img class="firstrun-shot" data-shot="why-this-weight" src="assets/brand/why-this-weight-en-light.webp" width="903" height="1832" loading="lazy" decoding="async" data-i18n-alt="landing.shot.why_this_weight.alt" alt="A Why this weight sheet explaining the Hold 100 kg recommendation from the last session's sets, the rep-range rule, and the four-session strength trend.">
-            </div>
-          </figure>
-
-          <div class="firstrun-pull firstrun-pull--climax">
-            <p class="firstrun-pull__value">92.5<i class="firstrun-pull__arrow" aria-hidden="true"></i><span class="visually-hidden" data-i18n="landing.system.pull_to">to </span>100<span class="firstrun-pull__unit">kg</span></p>
-            <p class="firstrun-pull__caption" data-i18n="landing.system.caption">Top load on the back squat, up 7.5 kg across four sessions. Best estimated 1RM: 127 kg.</p>
-          </div>
-        </section>
-      </div>
-
-      <footer class="firstrun-close">
-        <div class="firstrun-close__copy">
-          <h2 class="firstrun-close__title" data-i18n="landing.closing.title">Start where you are.</h2>
-          <p class="firstrun-close__body" data-i18n="landing.closing.body">Build a program from scratch, or bring the one you already run. Either way, your next set is already decided.</p>
+          <p class="firstrun-tip" data-i18n="landing.outcomes.tip">Every working set you log goes into your next target. Warm-up sets are left out.</p>
         </div>
-        <div class="firstrun-close__actions">
-          <div class="firstrun__actions">
-            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunCreateClose">
-              <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
-            <button type="button" class="firstrun__cta firstrun__cta--secondary" id="firstRunImportClose">
-              <span data-i18n="landing.track">Track my current program</span><span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
+      </section>
+
+      <section class="firstrun-band firstrun-band--ink firstrun-data" id="firstRunData" tabindex="-1" data-landing-section="data" aria-labelledby="firstRunDataTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunDataTitle" data-i18n="landing.data.title">Your history stays on your phone.</h2>
+          <ul class="firstrun-rows">
+            <li><h3 data-i18n="landing.data.row1.title">You don't need to create an account.</h3><p data-i18n="landing.data.row1.text">Your program, sessions and settings are saved on your phone.</p></li>
+            <li><h3 data-i18n="landing.data.row2.title">A copy is yours whenever you want.</h3><p data-i18n="landing.data.row2.text">To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text.</p></li>
+            <li><h3 data-i18n="landing.data.row3.title">Works without a connection.</h3><p data-i18n="landing.data.row3.text">Once it has been opened, logging sets and seeing the next target don't need a signal.</p></li>
+          </ul>
+          <p class="firstrun-seeing" data-landing-fill="data.pointer"></p>
+        </div>
+      </section>
+
+      <section class="firstrun-band firstrun-faq" data-landing-section="faq" aria-labelledby="firstRunFaqTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunFaqTitle" data-i18n="landing.faq.title">Questions</h2>
+          <div class="firstrun-faqs">
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.free.q">Is it free?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a"><p data-i18n="landing.faq.free.a">Building your program, logging sessions and getting the next target are free, with no account and no sign-up.</p></div>
+            </details>
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.store.q">Do I need an app store?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a">
+                <p data-i18n="landing.faq.store.intro">No. Taurifer opens in the browser. To put its icon on your home screen:</p>
+                <p><b data-i18n="landing.faq.store.ios">iPhone, in Safari</b></p>
+                <ol>
+                  <li data-i18n="install.ios.step1" data-i18n-html>Tap ••• at the right of the address bar, then choose <b>Share</b>.</li>
+                  <li data-i18n="install.ios.step2" data-i18n-html>In the share sheet, tap <b>View More</b> at the end of the actions row.</li>
+                  <li data-i18n="install.ios.step3" data-i18n-html>Choose <b>Add to Home Screen</b>.</li>
+                  <li data-i18n="install.ios.step4" data-i18n-html>Leave <b>Open as Web App</b> on and tap <b>Add</b>.</li>
+                </ol>
+                <p><b data-i18n="landing.faq.store.android">Android, in Chrome</b></p>
+                <p data-i18n="install.browser_instructions" data-i18n-html>Open your browser menu and choose <b>Install app</b> or <b>Add to Home Screen</b>.</p>
+                <p data-i18n="landing.faq.store.transfer">If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour.</p>
+              </div>
+            </details>
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.rir.q">What is RIR?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a"><p data-i18n="glossary.RIR">RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more.</p></div>
+            </details>
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.coach.q">Can my coach send me a program?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a">
+                <p data-landing-fill="faq.coach.a1"></p>
+                <div class="firstrun-share">
+                  <div class="firstrun-share__row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7.3l3-3a4 4 0 0 0-5.7-5.6l-1.2 1.1"/><path d="M14 10a4 4 0 0 0-5.7-.3l-3 3a4 4 0 0 0 5.7 5.6l1.2-1.1"/></svg><span data-i18n="program.share_setup">Share setup link</span></div>
+                  <div class="firstrun-share__cols">
+                    <div><span class="firstrun-label" data-i18n="landing.faq.coach.in_link">In the link</span><ul><li data-i18n="landing.faq.coach.item.program">Program</li><li data-i18n="landing.faq.coach.item.settings">Settings</li><li data-i18n="landing.faq.coach.item.language">Language</li></ul></div>
+                    <div><span class="firstrun-label" data-i18n="landing.faq.coach.not_in_link">Not in the link</span><ul><li data-i18n="landing.faq.coach.item.sessions">Logged sessions</li><li data-i18n="landing.faq.coach.item.loads">Loads and reps you did</li></ul></div>
+                  </div>
+                </div>
+                <p data-i18n="landing.faq.coach.a2">The link isn't encrypted: anyone who gets it can read your program.</p>
+              </div>
+            </details>
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.data.q">Does Taurifer collect any data?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a">
+                <p data-i18n="landing.faq.data.a1">It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out.</p>
+                <p data-landing-fill="faq.data.a2"></p>
+              </div>
+            </details>
           </div>
         </div>
-        <div class="firstrun-ethos">
-          <p data-i18n="landing.ethos">Plan.
-Lift.
-Progress.</p>
-          <small data-i18n="landing.privacy">Works offline. No account required. Your training history is stored on this device and never leaves it.</small>
+      </section>
+
+      <section class="firstrun-band firstrun-band--orange firstrun-close" data-landing-section="close" aria-labelledby="firstRunCloseTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h1 firstrun-close__title" id="firstRunCloseTitle" data-i18n="landing.closing.title">Start where you are.</h2>
+          <p class="firstrun-sub firstrun-close__body" data-i18n="landing.closing.sub">One tap per set. Taurifer works out the next one.</p>
+          <div class="firstrun-close__actions">
+            <div class="firstrun__actions">
+              <button type="button" class="firstrun__cta" id="firstRunCreateClose">
+                <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="firstrun__link" id="firstRunImportClose" data-i18n="landing.track">Track my current program</button>
+            </div>
+          </div>
         </div>
-      </footer>
+      </section>
 
       <section id="firstRunInstall" class="firstrun__section hidden" aria-labelledby="firstRunInstallLabel">
         <p class="firstrun__eyebrow" id="firstRunInstallLabel" data-i18n="setup.install_label">Install</p>
@@ -743,6 +860,19 @@ Progress.</p>
         <span id="firstRunContinueLabel" data-i18n="setup.continue_browser">Continue in browser</span>
         <span class="firstrun-row__go" aria-hidden="true"></span>
       </button>
+
+      <footer class="firstrun-band firstrun-band--night firstrun-footer" data-landing-section="footer">
+        <div class="firstrun-wrap">
+          <span>Taurifer</span>
+          <div class="firstrun-footer__links" role="navigation" data-i18n-aria="landing.footer.aria" aria-label="Footer"><a href="#firstRunData" id="firstRunFooterPrivacy" data-i18n="privacy.title">Privacy</a></div>
+        </div>
+      </footer>
+
+      <div class="firstrun-dock" id="firstRunDock">
+        <button type="button" class="firstrun__cta" id="firstRunCreateDock">
+          <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+        </button>
+      </div>
     </div>
   </div>
   <!-- "Why this weight?" — the sanctioned place the engine may show its

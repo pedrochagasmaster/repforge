@@ -15441,7 +15441,7 @@ function setFirstRunOffer(offer){
   const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
   const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
   if(headline)headline.textContent=t(shared?"landing.shared.headline":invalid?"landing.shared.invalid_headline":"landing.headline");
-  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.body");
+  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.hero.sub");
   $("#firstRunContinue")?.classList.toggle("hidden",!offer);
 }
 /** Chrome accepted the install, or the app reports itself installed. Either way
@@ -15452,6 +15452,355 @@ function closeFirstRunInstall(){
   installPresentedDecision=null;
   setFirstRunOffer(false);
 }
+/* ---- Landing page: engine-true numbers, filled copy and the proof ----
+   Every number the page shows is produced here at render time and poured into an
+   i18n template, never typed into markup or a catalog value. The three outcome
+   cases go through the real progression engine with the app's default settings;
+   the chart's figures come from the Progress model over the same four-session
+   history the chart image is captured from (owner decision L-2). The inputs
+   below are the only authored numbers: what the example lifter logged. */
+const LANDING_UNIT="kg";
+const LANDING_CASES={
+  add:{ex:"pr_bb",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
+  hold:{ex:"sq_bb",sets:3,repMin:5,repMax:8,logged:[[100,8,1],[100,7,0],[100,6,0]]},
+  reduce:{ex:"pr_bb",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
+/** The squat history behind the chart image: four sessions, one rung up each week. */
+const LANDING_CHART={exerciseId:"ex-squat",libraryId:"sq_bb",started:"2026-08-03",
+  dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
+  ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5};
+function landingChartRows(){
+  const c=LANDING_CHART,rows=[];
+  c.dates.forEach((date,week)=>{
+    for(let set=1;set<=c.sets;set++)rows.push({session:`${date}_landing`,date,exerciseId:c.exerciseId,set,
+      load:c.ladder[week],reps:Math.max(c.min,c.reps[week]-(set-1)),
+      rir:Math.max(0,c.rir[week]-(set-1)),created:`${date}T18:${10+set}:00.000Z`})});
+  return rows}
+/** The proof's screens (dark only, EN and PT) and where the lens reads on each:
+ *  [centre x, centre y, width, height] as percentages of the screen. The numbers
+ *  are measured from the live app by tools/capture-landing-proof.mjs. */
+const LANDING_SCENES=["focus","rest","actions","note"];
+const LANDING_SPOTS={
+  focus:{cue:[50,66.92,81.03,2.57],log:[50,89.57,81.03,6.4],last:[56.46,60.06,68.1,7.58]},
+  rest:{dial:[50,54.6,48.72,22.51]},
+  actions:{swap:[50,68.07,91.79,5.97]},
+  note:{text:[50,46.79,91.28,2.94]}};
+/** How the lens reads each element: magnification, shape, padding (px at 390 wide)
+ *  and, for a button read edge to edge, the app's corner radius. */
+const LANDING_READ={
+  cue:{scene:"focus",m:1.95,shape:"pill",pad:10},
+  log:{scene:"focus",m:1.5,shape:"rect",pad:0,r:14},
+  dial:{scene:"rest",m:1.3,shape:"round",pad:6},
+  swap:{scene:"actions",m:1.5,shape:"rect",pad:0,r:14},
+  text:{scene:"note",m:1.4,shape:"pill",pad:8},
+  last:{scene:"focus",m:1.55,shape:"rect",pad:10}};
+/** The import-review capture: its size per language, the counts its screen shows
+ *  (they differ by language: the sample's names classify differently) and the
+ *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
+ *  into assets/brand/landing-proof-spots.json, which test/landing-variants.mjs compares. */
+const LANDING_PASTE_SHOT={dims:{en:[780,1162],pt:[780,1140]},counts:{en:{linked:1,review:3},pt:{linked:0,review:4}},exercise:"pr_bb"};
+const landingLang=()=>I18N?.getLang?.()==="pt"?"pt":"en";
+const landingNum=v=>{const s=fmtPlain(v);return landingLang()==="pt"?s.replace(".",","):s};
+const landingKg=v=>`${landingNum(v)} ${LANDING_UNIT}`;
+const landingExerciseName=id=>{const e=LIBRARY_BY_ID.get(id);return e?(landingLang()==="pt"&&e.namePt)||e.name:""};
+/** "7, 6 and 6" / "7, 6 e 6": the list pattern comes from the language, not from code. */
+function landingList(values){
+  const items=values.map(landingNum);
+  try{return new Intl.ListFormat(landingLang()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(items)}
+  catch{return items.join(", ")}}
+function landingEvaluate(c){
+  const engine=typeof RepForgeProgression!=="undefined"?RepForgeProgression:null;
+  if(!engine)return null;
+  const raw=+DEFAULTS.minJump;
+  const result=engine.evaluateProgression({engineVersion:1,
+    prescription:{schemaVersion:1,strategy:{id:"range",version:1,params:{workingSets:c.sets,repMin:c.repMin,repMax:c.repMax}},modifiers:[]},
+    relation:null,modifiers:[],
+    settings:{minLoadIncrement:Number.isFinite(raw)&&raw>0?raw:2.5,jumpPercent:+DEFAULTS.jumpPct||0,hardRir:+DEFAULTS.hardRir||4},
+    history:[{sessionId:"landing-case",date:"2026-09-01",sets:c.logged.map(([load,reps,rir])=>({load,reps,rir}))}],
+    currentSession:[],
+    context:{weekNumber:1,blockLength:defaultProgramMeta().mesocycleLengthWeeks,blockStart:null}});
+  if(result?.kind!=="recommendation")return null;
+  return{status:result.status,load:result.facts.targetLoad,reps:result.facts.targetReps}}
+/** Strength-trend figures for the chart, from the Progress model. */
+function landingChartFigures(){
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model)return null;
+  const series=Model.buildStrengthEvidence("all-history",LANDING_CHART.exerciseId,landingChartRows(),{started:LANDING_CHART.started});
+  if(!series?.points?.length)return null;
+  return{from:series.points[0].value,to:series.points.at(-1).value,sessions:series.evidenceCount}}
+/** A catalog template as markup: the template is escaped, then each {name} becomes
+ *  escaped text or, for an app control's label, the bold interface term. */
+function landingRich(key,text,terms={}){
+  return esc(t(key)).replace(/\{(\w+)\}/g,(whole,name)=>
+    name in terms?`<b class="firstrun-ui">${esc(terms[name])}</b>`:name in text?esc(text[name]):whole)}
+function landingCue(status,c){
+  const move=status==="advance"?"up":status==="reduce"?"down":"hold";
+  return`${t(`focus.cue.${move}`,{load:landingNum(c.load),unit:LANDING_UNIT})} · ${t("focus.cue.reps",{reps:landingNum(c.reps)})}`}
+function landingSceneAlt(scene,add){
+  const c=LANDING_CASES.add,first=c.logged[0];
+  if(scene==="focus")return t("landing.demo.alt.focus",{exercise:landingExerciseName(c.ex),sets:landingNum(c.sets),
+    min:landingNum(c.repMin),max:landingNum(c.repMax),load:landingKg(first[0]),reps:landingNum(first[1]),rir:landingNum(first[2]),
+    now:t("focus.cue.now"),cue:add?landingCue(add.status,add):"",action:t("today.log_set")});
+  if(scene==="actions")return t("landing.demo.alt.actions",{action:t("ex.actions.substitute")});
+  return scene==="rest"?t("landing.demo.alt.rest"):t("landing.demo.alt.note")}
+/** The read of one step as a crop: the spot grown by the lens padding (a share of
+ *  a 390 by 844 screen), as the five numbers the static card's CSS needs. */
+function landingCropBox(scene,reads){
+  const name=reads[reads.length-1],spot=LANDING_SPOTS[scene]?.[name],read=LANDING_READ[name];
+  if(!spot||!read)return null;
+  const padW=2*read.pad/390*100,padH=2*read.pad/844*100;
+  return{x:spot[0],y:spot[1],w:Math.min(100,spot[2]+padW),h:Math.min(100,spot[3]+padH)}}
+function renderLandingProof(add){
+  const root=$("#firstRun");if(!root)return;
+  const lang=landingLang();
+  const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
+  const text=(key,value)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.textContent=value};
+  const c=LANDING_CASES.add,first=c.logged[0];
+  text("s2",t("landing.demo.s2.text",{now:t("focus.cue.now")}));
+  text("s3",t("landing.demo.s3.title",{action:t("today.log_set")}));
+  fill("s5",landingRich("landing.demo.s5.text",{},{action:t("ex.actions.substitute")}));
+  if(add){
+    text("s7.value",t("landing.outcomes.target",{load:landingKg(add.load),reps:landingNum(add.reps)}));
+    text("s7.sets",t("landing.demo.s7.sets",{sets:landingNum(c.sets)}));
+    text("s7",t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
+      min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps),now:t("focus.cue.now")}))}
+  const seen=new Set();
+  root.querySelectorAll("[data-landing-step]").forEach(step=>{
+    const scene=step.dataset.scene,reads=(step.dataset.read||"").split(" ").filter(Boolean);
+    const crop=step.querySelector(".firstrun-step__crop"),img=step.querySelector("[data-landing-crop]");
+    if(img){
+      img.src=`assets/brand/wt-${scene}-${lang}-dark.webp`;
+      img.alt=seen.has(scene)?"":landingSceneAlt(scene,add)}
+    seen.add(scene);
+    const box=reads.length?landingCropBox(scene,reads):null;
+    if(crop){
+      for(const [name,value] of [["sx",box?.x],["sy",box?.y],["sw",box?.w],["sh",box?.h]]){
+        if(value==null)crop.style.removeProperty(`--firstrun-${name}`);
+        else crop.style.setProperty(`--firstrun-${name}`,String(Math.round(value*100)/100))}}});
+}
+function renderLandingOutcomes(results){
+  const root=$("#firstRun");if(!root)return;
+  for(const [id,c] of Object.entries(LANDING_CASES)){
+    const node=root.querySelector(`[data-landing-outcome="${id}"]`),got=results[id];
+    if(!node||!got)continue;
+    const reps=c.logged.map(set=>set[1]),same=reps.every(r=>r===reps[0]);
+    const did=same
+      ?t("landing.outcomes.did_same",{reps:landingNum(reps[0]),load:landingKg(c.logged[0][0]),sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax)})
+      :t("landing.outcomes.did_mixed",{list:landingList(reps),load:landingKg(c.logged[0][0]),min:landingNum(c.repMin),max:landingNum(c.repMax)});
+    const rule=id==="add"?t("rec.add.text"):id==="hold"?t("rec.hold_add_reps.text"):t("rec.reduce.text",{min:landingNum(c.repMin)});
+    node.querySelector("[data-landing-next]").textContent=t("landing.outcomes.target",{load:landingKg(got.load),reps:landingNum(got.reps)});
+    node.querySelector("[data-landing-exercise]").textContent=landingExerciseName(c.ex);
+    node.querySelector("[data-landing-explain]").textContent=`${did} ${rule}`}}
+function renderLandingChart(){
+  const root=$("#firstRun");if(!root)return;
+  const figure=root.querySelector("[data-landing-chart]"),fig=landingChartFigures();
+  if(!figure||!fig)return;
+  const vars={exercise:landingExerciseName(LANDING_CHART.libraryId),from:landingNum(fig.from),to:landingKg(fig.to),sessions:landingNum(fig.sessions)};
+  const img=figure.querySelector("img");if(img)img.alt=t("landing.chart.alt",vars);
+  const caption=figure.querySelector("figcaption");if(caption)caption.textContent=t("landing.chart.caption",vars)}
+function renderLandingWays(){
+  const root=$("#firstRun");if(!root)return;
+  const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
+  fill("ways.written",esc(t("landing.ways.written.body",{weeks:landingNum(defaultProgramMeta().mesocycleLengthWeeks)})));
+  fill("ways.where",landingRich("landing.ways.paste.where",{},{track:t("landing.track"),hub:t("entry.hub.title"),
+    own:t("entry.hub.own.title"),paste:t("entry.hub.freeform.title")}));
+  fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
+  fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
+  fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
+  const lang=landingLang(),shot=LANDING_PASTE_SHOT,img=root.querySelector('[data-shot="paste-review"]');
+  if(img){
+    const dims=shot.dims[lang];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);
+    const typed=String(t("landing.ways.paste.message")).split("\n")[1]?.replace(/\s+\d+x[\d-]+\s*$/,"")||"";
+    img.alt=t("landing.ways.paste.alt",{screen:t("import.heading"),linked:landingNum(shot.counts[lang].linked),review:landingNum(shot.counts[lang].review),
+      typed,exercise:landingExerciseName(shot.exercise),status:t("import.status.probable")})}}
+/** Everything on the landing that is a number or is built from one. */
+function renderLandingContent(){
+  const results={};
+  for(const [id,c] of Object.entries(LANDING_CASES)){const got=landingEvaluate(c);if(got)results[id]=got}
+  renderLandingProof(results.add||null);
+  renderLandingOutcomes(results);
+  renderLandingChart();
+  renderLandingWays()}
+
+/* The proof controller. One object per open landing: it adds the pinned stage
+   (phone, lens, rail) only when motion is welcome and the screen can hold it,
+   keeps the persistent Build control in step with the hero action, and wires the
+   two in-page controls. Everything it starts is recorded and removed by
+   dispose(), which suspendFirstRun runs, so no listener, observer, timer or frame
+   outlives the gate and the static cards remain once it is gone. */
+let landingController=null;
+function createLandingController(root){
+  const reg={offs:[],obs:[],timers:new Set(),frames:new Set(),nodes:[]};
+  const clamp=(x,lo,hi)=>x<lo?lo:x>hi?hi:x;
+  const on=(target,type,fn,opts)=>{target.addEventListener(type,fn,opts);reg.offs.push(()=>target.removeEventListener(type,fn,opts))};
+  const later=(fn,ms)=>{const id=setTimeout(()=>{reg.timers.delete(id);fn()},ms);reg.timers.add(id);return id};
+  const motionQuery=window.matchMedia?.("(prefers-reduced-motion: reduce)")||null;
+  const reduced=()=>window.RepForgeMotion?.reducedMotion?.()??!!motionQuery?.matches;
+  const track=root.querySelector("#firstRunProofTrack"),stage=root.querySelector("#firstRunProofStage"),list=root.querySelector("#firstRunProofSteps");
+  const steps=[...root.querySelectorAll("[data-landing-step]")];
+  const ticks=new Set();
+  let pin=null,pinOffs=[],tickPending=false,seq=null;
+  const requestTick=()=>{
+    if(tickPending)return;tickPending=true;
+    const id=requestAnimationFrame(()=>{reg.frames.delete(id);tickPending=false;ticks.forEach(fn=>fn())});
+    reg.frames.add(id)};
+  /* ---- pinned stage ---- */
+  const shouldPin=()=>{
+    if(!track||!stage||!list||!steps.length||reduced())return false;
+    const font=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
+    return root.clientHeight>=600&&font<=20};
+  function unpin(){
+    if(!pin)return;
+    if(seq){clearTimeout(seq);reg.timers.delete(seq);seq=null}
+    ticks.delete(pin.tick);
+    pinOffs.forEach(off=>off());pinOffs=[];
+    pin.nodes.forEach(node=>node.remove());
+    track.classList.remove("is-pinned","is-ready");track.style.removeProperty("--firstrun-steps");
+    steps.forEach(step=>{step.classList.remove("is-current");step.removeAttribute("aria-current")});
+    pin=null}
+  function lensTo(name){
+    const read=LANDING_READ[name],spot=LANDING_SPOTS[read.scene][name];
+    const img=pin.imgs[read.scene],phone=pin.phone,glass=pin.glass,lens=pin.lens;
+    const pw=phone.clientWidth,gw=glass.clientWidth,gh=glass.clientHeight,gx=glass.offsetLeft,gy=glass.offsetTop;
+    if(!pw||!gw||!gh)return;
+    const tw=spot[2]/100*gw,th=spot[3]/100*gh;
+    const m=Math.min(read.m,(pw-16-2*read.pad)/tw);
+    let lw=tw*m+2*read.pad,lh=th*m+2*read.pad;
+    if(read.shape==="round")lw=lh=Math.max(lw,lh);
+    const cx=clamp(gx+spot[0]/100*gw,lw/2+8,pw-lw/2-8),cy=gy+spot[1]/100*gh;
+    lens.style.setProperty("--firstrun-lens-w",`${lw}px`);lens.style.setProperty("--firstrun-lens-h",`${lh}px`);
+    lens.style.setProperty("--firstrun-lens-radius",read.shape==="round"?"50%":read.shape==="pill"?`${Math.min(lh/2,22)}px`:`${read.r?read.r*gw/390*m:14}px`);
+    lens.style.left=`${cx}px`;lens.style.top=`${cy}px`;
+    lens.style.backgroundImage=`url("${img.currentSrc||img.src}")`;
+    lens.style.backgroundSize=`${gw*m}px ${gh*m}px`;
+    lens.style.backgroundPosition=`${lw/2-spot[0]/100*gw*m}px ${lh/2-spot[1]/100*gh*m}px`;
+    lens.dataset.read=name;lens.classList.add("is-on")}
+  function frame(index){
+    const step=steps[index],reads=(step.dataset.read||"").split(" ").filter(Boolean);
+    LANDING_SCENES.forEach(scene=>{
+      const shown=scene===step.dataset.scene;
+      pin.imgs[scene].classList.toggle("is-on",shown);
+      pin.imgs[scene].setAttribute("aria-hidden",shown?"false":"true")});
+    if(seq){clearTimeout(seq);reg.timers.delete(seq);seq=null}
+    pin.phone.classList.toggle("is-reading",reads.length>0);
+    if(!reads.length){pin.lens.classList.remove("is-on");delete pin.lens.dataset.read;return}
+    lensTo(reads[0]);
+    if(reads.length>1)seq=later(()=>{seq=null;if(pin)lensTo(reads[reads.length-1])},1500)}
+  function setStep(index,force){
+    if(!pin||(index===pin.current&&!force))return;
+    pin.current=index;
+    steps.forEach((step,j)=>{
+      step.classList.toggle("is-current",j===index);
+      if(j===index)step.setAttribute("aria-current","step");else step.removeAttribute("aria-current")});
+    pin.rail.forEach((button,j)=>{
+      button.classList.toggle("is-done",j<index);
+      if(j===index)button.setAttribute("aria-current","step");else button.removeAttribute("aria-current")});
+    frame(index)}
+  function pinStage(){
+    if(pin)return;
+    const lang=landingLang();
+    const loaded=()=>{if(pin)setStep(pin.current,true)};
+    const element=(tag,cls,attrs={})=>{const node=document.createElement(tag);if(cls)node.className=cls;for(const [k,v] of Object.entries(attrs))node.setAttribute(k,v);return node};
+    const phone=element("div","firstrun-proof__phone"),glass=element("div","firstrun-proof__glass");
+    const screen=element("div","firstrun-proof__screen"),imgs={};
+    LANDING_SCENES.forEach(scene=>{
+      const source=steps.map(step=>step.querySelector("[data-landing-crop]")).find(node=>node?.src.includes(`wt-${scene}-`));
+      const img=element("img","",{width:"780",height:"1688",decoding:"async",loading:"lazy",
+        src:`assets/brand/wt-${scene}-${lang}-dark.webp`,alt:source?.alt||""});
+      imgs[scene]=img;screen.append(img);
+      img.addEventListener("load",loaded);pinOffs.push(()=>img.removeEventListener("load",loaded))});
+    glass.append(screen);
+    const lens=element("span","firstrun-proof__lens",{"aria-hidden":"true"});
+    phone.append(glass,lens);
+    const railNav=element("div","firstrun-proof__rail",{role:"group","aria-label":t("landing.demo.steps_aria")});
+    const rail=steps.map((step,j)=>{
+      const button=element("button","",{type:"button","data-go":String(j),
+        "aria-label":t("landing.demo.step_aria",{n:landingNum(j+1),total:landingNum(steps.length)})});
+      const go=()=>{
+        const span=track.offsetHeight-stage.offsetHeight;
+        const top=track.getBoundingClientRect().top-root.getBoundingClientRect().top+root.scrollTop+span*(j+.5)/steps.length;
+        root.scrollTo({top,behavior:reduced()?"auto":"smooth"})};
+      button.addEventListener("click",go);pinOffs.push(()=>button.removeEventListener("click",go));
+      railNav.append(button);return button});
+    stage.insertBefore(phone,list);stage.insertBefore(railNav,list);
+    track.classList.add("is-pinned");track.style.setProperty("--firstrun-steps",String(steps.length));
+    const tick=()=>{
+      if(!pin)return;
+      const span=track.offsetHeight-stage.offsetHeight;if(span<=0)return;
+      if(!shouldPin()){layout();return}
+      const progress=clamp((root.getBoundingClientRect().top-track.getBoundingClientRect().top)/span,0,1);
+      setStep(Math.min(steps.length-1,Math.floor(progress*steps.length*.999+.0001)))};
+    pin={phone,glass,lens,imgs,rail,nodes:[phone,railNav],current:-1,tick};
+    ticks.add(tick);
+    setStep(0);
+    /* the steps fade only once the first state is painted, so none flashes on entry */
+    const id=requestAnimationFrame(()=>{reg.frames.delete(id);if(pin)track.classList.add("is-ready")});
+    reg.frames.add(id)}
+  function layout(){
+    if(shouldPin()){if(pin)setStep(pin.current,true);else pinStage()}else unpin();
+    requestTick()}
+  /* ---- the persistent Build control ---- */
+  function mountDock(){
+    const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
+    if(!dock||!hero||!close||sharedSetupReady()||typeof IntersectionObserver==="undefined")return;
+    let gone=false,closing=false;
+    const paint=()=>dock.classList.toggle("is-on",gone&&!closing);
+    const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
+    watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
+    watch(close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
+    /* the first painted ground beneath the control's resting place decides its ink */
+    const luminance=(x,y)=>{
+      for(const hit of document.elementsFromPoint(x,y)){
+        if(dock.contains(hit))continue;
+        for(let node=hit;node&&node!==document.documentElement;node=node.parentElement){
+          const m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(getComputedStyle(node).backgroundColor);
+          if(m&&(m[4]===undefined||+m[4]>.5))return(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}
+      return 1};
+    ticks.add(()=>{
+      const box=dock.getBoundingClientRect();
+      const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
+      dock.dataset.ground=luminance(window.innerWidth/2,y)<.4?"dark":"light"});
+    reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground})}
+  /* ---- in-page controls ---- */
+  function mountControls(){
+    const hand=root.querySelector("#firstRunHandBtn"),body=root.querySelector("#firstRunHand");
+    if(hand&&body){
+      on(hand,"click",()=>{const open=hand.getAttribute("aria-expanded")!=="true";hand.setAttribute("aria-expanded",String(open));body.hidden=!open});
+      reg.nodes.push(()=>{hand.setAttribute("aria-expanded","false");body.hidden=true})}
+    const link=root.querySelector("#firstRunFooterPrivacy"),data=root.querySelector("#firstRunData");
+    if(link&&data)on(link,"click",event=>{
+      event.preventDefault();
+      data.scrollIntoView({block:"start",behavior:reduced()?"auto":"smooth"});
+      try{data.focus({preventScroll:true})}catch{}})}
+  /* ---- lifecycle ---- */
+  function mount(){
+    mountControls();mountDock();
+    on(root,"scroll",requestTick,{passive:true});
+    on(window,"resize",layout);
+    if(motionQuery?.addEventListener)on(motionQuery,"change",layout);
+    layout()}
+  function dispose(){
+    unpin();
+    reg.offs.forEach(off=>off());reg.offs.length=0;
+    reg.obs.forEach(io=>io.disconnect());reg.obs.length=0;
+    reg.timers.forEach(clearTimeout);reg.timers.clear();
+    reg.frames.forEach(cancelAnimationFrame);reg.frames.clear();
+    reg.nodes.forEach(fn=>fn());reg.nodes.length=0;
+    ticks.clear();tickPending=false}
+  const live=()=>({listeners:reg.offs.length+pinOffs.length,observers:reg.obs.length,timers:reg.timers.size,frames:reg.frames.size,
+    pinned:!!pin,step:pin?pin.current:null,ticks:ticks.size});
+  return{mount,dispose,live}}
+function mountLandingController(){
+  disposeLandingController();
+  const root=$("#firstRun");if(!root)return;
+  landingController=createLandingController(root);
+  landingController.mount()}
+function disposeLandingController(){
+  if(!landingController)return;
+  landingController.dispose();landingController=null}
+/** Test hook: what the open landing's controller is holding (nothing once closed). */
+window.__repforgeLandingProof=()=>landingController?{open:true,...landingController.live()}:{open:false,listeners:0,observers:0,timers:0,frames:0,pinned:false,step:null,ticks:0};
+/** Real-app captures that follow the chosen appearance: swap the file on
+ *  <html data-theme>, never on prefers-color-scheme, so the page and the app agree. */
 function renderLandingDevice(){
   const lang=I18N?.getLang?.()==="pt"?"pt":"en";
   const theme=document.documentElement.dataset.theme==="dark"?"dark":"light";
@@ -15462,6 +15811,7 @@ function renderLandingDevice(){
 function renderFirstRun(){
   renderFirstRunProgramMode();
   renderLandingDevice();
+  renderLandingContent();
   const decision=installPolicyDecision(),mode=installMode();
   setFirstRunOffer(decision.eligible||mode==="safari"&&decision.state==="unsupported");
   const label=$("#firstRunContinueLabel");
@@ -15480,9 +15830,11 @@ function openFirstRun(kind=currentEntryLanding()){
   el.classList.remove("hidden");
   document.body.classList.add("is-firstrun");
   window.scrollTo({top:0});
+  el.scrollTop=0;
   // The screen itself takes focus, not its first choice: a ring drawn around
   // Create before the lifter has touched anything reads as a recommendation.
   try{el.focus({preventScroll:true})}catch{}
+  mountLandingController();
   // No guide is presented here. This screen's whole job is the proposition,
   // and every cue that could anchor to it explains a control the screen has
   // already named: the two entry actions carry their own labels, the install
@@ -15494,9 +15846,16 @@ function openFirstRun(kind=currentEntryLanding()){
   // purpose is not self-evident and where replay reaches them.
   if(kind==="generic"&&uiPrefs.entryLandingSeen!==true)setUiPref("entryLandingSeen",true);
   return true}
+/** The landing's tab stops: the modal set plus the questions' <summary> controls. */
+function firstRunFocusables(root){
+  const sel='a[href],button:not([disabled]),summary,input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  return [...root.querySelectorAll(sel)].filter(el=>{
+    if(el.hasAttribute("hidden")||el.closest("[hidden]"))return false;
+    const st=getComputedStyle(el);
+    return st.display!=="none"&&st.visibility!=="hidden"&&el.getClientRects().length>0})}
 function trapFirstRunTab(event){
   if(event.key!=="Tab"||!firstRunOpen())return;
-  const root=$("#firstRun"),focusable=modalFocusables(root);
+  const root=$("#firstRun"),focusable=firstRunFocusables(root);
   if(!focusable.length){event.preventDefault();root?.focus();return}
   const current=focusable.indexOf(document.activeElement);
   if(event.shiftKey&&(current<=0)){
@@ -15507,6 +15866,7 @@ function trapFirstRunTab(event){
  *  shell underneath, so it needs the overlay out of the way while it decides. */
 function suspendFirstRun(){
   const el=$("#firstRun");if(!el)return;
+  disposeLandingController();
   el.classList.add("hidden");document.body.classList.remove("is-firstrun")}
 function closeFirstRun(){
   firstRunActive=false;installPresentedDecision=null;suspendFirstRun()}
@@ -15871,6 +16231,7 @@ function init(){
   const openFirstRunCreate=()=>{closeFirstRun();startOnboarding("first-run")};
   $("#firstRunCreate").onclick=openFirstRunCreate;
   $("#firstRunCreateClose").onclick=openFirstRunCreate;
+  $("#firstRunCreateDock").onclick=openFirstRunCreate;
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
   // Copy and paste is the primary BYOP door, with the file door one tap away.
