@@ -374,24 +374,29 @@
       "scenario": "Manual: one sentence; the program sets the load and the engine does not change it."
     },
     "session/summary": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The summary shown after Save workout."
+      "scenario": "The Direction D lifter's Day 1: maintained, improved and declined words, records in green, and each lift ending on its next target."
     },
     "session/summary-maintained": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The finished session reports maintained performance alongside its next-step context."
+      "scenario": "A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and a record."
     },
     "session/summary-declined": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The finished session reports declined performance without turning the result into a prescription."
+      "scenario": "A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription."
+    },
+    "session/summary-first": {
+      "owner": "plan-064/r3h",
+      "content": "flat",
+      "scenario": "Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine."
     },
     "session/summary-mixed": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The finished session keeps maintained and declined lift outcomes distinct in one summary."
+      "scenario": "The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records."
     },
     "progress/overview": {
       "owner": "plan-056",
@@ -4913,7 +4918,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -4936,7 +4942,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ],
       "progressScopes": {
         "completed-session-week": "week"
@@ -4960,7 +4967,8 @@
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -5245,7 +5253,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -5269,7 +5278,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -7054,7 +7064,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -7460,7 +7471,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; R3h (session summary) adds its states when it renders it. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; the session summary (R3h) renders it for each lift's outcome word, its record line and the next target. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
       "owner": "plan-064/r1a",
       "catalogStates": [
         "onboarding-shared/gate",
@@ -7482,6 +7493,11 @@
         "workout/why-this-weight",
         "workout/why-in-session",
         "workout/why-anchor",
+        "session/summary",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-mixed",
+        "session/summary-first",
         "history/session"
       ]
     },
@@ -8401,6 +8417,32 @@
         "workout/why-rep-goal",
         "workout/why-anchor"
       ]
+    },
+    {
+      "id": "summuscles",
+      "selector": "#sumMuscles",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Expands or collapses information; expanded state is separate from navigation. It lists the muscles beyond the top six.",
+      "owner": "plan-064/r3h",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-mixed",
+        "session/summary-first"
+      ]
     }
   ],
   "contextualVariants": [
@@ -8636,7 +8678,8 @@
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -8680,7 +8723,8 @@
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {

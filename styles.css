@@ -2732,127 +2732,91 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sumsheet.hidden{display:none!important}
 .sumsheet__body{width:min(100%,var(--maxw));margin:0 auto}
 
-/* The strike: the same mark a finished exercise draws, at the size the end of
-   a whole session deserves, under a ring that opens once and goes. */
-.sum-crest{display:flex;justify-content:center}
-.sum-crest__mark{
-  position:relative;width:64px;height:64px;border-radius:var(--radius-round);border:2px solid var(--color-action);
-}
-.sum-crest__mark::after{
-  content:"";position:absolute;inset:0;background:var(--color-action);
-  -webkit-mask:var(--check) no-repeat center/30px;mask:var(--check) no-repeat center/30px;
-}
-.sumsheet.is-played .sum-crest__mark{animation:sum-strike .5s cubic-bezier(.2,1.25,.4,1) both}
-.sumsheet.is-played .sum-crest__mark::before{
-  content:"";position:absolute;inset:-6px;border-radius:var(--radius-round);border:2px solid var(--color-action);
-  animation:sum-ring .8s .1s cubic-bezier(.2,.7,.2,1) both;
-}
-@keyframes sum-strike{
-  0%{opacity:0;transform:scale(.5)}
-  55%{opacity:1;transform:scale(1.12)}
-  100%{opacity:1;transform:scale(1)}
-}
-@keyframes sum-ring{from{opacity:.55;transform:scale(1)}to{opacity:0;transform:scale(1.7)}}
 /* Each block carries its own index, so the stagger follows the reading order
    however many blocks this particular session earned. */
-.sumsheet.is-played .sumsheet__body>*:not(.sum-crest){
+.sumsheet.is-played .sumsheet__body>*{
   animation:sum-settle .4s cubic-bezier(.2,.7,.2,1) both;
   animation-delay:calc(var(--i,0) * 55ms);
 }
 @keyframes sum-settle{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
+/* The report is a ledger (Direction D, spec 4.4): flat groups on hairlines, outcome
+   words in ink, green only for a record, and no mark celebrating the save. */
 .sum-eyebrow{
-  margin-top:16px;text-align:center;font-family:var(--font-language);font-size:var(--font-size-label);
-  font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.14em;
-  text-transform:uppercase;color:var(--color-action-text);
+  margin-top:var(--space-16);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
 /* The heading takes focus so a screen reader is read the session before the
    controls, not because it is one. A ring here would draw a box around a title
    nobody can act on, so it stays off — every actual control keeps its own. */
-.sum-hero{margin-top:6px;text-align:center;font-family:var(--font-language);font-size:var(--font-size-summary-hero);font-weight:var(--weight-semibold);letter-spacing:-.02em;line-height:var(--line-tight);color:var(--color-ink)}
+.sum-hero{margin-top:var(--space-4);text-align:left;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-spacing:-.02em;line-height:var(--line-tight);color:var(--color-ink);text-wrap:balance}
 .sum-hero:focus,.sum-hero:focus-visible{outline:none}
-.sum-sub{margin-top:6px;text-align:center;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.sum-stats{margin-top:22px}
+.sum-sub{margin-top:var(--space-8);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sum-stats{margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
 #sessionSummary .sum-stats{grid-template-columns:repeat(auto-fit,minmax(5rem,1fr))}
-#sessionSummary .sum-stats .statrow__val{font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+#sessionSummary .sum-stats .statrow__cell{padding-inline:var(--space-4) var(--space-8)}
+#sessionSummary .sum-stats .statrow__cell:first-child{padding-left:0}
+#sessionSummary .sum-stats .statrow__cell:not(:first-child){padding-left:var(--space-12)}
+#sessionSummary .sum-stats .statrow__val{font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink);text-align:left}
 #sessionSummary .sum-stats.statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
-#sessionSummary .sum-stats .statrow__cap{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
-#sessionSummary .section-label{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#sessionSummary .section-label--accent{color:var(--color-action-text)}
+#sessionSummary .sum-stats .statrow__cap{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);text-align:left;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
+.sum-sec{margin:var(--space-26) 0 0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 
-/* A record reads as one line: what kind, on what, by how much, at what. */
-.sum-prs{list-style:none;margin:0;padding:0}
-.sum-pr{
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px 11px;
-  padding:12px 0;border-bottom:1px solid var(--boundary-decorative);
-}
-.sum-pr:first-child{border-top:1px solid var(--boundary-decorative)}
-/* A block whose records are all one kind drops the badge, so the row is two
-   columns and the load-by-reps figure keeps the right edge. */
-.sum-prs--onekind .sum-pr{grid-template-columns:minmax(0,1fr) auto}
-.sum-pr__badge{
-  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
-  line-height:var(--line-standard);letter-spacing:.07em;text-transform:uppercase;
-  color:var(--color-action-on-fill);background:var(--accent-deep);border-radius:var(--radius-pill);padding:4px 8px;white-space:nowrap;
-}
-.sum-pr__text{min-width:0}
-/* The lift is the point of the line, so a long name wraps rather than being cut
-   off — an ellipsis on "Chest-supported machine row" hides which lift it was. */
-.sum-pr__name{display:block;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);color:var(--color-ink);line-height:var(--line-tight)}
-.sum-pr__over{display:block;margin-top:2px;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-action-text)}
-.sum-pr__val{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap;align-self:center}
-.sum-more{margin-top:10px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-
-.sum-outcomes{list-style:none;margin:0;padding:0}
-.sum-outcome{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--boundary-decorative)}
-.sum-outcome:first-child{border-top:1px solid var(--boundary-decorative)}
-.sum-outcome__name{min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
-.sum-outcome__state{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-maintained);white-space:nowrap}
-.sum-outcome__glyph{display:inline-block;margin-right:5px;font-family:var(--font-language);font-size:var(--font-size-label);line-height:var(--line-standard)}
-.sum-outcome__state--improved{color:var(--color-improved)}
-.sum-outcome__state--declined{color:var(--color-declined)}
-.sum-muscles__note{margin:-4px 0 8px;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+/* One group per lift: its name and outcome, the sets, a record line, the next target. */
+.sum-grp{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}
+.sum-grp__h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12)}
+.sum-grp__n{min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.sum-grp .sum-outcome,.sum-word{flex:none;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);text-align:right}
+.sum-grp .sum-outcome.verdictmark--maintained{color:var(--color-ink)}
+.sum-grp__sets{margin:var(--space-4) 0 0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.sum-pr{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-8);margin:var(--space-4) 0 0}
+.sum-pr__over{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-improved)}
+.sum-grp__next{display:flex;align-items:center;gap:var(--space-8);margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);font-variant-numeric:tabular-nums}
+.sum-muscles__note{margin:var(--space-8) 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #sessionSummary .sum-muscles .vrow__name{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
 #sessionSummary .sum-muscles .vrow__num{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sum-muscles__more{
+  display:flex;align-items:center;min-height:var(--control-target);margin:var(--space-4) 0 0;padding:0;background:var(--control-disclosure-bg);border:0;cursor:pointer;text-align:left;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-disclosure-ink);
+}
+.sum-muscles__more:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
+.sum-muscles__more:active:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
+.sum-muscles__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.sum-muscles__more:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 
 .sum-baseline{
-  margin-top:24px;padding-left:14px;border-left:2px solid var(--color-action);
+  margin-top:var(--space-18);padding-left:14px;border-left:2px solid var(--boundary-selected-quiet);
   font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary);
 }
-.sum-week{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink)}
-.sum-segbar{margin-top:10px}
+.sum-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);margin-top:var(--space-26)}
+.sum-split__k{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sum-week{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
+.sum-segbar{margin-top:var(--space-8)}
 #sessionSummary .sum-segbar .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
-#sessionSummary .sum-segbar .segbar__seg.is-done{background:var(--color-action)}
-.sum-next{
-  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:26px;padding:14px 0;
-  border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
-}
-.sum-next__lab{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
-.sum-next__day{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-.sum-next__meta{margin-left:auto;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-.sum-secondary{margin-top:26px}
+#sessionSummary .sum-segbar .segbar__seg.is-done{background:var(--color-ink)}
+.sum-next{display:block;margin:0;padding:0;border:0}
+.sum-next__lab{letter-spacing:0;text-transform:none;font-weight:var(--weight-regular)}
+.sum-next__day{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
+.sum-next__meta{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #sumSee{
-  display:flex;align-items:center;justify-content:center;min-height:var(--control-target);width:100%;
+  display:flex;align-items:center;justify-content:center;min-height:54px;flex:1 1 0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 #sumSee:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 #sumSee:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #sumSee:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The way out is never below the fold. A session ends with a lifter holding a
-   phone and breathing hard, and on a session with records, four muscles and a
-   next day the only exit used to be a scroll away — so the action stays put and
-   the report moves under it. Only the action: pinning the secondary link with it
-   would park a two-storey block over the muscle rows it is meant to sit beside. */
+   phone and breathing hard, so both actions stay put and the report moves under them. */
 .sum-actions{
-  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;
-  margin-top:14px;padding:12px 0 var(--sum-pad-b);background:var(--bg);
+  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;gap:var(--space-12);
+  margin-top:var(--space-14);padding:var(--space-12) 0 var(--sum-pad-b);background:var(--bg);
   box-shadow:var(--elevation-persistent-shadow);
 }
 #sumDone{
-  min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  flex:1 1 0;min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
@@ -2863,9 +2827,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 
 @media (prefers-reduced-motion:reduce){
   /* The panel still arrives as a full screen; it just stops moving to do it. */
-  .sumsheet.is-played .sum-crest__mark,
-  .sumsheet.is-played .sumsheet__body>*:not(.sum-crest){animation:none}
-  .sumsheet.is-played .sum-crest__mark::before{content:none}
+  .sumsheet.is-played .sumsheet__body>*{animation:none}
 }
 
 /* The restore-backup and end-block panels: native <dialog> elements sharing the

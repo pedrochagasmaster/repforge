@@ -974,28 +974,35 @@
       "id": "summary",
       "flow": "session",
       "label": "Session summary",
-      "scenario": "The summary shown after Save workout.",
+      "scenario": "The Direction D lifter's Day 1 summary: an outcome word per lift, the sets, records in green and the next target as the strongest line.",
       "variants": "standard"
     },
     {
       "id": "summary-maintained",
       "flow": "session",
       "label": "Session summary — maintained",
-      "scenario": "The finished session reports maintained performance alongside its next-step context.",
+      "scenario": "A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and a record.",
       "variants": "demandingText"
     },
     {
       "id": "summary-declined",
       "flow": "session",
       "label": "Session summary — declined",
-      "scenario": "The finished session reports declined performance without turning the result into a prescription.",
+      "scenario": "A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription.",
       "variants": "demandingText"
     },
     {
       "id": "summary-mixed",
       "flow": "session",
-      "label": "Session summary — mixed outcomes",
-      "scenario": "The finished session keeps maintained and declined lift outcomes distinct in one summary.",
+      "label": "Session summary — mixed strategies",
+      "scenario": "The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-first",
+      "flow": "session",
+      "label": "Session summary — first session",
+      "scenario": "Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine.",
       "variants": "demandingText"
     },
     {

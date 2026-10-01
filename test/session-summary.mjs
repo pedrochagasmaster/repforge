@@ -197,20 +197,12 @@ const readSummary = (page) =>
       sub: body.querySelector(".sum-sub")?.textContent.trim() || "",
       statCaps: txt(".sum-stats .statrow__cap"),
       statVals: txt(".sum-stats .statrow__val"),
-      prBadges: txt(".sum-pr__badge"),
-      prNames: txt(".sum-pr__name"),
+      // Direction D (spec 4.4): a record is one line inside the group of the lift that set it.
+      prMarks: body.querySelectorAll(".sum-pr .verdictmark--record").length,
+      prNames: [...body.querySelectorAll(".sum-grp")].filter((g) => g.querySelector(".sum-pr")).map((g) => g.querySelector(".sum-grp__n").textContent.trim()),
       prOver: txt(".sum-pr__over"),
-      prVals: txt(".sum-pr__val"),
-      prOneKind: !!body.querySelector(".sum-prs--onekind"),
-      // With the badge column gone the figure has to keep the right edge rather
-      // than drift into the space the badge used to hold.
-      prValGap: (() => {
-        const list = body.querySelector(".sum-prs");
-        const val = body.querySelector(".sum-pr__val");
-        if (!list || !val) return null;
-        return Math.round(list.getBoundingClientRect().right - val.getBoundingClientRect().right);
-      })(),
-      more: body.querySelector(".sum-more")?.textContent.trim() || "",
+      prSets: [...body.querySelectorAll(".sum-grp")].filter((g) => g.querySelector(".sum-pr")).map((g) => g.querySelector(".sum-grp__sets").textContent.trim()),
+      overflowLine: !!body.querySelector(".sum-more"),
       chips: txt(".sum-chip"),
       outcomeRoles: [...body.querySelectorAll(".sum-outcome")].map((row) => ({
         exerciseId: row.dataset.exerciseId,
@@ -314,18 +306,18 @@ async function run() {
   assert(s.statVals[1] === "1,968" && /kg moved/.test(s.statCaps[1]), "volume is the load actually moved", JSON.stringify([s.statVals[1], s.statCaps[1]]));
   assert(s.statVals[2] === "3" && /^lifts$/.test(s.statCaps[2]), "the third figure counts lifts, not sets again", JSON.stringify(s.statVals));
 
-  assert(s.prBadges.length === 2, "only the lifts that set a record get a line", JSON.stringify(s.prBadges));
-  assert(s.prBadges[0] === "Load" && s.prNames[0] === "Bench press", "a load record outranks a reps record", JSON.stringify([s.prBadges, s.prNames]));
+  assert(s.prMarks === 2 && s.prNames.length === 2, "only the lifts that set a record get a line", JSON.stringify([s.prMarks, s.prNames]));
+  assert(s.prNames[0] === "Bench press", "a load record sits in its lift's group", JSON.stringify(s.prNames));
   assert(/\+2\.5 kg over your best/.test(s.prOver[0]), "a load record says how much heavier", s.prOver[0]);
-  assert(s.prVals[0] === "62.5 kg × 8", "the record line carries the set that set it", s.prVals[0]);
-  assert(s.prBadges[1] === "Reps" && s.prNames[1] === "Barbell row", "holding the load and adding reps is a reps record", JSON.stringify([s.prBadges, s.prNames]));
+  assert(s.prSets[0].startsWith("62.5 kg × 8"), "the group above the record carries the set that set it", s.prSets[0]);
+  assert(s.prNames[1] === "Barbell row", "holding the load and adding reps is a reps record", JSON.stringify(s.prNames));
   assert(/\+2 reps at that load/.test(s.prOver[1]), "a reps record says how many more reps", s.prOver[1]);
   assert(
     !s.prNames.includes("Dumbbell curl"),
     "repeating last session's numbers sets no record",
     JSON.stringify(s.prNames)
   );
-  assert(!s.more, "three records or fewer need no overflow line", s.more);
+  assert(!s.overflowLine, "every record is shown on its own lift, so there is no 'and N more' line");
 
   assert(s.outcomeRoles.filter((row) => row.outcome === "improved").length === 2,
     "canonical lift outcomes are on the screen", JSON.stringify(s.outcomeRoles));
@@ -344,6 +336,28 @@ async function run() {
   assert(s.weekSegs === 2 && s.weekDone === 1, "the week bar fills the session just logged", JSON.stringify({ segs: s.weekSegs, done: s.weekDone }));
   assert(s.next === "Day 2", "the next training day is named", s.next);
   assert(!s.pageScrollsX, "the summary never scrolls the page sideways");
+
+  // Direction D (spec 4.4): no mark celebrates the save, and each lift ends on the engine's next target.
+  const ledger = await page.evaluate(() => {
+    const body = document.querySelector("#sessionSummaryBody");
+    const P = window.__repforgeProgression;
+    return {
+      crest: !!body.querySelector(".sum-crest"),
+      groups: body.querySelectorAll(".sum-grp").length,
+      words: [...body.querySelectorAll(".sum-outcome")].map((w) => ({ id: w.dataset.parityOutcome, session: w.dataset.paritySession })),
+      targets: [...body.querySelectorAll(".sum-grp__next[data-parity-target]")].map((n) => ({
+        text: n.textContent.trim(), id: n.dataset.parityTarget, load: P.recommendation(P.programSlot(n.dataset.parityTarget)).load,
+      })),
+      actions: [...body.querySelectorAll(".sum-actions button")].map((b) => b.id),
+    };
+  });
+  assert(!ledger.crest, "no check mark celebrates the save", JSON.stringify(ledger));
+  assert(ledger.groups === 3 && ledger.targets.length === 3, "each of the three lifts is a group ending on a next target", JSON.stringify(ledger));
+  assert(ledger.targets.every((n) => n.load != null && n.text.includes(String(n.load))),
+    "every next target is the engine's recommendation() load for that lift", JSON.stringify(ledger.targets));
+  assert(ledger.words.length === 3 && ledger.words.every((w) => w.id && w.session),
+    "outcome words carry the parity markers the Direction D gate reads", JSON.stringify(ledger.words));
+  assert(ledger.actions.join(",") === "sumSee,sumDone", "both actions sit in one pinned bar", JSON.stringify(ledger.actions));
 
   // ---- 2 — the dialog holds the app -------------------------------------------
   phase("The screen behaves like the dialog it is");
@@ -404,7 +418,7 @@ async function run() {
   s = await readSummary(page);
   await page.waitForFunction((k) => +sessionStorage.getItem(k) >= 1, PERSIST_CALLS, { timeout: 3000 }).catch(() => {});
   assert((await persistCalls(page)) === 1, "the first completed session asks for persistent storage once", String(await persistCalls(page)));
-  assert(!s.prBadges.length, "a lift with no history sets no personal record", JSON.stringify(s.prBadges));
+  assert(!s.prMarks, "a lift with no history sets no personal record", JSON.stringify(s.prNames));
   assert(
     /first session/i.test(s.baseline) && /compare/i.test(s.baseline),
     "the screen says what a first session is instead",
@@ -443,7 +457,7 @@ async function run() {
   assert(hist.summaryHidden, "the summary closes on its way out", JSON.stringify(hist));
 
   // ---- 6 — a block of one kind drops the badge ---------------------------------
-  phase("A badge that reads the same on every line is not drawn");
+  phase("Every lift's record sits on its own lift");
   await seed(
     page,
     fixture({
@@ -462,14 +476,12 @@ async function run() {
   await finish(page);
   s = await readSummary(page);
   assert(s.prNames.length === 3, "all three lifts set a record", JSON.stringify(s.prNames));
-  assert(!s.prBadges.length, "one kind of record across the block draws no badge", JSON.stringify(s.prBadges));
-  assert(s.prOneKind, "the list says so, so the row can drop the badge column");
+  assert(s.prMarks === 3, "each record carries the record mark", String(s.prMarks));
   assert(
     s.prOver.every((o) => /over your best/.test(o)),
     "the sentence under each name still says what kind of record it is",
     JSON.stringify(s.prOver)
   );
-  assert(s.prValGap === 0, "the figure keeps the right edge without the badge", String(s.prValGap));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 

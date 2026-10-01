@@ -2574,7 +2574,7 @@ async function main() {
   await fillExerciseSets(page, prMeta[0].id, prMeta[0].sets, 150, 6, 2);
   const prSummary = (await saveWorkout(page, { earlyFinish: true })) || "";
   assert(
-    /PERSONAL RECORDS/i.test(prSummary) && /150 kg × 6/.test(prSummary) && !/250 kg/.test(prSummary),
+    /\bPR\b/.test(prSummary) && /over your best/.test(prSummary) && /150 kg × 6/.test(prSummary) && !/250 kg/.test(prSummary),
     "Session summary announces a per-exercise top-load PR (not global max)",
     `Summary: ${JSON.stringify(prSummary)}`,
     "Log another exercise at 250 kg, then PR the first exercise at 150 kg → Save"
@@ -7865,7 +7865,7 @@ async function main() {
     "Seed 100×8 → save 100×10 → summary mentions improved"
   );
   assert(
-    /OUTCOME BY LIFT\s+Hack squat\s+(?:[▲▼■]\s*)?Improved/i.test(deltaSummary) &&
+    /OUTCOME AND NEXT TARGET\s+Hack squat\s+Improved/i.test(deltaSummary) &&
       !/\b\d+\s+improved\b/i.test(deltaSummary),
     "Session summary uses canonical outcome rows without a second delta count",
     `Summary: ${JSON.stringify(deltaSummary)}`,

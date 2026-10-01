@@ -146,7 +146,7 @@ async function assertTodayExerciseFitsExternalTextScale(page) {
       if (!row || !dock) throw new Error("Today external-scale proof is missing the exercise row or dock");
       const rowBottom = row.getBoundingClientRect().bottom;
       const dockTop = dock.getBoundingClientRect().top;
-      window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
+      window.scrollTo({ top: window.scrollY + Math.max(0, Math.ceil(rowBottom - dockTop + 8)), behavior: "instant" });
     });
     await page.evaluate(() => new Promise(requestAnimationFrame));
     const clearance = await page.evaluate(() => {
@@ -277,11 +277,32 @@ function directionDBeforeSession() {
   return state;
 }
 
+/**
+ * The Direction D summary states each show one session of the fixture lifter. The log is cut at that
+ * session's date, so the summary reads the evidence the lifter had when it was saved, and the scenario
+ * opens the summary through the same build/open seam the finish path uses.
+ */
+export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
+  "session/summary": "dd-2026-08-31-day1",
+  "session/summary-maintained": "dd-2026-08-26-day2",
+  "session/summary-declined": "dd-2026-08-28-day3",
+  "session/summary-mixed": "dd-2026-08-26-day2-mixed",
+  "session/summary-first": "dd-2026-08-12-day2-mixed",
+});
+function directionDThroughSession(sessionId) {
+  const state = directionDState();
+  const date = state.log.find((row) => row.session === sessionId)?.date;
+  if (!date) throw new Error(`The Direction D fixture has no session ${sessionId}`);
+  state.log = state.log.filter((row) => String(row.date) <= date);
+  return state;
+}
+
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
+  if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
     return emptyEntryState(lang);
@@ -290,36 +311,6 @@ export function appState(key, lang) {
   // the review page draws. Every other state keeps catalogState().
   if (D_FIXTURE_STATES.has(key)) return localeState(directionDState(), lang);
   const state = catalogState();
-  if (key.startsWith("session/summary-")) {
-    const dayExercises = state.program.filter((exercise) => exercise.day === "Day 1");
-    const loads = dayExercises.map((_, index) => 80 + index * 5);
-    // Declined means the same load for fewer total reps (CONTEXT.md "Session
-    // outcome"): a lower load never reads declined. The mixed fixture logs
-    // 100 kg × 6, so its odd lifts had 100 kg × 8 last time.
-    const priorLoads = key === "session/summary-mixed"
-      ? loads.map((load, index) => index % 2 ? 100 : load)
-      : loads;
-    const priorDate = isoDaysAgo(1);
-    state.log.push(...dayExercises.map((exercise, index) => ({
-      session: "summary-" + key.slice("session/summary-".length) + "-prior",
-      date: priorDate,
-      day: exercise.day,
-      name: exercise.name,
-      exerciseId: exercise.id,
-      set: 1,
-      load: priorLoads[index],
-      reps: key === "session/summary-declined" || (key === "session/summary-mixed" && index % 2)
-        ? 8
-        : 6,
-      rir: 1,
-      work: true,
-      notes: "",
-      created: priorDate + "T12:00:00.000Z",
-      primary: exercise.primary,
-      secondary: exercise.secondary,
-      performedLibraryId: exercise.libraryId || undefined,
-    })));
-  }
   if (key.startsWith("program/share-")) {
     const libraryIds = ["sq_bb", "lc_mc", "pr_bb", "rw1_db", "dl_cb", "pd_bw", "dl_bb", "sp_cb", "cu_bb", "le_mc", "ci_mc", "tr_cb"];
     state.program.forEach((exercise, index) => { exercise.libraryId = libraryIds[index] || "sq_bb"; });
@@ -386,6 +377,19 @@ async function logCurrentSet(page, values = { load: "100", reps: "6", rir: "1" }
   await sleep(page, 600);
 }
 
+/** Open the session summary for a session already in the log, through the seam the finish path uses. */
+async function openFixtureSummary(page, sessionId) {
+  await page.evaluate((id) => {
+    const log = JSON.parse(localStorage.getItem("repforge_v1")).log;
+    const rows = log.filter((row) => row.session === id);
+    const prevLog = log.filter((row) => row.session !== id);
+    const summary = window.__repforgeSessionSummary.build({ rows, prevLog, session: id, date: rows[0].date, day: rows[0].day, startedAt: 0 });
+    window.__repforgeSessionSummary.open(summary);
+  }, sessionId);
+  await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 20000 });
+  await sleep(page, 900);
+}
+
 async function saveWholeSession(page) {
   await enterWorkout(page, { day: "Day 1" });
   await page.evaluate(() => {
@@ -402,46 +406,6 @@ async function saveWholeSession(page) {
   // The fixture fills one set per exercise, so the normal finish boundary
   // correctly rejects it as incomplete. Use the same visible confirmation
   // path a lifter must use for an intentional partial session.
-  await page.click("#sessionSheetBtn");
-  await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
-  await page.click("#sessionEarlyFinish");
-  await page.click("#sessionEarlyConfirm");
-  await page.waitForFunction(() => {
-    const el = document.querySelector("#sessionSummary");
-    return el && !el.hidden && !el.classList.contains("hidden");
-  }, undefined, { timeout: 15000 });
-  await sleep(page, 900);
-}
-
-async function saveMixedSummarySession(page) {
-  await enterWorkout(page, { day: "Day 1" });
-  for (const exerciseIndex of [0, 1]) {
-    if (exerciseIndex > 0) {
-      await page.click("#sessionSheetBtn");
-      await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
-      const target = page.locator("[data-session-map-jump]").nth(exerciseIndex);
-      const exerciseId = await target.getAttribute("data-session-map-jump");
-      await target.click();
-      await page.waitForSelector("#sessionSheet.is-open", { state: "hidden", timeout: 15000 });
-      await page.waitForFunction(
-        (id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
-        exerciseId,
-        { timeout: 15000 },
-      );
-    }
-    await page.evaluate(() => {
-      const card = document.querySelector("#workout .exercise.is-current");
-      card?.querySelectorAll("input").forEach((el) => {
-        const key = el.dataset.k || "";
-        if (key.endsWith("_load")) el.value = "100";
-        else if (key.endsWith("_reps")) el.value = "6";
-        else if (key.endsWith("_rir")) el.value = "1";
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-      });
-      card?.querySelector(".saveset")?.click();
-    });
-    await sleep(page, 700);
-  }
   await page.click("#sessionSheetBtn");
   await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
   await page.click("#sessionEarlyFinish");
@@ -726,7 +690,7 @@ export const APP_SCENARIOS = {
         if (!row || !dock) throw new Error("Today 200% exercise row or dock is missing");
         const rowBottom = row.getBoundingClientRect().bottom;
         const dockTop = dock.getBoundingClientRect().top;
-        window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
+        window.scrollTo({ top: window.scrollY + Math.max(0, Math.ceil(rowBottom - dockTop + 8)), behavior: "instant" });
       });
       const clearance = await page.evaluate(() => {
         const row = document.querySelector(".rxrow");
@@ -1040,19 +1004,26 @@ export const APP_SCENARIOS = {
   "workout/why-anchor": whyOnMixedDay("ex-dl", ["anchor", "rule", "backoff"]),
   "workout/why-manual": whyOnMixedDay("ex-cp", ["manual"]),
 
-  "session/summary": saveWholeSession,
+  "session/summary": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);
+    await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
+  },
   "session/summary-maintained": async (page) => {
-    await saveWholeSession(page);
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-maintained"]);
     await page.waitForSelector('.sum-outcome[data-outcome="maintained"]', { timeout: 20000 });
   },
   "session/summary-declined": async (page) => {
-    await saveWholeSession(page);
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-declined"]);
     await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
   },
   "session/summary-mixed": async (page) => {
-    await saveMixedSummarySession(page);
-    await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-mixed"]);
     await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
+    await page.waitForSelector('.sum-outcome[data-outcome="maintained"]', { timeout: 20000 });
+  },
+  "session/summary-first": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-first"]);
+    await page.waitForSelector(".sum-baseline", { timeout: 20000 });
   },
 
   "progress/overview": (page) => view(page, "stats"),

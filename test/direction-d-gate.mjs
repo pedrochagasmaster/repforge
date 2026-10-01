@@ -52,7 +52,8 @@ console.log("\nD-owned state list");
     "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
     "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
-    "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"];
+    "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
+    "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first"];
   check(DIRECTION_D_STATES.every((item) => (item.status === "implemented") === built.includes(item.key)) &&
     DIRECTION_D_STATES.filter((item) => item.status === "implemented").length === built.length,
   "only the states an R3 sub-slice has built are implemented; every other D state is pending",
@@ -63,8 +64,17 @@ console.log("\nD-owned state list");
     "R3b's Today states are enforced");
   check(["workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"].every((key) => status(key) === "implemented"),
     "R3g's Why states are enforced");
+  check(["session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first"].every((key) => status(key) === "implemented"),
+    "R3h's session summary states are enforced");
   check(["today/done", "today/draft-resume", "progress/overview", "program/overview"].every((key) => status(key) === "pending"),
     "states that still need a drawing, or whose slice has not landed, stay pending");
+  // The parity oracle accepts a status's word in either vocabulary; in PT they must be the same words
+  // (CONTEXT.md "Session outcome": Melhorou, Manteve, Regressou).
+  const ptCatalog = JSON.parse(readFileSync(join(ROOT, "i18n-pt.json"), "utf8"));
+  check(ptCatalog["delta.improved.label"] === ptCatalog["stats.outcome.improved"] && ptCatalog["delta.flat.label"] === "Manteve" &&
+    ptCatalog["delta.flat.label"] === ptCatalog["stats.outcome.maintained"] && ptCatalog["delta.regressed.label"] === "Regressou" &&
+    ptCatalog["delta.regressed.label"] === ptCatalog["stats.outcome.declined"],
+  "the PT outcome labels agree between the delta and session-outcome vocabularies (Melhorou, Manteve, Regressou)");
   check(validateStateList(DIRECTION_D_STATES, manifest).length === 0, "the list is valid against the live manifest",
     show(validateStateList(DIRECTION_D_STATES, manifest)));
   check(has(validateStateList([{ key: "today/not-a-state", status: "pending" }], manifest), "today/not-a-state", "manifest"),
@@ -177,7 +187,7 @@ try {
         const session = rows.map((row) => row.session).sort().at(-1);
         const cmp = window.__repforgeCompareExercise(ex, rows.filter((row) => row.session === session));
         const rec = P.recommendation(ex);
-        if (Number.isFinite(rec.load) && cmp.label) return { id: slot.id, session, label: cmp.label, load: rec.load };
+        if (Number.isFinite(rec.load) && cmp.label) return { id: slot.id, session, label: cmp.label, status: cmp.status, load: rec.load };
       }
       return null;
     });
@@ -188,6 +198,16 @@ try {
         <span id="seedTargetOk" data-parity-target="${probe.id}">3 × 7 at ${String(probe.load).replace(".", ",")}</span>`;
       const okFailures = checkParity(await seeded(page, good));
       check(okFailures.length === 0, "a shown outcome word and target that match the app are accepted", show(okFailures));
+      // The summary says the session-outcome word (Melhorou, Manteve, Regressou); History's page says the delta label.
+      // Both are the same status; a word for another status is still rejected (below).
+      const sessionWord = await page.evaluate((status) => {
+        const key = { improved: "stats.outcome.improved", flat: "stats.outcome.maintained", regressed: "stats.outcome.declined" }[status];
+        return key ? window.RepForgeI18n.t(key) : null;
+      }, probe.status);
+      if (sessionWord) {
+        const viaSession = checkParity(await seeded(page, `<span id="seedOutcomeSession" data-parity-outcome="${probe.id}" data-parity-session="${probe.session}">${sessionWord}</span>`));
+        check(viaSession.length === 0, `the session-outcome word (${sessionWord}) for the same status is accepted`, show(viaSession));
+      }
       const defaulted = checkParity(await seeded(page, `<span id="seedOutcomeDefault" data-parity-outcome="${probe.id}">${probe.label}</span>`));
       check(defaulted.length === 0, "without data-parity-session the latest logged session is compared", show(defaulted));
       const wrongWord = checkParity(await seeded(page, `<span id="seedOutcomeBad" data-parity-outcome="${probe.id}" data-parity-session="${probe.session}">${other}</span>`));
@@ -264,9 +284,9 @@ try {
   check(built.enforced.join() === implemented.join() && implemented.every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
   "the implemented states were actually rendered and enforced in PT and EN", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
-  check(["today/ready", "today/mixed-strategies", "today/day-picker", "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"].every((key) => ["pt", "en"].every((locale) =>
+  check(["today/ready", "today/mixed-strategies", "today/day-picker", "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual", "session/summary", "session/summary-mixed", "session/summary-first"].every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
-  "the landed Today and Why states were rendered and enforced in both languages", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
+  "the landed Today, Why and summary states were rendered and enforced in both languages", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
 
   // A control that no R3 sub-slice rebuilds: Settings is rules-only, so flipping it must always fail.
   const flipped = await runGate({ states: [{ key: "settings/main", status: "implemented" }], locales: ["en"], browser, manifest });

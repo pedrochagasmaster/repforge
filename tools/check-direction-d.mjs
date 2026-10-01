@@ -73,6 +73,8 @@ const IMPLEMENTED_D_STATES = new Set([
   "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
   // R3g: Why this weight, the five states, enforced on the sheet (STATE_SCOPES).
   "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
+  // R3h: the session summary, the five states, enforced on #sessionSummary (STATE_SCOPES).
+  "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
 ]);
 /**
  * Drawn states the Plan 064 R3 sub-slices add to the catalog (reconciliation
@@ -81,6 +83,7 @@ const IMPLEMENTED_D_STATES = new Set([
 const D_ADDED_STATE_KEYS = [
   "today/mixed-strategies",
   "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
+  "session/summary-first",
 ];
 /**
  * A sheet state is enforced on the sheet: the page behind it belongs to another
@@ -89,6 +92,8 @@ const D_ADDED_STATE_KEYS = [
 export const STATE_SCOPES = Object.freeze({
   "workout/why-this-weight": "#whySheet", "workout/why-in-session": "#whySheet",
   "workout/why-rep-goal": "#whySheet", "workout/why-anchor": "#whySheet", "workout/why-manual": "#whySheet",
+  "session/summary": "#sessionSummary", "session/summary-maintained": "#sessionSummary", "session/summary-declined": "#sessionSummary",
+  "session/summary-mixed": "#sessionSummary", "session/summary-first": "#sessionSummary",
 });
 export const DIRECTION_D_STATES = [...D_STATE_KEYS, ...D_ADDED_STATE_KEYS].map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 
@@ -291,7 +296,19 @@ export function collectGateEvidence(options = {}) {
     else {
       const rows = sessionRows(exerciseId, element.getAttribute("data-parity-session"));
       if (!rows.length) entry.error = `has no logged session for ${exerciseId}`;
-      else entry.expected = window.__repforgeCompareExercise(slot, rows).label;
+      else {
+        // The status compareExerciseSession reaches, said in the session-outcome vocabulary the app shows
+        // (CONTEXT.md "Session outcome": Melhorou, Manteve, Regressou, plus the two neutral labels).
+        const wordKeys = {
+          improved: "stats.outcome.improved", flat: "stats.outcome.maintained", regressed: "stats.outcome.declined",
+          changed_load: "delta.changed_load.label", not_comparable: "delta.not_comparable.label", new: "stats.outcome_short.single_observation",
+        };
+        const compared = window.__repforgeCompareExercise(slot, rows);
+        entry.expected = wordKeys[compared.status] && i18n ? i18n.t(wordKeys[compared.status]) : compared.label;
+        // The same status in compareExerciseSession's own label is the same word (History's session page shows it;
+        // PT says Manteve and Regressou in both vocabularies). A word for any other status still fails.
+        entry.accepted = [...new Set([entry.expected, compared.label])];
+      }
     }
     parity.outcomes.push(entry);
   }
@@ -317,7 +334,10 @@ export function collectGateEvidence(options = {}) {
     }
     parity.targets.push(entry);
   }
-  parity.vocabulary = i18n ? ["improved", "flat", "regressed", "changed_load", "new", "not_comparable"].map((name) => i18n.t(`delta.${name}.label`)) : [];
+  parity.vocabulary = i18n ? [
+    ...["improved", "flat", "regressed", "changed_load", "new", "not_comparable"].map((name) => i18n.t(`delta.${name}.label`)),
+    ...["improved", "maintained", "declined"].map((name) => i18n.t(`stats.outcome.${name}`)),
+  ] : [];
   for (const element of shown) {
     if (element.hasAttribute("data-parity-outcome")) continue;
     const own = [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("").replace(/\s+/g, " ").trim();
@@ -342,7 +362,11 @@ export function collectGateEvidence(options = {}) {
   const text = [];
   for (const element of all) {
     if (!textVisible(element)) continue;
-    const whole = [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || "").trim()) ? sentence(element) : null;
+    const hasOwn = [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || "").trim());
+    // A sentence read whole: inline-tag children (the Why sheet's bold figures), or children that render inline
+    // (the summary's outcome and record lines).
+    const inlineKids = element.children.length > 0 && [...element.children].every((child) => getComputedStyle(child).display.startsWith("inline"));
+    const whole = hasOwn ? (sentence(element) || (inlineKids ? element.textContent.replace(/\s+/g, " ").trim() : null)) : null;
     const own = whole || [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || "").join("").trim();
     if (own) text.push({ locator: locator(element), text: own });
     for (const attribute of ["aria-label", "title", "alt"]) {
@@ -429,7 +453,7 @@ export function checkParity(evidence) {
   const failures = [];
   for (const item of evidence.parity.outcomes) {
     if (item.error) failures.push(prefix("parity", `${item.locator} ${item.error}`));
-    else if (item.text !== item.expected) failures.push(prefix("parity", `outcome word at ${item.locator} reads "${item.text}" but compareExerciseSession(${item.exerciseId}) says "${item.expected}"`));
+    else if (!(item.accepted || [item.expected]).includes(item.text)) failures.push(prefix("parity", `outcome word at ${item.locator} reads "${item.text}" but compareExerciseSession(${item.exerciseId}) says "${item.expected}"`));
   }
   for (const item of evidence.parity.targets) {
     if (item.error) failures.push(prefix("parity", `${item.locator} ${item.error}`));
@@ -477,7 +501,8 @@ export function checkStrings(evidence, catalog) {
   const dataStrings = [...new Set(evidence.data.strings)].sort((a, b) => b.length - a.length);
   const dataPattern = dataStrings.length ? new RegExp(dataStrings.map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "giu") : null;
   const dateWords = new Set(evidence.data.dateWords.flatMap((word) => word.toLowerCase().replace(/\./g, "").split(/\s+/)));
-  const unitWords = new Set(["kg", "lb"]);
+  // "k" is the thousands suffix of a figure ("14,3k kg moved"), not a word.
+  const unitWords = new Set(["kg", "lb", "k"]);
   const residueOk = (fragment) => {
     const words = fragment.replace(/[\d.,:%+×x–-]+/gu, " ").split(/\s+/).map((word) => word.replace(/[.]/g, "").toLowerCase()).filter((word) => /\p{L}/u.test(word));
     return words.every((word) => unitWords.has(word) || dateWords.has(word));

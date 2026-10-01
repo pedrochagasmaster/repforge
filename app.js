@@ -6066,10 +6066,10 @@ function verdictMarkHtml(glyph){
   if(glyph!=="up"&&glyph!=="down")return"";
   return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`}
 /** "100 × 8, 8, 8" for one load, "100 × 8, 90 × 10" when the load moved. */
-function rxSetsLine(sets){
+function rxSetsLine(sets,withUnit){
   const rows=sets.filter(x=>+x.reps>0);if(!rows.length)return"";
   const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
-  return same?`${fmtLoad(rows[0].load)} × ${rows.map(x=>x.reps).join(", ")}`
+  return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
     :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
 function rxTargetText(ex,rec){
   const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
@@ -7229,7 +7229,7 @@ function sessionPRs(rows,prevLog){
   const out=[];
   for(const[k,mine]of mineBy){
     const pr=liftPR(mine,past.get(k)||[]);
-    if(pr)out.push({...pr,name:displayName(mine[0])})}
+    if(pr)out.push({...pr,name:displayName(mine[0]),liftKey:k})}
   // Heaviest claim first: a load record outranks reps at the old load, which
   // outranks an e1RM that no single set actually lifted.
   const rank={load:0,reps:1,e1rm:2};
@@ -7284,12 +7284,26 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
+  // One group per lift: its outcome state, the sets it performed, the record it set and the engine's
+  // next target. The state reads the canonical evidence above; the target is recommendation() on the log
+  // that now holds this session. Nothing is derived here.
+  const prs=sessionPRs(rows,prevLog),byLift=new Map();
+  for(const row of work){const key=liftKey(row);if(!byLift.has(key))byLift.set(key,{liftKey:key,name:displayName(row),rows:[]});byLift.get(key).rows.push(row)}
+  const liftGroups=[...byLift.values()].map(group=>{
+    const item=evidence.find(entry=>entry.exerciseId===group.liftKey),slot=currentExerciseForLiftKey(group.liftKey);
+    const rec=slot?recommendation(slot):null,line=slot&&rec&&rec.status!=="manual"?setsTargetLine(slot,rec):"";
+    return{liftKey:group.liftKey,exerciseId:slot?.id??null,name:group.name,
+      sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
+      state:item?.kind==="outcome"?{kind:"outcome",outcome:item.outcome}:item?.kind==="baseline"?{kind:"baseline"}:{kind:"insufficient",reason:item?.reason??null},
+      pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,
+      next:line?{glyph:rxVerdict(rec),line}:null}});
   return{session,date,day:sessDay,
     sets:rows.length,
     volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),
     lifts:new Set(work.map(liftKey)).size,
     minutes:mins>=1&&mins<=480?mins:null,
-    prs:sessionPRs(rows,prevLog),
+    prs,
+    liftGroups,
     outcomes,
     evidence,
     showBaseline,
@@ -7427,35 +7441,42 @@ async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefa
     if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
     saving=false}}
 
-/** Records worth a line of their own before the rest become a count. */
-const SUMMARY_PR_MAX=3;
-/** One PR line: what kind of record, on what lift, and by how much. The kind
- *  badge is only drawn when the block holds more than one kind — see the caller.
- *  The sentence under the name names the kind either way. */
-function sessionPRHtml(p,withBadge){
-  const unit=unitLabel();
-  const badge=p.kind==="load"?t("stats.pr_filter.load")
-    :p.kind==="reps"?t("stats.pr_filter.reps"):t("stats.pr_filter.e1rm");
-  const over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
+/* ---- Session summary (Direction D, spec 4.4) ----
+   One group per lift: its outcome word, the sets it performed, a record line when it set one, and the
+   engine's next target as the strongest line. The word is the canonical session outcome (the
+   compareExerciseSession rule in CONTEXT.md, read through the evidence record); the target is recommendation(). */
+const SUMMARY_MUSCLES_SHOWN=6;
+/** One PR line: a record mark and how far past the best it went. The sentence names the kind. */
+function sessionPRHtml(p){
+  const unit=unitLabel(),over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
     :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
     :t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
-  return `<li class="sum-pr">`+(withBadge?`<span class="sum-pr__badge">${esc(badge)}</span>`:"")+
-    `<span class="sum-pr__text"><span class="sum-pr__name">${esc(p.name)}</span>`+
-    `<span class="sum-pr__over">${esc(over)}</span></span>`+
-    `<span class="sum-pr__val">${esc(t("summary.pr.value",{load:fmtLoad(p.load),unit,reps:fmt(p.reps)}))}</span></li>`}
+  return `<p class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("summary.pr.label"))}</span>`+
+    `<span class="sum-pr__over">${esc(over)}</span></p>`}
+/** The lift's outcome word. Only a canonical outcome carries the .sum-outcome role. */
+function summaryWordHtml(lift,session){
+  const st=lift.state,parity=lift.exerciseId?` data-parity-outcome="${esc(lift.exerciseId)}" data-parity-session="${esc(session)}"`:"";
+  if(st.kind==="outcome"){
+    const variant={improved:"up",maintained:"maintained",declined:"down"}[st.outcome];
+    return `<span class="sum-outcome verdictmark verdictmark--${variant}" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>`+
+      `<span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`}
+  if(st.kind==="baseline")return `<span class="sum-word">${esc(t("stats.outcome_short.single_observation"))}</span>`;
+  if(st.reason==="missing-effort")return `<span class="sum-word">${esc(t("stats.outcome_short.missing_effort"))}</span>`;
+  const key=st.reason==="changed-load"?"delta.changed_load.label":"delta.not_comparable.label";
+  return `<span class="sum-word"${parity}>${esc(t(key))}</span>`}
+function summaryGroupHtml(lift,s){
+  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(lift.name)}</span>${s.showBaseline?"":summaryWordHtml(lift,s.session)}</div>`+
+    `<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`+
+    (lift.pr?sessionPRHtml(lift.pr):"")+
+    (lift.next?`<p class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>${verdictMarkHtml(lift.next.glyph)}`+
+      `<span>${esc(t("summary.next_target",{target:lift.next.line}))}</span></p>`:"")+`</div>`}
 
 function sessionSummaryHtml(s){
   const unit=unitLabel(),out=[];
-  out.push(`<div class="sum-crest" aria-hidden="true"><span class="sum-crest__mark"></span></div>`);
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
-  const sub=[];
-  if(s.meso.current!=null)sub.push(t("today.week_short",{n:s.meso.current}));
-  sub.push(formatLongDate(s.date));
-  out.push(`<p class="sum-sub">${esc(sub.join(" · "))}</p>`);
-  // What the work itself was — sets, load moved, lifts touched — plus the clock
-  // when it measured this session rather than a draft left open overnight.
-  // `data-ramp` carries the finished number so the row can spin up to it.
+  out.push(`<p class="sum-sub">${esc(s.meso.current!=null?t("summary.saved_week",{date:formatLongDate(s.date),n:s.meso.current}):formatLongDate(s.date))}</p>`);
+  // What the work itself was: sets, load moved, lifts touched, plus the clock when it measured this session.
   const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val" data-ramp="${esc(n)}"`+
     `${k?' data-kfmt="1"':""}>${esc(k?kfmt(n):fmt(n))}</div>`+
     `<div class="statrow__cap">${esc(cap)}</div></div>`;
@@ -7464,54 +7485,33 @@ function sessionSummaryHtml(s){
     cell(s.lifts,tp(s.lifts,"lift"))];
   if(s.minutes!=null)cells.push(cell(s.minutes,tp(s.minutes,"minute")));
   out.push(`<div class="statrow${cells.length>3?" statrow--4":""} sum-stats">${cells.join("")}</div>`);
-  // Records first: they are the one thing a lifter came back for. A week where
-  // everything moves would bury the best of them in its own list, so only the
-  // strongest few get a line and the rest are counted.
-  if(s.prs.length){
-    const shown=s.prs.slice(0,SUMMARY_PR_MAX),rest=s.prs.length-shown.length;
-    // A badge that reads the same on every line is a rubber stamp: it spends a
-    // column to repeat what the sentence under each name already says. It earns
-    // that column only where it tells one record apart from the next.
-    const kinds=new Set(shown.map(p=>p.kind)),withBadge=kinds.size>1;
-    out.push(`<p class="section-label section-label--accent">${esc(t("summary.prs.title"))}</p>`+
-      `<ul class="sum-prs${withBadge?"":" sum-prs--onekind"}">`+
-      shown.map(p=>sessionPRHtml(p,withBadge)).join("")+`</ul>`+
-      (rest?`<p class="sum-more">${esc(t("summary.prs.more",{n:rest}))}</p>`:""))}
-  // Nothing in this session had a past to be read against, so counting "1 new
-  // lift" would be the whole story told as arithmetic. Say what it is instead —
-  // but only when there was working weight to call a baseline in the first
-  // place, since a session of nothing but warmups is not a first attempt.
-  const noHistory=s.showBaseline===true;
-  if(noHistory)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
-  else if(s.outcomes.length)
-    out.push(`<p class="section-label">${esc(t("summary.outcomes.title"))}</p>`+
-      `<ul class="sum-outcomes">${s.outcomes.map(outcome=>`<li class="sum-outcome" data-exercise-id="${esc(outcome.exerciseId)}" data-outcome="${esc(outcome.outcome)}">`+
-        `<span class="sum-outcome__name">${esc(outcome.name)}</span>`+
-        `<span class="sum-outcome__state sum-outcome__state--${esc(outcome.outcome)}"><span class="sum-outcome__glyph" aria-hidden="true">${esc(EVIDENCE_OUTCOME_GLYPHS[outcome.outcome]||"")}</span> ${esc(t(EVIDENCE_OUTCOME_KEYS[outcome.outcome]))}</span></li>`).join("")}</ul>`);
+  // A session whose lifts have no past says so, instead of grading itself against nothing.
+  if(s.showBaseline===true)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
+  if(s.liftGroups.length)
+    out.push(`<h3 class="sum-sec">${esc(t("summary.outcome_head"))}</h3><div class="sum-grps">${s.liftGroups.map(lift=>summaryGroupHtml(lift,s)).join("")}</div>`);
   if(s.muscles.length){
-    const top=s.muscles.slice(0,4);
-    out.push(`<p class="section-label">${esc(t("summary.muscles.title"))}</p>`+
+    const shown=s.muscles.slice(0,SUMMARY_MUSCLES_SHOWN),rest=s.muscles.slice(SUMMARY_MUSCLES_SHOWN);
+    out.push(`<h3 class="sum-sec">${esc(t("summary.muscles.title"))}</h3>`+
       `<p class="sum-muscles__note">${esc(t("summary.muscles.note"))}</p>`+
-      `<div class="volume sum-muscles">`+top.map(m=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
-        `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span>`+
-        `</div>`).join("")+
-      `</div>`)}
-  // Where the session leaves the week — the reason to come back on Thursday.
-  if(s.week.planned){
+      `<div class="volume sum-muscles">`+
+      [...shown.map(m=>[m,false]),...rest.map(m=>[m,true])].map(([m,extra])=>
+        `<div class="vrow${extra?" hidden":""}"${extra?" data-muscle-extra":""}><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
+        `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span></div>`).join("")+`</div>`+
+      (rest.length?`<button type="button" class="sum-muscles__more" id="sumMuscles" aria-expanded="false" data-total="${s.muscles.length}">${esc(t("summary.muscles_all",{n:s.muscles.length}))}</button>`:""))}
+  // Where the session leaves the week, and what comes next.
+  if(s.week.planned||s.next){
     const segs=Math.max(s.week.planned,s.week.done,1),done=Math.min(s.week.done,segs);
-    out.push(`<p class="section-label">${esc(t("summary.week.title"))}</p>`+
-      `<p class="sum-week">${esc(t("today.sessions_done",{done:s.week.done,planned:s.week.planned}))}</p>`+
-      `<div class="segbar sum-segbar" data-progress-dimension="week" data-progress-scope="completed-session-week" aria-hidden="true">`+
-      Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`)}
-  if(s.next)
-    out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
-      `<span class="sum-next__day">${esc(dayLabel(s.next.day))}</span>`+
-      `<span class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</span></div>`);
-  // The detour comes before the door. Done is the last block on purpose: it is
-  // the one control the sheet pins, so a report that runs past the fold still
-  // shows the way out, and the way out is not carrying a second link with it.
-  out.push(`<div class="sum-secondary"><button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
-  out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
+    out.push(`<div class="sum-split">`+
+      (s.week.planned?`<div class="sum-split__cell"><p class="sum-split__k">${esc(t("summary.week.title"))}</p>`+
+        `<p class="sum-week">${esc(t("today.sessions_done",{done:s.week.done,planned:s.week.planned}))}</p>`+
+        `<div class="segbar sum-segbar" data-progress-dimension="week" data-progress-scope="completed-session-week" aria-hidden="true">`+
+        Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div></div>`:"")+
+      (s.next?`<div class="sum-next sum-split__cell"><p class="sum-split__k sum-next__lab">${esc(t("summary.next"))}</p>`+
+        `<p class="sum-next__day">${esc(dayLabel(s.next.day))}</p>`+
+        `<p class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</p></div>`:"")+`</div>`)}
+  // The detour beside the door, both pinned: the report scrolls under them.
+  out.push(`<div class="sum-actions"><button type="button" class="btn btn--steel" id="sumSee">${esc(t("summary.see_session"))}</button>`+
+    `<button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
   return out.join("")}
 
 /** The stat row spins up to its numbers instead of printing them. They are the
@@ -7547,6 +7547,11 @@ function renderSessionSummary(s){
   // however many blocks this particular session earned.
   [...body.children].forEach((el,i)=>el.style.setProperty("--i",i));
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
+  const more=$("#sumMuscles");if(more)more.onclick=()=>{
+    const open=more.getAttribute("aria-expanded")!=="true";
+    more.setAttribute("aria-expanded",open?"true":"false");
+    more.textContent=t(open?"summary.muscles_fewer":"summary.muscles_all",{n:more.dataset.total});
+    $$("#sessionSummary [data-muscle-extra]").forEach(row=>row.classList.toggle("hidden",!open))};
   const see=$("#sumSee");if(see)see.onclick=()=>{
     HistoryUi.startReading(s.session);
     closeSessionSummary({nav:"history"})}}
