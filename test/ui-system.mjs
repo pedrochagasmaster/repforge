@@ -85,15 +85,30 @@ assert.deepEqual(
   [],
   "only blocks inside the marked section are held to the rule",
 );
-// The shared verdict mark's hold ("=") and recover (a return arrow) variants: drawn masks in ink. Orange is
-// the up glyph alone (section 8.8), so neither variant may name the accent or the action colour.
-for (const variant of ["hold", "recover"]) {
-  assert.ok(rootCss.includes(`--verdict-${variant}:url(`), `--verdict-${variant} is a drawn mask, not a typed character`);
-  const rule = css.match(new RegExp(`\\.verdictmark--${variant} \\.verdictmark__glyph\\{([^}]*)\\}`))?.[1] || "";
-  assert.ok(rule.includes("background:var(--color-ink)") && rule.includes(`var(--verdict-${variant})`),
+// The shared verdict mark's hold ("=") and recover (a return arrow) variants, and the maintained outcome, which
+// draws the same "=" as hold (one meaning per glyph, owner decision on #295, 2026-10-01): drawn masks in ink.
+// Orange is the up glyph alone (section 8.8), so none of them may name the accent or the action colour.
+const ruleFor = (selector) => {
+  for (const [, selectors, body] of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    if (selectors.split(",").some((s) => s.trim() === selector)) return body;
+  }
+  return "";
+};
+const glyphRule = (variant) => ruleFor(`.verdictmark--${variant} .verdictmark__glyph`);
+for (const [variant, mask] of [["hold", "hold"], ["recover", "recover"], ["maintained", "hold"]]) {
+  assert.ok(rootCss.includes(`--verdict-${mask}:url(`), `--verdict-${mask} is a drawn mask, not a typed character`);
+  const rule = glyphRule(variant);
+  assert.ok(rule.includes("background:var(--color-ink)") && rule.includes(`var(--verdict-${mask})`),
     `.verdictmark--${variant} draws its mask in ink`);
   assert.ok(!/--accent|--color-action|--color-improved|--positive/.test(rule), `.verdictmark--${variant} never uses the accent`);
+  assert.ok(!/display\s*:\s*none/.test(rule), `.verdictmark--${variant} is drawn, never hidden`);
 }
+// Maintained is distinct from up and down: those draw the arrow mask, maintained draws "=".
+assert.ok(ruleFor(".verdictmark__glyph").includes("var(--arrow)"), "the base glyph is the arrow");
+assert.ok(glyphRule("maintained").includes("var(--verdict-hold)") && !glyphRule("maintained").includes("var(--arrow)"),
+  "maintained draws \"=\", not the arrow that up and down share");
+assert.ok(glyphRule("up").includes("var(--color-action)") && glyphRule("down").includes("var(--color-ink)"),
+  "up stays the only accent mark and down stays ink");
 assert.notEqual(rootCss.match(/--verdict-hold:(url\([^;]*\));/)?.[1], rootCss.match(/--verdict-recover:(url\([^;]*\));/)?.[1],
   "hold and recover are different glyphs");
 assert.equal(cssCompatibilityAliasDebt(css).length, 0, "P6 removes all obsolete compatibility aliases");

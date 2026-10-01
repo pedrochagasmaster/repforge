@@ -538,6 +538,19 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   target draw them where the engine's verdict is hold or recover. No role, tier,
   radius or colour is added; `.verdictmark` keeps its inventory row.
 
+- **Verdict mark: the maintained outcome (2026-10-01).** The owner decided on
+  [#295, comment 5940349337](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5940349337)
+  (recorded in Plan 064 section 8 rule 11 as amended) that one meaning has one
+  glyph: the session outcome "Maintained" (PT "Manteve") draws the same ink "="
+  as the hold recommendation, through `.verdictmark--maintained`, which reuses
+  the `--verdict-hold` mask. Improved keeps the up arrow, the only accent mark,
+  and Declined keeps its ink down arrow. Wherever an outcome word renders with
+  `.verdictmark` (the session summary, the History session page, Progress'
+  Strength rows) the maintained variant carries the glyph, and the Focus cue
+  draws hold "=" and recover "↻" through the same shared mark. The word is still
+  `--color-maintained`; the glyph is never the accent. No role, tier, radius or
+  colour is added.
+
 ### Type role changes
 
 - **Section heads (OG-4, proposal 2).** `section-title` (24px) now names a

@@ -341,6 +341,15 @@ try {
           todayRowHold: read("#todayExList .rxrow .verdictmark--hold").length, todayRowRecover: read("#todayExList .rxrow .verdictmark--recover").length,
           tallyHold: read(".today-tally .verdictmark--hold").length, tallyRecover: read(".today-tally .verdictmark--recover").length,
           whyHold: read("#whyTarget .verdictmark--hold").length, summaryHold: read(".sum-grp__next .verdictmark--hold").length,
+          outcomes: [...document.querySelectorAll(".sum-outcome")].filter((node) => node.offsetParent).map((node) => {
+            const glyph = node.querySelector(".verdictmark__glyph");
+            const style = glyph ? getComputedStyle(glyph) : null;
+            return {
+              outcome: node.getAttribute("data-outcome"), word: node.textContent.trim(),
+              drawn: !!glyph && glyph.getBoundingClientRect().width > 0, background: style?.backgroundColor || "",
+              mask: style?.webkitMaskImage || style?.maskImage || "",
+            };
+          }),
           rowMarks: [...document.querySelectorAll("#todayExList .rxrow")].map((row) => ({
             name: row.querySelector(".rxrow__name")?.firstChild?.textContent?.trim(),
             mark: [...row.querySelectorAll(".verdictmark")].map((mark) => mark.className.replace(/.*verdictmark--/, "")).join(","),
@@ -369,6 +378,25 @@ try {
   const summary = await markEvidence("session/summary-mixed");
   check(summary.summaryHold > 0 && summary.hold.every((mark) => mark.drawn && mark.background === summary.inkColor),
     "the summary's next target draws the hold mark in ink", JSON.stringify(summary.hold));
+
+  // ------------------------------------------------ maintained outcome mark (owner decision, #295)
+  console.log("\nMaintained outcome mark");
+  const maintained = await markEvidence("session/summary-maintained");
+  const declined = await markEvidence("session/summary-declined");
+  const outcomeOf = (evidence, name) => evidence.outcomes.filter((mark) => mark.outcome === name);
+  const keep = outcomeOf(maintained, "maintained");
+  const rise = [...outcomeOf(maintained, "improved"), ...outcomeOf(summary, "improved")];
+  const fall = outcomeOf(declined, "declined");
+  check(keep.length > 0 && keep.every((mark) => mark.drawn && mark.background === maintained.inkColor && mark.mask !== "none"),
+    "the maintained outcome draws a glyph, in ink and never the accent", JSON.stringify(keep));
+  check(keep.length > 0 && rise.length > 0 && fall.length > 0, "the summary states carry maintained, improved and declined words",
+    JSON.stringify({ keep: keep.length, rise: rise.length, fall: fall.length }));
+  check(keep.every((mark) => mark.mask === maintained.hold[0]?.mask || mark.mask === summary.hold[0]?.mask),
+    "maintained draws the same \"=\" as the hold recommendation: one meaning per glyph", JSON.stringify({ keep: keep[0]?.mask, hold: summary.hold[0]?.mask }));
+  check(rise.length > 0 && fall.length > 0 && keep.every((mark) => [...rise, ...fall].every((other) => other.mask !== mark.mask)),
+    "maintained is distinct from the up and down arrows", JSON.stringify({ keep: keep[0]?.mask, rise: rise[0]?.mask, fall: fall[0]?.mask }));
+  check(rise.every((mark) => mark.drawn && mark.background !== maintained.inkColor) && fall.every((mark) => mark.drawn && mark.background === declined.inkColor),
+    "improved stays the only accent mark and declined stays ink", JSON.stringify({ rise: rise.map((mark) => mark.background), fall: fall.map((mark) => mark.background) }));
 } finally {
   await browser.close();
   preview.cleanup();

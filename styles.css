@@ -6688,9 +6688,10 @@ body.is-entry-editor #entryProgramName,
 }
 .verdictmark--up .verdictmark__glyph{background:var(--color-action);transform:rotate(-90deg)}
 .verdictmark--down .verdictmark__glyph{background:var(--color-ink);transform:rotate(90deg)}
-/* Hold and recover are drawn "=" and a clockwise return, in ink: orange is only the up glyph (section 8.8).
-   Stalled and new stay word-only. */
-.verdictmark--hold .verdictmark__glyph{
+/* Hold (and the maintained outcome) draw "=", recover a clockwise return, in ink: orange is only the up glyph
+   (section 8.8). Stalled and new stay word-only. */
+.verdictmark--hold .verdictmark__glyph,
+.verdictmark--maintained .verdictmark__glyph{
   background:var(--color-ink);
   -webkit-mask:var(--verdict-hold) no-repeat center/contain;mask:var(--verdict-hold) no-repeat center/contain;
 }
@@ -6703,8 +6704,9 @@ body.is-entry-editor #entryProgramName,
   background:var(--color-improved);
   -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
 }
+/* The session outcome "Maintained" draws the same ink "=" as the hold recommendation: one meaning per glyph
+   (owner decision on #295, 2026-10-01). Improved keeps the up arrow, declined the ink down arrow. */
 .verdictmark--maintained{color:var(--color-maintained)}
-.verdictmark--maintained .verdictmark__glyph{display:none}
 
 /* Sheet header band: one band for every sheet. Handle, section-title title,
    an optional body-small line, and a 44px close reserve whose button is
