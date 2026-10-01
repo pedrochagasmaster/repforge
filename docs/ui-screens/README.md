@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 160 screens,
-948 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 165 screens,
+992 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -147,11 +147,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
-| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 12 | A seeded program with recent max-rep evidence makes the readiness shortcut visible. |
+| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 12 | The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it. |
+| [Today — mixed strategies](screens/today/mixed-strategies__phone-390-light-en.png) | 12 | The Direction D mixed day: anchor and back-off, rep goal, fixed effort, a manual slot in soft ink with no mark, a custom exercise and a lift with a set logged without RIR. |
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | The rest countdown remains visible after leaving the active workout. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
-| [Read-only session preview](screens/today/preview__phone-390-light-en.png) | 8 | Read-only session preview through production controls. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls. |
 
 ### Workout logging
@@ -166,7 +166,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — rest timer](screens/workout/rest-timer__phone-390-light-en.png) | 8 | The rest timer sheet. |
 | [Workout — paused rest timer](screens/workout/rest-timer-paused__phone-390-light-en.png) | 8 | The rest timer sheet with its countdown held. |
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
-| [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector. |
+| [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. |
+| [Workout — why this weight, mid-session](screens/workout/why-in-session__phone-390-light-en.png) | 8 | Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set. |
+| [Workout — why this weight, rep goal](screens/workout/why-rep-goal__phone-390-light-en.png) | 8 | Rep goal: the total, the effort gate and how the reps split. |
+| [Workout — why this weight, anchor and back-off](screens/workout/why-anchor__phone-390-light-en.png) | 8 | Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets. |
+| [Workout — why this weight, manual](screens/workout/why-manual__phone-390-light-en.png) | 8 | Manual: one sentence; the program sets the load and the engine does not change it. |
 | [Session details and map](screens/workout/session__phone-390-light-en.png) | 8 | Session details and map through production controls. |
 | [Early finish confirmation](screens/workout/early-finish__phone-390-light-en.png) | 8 | Early finish confirmation through production controls. |
 | [Exercise actions](screens/workout/exercise-actions__phone-390-light-en.png) | 8 | Exercise actions through production controls. |
@@ -180,10 +184,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Session summary](screens/session/summary__phone-390-light-en.png) | 3 | The summary shown after Save workout. |
-| [Session summary — maintained](screens/session/summary-maintained__phone-390-light-en.png) | 8 | The finished session reports maintained performance alongside its next-step context. |
-| [Session summary — declined](screens/session/summary-declined__phone-390-light-en.png) | 8 | The finished session reports declined performance without turning the result into a prescription. |
-| [Session summary — mixed outcomes](screens/session/summary-mixed__phone-390-light-en.png) | 8 | The finished session keeps maintained and declined lift outcomes distinct in one summary. |
+| [Session summary](screens/session/summary__phone-390-light-en.png) | 3 | The Direction D lifter's Day 1 summary: an outcome word per lift, the sets, records in green and the next target as the strongest line. |
+| [Session summary — maintained](screens/session/summary-maintained__phone-390-light-en.png) | 8 | A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and a record. |
+| [Session summary — declined](screens/session/summary-declined__phone-390-light-en.png) | 8 | A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription. |
+| [Session summary — mixed strategies](screens/session/summary-mixed__phone-390-light-en.png) | 8 | The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records. |
+| [Session summary — first session](screens/session/summary-first__phone-390-light-en.png) | 8 | Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine. |
 
 ### Progress
 
