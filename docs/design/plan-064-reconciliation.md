@@ -1379,5 +1379,32 @@ Pending (R0 packet: OG-1 board), built from existing sources only per Plan 064
 
 ## Reconcilable rows
 
-Pending. Each of C-01 to C-09 is resolved here with its evidence or assigned to
-the slice that resolves it.
+Each Plan 064 §5.3 row is either resolved here, with its evidence, or assigned
+to the slice that resolves it. None of these is an owner decision; where a row
+touches one, the owner gate is named.
+
+| ID | Resolution | Evidence or owner | State |
+|---|---|---|---|
+| C-01 | Every token the Direction D prototype introduced is mapped to an existing contract role, or listed as a proposal. No content job needs a new type size, radius step, control role, layer or elevation. The proposals are the ink quiet-selected boundary, the spacing scale with its gutter, `--rule-on-surface`, the art-tile exception, the shelf variant row, and the frequency-count, tab-row and cue-line rows. They route to the owner under OG-4, and the landing night pair under OG-3 (Plan 064 §8.2: not built without an approved pair). R1 implements only what those gates approve. | "Contract review for Direction D content jobs" above | Resolved for R0; acceptance held by OG-3/OG-4 |
+| C-02 | The protected `clamp(32px,10vw,42px)` rest clock stands unless the owner accepts the polish proposal. In the app `:root` is already the size container, so `10cqi` and `10vw` resolve alike, and the proposal's stated reason does not apply there. | Contract review §3 | Held by OG-4 |
+| C-03 | The landing's in-app product shots are regenerated from the R3 Today, Focus and Why states before R6 closes. R2 ships with the shots `main` already carries, so no screenshot of a retired UI ships at the end. | Assigned R6 (with R2 recording which shots are interim) | Assigned |
+| C-04 | R2b aligns `rec.add2.text`, `rec.add.tempered.text`, `rec.hold_add_reps.text_effort` and `rec.push_reps.text` to the I-05 vocabulary in both languages. The recommendation baseline fixture records every change. | Assigned R2b | Assigned |
+| C-05 | `entry.freeform.privacy` is rewritten in PT-BR with ADR 0014's meaning unchanged. The terminology inventory lists 25 European-Portuguese keys to fix the same way, whatever OG-2 decides: landing keys in R2, entry keys in R4. | Terminology inventory §5 | Assigned R2/R4 |
+| C-06 | The treatment table is re-derived from the 148-screen manifest. Five screens newer than Direction D's inventory are classified by rule and flagged for the owning slice to confirm. `onboarding-shared/gate` and `/invalid` are landing states (R2). | "Surface treatment table" above | Resolved |
+| C-07 | The retire and add list names the planned removals and Direction D's added states. Each slice edits the manifest and scenarios for its own states in the commit that removes or adds the route, and the orchestrator captures and commits frames. `program/readiness` retires only after OG-5. | Treatment table, "Retire and add list" | Assigned per slice |
+| C-08 | A slice that moves a control that anchors a contextual guide moves the anchor in the same commit and proves the cue still fires once and replays from Settings (G-49, G-62, G-69). | Assigned to the moving slice; R5 re-proves the journeys | Assigned |
+| C-09 | N01: R3d replaces the hardcoded `${setsTotal} sets` with a complete translated message and count handling, proved by rendered PT output. The `⋯` actions stay per G-42. | Assigned R3d (with I-08) | Assigned |
+
+### Gate routing for the contract review's open choices
+
+The contract review leaves choices that no slice may make. They are asked in
+the R0 owner batch:
+
+- **OG-4 (Direction D polish and content jobs):** the five polish proposals; the seven 058 content jobs; the shelf variant row, top radius and field/pad grounds; the 1.5px or 2px selected outline; `--rule-on-surface` versus `--boundary-modal` in light; the progress classification of the History frequency bars; the spacing scale; the art-tile exception; the rest-clock proposal (C-02).
+- **OG-3 (landing final page):** the night hero band, either as an approved surface token pair in both themes or as a scoped dark block, and the two `#4A453D` marks that fail 3:1 as drawn. The orange and ink fields pass AA and need only a named pair.
+
+Measured conflicts that no slice may carry, whatever the gates decide:
+
+- Future segments and planned lines on `--rule-strong` fail 3:1 where the inventory marks them `required`.
+- The 2px bar radius is CSS literal debt under `--strict-css`.
+- The light disabled-CTA label measures 4.37:1. It already ships on `.btn--cta:disabled`, so R1 records it as a finding rather than copying it.
