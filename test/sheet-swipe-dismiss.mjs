@@ -72,9 +72,9 @@ async function settle(page) {
   });
 }
 
-/** A point on the sheet's drag rail — the head, which every sheet has. */
+/** A point on the sheet's drag rail — the head, which every sheet has: the legacy head or the shared band. */
 async function grip(page, sheet) {
-  const box = await page.locator(`${sheet} .sheet__head`).boundingBox();
+  const box = await page.locator(`${sheet} .sheet__head, ${sheet} .sheetband`).first().boundingBox();
   return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
 }
 

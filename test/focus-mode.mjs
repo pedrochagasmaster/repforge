@@ -727,7 +727,7 @@ async function main() {
       // [offsetTop, offsetTop + vvh].
       return { top: Math.round(r.top - offsetTop), bottom: Math.round(r.bottom - offsetTop) };
     };
-    const sheet = box("#exNoteSheet"), head = box("#exNoteSheet .sheet__head");
+    const sheet = box("#exNoteSheet"), head = box("#exNoteSheet .sheetband");
     root.style.removeProperty("--kb");
     root.style.removeProperty("--vvh");
     return { vvh, sheet, head };

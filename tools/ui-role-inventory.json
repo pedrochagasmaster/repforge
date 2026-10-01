@@ -1948,7 +1948,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -1956,7 +1958,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the shared sheet band's close on the exercise actions sheet.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/exercise-actions",
@@ -2213,7 +2215,7 @@
       "id": "exnotecancel",
       "selector": "#exNoteCancel",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary"
       },
       "variant": null,
       "facets": [],
@@ -2224,7 +2226,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: the drawn secondary button beside the primary confirmation (OG-6 round 1), which leaves the sheet and commits nothing.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/exercise-note"
@@ -4822,7 +4824,7 @@
       "id": "sessionearlycancel",
       "selector": "#sessionEarlyCancel",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary"
       },
       "variant": null,
       "facets": [],
@@ -4833,7 +4835,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: the drawn secondary button beside the primary confirmation (OG-6 round 1), which leaves the sheet and commits nothing.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/early-finish"
@@ -4961,7 +4963,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -4969,7 +4973,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the shared sheet band's close on the session sheet.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/early-finish",
@@ -7728,15 +7732,19 @@
       "states": [
         "default"
       ],
-      "rationale": "The one header band for every sheet: handle, section-title title, optional body-small line and a 44px close reserve, inside the sheet's modal layer.",
+      "rationale": "The one header band for every sheet: handle, section-title title, optional body-small line and a 44px close reserve, inside the sheet's modal layer. First rendered by the workout sheets (Plan 064 R3d); the note sheet has no close button because its Cancel is the dismiss.",
       "owner": "plan-064/r1a",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3b (day picker), then R3d and R3g (workout sheets, Why). Existing sheets are not migrated here.",
       "catalogStates": [
         "today/day-picker",
-        "workout/why-this-weight",
+        "workout/early-finish",
         "workout/exercise-actions",
-        "workout/session"
+        "workout/exercise-note",
+        "workout/reorder",
+        "workout/session",
+        "workout/skipped-actions",
+        "workout/substituted-actions",
+        "workout/warmup-actions",
+        "workout/why-this-weight"
       ]
     },
     {
@@ -7759,7 +7767,7 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-064/r1a",
       "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; renders with the sheet header band. A consumer that needs an id gets its own exact row, as #whyClose has.",
+      "sourceOnlyReason": "pending: the workout sheets' close buttons need ids the suites hook (#sessionSheetClose, #exActionsClose), so they have exact rows; the id-less class renders with the day picker (R3b) and Why (R3g). A consumer that needs an id gets its own exact row, as #whyClose has.",
       "catalogStates": [
         "today/day-picker",
         "workout/why-this-weight",

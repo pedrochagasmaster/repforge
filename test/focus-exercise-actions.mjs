@@ -376,6 +376,32 @@ async function main() {
     assert(skipStatus.status === "skipped", "exercise status changed to skipped in DraftV2", JSON.stringify(skipStatus));
     assert(skipStatus.newSelected !== skippedExId, "skipping advances Focus selection to another exercise");
 
+    /* ======================================================================
+     * 7. The subtitle counts sets in the page language (Plan 064 N01)
+     * ====================================================================== */
+    console.log("\nSubtitle: the set count reads in the page language");
+    await page.evaluate(() => {
+      state.settings.lang = "pt";
+      window.RepForgeI18n.setLang("pt");
+      syncLang();
+    });
+    await page.locator("#woOverflowBtn").click();
+    await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
+    const ptSub = (await page.locator("#exActionsSub").innerText()).replace(/\s+/g, " ").trim();
+    assert(/\b\d+ séries\b/.test(ptSub) && !/\bsets?\b/i.test(ptSub),
+      "PT: the actions subtitle counts séries, not the English word sets", ptSub);
+    await page.locator("#exActionsClose").click();
+    await page.locator("#exActionsSheet").waitFor({ state: "hidden" });
+    await page.evaluate(() => {
+      state.settings.lang = "en";
+      window.RepForgeI18n.setLang("en");
+      syncLang();
+    });
+    await page.locator("#woOverflowBtn").click();
+    await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
+    const enSub = (await page.locator("#exActionsSub").innerText()).replace(/\s+/g, " ").trim();
+    assert(/\b\d+ sets\b/.test(enSub) && !/séries/.test(enSub), "EN: the actions subtitle still counts sets", enSub);
+
     assert(pageErrors.length === 0, "exercise actions journey emits no errors", pageErrors.join("\n"));
     console.log("\nAll Exercise-actions assertions passed successfully!");
   } finally {

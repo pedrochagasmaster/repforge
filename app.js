@@ -806,9 +806,11 @@ const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
    be resolved here rather than handed a null and left to that fallback. */
 const resolveLang=()=>state?.settings?.lang||I18N.detectLang();
 function syncLang(){if(!I18N)return;I18N.setLang(resolveLang());applyI18n()}
-function announce(msg,{assertive=false}={}){
+function announce(msg,{assertive=false,placement=""}={}){
   const generation=announce._generation=(announce._generation||0)+1;
   const live=$("#toast");if(!live)return;
+  // "top" keeps a notice clear of a sheet's pinned foot (the Session sheet's reorder announcement).
+  live.classList.toggle("toast--top",placement==="top");
   live.setAttribute("role",assertive?"alert":"status");
   live.setAttribute("aria-live",assertive?"assertive":"polite");
   live.setAttribute("aria-atomic","true");
@@ -6203,17 +6205,21 @@ function renderSessionSheet(){
   const mapEl = $("#sessionMap");
   if (mapEl && draft) {
     const order = draft.exerciseOrder || [];
+    // The lift Focus is on wears the ink rule, so the map reads against the page behind the sheet.
+    const currentId = draft.session?.selectedExerciseId || "";
     const rows = order.map((exId, idx) => {
       const ex = draft.exercises[exId];
       if (!ex) return "";
       const doneCount = ex.setOrder.filter(sid => ex.sets[sid]?.completion !== "pending").length;
       const totalCount = ex.setOrder.length;
       const isSkipped = ex.status === "skipped";
-      const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}` + (doneCount === totalCount && totalCount > 0 ? " ✓" : "");
-      return `<div class="session-map__row" data-session-map-ex="${esc(exId)}">` +
+      const isComplete = doneCount === totalCount && totalCount > 0 && !isSkipped;
+      const isCurrent = exId === currentId;
+      const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}`;
+      return `<div class="session-map__row${isCurrent ? " is-current" : ""}" data-session-map-ex="${esc(exId)}"${isCurrent ? ' aria-current="true"' : ""}>` +
         `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
         `<span class="session-map__name">${esc(ex.displayName)}</span>` +
-        `<span class="session-map__status ${doneCount === totalCount && totalCount > 0 ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
+        `<span class="session-map__status ${isComplete ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
         `</button>` +
         `<div class="session-map__reorder">` +
         `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: ex.displayName }))}"${idx === 0 ? " disabled" : ""}>` +
@@ -6253,7 +6259,7 @@ function renderSessionSheet(){
         name: exercise.displayName,
         index: index + 1,
         count: order.length,
-      }));
+      }), { placement: "top" });
     };
     $$("#sessionMap [data-session-reorder-up]").forEach(b => b.onclick = async (e) => {
       e.stopPropagation();
@@ -6310,10 +6316,13 @@ function renderEarlyFinishPreview(){
   if(!host)return;
   if(!Array.isArray(rows)){host.textContent=t("session.sheet.early_invalid");return}
   const included=new Set(rows.map(row=>`${row.exerciseId}_${row.set}`));
+  // The set numbers ride in the sentence as a token so they can be set in Mono.
   host.innerHTML=draft.exerciseOrder.map(id=>{
     const exercise=draft.exercises[id];
     const omitted=exercise.setOrder.filter(setId=>!included.has(`${id}_${exercise.sets[setId].ordinal}`));
-    return omitted.length?`<li>${esc(t("session.sheet.omitted",{name:exercise.displayName,sets:omitted.map(setId=>exercise.sets[setId].ordinal).join(", ")}))}</li>`:"";
+    if(!omitted.length)return"";
+    const sets=omitted.map(setId=>exercise.sets[setId].ordinal).join(", ");
+    return `<li>${esc(t("session.sheet.omitted",{name:exercise.displayName,sets:"\u0000"})).replace("\u0000",`<span class="session-early-sets">${esc(sets)}</span>`)}</li>`;
   }).join("");
 }
 function openSessionSheet(){
@@ -6323,7 +6332,7 @@ function openSessionSheet(){
   if (!sheet) return;
   document.body.classList.add("is-sheet-open");
   openModal(sheet, {
-    initialFocus: $("#sessionDate") || $("#sessionSheetClose"),
+    initialFocus: $("#sessionSheetClose") || $("#sessionDate"),
     onEscape: closeSessionSheet,
     scrim,
     delayHide: reducedMotion() ? 0 : 280
@@ -6350,15 +6359,26 @@ function renderExActionsSheet(exId) {
   const progEx = prog.find(exId);
   if (!draftEx) return;
 
-  const displayName = draftEx.displayName || (progEx ? (substituted.get(progEx.id) || progEx.name) : exId);
-  const titleEl = $("#exActionsTitle");
-  if (titleEl) titleEl.textContent = displayName;
+  // A substituted exercise is named for what is being performed; the original rides in the line under it.
+  const displayName = draftEx.substitution?.replacement?.displayName || draftEx.displayName || (progEx ? (substituted.get(progEx.id) || progEx.name) : exId);
+  const nameEl = $("#exActionsName");
+  if (nameEl) nameEl.textContent = displayName;
 
+  // Under the name: what it stands in for when substituted, then the muscles and the set count.
   const subEl = $("#exActionsSub");
   if (subEl) {
     const primary = draftEx.programmed?.primary || progEx?.primary || "";
     const setsTotal = draftEx.setOrder.length;
-    subEl.textContent = (primary ? muscleListLabel(primary) + " · " : "") + `${setsTotal} sets`;
+    const lines = [];
+    const original = draftEx.substitution?.original?.displayName;
+    if (original) lines.push(t("log.substitute_for", { name: original }));
+    lines.push((primary ? muscleListLabel(primary) + " · " : "") + `${setsTotal} ${tp(setsTotal, "set")}`);
+    subEl.replaceChildren(...lines.map(line => {
+      const row = document.createElement("span");
+      row.className = "exactions__sub-line";
+      row.textContent = line;
+      return row;
+    }));
   }
 
   // Setup notes
@@ -6375,7 +6395,7 @@ function renderExActionsSheet(exId) {
   if (repeatBtn) {
     if (prevSets.length > 0) {
       repeatBtn.disabled = false;
-      if (repeatHint) repeatHint.textContent = "";
+      if (repeatHint) repeatHint.textContent = t("today.sub.before", { sets: previousSetsLine(prevSets) });
     } else {
       repeatBtn.disabled = true;
       if (repeatHint) repeatHint.textContent = t("ex.actions.no_history");
@@ -6386,7 +6406,8 @@ function renderExActionsSheet(exId) {
   const substBtn = $("#exActionSubstBtn");
   const restoreOrigBtn = $("#exActionRestoreOrigBtn");
   const isSubstituted = !!draftEx.substitution;
-  if (substBtn) substBtn.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
+  const substLabel = substBtn?.querySelector(".exactions__act-text > span");
+  if (substLabel) substLabel.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
   if (restoreOrigBtn) restoreOrigBtn.classList.toggle("hidden", !isSubstituted);
 
   // Warmup sets list
@@ -6403,7 +6424,7 @@ function renderExActionsSheet(exId) {
         `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}</span>` +
         `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
         `</div>` +
-        `<button type="button" class="btn btn--steel btn--sm" data-warm-toggle-set="${esc(sid)}">${esc(btnLabel)}</button>` +
+        `<button type="button" class="btn btn--steel exactions__warmup-btn" data-warm-toggle-set="${esc(sid)}">${esc(btnLabel)}</button>` +
         `</div>`;
     }).filter(Boolean);
     warmupList.innerHTML = rows.join("");
@@ -6428,11 +6449,21 @@ function renderExActionsSheet(exId) {
   }
 
   // Skip / restore exercise
-  const skipBtn = $("#exActionSkipBtn");
+  const skipLabel = $("#exActionSkipLabel");
   const isSkipped = draftEx.status === "skipped";
-  if (skipBtn) {
-    skipBtn.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
-  }
+  if (skipLabel) skipLabel.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
+  // A skipped exercise says so in its status group, not only in the changed button label.
+  $("#exActionsStatus")?.classList.toggle("hidden", !isSkipped);
+}
+
+/** "100 × 8, 8, 8" for one load across the sets, "100 × 8, 90 × 10" when the load moved. */
+function previousSetsLine(sets) {
+  const rows = sets.filter(x => +x.reps > 0);
+  if (!rows.length) return "";
+  if (rows.every(x => x.load == null)) return rows.map(x => x.reps).join(", ");
+  const same = rows.every(x => sameLoad(+x.load, +rows[0].load));
+  return same ? `${fmtLoad(rows[0].load)} × ${rows.map(x => x.reps).join(", ")}`
+    : rows.map(x => `${fmtLoad(x.load)} × ${x.reps}`).join(", ");
 }
 
 function openExActionsSheet(exId) {
@@ -6574,6 +6605,11 @@ function shelfTouched(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
   const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
   return draft.sets[setId]?.touched||{}}
+/** A warm-up set keeps its place in the ledger under a short label instead of its number. */
+function ledgerSetIsWarmup(exId,n){
+  const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return false;
+  const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
+  return draft.sets[setId]?.role==="warmup"}
 
 /** The ledger: one row per set. Logged sets read back and reopen on a tap, the
  *  set being worked on (or corrected) wears the open ring, and the sets still
@@ -6596,7 +6632,9 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
     const touched=open||done?shelfTouched(ex.id,n):{};
     const soft=field=>!done&&!(field==="rir"?touched.effort:touched[field])?" is-soft":"";
     const rirText=open||done?vals.eff:focusTargetEffort(ex);
-    const cells=`<span class="ledgerline__idx">${done?`<span class="fx-check" aria-hidden="true"></span>`:n}</span>`+
+    const idx=done?`<span class="fx-check" aria-hidden="true"></span>`
+      :!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:n;
+    const cells=`<span class="ledgerline__idx">${idx}</span>`+
       `<span class="ledgerline__vals"><span class="fx-col${open||done?soft("load"):" is-soft"}" data-lv="load">${esc(vals.load||"—")}</span>`+
       `<span class="fx-col${open||done?soft("reps"):" is-soft"}" data-lv="reps">${esc(vals.reps)}</span>`+
       `<span class="fx-col${open||done?soft("rir"):" is-soft"}" data-lv="rir">${esc(rirText)}</span></span>`+
