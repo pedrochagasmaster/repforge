@@ -195,7 +195,7 @@ try {
     });
     check(!!probe, "the catalog lifter has an exercise with an outcome and a recommended load", JSON.stringify(probe));
     if (probe) {
-      const other = probe.label === "Improved" ? "Flat" : "Improved";
+      const other = probe.label === "Improved" ? "Maintained" : "Improved";
       const good = `<span id="seedOutcomeOk" data-parity-outcome="${probe.id}" data-parity-session="${probe.session}">${probe.label}</span>
         <span id="seedTargetOk" data-parity-target="${probe.id}">3 × 7 at ${String(probe.load).replace(".", ",")}</span>`;
       const okFailures = checkParity(await seeded(page, good));
@@ -250,6 +250,18 @@ try {
     });
     const strict = await prepared(okMarkup);
     check(strict.length === 0, "a catalog string, a user/exercise name and bare figures are accepted", show(strict));
+    // A catalog phrase may be followed by figures and units, never by a word.
+    const phrased = await prepared(await page.evaluate(() => {
+      const top = window.RepForgeI18n.t("stats.metric.top_load");
+      return `<p id="seedPhraseOk">${top} 102.5 kg</p><p id="seedPhraseRange">${top} 3 × 7 · 60 lb</p>`;
+    }));
+    check(phrased.length === 0, "a catalog phrase followed by figures and units is accepted", show(phrased));
+    const phrasedBad = await prepared(await page.evaluate(() => {
+      const top = window.RepForgeI18n.t("stats.metric.top_load");
+      return `<p id="seedPhraseWord">${top} heavier 102.5 kg</p><p id="seedPhraseTail">${top} 102.5 kg extra</p><p id="seedPhraseDay">${top} Monday</p>`;
+    }));
+    check(has(phrasedBad, "not a catalog", "#seedPhraseWord") && has(phrasedBad, "not a catalog", "#seedPhraseTail") && has(phrasedBad, "not a catalog", "#seedPhraseDay"),
+      "a catalog phrase followed by a non-catalog word is still rejected", show(phrasedBad));
   } finally {
     await en.context.close();
   }

@@ -514,7 +514,10 @@ export function checkStrings(evidence, catalog) {
     const words = fragment.replace(/[\d.,:%+×x–-]+/gu, " ").split(/\s+/).map((word) => word.replace(/[.]/g, "").toLowerCase()).filter((word) => /\p{L}/u.test(word));
     return words.every((word) => unitWords.has(word) || dateWords.has(word));
   };
-  // A catalog phrase followed by figures ("Top load 102.5 kg") is that phrase and data, not a new string.
+  // A catalog phrase followed by figures only ("Top load 102.5 kg") is that phrase and data, not a new string.
+  // The trailing part may hold digits, separators and unit tokens, never a word.
+  const figuresOnly = (rest) => rest.split(/\s+/).filter(Boolean)
+    .every((token) => /^[\d.,:%+×x–−-]*\d[\d.,:%+×x–−-]*$/u.test(token) || /^(?:kg|lb)$/i.test(token) || /^[×x–−+-]$/u.test(token));
   const plainPhrases = [...new Set(Object.values(catalog.dictionary).map((value) => String(value).replace(/\s+/g, " ").trim())
     .filter((value) => value.length >= 3 && /\p{L}/u.test(value) && !/[{}<>]/.test(value)))].sort((a, b) => b.length - a.length);
   const afterLeadingPhrase = (fragment) => {
@@ -535,7 +538,7 @@ export function checkStrings(evidence, catalog) {
     return rest.split(/\s*[·•|,;:()[\]+×–]\s*|\s+-\s+/u).map((fragment) => fragment.replace(/\s+/g, " ").trim())
       .filter((fragment) => /\p{L}/u.test(fragment))
       .every((fragment) => known(fragment) || fragment.split(/\s*\/\s*/u).filter((part) => /\p{L}/u.test(part)).every(known)
-        || (afterLeadingPhrase(fragment) !== null && residueOk(afterLeadingPhrase(fragment))));
+        || (afterLeadingPhrase(fragment) !== null && figuresOnly(afterLeadingPhrase(fragment))));
   };
   const seen = new Set();
   for (const item of evidence.text) {

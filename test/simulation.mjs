@@ -8125,7 +8125,7 @@ async function main() {
   await page.waitForTimeout(150);
   const strengthWord = await page.locator(`#strengthDash .evword[data-parity-outcome="${browseEx.id}"]`).first().textContent().catch(() => "");
   assert(
-    /Improved|Flat|Regressed|Changed load|Not comparable/.test(strengthWord || ""),
+    /Improved|Maintained|Declined|Changed load|Not comparable/.test(strengthWord || ""),
     "Strength row names the lift's session outcome from the same comparison",
     `Content: ${strengthWord || "(missing)"}`,
     "Seed 2+ comparable sessions with working sets, then Stats → Strength"
