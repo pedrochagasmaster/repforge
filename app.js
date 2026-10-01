@@ -3167,9 +3167,7 @@ function capturePendingBlock(strategy,review){
 function hasArchivableProgram(snapshot){
   const meta=snapshot?.programMeta;
   const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
-  if(!meta||!hasDefinition)return false;
-  return meta.onboarded===true||Array.isArray(snapshot?.log)&&snapshot.log.length>0||
-    Array.isArray(snapshot?.programHistory)&&snapshot.programHistory.length>0}
+  return !!meta&&!!hasDefinition}
 function captureProgramReplacementIntent(snapshot=state,review=null){
   const meta=snapshot?.programMeta;
   if(!hasArchivableProgram(snapshot))return null;
