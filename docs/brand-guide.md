@@ -109,7 +109,7 @@ Shared captions remain localized rather than assembled from fragments:
 
 | Key | English | Portuguese |
 | --- | --- | --- |
-| `setup.shared.title` | Start this program | Começar este programa |
+| `setup.shared.title` | Start this program | Começar este treino |
 | `setup.shared.cap_one` | {name} · 1 day per week | {name} · 1 dia por semana |
 | `setup.shared.cap_many` | {name} · {n} days per week | {name} · {n} dias por semana |
 
@@ -133,7 +133,7 @@ clipboard:
 
 | Key | English | Portuguese |
 | --- | --- | --- |
-| `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, ajustes e idioma do app · sem histórico de treinos |
+| `program.share_setup_sub` | Program, settings and app language · no workout history | Treino, ajustes e idioma do app · sem histórico de sessões |
 | `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta. |
 
 Outbound Share link is title plus URL only. Copy link is the URL only. The
