@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Public landing: the five shared/standard/install variants, characterized
- * (Plan 064 R2a-A, step 1).
+ * Public landing: the five shared/standard/install variants, characterized, plus
+ * the failing contract for the final page's new sections (Plan 064 R2a-A).
  *
- * The suite pins only what the lifter and the confirmation gate depend on,
- * through production IDs, and reads every expected string from the i18n
+ * PART 1 - characterization (always on, green at base, must keep passing when the
+ * page is rebuilt). It pins only what the lifter and the confirmation gate depend
+ * on, through production IDs, and reads every expected string from the i18n
  * catalogs so a copy change cannot break it. No composition selector appears
- * here (no hero figure, no stage, no beat): the page layout is free to change,
- * and this suite must keep passing when it does.
+ * here (no hero figure, no stage, no beat): the page layout is free to change.
  *
  *   V1  standard         generic landing: headline, lede, Build (#firstRunCreate),
  *                        Track (#firstRunImport), Privacy link and sheet, the
@@ -23,9 +23,36 @@
  * writes a setup draft before the oracle runs; the suite must then FAIL, proving
  * the oracle bites (same idea as REPFORGE_ENTRY_LANDING_FAULT in entry-landing.mjs).
  *
+ * Also always on, and Node-only: the engine-truth oracle. The three recommendation
+ * cases the final page shows are evaluated here with progression-engine.js and
+ * the app's own default settings, and the chart figures (92.5 -> 100 kg over 4
+ * sessions, owner decision L-2) are derived with progress-model.js from the exact
+ * history the chart image is captured from (tools/landing-prototype/fixture.mjs).
+ *
+ * PART 2 - the final page (RED until the page packet lands). Enabled with
+ *   REPFORGE_LANDING_FINAL=1
+ * It asserts that each new section exists, that the proof has seven steps, that
+ * the three outcome cases and the chart show the oracle's numbers, that the FAQ
+ * has five <details>, and that the persistent Build dock exists on the standard
+ * landing but never on the shared-link gate. The page packet removes this env
+ * gate in the same change that makes these assertions pass; until then the block
+ * is not part of the lane CI runs.
+ *
+ * Hooks PART 2 expects (the page packet builds to these; all inside #firstRun):
+ *   [data-landing-section="hero|proof|ways|track|data|faq|close|footer"]
+ *   [data-landing-step]            x7 in the proof section, in order; the last is
+ *                                  the result step
+ *   [data-landing-outcome="add|hold|reduce"]  x3 in the track section, each with a
+ *                                  [data-landing-next] element holding the next target
+ *   [data-landing-chart]           the chart figure (an <img alt> and a <figcaption>)
+ *   details.faq                    x5 in the faq section
+ *   #firstRunCreateDock            the persistent Build control; absent on the
+ *                                  valid shared-link gate
+ *
  * Run: node test/landing-variants.mjs   (with a static server on REPFORGE_URL)
  */
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { isDeepStrictEqual } from "node:util";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { MINIMAL_PAYLOAD, REPRESENTATIVE_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
@@ -36,9 +63,12 @@ import {
   sharedGateSnapshot,
   waitForFirstRun,
 } from "./shared-setup-flow.mjs";
+import { realisticState } from "../tools/landing-prototype/fixture.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const FAULT = process.env.REPFORGE_LANDING_VARIANTS_FAULT;
+const FINAL = process.env.REPFORGE_LANDING_FINAL === "1";
+const require = createRequire(import.meta.url);
 
 const KEY = "repforge_v1";
 const SETUP_DRAFT = "repforge_program_setup_draft_v1";
@@ -85,6 +115,70 @@ const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function templateRe(lang, key) {
   const source = CATALOG[lang][key].split(/\{\w+\}/).map(escapeRe).join(".+");
   return new RegExp(`^${source}$`);
+}
+
+// ---------------------------------------------------------------------------
+// Engine-truth oracle (Node only). Mirrors app.js progressionInput() with the
+// settings the app ships (DEFAULTS in app.js), range@1 prescriptions, one
+// logged session as history. The numbers are whatever the engine says.
+// ---------------------------------------------------------------------------
+const Engine = require("../progression-engine.js");
+const ProgressModel = require("../progress-model.js");
+const APP_SOURCE = readFileSync(new URL("../app.js", import.meta.url), "latin1");
+const APP_DEFAULTS = (() => {
+  const match = /const DEFAULTS=(\{[^\n]*?\});\n/.exec(APP_SOURCE);
+  if (!match) throw new Error("app.js DEFAULTS literal not found");
+  return new Function(`"use strict";return (${match[1]});`)();
+})();
+
+/** The inputs of the three outcome cases the final page shows. */
+const LANDING_CASES = Object.freeze({
+  add: { exercise: "bench", repMin: 8, repMax: 10, logged: [[60, 10, 2], [60, 10, 2], [60, 10, 2]], status: "advance", reason: "range.performed_top" },
+  hold: { exercise: "squat", repMin: 5, repMax: 8, logged: [[100, 8, 1], [100, 7, 0], [100, 6, 0]], status: "hold", reason: "range.room_in_range" },
+  reduce: { exercise: "bench", repMin: 8, repMax: 10, logged: [[70, 7, 0], [70, 6, 0], [70, 6, 0]], status: "reduce", reason: "range.below_floor" },
+});
+const SETS = 3;
+
+function engineSettings() {
+  const raw = +APP_DEFAULTS.minJump;
+  return {
+    minLoadIncrement: Number.isFinite(raw) && raw > 0 ? raw : 2.5,
+    jumpPercent: +APP_DEFAULTS.jumpPct || 0,
+    hardRir: +APP_DEFAULTS.hardRir || 4,
+  };
+}
+function runEngineCase(c) {
+  const result = Engine.evaluateProgression({
+    engineVersion: 1,
+    prescription: { schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: SETS, repMin: c.repMin, repMax: c.repMax } }, modifiers: [] },
+    relation: null,
+    modifiers: [],
+    settings: engineSettings(),
+    history: [{ sessionId: "landing-case", date: "2026-09-01", sets: c.logged.map(([load, reps, rir]) => ({ load, reps, rir })) }],
+    currentSession: [],
+    context: { weekNumber: 1, blockLength: 6, blockStart: null },
+  });
+  if (result.kind !== "recommendation") throw new Error(`engine did not recommend: ${JSON.stringify(result)}`);
+  return { status: result.status, reason: result.reasonCodes[0], load: result.facts.targetLoad, reps: result.facts.targetReps };
+}
+const ENGINE = Object.fromEntries(Object.entries(LANDING_CASES).map(([id, c]) => [id, runEngineCase(c)]));
+
+/** The chart figures, derived with the app's Progress model from the history the chart image is captured from. */
+const CHART_COPY = Object.freeze({ from: 92.5, to: 100, sessions: 4 });
+function deriveChart(lang) {
+  const state = realisticState(lang);
+  const series = ProgressModel.buildStrengthEvidence("all-history", "ex-squat", state.log, { started: state.programMeta.started });
+  const values = series.points.map((point) => point.value);
+  return { from: values[0], to: values.at(-1), sessions: series.evidenceCount, values, presentation: series.presentation };
+}
+
+// ---------------------------------------------------------------------------
+// Number matching: a number is present as its own token in the lang's format.
+// ---------------------------------------------------------------------------
+function hasNumber(text, value, lang) {
+  const shown = (lang === "pt" ? String(value).replace(".", ",") : String(value));
+  const re = new RegExp(`(?<![\\d.,])${escapeRe(shown)}(?![\\d]|[.,]\\d)`);
+  return re.test(squash(text));
 }
 
 // ---------------------------------------------------------------------------
@@ -185,7 +279,7 @@ const readLanding = () => {
 };
 
 // ===========================================================================
-// Characterization
+// PART 1 - characterization
 // ===========================================================================
 async function characterize(browser) {
   // -------------------------------------------------------------------------
@@ -449,12 +543,185 @@ async function characterize(browser) {
   }
 }
 
+// ===========================================================================
+// PART 1b - the engine-truth oracle, Node only, always on
+// ===========================================================================
+function engineTruth() {
+  phase("Engine truth: the landing's recommendation cases, with the app's default settings");
+  assert(
+    isDeepStrictEqual(engineSettings(), { minLoadIncrement: 2.5, jumpPercent: 2.5, hardRir: 4 }),
+    "the settings used are the app defaults (2.5 kg step, 2.5% jump, hard RIR 4)",
+    JSON.stringify({ defaults: APP_DEFAULTS, settings: engineSettings() })
+  );
+  for (const [id, c] of Object.entries(LANDING_CASES)) {
+    const got = ENGINE[id];
+    assert(got.status === c.status && got.reason === c.reason, `${id}: the engine answers ${c.status} / ${c.reason}`, JSON.stringify(got));
+  }
+  assert(ENGINE.add.load === 62.5 && ENGINE.add.reps === 8, "add: next target is 62.5 x 8 (3 x 60 x 10 at RIR 2, range 8-10)", JSON.stringify(ENGINE.add));
+  assert(ENGINE.hold.load === 100 && ENGINE.hold.reps === 8, "hold: next target is 100 x 8 (100 x 8/7/6, range 5-8)", JSON.stringify(ENGINE.hold));
+  assert(ENGINE.reduce.load === 67.5 && ENGINE.reduce.reps === 8, "reduce: next target is 67.5 x 8 (70 x 7/6/6, range 8-10)", JSON.stringify(ENGINE.reduce));
+
+  phase("Chart truth: 92.5 -> 100 kg over 4 sessions, from the Progress model over the chart's own history");
+  for (const lang of ["en", "pt"]) {
+    const chart = deriveChart(lang);
+    assert(chart.presentation === "trend", `[${lang}] the squat history is a trend (>=3 sessions)`, JSON.stringify(chart));
+    assert(chart.from === CHART_COPY.from && chart.to === CHART_COPY.to && chart.sessions === CHART_COPY.sessions,
+      `[${lang}] top load ${CHART_COPY.from} -> ${CHART_COPY.to} kg over ${CHART_COPY.sessions} sessions`, JSON.stringify(chart));
+  }
+  // An independent recomputation, so a Progress-model quirk cannot hide a fixture change.
+  const log = realisticState("en").log.filter((row) => row.exerciseId === "ex-squat");
+  const bySession = new Map();
+  for (const row of log) bySession.set(row.session, Math.max(bySession.get(row.session) ?? 0, row.load));
+  const tops = [...bySession.values()];
+  assert(tops.length === CHART_COPY.sessions && tops[0] === CHART_COPY.from && tops.at(-1) === CHART_COPY.to,
+    "recomputed from the raw rows: the same first and last top loads and session count", JSON.stringify(tops));
+}
+
+// ===========================================================================
+// PART 2 - the final page (RED until the page packet lands)
+// ===========================================================================
+const SECTIONS = ["hero", "proof", "ways", "track", "data", "faq", "close", "footer"];
+
+const readFinal = (sectionNames) => {
+  const root = document.querySelector("#firstRun");
+  const text = (node) => (node?.textContent || "").replace(/\s+/g, " ").trim();
+  const section = (name) => root?.querySelector(`[data-landing-section="${name}"]`) || null;
+  const sections = Object.fromEntries(sectionNames.map((name) => [name, !!section(name)]));
+  const steps = [...(section("proof")?.querySelectorAll("[data-landing-step]") || [])].map(text);
+  const outcomes = {};
+  for (const id of ["add", "hold", "reduce"]) {
+    const node = section("track")?.querySelector(`[data-landing-outcome="${id}"]`);
+    outcomes[id] = node ? { text: text(node), next: text(node.querySelector("[data-landing-next]")) } : null;
+  }
+  const outcomeCount = section("track")?.querySelectorAll("[data-landing-outcome]").length ?? 0;
+  const chartNode = section("track")?.querySelector("[data-landing-chart]") || null;
+  const chart = chartNode ? {
+    alt: chartNode.querySelector("img")?.getAttribute("alt") || "",
+    src: chartNode.querySelector("img")?.getAttribute("src") || "",
+    caption: text(chartNode.querySelector("figcaption")),
+  } : null;
+  const faq = [...(section("faq")?.querySelectorAll("details") || [])];
+  const footerLink = section("footer")?.querySelector('a[href^="#"]') || null;
+  const target = footerLink ? root.querySelector(footerLink.getAttribute("href")) : null;
+  return {
+    sections, steps, outcomes, outcomeCount, chart,
+    faqCount: faq.length, faqQuestions: faq.map((d) => text(d.querySelector("summary"))),
+    footerPrivacyTargetsData: !!target && target === section("data"),
+  };
+};
+
+const dockState = () => {
+  const dock = document.querySelector("#firstRunCreateDock");
+  if (!dock) return { present: false, visible: false };
+  const box = dock.getBoundingClientRect();
+  const style = getComputedStyle(dock);
+  const hiddenByAria = dock.getAttribute("aria-hidden") === "true" || !!dock.closest("[aria-hidden='true'],.hidden,[hidden]");
+  const onScreen = box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < innerHeight && style.visibility !== "hidden" && style.display !== "none";
+  return { present: true, visible: !hiddenByAria && onScreen };
+};
+
+async function scrollLanding(page, selector, block = "start") {
+  await page.evaluate(({ selector, block }) => {
+    const node = document.querySelector(selector);
+    if (node) node.scrollIntoView({ block, behavior: "instant" });
+  }, { selector, block });
+  await page.waitForTimeout(700);
+}
+
+async function finalPage(browser) {
+  // The failing contract, standard landing, in both languages.
+  for (const lang of ["en", "pt"]) {
+    phase(`Final page [${lang}] (RED): new sections and engine-true numbers`);
+    const { context, page } = await landingPage(browser, { lang });
+    const f = await page.evaluate(readFinal, SECTIONS);
+
+    for (const name of SECTIONS) assert(f.sections[name], `[${lang}] the ${name} section is present (data-landing-section="${name}")`);
+
+    assert(f.steps.length === 7, `[${lang}] the proof has seven steps in the document`, `found ${f.steps.length}`);
+    assert(f.steps.length > 0 && f.steps.every((step) => step.length > 0), `[${lang}] every proof step carries its text without scripting`, JSON.stringify(f.steps.map((s) => s.length)));
+    const add = LANDING_CASES.add;
+    const last = f.steps.at(-1) || "";
+    assert(
+      hasNumber(last, ENGINE.add.load, lang) && hasNumber(last, ENGINE.add.reps, lang) && hasNumber(last, SETS, lang) &&
+        hasNumber(last, add.logged[0][0], lang) && hasNumber(last, add.logged[0][1], lang) && hasNumber(last, add.repMin, lang) && hasNumber(last, add.repMax, lang),
+      `[${lang}] step 7 shows the engine's next target ${ENGINE.add.load} x ${ENGINE.add.reps} and the sets it came from`, last
+    );
+
+    assert(f.outcomeCount === 3, `[${lang}] the track section shows exactly three outcomes`, `found ${f.outcomeCount}`);
+    for (const id of ["add", "hold", "reduce"]) {
+      const c = LANDING_CASES[id], want = ENGINE[id];
+      const out = f.outcomes[id] ?? { text: "", next: "" };
+      assert(!!f.outcomes[id], `[${lang}] the ${id} outcome is present`);
+      assert(hasNumber(out.next, want.load, lang) && hasNumber(out.next, want.reps, lang),
+        `[${lang}] ${id}: next target equals the engine's ${want.load} x ${want.reps}`, out.next);
+      assert(hasNumber(out.text, c.logged[0][0], lang) && hasNumber(out.text, c.repMin, lang) && hasNumber(out.text, c.repMax, lang),
+        `[${lang}] ${id}: the card shows the logged load ${c.logged[0][0]} and the target range ${c.repMin}-${c.repMax}`, out.text);
+    }
+    const labels = { add: "rec.add.label", hold: "rec.hold_add_reps.label", reduce: "rec.reduce.label" };
+    for (const id of Object.keys(labels)) {
+      assert(!!f.outcomes[id] && f.outcomes[id].text.includes(tr(lang, labels[id])), `[${lang}] ${id}: the verdict uses the app's own label (${labels[id]})`, f.outcomes[id]?.text);
+    }
+
+    const chart = deriveChart(lang);
+    assert(!!f.chart, `[${lang}] the strength-trend figure is present (data-landing-chart)`);
+    const shownChart = f.chart ?? { alt: "", caption: "", src: "" };
+    for (const [where, text] of [["alt", shownChart.alt], ["caption", shownChart.caption]]) {
+      assert(hasNumber(text, chart.from, lang) && hasNumber(text, chart.to, lang) && hasNumber(text, chart.sessions, lang),
+        `[${lang}] chart ${where} states ${chart.from} -> ${chart.to} kg over ${chart.sessions} sessions (Progress model)`, text);
+    }
+    assert(shownChart.src.includes(`exercise-chart-${lang}-`), `[${lang}] the chart image is the ${lang} capture`, shownChart.src);
+
+    assert(f.faqCount === 5, `[${lang}] the questions section has five <details>`, `found ${f.faqCount}`);
+    assert(f.footerPrivacyTargetsData, `[${lang}] the footer Privacy link goes to the data section, not the sheet`);
+
+    // The persistent Build control: hidden at the top, present once the hero action is behind.
+    const top = await page.evaluate(dockState);
+    assert(!top.visible, `[${lang}] the dock is hidden while the hero action is on screen`, JSON.stringify(top));
+    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    const past = await page.evaluate(dockState);
+    assert(past.present && past.visible, `[${lang}] #firstRunCreateDock shows once the hero action has scrolled away`, JSON.stringify(past));
+    await context.close();
+  }
+
+  // The dock never appears on the confirmation gate.
+  phase("Final page, shared link (RED where it can be): no persistent Build control");
+  {
+    const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, locale: LOCALE.en });
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
+    await page.goto(`${APP_INDEX}?landing-variants=final-shared#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    await page.waitForSelector("#firstRunSharedProgram:not(.hidden)", { timeout: 10000 });
+    const f = await page.evaluate(readFinal, SECTIONS);
+    assert(f.sections.hero, "the shared gate is the new page's hero (data-landing-section=\"hero\" present)");
+    // Scroll through the whole page, then to the end: the dock must never appear and no Build/Track may surface.
+    for (const selector of ['#firstRun [data-landing-section="proof"]', '#firstRun [data-landing-section="close"]', '#firstRun [data-landing-section="footer"]']) {
+      await scrollLanding(page, selector);
+      const dock = await page.evaluate(dockState);
+      const gate = await page.evaluate(sharedGateSnapshot);
+      assert(!dock.visible, `the dock is not shown on the shared gate (at ${selector.match(/"(\w+)"/)?.[1] ?? selector})`, JSON.stringify(dock));
+      assert(!gate.createVisible && !gate.importVisible, "no Build or Track is visible on the shared gate", JSON.stringify(gate));
+    }
+    await context.close();
+  }
+}
+
 // ---------------------------------------------------------------------------
 async function main() {
   console.log(`Landing variants\nTarget: ${BASE}${FAULT ? `\nFault: ${FAULT}` : ""}`);
+  engineTruth();
   const browser = await launchChromium();
   try {
     await characterize(browser);
+    if (FINAL) {
+      console.log("\n=== Final page contract (REPFORGE_LANDING_FINAL=1): RED until the page packet lands ===");
+      await finalPage(browser);
+    } else {
+      console.log("\n(final-page section block skipped; set REPFORGE_LANDING_FINAL=1 to run it)");
+    }
   } finally {
     await browser.close();
   }
