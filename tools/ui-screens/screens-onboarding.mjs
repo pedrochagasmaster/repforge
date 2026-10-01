@@ -646,10 +646,16 @@ export const ONBOARDING_SCENARIOS = {
     await reviewWithEditor(page, "prio");
     const search = page.locator("#entryAvoidSearch");
     // Avoid an exercise the program contains, so the statement is about a real change.
-    const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
     const first = await page.evaluate(() => (window.__repforgeEntryState().result.preview.program[0] || {}).libraryId);
-    const name = await page.evaluate((id) => window.__repforgeLibraryEntry?.(id)?.name || "", first);
-    await search.fill(portuguese ? name.split(" ")[0] : name);
+    // The search matches the localized library name, so search with the name the lifter sees.
+    const name = await page.evaluate((id) => {
+      const entry = window.__repforgeLibraryEntry?.(id);
+      if (!entry) return "";
+      // app.js's libraryName(): the PT name when the page is PT, else the English one.
+      return (document.documentElement.lang === "pt-BR" && entry.namePt) || entry.name;
+    }, first);
+    if (!name) throw new Error("result-avoided: the program's first exercise has no library name");
+    await search.fill(name);
     await page.waitForTimeout(150);
     await page.locator(`[data-entry-avoid-add="${first}"]`).click();
     await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${first}|dislike"]`);
