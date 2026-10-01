@@ -193,6 +193,7 @@ reviewed schema versioning.
 | `session_summary_viewed` | — | Completion flow |
 | `block_review_viewed` | completion bucket | Transition |
 | `program_transition_selected` | `resume` / `repair` / `rebase` / `switch` | Transition behavior |
+| `program_import_unsupported_concept` | closed category: `supersets`, `rest_times`, `rir_rpe`, `tempo`, `warmups`, `cardio`, `progression_rules`, `deload` | One event per distinct category explicitly returned by the free-form import sidecar; never infer from content |
 | `intervention_proposed` | issue/intervention category, confidence band | Pro beta only |
 | `intervention_decided` | accept/modify/snooze/dismiss | Pro beta only |
 | `intervention_reviewed` | retain/revise/revert | Pro beta only |

@@ -53,8 +53,12 @@ deliberate share as a setup link (ADR 0007) and it is disclosed on the screen
 above the buttons rather than in a policy page.
 
 What does *not* happen: the pasted program never enters database state, never
-leaves in an export, never enters a setup link, and never enters telemetry or
-event payloads. To protect lifters on mobile whose browser tab may be suspended
+leaves in an export, and never enters a setup link. Raw source text, prompts,
+model replies, exercise names and other free text never enter telemetry. The
+only import-content signal permitted there is the closed category token from
+the assistant's `notImported` sidecar, measured under the separate
+`program_import_unsupported_concept` event; unknown values are discarded. To
+protect lifters on mobile whose browser tab may be suspended
 or evicted during the handoff switch, the active source, reply, stage, and last
 provider are held in tab-scoped `sessionStorage` (`repforge_freeform_session_v1`)
 for the duration of the flow. That storage is strictly ephemeral and is cleared
@@ -93,11 +97,12 @@ prompt nobody reviews.
 - The `import` route now has two doors on one step rather than two routes. The
   free-form path ends in the same candidate, the same fingerprint and the same
   activation pipeline.
-- Four telemetry events in the closed schema-1 catalogue measure the import
+- Five telemetry events in the closed schema-1 catalogue measure the import
   funnel without capturing user program text or names: `program_import_started`,
   `program_import_handoff`, `program_import_parsed`, and
-  `program_import_review_reached`, while `program_activated` records an optional
-  `source` property (`freeform` | `file`).
+  `program_import_review_reached`, `program_import_unsupported_concept` (one
+  event per distinct approved sidecar category), while `program_activated`
+  records an optional `source` property (`freeform` | `file`).
 - Ephemeral session recovery (`sessionStorage`) ensures lifters do not lose
   progress when switching between apps on aggressive mobile operating systems.
 - The prefilled link is capped (`FREEFORM_URL_MAX`). A longer prompt still
