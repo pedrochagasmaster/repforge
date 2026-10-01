@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 154 screens,
-933 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 157 screens,
+942 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -58,6 +58,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed. |
 | [Entry hub — own disclosure open](screens/onboarding-start/hub-own-open__phone-390-light-en.png) | 3 | The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
+| [Entry hub — route help open](screens/onboarding-start/hub-help__phone-390-light-en.png) | 3 | The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs. |
 
 ### Onboarding — Recommend one for me
 
@@ -134,6 +135,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Resume setup](screens/onboarding-recovery/resume__phone-390-light-en.png) | 7 | The resumable notice after reload: route, step, recency, Resume, Start over. |
 | [Rules changed](screens/onboarding-recovery/rules-drift__phone-390-light-en.png) | 7 | A draft whose compiler rules are stale. Rebuild is required before activation. |
+| [Cancel setup — keep or discard](screens/onboarding-recovery/cancel-confirm__phone-390-light-en.png) | 3 | Cancel pressed mid-flow. A dialog over the current step asks whether to keep the draft or discard it; Escape or Continue setup returns to the step. |
+| [Start over — confirm](screens/onboarding-recovery/restart-confirm__phone-390-light-en.png) | 3 | Start over pressed on a review. A dialog asks before the answers and the unused program are discarded; the active program does not change. |
 
 ### Today
 
