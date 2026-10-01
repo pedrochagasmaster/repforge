@@ -62,6 +62,9 @@ const D_STATE_KEYS = [
 const IMPLEMENTED_D_STATES = new Set([
   // R3c: the Focus surface (shelf, ledger, cue, header routes) over DraftV2.
   "workout/focus", "workout/focus-glossary", "workout/correction",
+  // R3d: the workout sheets drawn in OG-6 round 1 (workout/exercise-actions stays pending: its round 2 redraw is not approved).
+  "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
+  "workout/reorder", "workout/skipped-actions", "workout/substituted-actions",
 ]);
 export const DIRECTION_D_STATES = D_STATE_KEYS.map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 
