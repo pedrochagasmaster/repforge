@@ -4083,16 +4083,19 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 
 /* The Strength tab: the scope control, then a row per lift that opens in place. */
-#stats #strengthScopeSeg{
+#stats #strengthScopeSeg,
+.segpill{
   display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;margin:var(--space-14) 0 0;padding:3px;
   border:1px solid var(--boundary-decorative);border-radius:var(--radius-control);background:var(--well);
 }
-#stats #strengthScopeSeg > button{
+#stats #strengthScopeSeg > button,
+.segpill > button{
   min-height:var(--control-target);margin:0;padding:4px var(--space-8);border:2px solid transparent;border-radius:var(--radius-compact);
   background:var(--control-quiet-bg);color:var(--color-ink-secondary);text-align:center;white-space:normal;overflow-wrap:anywhere;
   font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
 }
-#stats #strengthScopeSeg > button.active{
+#stats #strengthScopeSeg > button.active,
+.segpill > button[aria-pressed="true"]{
   border-color:var(--boundary-selected-quiet);background:var(--surface);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
 }
 .evrow--d{
@@ -4137,6 +4140,67 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   .evrow--d{grid-template-areas:"n n" "f f" "o o" "k s"}
   .evrow--d .evrow__fig{justify-self:start;margin-top:var(--space-4)}
 }
+
+/* ---- Progress: the exercise chart (Plan 064 R3i) ----
+   The lift's chart page: toggles, three figures, one series drawn as the step
+   itself, a readout and the table that selects the same sessions. The plot is
+   one pointer target; the table rows are the keyboard and screen-reader way in. */
+#exercise.exview--chart .exview-head__title{display:none}
+#exercise.exview--chart #exBack{gap:var(--space-4);color:var(--control-quiet-ink)}
+#exercise.exview--chart #exBack .chevron{transform:rotate(180deg);color:inherit}
+.exchart__title{margin:var(--space-8) 0 0}
+.exchart__toggles{display:grid;gap:var(--space-8);margin-top:var(--space-12)}
+.exchart__toggles .segpill{margin:0}
+.exchart__figs{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-12);
+  margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
+}
+.exchart__figs b{
+  display:block;font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);
+  line-height:var(--line-tight);color:var(--color-ink);white-space:nowrap;
+}
+.exchart__figs span{
+  display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.exchart__plot{margin-top:var(--space-18);touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none}
+.exchart__svg{display:block;width:100%;height:auto}
+.exchart__svg .ch-grid{stroke:var(--boundary-decorative);stroke-width:1}
+.exchart__svg .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-regular)}
+.exchart__svg .ch-ax--l{font-family:var(--font-language)}
+.exchart__svg .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
+.exchart__svg .ch-line{fill:none;stroke:var(--color-ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.exchart__svg .ex-cursor{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:2 3}
+.exchart__svg .ex-pt{fill:var(--bg);stroke:var(--color-ink);stroke-width:1.5}
+.exchart__svg .ex-pt--old{stroke:var(--color-ink-secondary)}
+.exchart__svg .ex-pt--sel{fill:var(--color-ink)}
+.exchart__svg .ex-tick{fill:var(--color-ink)}
+.exchart__readout{
+  min-height:22px;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-standard);color:var(--color-ink);
+}
+.exchart__mono{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
+.exchart__soft{color:var(--color-ink-secondary)}
+.exchart__cols,.exrow{
+  display:grid;grid-template-columns:4.5rem minmax(0,1fr) 4rem 3.25rem;gap:var(--space-8);align-items:center;
+}
+.exchart__cols{
+  margin-top:var(--space-12);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);
+  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
+}
+.exchart__cols span:nth-child(n+2),.exrow span:nth-child(n+2){text-align:right}
+.exrow{
+  width:100%;min-height:48px;padding:0 0 0 var(--space-8);border:0;border-left:3px solid transparent;
+  border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
+  background:var(--control-quiet-bg);color:var(--color-ink);text-align:left;cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
+}
+.exrow:hover{background:var(--well)}
+.exrow:active{background:var(--well);transform:var(--control-pressed-transform)}
+.exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.exrow.is-sel{border-left-color:var(--boundary-selected-quiet)}
+.exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
 /* ---- History list, frequency counts and calendar sheet (Plan 064 R3j) ----
    Weeks, not a calendar strip: sessions group under their block week, the

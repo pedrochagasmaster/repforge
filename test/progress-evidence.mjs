@@ -1157,6 +1157,107 @@ async function openExerciseCanvas(page) {
   assert.equal(plain.lifecycle.elapsedWeek, 2);
 }
 
+// The exercise chart (Plan 064 R3i): reached from an attention row, it draws the
+// scope's top loads as the step itself, snaps one selection across the plot, the
+// readout and the table, and reads every figure from the model's series.
+{
+  const { context, page } = await freshPage();
+  const key = await page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-1"));
+  const model = await page.evaluate((k) => ({
+    block: window.__repforgeProgressEvidence.strength(k).points.map((p) => ({ date: p.date, value: p.value, reps: p.reps })),
+    sessions: strengthProjection("current-block").sessions.filter((x) => x.liftKey === k).map((x) => ({ top: x.top, e1rm: x.e1rm })),
+  }), key);
+  assert.equal(model.block.length, 3, "the bench series has three block points");
+
+  await page.click(`#attention [data-action-lift="${key}"]`);
+  await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 5000 });
+  assert.match(await page.locator("#exBack").textContent(), /Progress/, "the page goes back to Progress");
+  assert.equal(await page.locator("#exDetail #exChart").count(), 0, "Progress' chart page carries no canvas");
+
+  const read = () => page.evaluate(() => ({
+    figs: [...document.querySelectorAll(".exchart__figs div")].map((d) => d.textContent.replace(/\s+/g, " ").trim()),
+    rows: [...document.querySelectorAll(".exrow")].map((b) => ({ pt: b.dataset.pt, pressed: b.getAttribute("aria-pressed"), text: b.textContent.replace(/\s+/g, " ").trim(), old: b.classList.contains("is-old") })),
+    readout: document.querySelector(".exchart__readout").textContent.replace(/\s+/g, " ").trim(),
+    selected: document.querySelectorAll(".exchart__svg .ex-pt--sel").length,
+    ticks: document.querySelectorAll(".exchart__svg .ex-tick").length,
+    block: !!document.querySelector(".exchart__svg .ch-block"),
+    pressed: [...document.querySelectorAll(".segpill button")].filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.dataset.scope || b.dataset.metric),
+    label: document.querySelector(".exchart__plot").getAttribute("aria-label"),
+  }));
+
+  // Top load, current block: three points, two rises, the latest selected.
+  let view = await read();
+  assert.deepEqual(view.pressed, ["current-block", "top"], "the block and top-load toggles start selected");
+  assert.equal(view.rows.length, 3, "one table row per session in the scope");
+  assert.deepEqual(view.rows.map((r) => r.pt), ["2", "1", "0"], "the table lists the newest session first");
+  assert.equal(view.rows[0].pressed, "true", "the latest session starts selected");
+  assert.equal(view.selected, 1, "the plot marks one selected point");
+  assert.equal(view.ticks, 2, "a tick marks each load increase in the block");
+  assert.equal(view.block, false, "no block rule is drawn when the scope is the block");
+  assert.match(view.figs[0], /60/, "the first figure is the best top load");
+  assert.match(view.figs[1], /\+5/, "the second figure is the change over the block");
+  assert.match(view.figs[2], /^3\s*sessions/, "the third figure counts the sessions");
+  assert.match(view.readout, /60/, "the readout names the selected value");
+  assert.match(view.readout, /60 × 8/, "the readout names the source set");
+  assert.match(view.rows[0].text, /\+2\.5/, "a row's delta is its change from the session before");
+  assert.match(view.label, /Top load/, "the plot is labelled with the metric");
+
+  // A table row selects the same point everywhere.
+  await page.click('.exrow[data-pt="0"]');
+  view = await read();
+  assert.equal(view.rows.find((r) => r.pt === "0").pressed, "true");
+  assert.equal(view.rows.filter((r) => r.pressed === "true").length, 1, "exactly one row is selected");
+  assert.match(view.readout, /55/, "the readout follows the table row");
+  assert.equal(view.selected, 1);
+
+  // The whole plot is one target that snaps to the nearest session.
+  const hit = await page.evaluate(() => {
+    const plot = document.querySelector(".exchart__plot"), r = plot.getBoundingClientRect();
+    const xs = plot.dataset.xs.split(",").map(Number), w = +plot.dataset.w;
+    return { x: r.left + xs[1] / w * r.width + 6, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(hit.x, hit.y);
+  view = await read();
+  assert.equal(view.rows.find((r) => r.pt === "1").pressed, "true", "a tap near the second point selects the second session");
+  assert.match(view.readout, /57\.5/, "the readout follows the plot");
+
+  // Best e1RM is the second metric, in its own units, from the same sessions.
+  await page.click('#exDetail [data-metric="e1rm"]');
+  view = await read();
+  assert.deepEqual(view.pressed, ["current-block", "e1rm"]);
+  assert.equal(view.ticks, 0, "the e1RM line draws no load-increase ticks");
+  const bestE1rm = Math.max(...model.sessions.map((x) => x.e1rm));
+  assert.match(view.figs[0], new RegExp(String(Math.round(bestE1rm * 10) / 10).replace(".", "\\.")), "the first figure is the best e1RM");
+  assert.match(view.figs[0], /e1RM/);
+
+  // All history adds the earlier session, ruled off from the block.
+  await page.click('#exDetail [data-metric="top"]');
+  await page.click('#exDetail [data-scope="all-history"]');
+  view = await read();
+  assert.equal(view.rows.length, 4, "all history lists the earlier session too");
+  assert.equal(view.rows.at(-1).old, true, "the earlier session is set apart from the block");
+  assert.equal(view.block, true, "a rule marks where the block starts");
+  assert.equal(view.ticks, 3, "every rise across the history is ticked");
+  assert.match(view.figs[0], /60/);
+  assert.match(view.figs[1], /\+10/, "the change spans the history");
+
+  await page.evaluate(() => closeExerciseView());
+  await context.close();
+}
+{
+  const { context, page } = await freshPage({ unit: "lb", lang: "pt" });
+  const key = await page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-1"));
+  await page.evaluate((k) => openExerciseView(k, "stats"), key);
+  await page.waitForSelector(".exchart__plot", { timeout: 5000 });
+  const text = await page.evaluate(() => ({
+    figs: [...document.querySelectorAll(".exchart__figs span")].map((s) => s.textContent),
+    readout: document.querySelector(".exchart__readout").textContent,
+  }));
+  assert.ok(text.figs[0].includes("lb") && text.figs[1].includes("lb"), `figures follow the unit setting (${text.figs})`);
+  assert.match(text.readout, /132[,.]\d+/, "the readout converts 60 kg to pounds once");
+  await context.close();
+}
+
 assert.deepEqual(errors, [], "no page errors during evidence journeys");
 await browser.close();
 console.log("PASS: progress evidence (sparse policy, scopes, periods, drill-ins)");

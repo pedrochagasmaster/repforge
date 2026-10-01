@@ -2477,8 +2477,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
-        "library/exercise-detail-glossary",
-        "progress/exercise-chart"
+        "library/exercise-detail-glossary"
       ]
     },
     {
@@ -6337,8 +6336,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
-        "library/exercise-detail-glossary",
-        "progress/exercise-chart"
+        "library/exercise-detail-glossary"
       ]
     },
     {
@@ -6990,8 +6988,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
-        "library/exercise-detail-glossary",
-        "progress/exercise-chart"
+        "library/exercise-detail-glossary"
       ]
     },
     {
@@ -8316,6 +8313,55 @@
         "progress/overview",
         "progress/overview-action"
       ]
+    },
+    {
+      "id": "segpill-button-not-id",
+      "selector": ".segpill > button:not([id])",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Chooses the chart's scope or metric without committing data. The selected button carries the quiet 2px ink boundary (OG-4), 3:1 or better on the pill ground.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "progress/exercise-chart"
+      ]
+    },
+    {
+      "id": "exrow-not-id",
+      "selector": ".exrow:not([id])",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "A table row that selects one session on the chart: the plot, the readout and the row stay in step. The selected row carries a 3px quiet ink rail on its left edge.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "progress/exercise-chart"
+      ]
     }
   ],
   "contextualVariants": [
@@ -8704,8 +8750,7 @@
       "catalogStates": [
         "library/exercise-detail",
         "library/exercise-detail-glossary",
-        "library/exercise-preview",
-        "progress/exercise-chart"
+        "library/exercise-preview"
       ],
       "cssLiterals": [
         {

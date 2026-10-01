@@ -75,8 +75,8 @@ const IMPLEMENTED_D_STATES = new Set([
   "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
   // R3h: the session summary, the five states, enforced on #sessionSummary (STATE_SCOPES).
   "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
-  // R3i: Progress's single tab row, the overview, its attention and strength rows, and the Strength tab.
-  "progress/overview", "progress/overview-baseline", "progress/overview-action",
+  // R3i: Progress's single tab row, the overview, its attention and strength rows, the Strength tab and the exercise chart.
+  "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart",
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history",
   "progress/strength-comparison", "progress/strength-sparse",
 ]);
@@ -514,6 +514,14 @@ export function checkStrings(evidence, catalog) {
     const words = fragment.replace(/[\d.,:%+×x–-]+/gu, " ").split(/\s+/).map((word) => word.replace(/[.]/g, "").toLowerCase()).filter((word) => /\p{L}/u.test(word));
     return words.every((word) => unitWords.has(word) || dateWords.has(word));
   };
+  // A catalog phrase followed by figures ("Top load 102.5 kg") is that phrase and data, not a new string.
+  const plainPhrases = [...new Set(Object.values(catalog.dictionary).map((value) => String(value).replace(/\s+/g, " ").trim())
+    .filter((value) => value.length >= 3 && /\p{L}/u.test(value) && !/[{}<>]/.test(value)))].sort((a, b) => b.length - a.length);
+  const afterLeadingPhrase = (fragment) => {
+    const lower = fragment.toLowerCase();
+    const phrase = plainPhrases.find((candidate) => lower.startsWith(`${candidate.toLowerCase()} `));
+    return phrase ? fragment.slice(phrase.length).trim() : null;
+  };
   const catalogOrData = (value) => {
     const whole = value.replace(/\s+/g, " ").trim();
     if (!/\p{L}/u.test(whole) || matchers.some((pattern) => pattern.test(whole))) return true;
@@ -526,7 +534,8 @@ export function checkStrings(evidence, catalog) {
       || fragment.split(/(?<=[.!?])\s+/u).filter((sentence) => /\p{L}/u.test(sentence)).every(wholeKnown);
     return rest.split(/\s*[·•|,;:()[\]+×–]\s*|\s+-\s+/u).map((fragment) => fragment.replace(/\s+/g, " ").trim())
       .filter((fragment) => /\p{L}/u.test(fragment))
-      .every((fragment) => known(fragment) || fragment.split(/\s*\/\s*/u).filter((part) => /\p{L}/u.test(part)).every(known));
+      .every((fragment) => known(fragment) || fragment.split(/\s*\/\s*/u).filter((part) => /\p{L}/u.test(part)).every(known)
+        || (afterLeadingPhrase(fragment) !== null && residueOk(afterLeadingPhrase(fragment))));
   };
   const seen = new Set();
   for (const item of evidence.text) {

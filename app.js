@@ -2316,6 +2316,8 @@ let focusLogged=null;
 /** True while the card being written is the one that just gained a set. */
 const focusIsFresh=(ex,peek)=>!peek&&!!focusLogged&&focusLogged.exId===ex.id;
 let exView=null;
+/** The Progress chart page: scope, metric and the selected point (null = the latest session). */
+let chartView={scope:"current-block",metric:"top",pt:null},chartLive=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
@@ -9295,6 +9297,7 @@ function currentViewId(){return $$(".view").find(v=>v.classList.contains("active
 function openExerciseView(key,from){if(!key)return;
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
   exView={key:movement?exerciseLiftKey(movement):key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
+  chartView={scope:"current-block",metric:"top",pt:null};
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercise"));
   document.body.classList.add("is-exercise");document.body.classList.remove("is-settings","is-onboarding","is-workout");
@@ -9314,6 +9317,12 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const exRef=tmpl||(latest?exerciseIdentityFromRow(latest):null);
   const backKey=exView.from==="stats"?"nav.stats":exView.from==="program"?"nav.program":exView.from==="history"?"nav.history":"nav.log";
   const back=$("#exBack");if(back)back.textContent=`‹ ${t(backKey)}`;
+  // Reached from Progress, the page is the lift's chart: the step series, the
+  // scope and metric toggles, a plot that snaps to a session, and its table.
+  $("#exercise")?.classList.toggle("exview--chart",exView.from==="stats");
+  if(exView.from==="stats"){
+    if(back)back.innerHTML=`<span class="chevron" aria-hidden="true"></span>${esc(t(backKey))}`;
+    return renderExerciseChart(el,key,sessions,tmpl)}
 
   /* Unlike a list thumbnail this drawing is the only place the lifter can see
      how the movement is set up, so it gets a describing alt and no lazy hint —
@@ -9374,6 +9383,116 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
+
+/* ---- Progress: the exercise chart (Plan 064 R3i) ----
+   One honest series: the shipped Strength metric (top load), drawn as the step
+   itself with a tick where the load went up, and best e1RM as the second
+   metric. Points, scope and block membership come from strengthProjection(); the
+   plot, the readout and every table row select the same session, and the table is
+   the accessible alternative. Nothing explains a past load change: the app does
+   not store one. */
+const CHART_W=328,CHART_H=190;
+function chartModel(key){
+  const{scope,metric}=chartView;
+  const projection=strengthProjection(scope);
+  const current=scope==="all-history"?new Set((strengthProjection("current-block").series.get(key)?.points||[]).map(point=>point.sessionKey)):null;
+  const pts=projection.sessions.filter(x=>x.liftKey===key).map(x=>({date:x.date,top:x.top,reps:x.topReps,e1rm:x.e1rm,
+    sessionKey:x.sessionKey,block:current?current.has(x.sessionKey):true}));
+  const value=p=>metric==="top"?toDisplay(p.top):Math.round(toDisplay(p.e1rm)*10)/10;
+  const vals=pts.map(value);
+  const sel=chartView.pt==null||chartView.pt>=pts.length?pts.length-1:chartView.pt;
+  return{pts,vals,sel,metric,scope,value}}
+const chartNum=(v,metric)=>metric==="top"?fmt(v):fmt(Math.round(v*10)/10);
+function chartSvg(model){
+  const{pts,vals,sel,metric}=model,W=CHART_W,H=CHART_H,padL=42,padR=12,padT=20,padB=24;
+  let lo=Math.min(...vals),hi=Math.max(...vals);
+  const step=hi-lo>12?5:2.5;
+  lo=Math.floor((lo-step*.6)/step)*step;hi=Math.ceil((hi+step*.6)/step)*step;
+  const x=i=>padL+(pts.length===1?(W-padL-padR)/2:i*(W-padL-padR)/(pts.length-1));
+  const y=v=>padT+(1-(v-lo)/(hi-lo))*(H-padT-padB);
+  const xs=pts.map((_,i)=>x(i));
+  let g="";const ticks=[];
+  for(let v=lo;v<=hi+1e-6&&ticks.length<40;v+=step)ticks.push(v);
+  const every=ticks.length>5?2:1;
+  ticks.forEach((v,i)=>{
+    g+=`<line x1="${padL}" x2="${W-padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="ch-grid"/>`;
+    if(i%every===0)g+=`<text x="${padL-6}" y="${(y(v)+3.5).toFixed(1)}" class="ch-ax" text-anchor="end">${esc(fmt(v))}</text>`});
+  const first=pts.findIndex(z=>z.block);
+  if(first>0){const bx=(x(first-1)+x(first))/2;
+    g+=`<line x1="${bx.toFixed(1)}" x2="${bx.toFixed(1)}" y1="${padT-12}" y2="${H-padB}" class="ch-block"/>`;
+    g+=`<text x="${(bx+4).toFixed(1)}" y="${padT-4}" class="ch-ax ch-ax--l">${esc(t("stats.scope.current_block"))}</text>`}
+  const d=metric==="top"
+    ?pts.map((_,i)=>i?`H${x(i).toFixed(1)} V${y(vals[i]).toFixed(1)}`:`M${x(i).toFixed(1)} ${y(vals[i]).toFixed(1)}`).join(" ")
+    :pts.map((_,i)=>`${i?"L":"M"}${x(i).toFixed(1)} ${y(vals[i]).toFixed(1)}`).join(" ");
+  // The cursor sits under the series and its points, never across a dot.
+  g+=`<line x1="${x(sel).toFixed(1)}" x2="${x(sel).toFixed(1)}" y1="${padT-6}" y2="${H-padB}" class="ex-cursor"/>`;
+  g+=`<path d="${d}" class="ch-line"/>`;
+  pts.forEach((z,i)=>{
+    if(metric==="top"&&i>0&&z.top>pts[i-1].top)
+      g+=`<path d="M${(x(i)-4).toFixed(1)} ${(H-padB-6).toFixed(1)} l4 -6 l4 6 z" class="ex-tick"/>`;
+    g+=`<circle cx="${x(i).toFixed(1)}" cy="${y(vals[i]).toFixed(1)}" r="${i===sel?5:3}" class="ex-pt${i===sel?" ex-pt--sel":z.block?"":" ex-pt--old"}"/>`});
+  g+=`<text x="${padL}" y="${H-6}" class="ch-ax">${esc(shortDate(pts[0].date))}</text>`+
+    `<text x="${W-padR}" y="${H-6}" class="ch-ax" text-anchor="end">${esc(shortDate(pts.at(-1).date))}</text>`;
+  return{svg:`<svg class="exchart__svg" viewBox="0 0 ${W} ${H}" aria-hidden="true">${g}</svg>`,xs}}
+function chartReadout(model){
+  const p=model.pts[model.sel],label=model.metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm");
+  return t("exercise.chart.readout",{date:esc(shortDate(p.date)),metric:esc(label),unit:esc(unitLabel()),
+    value:`<b class="exchart__mono">${esc(chartNum(model.value(p),model.metric))}</b>`,
+    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</b>`})}
+function chartRowHtml(model,i){
+  const p=model.pts[i],prev=model.pts[i-1],v=model.value(p),pv=prev?model.value(prev):null;
+  const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
+  return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
+    `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span>`+
+    `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
+function renderExerciseChart(el,key,sessions,tmpl){
+  const latest=sessions.at(-1)?.rows.at(-1),name=latest?displayName(latest):(tmpl?.name||key);
+  const model=chartModel(key),{metric,scope}=chartView;
+  const head=`<h2 class="exdet__name exchart__title">${esc(name)}</h2>`;
+  if(!model.pts.length){
+    chartLive=null;
+    el.innerHTML=head+chartTogglesHtml(scope,metric)+`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
+    bindChartToggles();return}
+  chartLive={key,model};
+  const vals=model.vals,change=vals.at(-1)-vals[0];
+  const figs=[[chartNum(Math.max(...vals),metric),t(metric==="top"?"exercise.chart.fig.top":"exercise.chart.fig.e1rm",{unit:unitLabel()})],
+    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,t("exercise.chart.fig.change",{unit:unitLabel()})],
+    [String(vals.length),t(vals.length===1?"plural.session.one":"plural.session.other")]];
+  const metricLabel=metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm");
+  const plot=chartSvg(model);
+  el.innerHTML=head+chartTogglesHtml(scope,metric)+
+    `<div class="exchart__figs">${figs.map(([v,l])=>`<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
+    `<div class="exchart__plot" role="img" aria-label="${esc(t("exercise.chart.aria",{metric:metricLabel,name}))}" data-xs="${plot.xs.map(v=>v.toFixed(1)).join(",")}" data-w="${CHART_W}">${plot.svg}</div>`+
+    `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p>`+
+    `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}</span><span>${esc(t("stats.table.e1rm"))}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
+    model.pts.map((_,i)=>i).reverse().map(i=>chartRowHtml(model,i)).join("");
+  bindChartToggles();
+  const surface=$("#exDetail .exchart__plot");
+  const pick=e=>{const r=surface.getBoundingClientRect();if(!r.width)return;
+    const at=(e.clientX-r.left)/r.width*CHART_W,xs=plot.xs;let best=0;
+    xs.forEach((v,i)=>{if(Math.abs(v-at)<Math.abs(xs[best]-at))best=i});
+    selectChartPoint(best)};
+  surface.addEventListener("pointerdown",e=>{pick(e);try{surface.setPointerCapture(e.pointerId)}catch{}});
+  surface.addEventListener("pointermove",e=>{if(e.buttons)pick(e)});
+  $$("#exDetail .exrow").forEach(b=>b.onclick=()=>selectChartPoint(+b.dataset.pt))}
+function chartTogglesHtml(scope,metric){
+  const seg=(attr,label,options)=>`<div class="segpill" role="group" aria-label="${esc(label)}">`+
+    options.map(([value,text,on])=>`<button type="button" ${attr}="${value}" aria-pressed="${on}">${esc(text)}</button>`).join("")+`</div>`;
+  return `<div class="exchart__toggles">`+
+    seg("data-scope",t("stats.scope_aria"),[["current-block",t("stats.scope.current_block"),scope==="current-block"],["all-history",t("stats.scope.all_history"),scope==="all-history"]])+
+    seg("data-metric",t("stats.metric.top_load"),[["top",t("stats.metric.top_load"),metric==="top"],["e1rm",t("stats.metric.best_e1rm"),metric==="e1rm"]])+`</div>`}
+function bindChartToggles(){
+  $$("#exDetail [data-scope]").forEach(b=>b.onclick=()=>{chartView.scope=b.dataset.scope;chartView.pt=null;renderExerciseView()});
+  $$("#exDetail [data-metric]").forEach(b=>b.onclick=()=>{chartView.metric=b.dataset.metric;renderExerciseView()})}
+/** Moves the selection in place, so the plot, the readout and the table agree and nothing loses focus. */
+function selectChartPoint(i){
+  if(!chartLive)return;
+  const model=chartLive.model;if(i<0||i>=model.pts.length)return;
+  chartView.pt=i;model.sel=i;
+  const plot=$("#exDetail .exchart__plot"),readout=$("#exDetail .exchart__readout");
+  if(plot)plot.innerHTML=chartSvg(model).svg;
+  if(readout)readout.innerHTML=chartReadout(model);
+  $$("#exDetail .exrow").forEach(b=>{const on=+b.dataset.pt===i;b.classList.toggle("is-sel",on);b.setAttribute("aria-pressed",on?"true":"false")})}
 
 function editorDocumentFromSnapshot(snapshot){
   return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),

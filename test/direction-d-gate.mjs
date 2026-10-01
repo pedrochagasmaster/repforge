@@ -55,7 +55,7 @@ console.log("\nD-owned state list");
     "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
     "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
     "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/strength", "progress/strength-current-block",
-    "progress/strength-all-history", "progress/strength-comparison", "progress/strength-sparse"];
+    "progress/strength-all-history", "progress/strength-comparison", "progress/strength-sparse", "progress/exercise-chart"];
   check(DIRECTION_D_STATES.every((item) => (item.status === "implemented") === built.includes(item.key)) &&
     DIRECTION_D_STATES.filter((item) => item.status === "implemented").length === built.length,
   "only the states an R3 sub-slice has built are implemented; every other D state is pending",

@@ -1057,7 +1057,7 @@ export const APP_SCENARIOS = {
   "progress/exercise-chart": async (page) => {
     await view(page, "stats");
     await page.evaluate(() => window.openExerciseView("library:sq_bb", "stats"));
-    await page.waitForSelector("#exercise.view.active #exChart", { timeout: 20000 });
+    await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 20000 });
     await sleep(page, 500);
   },
   "progress/strength": (page) => progressSegment(page, "strength"),
