@@ -463,13 +463,13 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   const captureScenario = selectAffected(["tools/ui-screens/screens-app.mjs"]);
   assert.equal(captureScenario.mode, "selected");
   assert.deepEqual(suiteFiles(captureScenario),
-    ["test/ci.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "test/ui-system.mjs", "tools/capture-ui-screens.mjs", "tools/check-ui-screens.mjs", "tools/check-ui-system.mjs"]);
+    ["test/ci.mjs", "test/direction-d-gate.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "test/ui-system.mjs", "tools/capture-ui-screens.mjs", "tools/check-ui-screens.mjs", "tools/check-ui-system.mjs"]);
   const captureTool = selectAffected(["tools/compare-ui-screens.mjs"]);
   assert.ok(suiteFiles(captureTool).includes("test/ui-screens.mjs"));
   assert.ok(suiteFiles(captureTool).includes("tools/capture-ui-screens.mjs"), "the verify gate depends on the comparison it runs");
   const manifestInput = selectAffected(["docs/ui-screens/manifest.json"]);
   assert.equal(manifestInput.mode, "selected");
-  assert.deepEqual(suiteFiles(manifestInput), ["test/ui-catalog-contract.mjs", "test/ui-plan-050-build-hierarchy.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"]);
+  assert.deepEqual(suiteFiles(manifestInput), ["test/direction-d-gate.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-build-hierarchy.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"]);
   const baselineInput = selectAffected(["docs/ui-screens/screens/app/today__phone-390-light-en.png"]);
   assert.equal(baselineInput.mode, "selected");
   assert.deepEqual(suiteFiles(baselineInput), ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"]);
