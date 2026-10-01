@@ -254,6 +254,9 @@
      is why this one glyph exists twice instead of following currentColor. */
   --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   --arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15'/%3E%3Cpolyline points='13.2 6.2 19 12 13.2 17.8'/%3E%3C/svg%3E");
+  /* The verdict mark's hold ("=") and recover (a clockwise return) glyphs, drawn for the same reason as --arrow. */
+  --verdict-hold:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 9h14M5 15h14'/%3E%3C/svg%3E");
+  --verdict-recover:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3C/svg%3E");
 }
 
 /* ---- Dark ----
@@ -6575,7 +6578,7 @@ body.is-entry-editor #entryProgramName,
 /* Verdict mark: the glyph beside a rec.*.label word. The word carries the
    meaning and the glyph is redundant, so consumers mark the glyph
    aria-hidden. Orange is limited to an up verdict glyph (section 8.8);
-   records use the improved color; declines stay ink. The word is never the
+   records use the improved color; declines, holds and recoveries stay ink. The word is never the
    accent: --accent is 3.57:1 on --bg in light, below the 4.5:1 text floor. */
 .verdictmark{
   display:inline-flex;align-items:center;gap:6px;min-width:0;
@@ -6587,6 +6590,16 @@ body.is-entry-editor #entryProgramName,
 }
 .verdictmark--up .verdictmark__glyph{background:var(--color-action);transform:rotate(-90deg)}
 .verdictmark--down .verdictmark__glyph{background:var(--color-ink);transform:rotate(90deg)}
+/* Hold and recover are drawn "=" and a clockwise return, in ink: orange is only the up glyph (section 8.8).
+   Stalled and new stay word-only. */
+.verdictmark--hold .verdictmark__glyph{
+  background:var(--color-ink);
+  -webkit-mask:var(--verdict-hold) no-repeat center/contain;mask:var(--verdict-hold) no-repeat center/contain;
+}
+.verdictmark--recover .verdictmark__glyph{
+  background:var(--color-ink);
+  -webkit-mask:var(--verdict-recover) no-repeat center/contain;mask:var(--verdict-recover) no-repeat center/contain;
+}
 .verdictmark--record{color:var(--color-improved)}
 .verdictmark--record .verdictmark__glyph{
   background:var(--color-improved);

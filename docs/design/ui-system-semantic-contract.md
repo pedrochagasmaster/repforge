@@ -528,6 +528,17 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   `--rule-strong` in dark. It is decorative only and never carries a required
   mark; a required boundary uses `--boundary-required`.
 
+- **Verdict mark: hold and recover (2026-10-01).** The owner decided on
+  [#295, comment 5937182678](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5937182678)
+  that the shared `.verdictmark` gains two variants beside up, down and record:
+  `.verdictmark--hold` draws "=" and `.verdictmark--recover` draws a clockwise
+  return arrow (`↻`). Both are drawn masks (`--verdict-hold`, `--verdict-recover`,
+  like `--arrow`, never typed characters) painted in `--color-ink`: orange stays
+  the up glyph alone (section 8.8), so neither variant is accent. Stalled and new
+  stay word-only. Today's rows and tally, the Why headline and the summary's next
+  target draw them where the engine's verdict is hold or recover. No role, tier,
+  radius or colour is added; `.verdictmark` keeps its inventory row.
+
 ### Type role changes
 
 - **Section heads (OG-4, proposal 2).** `section-title` (24px) now names a

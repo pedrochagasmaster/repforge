@@ -6061,9 +6061,9 @@ function rxVerdict(rec){
   if(rec.status==="reduce")return rec.reason==="stalled"?"stalled":"down";
   if(rec.reason==="recover")return"recover";
   return"hold"}
-/** The shared verdict mark. Only up and down draw a glyph; the word beside it carries the rest. */
+/** The shared verdict mark. Up, down, hold ("=") and recover draw a glyph; stalled, new and manual stay word-only. */
 function verdictMarkHtml(glyph){
-  if(glyph!=="up"&&glyph!=="down")return"";
+  if(glyph!=="up"&&glyph!=="down"&&glyph!=="hold"&&glyph!=="recover")return"";
   return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`}
 /** "100 × 8, 8, 8" for one load, "100 × 8, 90 × 10" when the load moved. */
 function rxSetsLine(sets,withUnit){

@@ -7471,7 +7471,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; the session summary (R3h) renders it for each lift's outcome word, its record line and the next target. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink; hold draws \"=\" and recover a return arrow, both in ink (owner decision on #295, 2026-10-01), while stalled and new stay word-only. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; the session summary (R3h) renders it for each lift's outcome word, its record line and the next target. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
       "owner": "plan-064/r1a",
       "catalogStates": [
         "onboarding-shared/gate",

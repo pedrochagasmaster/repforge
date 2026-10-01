@@ -13,9 +13,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { appState } from "../tools/ui-screens/screens-app.mjs";
+import { APP_SCENARIOS, APP_USER_AGENT, appState } from "../tools/ui-screens/screens-app.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
-import { setCaptureBase, launchChromium, openPage, settle } from "../tools/ui-screens/session.mjs";
+import { dismissChrome, setCaptureBase, launchChromium, openPage, settle } from "../tools/ui-screens/session.mjs";
 import {
   DIRECTION_D_STATES, GAPS, ORANGE_CATEGORIES, checkOrange, checkOverflow, checkParity, checkStrings,
   checkTargets, gateManifest, gatherEvidence, loadCatalog, runGate, validateGateConfig, validateStateList,
@@ -298,6 +298,63 @@ try {
 
   const rotted = await runGate({ states: [{ key: "today/not-a-state", status: "pending" }], locales: ["en"], browser, manifest });
   check(!rotted.ok && has(rotted.failures, "today/not-a-state", "manifest"), "a listed state missing from the live manifest fails the gate", show(rotted.failures));
+
+  // ------------------------------------------------ hold and recover marks (owner decision, #295)
+  console.log("\nHold and recover marks");
+  const markEvidence = async (key) => {
+    const capture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-360", theme: "light", locale: "en", text: "normal", motion: "normal" };
+    const opened = await openPage(browser, gate, capture, appState(key, manifest.locales.en.lang), { userAgent: APP_USER_AGENT[key] });
+    try {
+      await dismissChrome(opened.page);
+      await APP_SCENARIOS[key](opened.page);
+      await settle(opened.page);
+      return await opened.page.evaluate(() => {
+        const ink = document.createElement("i");
+        ink.style.color = "var(--color-ink)";
+        document.body.append(ink);
+        const inkColor = getComputedStyle(ink).color;
+        ink.remove();
+        const read = (selector) => [...document.querySelectorAll(selector)].filter((node) => node.offsetParent).map((node) => {
+          const glyph = node.querySelector(".verdictmark__glyph");
+          const style = glyph ? getComputedStyle(glyph) : null;
+          return {
+            drawn: !!glyph && glyph.getBoundingClientRect().width > 0, background: style?.backgroundColor || "",
+            mask: style?.webkitMaskImage || style?.maskImage || "",
+          };
+        });
+        return {
+          inkColor, hold: read(".verdictmark--hold"), recover: read(".verdictmark--recover"), up: read(".verdictmark--up"),
+          todayRowHold: read("#todayExList .rxrow .verdictmark--hold").length, todayRowRecover: read("#todayExList .rxrow .verdictmark--recover").length,
+          tallyHold: read(".today-tally .verdictmark--hold").length, tallyRecover: read(".today-tally .verdictmark--recover").length,
+          whyHold: read("#whyTarget .verdictmark--hold").length, summaryHold: read(".sum-grp__next .verdictmark--hold").length,
+          rowMarks: [...document.querySelectorAll("#todayExList .rxrow")].map((row) => ({
+            name: row.querySelector(".rxrow__name")?.firstChild?.textContent?.trim(),
+            mark: [...row.querySelectorAll(".verdictmark")].map((mark) => mark.className.replace(/.*verdictmark--/, "")).join(","),
+          })),
+        };
+      });
+    } finally {
+      await opened.context.close();
+    }
+  };
+  const today = await markEvidence("today/mixed-strategies");
+  check(today.todayRowHold > 0 && today.todayRowRecover > 0, "Today's prescription rows draw a hold mark and a recover mark",
+    JSON.stringify(today.rowMarks));
+  check(today.tallyHold > 0 && today.tallyRecover > 0, "the Today tally draws them too");
+  check(today.hold.length > 0 && today.recover.length > 0 && [...today.hold, ...today.recover].every((mark) => mark.drawn && mark.background === today.inkColor),
+    "hold and recover are drawn in ink", JSON.stringify([...today.hold, ...today.recover].map((mark) => mark.background)));
+  check(today.up.length > 0 && today.up.every((mark) => mark.background !== today.inkColor),
+    "the up mark is still the only accent mark", JSON.stringify(today.up.map((mark) => mark.background)));
+  check(today.hold[0].mask !== "none" && today.recover[0].mask !== "none" && today.hold[0].mask !== today.recover[0].mask,
+    "hold is drawn \"=\" and recover a return arrow: two distinct drawn glyphs");
+  check(today.rowMarks.filter((row) => !row.mark).length >= 1 && today.rowMarks.every((row) => !/stalled|new|manual/.test(row.mark)),
+    "stalled, new and manual rows stay word-only (no mark)", JSON.stringify(today.rowMarks));
+  const why = await markEvidence("workout/why-rep-goal");
+  check(why.whyHold === 1 && why.hold.every((mark) => mark.drawn && mark.background === why.inkColor),
+    "the Why headline draws the hold mark in ink", JSON.stringify(why.hold));
+  const summary = await markEvidence("session/summary-mixed");
+  check(summary.summaryHold > 0 && summary.hold.every((mark) => mark.drawn && mark.background === summary.inkColor),
+    "the summary's next target draws the hold mark in ink", JSON.stringify(summary.hold));
 } finally {
   await browser.close();
   preview.cleanup();

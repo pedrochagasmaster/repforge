@@ -85,6 +85,17 @@ assert.deepEqual(
   [],
   "only blocks inside the marked section are held to the rule",
 );
+// The shared verdict mark's hold ("=") and recover (a return arrow) variants: drawn masks in ink. Orange is
+// the up glyph alone (section 8.8), so neither variant may name the accent or the action colour.
+for (const variant of ["hold", "recover"]) {
+  assert.ok(rootCss.includes(`--verdict-${variant}:url(`), `--verdict-${variant} is a drawn mask, not a typed character`);
+  const rule = css.match(new RegExp(`\\.verdictmark--${variant} \\.verdictmark__glyph\\{([^}]*)\\}`))?.[1] || "";
+  assert.ok(rule.includes("background:var(--color-ink)") && rule.includes(`var(--verdict-${variant})`),
+    `.verdictmark--${variant} draws its mask in ink`);
+  assert.ok(!/--accent|--color-action|--color-improved|--positive/.test(rule), `.verdictmark--${variant} never uses the accent`);
+}
+assert.notEqual(rootCss.match(/--verdict-hold:(url\([^;]*\));/)?.[1], rootCss.match(/--verdict-recover:(url\([^;]*\));/)?.[1],
+  "hold and recover are different glyphs");
 assert.equal(cssCompatibilityAliasDebt(css).length, 0, "P6 removes all obsolete compatibility aliases");
 assert.equal(cssLiteralDebt(motionPolishCss, inventory.exceptions).length, 0, "motion-polish.css has no unauthorized CSS literal debt");
 assert.equal(cssCompatibilityAliasDebt(motionPolishCss).length, 0, "motion-polish.css has no obsolete compatibility aliases");
