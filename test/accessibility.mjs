@@ -318,7 +318,9 @@ async function runLocalizedHistoryAndGuideChecks(browser) {
     for (const lang of ["en", "pt"]) {
       await seedLangUnit(page, lang, "kg", true);
       await showView(page, "history");
-      await page.waitForSelector("#history.view.active #calPrev");
+      await page.waitForSelector("#history.view.active #historyCalBtn");
+      await page.click("#historyCalBtn");
+      await page.waitForSelector("#historyCalSheet.is-open #calPrev");
       const rendered = await page.evaluate(() => ({
         previous: document.querySelector("#calPrev")?.getAttribute("aria-label") || "",
         next: document.querySelector("#calNext")?.getAttribute("aria-label") || "",
@@ -1691,6 +1693,19 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
   await page.waitForFunction(() => document.querySelectorAll(".cal-grid__day").length >= 28);
 
   const sessionCount = await page.locator("#sessions [data-sess]").count();
+  // The calendar is a sheet now: measure the page behind it first, then the sheet itself.
+  const pageLayout = await page.evaluate(() => {
+    const root = document.documentElement;
+    const history = document.querySelector("#history");
+    const measure = (el) => ({ clientWidth: el?.clientWidth || 0, scrollWidth: el?.scrollWidth || 0 });
+    return { viewport: { innerWidth: window.innerWidth, clientWidth: root.clientWidth }, document: measure(root), history: measure(history) };
+  });
+  await page.click("#historyCalBtn");
+  await page.waitForSelector("#historyCalSheet.is-open .cal-grid__day");
+  await page.waitForFunction(() => {
+    const sheet = document.querySelector("#historyCalSheet");
+    return sheet && Math.abs(sheet.getBoundingClientRect().bottom - window.innerHeight) < 2;
+  });
   const layout = await page.evaluate(() => {
     const root = document.documentElement;
     const history = document.querySelector("#history");
@@ -1720,14 +1735,14 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
 
   check(sessionCount === 2, "320px History opens with two seeded sessions", `count=${sessionCount}`);
   check(
-    fits(layout.document),
+    fits(pageLayout.document),
     "320px populated History does not overflow the document",
-    JSON.stringify({ viewport: layout.viewport, document: layout.document })
+    JSON.stringify({ viewport: pageLayout.viewport, document: pageLayout.document })
   );
   check(
-    fits(layout.history),
+    fits(pageLayout.history),
     "320px populated History fits its own content box",
-    JSON.stringify(layout.history)
+    JSON.stringify(pageLayout.history)
   );
   check(
     fits(layout.calendar) &&

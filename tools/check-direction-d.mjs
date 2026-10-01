@@ -65,6 +65,8 @@ const IMPLEMENTED_D_STATES = new Set([
   // R3d: the workout sheets drawn in OG-6 round 1 (workout/exercise-actions stays pending: its round 2 redraw is not approved).
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions",
+  // R3j: History's week list with the frequency counts and the calendar sheet.
+  "history/list",
 ]);
 export const DIRECTION_D_STATES = D_STATE_KEYS.map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 
@@ -80,6 +82,11 @@ export const ORANGE_ALLOWLIST = [
   { category: "cta-arrow", selector: ".focus-shelf .btn--cta[data-fnext]", pseudo: "::after" },
   // R3c: the up verdict glyph beside the cue.
   { category: "verdict-glyph", selector: ".verdictmark--up .verdictmark__glyph" },
+  // R3j: the dock's active item. Direction D leaves the dock as shipped (spec section 7), so the
+  // active tab keeps painting its icon, its label and its selection edge in the accent.
+  { category: "active-dock-icon", selector: "nav button.active .nav__icon" },
+  { category: "active-dock-icon", selector: "nav button.active > [data-i18n]" },
+  { category: "active-dock-icon", selector: "nav button.active" },
 ];
 /** [{ id, selector }]. Empty on purpose: see GAPS. */
 export const OVERFLOW_EXCEPTIONS = [];

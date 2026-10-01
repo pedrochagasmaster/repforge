@@ -809,7 +809,7 @@ async function openSessionEditor(page, sid) {
   const back = page.locator("[data-history-back]");
   if (await back.count()) {
     await back.click();
-    await page.waitForSelector("#historyCalendar", { timeout: 5000 });
+    await page.waitForSelector("#historyCalBtn", { timeout: 5000 });
   }
   const editBtn = page.locator(`[data-edit="${sid}"]`);
   if (!(await editBtn.count())) {

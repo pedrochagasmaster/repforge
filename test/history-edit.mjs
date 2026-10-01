@@ -385,7 +385,7 @@ async function main() {
     const pendingAlreadyCommitted = page.locator('[data-edsave="history-edit-a"]').click();
     await page.waitForFunction(() => typeof window.__historySettlementGate?.release === "function", undefined, { timeout: 5000 });
     await page.locator('[data-history-back]').click();
-    await page.waitForSelector('#historyCalendar:not(.hidden)', { timeout: 5000 });
+    await page.waitForSelector('#historyCalBtn:not(.hidden)', { timeout: 5000 });
     await page.locator('#sessions [data-sess="history-other"] .session__open').click();
     await page.locator('[data-history-edit="history-other"]').click();
     const newerAlreadyInput = page.locator('.session--edit[data-editing="history-other"] input[data-ek^="load|"]').first();
@@ -488,7 +488,7 @@ async function main() {
     await page.waitForSelector('[data-history-operation="failure"]', { timeout: 5000 });
     assert(dialogDecision === "accept", "Back from a dirty failed edit requires explicit discard confirmation");
     await page.locator('[data-history-back]').click();
-    await page.waitForSelector('#historyCalendar:not(.hidden)', { timeout: 5000 });
+    await page.waitForSelector('#historyCalBtn:not(.hidden)', { timeout: 5000 });
     const calendarFocus = await page.evaluate(() => document.activeElement?.matches?.('[data-sess="history-edit-a"] .session__open') || false);
     assert(calendarFocus, "Back from History selection returns focus to the selected calendar session");
     await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();

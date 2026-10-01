@@ -251,6 +251,7 @@
         </div>
         <div class="pagehead__actions">
           <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search" aria-expanded="false" aria-controls="historySearchWrap"><span class="icon-mask icon-mask--search" aria-hidden="true"></span></button>
+          <button type="button" class="icon-btn icon-btn--ghost" id="historyCalBtn" data-i18n-aria="history.calendar" aria-label="Open the calendar" aria-haspopup="dialog" aria-expanded="false" aria-controls="historyCalSheet"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span></button>
           <button type="button" class="icon-btn icon-btn--ghost" id="historyExportBtn" data-i18n-aria="history.export_aria" aria-label="Export CSV"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span></button>
         </div>
       </div>
@@ -259,8 +260,8 @@
         <button type="button" id="historySearchClear" class="link-accent" data-i18n="history.search_clear">Clear</button>
       </div>
       <div id="historySelection" class="history-selection hidden" aria-live="polite"></div>
-      <div id="historyCalendar" class="cal"></div>
-      <p id="historyRecentLabel" class="section-label" data-i18n="history.recent">Recent</p>
+      <section id="historyFreq" class="histfreq hidden" aria-labelledby="historyFreqTitle"></section>
+      <h2 id="historyRecentLabel" class="visually-hidden" tabindex="-1" data-i18n="history.sessions">Sessions</h2>
       <div id="sessions" class="sessions ph-no-capture"></div>
       <details class="advanced">
         <summary data-i18n="history.every_set">Every set</summary>
@@ -1141,6 +1142,19 @@ Triceps pushdown 3x12-15</pre>
     <div class="sheet__foot sheet__foot--stack">
       <button type="button" class="btn btn--cta btn--noarrow" id="dayPickConfirm" data-i18n="today.choose_day_confirm">Confirm day</button>
       <button type="button" class="text-link text-link--center" id="dayPickCancel" data-i18n="dialog.cancel">Cancel</button>
+    </div>
+  </div>
+  <div id="historyCalScrim" class="sheet-scrim hidden"></div>
+  <div id="historyCalSheet" class="sheet sheet--histcal hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="historyCalTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="historyCalTitle"></h2>
+      <p class="sheetband__sub" id="historyCalSub"></p>
+      <button type="button" class="sheetband__close" id="historyCalClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
+    <div class="histcal__body">
+      <div id="historyCalendar" class="cal"></div>
+      <p class="histcal__hint" data-i18n="history.cal_hint">Days with a session are marked.</p>
     </div>
   </div>
   <div id="programTextScrim" class="sheet-scrim hidden"></div>

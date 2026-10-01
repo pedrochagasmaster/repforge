@@ -9253,7 +9253,19 @@ function adoptHistoryDurableHead(head){
   if(!head)return;
   state=cloneSnapshot(head);prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
   resetPersistenceBase(state);dropMemo.clear();baselineMemo.clear()}
+/** The block bounds History groups and counts by: where the running block started,
+ *  how long it is, how many training days a week it plans, and the archived
+ *  blocks before it. Read from the program, never stored for History. */
+function historyBlockContext(){
+  const meta=state.programMeta||{};
+  return{started:meta.started||null,weeks:+meta.mesocycleLengthWeeks||6,planned:prog.days().length,
+    today:today(),name:meta.name||"",
+    archived:(state.programHistory||[]).map(entry=>({
+      name:entry?.meta?.name||"",start:entry?.meta?.started||null,
+      end:entry?.completedAt?String(entry.completedAt).slice(0,10):null,
+      planned:new Set((entry?.program||[]).map(ex=>ex?.day).filter(Boolean)).size}))}}
 const HistoryUi=window.RepForgeHistoryUi.create({
+  locTag, blockContext:historyBlockContext, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
   displayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,

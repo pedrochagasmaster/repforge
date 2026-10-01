@@ -830,11 +830,13 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Steps the calendar sheet's month without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
         "history/list"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "calprev",
@@ -851,11 +853,13 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Steps the calendar sheet's month without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
         "history/list"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "chooseanotherday",
@@ -7914,10 +7918,8 @@
       "states": [
         "default"
       ],
-      "rationale": "Frequency counts are flat, non-interactive bars of sessions per week and per weekday: one labelled image for assistive technology, bars in ink, a decorative hairline baseline, and an optional planned marker on the required boundary token, never --rule-strong (OG-4). The bar's progress classification is decided in R3j under the contract's progress rules.",
+      "rationale": "Frequency counts are flat, non-interactive bars of sessions per week and per weekday: one labelled image for assistive technology, bars in ink, a decorative hairline baseline, and an optional planned marker on the required boundary token, never --rule-strong (OG-4). Progress classification (R3j): the bars are a tally of saved sessions, not workflow progress. The per-week bars sit against the program's planned days per week, but that line is a reference mark, not a completion value: no bar reads as a fraction of a goal, weeks not yet reached draw nothing, and the per-weekday bars have no denominator at all. The block total in the image label (done of planned, week n of N) is the only denominator, and it is text. The counts are therefore neither block, week, exercise-set nor task progress, they are not a progress candidate selector, and no data-progress-dimension is declared on them.",
       "owner": "plan-064/r1b",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3j (History frequency counts). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
       "catalogStates": [
         "history/list"
       ]
@@ -8471,6 +8473,115 @@
       "owner": "plan-064/r4b",
       "catalogStates": [
         "onboarding-recommend/chip-editor-open"
+      ]
+    },
+    {
+      "id": "historycalbtn",
+      "selector": "#historyCalBtn",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the month calendar as a sheet without committing training state.",
+      "owner": "plan-064/r3j",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "historycalsheet",
+      "selector": "#historyCalSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the underlying route with dialog semantics while the month calendar is open.",
+      "owner": "plan-064/r3j",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "historycalscrim",
+      "selector": "#historyCalScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind the calendar sheet.",
+      "owner": "plan-064/r3j",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "historycalclose",
+      "selector": "#historyCalClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "sheet-header-band",
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "owner": "plan-064/r3j",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "calendar-day-not-id",
+      "selector": ".cal-grid__day:is(button):not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "calendar-day",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "A trained day opens its session; it moves to another view without committing training state.",
+      "owner": "plan-064/r3j",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/list"
       ]
     }
   ],
