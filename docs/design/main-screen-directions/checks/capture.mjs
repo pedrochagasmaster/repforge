@@ -22,7 +22,9 @@ const DIRS = (process.env.DIRS || "d,e,f,g").split(",");
 const SCREENS = ["today", "workout", "why", "rest", "why-set2", "summary", "summary2", "progress", "chart", "history", "history-freq-a", "history-freq-b", "history-freq-c", "history-freq-d", "history-freq-e", "session", "program",
   "today-mixed", "why-repgoal", "why-anchor", "why-manual", "summary-first"];
 // OG-6 rounds 1 and 2: drawn on D only.
-const OG6 = ["today-done", "today-draft-resume", "workout-exercise-note", "workout-session", "workout-early-finish", "workout-warmup-actions", "workout-reorder", "workout-skipped-actions", "workout-substituted-actions"];
+const OG6 = ["today-done", "today-draft-resume", "workout-exercise-note", "workout-session", "workout-early-finish", "workout-warmup-actions", "workout-reorder", "workout-skipped-actions", "workout-substituted-actions",
+  "workout-exercise-actions", "workout-exercise-complete", "workout-session-complete", "progress-overview-baseline", "progress-strength", "progress-strength-current-block", "progress-strength-all-history",
+  "progress-strength-comparison", "progress-strength-sparse", "history-edit-dirty", "history-edit-invalid"];
 const LANDING = ["today", "workout", "why", "rest", "summary"];
 const attach = new URL("../captures/", here).pathname;
 mkdirSync(OUT, { recursive: true });

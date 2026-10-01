@@ -29,8 +29,10 @@ const BASE = process.env.REVIEW_URL || "http://localhost:8000/docs/design/main-s
 const DIRS = (process.env.DIRS || "d,e,f,g").split(",");
 const SCREENS = ["today", "workout", "why", "rest", "why-set2", "summary", "summary2", "progress", "chart", "history", "history-freq-a", "history-freq-b", "history-freq-c", "history-freq-d", "history-freq-e", "session", "program",
   "today-mixed", "why-repgoal", "why-anchor", "why-manual", "summary-first"];
-// OG-6 rounds 1 and 2: the Today and workout-sheet states drawn on D only (the other directions fall back to their base screens).
-const OG6 = ["today-done", "today-draft-resume", "workout-exercise-note", "workout-session", "workout-early-finish", "workout-warmup-actions", "workout-reorder", "workout-skipped-actions", "workout-substituted-actions"];
+// OG-6 rounds 1 and 2: the states drawn on D only (the other directions fall back to their base screens).
+const OG6 = ["today-done", "today-draft-resume", "workout-exercise-note", "workout-session", "workout-early-finish", "workout-warmup-actions", "workout-reorder", "workout-skipped-actions", "workout-substituted-actions",
+  "workout-exercise-actions", "workout-exercise-complete", "workout-session-complete", "progress-overview-baseline", "progress-strength", "progress-strength-current-block", "progress-strength-all-history",
+  "progress-strength-comparison", "progress-strength-sparse", "history-edit-dirty", "history-edit-invalid"];
 // Interaction states that reveal more controls: [screen, selector(s) to click in order, label, only]
 const STATES = [
   ["today-draft-resume", ['[data-sheet="days"]'], "day picker over a draft", "d"],
@@ -39,9 +41,21 @@ const STATES = [
   ["workout-warmup-actions", ['.x-close'], "sheet closed, focus page and shelf", "d"],
   ["workout-skipped-actions", ['.x-close'], "skipped lift's page under a closed sheet", "d"],
   ["workout-substituted-actions", ['.x-close'], "substituted lift's page under a closed sheet", "d"],
+  ["workout-exercise-actions", ['[data-toggle="warm"]'], "set 1 flipped to a warm-up set", "d"],
+  ["workout-exercise-actions", ['.x-close'], "exercise page under the closed actions sheet", "d"],
+  ["workout-exercise-complete", ["[data-edit]"], "correcting a logged set from the complete exercise", "d"],
+  ["workout-session-complete", ["[data-edit]"], "correcting a logged set from the complete session", "d"],
+  ["progress-strength", ['[data-open="sq"]'], "a trend row expanded", "d"],
+  ["progress-strength", ['[data-scope="all"]', '[data-open="sq"]'], "all history, the squat's nine sessions", "d"],
+  ["progress-strength-comparison", ['[data-open="pr"]'], "a second comparison row expanded", "d"],
+  ["progress-overview-baseline", ['[data-toggle="guide"]'], "the guide dismissed", "d"],
+  ["history-edit-dirty", ['.x-actbar .x-sec'], "discard confirmation over the unsaved edit", "d"],
+  ["history-edit-invalid", ['.x-actbar .x-sec'], "discard confirmation over the invalid edit", "d"],
   ["today", '[data-sheet="days"]', "day picker sheet"],
   ["workout", '[data-sheet="timer"]', "timer presets sheet"],
   ["workout", '[data-sheet="actions"]', "exercise actions sheet"],
+  ["today-mixed", [".x-cta--go", '[data-sheet="actions"]'], "exercise actions sheet on a mixed-strategy lift", "d"],
+  ["rest", '[data-sheet="actions"]', "exercise actions sheet while resting", "d"],
   ["workout", '[data-field="reps"]', "reps field as input"],
   ["workout", '[data-field="load"]', "load field selected"],
   ["why", '[data-toggle="calc"]', "working disclosed"],

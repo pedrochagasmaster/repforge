@@ -163,10 +163,13 @@ summary for each of D to G (§7.6, the landing-page shots of §8).
 
 ## OG-6 drawings, rounds 1 and 2 (D only)
 
-Plan 064 OG-6 asks for the D screens the first drawings left open. Rounds 1
-and 2 draw nine: Today and the workout sheets. They are D-only screens (the
-other directions fall back to their base screen), numbered in orange in the
-screen bar and labelled by flow:
+Plan 064 OG-6 asks for the D screens the first drawings left open. Round 1
+drew nine (Today and the workout sheets); round 2 draws eleven more: the
+exercise actions sheet redrawn, the exercise-complete shelf, Progress and the
+History editor. They are D-only screens (the other directions fall back to
+their base screen), numbered in orange in the screen bar and labelled by flow.
+
+Round 1:
 
 | Screen id | Real catalog state |
 | --- | --- |
@@ -180,13 +183,41 @@ screen bar and labelled by flow:
 | `workout-skipped-actions` | `workout/skipped-actions` |
 | `workout-substituted-actions` | `workout/substituted-actions` |
 
+Round 2:
+
+| Screen id | Real catalog state |
+| --- | --- |
+| `workout-exercise-actions` | `workout/exercise-actions` (redrawn: reorder and finishing early live only on the Session sheet) |
+| `workout-exercise-complete` | the Focus shelf after an exercise's last set, with Próximo exercício (OG-4 proposal 3) |
+| `workout-session-complete` | the same shelf once every set of the session is logged, with Finalizar treino |
+| `progress-overview-baseline` | `progress/overview-baseline` |
+| `progress-strength` | `progress/strength` |
+| `progress-strength-current-block` | `progress/strength-current-block` (the shipped frame is identical to the one above) |
+| `progress-strength-all-history` | `progress/strength-all-history` |
+| `progress-strength-comparison` | `progress/strength-comparison` |
+| `progress-strength-sparse` | `progress/strength-sparse` |
+| `history-edit-dirty` | `history/edit-dirty` |
+| `history-edit-invalid` | `history/edit-invalid` |
+
 They are linked: the header's table-view button opens the Session sheet, its
 foot opens early finish, the reorder buttons draw the reorder state, and the
-exercise actions sheet closes onto the lift's page (the ⋯ button reopens it).
-`checks/acceptance.mjs` runs all nine on D at 360 PT and EN, with the closed
-sheets and the discard confirmation as extra states. The only new strings are
-`d.og6.*` below; every other word is a shipped key, read from this branch's
-`i18n.js`.
+⋯ button on every Focus screen opens the grouped exercise actions sheet and
+closes back onto the lift's page. A tap on a logged row on the
+exercise-complete screens loads that set into the shelf (Salvar série N) and
+saving returns to the complete shelf. On the Strength tab the scope control
+switches in place and a row expands to its sessions. Cancelar and the back
+link on the editor ask before they drop unsaved changes. The Strength
+comparison and sparse screens and the overview baseline draw the same lifter
+earlier in the block (after the second session of each lift, and after the
+first week), because the lifter's current block has no lift with fewer than
+three sessions; every other screen is the lifter on Monday 21 Sep.
+
+`checks/acceptance.mjs` runs all twenty on D at 360 PT and EN, with the
+closed sheets, the expanded rows, the correction flows and the discard
+confirmations as extra states. Round 2 adds no strings: every word is a
+shipped key (the two discard buttons are `program.editor.keep_editing` and
+`program.editor.discard_changes`), read from this branch's `i18n.js`. The only
+new strings are the `d.og6.*` entries below.
 
 ## New strings (D, E, F, G)
 

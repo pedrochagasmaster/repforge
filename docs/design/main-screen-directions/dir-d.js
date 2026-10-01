@@ -148,6 +148,9 @@
     const r = D.rec(k, ctx.iso);
     const pd = D.previousDate(k, ctx.iso), prev = pd ? setsOnly(k, pd) : [];
     const resting = phase === "rest";
+    // "done": every set of the lift is logged (the exercise-complete shelf). The sets are the saved session's own.
+    const done = phase === "done";
+    const logged = done ? setsOnly(k, ctx.iso) : null;
     const s2 = resting ? D.rec(k, ctx.iso, "today", [{ load: 102.5, reps: 7, rir: 1 }]) : null;
     const whyGo = ctx === MIXD ? { ht: "why-repgoal", dl: "why-anchor", cp: "why-manual" }[k] || "why" : "why";
     let ledger = "";
@@ -156,8 +159,14 @@
     const correcting = U.correct != null;
     // A warm-up set keeps its place in the ledger under a label instead of a number (spec section 4).
     const warmLab = fopts.warm ? { label: n("d.og6.set.warmup") } : {};
-    targets.forEach((t, i) => {
+    (done ? logged : targets).forEach((t, i) => {
       const lab = i === 0 ? warmLab : {};
+      if (done) {
+        // Done rows are buttons: a tap loads the set into the shelf to correct it.
+        const editing = correcting && U.correct === i;
+        ledger += setRow(i, "done", editing ? [U.load, U.reps, U.rir] : [t.load, t.reps, t.rir], prev[i], { editing, ...lab });
+        return;
+      }
       // The corrected row holds the shelf's live values; the open row steps back.
       if (resting && i === 0) ledger += correcting ? setRow(0, "done", [U.load, U.reps, U.rir], prev[0], { editing: true, ...lab }) : setRow(0, "done", [102.5, 7, 1], prev[0], lab);
       else if (resting && i === 1) ledger += correcting ? setRow(1, "open", [s2.load, s2.reps, s2.rir], prev[1], { demoted: true }) : setRow(1, "open", [U.load, U.reps, U.rir], prev[1]);
@@ -170,7 +179,8 @@
     if (resting) {
       const nextCue = `<p class="d-nextcue">${n("d.rest.next", { n: 2, load: num(s2.load), reps: s2.reps })}<button class="d-why d-why--in" data-go="why-set2">${n("d.why_short")}</button></p>`;
       cue = U.rest > 0 ? restBlock(U) + nextCue : restBlock(U) + cueBlock(s2, k, ctx, "why-set2");
-    } else cue = cueBlock(r, k, ctx, whyGo);
+    } else if (done) cue = ""; // the cue ends with the last set; the shelf carries what comes next
+    else cue = cueBlock(r, k, ctx, whyGo);
     return `${header(ctx, idx, U, resting)}
       <div class="d-pg d-pg--w">
         <div class="d-exh">${X.art(k)}<div><h1 class="d-exname">${D.name(k)}</h1><p class="d-exmeta">${exMeta(k)}</p>${fopts.instead ? `<p class="d-exmeta">${s("log.substitute_for", { name: D.name(fopts.instead) })}</p>` : ""}</div></div>
@@ -187,19 +197,14 @@
     const setNo = U.correct != null ? U.correct + 1 : resting ? 2 : 1;
     let over = X.shelf(U, { setNo, correcting: U.correct != null, resting });
     if (U.sheet === "timer") over += timerSheet(U, resting ? "rest" : "workout");
-    if (U.sheet === "actions") over += actionsSheet(resting ? "rest" : "workout");
+    // The ⋯ button opens the grouped exercise actions sheet (OG-6 round 2): reorder and early finish live only on the Session sheet.
+    if (U.sheet === "actions") over += exActionsSheet({ k, iso: ctx.iso });
     return { body: focusBody(U, ctx, k, phase), over, cls: "no-dock x-has-shelf" };
   }
 
   function timerSheet(U, back) {
     const presets = [60, 90, 120, 180].map((t) => `<button class="d-preset${t === U.restTotal ? " is-on" : ""}" aria-pressed="${t === U.restTotal}" aria-label="${s("rest.sheet.preset_aria", { time: X.fmtTime(t) })}">${X.fmtTime(t)}</button>`).join("");
     return X.sheet({ title: s("rest.sheet.title"), close: back, body: `<h2 class="d-sheet__t">${s("rest.sheet.title")}</h2><div class="d-presets" role="group" aria-label="${s("rest.sheet.presets_aria")}">${presets}</div><div class="d-presets d-presets--ctl"><button>${s("rest.sheet.minus")}</button><button>${s("rest.sheet.plus")}</button><button>${s("rest.sheet.reset")}</button><button>${s("rest.sheet.stop")}</button></div>` });
-  }
-
-  function actionsSheet(back) {
-    // Each action opens the sheet or state it leads to (OG-6 drawings), so the review page can be walked end to end.
-    const item = (icn, key, go) => `<button class="d-act"${go ? ` data-go="${go}"` : ""}>${ic(icn)}<span>${s(key)}</span></button>`;
-    return X.sheet({ title: s("ex.actions.title"), close: back, body: `<h2 class="d-sheet__t">${s("ex.actions.title")}</h2><div class="d-acts">${item("note", "ex.actions.open_notes", "workout-exercise-note")}${item("reset", "ex.actions.substitute", "workout-substituted-actions")}${item("skip", "ex.actions.skip", "workout-skipped-actions")}${item("sheet", "program.editor.reorder", "workout-session")}${item("check", "log.finish")}</div>` });
   }
 
   const workout = (U) => focusScreen(U, MAIN, "sq", "set1");
@@ -502,7 +507,7 @@
     return { body, over: X.dock("program") };
   }
 
-  /* ---------------- OG-6 rounds 1 and 2 ----------------
+  /* ---------------- OG-6 round 1 ----------------
      The nine Today and workout-sheet states the first drawings left open.
      Each carries every element and action of the real state (the catalog
      frames at unified-convergence), restyled on D's components: the sheet
@@ -611,13 +616,19 @@
   }
 
   // The exercise actions sheet as shipped: setup notes, previous values, substitution, warm-up sets, status, notes.
-  function exActionsSheet({ k, instead, warm, skipped }) {
-    const e = D.lift(k), setsN = T.EX[k].n;
+  // Prescribed sets for any lift, main program or mixed day.
+  const setCount = (k) => {
+    if (T.EX[k]) return T.EX[k].n;
+    const p = D.paramsOf(k);
+    return p.workingSets != null ? p.workingSets : p.backoffSets != null ? p.backoffSets + 1 : D.MANUAL[k].sets;
+  };
+  function exActionsSheet({ k, instead, warm, skipped, iso = T.TODAY }) {
+    const e = D.lift(k), setsN = setCount(k);
     const group = (head, inner, extra = "") => `<section class="d-xs"><h3 class="d-xs__h">${head}</h3>${extra}${inner}</section>`;
     const act = (icn, label, go, sub, attrs = "") => `<button class="d-act d-act--s"${go ? ` data-go="${go}"` : ""}${attrs}>${ic(icn)}<span>${label}${sub ? `<small>${sub}</small>` : ""}</span></button>`;
-    const pd = D.previousDate(k, T.TODAY);
+    const pd = D.previousDate(k, iso);
     // Setup notes belong to the program's slot, so a substitute shows the notes of the lift it stands in for.
-    const slot = T.EX[instead || k];
+    const slot = T.EX[instead || k] || {};
     const note = slot.note ? T.two(slot.note) : s("ex.actions.no_setup_notes");
     const sub = instead
       ? [group(s("ex.actions.subst_title"), `<div class="d-acts">${act("reset", s("ex.actions.change_substitution"), "workout-substituted-actions")}${act("reset", s("ex.actions.restore_original"), "workout")}</div>`)]
@@ -651,9 +662,185 @@
   const workoutEarly = (U) => under(U, MAIN, "sq", "rest", sessionSheet({ order: MAIN.lifts, done: { sq: 1 }, early: true }));
   // The actions sheet opens with its screen. Closing it leaves the lift's page and shelf; the ⋯ button opens it again.
   const actionsUnder = (U, ctx, k, sheetOpts, fopts) => under(U, ctx, k, "set1", U.sheet === "timer" ? timerSheet(U, "workout") : U.sheet === "closed" ? "" : exActionsSheet(sheetOpts), fopts);
+  // The default exercise actions sheet (workout/exercise-actions): set 1 is a working set, nothing skipped or substituted.
+  const workoutActions = (U) => actionsUnder(U, MAIN, "sq", { k: "sq", warm: !!U.warm });
   const workoutWarm = (U) => actionsUnder(U, MAIN, "sq", { k: "sq", warm: !!U.warm });
   const workoutSkipped = (U) => actionsUnder(U, SKIPCTX, "pr", { k: "sq", skipped: true });
   const workoutSubstituted = (U) => actionsUnder(U, SUBCTX, "hk", { k: "hk", instead: "sq" }, { instead: "sq" });
+
+  /* ---------------- OG-6 round 2 ----------------
+     The exercise-complete shelf, Progress (overview baseline and the Strength
+     tab in each evidence state) and the History editor. The actions sheet
+     redraw is above (exActionsSheet serves every lift; the ⋯ button opens it). */
+
+  const plural = (key, count) => s("plural." + key + (count === 1 ? ".one" : ".other"));
+  const locale = () => (T.state.lang === "pt" ? "pt-BR" : "en-US");
+
+  /* ---- the exercise-complete shelf ----
+     After the last set of a lift the shelf trades its fields for the step the
+     lifter takes next (implementation spec 4.2; app.js focusShelfHtml): the
+     title, the count of logged sets and one action: the next exercise, or
+     finish once the whole session is logged. */
+  function shelfDone({ allDone, hasNext, count, lifts }) {
+    const title = s(allDone ? "focus.wo_done_title" : "focus.ex_done_title");
+    const sub = allDone ? s("focus.wo_done_sub", { n: lifts, lifts: plural("lift", lifts) }) : s("focus.ex_done_sets", { n: count, sets: plural("logged set", count) });
+    const cta = allDone || !hasNext
+      ? `<button class="x-cta" data-go="summary">${s("log.finish")}</button>`
+      : `<button class="x-cta">${s("focus.next_ex")}${ic("arrow", "x-cta__ar")}</button>`;
+    return `<div class="x-shelf d-shelfdone" role="region" aria-label="${esc(title)}"><div class="d-done"><p class="d-done__t">${title}</p><p class="d-done__s">${sub}</p></div>${cta}</div>`;
+  }
+  // A tap on a logged row loads it into the ordinary shelf (the correction flow); saving returns to the complete shelf.
+  function completeScreen(U, ctx, k) {
+    const last = ctx.lifts.indexOf(k) === ctx.lifts.length - 1;
+    const correcting = U.correct != null;
+    const over = correcting
+      ? X.shelf(U, { setNo: U.correct + 1, correcting: true, resting: false })
+      : shelfDone({ allDone: last, hasNext: !last, count: setsOnly(k, ctx.iso).length, lifts: ctx.lifts.length });
+    return { body: focusBody(U, ctx, k, "done"), over, cls: "no-dock " + (correcting ? "x-has-shelf" : "x-has-shelf-done") };
+  }
+  const workoutComplete = (U) => completeScreen(U, MAIN, "sq");
+  const workoutSessionComplete = (U) => completeScreen(U, MAIN, "lr");
+
+  /* ---- Progress: strength evidence ----
+     One point per session (the working top load, the shipped Strength metric).
+     The presentation follows the number of points (G-27, progress-model.js
+     buildStrengthEvidence): none is baseline building, one a snapshot, two a
+     comparison with a delta, three or more a trend. The outcome is the
+     canonical one (CONTEXT.md); one point has no outcome and reads its short
+     reason. `asof` draws the same lifter earlier in the block. */
+  const WEEK1_END = "2026-09-06", WEEK2_MID = "2026-09-09", NOW = "2026-09-22";
+  const byName = (a, b) => D.name(a).localeCompare(D.name(b), locale());
+  function evidence(k, asof, scope) {
+    const pts = D.series(k).filter((p) => p.date <= asof && (scope === "all" || p.block));
+    const count = pts.length, latest = pts[count - 1] || null;
+    const o = latest ? D.canonicalOutcome(k, latest.date) : null;
+    const cmp = count === 2 ? { abs: pts[1].top - pts[0].top, pct: ((pts[1].top - pts[0].top) / pts[0].top) * 100 } : null;
+    return { k, pts, count, latest, o, cmp, shape: ["empty", "snapshot", "comparison", "trend"][Math.min(count, 3)] };
+  }
+  const evKind = (e) => (e.count ? `${D.evidenceKind(e.count)}, ${e.count} ${plural("session", e.count)}` : s("stats.evidence.empty"));
+  const sgn = (x) => (x > 0 ? "+" : x < 0 ? "−" : "");
+  const pct2 = (x) => sgn(x) + new Intl.NumberFormat(locale(), { maximumFractionDigits: 2 }).format(Math.abs(x));
+  // A lone point in the sparkline's slot, so a snapshot keeps the column.
+  const dotSpark = () => `<svg class="spark x-spark" viewBox="0 0 60 22" width="60" height="22" aria-hidden="true"><circle cx="30" cy="11" r="3" class="d-dot"/></svg>`;
+  const evSpark = (e) => (e.count > 1 ? X.sparkline(e.pts.map((p) => p.top)) : e.count === 1 ? dotSpark() : "");
+  const evFig = (e) => (e.count > 1 ? `${num(e.pts[0].top)}→${num(e.latest.top)} ${U_}` : e.count === 1 ? `${num(e.latest.top)} ${U_}` : "");
+  // The line under the evidence kind: the outcome (a short reason while there is none) and, for two points, the change.
+  function evOutcome(e) {
+    if (!e.count) return `<span class="d-ev__o is-soft">${s("stats.evidence.baseline")}</span>`;
+    const o = e.o, soft = o.state === "insufficient";
+    const change = e.cmp ? ` · ${s("stats.evidence.change", { absolute: `${sgn(e.cmp.abs)}${num(Math.abs(e.cmp.abs))} ${U_}`, percentage: pct2(e.cmp.pct) })}` : "";
+    return `<span class="d-ev__o${soft ? " is-soft" : ""}"><span data-outcome="${o.k}@${o.iso}">${o.word}</span>${change}</span>`;
+  }
+  const longYear = (iso) => new Intl.DateTimeFormat(locale(), { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(iso + "T12:00:00Z"));
+  // The row's detail, as the app expands it: the date range, then one line per session (Data, Maior, Reps, e1RM, RIR).
+  function evDetail(e) {
+    if (!e.count) return `<div class="d-evd"><p class="d-evd__r">${s("stats.evidence.reason.untested")}</p></div>`;
+    const reason = e.o.state === "insufficient" ? `<p class="d-evd__r">${s("stats.evidence.reason." + e.o.reason)}</p>` : "";
+    const range = e.count > 1 ? `<p class="d-evd__r">${s("stats.evidence.range", { start: longYear(e.pts[0].date), end: longYear(e.latest.date) })}</p>` : "";
+    const rows = e.pts.slice().reverse().map((p) => {
+      const rir = p.sets.reduce((t, r) => t + r[2], 0) / p.sets.length;
+      return `<div class="d-evrow"><span>${date.short(p.date)}</span><span class="d-mono">${num(p.top)}</span><span class="d-mono">${p.topReps}</span><span class="d-mono">${num(Math.round(p.e1rm), 0)}</span><span class="d-mono">${num(rir)}</span></div>`;
+    }).join("");
+    return `<div class="d-evd">${reason}${range}${colHead([s("stats.table.date"), s("stats.table.top"), s("stats.table.reps"), s("stats.table.e1rm_unit", { unit: U_ }), s("stats.table.rir")], "d-cols--ev")}${rows}</div>`;
+  }
+  function evRow(e, open) {
+    return `<button class="d-ev${open ? " is-open" : ""}" data-open="${e.k}" aria-expanded="${open}">
+        <b class="d-ev__n">${D.name(e.k)}</b><span class="d-ev__f">${evFig(e)}${ic("chev", "d-ev__c")}</span>
+        ${evOutcome(e)}<span class="d-ev__k">${evKind(e)}</span>
+        <span class="d-ev__s">${evSpark(e)}</span>
+      </button>${open ? evDetail(e) : ""}`;
+  }
+  const guideBand = (U) => (U.noGuide ? "" : `<div class="d-guide" role="region" aria-label="${esc(s("guide.progress.title"))}"><div><b>${s("guide.progress.title")}</b><p>${s("guide.progress.body")}</p></div><button class="d-icb" data-toggle="guide" aria-label="${esc(s("guide.dismiss"))}">${ic("close")}</button></div>`);
+
+  // The Strength tab: scope control, then one row per lift in the evidence state the lifter has reached.
+  function strengthTab(U, asof) {
+    const scope = U.scope === "all" ? "all" : "block";
+    const keys = Object.keys(T.EX).filter((k) => D.sessionsOf(k).some((d) => d <= asof)).sort(byName);
+    const body = `
+      <div class="d-pg">
+        <h1 class="d-h1 d-h1--page">${s("stats.title")}</h1>
+        ${progressTabs(1)}
+        <div class="d-scope">${X.seg([["data-scope", "block", s("stats.scope.current_block"), scope === "block"], ["data-scope", "all", s("stats.scope.all_history"), scope === "all"]], s("stats.scope_aria"))}</div>
+        <div class="d-sec"><h2 class="d-h2">${s("stats.strength")}</h2><span class="d-meta">${s("stats.metric.top_load")}</span></div>
+        ${keys.map((k) => evRow(evidence(k, asof, scope), U.open === k)).join("")}
+      </div>`;
+    return { body, over: X.dock("progress") };
+  }
+  const progressStrength = (U) => strengthTab(U, NOW);
+  const progressComparison = (U) => strengthTab(U, WEEK2_MID);
+  const progressSparse = (U) => strengthTab(U, WEEK1_END);
+
+  // Overview with no evidence yet: week 2 has not started, so every lift has one session and nothing needs attention.
+  function progressBaseline(U) {
+    const evs = Object.keys(T.EX).map((k) => evidence(k, WEEK1_END, "block")).filter((e) => e.count);
+    const rows = evs.map((e) => `<button class="d-str d-str--snap"><span class="d-str__m"><b>${D.name(e.k)}</b><small><span data-outcome="${e.o.k}@${e.o.iso}">${e.o.word}</span> · ${date.short(e.o.iso)}</small></span>${evSpark(e)}<span class="d-str__f">${evFig(e)}</span></button>`).join("");
+    const body = `
+      <div class="d-pg">
+        <h1 class="d-h1 d-h1--page">${s("stats.title")}</h1>
+        ${progressTabs(0)}
+        ${guideBand(U)}
+        <div class="d-totals">
+          <div><b>0<i>/3</i></b><span>${n("d.progress.sessions")}</span></div>
+          <div><b>0<i>/39</i></b><span>${n("d.progress.sets")}</span></div>
+          <div><b>${evs.length}</b><span>${s("stats.this_week.baseline")}</span></div>
+        </div>
+        <p class="d-soft d-weekline">${n("d.progress.week", { n: X.weekOf("2026-09-07"), total: 6 })}</p>
+        <div class="d-sec"><h2 class="d-h2">${n("d.progress.attention", { n: 0 })}</h2></div>
+        <p class="d-none">${s("stats.needs_action.none")}</p>
+        <div class="d-sec"><h2 class="d-h2">${n("d.progress.strength")}</h2><span class="d-meta">${s("stats.metric.top_load")}</span></div>
+        ${rows}
+      </div>`;
+    return { body, over: X.dock("progress") };
+  }
+
+  /* ---- History: editing a saved session ----
+     The session page turns into a form (history-ui.js sessionEditor): the
+     status line, the date, one row per set with load, reps and RIR inputs and
+     a remove control (a removed row can be undone). Cancelar asks before it
+     drops unsaved changes. Save and Cancel are pinned in the foot. */
+  function historyEdit(U, mode) {
+    const iso = T.TODAY, sn = D.session(iso);
+    const dirty = mode === "dirty", invalid = mode === "invalid";
+    // dirty: the first load was changed to 105 and the squat's third set was removed. invalid: the first load reads "x".
+    let g = 0;
+    const groups = sn.lifts.map((k) => {
+      const nm = D.name(k);
+      const rows = setsOnly(k, iso).map((x, i) => {
+        const at = g++, first = at === 0, removed = dirty && at === 2;
+        const load = invalid && first ? "x" : dirty && first ? "105" : num(x.load);
+        const bad = invalid && first;
+        const lab = (what) => `${nm} ${s("log.set").toLowerCase()} ${i + 1} ${what}`;
+        const inp = (v, what, im, cls = "") => `<input class="d-ein${cls}" value="${esc(v)}" inputmode="${im}" autocomplete="off" aria-label="${esc(lab(what))}"${removed ? " disabled" : ""}${cls.includes("is-invalid") ? ' aria-invalid="true"' : ""}>`;
+        const rm = s(removed ? "history.edit.undo_remove" : "history.edit.remove_set");
+        return `<div class="d-erow${removed ? " is-removed" : ""}"><span class="d-set__n">${i + 1}</span>
+            ${inp(load, U_, "decimal", bad ? " is-invalid" : dirty && first ? " is-sel" : "")}${inp(x.reps, s("log.reps"), "numeric")}${inp(num(x.rir), "RIR", "decimal")}
+            <button class="d-erm" aria-label="${esc(rm)}">${ic(removed ? "reset" : "close")}</button></div>
+          ${bad ? `<p class="d-ferr" role="alert">${s("validation.load")}</p>` : ""}`;
+      }).join("");
+      return `<div class="d-grp d-grp--e"><div class="d-grp__h"><span class="d-grp__n">${nm}</span></div>${rows}</div>`;
+    }).join("");
+    const body = `
+      <div class="d-pg">
+        <button class="d-back" data-sheet="discard">${ic("chev", "rot-r")}${s("history.title")}</button>
+        <p class="d-eyebrow d-eyebrow--edit">${s("history.editing_title")}</p>
+        <h1 class="d-h1">${T.two(sn.dayName)}</h1>
+        <p class="d-lede" role="status">${s("history.editing_status")}</p>
+        <div class="d-flds d-flds--edit">${fld(s("log.date"), `<input value="${isoField(iso)}" inputmode="numeric" autocomplete="off">`, "d-fld--date")}</div>
+        ${colHead([n("d.col.set"), U_, s("log.reps"), "RIR", ""], "d-cols--edit")}
+        ${groups}
+        <div class="d-edrisk"><button class="d-danger">${s("history.session.delete")}</button></div>
+      </div>`;
+    const bar = `<div class="x-actbar x-actbar--edit"><button class="x-sec" data-sheet="discard">${s("history.edit.cancel")}</button><button class="x-cta" data-go="session">${s("history.edit.save")}</button></div>`;
+    const confirm = U.sheet === "discard" ? editDiscard() : "";
+    return { body, over: bar + confirm, cls: "no-dock x-has-act" };
+  }
+  // The native confirm the editor asks before it drops unsaved changes (history.confirm.discard_changes).
+  function editDiscard() {
+    const foot = `<button class="x-cta" data-sheet="">${s("program.editor.keep_editing")}</button><button class="x-sec x-sec--danger" data-go="session">${s("program.editor.discard_changes")}</button>`;
+    return X.sheet({ title: s("history.confirm.discard_changes"), noClose: true, over: true, closeAttr: 'data-sheet=""', cls: "d-confirm", body: `<p class="d-confirm__t">${s("history.confirm.discard_changes")}</p>`, foot });
+  }
+  const historyEditDirty = (U) => historyEdit(U, "dirty");
+  const historyEditInvalid = (U) => historyEdit(U, "invalid");
 
   root.DIR_D = {
     key: "d", family: true, name: "Folha e polegar", en: "Sheet and thumb",
@@ -667,11 +854,16 @@
       "today-mixed": (U) => today(U, MIXD), "why-repgoal": whyMix("ht"), "why-anchor": whyMix("dl"), "why-manual": whyMix("cp"),
       "summary-first": (U) => summary(U, D.MIX.first, true),
       "workout-mixed": workoutMixed,
-      // OG-6 rounds 1 and 2
+      // OG-6 round 1
       "today-done": todayDone, "today-draft-resume": todayResume,
       "workout-exercise-note": exNote, "workout-session": workoutSession, "workout-early-finish": workoutEarly,
       "workout-warmup-actions": workoutWarm, "workout-reorder": workoutReorder,
       "workout-skipped-actions": workoutSkipped, "workout-substituted-actions": workoutSubstituted,
+      // OG-6 round 2
+      "workout-exercise-actions": workoutActions, "workout-exercise-complete": workoutComplete, "workout-session-complete": workoutSessionComplete,
+      "progress-overview-baseline": progressBaseline, "progress-strength": progressStrength, "progress-strength-current-block": progressStrength,
+      "progress-strength-all-history": progressStrength, "progress-strength-comparison": progressComparison, "progress-strength-sparse": progressSparse,
+      "history-edit-dirty": historyEditDirty, "history-edit-invalid": historyEditInvalid,
     },
     // Shelf values when a screen opens: the engine's load and reps, the lifter's typical RIR.
     seed(screen) {
@@ -681,7 +873,18 @@
       const r = resting ? D.rec("sq", T.TODAY, "today", [{ load: 102.5, reps: 7, rir: 1 }]) : D.rec(k, iso);
       const rir = r.facts && r.facts.typicalRir != null ? r.facts.typicalRir : 1;
       // The warm-up drawing opens with set 1 already marked a warm-up set.
-      return { load: r.load, reps: r.reps != null ? r.reps : r.manual ? r.manual.hi : 8, rir: Math.round(rir), warm: screen === "workout-warmup-actions" };
+      const out = { load: r.load, reps: r.reps != null ? r.reps : r.manual ? r.manual.hi : 8, rir: Math.round(rir), warm: screen === "workout-warmup-actions" };
+      // The Strength tab opens on its all-history scope, or with the row that shows the evidence state expanded.
+      if (screen === "progress-strength-all-history") out.scope = "all";
+      if (screen === "progress-strength-comparison") out.open = "sq";
+      if (screen === "progress-strength-sparse") out.open = "hk";
+      return out;
+    },
+    // A tap on a logged row loads that set into the shelf: its own values on the exercise-complete screens.
+    editSeed(screen, i) {
+      const k = { "workout-exercise-complete": "sq", "workout-session-complete": "lr" }[screen];
+      const x = k && setsOnly(k, T.TODAY)[i];
+      return x ? { load: x.load, reps: x.reps, rir: x.rir } : null;
     },
     notes: {
       today: "A's prescription table at B's figure scale: load, target and last session for all five lifts on the first screen. The tally replaces A's footer sentence.",
@@ -708,13 +911,24 @@
       "summary-first": "Every lift is a first exposure: the shipped baseline sentence, no outcome words, and next targets from the engine.",
       "today-done": "OG-6 round 1. The day is complete: eyebrow, totals, record count, the shipped note, the second-session action, each lift's outcome and next target, the week line and the next day as a button. The start button becomes Ver a sessão de hoje.",
       "today-draft-resume": "OG-6 round 1. Today with an unfinished session: a status band above the prescription, Continuar sessão on the CTA, and the confirmation that appears when Escolher outro dia would replace the draft.",
-      "workout-exercise-note": "OG-6 round 2. The exercise note: a sheet with its own Cancelar and Salvar, the field in the quiet selected state, and the carry-over line under it.",
-      "workout-session": "OG-6 round 2. The Session sheet, opened from the table-view button: the session map with reorder first, then date, bodyweight and notes; early finish sits in the foot.",
-      "workout-early-finish": "OG-6 round 2. Early finish chosen after one logged set: the foot opens the confirmation with the unlogged sets listed per lift, a confirm button and Cancelar.",
-      "workout-warmup-actions": "OG-6 round 2. The exercise actions sheet with set 1 marked a warm-up set. The ledger behind it carries the warm-up label instead of a number.",
-      "workout-reorder": "OG-6 round 2. After moving the squat down one place: the map in its new order, the first and last buttons off, and the shipped announcement as a toast.",
-      "workout-skipped-actions": "OG-6 round 2. A skipped exercise reopened from the session map: its status reads Pulado and the action is Restaurar exercício. The lifter is on the next lift, exercise 1 of 4.",
-      "workout-substituted-actions": "OG-6 round 2. A substituted exercise: the sheet carries the substitute's name and No lugar de the original, with Alterar substituição and Restaurar exercício original.",
+      "workout-exercise-note": "OG-6 round 1. The exercise note: a sheet with its own Cancelar and Salvar, the field in the quiet selected state, and the carry-over line under it.",
+      "workout-session": "OG-6 round 1. The Session sheet, opened from the table-view button: the session map with reorder first, then date, bodyweight and notes; early finish sits in the foot.",
+      "workout-early-finish": "OG-6 round 1. Early finish chosen after one logged set: the foot opens the confirmation with the unlogged sets listed per lift, a confirm button and Cancelar.",
+      "workout-warmup-actions": "OG-6 round 1. The exercise actions sheet with set 1 marked a warm-up set. The ledger behind it carries the warm-up label instead of a number.",
+      "workout-reorder": "OG-6 round 1. After moving the squat down one place: the map in its new order, the first and last buttons off, and the shipped announcement as a toast.",
+      "workout-skipped-actions": "OG-6 round 1. A skipped exercise reopened from the session map: its status reads Pulado and the action is Restaurar exercício. The lifter is on the next lift, exercise 1 of 4.",
+      "workout-substituted-actions": "OG-6 round 1. A substituted exercise: the sheet carries the substitute's name and No lugar de the original, with Alterar substituição and Restaurar exercício original.",
+      "workout-exercise-actions": "OG-6 round 2 (redraw). The exercise actions sheet, aligned with decision 11: setup notes, previous values, substitution, warm-up sets, status and notes in sentence-case groups. Reorder and finishing early live only on the Session sheet. The ⋯ button on every Focus screen opens it.",
+      "workout-exercise-complete": "OG-6 round 2. After the squat's last set: the cue ends, the ledger shows the three logged sets, and the shelf trades its fields for the title, the count of logged sets and Próximo exercício. A tap on a logged row still corrects it.",
+      "workout-session-complete": "OG-6 round 2. After the last set of the last lift, with every set logged: the shelf reads Treino concluído with the lift count and one action, Finalizar treino, which opens the summary.",
+      "progress-overview-baseline": "OG-6 round 2. Progress overview before there is evidence: week 2 has not started, every lift has one session, so the count reads construindo base and nothing needs attention. The shipped guide sits under the tabs and can be dismissed.",
+      "progress-strength": "OG-6 round 2. The Força tab, current block: one row per lift in the evidence state it has reached (here trends), with the shipped scope control and a row that expands to the session table.",
+      "progress-strength-current-block": "OG-6 round 2. The same tab with the current block chosen. The shipped catalog frame is identical to the one above; both ids are kept so the build can map one to one.",
+      "progress-strength-all-history": "OG-6 round 2. All history chosen: the squat now spans the previous block (9 sessions); lifts with only this block read the same.",
+      "progress-strength-comparison": "OG-6 round 2. The same lifter after the second session of the lift: two sessions are a comparison with the change in kg and per cent, and the expanded row shows the date range and both sessions.",
+      "progress-strength-sparse": "OG-6 round 2. The same lifter after the first session of each lift: one session is a snapshot with no outcome, the shipped reason sentence and a single dot where the trend would be.",
+      "history-edit-dirty": "OG-6 round 2. Editing a saved session with unsaved changes: the first load changed to 105 (the field in the quiet selected state), the squat's third set removed and undoable. Cancelar asks before it drops the changes.",
+      "history-edit-invalid": "OG-6 round 2. Salvar alterações with an invalid load: the field takes the error boundary and the reason (validation.load) stays on the page under it.",
     },
   };
 })(window);

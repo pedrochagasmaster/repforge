@@ -1026,10 +1026,10 @@
 .dd .d-set__v{padding-right:12px;font:var(--weight-medium) var(--font-size-body)/1.3 var(--font-training-data)}
 .dd .d-set__prev{grid-column:1 / -1;font-size:var(--font-size-body-small);color:var(--ink-soft);text-align:left;padding-left:12px}
 .dd .d-set.is-queued .d-set__v{color:var(--ink-soft)}
-.dd .d-set.is-open{margin:var(--space-4) 0;border:0;border-radius:var(--radius-surface);background:var(--well);box-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet)}
+.dd .d-set.is-open{margin:var(--space-4) 0;border:0;border-radius:var(--radius-surface);background:var(--well);box-shadow:inset 0 0 0 2px var(--boundary-selected-quiet)}
 .dd .d-set.is-open .d-set__v{color:var(--ink-soft)}
 .dd .d-set.is-open .d-set__n{color:var(--ink)}
-.dd .d-set.is-editing{border-radius:var(--radius-surface);box-shadow:inset 0 0 0 1.5px var(--boundary-selected-quiet);background:var(--well)}
+.dd .d-set.is-editing{border-radius:var(--radius-surface);box-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);background:var(--well)}
 .dd .d-set.is-editing .d-set__n{color:var(--ink)}
 /* A row commits: its ground settles from the well over revealIn and the check lands. */
 .dd .d-set.is-done{transition:background-color var(--motion-in)}
@@ -1356,3 +1356,83 @@
 /* 200 % text */
 .dd.is-text-scaled .d-wrow{grid-template-columns:1fr}
 .dd.is-text-scaled .d-notesheet .x-sheet__foot{grid-template-columns:1fr}
+
+/* ================================================================
+   D · OG-6 round 2: the exercise-complete shelf, the Strength tab and its
+   evidence states, the overview's baseline guide, and the History editor.
+   Tokens only; orange stays on the budget.
+   ================================================================ */
+
+/* The exercise-complete shelf: a title, the count, one action. */
+.dx{--shelf-done-h:calc(11px + 52px + 12px + 54px + var(--dock-b))}
+.dx.x-has-shelf-done .scr{padding-bottom:calc(var(--shelf-done-h) + 16px)}
+.dd .d-shelfdone{gap:var(--space-12)}
+.dd .d-done{display:grid;gap:var(--space-4);padding-top:var(--space-4)}
+.dd .d-done__t{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:1.3}
+.dd .d-done__s{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
+
+/* Progress: the baseline guide and the empty attention line. */
+.dd .d-guide{display:grid;grid-template-columns:minmax(0,1fr) var(--control-target);gap:var(--space-8);align-items:start;margin-top:var(--space-14);padding:var(--space-12) 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
+.dd .d-guide b{font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
+.dd .d-guide p{margin-top:var(--space-4);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
+.dd .d-guide .d-icb{margin:calc(-1 * var(--space-4)) calc(-1 * var(--space-12)) 0 0}
+.dd .d-guide+.d-totals{border-top:0}
+.dd .d-none{margin-top:var(--space-12);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--ink-soft)}
+.dd .d-dot{fill:var(--ink)}
+.dd .d-str--snap{grid-template-columns:minmax(0,1fr) 60px 5rem}
+.dd .d-str--snap .d-str__f{text-align:right}
+
+/* Progress: a Strength row in its evidence state. Name and figure share the first line;
+   the evidence kind and outcome run under the name, the trend (or its lone dot) at the right. */
+.dd .d-scope{margin-top:var(--space-14)}
+.dd .d-ev{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n f" "o s" "k s";column-gap:var(--space-12);row-gap:0;align-items:center;width:100%;min-height:64px;padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);text-align:left}
+.dd .d-ev__n{grid-area:n;align-self:start;font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:1.3}
+.dd .d-ev__f{grid-area:f;display:inline-flex;align-items:center;gap:var(--space-4);font:var(--weight-medium) var(--font-size-body-small)/1.3 var(--font-training-data);white-space:nowrap}
+.dd .d-ev__c{width:20px;height:20px;color:var(--ink-soft);transition:transform var(--motion-in)}
+.dd .d-ev.is-open .d-ev__c{transform:rotate(180deg)}
+.dd .d-ev__k{grid-area:k;font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--ink-soft)}
+.dd .d-ev__o{grid-area:o;margin-top:var(--space-4);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--ink)}
+.dd .d-ev__o.is-soft{font-weight:var(--weight-regular);color:var(--ink-soft)}
+.dd .d-ev__s{grid-area:s;align-self:center;justify-self:end}
+.dd .d-ev.is-open{border-bottom:0}
+/* The expanded row: the date range, then one line per session. */
+.dd .d-evd{padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
+.dd .d-evd__r{margin-top:var(--space-4);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
+.dd .d-cols--ev{grid-template-columns:62px minmax(0,1fr) 44px minmax(0,1fr) 40px;margin-top:var(--space-8)}
+.dd .d-cols--ev span:nth-child(n+2){text-align:right}
+.dd .d-evrow{display:grid;grid-template-columns:62px minmax(0,1fr) 44px minmax(0,1fr) 40px;gap:var(--space-8);align-items:center;min-height:44px;border-bottom:1px solid var(--boundary-decorative);font-size:var(--font-size-body-small)}
+.dd .d-evrow:last-child{border-bottom:0}
+.dd .d-evrow span:nth-child(n+2){text-align:right}
+
+/* History: the editor. Set rows hold three inputs on the field ground and the required boundary,
+   a focused or changed one in the quiet selected state, and a remove control. */
+.dd .d-eyebrow--edit{margin-top:var(--space-4)}
+.dd .d-flds--edit{margin-top:var(--space-14)}
+.dd .d-flds--edit .d-fld{max-width:14rem}
+.dd .d-cols--edit{grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) var(--control-target);margin-top:var(--space-18)}
+.dd .d-cols--edit span:nth-child(n+2){text-align:right;padding-right:var(--space-8)}
+.dd .d-cols--edit span:nth-child(n+2):last-child{padding-right:0}
+.dd .d-cols--edit span:first-child{padding-left:var(--space-4)}
+.dd .d-grp--e{padding:var(--space-12) 0 var(--space-4)}
+.dd .d-erow{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) var(--control-target);gap:var(--space-8);align-items:center;padding:var(--space-4) 0}
+.dd .d-erow .d-set__n{padding-left:var(--space-4)}
+.dd .d-ein{width:100%;min-width:0;height:48px;min-height:var(--control-target);margin:0;padding:0 var(--space-8);border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);background:var(--control-field-bg);color:var(--control-field-ink);font:var(--weight-medium) var(--font-size-control)/1.4 var(--font-training-data);text-align:right;outline:none;caret-color:var(--ink)}
+.dd .d-ein::selection{background:rgba(var(--accent-rgb),.24)}
+.dd .d-ein:focus,.dd .d-ein.is-sel{border-color:var(--boundary-selected-quiet);box-shadow:inset 0 0 0 1px var(--boundary-selected-quiet);background:var(--surface)}
+.dd .d-ein.is-invalid{border-color:var(--control-error-boundary);box-shadow:inset 0 0 0 1px var(--control-error-boundary)}
+.dd .d-ein:disabled{border-color:var(--boundary-decorative);background:none;color:var(--ink-faint);text-decoration:line-through;opacity:1}
+.dd .d-erm{display:grid;place-items:center;width:var(--control-target);height:var(--control-target);border-radius:var(--radius-round);color:var(--ink-soft)}
+.dd .d-erm .ic{width:20px;height:20px}
+.dd .d-erm:active{background:var(--well)}
+.dd .d-erow.is-removed .d-set__n{color:var(--ink-faint);text-decoration:line-through}
+.dd .d-erow.is-removed .d-erm{color:var(--ink)}
+.dd .d-ferr{margin:0 0 var(--space-8) 48px;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-destructive)}
+.dd .x-actbar--edit{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}
+.dd .d-edrisk{display:flex;justify-content:center;margin-top:var(--space-18)}
+
+/* 200 % text */
+.dd.is-text-scaled .d-erow,.dd.is-text-scaled .d-cols--edit{grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) var(--control-target)}
+.dd.is-text-scaled .d-ein{padding:0 var(--space-4)}
+.dd.is-text-scaled .d-ev{grid-template-areas:"n n" "f f" "o s" "k s"}
+.dd.is-text-scaled .d-ev__f{justify-self:start}
+.dd.is-text-scaled .d-cols--ev,.dd.is-text-scaled .d-evrow{grid-template-columns:56px minmax(0,1fr) 36px minmax(0,1fr) 36px}
