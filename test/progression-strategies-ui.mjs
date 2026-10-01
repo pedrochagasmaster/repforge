@@ -527,7 +527,7 @@ try {
   await capture(page, { lang: "pt", program: legacySlot, rows: [] });
   editorRow = await openInstalledEditor(page);
   const ptEditor = await page.locator('#programEditor [data-role="editor"]').innerText();
-  assert(/Nome do programa/i.test(ptEditor) && /Substituir exercício/i.test(ptEditor) && /Remover exercício/i.test(ptEditor),
+  assert(/Nome do treino/i.test(ptEditor) && /Substituir exercício/i.test(ptEditor) && /Remover exercício/i.test(ptEditor),
     "the installed editor is usable in Portuguese", ptEditor);
   await page.setViewportSize({ width: 320, height: 800 });
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });

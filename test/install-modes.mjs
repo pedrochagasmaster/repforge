@@ -670,7 +670,7 @@ async function run() {
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
     assert(pt.heroTitle === "Chegue na academia sabendo exatamente o que fazer.", "PT landing title", pt.heroTitle);
     assert(
-      pt.heroBody === "É só aparecer e treinar. O Taurifer monta seus treinos, registra suas séries e já diz a próxima carga.",
+      pt.heroBody === "É só aparecer e treinar. O Taurifer monta seu treino, registra suas séries e já diz a próxima carga.",
       "PT landing body",
       JSON.stringify(pt.heroBody)
     );
@@ -709,7 +709,7 @@ async function run() {
         // Locale-tolerant: the accessible name is translated, and Portuguese
         // writes the load 62,5. The exact English wording is asserted once,
         // in the en-US landing block above.
-        assert(/program|programa/i.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) && /100 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts), `${at}: the complete product narrative remains present`, shape.proofFacts);
+        assert(/program|treino/i.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) && /100 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts), `${at}: the complete product narrative remains present`, shape.proofFacts);
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         assert(
           shape.logoWidth >= 39 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,
@@ -1158,8 +1158,8 @@ async function run() {
       assert(encoded?.ok, "shared PT: payload encodes", JSON.stringify(encoded));
       const pt = await page.evaluate(sharedGateSnapshot);
       const shown = await page.evaluate(card);
-      assert(shown.heroTitle === "Seu programa está pronto para treinar.", "shared PT: landing follows the payload language", shown.heroTitle);
-      assert(pt.lede === "Revise o programa que enviaram para você e depois comece neste dispositivo.", "shared PT: review-before-start lede", pt.lede);
+      assert(shown.heroTitle === "Seu treino está pronto para treinar.", "shared PT: landing follows the payload language", shown.heroTitle);
+      assert(pt.lede === "Revise o treino que enviaram para você e depois comece neste dispositivo.", "shared PT: review-before-start lede", pt.lede);
       assert(pt.startTitle === SHARED_COPY.pt.title, "shared PT: Start this program in Portuguese", pt.startTitle);
       await context.close();
     } catch (err) {

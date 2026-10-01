@@ -330,9 +330,9 @@ async function main() {
       "privacy.setup.body": "A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.",
     },
     pt: {
-      "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
+      "meta.description": "O Taurifer mantém suas sessões, rascunhos e histórico neste dispositivo. Links de configuração compartilham um treino e ajustes selecionados.",
       "guide.privacy.body": "Abra Privacidade para ver os limites exatos de armazenamento local, links, transferência e análise de uso.",
-      "privacy.setup.body": "Um link de configuração leva uma proposta de programa no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de treino nem histórico de programas.",
+      "privacy.setup.body": "Um link de configuração leva uma proposta de treino no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de sessão nem histórico de treinos anteriores.",
     },
   };
   for (const lang of ["en", "pt"]) {

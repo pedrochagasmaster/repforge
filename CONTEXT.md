@@ -6,7 +6,8 @@ Taurifer (formerly RepForge; internal storage keys and globals keep the `repforg
 
 **Program**:
 The active training split — metadata (name, start date) plus the exercise templates that define each training day.
-_Avoid_: Template (when meaning the whole program), split (in user-facing copy unless the lifter uses that word), routine, plan
+_PT (user-facing)_: treino ("seu treino").
+_Avoid_: Template (when meaning the whole program), split (in user-facing copy unless the lifter uses that word), routine, plan; in Portuguese user-facing copy, "programa"
 
 **Exercise template**:
 One movement slot in the program: day, order, sets, rep range, muscles, notes, and alternates.
@@ -46,7 +47,8 @@ _Avoid_: Score, rating, grade, level, streak
 
 **Session**:
 All log rows saved together in one workout, sharing a session id, date, and training day.
-_Avoid_: Workout (acceptable in casual copy; session is the domain term)
+_PT (user-facing)_: sessão.
+_Avoid_: Workout (acceptable in casual copy; session is the domain term); in Portuguese user-facing copy, "treino" for one workout
 
 **Log row**:
 One recorded set — load, reps, RIR — linked to an exercise template via exercise id.

@@ -747,7 +747,7 @@ async function main() {
     }));
     assert(!/^entry\.freeform\./m.test(portuguese.body) && portuguese.body.includes("ChatGPT"),
       "the screen is translated rather than rendering raw keys");
-    assert(/JSON/.test(portuguese.prompt) && /programa/i.test(portuguese.prompt),
+    assert(/JSON/.test(portuguese.prompt) && /treino/i.test(portuguese.prompt),
       "the prompt is written in the reader's language", portuguese.prompt.slice(0, 90));
 
     /* ---------- Import from clipboard ----------

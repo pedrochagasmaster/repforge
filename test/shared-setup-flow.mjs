@@ -65,18 +65,18 @@ export const SHARED_COPY = Object.freeze({
     shareBody: "Create a setup link for this program. Copy the link or open the system Share sheet.",
   },
   pt: {
-    lede: "Revise o programa que enviaram para você e depois comece neste dispositivo.",
-    ledeInstalled: "Revise o programa que enviaram para você e depois comece neste dispositivo.",
-    title: "Começar este programa",
+    lede: "Revise o treino que enviaram para você e depois comece neste dispositivo.",
+    ledeInstalled: "Revise o treino que enviaram para você e depois comece neste dispositivo.",
+    title: "Começar este treino",
     capOne: (name) => `${name} · 1 dia por semana`,
     capMany: (name, n) => `${name} · ${n} dias por semana`,
-    invalid: "Este link de programa compartilhado é inválido ou está incompleto.",
-    unsupported: "Este programa compartilhado foi criado por uma versão mais recente do Taurifer.",
-    browserUnsupported: "Este navegador não pode abrir links de programas compartilhados.",
+    invalid: "Este link de treino compartilhado é inválido ou está incompleto.",
+    unsupported: "Este treino compartilhado foi criado por uma versão mais recente do Taurifer.",
+    browserUnsupported: "Este navegador não pode abrir links de treinos compartilhados.",
     existing: "Este link só pode ser iniciado durante a configuração inicial.",
-    commitFailed: "Não foi possível iniciar o programa. Tente novamente.",
+    commitFailed: "Não foi possível iniciar o treino. Tente novamente.",
     shareUnsupported: "Este navegador não pode criar links de configuração.",
-    saved: "Programa salvo.",
+    saved: "Treino salvo.",
   },
 });
 
@@ -769,7 +769,7 @@ export async function runSharedSetupFlow(browser) {
   });
 
   await runCase("Blank program names use the localized untitled name in setup links", async () => {
-    for (const [lang, expected] of [["en", "Untitled program"], ["pt", "Programa sem título"]]) {
+    for (const [lang, expected] of [["en", "Untitled program"], ["pt", "Treino sem título"]]) {
       const { context, page } = await openAppPage(browser, { locale: lang === "pt" ? "pt-BR" : "en-US" });
       await clearSite(page);
       await persistState(page, configuredState({
