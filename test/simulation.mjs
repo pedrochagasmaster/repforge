@@ -1482,12 +1482,26 @@ async function main() {
     JSON.stringify(attnGroups?.map((g) => g.key)),
     "page.evaluate window.__repforgeAttention after seed"
   );
+  // Needs attention lists the queue lifts whose recommendation changes the load
+  // (add, add2, reduce); holds, recovers and stalled lifts stay in the queue only.
+  const attnMoves = await page.evaluate(() => window.__repforgeAttention().flatMap((g) => g.items.map((i) => {
+    const rec = window.__repforgeRecommendation(i.ex);
+    return { id: i.ex.id, status: rec.status, stalled: !!rec.stalled };
+  })));
+  const changesLoad = (m) => m.status === "add" || m.status === "add2" || (m.status === "reduce" && !m.stalled);
+  const attnExpected = attnMoves.filter(changesLoad).map((m) => m.id).sort();
   const attnHeading = await page.locator("#attention .ovsec__title").textContent();
   assert(
-    attnHeading.includes(`(${attnGroups.reduce((n, g) => n + g.items.length, 0)})`) && attnRows.length === attnGroups.reduce((n, g) => n + g.items.length, 0),
-    "The attention heading and rows list exactly the lifts the action queue returns",
-    `heading=${attnHeading} rows=${attnRows.length}`,
-    "Stats Overview → heading count against __repforgeAttention"
+    attnHeading.includes(`(${attnRows.length})`) && JSON.stringify(attnRows.map((r) => r.id).sort()) === JSON.stringify(attnExpected),
+    "The attention heading counts the rows, and the rows are the queue lifts that change the load",
+    `heading=${attnHeading} rows=${attnRows.map((r) => r.id)} expected=${attnExpected}`,
+    "Stats Overview → heading count against __repforgeAttention and recommendation()"
+  );
+  assert(
+    attnMoves.filter((m) => !changesLoad(m)).every((m) => !attnRows.some((r) => r.id === m.id)),
+    "A hold lift is absent from Needs attention",
+    JSON.stringify({ moves: attnMoves, rows: attnRows.map((r) => r.id) }),
+    "Stats Overview → lifts the queue lists but the engine holds"
   );
   // Every row opens that lift's page, with Progress as the way back.
   const actionAttnChip = page.locator("#attention .attn__chip").first();
@@ -4656,24 +4670,38 @@ async function main() {
     "Stats → Volume shows logged volume"
   );
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
+  const boardMoves = await page.evaluate(() => window.__repforgeAttention().flatMap((g) => g.items.map((i) => {
+    const rec = window.__repforgeRecommendation(i.ex);
+    return { id: i.ex.id, key: g.key, status: rec.status, stalled: !!rec.stalled };
+  })));
+  const boardShown = await page.evaluate(() => [...document.querySelectorAll("#attention .attn__chip")].map((row) => row.dataset.attn));
+  const boardExpected = boardMoves.filter((m) => m.status === "add" || m.status === "add2" || (m.status === "reduce" && !m.stalled)).map((m) => m.id);
   assert(
-    (await page.locator("#attention .attn__chip").count()) > 0 &&
-      (await page.evaluate(() => window.__repforgeAttention().every((g) => ["progress", "repeat", "review"].includes(g.key)))),
-    "Action board lists evidence-backed recommendation rows",
-    JSON.stringify(await page.evaluate(() => window.__repforgeAttention().map((g) => g.key))),
-    "Stats → action board shows the lifts the queue returns"
+    boardMoves.every((m) => ["progress", "repeat", "review"].includes(m.key)) && JSON.stringify([...boardShown].sort()) === JSON.stringify([...boardExpected].sort()),
+    "Action board lists the evidence-backed lifts whose recommendation changes the load",
+    JSON.stringify({ boardMoves, boardShown }),
+    "Stats → action board shows the lifts the queue returns that the engine moves"
   );
-  const attnChip = page.locator("#attention .attn__chip").first();
-  const attnLift = await attnChip.getAttribute("data-action-lift");
-  await attnChip.click();
-  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
-  assert(
-    await page.evaluate(() => document.querySelector("#exDetail .exdet__name")?.textContent.trim().length > 0),
-    "An attention row opens that lift's page",
-    `lift=${attnLift}`,
-    "Stats → click an attention row → the lift's page"
-  );
-  await page.evaluate(() => closeExerciseView());
+  if (boardShown.length) {
+    const attnChip = page.locator("#attention .attn__chip").first();
+    const attnLift = await attnChip.getAttribute("data-action-lift");
+    await attnChip.click();
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    assert(
+      await page.evaluate(() => document.querySelector("#exDetail .exdet__name")?.textContent.trim().length > 0),
+      "An attention row opens that lift's page",
+      `lift=${attnLift}`,
+      "Stats → click an attention row → the lift's page"
+    );
+    await page.evaluate(() => closeExerciseView());
+  } else {
+    assert(
+      await page.locator("#attention .ovnone").count() === 1 && (await page.locator("#attention .ovsec__title").textContent()).includes("(0)"),
+      "With no lift to move, Needs attention says so and counts zero",
+      JSON.stringify({ boardMoves }),
+      "Stats → action board with only holds"
+    );
+  }
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
 
   // Edit a logged session in History
@@ -9808,6 +9836,10 @@ async function main() {
       const records = window.__repforgeProgressEvidence.records("current-block");
       const metric = (name) =>
         document.querySelector(`#thisWeek [data-week-metric="${name}"] .ovtotal__n`)?.textContent?.trim();
+      const moves = groups.flatMap((g) => g.items.map((i) => {
+        const rec = window.__repforgeRecommendation(i.ex);
+        return { id: i.ex.id, status: rec.status, stalled: !!rec.stalled };
+      }));
       const chips = [...document.querySelectorAll("#attention [data-attn]")].map((el) => ({
         id: el.getAttribute("data-attn"),
         group: el.getAttribute("data-attngo"),
@@ -9817,6 +9849,7 @@ async function main() {
       return {
         w,
         groups: groups.map((g) => ({ key: g.key, ids: g.items.map((i) => i.ex.id) })),
+        moves,
         records: records.map((r) => ({ id: r.exerciseId, state: r.evidenceState, outcome: r.outcome ?? null })),
         baselineDom: metric("baseline"),
         sessionsDom: metric("sessions"),
@@ -9869,13 +9902,24 @@ async function main() {
       snap.attentionText.slice(0, 200)
     );
 
-    // The tally and the rendered chips are the same lifts, so the two numbers
-    // can never disagree.
-    const actionIds = snap.groups.flatMap((g) => g.ids);
+    // The heading counts the rows shown, and the rows are the queue lifts whose
+    // recommendation changes the load; a hold stays in the queue only.
+    const changesLoad = (m) => m.status === "add" || m.status === "add2" || (m.status === "reduce" && !m.stalled);
+    const shownIds = snap.moves.filter(changesLoad).map((m) => m.id);
     assert(
-      snap.chips.length === actionIds.length && snap.countText.includes(String(actionIds.length)),
-      "the Needs action count equals the chips the board renders",
-      JSON.stringify({ chips: snap.chips.length, ids: actionIds.length, countText: snap.countText })
+      JSON.stringify(snap.chips.map((c) => c.id).sort()) === JSON.stringify([...shownIds].sort()) && snap.countText.includes(`(${shownIds.length})`),
+      "the Needs attention count equals the chips the board renders, and they are the lifts that change the load",
+      JSON.stringify({ chips: snap.chips.map((c) => c.id), shown: shownIds, countText: snap.countText, moves: snap.moves })
+    );
+    assert(
+      snap.moves.some((m) => !changesLoad(m)) && snap.moves.filter((m) => !changesLoad(m)).every((m) => !snap.chips.some((c) => c.id === m.id)),
+      "a queue lift whose load holds is absent from Needs attention",
+      JSON.stringify({ moves: snap.moves, chips: snap.chips.map((c) => c.id) })
+    );
+    assert(
+      snap.moves.some((m) => m.status === "add" || m.status === "add2") && snap.chips.some((c) => snap.moves.find((m) => m.id === c.id && (m.status === "add" || m.status === "add2"))),
+      "an add lift is present in Needs attention",
+      JSON.stringify({ moves: snap.moves, chips: snap.chips.map((c) => c.id) })
     );
     assert(
       snap.chips.every((c) => c.id && c.lift && !["Coach Curl", "Coach Untrained"].includes(c.id)),

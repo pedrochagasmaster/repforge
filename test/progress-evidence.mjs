@@ -186,6 +186,41 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await context.close();
 }
 
+// Needs attention lists only the action-queue lifts whose recommendation changes the
+// load (add, add2, reduce). A hold stays in the queue but not in this section, and
+// the heading counts the rows shown.
+{
+  // Leg extension repeats 40 kg for 6 reps: a maintained lift the engine holds.
+  const holdLog = [
+    ...log.filter((row) => row.exerciseId !== "pev-4"),
+    { session: "h1", date: "2026-09-14", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 6, rir: 1, set: 1, work: true },
+    { session: "h2", date: "2026-09-16", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 6, rir: 1, set: 1, work: true },
+  ];
+  const { context, page } = await freshPage({ seededLog: holdLog });
+  const read = await page.evaluate(() => {
+    const queue = window.__repforgeAttention().flatMap((group) => group.items.map((entry) => ({
+      id: entry.ex.id, lift: entry.item.destinationId,
+      status: window.__repforgeRecommendation(entry.ex).status, stalled: !!window.__repforgeRecommendation(entry.ex).stalled,
+    })));
+    return {
+      queue,
+      shown: [...document.querySelectorAll("#attention .attn__chip")].map((row) => row.dataset.attn),
+      heading: document.querySelector("#attention .ovsec__title").textContent,
+    };
+  });
+  const changesLoad = (item) => item.status === "add" || item.status === "add2" || (item.status === "reduce" && !item.stalled);
+  const expected = read.queue.filter(changesLoad).map((item) => item.id);
+  assert.ok(read.queue.some((item) => item.id === "pev-4" && !changesLoad(item)),
+    `the held lift is in the action queue (${JSON.stringify(read.queue)})`);
+  assert.ok(read.queue.some((item) => item.id === "pev-1" && (item.status === "add" || item.status === "add2")),
+    `the climbing bench lift is recommended to add (${JSON.stringify(read.queue)})`);
+  assert.ok(!read.shown.includes("pev-4"), "a hold lift is absent from Needs attention");
+  assert.ok(read.shown.includes("pev-1"), "an add lift is present in Needs attention");
+  assert.deepEqual([...read.shown].sort(), [...expected].sort(), "the rows are exactly the queue lifts that change the load");
+  assert.match(read.heading, new RegExp(`\\(${read.shown.length}\\)`), "the heading counts the rows shown");
+  await context.close();
+}
+
 // Outcome words stay visible beside their canonical improved/maintained/declined facts.
 // The declined lift repeats its load with a rep fewer: under the Session outcome rule a
 // lower load is never read as declined, so the decline must happen at the same load.

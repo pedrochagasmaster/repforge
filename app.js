@@ -8920,15 +8920,19 @@ function attentionMarkHtml(move){
   return move==="up"||move==="down"
     ?`<span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`
     :`<span class="verdictmark verdictmark--${move}" aria-hidden="true"></span>`}
-/** Needs attention: one row per lift the action queue lists. The mark, label and
+/** Needs attention: the action-queue lifts whose recommendation changes the load
+ *  (add, add2, reduce). A hold, a recover and a stalled lift stay out of this
+ *  section only; the queue and every model output are unchanged. The mark, label and
  *  reason are the engine's recommendation for the lift, the evidence line is the
  *  model's, and the whole row opens that lift's chart. */
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const groups=attentionGroups(),count=attentionCount(groups),projection=strengthProjection("current-block");
-  const rows=groups.flatMap(group=>group.items.map(entry=>({...entry,group})));
-  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.attention",{n:count}))}</h3></div>`+
-    (rows.length?rows.map(({ex,item,group})=>{
-      const slot=currentExerciseForLiftKey(item.destinationId),rec=slot?recommendation(slot):null;
+  const groups=attentionGroups(),projection=strengthProjection("current-block");
+  const rows=groups.flatMap(group=>group.items.map(entry=>{
+    const slot=currentExerciseForLiftKey(entry.item.destinationId);
+    return{...entry,group,slot,rec:slot?recommendation(slot):null}}))
+    .filter(row=>{const move=attentionVerdict(row.rec);return move==="up"||move==="down"});
+  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.attention",{n:rows.length}))}</h3></div>`+
+    (rows.length?rows.map(({ex,item,group,slot,rec})=>{
       const series=projection.series.get(item.destinationId),last=series?.latest?.value,target=rec&&rec.load!=null?rec.load:null;
       const figure=target!=null
         ?(last!=null&&!sameLoad(last,target)?`${fmtLoad(last)}→${fmtLoad(target)} ${unitLabel()}`:`${fmtLoad(target)} ${unitLabel()}`)
