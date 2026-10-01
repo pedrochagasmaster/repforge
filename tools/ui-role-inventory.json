@@ -8000,6 +8000,16 @@
         "workout/rest-timer",
         "workout/rest-timer-paused"
       ]
+    },
+    {
+      "id": "workout-shelf",
+      "selector": ".workshelf",
+      "role": "persistent-action",
+      "rationale": "The workout shelf is a full-width persistent-action surface under Focus with the existing prominent top radius, a shallow top edge and the persistent depth; its fields sit on the well and its pads on the page ground, scoped to the shelf. Selector-exact: no other surface inherits it by visual resemblance (OG-4).",
+      "owner": "plan-064/r1b",
+      "catalogStates": [
+        "workout/focus"
+      ]
     }
   ],
   "exceptions": [
