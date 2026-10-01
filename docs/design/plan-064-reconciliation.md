@@ -1430,7 +1430,33 @@ Each Direction D screen that needed a drawing is drawn on the review page (`rede
 | 1 | `workout/skipped-actions` | `e04e7f3` | `dir-d.js` (`workout-skipped-actions`) | same |
 | 1 | `workout/substituted-actions` | `e04e7f3` | `dir-d.js` (`workout-substituted-actions`) | same |
 
-Each approval includes that screen's listed differences from today's app (the round's board). Carried to the next round by the same decision: redraw the already-approved `workout/exercise-actions` so reorder and finish early live only on the session sheet (decision 11), and draw the exercise-complete shelf (OG-4 proposal 3). Still to draw: Progress (6) and History edit (2).
+| 2 | `workout/exercise-actions` (redraw) | `b891de0` | `dir-d.js` (`workout-exercise-actions`) | [#295, 2026-10-01](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5937151704) |
+| 2 | exercise-complete shelf (OG-4 proposal 3) | `b891de0` | `dir-d.js` (`workout-exercise-complete`) | same |
+| 2 | session-complete shelf | `b891de0` | `dir-d.js` (`workout-session-complete`) | same |
+| 2 | `progress/overview-baseline` | `b891de0` | `dir-d.js` (`progress-overview-baseline`) | same |
+| 2 | `progress/strength`, `progress/strength-current-block` | `b891de0` | `dir-d.js` (`progress-strength`, `progress-strength-current-block`; one renderer, as the catalog frames are identical) | same |
+| 2 | `progress/strength-all-history` | `b891de0` | `dir-d.js` (`progress-strength-all-history`) | same |
+| 2 | `progress/strength-comparison` | `b891de0` | `dir-d.js` (`progress-strength-comparison`) | same |
+| 2 | `progress/strength-sparse` | `b891de0` | `dir-d.js` (`progress-strength-sparse`) | same |
+| 2 | `history/edit-dirty` | `b891de0` | `dir-d.js` (`history-edit-dirty`, with the discard confirmation) | same |
+| 2 | `history/edit-invalid` | `b891de0` | `dir-d.js` (`history-edit-invalid`) | same |
+
+Each approval includes that screen's listed differences from today's app (the round's board). Round 1 carried two items into round 2 by the same decision: the redraw of `workout/exercise-actions` (decision 11) and the exercise-complete shelf (OG-4 proposal 3). Both are now drawn and approved.
+
+Round 2 decisions recorded with the approvals:
+- Focus's "Change since last session" line (`delta.preview`) is retired.
+- On the Progress overview, the 3-segment week bar, the all-time tiles and the overview's volume block are retired; the Volume tab is unchanged.
+- The PT heading is "Precisa de atenção".
+- Strength rows expand in place, and a rep-only improvement hides its "0 kg (0%)" change.
+- The History editor pins Cancel/Save with the dock hidden, groups rows under each lift with a quiet remove and an undo, asks before discarding in a sheet, and keeps an invalid value's reason under its row.
+
+Undrawn states keep today's design: the shelf for "last exercise done while earlier ones are unfinished", a Strength slot with no history, the keep-one-set toast, and History's save failure and conflict.
+
+Build decisions recorded on [#295](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5937182678):
+- The §8.8 "active dock icon" covers the shipped active dock item: its icon, label and highlight.
+- `.verdictmark` gains "=" (hold) and "↻" (recover).
+- The session summary opens at rest, with no count-up or stagger.
+- The PT outcome labels read "Manteve" and "Regressou".
 
 ## Reconcilable rows
 
