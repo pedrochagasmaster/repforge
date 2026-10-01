@@ -308,7 +308,19 @@ async function freeformTo(page, step) {
     undefined,
     { timeout: 5000 }
   );
-  if (step === "stage3") return;
+  if (step === "stage3") {
+    // Stage 3 is photographed with its "Prompt copied" confirmation. The toast
+    // hides itself 2.4 s after it appears, so whether a frame caught it raced
+    // the settle step (and the machine's speed). Holding it open makes the
+    // frame deterministic; nothing else in the state changes.
+    const held = await page.evaluate(() => {
+      if (typeof window.announce !== "function") return false;
+      clearTimeout(window.announce._t);
+      return !document.querySelector("#toast")?.classList.contains("hidden");
+    });
+    if (!held) throw new Error("freeform stage 3: the copy confirmation toast could not be held open");
+    return;
+  }
   await page.waitForFunction(
     () => document.querySelector("#toast")?.classList.contains("hidden") === true,
     undefined,

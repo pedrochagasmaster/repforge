@@ -207,8 +207,12 @@ export async function settle(page) {
       new Promise((resolve) => setTimeout(resolve, ms)),
     ]);
     await deadline(document.fonts.ready.catch(() => {}), 5000);
+    // Only rendered images can change a frame. A lazy image inside a hidden
+    // surface (the closed landing keeps its walkthrough images in the DOM)
+    // never loads, so waiting on it only burns the deadline and lets a
+    // transient state such as a toast expire before the shot.
     await deadline(Promise.all([...document.images]
-      .filter((image) => !image.complete)
+      .filter((image) => !image.complete && image.checkVisibility())
       .map((image) => image.decode().catch(() => {}))), 3000);
     for (const animation of document.getAnimations()) {
       if (animation.effect?.getComputedTiming().iterations === Infinity) continue;
