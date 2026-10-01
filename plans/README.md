@@ -63,7 +63,7 @@ resumes. The Opus orchestrator's starting brief is
 | Plan | State | Outcome |
 |---|---|---|
 | 063 (on PR #272, `redesign/direction-d`) | **OWNER-SELECTED SPECIFICATION — consumed by 064** | Direction D: the main-app reference for Today, Focus and rest, Why, session summary, Progress, History and Program (ADR 0016). Its P-slices are executed as Plan 064 slice R3. |
-| [064](./064-unified-redesign-convergence.md) | **PLANNED — AWAITING OWNER APPROVAL OF THE SPECIFICATION** | One unified redesign production PR: shared system, landing, Direction D, owner-selected onboarding, cross-surface journeys, full convergence and adversarial review, orchestrated by Opus with Sonnet workers. Precedes #258/#257 integration and Plan 059. |
+| [064](./064-unified-redesign-convergence.md) | **IN PROGRESS — PR #295** | One unified redesign production PR: shared system, landing, Direction D, owner-selected onboarding, cross-surface journeys, full convergence and adversarial review, orchestrated by Opus with Sonnet workers. Precedes #258/#257 integration and Plan 059. |
 
 Phase 2 has three independently mergeable plans because workout data loss,
 program-transition provenance, and temporary backend security have distinct

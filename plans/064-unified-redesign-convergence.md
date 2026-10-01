@@ -13,8 +13,9 @@ This plan defines scope, authority, sequence, delegation, proof and gates.
 
 - **Plan number:** 064
 - **Phase:** post-058 candidate construction, before Plan 059
-- **Status:** PLANNED — awaiting owner approval of this specification; no
-  implementation has started
+- **Status:** IN PROGRESS — specification approved by the owner through #290
+  (merged 2026-10-01); the §11.1 standalone workfronts are merged and the
+  workfront is open as PR #295 from `main` `c1d6432`
 - **Owner approval state:** the unified topology (one production PR instead of
   three) is an owner decision recorded 2026-09-30 and codified here. Open owner
   gates are listed in §6; the onboarding direction is not selected.
