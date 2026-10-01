@@ -1374,8 +1374,45 @@ This inventory decides nothing; OG-2 is the owner's.
 
 ## Onboarding reconciliation board (input to OG-1)
 
-Pending (R0 packet: OG-1 board), built from existing sources only per Plan 064
-§7.2.
+The board is evidence for the owner, built in R0 from existing sources only
+(Plan 064 §7.2). Tournament captures and prototype code never enter `main`
+(§11.2), so the frames are not committed here. They are published to the owner
+as a private board, [OG-1 Onboarding Board](https://claude.ai/artifact/B4wecGe3ThNu26nMM7v73V),
+and the batch gate comment on PR #295 links it.
+
+- **Sources, read-only and unmodified:** candidates G, H, I, J, K and L from
+  #279 at `1acee97a` (`docs/design/onboarding-tournament/`); Direction D's
+  Today and Focus drawings from the #272 review page at `2f2fc044`
+  (`docs/design/main-screen-directions/`). The D frames are drawings, not
+  production screens. The five polish proposals of 2026-09-30 are not asserted
+  as accepted; they are OG-4.
+- **Frames:** 52 required (6 candidates × entry hub, first Recommend step,
+  merged result and preview, activation × PT-BR light and EN dark at 390 css
+  px; plus D Today and Focus in both cells) and 12 supplementary (each
+  candidate's own Today after activation). No cell is missing.
+- **Normalization:** no candidate was restyled. Every frame uses the same
+  viewport (390 × 844 css px, DPR 2), cells and first-viewport crop, and is
+  annotated with §8 deltas measured from its DOM by one function: type
+  families and tiers against Plan 058's ten tiers, contained cards versus
+  hairline bands, orange and other hues, sheet header band, dock. D's frames
+  are measured by the same function.
+- **Not on the board:** G rendered on the §8 shared rules. The tournament has
+  no such render and inventing one would not be an existing source. G is shown
+  on the harness's vendored Plan 058 tokens. Once R1 and R3 exist, the chosen
+  direction may be re-rendered beside them as confirming evidence (§7.2); that
+  is not a prerequisite for asking OG-1. No R1 or R3 screen exists at the end
+  of R0, and none is shown.
+- **Reopenings, stated on the board:** advancing J reopens Q622 (PD-1) and
+  advancing L reopens Q624 (PD-4); both also omit Custom, Browse and Build, so
+  either needs an explicit owner reopening of L-07 before it can be built. G,
+  H, I and K reopen nothing.
+- **Evidence matrix (from the tournament's own records):** taps from landing
+  to Today are G 13, H 18, I 13, J 11, K 14 and L 10, and a correction from the
+  review costs 6 in every direction. G is built on all 45 checkpoints; H to L
+  are built on the 21 core checkpoints, and the Round 4 freeze table is
+  recorded as incomplete. Each of H to L brings type families outside Plex. The
+  engine finding PF-1 appears in every candidate and is not a candidate
+  difference.
 
 ## Reconcilable rows
 
