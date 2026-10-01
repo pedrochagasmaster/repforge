@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ROOT, captureKey, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures } from "./ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
 import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
@@ -289,6 +289,9 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
   for (const item of debt.slice(0, 8)) console.log(`  debt ${item.path}:${item.line}: ${item.selector} { ${item.property}: ${item.value} }`);
   for (const item of aliases.slice(0, 8)) console.log(`  alias ${item.path}:${item.line}: ${item.alias}`);
   if (process.argv.includes("--strict-css") && debt.length) metadata.push(`${debt.length} unapproved CSS literals`);
+  for (const { path, css } of cssFiles) {
+    for (const block of uninventoriedSharedComponents(css, inventory)) metadata.push(`${path}: shared component .${block} has no inventory row`);
+  }
   if (process.argv.includes("--strict-css") && aliases.length) metadata.push(`${aliases.length} obsolete CSS alias references`);
   if (!process.argv.includes("--metadata")) {
     const flowArgument = process.argv.indexOf("--flow");

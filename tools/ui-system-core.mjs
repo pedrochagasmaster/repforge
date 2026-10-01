@@ -183,6 +183,29 @@ export function contrastRatio(a, b) {
 }
 
 /** Components and exceptions that no rendered state matched. Only meaningful over the complete catalog. */
+/**
+ * Plan 064 shared components live in one marked section of styles.css. Each
+ * component block declared there (the class before any __element or
+ * --modifier) must be named by an inventory component selector, so a shared
+ * component cannot ship before its role is reviewed, even while nothing
+ * renders it. Returns the uncovered block names.
+ */
+export const SHARED_COMPONENTS_MARKER = "/* ---- Plan 064 shared components ----";
+export function uninventoriedSharedComponents(css, inventory) {
+  const start = css.indexOf(SHARED_COMPONENTS_MARKER);
+  if (start < 0) return [];
+  const rest = css.slice(start);
+  const next = rest.slice(SHARED_COMPONENTS_MARKER.length).search(/\n\/\* ---- /);
+  const region = (next < 0 ? rest : rest.slice(0, SHARED_COMPONENTS_MARKER.length + next)).replace(/\/\*[\s\S]*?\*\//g, "");
+  const blocks = new Set();
+  for (const [, selector] of region.matchAll(/([^{}]+)\{/g)) {
+    if (selector.trim().startsWith("@")) continue;
+    for (const [, name] of selector.matchAll(/\.([A-Za-z][\w-]*)/g)) blocks.add(name.split(/__|--/)[0]);
+  }
+  const selectors = inventory.components.map((item) => item.selector);
+  return [...blocks].filter((block) => !selectors.some((selector) => new RegExp(`\\.${block}(?![\\w-])|\\.${block}(?:__|--)`).test(selector)));
+}
+
 export function neverRenderedProblems(inventory, matched, matchedExceptions) {
   const problems = [];
   for (const item of inventory.components) {

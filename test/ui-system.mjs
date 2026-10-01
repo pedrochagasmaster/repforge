@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests, uninventoriedSharedComponents, SHARED_COMPONENTS_MARKER } from "../tools/ui-system-core.mjs";
 import { measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
@@ -71,6 +71,20 @@ for (const recipe of inventory.rootRecipeOwners) {
   for (const selector of recipe.selectors) assert(css.includes(selector), `${recipe.id} records its rendered consumer ${selector}`);
 }
 assert.equal(cssLiteralDebt(css, inventory.exceptions).length, 0, "P6 removes all unauthorized CSS literal debt");
+assert.deepEqual(uninventoriedSharedComponents(css, inventory), [], "every Plan 064 shared component block has an inventory row");
+assert.deepEqual(
+  (() => {
+    const end = css.indexOf("*/", css.indexOf(SHARED_COMPONENTS_MARKER)) + 2;
+    return uninventoriedSharedComponents(`${css.slice(0, end)}\n.unreviewedband{display:block}\n.unreviewedband__title{display:block}\n${css.slice(end)}`, inventory);
+  })(),
+  ["unreviewedband"],
+  "an unrendered shared component without an inventory row is rejected",
+);
+assert.deepEqual(
+  uninventoriedSharedComponents(`.outside{display:block}\n${SHARED_COMPONENTS_MARKER} */\n.verdictmark{display:flex}\n/* ---- Next section ---- */\n.later{display:block}\n`, inventory),
+  [],
+  "only blocks inside the marked section are held to the rule",
+);
 assert.equal(cssCompatibilityAliasDebt(css).length, 0, "P6 removes all obsolete compatibility aliases");
 assert.equal(cssLiteralDebt(motionPolishCss, inventory.exceptions).length, 0, "motion-polish.css has no unauthorized CSS literal debt");
 assert.equal(cssCompatibilityAliasDebt(motionPolishCss).length, 0, "motion-polish.css has no obsolete compatibility aliases");

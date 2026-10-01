@@ -6023,7 +6023,10 @@ body.is-entry-editor #entryProgramName,
 }
 #shareSetupLink:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 
-/* ---- Plan 064 R1a: shared redesign components (unrendered until R3) ----
+/* ---- Plan 064 shared components ----
+   Every component block declared in this section must be named by a
+   component row in tools/ui-role-inventory.json (checked by
+   tools/check-ui-system.mjs). R1a adds the first four, unrendered until R3.
    Four components on existing Plan 058 roles. Nothing renders these classes
    yet, so no frame can change; each first renders in the slice its inventory
    row names. They add no token, tier, radius step, shadow or palette value.
