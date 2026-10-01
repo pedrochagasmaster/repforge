@@ -5172,8 +5172,16 @@ function setSuggestion(ex,n,rec,draft,old){
   const reps=clamp(Math.round(predPerf),ex.min,ex.max);
   // Only call it a downward trend when an anticipated drop actually caused it —
   // a target lowered purely by the typical-RIR subtraction is not a fade.
-  return{load:L,reps,src:"session-hold",drop:setDrop>0&&reps<lastSet.reps}}
+  // `pred` and `typ` are the capacity this predicted for the next set and the RIR taken off it,
+  // reported so the Why sheet can say them without recomputing. They are not enumerable, so the
+  // suggestion that serialises (and that the parity proofs compare) is exactly what it was.
+  return Object.defineProperties({load:L,reps,src:"session-hold",drop:setDrop>0&&reps<lastSet.reps},
+    {pred:{value:Math.round(repsAtLoad(predCap,L)*2)/2},typ:{value:typRir}})}
 // One-line summary of how the current session is steering the next unlogged set.
+/** A row of the explanation carries its kind (and the facts it printed) without changing what serialises:
+ *  the rows stay {label?,text}, so the parity proofs that compare them see the same list. */
+const whyRow=(kind,row,facts)=>{Object.defineProperty(row,"kind",{value:kind});
+  if(facts)Object.defineProperty(row,"facts",{value:facts});return row};
 function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
   const rec=recommendation(ex),u=unitLabel();
@@ -5195,23 +5203,23 @@ function inSessionNote(ex,draft){
 function explainStrategy(ex,rec,u){
   const rows=[],params=progressionForExercise(ex)?.strategy?.params||{};
   const prev=last(ex).filter(x=>+x.load>0);
-  if(prev.length)rows.push({label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
+  if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
   const input=progressionInput(ex),result=RepForgeProgression.evaluateProgression(input),f=result.facts;
   if(rec.strategy==="rep_goal"){
-    if(f.performedTotal!=null)rows.push({text:t("why.repgoal.total",
-      {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})});
-    if(f.medianTrustedRir!=null)rows.push({text:t("why.repgoal.effort",
-      {rir:fmt(f.medianTrustedRir),min:fmt(params.targetRirMin)})});
+    if(f.performedTotal!=null)rows.push(whyRow("rg-total",{text:t("why.repgoal.total",
+      {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})}));
+    if(f.medianTrustedRir!=null)rows.push(whyRow("rg-effort",{text:t("why.repgoal.effort",
+      {rir:fmt(f.medianTrustedRir),min:fmt(params.targetRirMin)})}));
     if(result.reasonCodes.includes("rep_goal.rebuild_after_advance"))
-      rows.push({text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})});
-    if(f.completedReps!=null)rows.push({text:t("why.repgoal.distribution")})}
+      rows.push(whyRow("rg-rebuild",{text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})}));
+    if(f.completedReps!=null)rows.push(whyRow("rg-distribution",{text:t("why.repgoal.distribution")}))}
   else if(rec.strategy==="effort_target"){
-    if(f.representativeLoad!=null)rows.push({text:t("why.effort.evidence",{
-      load:fmtLoad(f.representativeLoad),unit:u,reps:fmt(f.representativeReps),rir:f.representativeRir==null?t("why.effort.missing"):fmt(f.representativeRir)})});
-    rows.push({text:t("why.effort.target",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})});
+    if(f.representativeLoad!=null)rows.push(whyRow("ef-evidence",{text:t("why.effort.evidence",{
+      load:fmtLoad(f.representativeLoad),unit:u,reps:fmt(f.representativeReps),rir:f.representativeRir==null?t("why.effort.missing"):fmt(f.representativeRir)})}));
+    rows.push(whyRow("ef-target",{text:t("why.effort.target",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})}));
     if(result.reasonCodes.includes("effort_target.grid_rounded"))
-      rows.push({text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})})}
+      rows.push(whyRow("ef-grid",{text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})}))}
   else{
     // Name the top set the lifter logged, not the capacity the engine read from it:
     // today's anchor when one is logged, otherwise the latest session's first set.
@@ -5219,15 +5227,15 @@ function explainStrategy(ex,rec,u){
       idx=explicit>=0?explicit:cur.some(x=>x.role!=null)?-1:0,
       top=cur.length&&idx>=0?cur[idx]:input.history.at(-1)?.sets?.[0];
     if(f.anchorLoad!=null&&top&&sameLoad(+top.load,f.anchorLoad)){
-      rows.push({text:t("why.anchor.top",{load:fmtLoad(f.anchorLoad),unit:u,reps:+top.reps})});
-      if(top.rir!=null&&top.rir!==""&&Number.isFinite(+top.rir))rows.push({text:t("why.anchor.top_rir",{rir:fmt(+top.rir)})})}
-    if(f.backoffLoad!=null)rows.push({text:t("why.anchor.backoff",
-      {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})});
+      rows.push(whyRow("an-top",{text:t("why.anchor.top",{load:fmtLoad(f.anchorLoad),unit:u,reps:+top.reps})}));
+      if(top.rir!=null&&top.rir!==""&&Number.isFinite(+top.rir))rows.push(whyRow("an-toprir",{text:t("why.anchor.top_rir",{rir:fmt(+top.rir)})}))}
+    if(f.backoffLoad!=null)rows.push(whyRow("an-backoff",{text:t("why.anchor.backoff",
+      {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})}));
     if(result.reasonCodes.includes("anchor_backoff.backoff_recalculated"))
-      rows.push({text:t("why.anchor.untouched")})}
-  if(rec.text)rows.push({text:rec.text});
+      rows.push(whyRow("an-untouched",{text:t("why.anchor.untouched")}))}
+  if(rec.text)rows.push(whyRow("text",{text:rec.text}));
   const note=inSessionNote(ex,loadDraft());
-  if(note)rows.push({label:t("why.session"),text:note});
+  if(note)rows.push(whyRow("session",{label:t("why.session"),text:note}));
   return rows}
 // On-demand arithmetic behind one recommendation (plan 043). Built at tap time only,
 // never during renderWorkout: the Log tab's render path stays free of this work.
@@ -5239,34 +5247,35 @@ function explainRecommendation(ex){
   const rec=recommendation(ex),u=unitLabel();
   if(rec.status==="manual")return rows;
   // A new lift can still explain an adjustment from sets logged in this session.
-  if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[{label:t("why.session"),text:note}]:rows}
+  if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[whyRow("session",{label:t("why.session"),text:note})]:rows}
   if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
   const prev=last(ex).filter(x=>+x.load>0);
-  if(prev.length)rows.push({label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
-  rows.push({text:t(isEffortMode()?"why.showed_effort":"why.showed",
-    {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})});
+  if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
+  rows.push(whyRow("showed",{text:t(isEffortMode()?"why.showed_effort":"why.showed",
+    {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})}));
   // The tempered line already names both the rule and the tempering, so it stands alone.
-  rows.push({text:rec.temperedBlock?t("rec.add.tempered.text")
+  rows.push(whyRow("rule",{text:rec.temperedBlock?t("rec.add.tempered.text")
     :t("why.rule."+rec.reason,{max:ex.max,min:ex.min,cr:Math.round(rec.cr),
-      margin:CAPACITY.bigJumpMargin,gap:Math.round(rec.cr-rec.lastMedReps)})});
+      margin:CAPACITY.bigJumpMargin,gap:Math.round(rec.cr-rec.lastMedReps)})}));
   const minJ=+state.settings.minJump||2.5,pct=(+state.settings.jumpPct||0)*(rec.jumpMult||1),
     raw=rec.lastLoad*pct/100,
     move={prev:fmtLoad(rec.lastLoad),pct:fmt(pct),step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u};
   // A small percentage on a light load is dominated by the minJump step; say which one moved it.
+  // The numbers the load line printed, kept on the row for the working behind "See the working".
+  const loadFacts={prev:fmtLoad(rec.lastLoad),pct:fmt(pct),step:fmtLoad(minJ),load:fmtLoad(rec.load),raw:raw>minJ};
   if(rec.reason==="top"||rec.reason==="cap_top"||rec.reason==="cap_top2")
-    rows.push({text:t(raw>minJ?"why.load_up":"why.load_up_step",move)});
-  else if(rec.reason==="below_range")rows.push({text:t(raw>minJ?"why.load_down":"why.load_down_step",move)});
-  else if(sameLoad(rec.load,rec.lastLoad))rows.push({text:t("why.load_hold",{load:fmtLoad(rec.load),unit:u})});
-  else rows.push({text:t("why.load_snap",{step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u})});
-  if(rec.reenterReps)rows.push({text:t(isEffortMode()?"why.reps_effort":"why.reps",
-    {load:fmtLoad(rec.load),unit:u,pred:Math.round(repsAtLoad(rec.cap,rec.load)),
-      typrir:fmt(rec.typRir),reps:reentryReps(ex,rec.cap,rec.load,rec.typRir)})});
-  else if(rec.pushReps)rows.push({text:t("why.reps_chase",{min:ex.min,max:ex.max})});
-  else rows.push({text:t("why.reps_hold")});
-  if(rec.blockNote&&!rec.temperedBlock)rows.push({text:rec.blockNote});
+    rows.push(whyRow("load",{text:t(raw>minJ?"why.load_up":"why.load_up_step",move)},loadFacts));
+  else if(rec.reason==="below_range")rows.push(whyRow("load",{text:t(raw>minJ?"why.load_down":"why.load_down_step",move)},loadFacts));
+  else if(sameLoad(rec.load,rec.lastLoad))rows.push(whyRow("load",{text:t("why.load_hold",{load:fmtLoad(rec.load),unit:u})}));
+  else rows.push(whyRow("load",{text:t("why.load_snap",{step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u})}));
+  if(rec.reenterReps){const repsFacts={pred:Math.round(repsAtLoad(rec.cap,rec.load)),typrir:fmt(rec.typRir),reps:reentryReps(ex,rec.cap,rec.load,rec.typRir)};
+    rows.push(whyRow("reps",{text:t(isEffortMode()?"why.reps_effort":"why.reps",{load:fmtLoad(rec.load),unit:u,...repsFacts})},repsFacts))}
+  else if(rec.pushReps)rows.push(whyRow("reps",{text:t("why.reps_chase",{min:ex.min,max:ex.max})}));
+  else rows.push(whyRow("reps",{text:t("why.reps_hold")}));
+  if(rec.blockNote&&!rec.temperedBlock)rows.push(whyRow("block",{text:rec.blockNote}));
   const note=inSessionNote(ex,loadDraft());
-  if(note)rows.push({label:t("why.session"),text:note});
+  if(note)rows.push(whyRow("session",{label:t("why.session"),text:note}));
   return rows}
 function applyAcknowledgedSuggestions(ex,draft){
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
@@ -16825,19 +16834,166 @@ function openWhySheet(exId,opener){
   const slot=prog.find(exId);if(!slot)return;
   const ex=sessionExercise(slot);if(!ex)return;
   openWhySheetFor(ex,opener)}
+/* ---- Why this weight (Direction D, spec 4.3) ----
+   Sentences first, each under a bold lead, then the working behind "See the working"
+   and the evidence footer. Every sentence is a row of explainRecommendation(), the
+   producer above, and every figure is a fact the engine attached; this model only
+   orders them, gives each its lead, and lays out the working. */
+const WHY_LEADS={
+  top:["top","why.lead.top"],hold:["hold","why.lead.hold"],stalled:["stalled","why.lead.stalled"],
+  recover:["recover","why.lead.recover"],rule:["rule","why.lead.rule"]};
+const WHY_RANGE_LEAD={top:"top",cap_top:"top",cap_top2:"top",hold:"hold",push_reps:"hold",below_range:"rule",stalled:"stalled",recover:"recover"};
+const whyList=items=>{const a=items.map(String);
+  try{return new Intl.ListFormat(I18N?.getLang?.()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(a)}
+  catch{return a.join(", ")}};
+/** The first sentence of the first block: what was performed, and the RIR (or effort) it used. */
+function whyPerformedText(prev,u){
+  const rows=prev.filter(x=>+x.load>0&&+x.reps>0);if(!rows.length)return"";
+  const effort=isEffortMode(),reps=whyList(rows.map(x=>x.reps));
+  if(effort)return t("why.performed_effort",{reps,load:fmtLoad(rows[0].load),unit:u,efforts:whyList(rows.map(x=>effortLabel(effortForRir(x.rir))))});
+  return t("why.performed",{reps,load:fmtLoad(rows[0].load),unit:u,
+    rirs:whyList(rows.map(x=>x.rir==null||x.rir===""?t("why.effort.missing"):fmt(x.rir)))})}
+/** "102.5 kg × 8" / "137.5 kg × 5 + 117.5 kg × 8, 8": the sets the engine asks for, grouped by load. */
+function setsTargetLine(ex,rec){
+  const u=unitLabel();let sets=rec.engineSets;
+  if(!sets?.length){
+    if(rec.load==null)return"";
+    const first=setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1));
+    sets=[{load:rec.load,reps:first.reps??ex.min}]}
+  const groups=[];
+  for(const s of sets){const g=groups.at(-1);if(g&&sameLoad(+g.load,+s.load))g.reps.push(s.reps);else groups.push({load:s.load,reps:[s.reps]})}
+  return groups.map(g=>`${fmtLoad(g.load)} ${u} × ${g.reps.join(", ")}`).join(" + ")}
+function whySheetModel(ex){
+  const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
+  const glyph=rxVerdict(rec);
+  // The headline is the cue Focus shows: the verdict and the load, then the reps the engine asks for.
+  const cueReps=rec.engineSets?.length?rec.engineSets.map(x=>x.reps).join(", ")
+    :rec.load!=null?setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min:null;
+  const cueKey=glyph==="up"?"focus.cue.up":glyph==="down"?"focus.cue.down":"focus.cue.hold";
+  const model={target:rec.load!=null?`${t(cueKey,{load:fmtLoad(rec.load),unit:u})}, ${t("focus.cue.reps",{reps:cueReps})}`:"",
+    decision:rec.label,glyph,blocks:[],calc:[],evidence:""};
+  const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
+  const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
+  if(rec.status==="manual"){block("manual",t("why.lead.manual"),t("why.manual"));return model}
+  const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
+  const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
+  const lastGroup=()=>{if(prev.length){calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});setRows(prev)}};
+  const todayRow=()=>{const line=setsTargetLine(ex,rec);if(line)calc.push({sum:true,k:t("nav.log"),v:line})};
+  if(prev.length)model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)});
+  const isRange=!rec.strategy||rec.strategy==="range";
+  // The first unlogged working set, as the in-session note names it.
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
+  let nextSet=null;
+  for(let n=1;n<=ex.sets&&nextSet==null;n++){const key=`${ex.id}_${n}`;if(!done.has(key)&&!warm.has(key))nextSet=n}
+  const session=completedCurrentSets(ex,ex.sets+1,draft);
+  if(isRange&&rec.status!=="new"&&session.length&&nextSet!=null){
+    // In-session: the capacity the set showed comes before the prediction for the next one, never the reverse.
+    const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,null),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
+    block("set1",t("why.lead.set1",{n:session.length}),isEffortMode()
+      ?t("why.set1_effort",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,effort:effortLabel(effortForRir(seen.rir))})
+      :t("why.set1",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,rir:fmt(seen.rir)}),t("why.session"));
+    const predicted=sg.src==="session-hold"&&sg.pred!=null?t("why.set2",{pred:fmt(sg.pred),rir:fmt(sg.typ),reps:sg.reps}):"";
+    block("set2",t("why.lead.set2",{n:nextSet}),[note?.text,predicted].filter(Boolean).join(" "));
+    calc.push({group:t("why.session")});
+    session.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
+    calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:observed,load:fmtLoad(seen.load),unit:u})});
+    if(predicted)calc.push({k:t("why.calc.rep_target"),v:t("why.calc.rep_target_v",{pred:fmt(sg.pred),rir:fmt(sg.typ),reps:sg.reps})});
+    calc.push({sum:true,k:t("why.calc.set",{n:nextSet}),v:`${fmtLoad(sg.load)} ${u} × ${sg.reps}`});
+    model.evidence=t("why.evidence",{n:1,date:shortDate(today())});
+  }
+  else if(isRange&&rec.status!=="new"){
+    const rule=take("rule"),load=take("load"),reps=take("reps"),showed=take("showed");
+    const lead=WHY_LEADS[WHY_RANGE_LEAD[rec.reason]||"rule"];
+    if(rule)block(lead[0],t(lead[1]),[performed,rule.text].filter(Boolean).join(" "));
+    const n=reps?.facts?.reps??setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min;
+    if(rec.reenterReps&&load&&reps){
+      block(sameLoad(rec.load,rec.lastLoad)?"load_hold":"load",t(sameLoad(rec.load,rec.lastLoad)?"why.lead.load_hold":"why.lead.load"),load.text);
+      block("reps",t("why.lead.reps",{n}),reps.text)}
+    else block("reps",t("why.lead.reps",{n}),[load?.text,reps?.text].filter(Boolean).join(" "));
+    lastGroup();
+    calc.push({group:t("why.calc.working")});
+    if(rec.cr!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u}),sub:showed?.text});
+    const params=progressionForExercise(ex)?.strategy?.params||{},max=params.repMax??ex.max,min=params.repMin??ex.min;
+    if(["top","cap_top","cap_top2"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_top",{max})});
+    else if(["hold","push_reps"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_hold",{min,max})});
+    if(!sameLoad(rec.load,rec.lastLoad)&&load?.facts)calc.push({k:t("why.calc.new_load"),v:load.facts.raw?`${load.facts.prev} + ${load.facts.pct}% \u2192 ${load.facts.load}`:`${load.facts.prev} + ${load.facts.step} \u2192 ${load.facts.load}`});
+    if(rec.reenterReps&&reps?.facts)calc.push({k:t("why.calc.rep_target"),v:t("why.calc.rep_target_v",{pred:reps.facts.pred,rir:reps.facts.typrir,reps:reps.facts.reps})});
+    const blockRow=take("block");if(blockRow)calc.push({k:t("why.calc.block"),v:blockRow.text,text:true});
+    todayRow();
+  }
+  else if(rec.strategy==="rep_goal"){
+    const total=take("rg-total"),effort=take("rg-effort"),rebuild=take("rg-rebuild");
+    if(total)block("goal",t("why.lead.goal"),[performed,total.text].filter(Boolean).join(" "));
+    if(effort)block("effort",t("why.lead.effort"),effort.text);
+    const sets=rec.engineSets||[];
+    if(rebuild)block("spread",t("why.lead.spread"),rebuild.text);
+    else if(sets.length)block("spread",t("why.lead.spread"),t("why.split",{total:sum(sets.map(s=>s.reps)),reps:whyList(sets.map(s=>s.reps))}));
+    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts;
+    lastGroup();
+    calc.push({group:t("why.calc.working")});
+    if(f.performedTotal!=null)calc.push({k:t("why.calc.goal"),v:`${f.performedTotal} / ${f.repGoal}`});
+    if(sets.length)calc.push({k:t("why.calc.split"),v:`${sets.map(s=>s.reps).join(" + ")} = ${sum(sets.map(s=>s.reps))}`});
+    todayRow();
+  }
+  else if(rec.strategy==="anchor_backoff"){
+    const top=take("an-top"),topRir=take("an-toprir"),backoff=take("an-backoff"),text=take("text");
+    if(top)block("anchor",t("why.lead.anchor"),[top.text,topRir?.text].filter(Boolean).join(" "));
+    if(text)block("rule",t("why.lead.rule"),text.text);
+    if(backoff)block("backoff",t("rec.anchor.session.label"),backoff.text);
+    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts,params=progressionForExercise(ex)?.strategy?.params||{};
+    lastGroup();
+    calc.push({group:t("why.calc.working")});
+    if(f.capacityReps!=null&&f.anchorLoad!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(f.capacityReps),load:fmtLoad(f.anchorLoad),unit:u})});
+    if(f.targetLoad!=null&&f.anchorLoad!=null&&!sameLoad(f.targetLoad,f.anchorLoad))calc.push({k:t("why.calc.new_load"),v:`${fmtLoad(f.anchorLoad)} + ${fmt(params.jumpPercent)}% → ${fmtLoad(f.targetLoad)}`});
+    if(f.backoffLoad!=null&&params.backoffPercent!=null)calc.push({k:t("rec.anchor.session.label"),v:`${fmtLoad(f.targetLoad??f.anchorLoad)} × ${fmt(Math.round(params.backoffPercent*100))}% → ${fmtLoad(f.backoffLoad)}`});
+    todayRow();
+  }
+  else if(rec.strategy==="effort_target"){
+    const evidence=take("ef-evidence"),target=take("ef-target"),grid=take("ef-grid"),text=take("text");
+    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts;
+    if(evidence)block("effort",t("why.lead.effort"),[evidence.text,text?.text].filter(Boolean).join(" "));
+    if(target)block("reps",t("why.lead.reps",{n:f.targetReps}),target.text);
+    if(grid)block("load",t("why.lead.load"),grid.text);
+    lastGroup();
+    todayRow();
+  }
+  // Rows that are not placed as a sentence stay readable in the working, so nothing the producer says is lost.
+  const note=pick("session");
+  if(note&&!placed.has(note)&&session.length){placed.add(note);block("session","",note.text,note.label)}
+  for(const row of rows)if(!placed.has(row))calc.push({text:true,k:row.label||"",v:row.text});
+  return model}
+function whyCalcHtml(calc){
+  return calc.map(c=>c.group?`<p class="whycalc__group">${esc(c.group)}</p>`
+    :c.text?`<p class="whycalc__text">${c.k?`<span class="whycalc__k">${esc(c.k)}</span> `:""}${esc(c.v)}</p>`
+    :`<div class="whycalc__row${c.sum?" whycalc__row--sum":""}"><span class="whycalc__k">${esc(c.k)}</span>`+
+      `<span class="whycalc__v">${esc(c.v)}${c.rir?`<em>${esc(c.rir)}</em>`:""}</span>`+
+      `${c.sub?`<small class="whycalc__sub">${esc(c.sub)}</small>`:""}</div>`).join("")}
+function renderWhySheet(model){
+  const target=$("#whyTarget");if(target){target.innerHTML=model.target?`${verdictMarkHtml(model.glyph)}<span>${esc(model.target)}</span>`:"";target.classList.toggle("hidden",!model.target)}
+  const decision=$("#whyDecision");if(decision)decision.textContent=model.decision;
+  const body=$("#whyBody");
+  if(body){
+    body.innerHTML=model.blocks.map(b=>
+      `<div class="whysheet__block" data-lead="${esc(b.leadKey)}">${b.label?`<p class="whysheet__lab">${esc(b.label)}</p>`:""}`+
+      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${esc(b.text)}</p></div>`).join("")+
+      (model.calc.length
+        ?`<button type="button" class="whysheet__disc" data-why-calc aria-expanded="false" aria-controls="whyCalc"><span>${esc(t("why.calc"))}</span><span class="chevron is-down" aria-hidden="true"></span></button>`+
+         `<div class="whycalc" id="whyCalc" aria-hidden="true">${whyCalcHtml(model.calc)}</div>`:"");
+    const disc=body.querySelector("[data-why-calc]"),panel=body.querySelector("#whyCalc");
+    if(disc&&panel)disc.onclick=()=>{
+      const open=disc.getAttribute("aria-expanded")!=="true";
+      setDisclosure(disc,panel,open);
+      disc.querySelector("span").textContent=t(open?"why.calc_hide":"why.calc");
+      const chev=disc.querySelector(".chevron");if(chev)chev.classList.toggle("is-down",!open)}}
+  const evidence=$("#whyEvidence");if(evidence){evidence.textContent=model.evidence;evidence.classList.toggle("hidden",!model.evidence)}}
+
 function openWhySheetFor(ex,opener){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
   // Focus is the only workout-logging surface; the exercise page is the other opener.
   captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
-  const rec=recommendation(ex);
-  const decision=$("#whyDecision");if(decision)decision.textContent=rec.label;
-  const target=$("#whyTarget");
-  if(target)target.textContent=rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label;
-  const body=$("#whyBody");
-  if(body)body.innerHTML=explainRecommendation(ex).map(row=>
-    `<div class="whysheet__row">${row.label?`<span class="whysheet__lab">${esc(row.label)}</span>`:""}`+
-    `<p>${esc(row.text)}</p></div>`).join("");
+  renderWhySheet(whySheetModel(ex));
+  const okBtn=$("#whyOk");if(okBtn)okBtn.onclick=()=>closeWhySheet();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
     delayHide:reducedMotion()?0:280});

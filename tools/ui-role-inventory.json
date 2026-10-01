@@ -349,9 +349,29 @@
       "scenario": "The per-exercise note sheet."
     },
     "workout/why-this-weight": {
-      "owner": "plan-055",
+      "owner": "plan-064/r3g",
       "content": "flat",
-      "scenario": "The recommendation inspector."
+      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer."
+    },
+    "workout/why-in-session": {
+      "owner": "plan-064/r3g",
+      "content": "flat",
+      "scenario": "Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set."
+    },
+    "workout/why-rep-goal": {
+      "owner": "plan-064/r3g",
+      "content": "flat",
+      "scenario": "Rep goal: the total, the effort gate and how the reps split."
+    },
+    "workout/why-anchor": {
+      "owner": "plan-064/r3g",
+      "content": "flat",
+      "scenario": "Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets."
+    },
+    "workout/why-manual": {
+      "owner": "plan-064/r3g",
+      "content": "flat",
+      "scenario": "Manual: one sentence; the program sets the load and the engine does not change it."
     },
     "session/summary": {
       "owner": "plan-057",
@@ -5588,7 +5608,11 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
@@ -5605,7 +5629,11 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
@@ -5622,7 +5650,11 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
@@ -5685,7 +5717,11 @@
         "workout/stale-draft",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -7424,7 +7460,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally render it (R3b); R3h (session summary) adds its states when it renders it. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; R3h (session summary) adds its states when it renders it. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
       "owner": "plan-064/r1a",
       "catalogStates": [
         "onboarding-shared/gate",
@@ -7442,7 +7478,11 @@
         "program/overview",
         "today/mixed-strategies",
         "today/rest-bar",
-        "today/day-picker"
+        "today/day-picker",
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-anchor",
+        "history/session"
       ]
     },
     {
@@ -7469,6 +7509,10 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
+        "workout/why-anchor",
+        "workout/why-in-session",
+        "workout/why-manual",
+        "workout/why-rep-goal",
         "workout/why-this-weight"
       ]
     },
@@ -7492,7 +7536,12 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-064/r1a",
       "catalogStates": [
-        "today/day-picker"
+        "today/day-picker",
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
@@ -7540,7 +7589,9 @@
         "today/rest-bar",
         "today/day-picker",
         "today/draft-resume",
-        "today/mixed-strategies"
+        "today/mixed-strategies",
+        "workout/invalid-draft",
+        "install/banner"
       ]
     },
     {
@@ -8300,6 +8351,56 @@
       "catalogStates": [
         "history/list"
       ]
+    },
+    {
+      "id": "whyok",
+      "selector": "#whyOk",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Closes the sheet; an alternative to the close icon with the weight of a secondary action.",
+      "owner": "plan-064/r3g",
+      "catalogStates": [
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
+      ]
+    },
+    {
+      "id": "whysheet-disc-not-id",
+      "selector": ".whysheet__disc:not([id])",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Expands or collapses information; expanded state is separate from navigation. It opens the working behind the Why sentences.",
+      "owner": "plan-064/r3g",
+      "catalogStates": [
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor"
+      ]
     }
   ],
   "contextualVariants": [
@@ -8411,7 +8512,11 @@
         "workout/reorder",
         "workout/correction",
         "workout/skipped-actions",
-        "workout/substituted-actions"
+        "workout/substituted-actions",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
@@ -8812,7 +8917,11 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {

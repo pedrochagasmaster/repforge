@@ -51,7 +51,8 @@ console.log("\nD-owned state list");
   const built = ["workout/focus", "workout/focus-glossary", "workout/correction",
     "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
-    "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies"];
+    "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
+    "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"];
   check(DIRECTION_D_STATES.every((item) => (item.status === "implemented") === built.includes(item.key)) &&
     DIRECTION_D_STATES.filter((item) => item.status === "implemented").length === built.length,
   "only the states an R3 sub-slice has built are implemented; every other D state is pending",
@@ -60,6 +61,8 @@ console.log("\nD-owned state list");
   check(DIRECTION_D_STATES.every((item) => ["pending", "implemented"].includes(item.status)), "every D state is pending or implemented");
   check(["today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies"].every((key) => status(key) === "implemented"),
     "R3b's Today states are enforced");
+  check(["workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"].every((key) => status(key) === "implemented"),
+    "R3g's Why states are enforced");
   check(["today/done", "today/draft-resume", "progress/overview", "program/overview"].every((key) => status(key) === "pending"),
     "states that still need a drawing, or whose slice has not landed, stay pending");
   check(validateStateList(DIRECTION_D_STATES, manifest).length === 0, "the list is valid against the live manifest",
@@ -261,6 +264,9 @@ try {
   check(built.enforced.join() === implemented.join() && implemented.every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
   "the implemented states were actually rendered and enforced in PT and EN", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
+  check(["today/ready", "today/mixed-strategies", "today/day-picker", "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"].every((key) => ["pt", "en"].every((locale) =>
+    built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
+  "the landed Today and Why states were rendered and enforced in both languages", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
 
   // A control that no R3 sub-slice rebuilds: Settings is rules-only, so flipping it must always fail.
   const flipped = await runGate({ states: [{ key: "settings/main", status: "implemented" }], locales: ["en"], browser, manifest });

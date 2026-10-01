@@ -939,7 +939,35 @@
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
-      "scenario": "The recommendation inspector.",
+      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-in-session",
+      "flow": "workout",
+      "label": "Workout — why this weight, mid-session",
+      "scenario": "Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-rep-goal",
+      "flow": "workout",
+      "label": "Workout — why this weight, rep goal",
+      "scenario": "Rep goal: the total, the effort gate and how the reps split.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-anchor",
+      "flow": "workout",
+      "label": "Workout — why this weight, anchor and back-off",
+      "scenario": "Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-manual",
+      "flow": "workout",
+      "label": "Workout — why this weight, manual",
+      "scenario": "Manual: one sentence; the program sets the load and the engine does not change it.",
       "variants": "demandingText"
     },
     {

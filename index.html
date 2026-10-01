@@ -892,15 +892,17 @@ Triceps pushdown 3x12-15</pre>
        maths; this sheet answers only when the lifter taps to ask. -->
   <div id="whyScrim" class="sheet-scrim hidden"></div>
   <div id="whySheet" class="sheet sheet--why hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="whyTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="whyTitle" data-i18n="why.title">Why this weight</h2>
+      <button type="button" class="sheetband__close" id="whyClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
     <div class="whysheet">
-      <div class="whysheet__head">
-        <h2 class="whysheet__title" id="whyTitle" data-i18n="why.title">Why this weight</h2>
-        <button type="button" class="whysheet__close" id="whyClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
-      </div>
       <p class="whysheet__target" id="whyTarget"></p>
       <p id="whyDecision"></p>
       <div class="whysheet__body" id="whyBody"></div>
+      <p class="whysheet__evidence hidden" id="whyEvidence"></p>
+      <button type="button" class="btn btn--steel" id="whyOk" data-i18n="why.ok">Got it</button>
     </div>
   </div>
   <!-- Safari has no install event to call, so this is the one place Taurifer

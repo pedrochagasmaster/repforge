@@ -71,6 +71,8 @@ const IMPLEMENTED_D_STATES = new Set([
   "program/overview",
   // R3b: Today, the prescription table, the day picker and the mixed-strategies day.
   "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
+  // R3g: Why this weight, the five states, enforced on the sheet (STATE_SCOPES).
+  "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
 ]);
 /**
  * Drawn states the Plan 064 R3 sub-slices add to the catalog (reconciliation
@@ -78,7 +80,16 @@ const IMPLEMENTED_D_STATES = new Set([
  */
 const D_ADDED_STATE_KEYS = [
   "today/mixed-strategies",
+  "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
 ];
+/**
+ * A sheet state is enforced on the sheet: the page behind it belongs to another
+ * R3 sub-slice (Focus) and is enforced when that slice lands.
+ */
+export const STATE_SCOPES = Object.freeze({
+  "workout/why-this-weight": "#whySheet", "workout/why-in-session": "#whySheet",
+  "workout/why-rep-goal": "#whySheet", "workout/why-anchor": "#whySheet", "workout/why-manual": "#whySheet",
+});
 export const DIRECTION_D_STATES = [...D_STATE_KEYS, ...D_ADDED_STATE_KEYS].map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 
 /** Plan 064 section 8.8 / Direction D spec section 7: the only uses of the accent. */
@@ -477,7 +488,10 @@ export function checkStrings(evidence, catalog) {
     const rest = dataPattern ? whole.replace(dataPattern, " ") : whole;
     // A slash stays inside a fragment first ("Costas médias/superiores" is one catalog word);
     // only a fragment that is not whole-string a catalog value is split on it.
-    const known = (fragment) => matchers.some((pattern) => pattern.test(fragment)) || residueOk(fragment);
+    // Sentences the app composes (a catalog sentence, a space, the next catalog sentence) are checked one by one.
+    const wholeKnown = (fragment) => matchers.some((pattern) => pattern.test(fragment)) || residueOk(fragment);
+    const known = (fragment) => wholeKnown(fragment)
+      || fragment.split(/(?<=[.!?])\s+/u).filter((sentence) => /\p{L}/u.test(sentence)).every(wholeKnown);
     return rest.split(/\s*[·•|,;:()[\]+×–]\s*|\s+-\s+/u).map((fragment) => fragment.replace(/\s+/g, " ").trim())
       .filter((fragment) => /\p{L}/u.test(fragment))
       .every((fragment) => known(fragment) || fragment.split(/\s*\/\s*/u).filter((part) => /\p{L}/u.test(part)).every(known));
@@ -543,7 +557,7 @@ export async function runGate({
           await dismissChrome(opened.page);
           await APP_SCENARIOS[key](opened.page);
           await settle(opened.page);
-          const evidence = await gatherEvidence(opened.page);
+          const evidence = await gatherEvidence(opened.page, STATE_SCOPES[key] ? { scope: STATE_SCOPES[key] } : {});
           const catalog = loadCatalog(locale);
           const found = [...new Set(Object.values(CHECKS).flatMap((check) => check(evidence, catalog)))].map((message) => `${label} ${message}`);
           result.rendered.push({ key, locale, enforced: enforce, findings: found.length });

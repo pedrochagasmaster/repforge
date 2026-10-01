@@ -266,7 +266,10 @@ const D_FIXTURE_STATES = new Set([
  * The review page's "today" session is part of the fixture log (the summary
  * states draw it), so Today's states read the log as it stood that morning.
  */
-const DIRECTION_D_BEFORE_SESSION = new Set(["today/ready", "today/day-picker", "today/rest-bar", "today/mixed-strategies"]);
+const DIRECTION_D_BEFORE_SESSION = new Set([
+  "today/ready", "today/day-picker", "today/rest-bar", "today/mixed-strategies",
+  "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
+]);
 function directionDBeforeSession() {
   const state = directionDState();
   const today = CAPTURE_NOW.slice(0, 10);
@@ -367,19 +370,19 @@ async function openTransferState(page, state) {
 }
 
 /** Fill the current focus card and save the set, which starts the rest timer. */
-async function logCurrentSet(page) {
-  await page.evaluate(() => {
+async function logCurrentSet(page, values = { load: "100", reps: "6", rir: "1" }) {
+  await page.evaluate((values) => {
     const card = document.querySelector("#workout .exercise.is-current")
       || document.querySelector("#workout .exercise");
     card?.querySelectorAll("input").forEach((el) => {
       const key = el.dataset.k || "";
-      if (key.endsWith("_load")) el.value = "100";
-      else if (key.endsWith("_reps")) el.value = "6";
-      else if (key.endsWith("_rir")) el.value = "1";
+      if (key.endsWith("_load")) el.value = values.load;
+      else if (key.endsWith("_reps")) el.value = values.reps;
+      else if (key.endsWith("_rir")) el.value = values.rir;
       el.dispatchEvent(new Event("input", { bubbles: true }));
     });
     card?.querySelector(".saveset")?.click();
-  });
+  }, values);
   await sleep(page, 600);
 }
 
@@ -685,6 +688,27 @@ async function showRestTimer(page, paused = false) {
     await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-paused"));
   }
   await sleep(page, 400);
+}
+
+/** The sheet's blocks are the spec 4.3 contract: each carries the lead it opens with. */
+async function expectWhyLeads(page, leads) {
+  const found = await page.$$eval("#whyBody .whysheet__block", (nodes) => nodes.map((node) => node.dataset.lead));
+  for (const lead of leads) {
+    if (!found.includes(lead)) throw new Error(`The Why sheet should lead with "${lead}"; it has ${JSON.stringify(found)}`);
+  }
+}
+
+/** The Why sheet for one lift of the Direction D mixed day, opened from its Focus card. */
+function whyOnMixedDay(exerciseId, leads) {
+  return async (page) => {
+    await enterWorkout(page, { day: "Day 2 · mixed" });
+    await page.evaluate((id) => window.__repforgeGoToLogExercise(id), exerciseId);
+    await sleep(page, 500);
+    await page.click(`#workout .exercise.is-current[data-ex="${exerciseId}"] [data-why]`);
+    await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+    await expectWhyLeads(page, leads);
+  };
 }
 
 export const APP_SCENARIOS = {
@@ -1001,7 +1025,20 @@ export const APP_SCENARIOS = {
     await page.click("#workout [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
+    await expectWhyLeads(page, ["top", "load", "reps"]);
   },
+  // Set 1 of the squat logged at 102.5 x 8 with RIR 1: the sheet reads what the set showed, then the next target.
+  "workout/why-in-session": async (page) => {
+    await enterWorkout(page);
+    await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
+    await page.click("#workout .exercise.is-current [data-why]");
+    await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+    await expectWhyLeads(page, ["set1", "set2"]);
+  },
+  "workout/why-rep-goal": whyOnMixedDay("ex-ht", ["goal", "effort", "spread"]),
+  "workout/why-anchor": whyOnMixedDay("ex-dl", ["anchor", "rule", "backoff"]),
+  "workout/why-manual": whyOnMixedDay("ex-cp", ["manual"]),
 
   "session/summary": saveWholeSession,
   "session/summary-maintained": async (page) => {

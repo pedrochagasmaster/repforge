@@ -4579,7 +4579,7 @@ async function main() {
     "Log → 3 sessions same load, no rep gain → Stalled · deload"
   );
   const yInfo = await cardInfo(page, 1);
-  const yTarget = +(yInfo.rec.match(/(?:Hold|Target)\s+([\d.]+)\s*kg/)?.[1] || 0);
+  const yTarget = +(yInfo.rec.match(/(?:Hold|Target|Go up to|Drop to)\s+([\d.]+)\s*kg/)?.[1] || 0);
   assert(
     yInfo.status === "is-reduce" && yTarget > 0 && yTarget < 80,
     "Back off returns a real lighter target",
@@ -4966,6 +4966,8 @@ async function main() {
       return page.evaluate(() => ({
         target: document.querySelector("#whyTarget")?.textContent || "",
         body: document.querySelector("#whyBody")?.innerText || "",
+        // The whole explanation, including the working behind "See the working".
+        full: document.querySelector("#whyBody")?.textContent || "",
         focus: document.activeElement?.id || "",
       }));
     };
@@ -5077,9 +5079,9 @@ async function main() {
     await selectDay(page, "Day 1");
     const effortSheet = await openWhyFrom(whyCases[0].ex.id);
     assert(
-      /the effort you logged/.test(effortSheet.body) && !/up to 4 RIR/.test(effortSheet.body),
+      /the effort you logged/.test(effortSheet.full) && !/up to 4 RIR/.test(effortSheet.full) && !/RIR \d/.test(effortSheet.body),
       "Why sheet: effort mode names the logged effort instead of an RIR cap",
-      `body=${JSON.stringify(effortSheet.body)}`,
+      `body=${JSON.stringify(effortSheet.full)}`,
       "Settings → effort RIR mode → Log card → Why this weight?"
     );
     await closeWhy();
@@ -5149,8 +5151,11 @@ async function main() {
     await page.click("#exDetail [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
     const idTarget = await page.evaluate(() => document.querySelector("#whyTarget")?.textContent || "");
+    // The sheet's headline is the Focus cue ("Go up to 102.5 kg, aim for 7 reps") and the page's head is "Hold 102.5 kg":
+    // the proof is that both name the same load, so the sheet explains the movement the page rendered.
+    const loadOf = (text) => (text.match(/\d+(?:[.,]\d+)?/) || [""])[0];
     assert(
-      idHead.trim().length > 0 && idTarget.trim() === idHead.trim(),
+      idHead.trim().length > 0 && loadOf(idHead) !== "" && loadOf(idTarget) === loadOf(idHead),
       "Why sheet: the exercise page's sheet explains the movement the page rendered",
       `head=${JSON.stringify(idHead)} target=${JSON.stringify(idTarget)}`,
       "Swap a lift mid-session → leave via a nav tab → reopen its exercise page → Why this weight?"

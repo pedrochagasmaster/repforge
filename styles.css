@@ -1774,8 +1774,8 @@ body.is-sheet-open{overflow:hidden}
 .sheet__head--stack{grid-template-columns:1fr;padding:4px 16px 14px}
 .sheet__head--stack .sheet__titles{text-align:left}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
-   The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d);
-   the rest and Why sheets keep their own head until their slices land. */
+   The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d),
+   and so does the Why sheet (R3g); the rest sheet keeps its own head until its slice lands. */
 #sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet{
   background:var(--color-surface);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;
   box-shadow:var(--elevation-modal-shadow);
@@ -1964,12 +1964,6 @@ textarea.sheetfield__input{
 #restSheetClose:active:not(:disabled),#whyClose:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #restSheetClose:focus-visible,#whyClose:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #restSheetClose:disabled,#whyClose:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-#whySheet .whysheet__title{font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.02em;color:var(--color-ink)}
-#whySheet .whysheet__target{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-action-text);border-left-color:var(--boundary-required)}
-#whySheet #whyDecision{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#whySheet .whysheet__row{border-bottom-color:var(--boundary-decorative)}
-#whySheet .whysheet__row p{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#whySheet .whysheet__lab{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-action-text)}
 
 /* ---- Exercise actions sheet ---- */
 /* The eyebrow and the name are one title: the close button sits on the eyebrow's line. */
@@ -4809,26 +4803,48 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .sheet--why{height:auto;max-height:calc(var(--vvh,100dvh) - 56px)}
 .whysheet{
   display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
-  -webkit-overflow-scrolling:touch;padding:12px 22px 20px;
+  -webkit-overflow-scrolling:touch;padding:0 var(--space-16) var(--space-16);
 }
-.whysheet__head{display:flex;align-items:center;gap:12px}
-.whysheet__title{margin:0;flex:1;font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);letter-spacing:-0.02em;color:var(--ink)}
 .whysheet__close{
   flex:none;width:34px;height:34px;border:0;border-radius:50%;background:var(--well);
   color:var(--ink-soft);font-size:var(--control-icon-size);line-height:1;cursor:pointer;
 }
+/* The headline: the verdict mark and the load the engine asks for, in the subtitle role. */
 .whysheet__target{
-  margin:10px 0 0;padding-left:14px;border-left:3px solid var(--accent);
-  font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--ink);
+  display:flex;align-items:flex-start;gap:var(--space-8);margin:0;
+  font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);
 }
-.whysheet__body{margin-top:6px}
-.whysheet__row{padding:12px 0;border-bottom:1px solid var(--rule)}
-.whysheet__row:last-child{border-bottom:0;padding-bottom:0}
-.whysheet__row p{margin:0;font-size:var(--font-size-body-small);line-height:1.5;color:var(--ink-soft)}
-.whysheet__lab{
-  display:block;font-size:var(--font-size-label);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--accent-deep);margin-bottom:4px;
+.whysheet__target .verdictmark__glyph{width:20px;height:20px;margin-top:3px}
+#whySheet #whyDecision{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.whysheet__body{margin-top:var(--space-8);border-top:1px solid var(--boundary-decorative)}
+/* One sentence per block, under a bold lead, on one hairline. */
+.whysheet__block{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}
+.whysheet__lead{display:block;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.whysheet__text{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink)}
+.whysheet__lab{margin:0 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+/* The working is one tap away, never in the way. */
+.whysheet__disc{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:var(--control-target);margin:0;padding:var(--space-12) 0;
+  background:var(--control-disclosure-bg);border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);cursor:pointer;text-align:left;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--control-disclosure-ink);
 }
+.whysheet__disc:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
+.whysheet__disc:active:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
+.whysheet__disc:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.whysheet__disc:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+.whycalc{display:none;padding:var(--space-4) 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
+.whycalc.is-open{display:block}
+.whycalc__group{margin:var(--space-12) 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.whycalc__row{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);column-gap:var(--space-12);align-items:baseline;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative)}
+.whycalc__row:last-child{border-bottom:0}
+.whycalc__k{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.whycalc__v{text-align:right;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.whycalc__v em{margin-left:var(--space-8);font-style:normal;color:var(--color-ink-secondary)}
+.whycalc__sub{grid-column:1 / -1;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.whycalc__row--sum .whycalc__k,.whycalc__row--sum .whycalc__v{font-weight:var(--weight-semibold);color:var(--color-ink)}
+.whycalc__text{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.whysheet__evidence{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+#whyOk{width:100%;min-height:var(--control-target);margin-top:var(--space-16)}
 /* The affordance itself: a quiet text link under the recommendation, never a
    button that competes with logging a set. */
 .recblock__why,.focus-ex__why{font-size:var(--font-size-body-small);padding:6px 0 0}
