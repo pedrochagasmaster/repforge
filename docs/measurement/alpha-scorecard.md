@@ -68,6 +68,35 @@ first-ever installation or person. Confirm recruitment/history in the private
 roster; resets and missing early events can change eligibility. Label the
 compiled cohort as **first-run-observed**, not all new or returning users.
 
+## Event definitions
+
+These definitions were approved by the owner and are recorded in
+[`product-grilling-decision-register.md`](../product-grilling-decision-register.md).
+Each producer attaches to a domain boundary rather than to a control: an
+applied DraftV2 `completeSet` command, the Why-sheet open, an applied
+`skipExercise` command, and navigation onto the block review.
+
+- **`set_saved.vs_suggestion`** (Q616). One event per working set, when it is
+  first committed. A set matches when its load is within half of the lifter's
+  `minJump` of the programmed suggestion (`matched`); a higher load is `raised`
+  and a lower one `lowered`. A set with no programmed suggestion is
+  `no_suggestion`. Loads only; reps and effort are ignored. Warm-up sets emit
+  nothing. Re-saving an edited set does not count again.
+- **`block_review_viewed.completion`** (Q617). `extended` when the block has run
+  past its planned length; `complete` in or after the final week; `partial` at
+  least halfway through; otherwise `early`. Recorded only when the lifter opens
+  the review, never on a background render.
+- **`exercise_skipped`** (Q618). Only the lifter's individual skips, with
+  `context = planned_session`. Accepting the bulk "skip flagged exercises"
+  action is not an exercise skip. Restoring a skipped exercise emits nothing.
+- **`recommendation_explained.surface`.** `focus` when the explanation opens
+  from a Focus card and `exercise` from the exercise page. `workout` is
+  reserved for a non-Focus workout surface, which does not exist.
+
+Declared events with no producer are listed with their reason in
+`test/telemetry-call-sites.mjs`; a scorecard row must not read an absent
+producer as absent behaviour.
+
 ## Scorecard hierarchy
 
 ### 1. Save reliability
