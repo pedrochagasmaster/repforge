@@ -2049,14 +2049,16 @@ function noteCommittedWorkingSets(draft){
   for(const [exerciseId,exercise] of Object.entries(draft.exercises||{}))
     for(const [setId,set] of Object.entries(exercise?.sets||{}))
       if(set.role!=="warmup"&&set.completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
-function captureDraftCommandTelemetry(command,before,after){
+function captureDraftCommandTelemetry(command,before,after,ui){
   try{
     noteCommittedWorkingSets(before);
     if(command.type==="completeSet"){
       const set=after?.exercises?.[command.exerciseInstanceId]?.sets?.[command.setId];
       if(set&&set.role!=="warmup"&&!countedWorkingSets.keys.has(`${command.exerciseInstanceId}\u0000${command.setId}`))
         captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set)})}
-    noteCommittedWorkingSets(after)}
+    noteCommittedWorkingSets(after);
+    // Q618: the lifter's own skips only; the bulk "skip flagged" offer opts out.
+    if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"})}
   catch{}}
 function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
@@ -2085,7 +2087,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
     }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
-      captureDraftCommandTelemetry(command,before,written.draft);
+      captureDraftCommandTelemetry(command,before,written.draft,ui);
       hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
     else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus});
     return written});
@@ -2286,7 +2288,7 @@ async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
   for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
 let focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
 let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
@@ -2737,6 +2739,16 @@ function mesocycleLifecycle(programMeta){
   const isFinalWeek=elapsedWeek!=null&&elapsedWeek>=total;
   const isComplete=meta.mesocycleStatus==="completed";
   return{elapsedWeek,current,total,overrunWeeks,isFinalWeek,isComplete}}
+/** Q617: extended past the planned length; complete in or after the final
+ *  week; partial at least halfway; otherwise early. */
+function blockCompletionBucket(life){
+  if(life.overrunWeeks>0)return"extended";
+  if(life.isComplete||life.current>=life.total)return"complete";
+  return life.current>=Math.ceil(life.total/2)?"partial":"early"}
+/** The lifter opening the block review. Navigation calls this; render does not. */
+function captureBlockReviewViewed(){
+  if(!state.programMeta?.started)return;
+  captureEvent("block_review_viewed",{completion:blockCompletionBucket(mesocycleLifecycle(state.programMeta))})}
 function programWeek(){return mesocycleLifecycle(state.programMeta).elapsedWeek}
 function mesocycleWeek(){return mesocycleLifecycle(state.programMeta)}
 function mesocycleWeekCopy(mc,ofKey="today.week_of"){
@@ -4783,12 +4795,15 @@ function setStatsSeg(seg){
   // Legacy one-level values route to their Evidence view (Plan 056 migration).
   if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
   if(!STATS_SEG[seg])seg="overview";
+  // Opening the review is the move onto it, not re-selecting it while it is showing.
+  const opensReview=seg==="review"&&!(statsSeg==="review"&&!evidenceView&&$("#stats")?.classList.contains("active"));
   statsSeg=seg;evidenceView=null;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   if(seg==="overview")redrawChart();else if(seg==="review")renderReview();
+  if(opensReview)captureBlockReviewViewed();
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
 window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
 // Read-only evidence seam: suites assert the model-backed values the Evidence
@@ -16217,9 +16232,12 @@ function init(){
     }
     if(programEditMode)finishInstalledEditor();
     exView=null;workoutActive=false;workoutLeft=true;
+    // Progress remembers its segment, so arriving there can itself open the review.
+    const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-    $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render();
+    if(opensReview)captureBlockReviewViewed()});
   $("#exBack").onclick=closeExerciseView;
   $("nav button.active")?.setAttribute("aria-current","page");
   render();

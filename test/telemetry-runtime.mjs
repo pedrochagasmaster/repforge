@@ -21,7 +21,7 @@
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
-import { finishEarly, selectExercise } from "./fixtures/focus-workout.mjs";
+import { exerciseAction, finishEarly, selectExercise } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -589,6 +589,66 @@ try {
       "the exercise page reports the exercise surface", JSON.stringify(await eventsNamed(page, "recommendation_explained")),
     );
     await context.close();
+  }
+
+  phase("Skipping an exercise is reported once; restoring it is not a skip");
+  {
+    const { context, page } = await openApp(browser, { seed: trustProgram() });
+    await enterWorkout(page);
+    await exerciseAction(page, "ex1", "#exActionSkipBtn");
+    assert(
+      JSON.stringify(await eventsNamed(page, "exercise_skipped")) === JSON.stringify([{ context: "planned_session" }]),
+      "an individual skip reports a planned-session skip", JSON.stringify(await eventsNamed(page, "exercise_skipped")),
+    );
+    await exerciseAction(page, "ex1", "#exActionSkipBtn");
+    assert((await eventsNamed(page, "exercise_skipped")).length === 1, "restoring the exercise reports nothing more",
+      JSON.stringify(await eventsNamed(page, "exercise_skipped")));
+    await context.close();
+  }
+
+  phase("The bulk skip of flagged exercises is not an exercise skip");
+  {
+    const { context, page } = await openApp(browser, { seed: trustProgram({ history: "stalled" }) });
+    await enterWorkout(page);
+    const trim = page.locator("#fatigue .fatigue__trim");
+    assert(await trim.count() > 0, "stalled history flags exercises and offers the bulk skip");
+    if (await trim.count()) {
+      await trim.click();
+      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+      const skippedNow = await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).filter((e) => e.status === "skipped").length);
+      assert(skippedNow > 0, "accepting the bulk action skips the flagged exercises", String(skippedNow));
+      assert((await eventsNamed(page, "exercise_skipped")).length === 0, "accepting it reports no exercise skip",
+        JSON.stringify(await eventsNamed(page, "exercise_skipped")));
+    }
+    await context.close();
+  }
+
+  phase("Opening the block review reports its completion; background renders do not");
+  {
+    for (const [startedDaysAgo, completion] of [[3, "early"], [24, "partial"], [38, "complete"], [52, "extended"]]) {
+      const { context, page } = await openApp(browser, { seed: trustProgram({ startedDaysAgo }) });
+      await page.evaluate(() => window.closeFirstRun?.());
+      await page.click('nav button[data-view="stats"]');
+      await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+      assert((await eventsNamed(page, "block_review_viewed")).length === 0,
+        `${completion}: opening Progress on the overview reports no review`);
+      await page.click('#statsSeg button[data-seg="review"]');
+      await page.waitForSelector("#segReview.active", { timeout: 5000 });
+      assert(
+        JSON.stringify(await eventsNamed(page, "block_review_viewed")) === JSON.stringify([{ completion }]),
+        `a block ${startedDaysAgo} days in reports ${completion}`, JSON.stringify(await eventsNamed(page, "block_review_viewed")),
+      );
+      if (completion === "early") {
+        await page.click('#statsSeg button[data-seg="review"]');
+        assert((await eventsNamed(page, "block_review_viewed")).length === 1,
+          "tapping the segment that is already open reports nothing more");
+        await page.click('nav button[data-view="history"]');
+        await page.click('nav button[data-view="stats"]');
+        assert((await eventsNamed(page, "block_review_viewed")).length === 2,
+          "returning to Progress where the review is showing opens it again");
+      }
+      await context.close();
+    }
   }
 
   phase("Persistent opt-out blocks telemetry without blocking a workout");
