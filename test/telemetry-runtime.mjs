@@ -120,6 +120,77 @@ function loggableProgram() {
   };
 }
 
+const dayIso = (daysAgo) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/** The loggable day with prior sessions, so every set has a suggestion to be
+ *  measured against, and a block that started `startedDaysAgo` days ago. */
+function trustProgram({ startedDaysAgo = 3, sets = [3, 2], history = "steady" } = {}) {
+  const seed = loggableProgram();
+  seed.programMeta.started = dayIso(startedDaysAgo);
+  seed.program[0].sets = sets[0];
+  seed.program[1].sets = sets[1];
+  const sessions = history === "stalled" ? [28, 21, 14, 7] : [14, 7];
+  const reps = history === "stalled" ? 7 : 8;
+  const lifts = [["ex0", "Bench press", 60], ["ex1", "Barbell row", 50]];
+  if (history === "stalled") {
+    // The bulk "skip flagged" offer needs three lifts with two of them flagged.
+    seed.program.push({ id: "ex2", day: "Day 1", order: 3, name: "Overhead press", sets: 2, min: 6, max: 10, primary: "Front delts", secondary: "Triceps", notes: "", alternates: [] });
+    lifts.push(["ex2", "Overhead press", 40]);
+  }
+  for (const daysAgo of sessions) {
+    const date = dayIso(daysAgo);
+    for (const [exerciseId, name, load] of lifts) {
+      for (let i = 0; i < 3; i++) {
+        seed.log.push({
+          session: `${date}_Day 1_seed`, date, day: "Day 1", name, exerciseId, set: i + 1, load, reps, rir: 1,
+          notes: "", created: `${date}T12:00:0${i}.000Z`, primary: "Chest", secondary: "Triceps",
+        });
+      }
+    }
+  }
+  return seed;
+}
+
+async function enterWorkout(page) {
+  await page.evaluate(() => {
+    window.closeFirstRun?.();
+    window.__repforgeEnterWorkout({});
+  });
+  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
+}
+
+const suggestedLoad = (page, exerciseId, ordinal) => page.evaluate(([id, n]) => {
+  const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+  return Object.values(exercise.sets).find((row) => row.ordinal === n).programmed.suggestedLoad;
+}, [exerciseId, ordinal]);
+
+const setIsDone = (page, exerciseId, ordinal, done = true) => page.waitForFunction(([id, n, want]) => {
+  const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+  const row = Object.values(exercise?.sets || {}).find((item) => item.ordinal === n);
+  return !!row && (row.completion !== "pending") === want;
+}, [exerciseId, ordinal, done], { timeout: 5000 });
+
+/** Type a load and save the set the way a lifter does. */
+async function saveSetByHand(page, exerciseId, ordinal, load) {
+  await selectExercise(page, exerciseId);
+  for (const [field, value] of [["load", load], ["reps", 8], ["rir", 1]]) {
+    await page.locator(`#workout .exercise.is-current [data-k="${exerciseId}_${ordinal}_${field}"]`).fill(String(value));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  }
+  await page.locator(`#workout .exercise.is-current [data-save="${exerciseId}_${ordinal}"]`).click();
+  await setIsDone(page, exerciseId, ordinal);
+}
+
+const ENVELOPE = ["telemetry_schema_version", "app_version", "release_channel"];
+/** The event-specific properties of every capture of `name`, envelope removed. */
+const eventsNamed = async (page, name) => (await captured(page))
+  .filter(([n]) => n === name)
+  .map(([, p]) => Object.fromEntries(Object.entries(p).filter(([key]) => !ENVELOPE.includes(key))));
+
 /** Drive Recommend from the entry hub through activation-ready preview. */
 async function driveOnboarding(page, { route = "recommend", foundation = false } = {}) {
   await page.click(`[data-entry-route="${route}"]`);
@@ -406,6 +477,116 @@ try {
       countOf(events, "session_summary_viewed") <= 1,
       "the summary is reported once per session",
       String(countOf(events, "session_summary_viewed")),
+    );
+    await context.close();
+  }
+
+  phase("A committed working set reports how it compared with its suggestion, once");
+  {
+    const { context, page } = await openApp(browser, { seed: trustProgram() });
+    await enterWorkout(page);
+    const suggested = await suggestedLoad(page, "ex0", 1);
+    assert(typeof suggested === "number", "the seeded history gives the first set a suggestion", String(suggested));
+    await saveSetByHand(page, "ex0", 1, suggested);
+    assert(
+      JSON.stringify(await eventsNamed(page, "set_saved")) === JSON.stringify([{ vs_suggestion: "matched" }]),
+      "saving the suggested load reports matched", JSON.stringify(await eventsNamed(page, "set_saved")),
+    );
+    await saveSetByHand(page, "ex0", 2, (await suggestedLoad(page, "ex0", 2)) + 2.5);
+    await saveSetByHand(page, "ex0", 3, (await suggestedLoad(page, "ex0", 3)) + 1);
+    const lowered = (await suggestedLoad(page, "ex1", 2)) - 2.5;
+    await selectExercise(page, "ex1");
+    await page.evaluate(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const set = Object.values(draft.exercises.ex1.sets).find((row) => row.ordinal === 1);
+      return window.__repforgeWorkoutDraft.dispatch("markWarmup", { exerciseInstanceId: "ex1", setId: set.setId });
+    });
+    await saveSetByHand(page, "ex1", 1, 40);
+    assert((await eventsNamed(page, "set_saved")).length === 3, "a warm-up set reports nothing",
+      JSON.stringify(await eventsNamed(page, "set_saved")));
+    await saveSetByHand(page, "ex1", 2, lowered);
+    assert(
+      JSON.stringify(await eventsNamed(page, "set_saved")) === JSON.stringify([
+        { vs_suggestion: "matched" }, { vs_suggestion: "raised" }, { vs_suggestion: "matched" }, { vs_suggestion: "lowered" },
+      ]),
+      "a load within half a minJump matches; a full step up raises; a full step down lowers",
+      JSON.stringify(await eventsNamed(page, "set_saved")),
+    );
+    // Re-saving an edited set is not a second saved set.
+    await selectExercise(page, "ex0");
+    await page.locator('#workout .exercise.is-current [data-editex="ex0"][data-editn="1"]').click();
+    await setIsDone(page, "ex0", 1, false);
+    await page.locator('#workout .exercise.is-current [data-k="ex0_1_load"]').fill(String(suggested + 5));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.locator('#workout .exercise.is-current [data-save="ex0_1"]').click();
+    await setIsDone(page, "ex0", 1);
+    assert((await eventsNamed(page, "set_saved")).length === 4, "re-saving an edited set does not count again",
+      JSON.stringify(await eventsNamed(page, "set_saved")));
+    await context.close();
+  }
+
+  phase("The saved-set report belongs to the draft commit, not to a control");
+  {
+    const { context, page } = await openApp(browser, { seed: trustProgram() });
+    await enterWorkout(page);
+    const result = await page.evaluate(async () => {
+      const api = window.__repforgeWorkoutDraft;
+      const set = Object.values(api.current().exercises.ex0.sets).find((row) => row.ordinal === 1);
+      const target = { exerciseInstanceId: "ex0", setId: set.setId };
+      const statuses = [];
+      statuses.push((await api.dispatch("completeSet", target)).status);
+      statuses.push((await api.dispatch("uncommitSet", target)).status);
+      statuses.push((await api.dispatch("completeSet", target)).status);
+      return statuses;
+    });
+    const events = await eventsNamed(page, "set_saved");
+    assert(result.every((status) => status === "applied"), "the lifecycle interface applied all three commands", result.join(","));
+    assert(events.length === 1 && events[0].vs_suggestion === "matched",
+      "completing, uncommitting and recompleting through the lifecycle interface reports one set",
+      JSON.stringify(events));
+    await context.close();
+  }
+
+  phase("A set restored from the stored draft is not counted again when it is edited");
+  {
+    const { context, page } = await openApp(browser, { seed: trustProgram() });
+    await enterWorkout(page);
+    await saveSetByHand(page, "ex0", 1, await suggestedLoad(page, "ex0", 1));
+    assert((await eventsNamed(page, "set_saved")).length === 1, "the set was counted when it was first saved");
+    await page.reload();
+    await waitForAppBoot(page, { base: BASE });
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft?.current(), undefined, { timeout: 8000 });
+    const outcome = await page.evaluate(async () => {
+      const api = window.__repforgeWorkoutDraft;
+      const set = Object.values(api.current().exercises.ex0.sets).find((row) => row.ordinal === 1);
+      const target = { exerciseInstanceId: "ex0", setId: set.setId };
+      const statuses = [(await api.dispatch("uncommitSet", target)).status, (await api.dispatch("completeSet", target)).status];
+      return { statuses, saved: window.__captured.filter(([name]) => name === "set_saved").length };
+    });
+    assert(outcome.statuses.every((status) => status === "applied") && outcome.saved === 0,
+      "the reloaded app reports no second set for an edited, re-saved set", JSON.stringify(outcome));
+    await context.close();
+  }
+
+  phase("Opening the explanation reports the surface it was opened from");
+  {
+    const { context, page } = await openApp(browser, { seed: trustProgram() });
+    await enterWorkout(page);
+    await selectExercise(page, "ex0");
+    assert((await eventsNamed(page, "recommendation_explained")).length === 0, "showing a card does not explain anything");
+    await page.locator("#workout .exercise.is-current [data-why]").click();
+    await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    assert(
+      JSON.stringify(await eventsNamed(page, "recommendation_explained")) === JSON.stringify([{ surface: "focus" }]),
+      "the Focus card reports the focus surface", JSON.stringify(await eventsNamed(page, "recommendation_explained")),
+    );
+    await page.locator("#whyClose").click();
+    await page.evaluate(() => window.openExerciseView("ex0", "log"));
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    await page.locator("#exDetail [data-why]").first().click();
+    assert(
+      JSON.stringify(await eventsNamed(page, "recommendation_explained")) === JSON.stringify([{ surface: "focus" }, { surface: "exercise" }]),
+      "the exercise page reports the exercise surface", JSON.stringify(await eventsNamed(page, "recommendation_explained")),
     );
     await context.close();
   }

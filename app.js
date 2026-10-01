@@ -2029,6 +2029,35 @@ async function discardRecoveredWorkoutDraft(){
     operationId:`discard-${uid()}`});
   if(removed.status!=="applied"){showDraftInitializationRecovery(removed);return false}
   resetDraftSessionState();clearDraftUiRecovery();renderToday();return true}
+/* Alpha trust telemetry for the Workout lifecycle attaches to an applied DraftV2
+   command, not to a control, so any logger UI that dispatches through
+   WorkoutSession is measured the same way (Q616, Q618). */
+/** Q616: a working set matches when its load is within half of the lifter's
+ *  minJump of the suggestion. Loads only; draft loads and minJump are canonical kg. */
+function setVsSuggestion(set){
+  const suggested=set?.programmed?.suggestedLoad,load=parseDec(set?.edited?.load);
+  if(suggested==null||!Number.isFinite(+suggested)||!Number.isFinite(load))return"no_suggestion";
+  const delta=load-+suggested,half=(+state.settings.minJump||2.5)/2;
+  return Math.abs(delta)<half?"matched":delta>0?"raised":"lowered"}
+/* Which working sets this device has already counted in the open draft. An edit
+   uncommits a set and commits it again, which must not count twice; the draft
+   still records the set as committed until that uncommit, so it is read there. */
+let countedWorkingSets={draftId:null,keys:new Set()};
+function noteCommittedWorkingSets(draft){
+  if(!draft)return;
+  if(countedWorkingSets.draftId!==draft.draftId)countedWorkingSets={draftId:draft.draftId,keys:new Set()};
+  for(const [exerciseId,exercise] of Object.entries(draft.exercises||{}))
+    for(const [setId,set] of Object.entries(exercise?.sets||{}))
+      if(set.role!=="warmup"&&set.completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
+function captureDraftCommandTelemetry(command,before,after){
+  try{
+    noteCommittedWorkingSets(before);
+    if(command.type==="completeSet"){
+      const set=after?.exercises?.[command.exerciseInstanceId]?.sets?.[command.setId];
+      if(set&&set.role!=="warmup"&&!countedWorkingSets.keys.has(`${command.exerciseInstanceId}\u0000${command.setId}`))
+        captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set)})}
+    noteCommittedWorkingSets(after)}
+  catch{}}
 function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
   const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
@@ -2043,7 +2072,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
     const now=new Date().toISOString(),command={type,...payload,operationId,expectedRevision:activeWorkoutDraft.revision,
       updatedAt:now,writer:draftWriter(operationId)};
     if(type==="completeSet"&&!command.completedAt)command.completedAt=now;
-    const next=WorkoutDraft.reduce(activeWorkoutDraft,command);
+    const before=activeWorkoutDraft,next=WorkoutDraft.reduce(before,command);
     if(WorkoutDraft.isDomainError(next))return{status:"domain-error",error:next};
     if(type==="refreshUntouchedSuggestions"&&next===activeWorkoutDraft)
       return{status:"applied",draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,noOp:true};
@@ -2056,6 +2085,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
     }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
+      captureDraftCommandTelemetry(command,before,written.draft);
       hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
     else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus});
     return written});
@@ -15462,6 +15492,8 @@ function openWhySheet(exId,opener){
 function openWhySheetFor(ex,opener){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
+  // Focus is the only workout-logging surface; the exercise page is the other opener.
+  captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
   const rec=recommendation(ex);
   const decision=$("#whyDecision");if(decision)decision.textContent=rec.label;
   const target=$("#whyTarget");
