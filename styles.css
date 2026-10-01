@@ -2521,13 +2521,6 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-installed .program-editor__exercise-head{
   padding-inline:clamp(4px,calc(28px - .75em),16px)
 }
-.program-ready__head{display:flex;flex-direction:column;gap:18px;margin-bottom:12px}
-.program-ready__title{font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight)}
-.program-ready__list{border-top:1px solid var(--rule)}
-.program-ready__row{min-height:var(--control-target)}
-.program-ready__row .listrow__title{font-size:var(--font-size-control);line-height:var(--line-standard)}
-.program-ready__row .listrow__sub{margin-top:3px;font-size:var(--font-size-body-small);line-height:var(--line-standard)}
-.program-ready-link{margin-top:16px}
 
 /* The installed editor reference is a full-width bottom bar. It deliberately
    drops the overview's floating dock treatment while editing, so the four
@@ -4269,38 +4262,61 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #historyTable th,#historyTable td{padding:var(--space-8) var(--space-4);white-space:normal;overflow-wrap:anywhere}
 #historyTable td{font-size:var(--font-size-caption)}
 #historyTable th:nth-child(n+4),#historyTable td:nth-child(n+4){text-align:right;white-space:nowrap}
-/* Program overview day accordion */
-.prog-day{border-bottom:1px solid var(--boundary-decorative)}
-.prog-day__head{
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%;min-width:0;
-  min-height:56px;padding:14px 0;background:none;border:0;cursor:pointer;text-align:left;font:inherit;color:inherit;
+/* ---- Program overview as a ledger (Plan 064 R3k) ----
+   The program on one page: the name, one line that says what it is, the week
+   rule, the status, then every training day open as a hairline band. Each
+   exercise is a prescription row (.rxrow): name with its strategy underneath,
+   sets x range, and the load `recommendation()` says comes next with its verdict
+   mark. Flat reading content on hairlines, ink only: orange stays off this page
+   (the dock's active item is the one use). Below the days, the volume audit,
+   export, share and review rows are the shipped rows, wrapped instead of cut. */
+#program.program-ledger>.pagehead{margin-bottom:var(--space-4)}
+#program.program-ledger>.pagehead .page-title{
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);
+  letter-spacing:0;line-height:var(--line-standard);color:var(--color-ink-secondary)
 }
-.prog-day__head>div:first-child{min-width:0}
-.prog-day__title{font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
-.prog-day__muscles{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);margin-top:2px}
-.prog-day__right{
-  flex:0 1 auto;min-width:0;max-width:100%;display:flex;align-items:center;gap:6px;font-family:var(--font-training-data);
-  font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)
+#program.program-ledger #programEditToggle{
+  color:var(--control-quiet-ink);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);
+  text-decoration:underline;text-underline-offset:.2em
 }
-.prog-day__body{padding:0 0 12px}
-.prog-ex{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
-  padding:10px 0;background:none;border:0;border-top:1px solid var(--boundary-decorative);cursor:pointer;
-  text-align:left;font-family:var(--font-language);font-size:var(--font-size-control);
-  line-height:var(--line-standard);color:var(--color-ink)
-}
-.prog-ex__sets{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
+#programOverview{container-type:inline-size;--prog-cols:minmax(0,1fr) 4.875rem 5.5rem}
 .prog-overview__name{
-  font-family:var(--font-language);font-size:var(--font-size-feature-title);
-  font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);
-  letter-spacing:-0.02em;margin:4px 0 4px
+  margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);
+  letter-spacing:-0.02em;line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere;text-wrap:balance
 }
-.prog-overview__meta{font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-bottom:12px}
-.prog-overview__week{
-  font-family:var(--font-training-data);font-size:var(--font-size-body-small);
-  font-weight:var(--weight-semibold);line-height:var(--line-standard);margin-top:8px
+.prog-overview__meta{margin:var(--space-8) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary);text-wrap:pretty}
+.prog-overview__week{margin:var(--space-4) 0 0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#programOverview .segbar{gap:var(--space-4);margin:var(--space-12) 0 0}
+#programOverview .segbar__seg{height:3px;border-radius:var(--radius-compact);background:var(--boundary-required)}
+#programOverview .segbar__seg.is-done{background:var(--color-ink)}
+#programOverview .segbar__seg.is-current{background:var(--color-ink-secondary)}
+.prog-overview__status{margin:var(--space-12) 0 0;font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+.prog-day{margin-top:var(--space-26)}
+.prog-day__head{display:grid;gap:var(--space-4);padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
+.prog-day__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere}
+.prog-day__meta{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.prog-cols{
+  display:grid;grid-template-columns:var(--prog-cols);column-gap:var(--space-8);align-items:end;padding:var(--space-12) 0 var(--space-8);
+  border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)
 }
-.prog-overview__started{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);margin:8px 0 4px}
+.prog-cols>:nth-child(n+2){text-align:right}
+.prog-legend{margin:0;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+#programOverview .rxrow{grid-template-columns:var(--prog-cols);column-gap:var(--space-8)}
+#programOverview .rxrow__target{align-self:baseline}
+#programOverview .rxrow__load{
+  display:inline-flex;align-items:baseline;justify-content:flex-end;gap:var(--space-4);
+  font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary)
+}
+#programOverview .rxrow__mark{top:0;align-self:center}
+#programOverview .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#programOverview .listrow__meta{white-space:normal;text-align:right}
+@container (max-width:17em){
+  .prog-cols{display:none}
+  #programOverview .rxrow{grid-template-columns:minmax(0,1fr) auto}
+  #programOverview .rxrow__name{grid-column:1 / -1}
+  #programOverview .rxrow__target{text-align:left}
+}
 
 /* ---- First-run landing (Plan 064 R2) ----
    One page, built from bands. The hero, the proof and the footer are the night

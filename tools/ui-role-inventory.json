@@ -628,11 +628,6 @@
       "content": "flat",
       "scenario": "A valid setup link is ready for copy or system sharing."
     },
-    "program/readiness": {
-      "owner": "plan-057",
-      "content": "flat",
-      "scenario": "The recommendation-owned readiness list, with metadata hidden and inert while the list is open."
-    },
     "program/text-export": {
       "owner": "plan-057",
       "content": "flat",
@@ -4122,8 +4117,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/overview",
-        "program/progression-editor",
-        "program/readiness"
+        "program/progression-editor"
       ]
     },
     {
@@ -4198,7 +4192,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "program/share-one-blocker",
         "program/share-ready",
         "program/share-repair-return",
@@ -4208,27 +4201,6 @@
       "progressScopes": {
         "active-program-week": "block"
       }
-    },
-    {
-      "id": "programreadyback",
-      "selector": "#programReadyBack",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/readiness"
-      ]
     },
     {
       "id": "programsetupprogram",
@@ -6638,27 +6610,6 @@
       ]
     },
     {
-      "id": "listrow-program-ready-row-not-id",
-      "selector": ".listrow.program-ready__row:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/readiness"
-      ]
-    },
-    {
       "id": "pchip-not-id",
       "selector": ".pchip:not([id])",
       "roles": {
@@ -6741,50 +6692,6 @@
       "catalogStates": [
         "library/list",
         "library/list-selected"
-      ]
-    },
-    {
-      "id": "prog-day-head-not-id",
-      "selector": ".prog-day__head:not([id])",
-      "roles": {
-        "control": "disclosure",
-        "boundary": "decorative"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/overview"
-      ]
-    },
-    {
-      "id": "prog-ex-not-id",
-      "selector": ".prog-ex:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/overview"
       ]
     },
     {
@@ -7540,7 +7447,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "progress/exercise-chart",
         "progress/guided-repair",
         "progress/overview",
@@ -7610,7 +7516,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "progress/exercise-chart",
         "progress/guided-repair",
         "progress/overview",
@@ -7709,7 +7614,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); R3b (Today prescription rows) and R3h (session summary) add their catalog states when they render it. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark.",
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); R3b (Today prescription rows) and R3h (session summary) add their catalog states when they render it. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
       "owner": "plan-064/r1a",
       "catalogStates": [
         "onboarding-shared/gate",
@@ -7723,7 +7628,8 @@
         "onboarding-start/first-run-ways",
         "today/draft-resume",
         "today/ready",
-        "history/session"
+        "history/session",
+        "program/overview"
       ]
     },
     {
@@ -7819,10 +7725,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the whole row opens the exercise.",
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the whole row opens the exercise. The Program overview renders it first (R3k) as the drawing's three-column form: name with its strategy, sets x range, and the next load with the verdict mark.",
       "owner": "plan-064/r1a",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3b (Today prescription table), then R3k (Program overview) and R3i (Progress attention and strength rows).",
       "catalogStates": [
         "today/ready",
         "today/draft-resume",
@@ -8761,7 +8665,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "install/banner",
         "today/draft-resume"
       ]
@@ -9171,7 +9074,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "install/banner",
         "today/draft-resume"
       ]
@@ -9228,7 +9130,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "install/banner",
         "today/draft-resume"
       ]
@@ -9265,7 +9166,6 @@
         "onboarding-start/hub-own-open",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
@@ -9288,7 +9188,6 @@
         "onboarding-start/hub-own-open",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",

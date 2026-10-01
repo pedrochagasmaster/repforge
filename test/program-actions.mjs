@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Plan 057-P7: Program roles, readiness routing, and editor dock clearance. */
+/** Plan 057-P7 / Plan 064 R3k: Program roles, the ledger overview with no readiness route, and editor dock clearance. */
 import assert from "node:assert/strict";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -94,7 +94,6 @@ async function readyOracle(page) {
     return {
       ids: ready.map((exercise) => exercise.id),
       statuses: ready.map((exercise) => window.__repforgeRecommendation(exercise).status),
-      expected: window.RepForgeI18n.t("program.ready_to_add", { n: ready.length }),
     };
   }, KEY);
 }
@@ -156,22 +155,24 @@ try {
   await install(page, rowsFor(["seed-ex-1"], { ready: false }));
   await openProgram(page);
   const overview = await page.evaluate(() => ({
-    disclosures: [...document.querySelectorAll("#programOverview .prog-day__head")].map((button) => ({
-      expanded: button.getAttribute("aria-expanded"),
-      role: button.dataset.actionRole || "",
+    days: [...document.querySelectorAll("#programOverview .prog-day")].map((day) => ({
+      rows: day.querySelectorAll(".rxrow").length,
+      collapsible: day.querySelectorAll("[aria-expanded]").length,
+      role: [...day.querySelectorAll(".rxrow")].map((row) => row.dataset.actionRole || ""),
     })),
     readyLink: document.querySelector("#programReadyLink")?.textContent.trim() || null,
-    readyStats: [...document.querySelectorAll("#programOverview .statrow__cell")]
+    readyStats: [...document.querySelectorAll("#programOverview .statrow__cell, #programMeta .pmeta__chip")]
       .map((cell) => cell.textContent.trim())
       .filter((text) => /ready/i.test(text)),
+    up: document.querySelectorAll("#programOverview .verdictmark--up").length,
     reviewRole: document.querySelector("#reviewBlockLink")?.dataset.actionRole || "",
     volumeAuditAction: Boolean(document.querySelector("#seeVolumeAudit")),
   }));
-  check(overview.disclosures.length > 0 && overview.disclosures.every((item) =>
-    (item.expanded === "true" || item.expanded === "false") && item.role === "expansion"),
-    "overview day controls expose expansion state", overview.disclosures);
-  check(!overview.readyLink && overview.readyStats.length === 0,
-    "zero readiness renders no ready action or 0-ready chip", overview);
+  check(overview.days.length > 0 && overview.days.every((day) =>
+    day.rows > 0 && day.collapsible === 0 && day.role.every((role) => role === "navigation")),
+  "overview days are always open and each exercise row navigates", overview.days);
+  check(!overview.readyLink && overview.readyStats.length === 0 && overview.up === 0,
+    "zero readiness renders no ready action, 0-ready chip or up verdict", overview);
   check(overview.reviewRole === "navigation", "Review block is marked as navigation", overview.reviewRole);
   check(overview.volumeAuditAction, "effective-set audit action remains in Program overview", overview);
   await page.click("#seeVolumeAudit");
@@ -217,66 +218,28 @@ try {
   });
   check(clearance?.clear === true, "the last editor row clears the persistent dock at scroll end", clearance);
 
-  console.log("\nProgram readiness");
+  console.log("\nProgram readiness is retired; the next column carries it");
   await install(page, rowsFor(["seed-ex-1", "seed-ex-2"]));
   await openProgram(page);
   const oracle = await readyOracle(page);
-  const readinessRepresentations = await page.evaluate(() => ({
-    actionable: document.querySelectorAll("#programOverview #programReadyLink").length,
+  const rows = await page.evaluate(() => ({
+    readyRoute: document.querySelectorAll("#programReadyLink, #programReadyBack, [data-ready-ex]").length,
     positiveChips: [...document.querySelectorAll("#programMeta .pmeta__chip")]
       .filter((node) => /ready|pronto/i.test(node.textContent || "")).length,
+    up: [...document.querySelectorAll("#programOverview .rxrow")]
+      .filter((row) => row.querySelector(".verdictmark--up")).map((row) => row.dataset.exopen),
+    targets: [...document.querySelectorAll("#programOverview [data-parity-target]")].map((node) => node.dataset.parityTarget),
   }));
   check(oracle.ids.length > 0, "the fixture produces at least one recommendation-owned ready exercise", oracle);
-  check(readinessRepresentations.actionable === 1 && readinessRepresentations.positiveChips === 0,
-    "positive readiness has one actionable representation and no duplicate chip", readinessRepresentations);
-  const readyLink = page.locator("#programReadyLink");
-  if (await readyLink.count()) {
-    const readiness = await page.evaluate((expected) => ({
-      text: document.querySelector("#programReadyLink")?.textContent.trim() || null,
-      expected,
-    }), oracle.expected);
-    check(readiness.text === oracle.expected, "readiness action names the exact recommendation-owned count", readiness);
-    await readyLink.click();
-    const readyMetadata = await page.evaluate((key) => {
-      const meta = document.querySelector("#programMeta");
-      const controls = [...(meta?.querySelectorAll("a[href],button,input,select,textarea,[tabindex]") || [])];
-      const before = JSON.parse(localStorage.getItem(key) || "{}").programMeta || {};
-      document.querySelector("#programReadyBack")?.focus();
-      const focusedBeforeTabs = document.activeElement?.id || "";
-      return {
-        hidden: meta?.hidden === true || meta?.getAttribute("aria-hidden") === "true",
-        controls: controls.map((node) => ({ id: node.id, disabled: node.disabled === true, tabIndex: node.tabIndex })),
-        before,
-        focusedBeforeTabs,
-      };
-    }, KEY);
-    await page.keyboard.press("Tab");
-    const readyFocus = await page.evaluate(() => document.activeElement?.id || "");
-    const readyMetadataAfter = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta || {}, KEY);
-    check(readyMetadata.hidden && readyMetadata.controls.length === 0 && !["programName", "programStarted"].includes(readyFocus),
-      "Program readiness removes hidden metadata controls from focus order", { readyMetadata, readyFocus });
-    check(JSON.stringify(readyMetadata.before) === JSON.stringify(readyMetadataAfter),
-      "keyboard navigation through Program readiness cannot mutate metadata", { before: readyMetadata.before, after: readyMetadataAfter });
-    const readyView = await page.evaluate(() => ({
-      ids: [...document.querySelectorAll("#programOverview [data-ready-ex]")].map((node) => node.dataset.readyEx),
-      back: document.querySelector("#programReadyBack")?.textContent.trim() || "",
-    }));
-    check(JSON.stringify(readyView.ids) === JSON.stringify(oracle.ids), "ready view lists every ready exercise in program order", { readyView, oracle });
-    check(readyView.back.length > 0, "ready view keeps a Back to program action", readyView.back);
-    const firstReady = oracle.ids[0];
-    await page.click(`[data-ready-ex="${firstReady}"]`);
-    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
-    await page.click("#exBack");
-    await page.waitForSelector("#program.view.active #programReadyBack", { timeout: 5000 });
-    check(await page.locator(`#programOverview [data-ready-ex="${firstReady}"]`).count() === 1,
-      "exercise detail returns to the ready view", firstReady);
-    await page.click("#programReadyBack");
-    await page.click("#reviewBlockLink");
-    await page.waitForSelector('#stats.view.active #statsSeg button[data-seg="review"].active', { timeout: 5000 });
-    check(await page.locator("#stats.view.active").count() === 1, "Review block routes through Progress Review", await page.locator("#stats.view.active").count());
-  } else {
-    check(false, "readiness action is rendered for recommendation-owned ready exercises", { oracle });
-  }
+  check(rows.readyRoute === 0 && rows.positiveChips === 0,
+    "no Program readiness route, link or chip exists", rows);
+  check(JSON.stringify(rows.up) === JSON.stringify(oracle.ids),
+    "the up verdict marks exactly the recommendation-owned ready exercises, in program order", { rows, oracle });
+  check(oracle.ids.every((id) => rows.targets.includes(id)),
+    "every ready exercise shows its next load tied to its recommendation", { rows, oracle });
+  await page.click("#reviewBlockLink");
+  await page.waitForSelector('#stats.view.active #statsSeg button[data-seg="review"].active', { timeout: 5000 });
+  check(await page.locator("#stats.view.active").count() === 1, "Review block routes through Progress Review", await page.locator("#stats.view.active").count());
 } finally {
   await context.close();
   await browser.close();

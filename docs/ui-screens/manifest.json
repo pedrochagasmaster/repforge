@@ -1328,13 +1328,6 @@
       "variants": "demandingText"
     },
     {
-      "id": "readiness",
-      "flow": "program",
-      "label": "Program — ready exercises",
-      "scenario": "The recommendation-owned readiness list, with metadata hidden and inert while the list is open.",
-      "variants": "accessibility"
-    },
-    {
       "id": "text-export",
       "flow": "program",
       "label": "Program — text export",

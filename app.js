@@ -2317,7 +2317,7 @@ let focusLogged=null;
 /** True while the card being written is the one that just gained a set. */
 const focusIsFresh=(ex,peek)=>!peek&&!!focusLogged&&focusLogged.exId===ex.id;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,programReadyView=false,setupEditorOpen=false;
+let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
@@ -9937,7 +9937,7 @@ function renderProgram(){
   if(nav)nav.dataset.elevation="floating";
   if(blank)blank.classList.toggle("hidden",!noProgram);
   if(noProgram){
-    programReadyView=false;
+    $("#program")?.classList.remove("program-ledger");
     setProgramMetadataHidden(true,{inert:true});
     for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
       const el=$(sel);if(el)el.classList.add("hidden")}
@@ -9950,12 +9950,12 @@ function renderProgram(){
   renderProgramOverview();
   const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle");
   view?.classList.toggle("program-editor-installed",programEditMode);
+  view?.classList.toggle("program-ledger",!programEditMode);
   if(ov)ov.classList.toggle("is-hidden",programEditMode);
   if(ed)ed.classList.toggle("is-hidden",!programEditMode);
-  // The overview's readiness list must not expose stale metadata controls. The
-  // installed editor keeps the existing metadata DOM for its production edit
+  // The installed editor keeps the existing metadata DOM for its production edit
   // seam, but leaves it out of the visual layout like the prior editor did.
-  setProgramMetadataHidden(programEditMode||programReadyView,{inert:programReadyView});
+  setProgramMetadataHidden(programEditMode);
   if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
   // Advanced remains part of the installed editor. It is inside the editor
@@ -9981,52 +9981,49 @@ function focusEntryEditorStatus(){
   entryEditorStatusFocusPending=false;
   try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
   return true}
-function programReadyExercises(){const ready=[];
-  for(const dayName of prog.days())for(const exercise of prog.forDay(dayName)){
-    const status=recommendation(exercise).status;
-    if(status==="add"||status==="add2")ready.push({id:exercise.id,day:dayName,exercise,status})}
-  return ready}
-function renderProgramReadyView(el,ready){
-  el.innerHTML=`<div class="program-ready__head"><button type="button" class="back-link" id="programReadyBack" data-action-role="navigation">${esc(t("program.ready.back"))}</button>`+
-    `<h3 class="program-ready__title">${esc(t("program.ready.title"))}</h3></div>`+
-    `<div class="program-ready__list">${ready.map(item=>`<button type="button" class="listrow program-ready__row" data-ready-ex="${esc(item.id)}" data-action-role="navigation" aria-label="${esc(t("log.open_exercise_aria",{name:item.exercise.name}))}">`+
-      `<div class="listrow__main"><div class="listrow__title">${esc(item.exercise.name)}</div><div class="listrow__sub">${esc(dayLabel(item.day))}</div></div>`+
-      `<span class="chevron" aria-hidden="true"></span></button>`).join("")}</div>`;
-  $("#programReadyBack")?.addEventListener("click",()=>{programReadyView=false;renderProgram();window.scrollTo({top:0})});
-  $$("#programOverview [data-ready-ex]").forEach(button=>button.addEventListener("click",()=>openExerciseView(button.dataset.readyEx,"program")))}
+/** The strategy that sets an exercise's next load, as the lifter names it. */
+function programStrategyName(ex){
+  const id=strategyIdFor(ex);
+  const names={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
+    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff"),
+    manual:t("program.progression.strategy.manual")};
+  return names[id]||t("program.progression.strategy.unsupported")}
+/** Names as a spoken list: each name keeps its own element and the separators are decoration. */
+function programNameList(items){
+  return items.map((value,i)=>(i?`<span aria-hidden="true"> · </span>`:"")+`<span>${esc(value)}</span>`).join("")}
+/** One ledger row of the Program overview: the exercise and its strategy, sets x range, and the load
+ *  `recommendation()` says comes next with the verdict mark. A manual row, or one with no history, has no
+ *  load to show: the program carries no authored load yet. */
+function programRowHtml(e){
+  const rec=recommendation(e),move=rec.status==="add"||rec.status==="add2"?"up":rec.status==="reduce"?"down":"",
+    showLoad=rec.status!=="manual"&&rec.load!=null&&Number.isFinite(+rec.load);
+  const mark=move?`<span class="rxrow__mark" aria-hidden="true"><span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph"></span></span></span>`:"";
+  const word=move==="up"?t("rec.add.label"):move==="down"?t("rec.reduce.label"):"";
+  return `<button type="button" class="rxrow" data-exopen="${esc(e.id)}" data-action-role="navigation">`+
+    `<span class="rxrow__name">${esc(e.name)}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
+    `<span class="rxrow__target">${e.sets} × ${e.min}–${e.max}</span>`+
+    `<span class="rxrow__load"${showLoad?` data-parity-target="${esc(e.id)}"`:""}>${showLoad?mark+(word?`<span class="visually-hidden">${esc(word)} </span>`:"")+esc(fmtLoad(rec.load)):""}</span></button>`}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
-  const ready=programReadyExercises();
-  if(programReadyView){
-    if(ready.length){renderProgramReadyView(el,ready);return}
-    programReadyView=false}
-  const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
+  const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth();
   const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
   const segs=mc.total||6,cur=mc.current||0;
-  const started=meta.started?(()=>{const d=new Date(`${meta.started}T12:00:00`);return t("program.started_on",{date:`${d.getDate()} ${t("month_short."+d.getMonth())}`})})():"";
-  let daysHtml=`<p class="section-label">${esc(t("program.training_days"))}</p>`;
-  // A saved array — including an empty one — means the user picked; only an absent pref falls back to the first day.
-  const saved=Array.isArray(uiPrefs.overviewOpenDays)?uiPrefs.overviewOpenDays.filter(x=>typeof x==="string"):null;
-  const openDays=new Set(saved||(ds.length?[ds[0]]:[]));
-  for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
-    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" data-action-role="expansion" aria-expanded="${open?"true":"false"}"><div>`+
-      `<div class="prog-day__title">${esc(dayLabel(d))}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.map(muscleLabel).join(" · "))}</div>`:""}</div>`+
-      `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
-    if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}" data-action-role="navigation" aria-label="${esc(t("log.open_exercise_aria",{name:e.name}))}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
-      `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}" data-action-role="navigation"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
-    daysHtml+=`</div>`}
+  const plainWeek=!mc.isComplete&&!mc.isFinalWeek&&mc.current!=null;
+  const lede=goal&&plainWeek?t("program.overview.lede",{goal,days:ds.length,n:mc.current,total:mc.total})
+    :[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ");
+  let daysHtml="";
+  ds.forEach((d,i)=>{const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d).map(muscleLabel);
+    daysHtml+=`<section class="prog-day" aria-labelledby="progDay${i}"><div class="prog-day__head"><h4 class="prog-day__title" id="progDay${i}">${esc(dayLabel(d))}</h4>`+
+      `<p class="prog-day__meta">${mus.length?programNameList(mus)+`<span aria-hidden="true"> · </span>`:""}<span>${esc(sets===1?t("history.sets.one",{n:sets}):t("entry.catalogue.sets_exact",{n:sets}))}</span></p></div>`+
+      `<div class="prog-cols" aria-hidden="true"><span>${esc(t("stats.exercise"))}</span><span>${esc(t("ledger.col.sets_range"))}</span><span>${esc(t("ledger.col.next",{unit:unitLabel()}))}</span></div>`+
+      (i===0?`<p class="prog-legend">${esc(t("program.overview.legend"))}</p>`:"")+
+      exs.map(programRowHtml).join("")+`</section>`});
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
-  el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
-    `<div class="prog-overview__meta">${[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ")}</div>`+
-    (mc.current!=null||mc.isComplete?`<div class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</div>`+
-      `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
-    (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
-    `<div class="statrow">`+
-    `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.days_7d"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${vol?Math.round(vol.ratio*100)+"%":"—"}</div><div class="statrow__cap">${esc(t("program.stat.volume"))}</div></div>`+
-    `</div>${daysHtml}`+
-    (ready.length
-      ? `<button type="button" class="listrow program-ready-link" id="programReadyLink" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.ready_to_add",{n:ready.length}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`
-      : "")+
+  el.innerHTML=`<h3 class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</h3>`+
+    `<p class="prog-overview__meta">${esc(lede)}</p>`+
+    (!(goal&&plainWeek)&&(mc.current!=null||mc.isComplete)?`<p class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</p>`:"")+
+    (mc.current!=null||mc.isComplete?`<div class="segbar" aria-hidden="true" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i+1<Math.min(cur,segs)||mc.isComplete?" is-done":i+1===cur?" is-current":""}"></span>`).join("")}</div>`:"")+
+    `<p class="prog-overview__status">${esc(t("program.overview.status",{status:programStatusLabel(ad,health),n:ad.logged,m:ad.total}))}</p>`+
+    daysHtml+
     `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
     `<button type="button" class="listrow" id="seeVolumeAudit" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
     `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
@@ -10036,21 +10033,11 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     (ds.length?`<button type="button" class="listrow" id="shareProgramSetup" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
       `<div class="listrow__sub">${esc(t("program.share_setup_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
     `<button type="button" class="listrow" id="reviewBlockLink" data-action-role="navigation" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
-  $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
-    const cur=new Set(openDays);
-    cur.has(b.dataset.ovday)?cur.delete(b.dataset.ovday):cur.add(b.dataset.ovday);
-    setUiPref("overviewOpenDays",[...cur].filter(x=>ds.includes(x)));renderProgramOverview()});
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
-  $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
-  const readyLink=$("#programReadyLink");if(readyLink)readyLink.onclick=()=>{captureEvent("program_readiness_navigated",{ready_count_bucket:coarseCountBucket(ready.length)});programReadyView=true;renderProgram();window.scrollTo({top:0})};
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram()};
   const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
-
-function openDayInEditor(d){if(!d||!prog.days().includes(d))return;
-  setDayCollapsed(d,false);programEditMode=true;renderProgram();
-  $(`#programEditor .pday[data-day="${CSS.escape(d)}"]`)?.scrollIntoView({behavior:"smooth",block:"start"})}
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
@@ -10064,7 +10051,6 @@ function renderProgramChips(){
 
 function renderProgramHeader(){
   const el=$("#programMeta");if(!el)return;
-  if(programReadyView){setProgramMetadataHidden(true,{inert:true});return}
   setProgramMetadataHidden(false);
   if(!setupEditorOpen&&document.activeElement?.closest("#programMeta"))return;
   if(setupEditorOpen){

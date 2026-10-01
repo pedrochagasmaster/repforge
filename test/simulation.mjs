@@ -1948,7 +1948,7 @@ async function main() {
   await applyProgramEditor(page);
   const metaBefore = await page.locator("#programOverview").textContent();
   assert(
-    metaBefore.includes("days (7d)"),
+    metaBefore.includes("in the last 7 days"),
     "Program overview shows rolling-7 adherence",
     `Meta card: ${metaBefore?.slice(0, 120)}`,
     "Program tab → check overview stats"
@@ -1999,7 +1999,7 @@ async function main() {
   await applyProgramEditor(page);
   const metaAfterDate = await page.locator("#programOverview").textContent();
   assert(
-    /Week 3/.test(metaAfterDate),
+    /week 3 of/i.test(metaAfterDate),
     "Program overview derives the current week from the stored block start",
     `Meta card after date edit: ${metaAfterDate?.slice(0, 140)}`,
     "Store a block start 15 days back → Program overview"
@@ -2037,87 +2037,45 @@ async function main() {
     "Remove programMeta from storage → reload app"
   );
 
-  // ── Phase 4b: Program overview day disclosure ────────────────────
-  beginPhase("Phase 4b: Program overview disclosure");
+  // ── Phase 4b: Program overview days ──────────────────────────────
+  beginPhase("Phase 4b: Program overview days");
 
-  // Drop only the disclosure pref so the tour stays dismissed for later phases.
-  await page.evaluate(() => {
-    const k = "repforge_ui_v1";
-    const o = JSON.parse(localStorage.getItem(k) || "{}");
-    delete o.overviewOpenDays;
-    localStorage.setItem(k, JSON.stringify(o));
-  });
   await reloadApp(page);
   await nav(page, "program");
-  // nav() forces the editor open; the day disclosure lives on the read-only overview.
+  // nav() forces the editor open; the ledger lives on the read-only overview.
   await page.click("#programEditToggle");
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
 
-  const readOvDay = (idx) =>
-    page.evaluate((i) => {
-      const el = document.querySelectorAll("#programOverview .prog-day")[i];
-      if (!el) return null;
-      const head = el.querySelector(".prog-day__head");
-      return { day: head?.dataset.ovday, open: !!el.querySelector(".prog-day__body"), expanded: head?.getAttribute("aria-expanded") === "true" };
-    }, idx);
-
-  const ovDefault = await readOvDay(0);
+  const ovDays = await page.evaluate(() =>
+    [...document.querySelectorAll("#programOverview .prog-day")].map((el) => ({
+      title: el.querySelector(".prog-day__title")?.textContent.trim(),
+      rows: el.querySelectorAll(".rxrow").length,
+      toggles: el.querySelectorAll("[aria-expanded], [data-ovday]").length,
+      legend: !!el.querySelector(".prog-legend"),
+    })));
   assert(
-    ovDefault?.open && ovDefault.expanded,
-    "Program overview opens the first day by default",
-    `first day: ${JSON.stringify(ovDefault)}`,
-    "Program tab → overview → first training day"
+    ovDays.length > 0 && ovDays.every((d) => d.title && d.rows > 0 && d.toggles === 0),
+    "Program overview shows every training day open, with its exercises",
+    `days: ${JSON.stringify(ovDays)}`,
+    "Program tab → overview → every training day"
   );
-
-  const ovDayName = ovDefault?.day;
-  await page.click(`#programOverview [data-ovday="${ovDayName}"]`);
-  await page.waitForTimeout(200);
-  const ovCollapsed = await readOvDay(0);
   assert(
-    ovCollapsed && !ovCollapsed.open && !ovCollapsed.expanded,
-    "First training day collapses when tapped",
-    `first day after tap: ${JSON.stringify(ovCollapsed)}`,
-    "Program tab → overview → tap the first day header"
+    ovDays[0].legend && ovDays.slice(1).every((d) => !d.legend),
+    "Program overview explains the Next column once, under the first day",
+    `days: ${JSON.stringify(ovDays)}`,
+    "Program tab → overview → legend under the first column head"
   );
 
   await reloadApp(page);
   await nav(page, "program");
   await page.click("#programEditToggle");
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
-  const ovAfterReload = await readOvDay(0);
+  const ovAfterReload = await page.evaluate(() => document.querySelectorAll("#programOverview .prog-day .rxrow").length);
   assert(
-    ovAfterReload && !ovAfterReload.open,
-    "Collapsed first day survives a reload",
-    `first day after reload: ${JSON.stringify(ovAfterReload)}`,
-    "Program tab → collapse first day → reload → Program tab"
-  );
-
-  await page.click(`#programOverview [data-ovday="${ovDayName}"]`);
-  await page.waitForTimeout(200);
-  const ovReopened = await readOvDay(0);
-  assert(
-    ovReopened?.open,
-    "First training day re-opens when tapped again",
-    `first day after second tap: ${JSON.stringify(ovReopened)}`,
-    "Program tab → overview → tap the first day header twice"
-  );
-
-  await page.click(`#programOverview [data-ovdetails="${ovDayName}"]`);
-  await page.waitForTimeout(400);
-  const seeDetails = await page.evaluate((d) => {
-    const card = document.querySelector(`#programEditor .pday[data-day="${CSS.escape(d)}"]`);
-    return {
-      exerciseView: document.body.classList.contains("is-exercise"),
-      editorOpen: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
-      cardFound: !!card,
-      cardExpanded: !!card && !card.classList.contains("is-collapsed"),
-    };
-  }, ovDayName);
-  assert(
-    !seeDetails.exerciseView && seeDetails.editorOpen && seeDetails.cardExpanded,
-    "See details opens the day in the program editor",
-    `see details result: ${JSON.stringify(seeDetails)}`,
-    "Program tab → overview → See details on a training day"
+    ovAfterReload === ovDays.reduce((n, d) => n + d.rows, 0),
+    "Program overview days stay open after a reload",
+    `rows after reload: ${ovAfterReload}`,
+    "Program tab → reload → Program tab"
   );
 
   // ── Phase 5: Delete sessions ─────────────────────────────────────
@@ -6696,27 +6654,18 @@ async function main() {
         document.querySelector('nav button[data-view="program"]')?.click();
       });
       await f2Page.waitForSelector("#programOverview", { timeout: 5000 });
-      const overviewCell = f2Page.locator("#programOverview .statrow__cell").first();
-      const overviewVal = await overviewCell.locator(".statrow__val").textContent();
-      const overviewCap = await overviewCell.locator(".statrow__cap").textContent();
+      const overviewStatus = (await f2Page.locator("#programOverview .prog-overview__status").textContent()).trim();
       assert(
-        overviewVal.trim() === "4 / 5",
-        "F2: Program days stat shows rolling 4 / 5",
-        `val="${overviewVal}"`,
-        "Program overview → days (7d)"
+        /4 of 5 in the last 7 days/.test(overviewStatus),
+        "F2: Program days status shows rolling 4 of 5",
+        `status="${overviewStatus}"`,
+        "Program overview → status line"
       );
       assert(
-        overviewCap.trim() === "days (7d)" && !/this week/i.test(overviewCap),
+        !/this week/i.test(overviewStatus),
         "F2: Program overview names a rolling 7-day window",
-        `cap="${overviewCap}"`,
-        "Program overview → days (7d) caption"
-      );
-      const chip = await overviewCell.textContent();
-      assert(
-        chip.includes("4 / 5") && chip.includes("days (7d)") && !/this week/i.test(chip),
-        "F2: Program overview stat shows rolling 4 / 5 and copy",
-        `chip="${chip}"`,
-        "Program overview → rolling days stat"
+        `status="${overviewStatus}"`,
+        "Program overview → status line"
       );
       const afterEn = await getState(f2Page);
       await persistState(f2Page, { ...afterEn, settings: { ...afterEn.settings, lang: "pt" } });
@@ -6726,19 +6675,12 @@ async function main() {
         document.querySelector('nav button[data-view="program"]')?.click();
       });
       await f2Page.waitForSelector("#programOverview", { timeout: 5000 });
-      const ptCap = await f2Page.locator("#programOverview .statrow__cell").first().locator(".statrow__cap").textContent();
+      const ptStatus = (await f2Page.locator("#programOverview .prog-overview__status").textContent()).trim();
       assert(
-        ptCap.trim() === "dias (7d)",
-        "F2: Program overview rolling label is Portuguese",
-        `cap="${ptCap}"`,
-        "lang=pt → Program overview → dias (7d)"
-      );
-      const ptChip = await f2Page.locator("#programOverview .statrow__cell").first().textContent();
-      assert(
-        ptChip.includes("4 / 5") && ptChip.includes("dias (7d)"),
-        "F2: Program overview rolling copy is Portuguese",
-        `chip="${ptChip}"`,
-        "lang=pt → Program overview rolling stat"
+        /4 de 5 nos últimos 7 dias/.test(ptStatus),
+        "F2: Program overview rolling status is Portuguese",
+        `status="${ptStatus}"`,
+        "lang=pt → Program overview → status line"
       );
       assert(
         f2PageErrors.length === 0,
@@ -11499,9 +11441,9 @@ async function main() {
   );
 
   await page.click("#exBack");
-  await nav(page, "program");
+  await nav(page, "stats");
   const sharedRules = await page.evaluate(() => {
-    const row = document.querySelector("#programOverview .statrow, #metrics.metrics");
+    const row = document.querySelector("#thisWeek .statrow, #stats .statrow, #metrics.metrics");
     if (!row) return null;
     const cs = getComputedStyle(row);
     const cell = row.querySelector(".statrow__cell, .metric");
@@ -11518,7 +11460,7 @@ async function main() {
       sharedRules.sep !== "none",
     "Shared stat rows outside the exercise page keep their rules and cell separators",
     JSON.stringify(sharedRules),
-    "Program tab → .statrow computed borders"
+    "Progress tab → .statrow computed borders"
   );
 
   // Console errors

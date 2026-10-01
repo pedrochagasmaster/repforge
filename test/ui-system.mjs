@@ -176,8 +176,7 @@ assert.equal(roleOf(".program-editor__remove:not([id])"), "destructive", "Remove
 assert.equal(roleOf(".entry__exercise-action:not([id])"), "selection", "Avoid is a reversible preference, not Remove");
 assert.equal(roleOf(".stepbtn:not([id])"), "adjustment", "rapid workout stepper changes a numeric value");
 assert.equal(roleOf('button[data-role="adjust"]'), "adjustment", "deliberate program stepper keeps numeric meaning");
-assert.equal(roleOf(".prog-day__head:not([id])"), "disclosure", "Program day chevron expands in place");
-assert.equal(roleOf(".prog-ex:not([id])"), "quiet-navigation", "Program exercise row with a chevron drills in");
+assert.equal(roleOf(".rxrow:not([id])"), "quiet-navigation", "Program prescription row drills into the exercise");
 assert.equal(inventory.components.find((item) => item.selector === 'button[data-role="adjust"]')?.states.includes("selected"), false,
   "numeric Program set steppers do not claim a selected state");
 assert.equal(roleOf("#entryFreeformStartOver"), "destructive", "Start over discards staged work");

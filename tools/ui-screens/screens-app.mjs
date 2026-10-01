@@ -326,27 +326,6 @@ export function appState(key, lang) {
       performedLibraryId: exercise.libraryId || undefined,
     })));
   }
-  if (key === "program/readiness") {
-    const exercise = state.program[0];
-    const date = isoDaysAgo(2);
-    state.log = Array.from({ length: exercise.sets }, (_, index) => ({
-      session: "program-readiness",
-      date,
-      day: exercise.day,
-      name: exercise.name,
-      exerciseId: exercise.id,
-      set: index + 1,
-      load: 100,
-      reps: 8,
-      rir: 1,
-      work: true,
-      notes: "",
-      created: `${date}T12:0${index}:00.000Z`,
-      primary: exercise.primary,
-      secondary: exercise.secondary,
-      performedLibraryId: exercise.libraryId || undefined,
-    }));
-  }
   if (key.startsWith("program/share-")) {
     const libraryIds = ["sq_bb", "lc_mc", "pr_bb", "rw1_db", "dl_cb", "pd_bw", "dl_bb", "sp_cb", "cu_bb", "le_mc", "ci_mc", "tr_cb"];
     state.program.forEach((exercise, index) => { exercise.libraryId = libraryIds[index] || "sq_bb"; });
@@ -1401,13 +1380,6 @@ export const APP_SCENARIOS = {
     await openShare(page);
     await page.waitForSelector("#shareSetupShare:not(.hidden):not(:disabled)", { timeout: 20000 });
     await stabilizeShareLink(page);
-    await sleep(page, 400);
-  },
-  "program/readiness": async (page) => {
-    await openProgram(page);
-    await page.waitForSelector("#programReadyLink", { timeout: 20000 });
-    await page.click("#programReadyLink");
-    await page.waitForSelector("#programReadyBack", { timeout: 20000 });
     await sleep(page, 400);
   },
   "program/text-export": async (page) => {
