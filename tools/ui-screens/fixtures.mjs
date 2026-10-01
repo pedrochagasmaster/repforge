@@ -154,7 +154,7 @@ export function activeEntryState(lang = "en") {
     ...base,
     programMeta: {
       ...base.programMeta,
-      id: "catalog-active", name: lang === "pt" ? "Programa atual" : "Current program",
+      id: "catalog-active", name: lang === "pt" ? "Treino atual" : "Current program",
       started: "2026-08-01", created: "2026-08-01T00:00:00.000Z",
       updated: "2026-08-01T00:00:00.000Z", onboarded: true, daysPerWeek: 3,
       splitType: "full_body", equipment: ["machines"], goal: "hypertrophy",

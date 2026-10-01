@@ -4094,7 +4094,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -4104,7 +4104,7 @@
         },
         {
           "tag": "div",
-          "text": "Explorar programas"
+          "text": "Explorar treinos"
         },
         {
           "tag": "p",
@@ -4113,12 +4113,12 @@
         },
         {
           "tag": "h2",
-          "text": "Programas Taurifer",
+          "text": "Treinos Taurifer",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Programas completos que você pode executar, renomear e editar depois de ativá-los."
+          "text": "Treinos completos que você pode executar, renomear e editar depois de ativá-los."
         },
         {
           "tag": "div",
@@ -4142,8 +4142,8 @@
         },
         {
           "tag": "button",
-          "name": "Rever Massa + força · 4 dias",
-          "label": "Rever Massa + força · 4 dias",
+          "name": "Revisar Massa + força · 4 dias",
+          "label": "Revisar Massa + força · 4 dias",
           "type": "button"
         },
         {
@@ -4176,8 +4176,8 @@
         },
         {
           "tag": "button",
-          "name": "Rever Ganhar massa · 4 dias",
-          "label": "Rever Ganhar massa · 4 dias",
+          "name": "Revisar Ganhar massa · 4 dias",
+          "label": "Revisar Ganhar massa · 4 dias",
           "type": "button"
         },
         {
@@ -4210,8 +4210,8 @@
         },
         {
           "tag": "button",
-          "name": "Rever Treine em qualquer lugar · 4 dias",
-          "label": "Rever Treine em qualquer lugar · 4 dias",
+          "name": "Revisar Treine em qualquer lugar · 4 dias",
+          "label": "Revisar Treine em qualquer lugar · 4 dias",
           "type": "button"
         },
         {
@@ -4244,8 +4244,8 @@
         },
         {
           "tag": "button",
-          "name": "Rever Prioridade em força · 4 dias",
-          "label": "Rever Prioridade em força · 4 dias",
+          "name": "Revisar Prioridade em força · 4 dias",
+          "label": "Revisar Prioridade em força · 4 dias",
           "type": "button"
         },
         {
@@ -4282,8 +4282,8 @@
         },
         {
           "tag": "button",
-          "name": "Rever Massa + força · 2 dias",
-          "label": "Rever Massa + força · 2 dias",
+          "name": "Revisar Massa + força · 2 dias",
+          "label": "Revisar Massa + força · 2 dias",
           "type": "button"
         },
         {
@@ -4316,12 +4316,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 2."
+          "text": "Você escolheu 4 dias; este treino usa 2."
         },
         {
           "tag": "button",
-          "name": "Rever Ganhar massa · 2 dias",
-          "label": "Rever Ganhar massa · 2 dias",
+          "name": "Revisar Ganhar massa · 2 dias",
+          "label": "Revisar Ganhar massa · 2 dias",
           "type": "button"
         },
         {
@@ -4354,12 +4354,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 2."
+          "text": "Você escolheu 4 dias; este treino usa 2."
         },
         {
           "tag": "button",
-          "name": "Rever Treine em qualquer lugar · 2 dias",
-          "label": "Rever Treine em qualquer lugar · 2 dias",
+          "name": "Revisar Treine em qualquer lugar · 2 dias",
+          "label": "Revisar Treine em qualquer lugar · 2 dias",
           "type": "button"
         },
         {
@@ -4392,12 +4392,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 2."
+          "text": "Você escolheu 4 dias; este treino usa 2."
         },
         {
           "tag": "button",
-          "name": "Rever Prioridade em força · 2 dias",
-          "label": "Rever Prioridade em força · 2 dias",
+          "name": "Revisar Prioridade em força · 2 dias",
+          "label": "Revisar Prioridade em força · 2 dias",
           "type": "button"
         },
         {
@@ -4430,12 +4430,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 2."
+          "text": "Você escolheu 4 dias; este treino usa 2."
         },
         {
           "tag": "button",
-          "name": "Rever Massa + força · 3 dias",
-          "label": "Rever Massa + força · 3 dias",
+          "name": "Revisar Massa + força · 3 dias",
+          "label": "Revisar Massa + força · 3 dias",
           "type": "button"
         },
         {
@@ -4468,12 +4468,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 3."
+          "text": "Você escolheu 4 dias; este treino usa 3."
         },
         {
           "tag": "button",
-          "name": "Rever Ganhar massa · 3 dias",
-          "label": "Rever Ganhar massa · 3 dias",
+          "name": "Revisar Ganhar massa · 3 dias",
+          "label": "Revisar Ganhar massa · 3 dias",
           "type": "button"
         },
         {
@@ -4506,12 +4506,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 3."
+          "text": "Você escolheu 4 dias; este treino usa 3."
         },
         {
           "tag": "button",
-          "name": "Rever Treine em qualquer lugar · 3 dias",
-          "label": "Rever Treine em qualquer lugar · 3 dias",
+          "name": "Revisar Treine em qualquer lugar · 3 dias",
+          "label": "Revisar Treine em qualquer lugar · 3 dias",
           "type": "button"
         },
         {
@@ -4544,12 +4544,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 3."
+          "text": "Você escolheu 4 dias; este treino usa 3."
         },
         {
           "tag": "button",
-          "name": "Rever Prioridade em força · 3 dias",
-          "label": "Rever Prioridade em força · 3 dias",
+          "name": "Revisar Prioridade em força · 3 dias",
+          "label": "Revisar Prioridade em força · 3 dias",
           "type": "button"
         },
         {
@@ -4582,12 +4582,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 3."
+          "text": "Você escolheu 4 dias; este treino usa 3."
         },
         {
           "tag": "button",
-          "name": "Rever Massa + força · 5 dias",
-          "label": "Rever Massa + força · 5 dias",
+          "name": "Revisar Massa + força · 5 dias",
+          "label": "Revisar Massa + força · 5 dias",
           "type": "button"
         },
         {
@@ -4620,12 +4620,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 5."
+          "text": "Você escolheu 4 dias; este treino usa 5."
         },
         {
           "tag": "button",
-          "name": "Rever Ganhar massa · 5 dias",
-          "label": "Rever Ganhar massa · 5 dias",
+          "name": "Revisar Ganhar massa · 5 dias",
+          "label": "Revisar Ganhar massa · 5 dias",
           "type": "button"
         },
         {
@@ -4658,12 +4658,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 5."
+          "text": "Você escolheu 4 dias; este treino usa 5."
         },
         {
           "tag": "button",
-          "name": "Rever Treine em qualquer lugar · 5 dias",
-          "label": "Rever Treine em qualquer lugar · 5 dias",
+          "name": "Revisar Treine em qualquer lugar · 5 dias",
+          "label": "Revisar Treine em qualquer lugar · 5 dias",
           "type": "button"
         },
         {
@@ -4696,12 +4696,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 5."
+          "text": "Você escolheu 4 dias; este treino usa 5."
         },
         {
           "tag": "button",
-          "name": "Rever Prioridade em força · 5 dias",
-          "label": "Rever Prioridade em força · 5 dias",
+          "name": "Revisar Prioridade em força · 5 dias",
+          "label": "Revisar Prioridade em força · 5 dias",
           "type": "button"
         },
         {
@@ -4734,12 +4734,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 5."
+          "text": "Você escolheu 4 dias; este treino usa 5."
         },
         {
           "tag": "button",
-          "name": "Rever Massa + força · 6 dias",
-          "label": "Rever Massa + força · 6 dias",
+          "name": "Revisar Massa + força · 6 dias",
+          "label": "Revisar Massa + força · 6 dias",
           "type": "button"
         },
         {
@@ -4772,12 +4772,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 6."
+          "text": "Você escolheu 4 dias; este treino usa 6."
         },
         {
           "tag": "button",
-          "name": "Rever Ganhar massa · 6 dias",
-          "label": "Rever Ganhar massa · 6 dias",
+          "name": "Revisar Ganhar massa · 6 dias",
+          "label": "Revisar Ganhar massa · 6 dias",
           "type": "button"
         },
         {
@@ -4810,12 +4810,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 6."
+          "text": "Você escolheu 4 dias; este treino usa 6."
         },
         {
           "tag": "button",
-          "name": "Rever Treine em qualquer lugar · 6 dias",
-          "label": "Rever Treine em qualquer lugar · 6 dias",
+          "name": "Revisar Treine em qualquer lugar · 6 dias",
+          "label": "Revisar Treine em qualquer lugar · 6 dias",
           "type": "button"
         },
         {
@@ -4848,12 +4848,12 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 6."
+          "text": "Você escolheu 4 dias; este treino usa 6."
         },
         {
           "tag": "button",
-          "name": "Rever Prioridade em força · 6 dias",
-          "label": "Rever Prioridade em força · 6 dias",
+          "name": "Revisar Prioridade em força · 6 dias",
+          "label": "Revisar Prioridade em força · 6 dias",
           "type": "button"
         },
         {
@@ -4886,7 +4886,7 @@
         },
         {
           "tag": "span",
-          "text": "Você escolheu 4 dias; este programa usa 6."
+          "text": "Você escolheu 4 dias; este treino usa 6."
         },
         {
           "tag": "button",
@@ -6331,7 +6331,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -6341,7 +6341,7 @@
         },
         {
           "tag": "div",
-          "text": "Explorar programas"
+          "text": "Explorar treinos"
         },
         {
           "tag": "p",
@@ -7998,7 +7998,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -8008,16 +8008,16 @@
         },
         {
           "tag": "div",
-          "text": "Explorar programas"
+          "text": "Explorar treinos"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa",
+          "text": "Revisar treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -8065,7 +8065,7 @@
         },
         {
           "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -8077,8 +8077,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         },
         {
@@ -9743,7 +9743,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -9753,7 +9753,7 @@
         },
         {
           "tag": "div",
-          "text": "Explorar programas"
+          "text": "Explorar treinos"
         },
         {
           "tag": "p",
@@ -10838,7 +10838,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -10848,20 +10848,20 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um programa"
+          "text": "Montar um treino"
         },
         {
           "tag": "div",
-          "label": "Editor de programa"
+          "label": "Editor de treino"
         },
         {
           "tag": "span",
-          "text": "Nome do programa"
+          "text": "Nome do treino"
         },
         {
           "tag": "input",
-          "name": "Nome do programa",
-          "label": "Nome do programa",
+          "name": "Nome do treino",
+          "label": "Nome do treino",
           "value": "Manual catalog program"
         },
         {
@@ -10942,8 +10942,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "describedBy": "Adicione um exercício a Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
@@ -10963,7 +10963,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -10973,20 +10973,20 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um programa"
+          "text": "Montar um treino"
         },
         {
           "tag": "div",
-          "label": "Editor de programa"
+          "label": "Editor de treino"
         },
         {
           "tag": "span",
-          "text": "Nome do programa"
+          "text": "Nome do treino"
         },
         {
           "tag": "input",
-          "name": "Nome do programa",
-          "label": "Nome do programa",
+          "name": "Nome do treino",
+          "label": "Nome do treino",
           "value": "Manual catalog program"
         },
         {
@@ -11067,8 +11067,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "describedBy": "Adicione um exercício a Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
@@ -12213,7 +12213,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -12223,20 +12223,20 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um programa"
+          "text": "Montar um treino"
         },
         {
           "tag": "div",
-          "label": "Editor de programa"
+          "label": "Editor de treino"
         },
         {
           "tag": "span",
-          "text": "Nome do programa"
+          "text": "Nome do treino"
         },
         {
           "tag": "input",
-          "name": "Nome do programa",
-          "label": "Nome do programa",
+          "name": "Nome do treino",
+          "label": "Nome do treino",
           "value": "Manual catalog program"
         },
         {
@@ -12392,8 +12392,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "describedBy": "Adicione um exercício a Day 2, Day 3.",
           "disabled": true,
           "type": "button"
@@ -12413,7 +12413,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -12423,20 +12423,20 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um programa"
+          "text": "Montar um treino"
         },
         {
           "tag": "div",
-          "label": "Editor de programa"
+          "label": "Editor de treino"
         },
         {
           "tag": "span",
-          "text": "Nome do programa"
+          "text": "Nome do treino"
         },
         {
           "tag": "input",
-          "name": "Nome do programa",
-          "label": "Nome do programa",
+          "name": "Nome do treino",
+          "label": "Nome do treino",
           "value": "Manual catalog program"
         },
         {
@@ -12592,8 +12592,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "describedBy": "Adicione um exercício a Day 2, Day 3.",
           "disabled": true,
           "type": "button"
@@ -14663,7 +14663,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -14673,20 +14673,20 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um programa"
+          "text": "Montar um treino"
         },
         {
           "tag": "div",
-          "label": "Editor de programa"
+          "label": "Editor de treino"
         },
         {
           "tag": "span",
-          "text": "Nome do programa"
+          "text": "Nome do treino"
         },
         {
           "tag": "input",
-          "name": "Nome do programa",
-          "label": "Nome do programa",
+          "name": "Nome do treino",
+          "label": "Nome do treino",
           "value": "Manual catalog program"
         },
         {
@@ -15014,8 +15014,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         }
       ]
@@ -15033,7 +15033,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -15043,20 +15043,20 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um programa"
+          "text": "Montar um treino"
         },
         {
           "tag": "div",
-          "label": "Editor de programa"
+          "label": "Editor de treino"
         },
         {
           "tag": "span",
-          "text": "Nome do programa"
+          "text": "Nome do treino"
         },
         {
           "tag": "input",
-          "name": "Nome do programa",
-          "label": "Nome do programa",
+          "name": "Nome do treino",
+          "label": "Nome do treino",
           "value": "Manual catalog program"
         },
         {
@@ -15384,8 +15384,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         }
       ]
@@ -16393,7 +16393,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -16403,7 +16403,7 @@
         },
         {
           "tag": "h2",
-          "text": "Montar um programa",
+          "text": "Montar um treino",
           "tabindex": "-1"
         },
         {
@@ -16412,11 +16412,11 @@
         },
         {
           "tag": "span",
-          "text": "Nome do programa"
+          "text": "Nome do treino"
         },
         {
           "tag": "input",
-          "name": "Nome do programa",
+          "name": "Nome do treino",
           "type": "text"
         },
         {
@@ -17154,7 +17154,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -17164,7 +17164,7 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "p",
@@ -17182,25 +17182,25 @@
         },
         {
           "tag": "span",
-          "text": "Há quanto tempo você segue programas estruturados de resistência"
+          "text": "Há quanto tempo você segue treinos estruturados de resistência"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Há quanto tempo você segue programas estruturados de resistência",
-          "labelledBy": "Há quanto tempo você segue programas estruturados de resistência"
+          "name": "Há quanto tempo você segue treinos estruturados de resistência",
+          "labelledBy": "Há quanto tempo você segue treinos estruturados de resistência"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Primeiro programa estruturado",
+          "name": "Primeiro treino estruturado",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Primeiro programa estruturado"
+          "text": "Primeiro treino estruturado"
         },
         {
           "tag": "button",
@@ -17652,7 +17652,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -17662,7 +17662,7 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "p",
@@ -17671,18 +17671,18 @@
         },
         {
           "tag": "h2",
-          "text": "O que você quer deste programa?",
+          "text": "O que você quer deste treino?",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Escolha o que este programa deve priorizar."
+          "text": "Escolha o que este treino deve priorizar."
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "O que você quer deste programa?",
-          "label": "O que você quer deste programa?"
+          "name": "O que você quer deste treino?",
+          "label": "O que você quer deste treino?"
         },
         {
           "tag": "button",
@@ -18124,7 +18124,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -18134,7 +18134,7 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "p",
@@ -19295,7 +19295,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -19305,7 +19305,7 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "p",
@@ -23680,7 +23680,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -23690,7 +23690,7 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "p",
@@ -24487,7 +24487,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -24497,7 +24497,7 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "p",
@@ -27190,7 +27190,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -27200,16 +27200,16 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "h2",
-          "text": "Seu programa personalizado",
+          "text": "Seu treino personalizado",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
+          "text": "As mesmas respostas e regras produzem o mesmo treino todas as vezes."
         },
         {
           "tag": "h3",
@@ -27253,8 +27253,8 @@
         },
         {
           "tag": "button",
-          "text": "Revisar este programa",
-          "name": "Revisar este programa",
+          "text": "Revisar este treino",
+          "name": "Revisar este treino",
           "type": "button"
         },
         {
@@ -27271,15 +27271,15 @@
         },
         {
           "tag": "section",
-          "labelledBy": "Revisar programa"
+          "labelledBy": "Revisar treino"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa"
+          "text": "Revisar treino"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -27287,7 +27287,7 @@
         },
         {
           "tag": "p",
-          "text": "Programa personalizado pelo Taurifer"
+          "text": "Treino personalizado pelo Taurifer"
         },
         {
           "tag": "span",
@@ -27335,7 +27335,7 @@
         },
         {
           "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -27347,8 +27347,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         },
         {
@@ -29078,7 +29078,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -29088,7 +29088,7 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "p",
@@ -29383,7 +29383,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -29393,7 +29393,7 @@
         },
         {
           "tag": "div",
-          "text": "Programa personalizado"
+          "text": "Treino personalizado"
         },
         {
           "tag": "p",
@@ -30141,7 +30141,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -30151,20 +30151,20 @@
         },
         {
           "tag": "h2",
-          "text": "Colar um programa de qualquer lugar",
+          "text": "Colar um treino de qualquer lugar",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
         },
         {
           "tag": "span",
-          "text": "Seu programa"
+          "text": "Seu treino"
         },
         {
           "tag": "textarea",
-          "name": "Seu programa"
+          "name": "Seu treino"
         },
         {
           "tag": "p",
@@ -30172,13 +30172,13 @@
         },
         {
           "tag": "p",
-          "text": "Cole o seu programa acima primeiro."
+          "text": "Cole seu treino acima primeiro."
         },
         {
           "tag": "p",
           "role": "note",
-          "text": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina.",
-          "name": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina."
+          "text": "O que você cola é mantido apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina.",
+          "name": "O que você cola é mantido apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina."
         },
         {
           "tag": "button",
@@ -30565,7 +30565,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -30575,20 +30575,20 @@
         },
         {
           "tag": "h2",
-          "text": "Colar um programa de qualquer lugar",
+          "text": "Colar um treino de qualquer lugar",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
         },
         {
           "tag": "span",
-          "text": "Seu programa"
+          "text": "Seu treino"
         },
         {
           "tag": "textarea",
-          "name": "Seu programa",
+          "name": "Seu treino",
           "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
         },
         {
@@ -30598,8 +30598,8 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina.",
-          "name": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina."
+          "text": "O que você cola é mantido apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina.",
+          "name": "O que você cola é mantido apenas nesta aba, só para esta importação. Nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina."
         },
         {
           "tag": "button",
@@ -31080,7 +31080,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -31090,12 +31090,12 @@
         },
         {
           "tag": "h2",
-          "text": "Completar detalhes em falta",
+          "text": "Completar detalhes que faltam",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "O assistente devolveu a estrutura do programa, mas faltam algumas séries ou repetições. Preencha abaixo para continuar."
+          "text": "O assistente devolveu a estrutura do treino, mas faltam algumas séries ou repetições. Preencha abaixo para continuar."
         },
         {
           "tag": "p",
@@ -31123,8 +31123,8 @@
         },
         {
           "tag": "button",
-          "text": "Rever o programa",
-          "name": "Rever o programa",
+          "text": "Revisar o treino",
+          "name": "Revisar o treino",
           "type": "button"
         },
         {
@@ -31392,7 +31392,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -31402,12 +31402,12 @@
         },
         {
           "tag": "h2",
-          "text": "Completar detalhes em falta",
+          "text": "Completar detalhes que faltam",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "O assistente devolveu a estrutura do programa, mas faltam algumas séries ou repetições. Preencha abaixo para continuar."
+          "text": "O assistente devolveu a estrutura do treino, mas faltam algumas séries ou repetições. Preencha abaixo para continuar."
         },
         {
           "tag": "p",
@@ -31441,8 +31441,8 @@
         },
         {
           "tag": "button",
-          "text": "Rever o programa",
-          "name": "Rever o programa",
+          "text": "Revisar o treino",
+          "name": "Revisar o treino",
           "type": "button"
         },
         {
@@ -31913,7 +31913,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -31923,12 +31923,12 @@
         },
         {
           "tag": "h2",
-          "text": "Colar um programa de qualquer lugar",
+          "text": "Colar um treino de qualquer lugar",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
         },
         {
           "tag": "span",
@@ -31965,7 +31965,7 @@
         },
         {
           "tag": "pre",
-          "text": "Reescreva este programa de treino como JSON para o app Taurifer. Responda apenas com o JSON: sem explicação e sem blocos de código. Use exatamente este formato: {\"version\":3,\"meta\":{\"name\":\"Nome do programa\"},\"exercises\":[{\"day\":\"Nome do dia\",\"order\":1,\"name\":\"Nome do exercício\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Regras: - Preserve a seleção de exercícios, ordem, agrupamento por dia e nomes exatamente como estão no texto de origem, no mesmo idioma. - Uma entrada por exercício de cada dia de treino. Repita \"day\" em todos os exercícios do dia e numere \"order\" a partir de 1 dentro de cada dia. - \"sets\" é o número de séries de trabalho, um inteiro de 1 a 100. - \"min\" e \"max\" são a faixa de repetições em números inteiros. Se houver só um número, use-o nos dois limites. - Nunca substitua um exercício, nunca redesenhe e nunca invente dias, exercícios, contagem de séries ou repetições. - Se um valor obrigatório estiver ausente, omita o campo e aponte-o em \"missing\": [{\"day\":\"Nome do dia\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Não adivinhe e não faça perguntas; retorne a estrutura. - Aponte tudo o que a fonte continha e este formato não suporta em \"notImported\", usando apenas estas categorias: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Deixe de fora aquecimentos, cardio e tudo que não for série de trabalho. O programa: Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+          "text": "Reescreva este treino como JSON para o app Taurifer. Responda apenas com o JSON: sem explicação e sem blocos de código. Use exatamente este formato: {\"version\":3,\"meta\":{\"name\":\"Nome do treino\"},\"exercises\":[{\"day\":\"Nome do dia\",\"order\":1,\"name\":\"Nome do exercício\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Regras: - Preserve a seleção de exercícios, ordem, agrupamento por dia e nomes exatamente como estão no texto de origem, no mesmo idioma. - Uma entrada por exercício de cada dia de treino. Repita \"day\" em todos os exercícios do dia e numere \"order\" a partir de 1 dentro de cada dia. - \"sets\" é o número de séries de trabalho, um inteiro de 1 a 100. - \"min\" e \"max\" são a faixa de repetições em números inteiros. Se houver só um número, use-o nos dois limites. - Nunca substitua um exercício, nunca redesenhe e nunca invente dias, exercícios, contagem de séries ou repetições. - Se um valor obrigatório estiver ausente, omita o campo e aponte-o em \"missing\": [{\"day\":\"Nome do dia\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Não adivinhe e não faça perguntas; retorne a estrutura. - Aponte tudo o que a fonte continha e este formato não suporta em \"notImported\", usando apenas estas categorias: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Deixe de fora aquecimentos, cardio e tudo que não for série de trabalho. O treino: Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
         },
         {
           "tag": "button",
@@ -32564,7 +32564,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -32574,12 +32574,12 @@
         },
         {
           "tag": "h2",
-          "text": "Colar um programa de qualquer lugar",
+          "text": "Colar um treino de qualquer lugar",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
         },
         {
           "tag": "span",
@@ -32615,8 +32615,8 @@
         },
         {
           "tag": "button",
-          "text": "Rever o programa",
-          "name": "Rever o programa",
+          "text": "Revisar o treino",
+          "name": "Revisar o treino",
           "type": "button"
         },
         {
@@ -32998,7 +32998,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -33008,12 +33008,12 @@
         },
         {
           "tag": "h2",
-          "text": "Colar um programa de qualquer lugar",
+          "text": "Colar um treino de qualquer lugar",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+          "text": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app."
         },
         {
           "tag": "span",
@@ -33028,15 +33028,15 @@
         {
           "tag": "div",
           "role": "alert",
-          "name": "Não foi possível ler o programaA resposta do assistente não pôde ser lida como um programa Taurifer. Pode editar a resposta, tentar outro assistente ou copiar um comando de correção.Copiar comando de correçãoTentar outro assistente"
+          "name": "Não foi possível ler o treinoA resposta do assistente não pôde ser lida como um treino Taurifer. Você pode editar a resposta, tentar outro assistente ou copiar um comando de correção.Copiar comando de correçãoTentar outro assistente"
         },
         {
           "tag": "strong",
-          "text": "Não foi possível ler o programa"
+          "text": "Não foi possível ler o treino"
         },
         {
           "tag": "p",
-          "text": "A resposta do assistente não pôde ser lida como um programa Taurifer. Pode editar a resposta, tentar outro assistente ou copiar um comando de correção."
+          "text": "A resposta do assistente não pôde ser lida como um treino Taurifer. Você pode editar a resposta, tentar outro assistente ou copiar um comando de correção."
         },
         {
           "tag": "button",
@@ -33076,8 +33076,8 @@
         },
         {
           "tag": "button",
-          "text": "Rever o programa",
-          "name": "Rever o programa",
+          "text": "Revisar o treino",
+          "name": "Revisar o treino",
           "type": "button"
         },
         {
@@ -33790,7 +33790,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -33800,24 +33800,24 @@
         },
         {
           "tag": "div",
-          "text": "Importar um programa"
+          "text": "Importar um treino"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa",
+          "text": "Revisar treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
-          "text": "Programa de catálogo importado"
+          "text": "Treino de catálogo importado"
         },
         {
           "tag": "p",
-          "text": "Programa importado"
+          "text": "Treino importado"
         },
         {
           "tag": "span",
@@ -33845,7 +33845,7 @@
         },
         {
           "tag": "p",
-          "text": "Este programa não especificou equipamentos."
+          "text": "Este treino não especificou equipamentos."
         },
         {
           "tag": "h4",
@@ -33853,7 +33853,7 @@
         },
         {
           "tag": "p",
-          "text": "O programa define a meta de cada exercício, ou você a define. O Taurifer não inventa carga nem repetições."
+          "text": "O treino define a meta de cada exercício, ou você a define. O Taurifer não inventa carga nem repetições."
         },
         {
           "tag": "h4",
@@ -33865,8 +33865,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         },
         {
@@ -33924,7 +33924,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -33934,24 +33934,24 @@
         },
         {
           "tag": "div",
-          "text": "Importar um programa"
+          "text": "Importar um treino"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa",
+          "text": "Revisar treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
-          "text": "Programa de catálogo importado"
+          "text": "Treino de catálogo importado"
         },
         {
           "tag": "p",
-          "text": "Programa importado"
+          "text": "Treino importado"
         },
         {
           "tag": "span",
@@ -33979,7 +33979,7 @@
         },
         {
           "tag": "p",
-          "text": "Este programa não especificou equipamentos."
+          "text": "Este treino não especificou equipamentos."
         },
         {
           "tag": "h4",
@@ -33987,7 +33987,7 @@
         },
         {
           "tag": "p",
-          "text": "O programa define a meta de cada exercício, ou você a define. O Taurifer não inventa carga nem repetições."
+          "text": "O treino define a meta de cada exercício, ou você a define. O Taurifer não inventa carga nem repetições."
         },
         {
           "tag": "h4",
@@ -33999,8 +33999,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         },
         {
@@ -35127,7 +35127,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Revisar programa importado"
+          "label": "Revisar treino importado"
         },
         {
           "tag": "button",
@@ -35137,7 +35137,7 @@
         },
         {
           "tag": "h1",
-          "text": "Importar programa"
+          "text": "Importar treino"
         },
         {
           "tag": "p",
@@ -35603,7 +35603,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -35613,12 +35613,12 @@
         },
         {
           "tag": "h2",
-          "text": "Importar um programa",
+          "text": "Importar um treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Escolha um arquivo de programa Taurifer. Revise cada exercício antes de ativar o programa."
+          "text": "Escolha um arquivo de treino Taurifer. Revise cada exercício antes de ativar o treino."
         },
         {
           "tag": "button",
@@ -35628,8 +35628,8 @@
         },
         {
           "tag": "button",
-          "text": "Colar um programa",
-          "name": "Colar um programa",
+          "text": "Colar um treino",
+          "name": "Colar um treino",
           "type": "button"
         },
         {
@@ -36276,7 +36276,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -36291,15 +36291,15 @@
         {
           "tag": "div",
           "role": "alert",
-          "name": "Seu programa ativo mudouOutra alteração atualizou o programa ativo enquanto esta configuração estava aberta. Revise de novo antes de substituí-lo.Revisar de novo"
+          "name": "Seu treino ativo mudouOutra alteração atualizou o treino ativo enquanto esta configuração estava aberta. Revise de novo antes de substituí-lo.Revisar de novo"
         },
         {
           "tag": "strong",
-          "text": "Seu programa ativo mudou"
+          "text": "Seu treino ativo mudou"
         },
         {
           "tag": "p",
-          "text": "Outra alteração atualizou o programa ativo enquanto esta configuração estava aberta. Revise de novo antes de substituí-lo."
+          "text": "Outra alteração atualizou o treino ativo enquanto esta configuração estava aberta. Revise de novo antes de substituí-lo."
         },
         {
           "tag": "button",
@@ -36309,12 +36309,12 @@
         },
         {
           "tag": "h2",
-          "text": "Revisar programa",
+          "text": "Revisar treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -36362,7 +36362,7 @@
         },
         {
           "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -36374,8 +36374,8 @@
         },
         {
           "tag": "button",
-          "text": "Arquivar o programa atual e usar este",
-          "name": "Arquivar o programa atual e usar este",
+          "text": "Arquivar o treino atual e usar este",
+          "name": "Arquivar o treino atual e usar este",
           "type": "button"
         },
         {
@@ -38382,7 +38382,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -39442,7 +39442,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -39470,25 +39470,25 @@
         },
         {
           "tag": "span",
-          "text": "Há quanto tempo você segue programas estruturados de resistência"
+          "text": "Há quanto tempo você segue treinos estruturados de resistência"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Há quanto tempo você segue programas estruturados de resistência",
-          "labelledBy": "Há quanto tempo você segue programas estruturados de resistência"
+          "name": "Há quanto tempo você segue treinos estruturados de resistência",
+          "labelledBy": "Há quanto tempo você segue treinos estruturados de resistência"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Primeiro programa estruturado",
+          "name": "Primeiro treino estruturado",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Primeiro programa estruturado"
+          "text": "Primeiro treino estruturado"
         },
         {
           "tag": "button",
@@ -39831,7 +39831,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -39850,18 +39850,18 @@
         },
         {
           "tag": "h2",
-          "text": "O que você quer deste programa?",
+          "text": "O que você quer deste treino?",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Escolha o que este programa deve priorizar."
+          "text": "Escolha o que este treino deve priorizar."
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "O que você quer deste programa?",
-          "label": "O que você quer deste programa?"
+          "name": "O que você quer deste treino?",
+          "label": "O que você quer deste treino?"
         },
         {
           "tag": "button",
@@ -40182,7 +40182,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -41558,7 +41558,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -42626,7 +42626,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -43613,7 +43613,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -43627,12 +43627,12 @@
         },
         {
           "tag": "h2",
-          "text": "Programa recomendado",
+          "text": "Treino recomendado",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
+          "text": "As mesmas respostas e regras produzem o mesmo treino todas as vezes."
         },
         {
           "tag": "h3",
@@ -43672,27 +43672,27 @@
         },
         {
           "tag": "button",
-          "text": "Revisar este programa",
-          "name": "Revisar este programa",
+          "text": "Revisar este treino",
+          "name": "Revisar este treino",
           "type": "button"
         },
         {
           "tag": "section",
-          "labelledBy": "Revisar programa"
+          "labelledBy": "Revisar treino"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa"
+          "text": "Revisar treino"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "p",
           "role": "status",
-          "text": "Seu programa atual permanece ativo até você confirmar uma substituição.",
-          "name": "Seu programa atual permanece ativo até você confirmar uma substituição."
+          "text": "Seu treino atual permanece ativo até você confirmar uma substituição.",
+          "name": "Seu treino atual permanece ativo até você confirmar uma substituição."
         },
         {
           "tag": "h3",
@@ -43740,7 +43740,7 @@
         },
         {
           "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -43752,8 +43752,8 @@
         },
         {
           "tag": "button",
-          "text": "Arquivar o programa atual e usar este",
-          "name": "Arquivar o programa atual e usar este",
+          "text": "Arquivar o treino atual e usar este",
+          "name": "Arquivar o treino atual e usar este",
           "type": "button"
         },
         {
@@ -45575,7 +45575,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -45589,12 +45589,12 @@
         },
         {
           "tag": "h2",
-          "text": "Programa recomendado",
+          "text": "Treino recomendado",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
+          "text": "As mesmas respostas e regras produzem o mesmo treino todas as vezes."
         },
         {
           "tag": "h3",
@@ -45634,21 +45634,21 @@
         },
         {
           "tag": "button",
-          "text": "Revisar este programa",
-          "name": "Revisar este programa",
+          "text": "Revisar este treino",
+          "name": "Revisar este treino",
           "type": "button"
         },
         {
           "tag": "section",
-          "labelledBy": "Revisar programa"
+          "labelledBy": "Revisar treino"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa"
+          "text": "Revisar treino"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -45696,7 +45696,7 @@
         },
         {
           "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -45708,8 +45708,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         },
         {
@@ -45897,7 +45897,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -45911,12 +45911,12 @@
         },
         {
           "tag": "h2",
-          "text": "Programa recomendado",
+          "text": "Treino recomendado",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
+          "text": "As mesmas respostas e regras produzem o mesmo treino todas as vezes."
         },
         {
           "tag": "h3",
@@ -45956,21 +45956,21 @@
         },
         {
           "tag": "button",
-          "text": "Revisar este programa",
-          "name": "Revisar este programa",
+          "text": "Revisar este treino",
+          "name": "Revisar este treino",
           "type": "button"
         },
         {
           "tag": "section",
-          "labelledBy": "Revisar programa"
+          "labelledBy": "Revisar treino"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa"
+          "text": "Revisar treino"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -46018,7 +46018,7 @@
         },
         {
           "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -46030,8 +46030,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         },
         {
@@ -47245,7 +47245,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -47259,12 +47259,12 @@
         },
         {
           "tag": "h2",
-          "text": "Programa recomendado",
+          "text": "Treino recomendado",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
+          "text": "As mesmas respostas e regras produzem o mesmo treino todas as vezes."
         },
         {
           "tag": "h3",
@@ -47304,27 +47304,27 @@
         },
         {
           "tag": "button",
-          "text": "Revisar este programa",
-          "name": "Revisar este programa",
+          "text": "Revisar este treino",
+          "name": "Revisar este treino",
           "type": "button"
         },
         {
           "tag": "section",
-          "labelledBy": "Revisar programa"
+          "labelledBy": "Revisar treino"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa"
+          "text": "Revisar treino"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "p",
           "role": "status",
-          "text": "Seu programa atual permanece ativo até você confirmar uma substituição.",
-          "name": "Seu programa atual permanece ativo até você confirmar uma substituição."
+          "text": "Seu treino atual permanece ativo até você confirmar uma substituição.",
+          "name": "Seu treino atual permanece ativo até você confirmar uma substituição."
         },
         {
           "tag": "h3",
@@ -47372,7 +47372,7 @@
         },
         {
           "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -47384,8 +47384,8 @@
         },
         {
           "tag": "button",
-          "text": "Arquivar o programa atual e usar este",
-          "name": "Arquivar o programa atual e usar este",
+          "text": "Arquivar o treino atual e usar este",
+          "name": "Arquivar o treino atual e usar este",
           "type": "button"
         },
         {
@@ -48207,7 +48207,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -48797,7 +48797,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -48812,7 +48812,7 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "Retomar a configuração?Há uma configuração de programa incompleta neste dispositivo.Parou em Recomendação · Prioridades e restrições, guardado a 31 de ago.."
+          "name": "Retomar a configuração?Há uma configuração de treino incompleta neste dispositivo.Você parou em Recomendação · Prioridades e restrições. Salvo em 31 de ago.."
         },
         {
           "tag": "strong",
@@ -48821,11 +48821,11 @@
         },
         {
           "tag": "p",
-          "text": "Há uma configuração de programa incompleta neste dispositivo."
+          "text": "Há uma configuração de treino incompleta neste dispositivo."
         },
         {
           "tag": "p",
-          "text": "Parou em Recomendação · Prioridades e restrições, guardado a 31 de ago.."
+          "text": "Você parou em Recomendação · Prioridades e restrições. Salvo em 31 de ago.."
         },
         {
           "tag": "button",
@@ -49546,7 +49546,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -49566,15 +49566,15 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "As regras do programa mudaramA Taurifer mudou a forma como cria programas desde que guardou este. Reconstrua-o para usar as regras atuais.Recompilar com regras atuais"
+          "name": "As regras do treino mudaramO Taurifer mudou a forma como cria treinos desde que você salvou este. Reconstrua-o para usar as regras atuais.Recompilar com regras atuais"
         },
         {
           "tag": "strong",
-          "text": "As regras do programa mudaram"
+          "text": "As regras do treino mudaram"
         },
         {
           "tag": "p",
-          "text": "A Taurifer mudou a forma como cria programas desde que guardou este. Reconstrua-o para usar as regras atuais."
+          "text": "O Taurifer mudou a forma como cria treinos desde que você salvou este. Reconstrua-o para usar as regras atuais."
         },
         {
           "tag": "button",
@@ -49584,18 +49584,18 @@
         },
         {
           "tag": "h2",
-          "text": "O que você quer deste programa?",
+          "text": "O que você quer deste treino?",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Escolha o que este programa deve priorizar."
+          "text": "Escolha o que este treino deve priorizar."
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "O que você quer deste programa?",
-          "label": "O que você quer deste programa?"
+          "name": "O que você quer deste treino?",
+          "label": "O que você quer deste treino?"
         },
         {
           "tag": "button",
@@ -50752,28 +50752,28 @@
         },
         {
           "tag": "p",
-          "text": "Programa recebido"
+          "text": "Treino recebido"
         },
         {
           "tag": "h1",
-          "text": "Seu programa está pronto para treinar."
+          "text": "Seu treino está pronto para treinar."
         },
         {
           "tag": "p",
-          "text": "Revise o programa que enviaram para você e depois comece neste dispositivo."
+          "text": "Revise o treino que enviaram para você e depois comece neste dispositivo."
         },
         {
           "tag": "button",
-          "name": "Começar este programa Programa do treinador · 1 dia por semana",
+          "name": "Começar este treino Treino do treinador · 1 dia por semana",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Começar este programa"
+          "text": "Começar este treino"
         },
         {
           "tag": "span",
-          "text": "Programa do treinador · 1 dia por semana"
+          "text": "Treino do treinador · 1 dia por semana"
         },
         {
           "tag": "b",
@@ -50789,7 +50789,7 @@
         },
         {
           "tag": "p",
-          "text": "De qualquer forma, o Taurifer transforma isso em um programa completo: seis semanas, divididas nos dias em que você treina, com cada série editável antes de começar."
+          "text": "De qualquer forma, o Taurifer transforma isso em um treino completo: seis semanas, divididas nos dias em que você treina, com cada série editável antes de começar."
         },
         {
           "tag": "dfn",
@@ -50797,7 +50797,7 @@
         },
         {
           "tag": "b",
-          "text": "5 perguntas → um programa"
+          "text": "5 perguntas → um treino"
         },
         {
           "tag": "dfn",
@@ -50825,7 +50825,7 @@
         },
         {
           "tag": "h2",
-          "text": "Registre o treino. O Taurifer decide o próximo passo."
+          "text": "Registre a sessão. O Taurifer decide o próximo passo."
         },
         {
           "tag": "p",
@@ -50897,7 +50897,7 @@
         },
         {
           "tag": "p",
-          "text": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
+          "text": "Monte um treino do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
         },
         {
           "tag": "p",
@@ -50905,7 +50905,7 @@
         },
         {
           "tag": "small",
-          "text": "Funciona sem conexão. Sem conta. Seu histórico de treino fica neste dispositivo e nunca sai dele."
+          "text": "Funciona sem conexão. Sem conta. Seu histórico de sessão fica neste dispositivo e nunca sai dele."
         }
       ]
     },
@@ -50939,28 +50939,28 @@
         },
         {
           "tag": "p",
-          "text": "Programa recebido"
+          "text": "Treino recebido"
         },
         {
           "tag": "h1",
-          "text": "Seu programa está pronto para treinar."
+          "text": "Seu treino está pronto para treinar."
         },
         {
           "tag": "p",
-          "text": "Revise o programa que enviaram para você e depois comece neste dispositivo."
+          "text": "Revise o treino que enviaram para você e depois comece neste dispositivo."
         },
         {
           "tag": "button",
-          "name": "Começar este programa Programa do treinador · 1 dia por semana",
+          "name": "Começar este treino Treino do treinador · 1 dia por semana",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Começar este programa"
+          "text": "Começar este treino"
         },
         {
           "tag": "span",
-          "text": "Programa do treinador · 1 dia por semana"
+          "text": "Treino do treinador · 1 dia por semana"
         },
         {
           "tag": "b",
@@ -50976,7 +50976,7 @@
         },
         {
           "tag": "p",
-          "text": "De qualquer forma, o Taurifer transforma isso em um programa completo: seis semanas, divididas nos dias em que você treina, com cada série editável antes de começar."
+          "text": "De qualquer forma, o Taurifer transforma isso em um treino completo: seis semanas, divididas nos dias em que você treina, com cada série editável antes de começar."
         },
         {
           "tag": "dfn",
@@ -50984,7 +50984,7 @@
         },
         {
           "tag": "b",
-          "text": "5 perguntas → um programa"
+          "text": "5 perguntas → um treino"
         },
         {
           "tag": "dfn",
@@ -51012,7 +51012,7 @@
         },
         {
           "tag": "h2",
-          "text": "Registre o treino. O Taurifer decide o próximo passo."
+          "text": "Registre a sessão. O Taurifer decide o próximo passo."
         },
         {
           "tag": "p",
@@ -51084,7 +51084,7 @@
         },
         {
           "tag": "p",
-          "text": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
+          "text": "Monte um treino do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
         },
         {
           "tag": "p",
@@ -51092,7 +51092,7 @@
         },
         {
           "tag": "small",
-          "text": "Funciona sem conexão. Sem conta. Seu histórico de treino fica neste dispositivo e nunca sai dele."
+          "text": "Funciona sem conexão. Sem conta. Seu histórico de sessão fica neste dispositivo e nunca sai dele."
         }
       ]
     },
@@ -51737,35 +51737,35 @@
         },
         {
           "tag": "h1",
-          "text": "Este link de programa não pode ser usado."
+          "text": "Este link de treino não pode ser usado."
         },
         {
           "tag": "p",
-          "text": "Nada do link foi salvo. Você ainda pode montar ou importar um programa."
+          "text": "Nada do link foi salvo. Você ainda pode montar ou importar um treino."
         },
         {
           "tag": "p",
           "role": "status",
-          "text": "Este link de programa compartilhado é inválido ou está incompleto.",
-          "name": "Este link de programa compartilhado é inválido ou está incompleto."
+          "text": "Este link de treino compartilhado é inválido ou está incompleto.",
+          "name": "Este link de treino compartilhado é inválido ou está incompleto."
         },
         {
           "tag": "button",
-          "name": "Montar meu programa",
+          "name": "Montar meu treino",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Montar meu programa"
+          "text": "Montar meu treino"
         },
         {
           "tag": "button",
-          "name": "Acompanhar meu programa atual",
+          "name": "Acompanhar meu treino atual",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Acompanhar meu programa atual"
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "b",
@@ -51781,7 +51781,7 @@
         },
         {
           "tag": "p",
-          "text": "De qualquer forma, o Taurifer transforma isso em um programa completo: seis semanas, divididas nos dias em que você treina, com cada série editável antes de começar."
+          "text": "De qualquer forma, o Taurifer transforma isso em um treino completo: seis semanas, divididas nos dias em que você treina, com cada série editável antes de começar."
         },
         {
           "tag": "dfn",
@@ -51789,7 +51789,7 @@
         },
         {
           "tag": "b",
-          "text": "5 perguntas → um programa"
+          "text": "5 perguntas → um treino"
         },
         {
           "tag": "dfn",
@@ -51817,7 +51817,7 @@
         },
         {
           "tag": "h2",
-          "text": "Registre o treino. O Taurifer decide o próximo passo."
+          "text": "Registre a sessão. O Taurifer decide o próximo passo."
         },
         {
           "tag": "p",
@@ -51889,25 +51889,25 @@
         },
         {
           "tag": "p",
-          "text": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
+          "text": "Monte um treino do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
         },
         {
           "tag": "button",
-          "name": "Montar meu programa",
+          "name": "Montar meu treino",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Montar meu programa"
+          "text": "Montar meu treino"
         },
         {
           "tag": "button",
-          "name": "Acompanhar meu programa atual",
+          "name": "Acompanhar meu treino atual",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Acompanhar meu programa atual"
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "p",
@@ -51915,7 +51915,7 @@
         },
         {
           "tag": "small",
-          "text": "Funciona sem conexão. Sem conta. Seu histórico de treino fica neste dispositivo e nunca sai dele."
+          "text": "Funciona sem conexão. Sem conta. Seu histórico de sessão fica neste dispositivo e nunca sai dele."
         }
       ]
     },
@@ -52622,7 +52622,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -52632,24 +52632,24 @@
         },
         {
           "tag": "div",
-          "text": "Programa compartilhado"
+          "text": "Treino compartilhado"
         },
         {
           "tag": "h2",
-          "text": "Revisar programa",
+          "text": "Revisar treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu treino ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
-          "text": "Programa do treinador"
+          "text": "Treino do treinador"
         },
         {
           "tag": "p",
-          "text": "Programa Taurifer compartilhado"
+          "text": "Treino Taurifer compartilhado"
         },
         {
           "tag": "span",
@@ -52689,7 +52689,7 @@
         },
         {
           "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -52701,8 +52701,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
           "type": "button"
         },
         {
@@ -53949,25 +53949,25 @@
         },
         {
           "tag": "p",
-          "text": "É só aparecer e treinar. O Taurifer monta seus treinos, registra suas séries e já diz a próxima carga."
+          "text": "É só aparecer e treinar. O Taurifer monta seu treino, registra suas séries e já diz a próxima carga."
         },
         {
           "tag": "button",
-          "name": "Montar meu programa",
+          "name": "Montar meu treino",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Montar meu programa"
+          "text": "Montar meu treino"
         },
         {
           "tag": "button",
-          "name": "Acompanhar meu programa atual",
+          "name": "Acompanhar meu treino atual",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Acompanhar meu programa atual"
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "b",
@@ -53983,7 +53983,7 @@
         },
         {
           "tag": "p",
-          "text": "De qualquer forma, o Taurifer transforma isso em um programa completo: seis semanas, divididas nos dias em que você treina, com cada série editável antes de começar."
+          "text": "De qualquer forma, o Taurifer transforma isso em um treino completo: seis semanas, divididas nos dias em que você treina, com cada série editável antes de começar."
         },
         {
           "tag": "dfn",
@@ -53991,7 +53991,7 @@
         },
         {
           "tag": "b",
-          "text": "5 perguntas → um programa"
+          "text": "5 perguntas → um treino"
         },
         {
           "tag": "dfn",
@@ -54019,7 +54019,7 @@
         },
         {
           "tag": "h2",
-          "text": "Registre o treino. O Taurifer decide o próximo passo."
+          "text": "Registre a sessão. O Taurifer decide o próximo passo."
         },
         {
           "tag": "p",
@@ -54091,25 +54091,25 @@
         },
         {
           "tag": "p",
-          "text": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
+          "text": "Monte um treino do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
         },
         {
           "tag": "button",
-          "name": "Montar meu programa",
+          "name": "Montar meu treino",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Montar meu programa"
+          "text": "Montar meu treino"
         },
         {
           "tag": "button",
-          "name": "Acompanhar meu programa atual",
+          "name": "Acompanhar meu treino atual",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Acompanhar meu programa atual"
+          "text": "Acompanhar meu treino atual"
         },
         {
           "tag": "p",
@@ -54117,7 +54117,7 @@
         },
         {
           "tag": "small",
-          "text": "Funciona sem conexão. Sem conta. Seu histórico de treino fica neste dispositivo e nunca sai dele."
+          "text": "Funciona sem conexão. Sem conta. Seu histórico de sessão fica neste dispositivo e nunca sai dele."
         }
       ]
     },
@@ -54930,7 +54930,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -54940,29 +54940,29 @@
         },
         {
           "tag": "h2",
-          "text": "Criar um programa",
+          "text": "Criar um treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Escolha como começar seu primeiro programa."
+          "text": "Escolha como começar seu primeiro treino."
         },
         {
           "tag": "p",
-          "text": "O Taurifer monta o programa"
+          "text": "O Taurifer monta seu treino"
         },
         {
           "tag": "button",
-          "name": "Recomendar um programaResponda a algumas perguntas. O Taurifer monta o programa.",
+          "name": "Recomendar um treinoResponda a algumas perguntas. O Taurifer monta seu treino.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recomendar um programa"
+          "text": "Recomendar um treino"
         },
         {
           "tag": "span",
-          "text": "Responda a algumas perguntas. O Taurifer monta o programa."
+          "text": "Responda a algumas perguntas. O Taurifer monta seu treino."
         },
         {
           "tag": "aside",
@@ -54976,7 +54976,7 @@
         },
         {
           "tag": "p",
-          "text": "Monte um programa com orientação, escolha uma opção pronta ou traga um programa que você já tem."
+          "text": "Monte um treino com orientação, escolha uma opção pronta ou traga um treino que você já tem."
         },
         {
           "tag": "button",
@@ -54987,33 +54987,33 @@
         },
         {
           "tag": "button",
-          "name": "Criar um programa personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa.",
+          "name": "Criar um treino personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta seu treino.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Criar um programa personalizado"
+          "text": "Criar um treino personalizado"
         },
         {
           "tag": "span",
-          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa."
+          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta seu treino."
         },
         {
           "tag": "p",
-          "text": "Escolha um programa pronto"
+          "text": "Escolha um treino pronto"
         },
         {
           "tag": "button",
-          "name": "Explorar programas TauriferEscolha um programa completo por objetivo e frequência.",
+          "name": "Explorar treinos TauriferEscolha um treino completo por objetivo e frequência.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Explorar programas Taurifer"
+          "text": "Explorar treinos Taurifer"
         },
         {
           "tag": "span",
-          "text": "Escolha um programa completo por objetivo e frequência."
+          "text": "Escolha um treino completo por objetivo e frequência."
         },
         {
           "tag": "p",
@@ -55021,17 +55021,17 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
+          "name": "Usar meu próprio treinoComece com dias vazios, cole qualquer treino ou importe um arquivo Taurifer.",
           "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Usar meu próprio programa"
+          "text": "Usar meu próprio treino"
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
+          "text": "Comece com dias vazios, cole qualquer treino ou importe um arquivo Taurifer."
         }
       ]
     },
@@ -55414,7 +55414,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -55424,35 +55424,35 @@
         },
         {
           "tag": "h2",
-          "text": "Criar um programa",
+          "text": "Criar um treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Escolha como começar seu primeiro programa."
+          "text": "Escolha como começar seu primeiro treino."
         },
         {
           "tag": "p",
           "role": "status",
-          "text": "Seu programa atual permanece ativo até você confirmar uma substituição.",
-          "name": "Seu programa atual permanece ativo até você confirmar uma substituição."
+          "text": "Seu treino atual permanece ativo até você confirmar uma substituição.",
+          "name": "Seu treino atual permanece ativo até você confirmar uma substituição."
         },
         {
           "tag": "p",
-          "text": "O Taurifer monta o programa"
+          "text": "O Taurifer monta seu treino"
         },
         {
           "tag": "button",
-          "name": "Recomendar um programaResponda a algumas perguntas. O Taurifer monta o programa.",
+          "name": "Recomendar um treinoResponda a algumas perguntas. O Taurifer monta seu treino.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recomendar um programa"
+          "text": "Recomendar um treino"
         },
         {
           "tag": "span",
-          "text": "Responda a algumas perguntas. O Taurifer monta o programa."
+          "text": "Responda a algumas perguntas. O Taurifer monta seu treino."
         },
         {
           "tag": "aside",
@@ -55466,7 +55466,7 @@
         },
         {
           "tag": "p",
-          "text": "Monte um programa com orientação, escolha uma opção pronta ou traga um programa que você já tem."
+          "text": "Monte um treino com orientação, escolha uma opção pronta ou traga um treino que você já tem."
         },
         {
           "tag": "button",
@@ -55477,33 +55477,33 @@
         },
         {
           "tag": "button",
-          "name": "Criar um programa personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa.",
+          "name": "Criar um treino personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta seu treino.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Criar um programa personalizado"
+          "text": "Criar um treino personalizado"
         },
         {
           "tag": "span",
-          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa."
+          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta seu treino."
         },
         {
           "tag": "p",
-          "text": "Escolha um programa pronto"
+          "text": "Escolha um treino pronto"
         },
         {
           "tag": "button",
-          "name": "Explorar programas TauriferEscolha um programa completo por objetivo e frequência.",
+          "name": "Explorar treinos TauriferEscolha um treino completo por objetivo e frequência.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Explorar programas Taurifer"
+          "text": "Explorar treinos Taurifer"
         },
         {
           "tag": "span",
-          "text": "Escolha um programa completo por objetivo e frequência."
+          "text": "Escolha um treino completo por objetivo e frequência."
         },
         {
           "tag": "p",
@@ -55511,17 +55511,17 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
+          "name": "Usar meu próprio treinoComece com dias vazios, cole qualquer treino ou importe um arquivo Taurifer.",
           "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Usar meu próprio programa"
+          "text": "Usar meu próprio treino"
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
+          "text": "Comece com dias vazios, cole qualquer treino ou importe um arquivo Taurifer."
         }
       ]
     },
@@ -55852,7 +55852,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar um programa"
+          "label": "Criar um treino"
         },
         {
           "tag": "button",
@@ -55862,29 +55862,29 @@
         },
         {
           "tag": "h2",
-          "text": "Criar um programa",
+          "text": "Criar um treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Escolha como começar seu primeiro programa."
+          "text": "Escolha como começar seu primeiro treino."
         },
         {
           "tag": "p",
-          "text": "O Taurifer monta o programa"
+          "text": "O Taurifer monta seu treino"
         },
         {
           "tag": "button",
-          "name": "Recomendar um programaResponda a algumas perguntas. O Taurifer monta o programa.",
+          "name": "Recomendar um treinoResponda a algumas perguntas. O Taurifer monta seu treino.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recomendar um programa"
+          "text": "Recomendar um treino"
         },
         {
           "tag": "span",
-          "text": "Responda a algumas perguntas. O Taurifer monta o programa."
+          "text": "Responda a algumas perguntas. O Taurifer monta seu treino."
         },
         {
           "tag": "aside",
@@ -55898,7 +55898,7 @@
         },
         {
           "tag": "p",
-          "text": "Monte um programa com orientação, escolha uma opção pronta ou traga um programa que você já tem."
+          "text": "Monte um treino com orientação, escolha uma opção pronta ou traga um treino que você já tem."
         },
         {
           "tag": "button",
@@ -55909,33 +55909,33 @@
         },
         {
           "tag": "button",
-          "name": "Criar um programa personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa.",
+          "name": "Criar um treino personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta seu treino.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Criar um programa personalizado"
+          "text": "Criar um treino personalizado"
         },
         {
           "tag": "span",
-          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa."
+          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta seu treino."
         },
         {
           "tag": "p",
-          "text": "Escolha um programa pronto"
+          "text": "Escolha um treino pronto"
         },
         {
           "tag": "button",
-          "name": "Explorar programas TauriferEscolha um programa completo por objetivo e frequência.",
+          "name": "Explorar treinos TauriferEscolha um treino completo por objetivo e frequência.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Explorar programas Taurifer"
+          "text": "Explorar treinos Taurifer"
         },
         {
           "tag": "span",
-          "text": "Escolha um programa completo por objetivo e frequência."
+          "text": "Escolha um treino completo por objetivo e frequência."
         },
         {
           "tag": "p",
@@ -55943,26 +55943,26 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
+          "name": "Usar meu próprio treinoComece com dias vazios, cole qualquer treino ou importe um arquivo Taurifer.",
           "aria-expanded": "true",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Usar meu próprio programa"
+          "text": "Usar meu próprio treino"
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
+          "text": "Comece com dias vazios, cole qualquer treino ou importe um arquivo Taurifer."
         },
         {
           "tag": "button",
-          "name": "Montar um programaComece com dias de treino vazios e preencha você mesmo.",
+          "name": "Montar um treinoComece com dias de treino vazios e preencha você mesmo.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Montar um programa"
+          "text": "Montar um treino"
         },
         {
           "tag": "span",
@@ -55970,7 +55970,7 @@
         },
         {
           "tag": "button",
-          "name": "Colar de qualquer lugarCole a mensagem do seu treinador ou as suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer.",
+          "name": "Colar de qualquer lugarCole a mensagem do seu treinador ou suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer.",
           "type": "button"
         },
         {
@@ -55979,20 +55979,20 @@
         },
         {
           "tag": "span",
-          "text": "Cole a mensagem do seu treinador ou as suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer."
+          "text": "Cole a mensagem do seu treinador ou suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer."
         },
         {
           "tag": "button",
-          "name": "Importar um programaRevise o arquivo ou a configuração antes de usar o programa.",
+          "name": "Importar um treinoRevise o arquivo ou a configuração antes de usar o treino.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Importar um programa"
+          "text": "Importar um treino"
         },
         {
           "tag": "span",
-          "text": "Revise o arquivo ou a configuração antes de usar o programa."
+          "text": "Revise o arquivo ou a configuração antes de usar o treino."
         }
       ]
     }

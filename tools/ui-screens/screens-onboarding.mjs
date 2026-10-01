@@ -211,7 +211,7 @@ async function importTo(page, step) {
   const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
   if (step === "review") {
     const program = {
-      meta: { name: portuguese ? "Programa de catálogo importado" : "Imported catalog program" },
+      meta: { name: portuguese ? "Treino de catálogo importado" : "Imported catalog program" },
       exercises: [
         {
           id: "bench1", day: portuguese ? "Dia 1" : "Day 1",
@@ -248,7 +248,7 @@ async function importTo(page, step) {
     return;
   }
   const program = {
-    meta: { name: portuguese ? "Programa de catálogo importado" : "Imported catalog program" },
+    meta: { name: portuguese ? "Treino de catálogo importado" : "Imported catalog program" },
     exercises: [{
       id: "bench", day: portuguese ? "Dia 1" : "Day 1",
       name: portuguese ? "Supino reto com barra" : "Barbell bench press",
@@ -371,7 +371,7 @@ function sharedPayloadFor(portuguese) {
     ...MINIMAL_PAYLOAD,
     program: {
       ...MINIMAL_PAYLOAD.program,
-      meta: { ...MINIMAL_PAYLOAD.program.meta, name: "Programa do treinador" },
+      meta: { ...MINIMAL_PAYLOAD.program.meta, name: "Treino do treinador" },
     },
     settings: { ...MINIMAL_PAYLOAD.settings, lang: "pt" },
   };

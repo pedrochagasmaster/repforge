@@ -116,7 +116,7 @@ async function assertDockFitsExternalTextScale(page) {
         && label.rect.top < other.rect.bottom - 1 && other.rect.top < label.rect.bottom - 1));
       const lang = root.lang.toLowerCase();
       const expectedLabels = lang.startsWith("pt")
-        ? ["Hoje", "Progresso", "Histórico", "Programa"]
+        ? ["Hoje", "Progresso", "Histórico", "Treino"]
         : ["Today", "Progress", "History", "Program"];
       return {
         rootFontSize: getComputedStyle(root).fontSize,
