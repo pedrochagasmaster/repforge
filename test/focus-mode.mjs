@@ -176,6 +176,25 @@ const cardState = (page) =>
       cueL1: text(card.querySelector(".fx-cue__l1")),
       cueL2: text(card.querySelector(".fx-cue__l2")),
       cueKind: [...(card.querySelector(".fx-cue")?.classList || [])].find((c) => c.startsWith("is-")) || "",
+      // The cue's inline mark is the shared verdict mark: its variant, whether the glyph is drawn, and whether
+      // its colour is the ink token, so a test can tell the accent from ink.
+      cueMark: (() => {
+        const mark = card.querySelector(".fx-cue .verdictmark");
+        const glyph = mark?.querySelector(".verdictmark__glyph");
+        if (!glyph) return null;
+        const ink = document.createElement("i");
+        ink.style.color = "var(--color-ink)";
+        document.body.append(ink);
+        const inkColor = getComputedStyle(ink).color;
+        ink.remove();
+        const style = getComputedStyle(glyph);
+        return {
+          variant: [...mark.classList].find((c) => c.startsWith("verdictmark--"))?.slice(13) || "",
+          drawn: glyph.getBoundingClientRect().width > 0 && (style.webkitMaskImage || style.maskImage) !== "none",
+          ink: style.backgroundColor === inkColor,
+          hidden: glyph.getAttribute("aria-hidden") === "true",
+        };
+      })(),
       meta: text(card.querySelector(".focus-ex__meta")),
       rows: rows.length,
       logged: logged.length,
@@ -201,6 +220,17 @@ const cardState = (page) =>
       pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
   });
+
+/** The cue's inline mark is the shared verdict mark, drawn from the move its sentence names: hold is the ink
+ *  "=", down the ink arrow and up the only accent mark. Returns the move so a state can pin which one it reads. */
+function assertCueMark(st, where) {
+  const move = /^go up/i.test(st.cueL1) ? "up" : /^drop/i.test(st.cueL1) ? "down" : /^hold/i.test(st.cueL1) ? "hold" : "";
+  assert(move && st.cueMark && st.cueMark.variant === move && st.cueMark.drawn && st.cueMark.hidden,
+    `${where}: the cue draws the shared verdict mark for the move its sentence names`, JSON.stringify({ move, cueL1: st.cueL1, mark: st.cueMark }));
+  assert(st.cueMark && (move === "up" ? !st.cueMark.ink : st.cueMark.ink),
+    `${where}: the cue's mark is ink unless it is the up arrow, the only accent mark`, JSON.stringify(st.cueMark));
+  return move;
+}
 
 async function main() {
   const browser = await launchChromium();
@@ -247,6 +277,7 @@ async function main() {
     "each of last session's four sets rides under its own row", JSON.stringify(st));
   assert(st.cueKind === "is-now" && /\d/.test(st.cueL1) && /reps/.test(st.cueL2),
     "the cue names the load to work at and the reps to aim for", JSON.stringify(st));
+  assertCueMark(st, "State 02");
   const pastLayout = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
     const prev = [...card.querySelectorAll(".ledgerline__prev")].map((el) => el.textContent.replace(/\s+/g, " ").trim());
@@ -284,6 +315,8 @@ async function main() {
   await logSets(page, 2);
   st = await cardState(page);
   assert(st.logged === 2 && st.rows === 5, "two logged sets read back in the ledger and every set keeps its row", JSON.stringify(st));
+  // Two sets at the same load: the next set holds that load, so the cue draws the ink "=".
+  assert(assertCueMark(st, "State 03") === "hold", "a set that repeats the load just logged reads as a hold", JSON.stringify({ cueL1: st.cueL1, mark: st.cueMark }));
   assert(/3/.test(st.ctaText) && st.ctaText.toLowerCase() === "log set 3",
     "the action advances to set 3", st.ctaText);
   assert(st.shelfHeight === shelfBefore,

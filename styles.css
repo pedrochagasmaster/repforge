@@ -985,7 +985,7 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
   margin:0 0 var(--space-12);
 }
 .fx-cue__mark{
-  grid-column:1;grid-row:1;justify-self:start;
+  display:flex;grid-column:1;grid-row:1;justify-self:start;
   padding-top:calc((var(--font-size-section-title) * var(--line-tight) - 16px) / 2);
 }
 .fx-cue__l1{

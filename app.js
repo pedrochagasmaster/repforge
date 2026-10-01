@@ -6905,9 +6905,9 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const note=noteVal?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(noteVal)}</span></p>`:"";
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
   const cue=n?focusCue(ex,n,r,draft,prev,editing):null;
-  const mark=cue&&(cue.move==="up"||cue.move==="down")
-    ?`<span class="verdictmark verdictmark--${cue.move} fx-cue__mark"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`
-    :`<span class="fx-cue__mark" aria-hidden="true"></span>`;
+  // The cue's mark is the shared verdict mark, so hold draws the ink "=" and up the orange arrow exactly as
+  // the Why headline does. The column stays when the cue has no mark, so the lines never shift.
+  const mark=`<span class="fx-cue__mark" aria-hidden="true">${cue?verdictMarkHtml(cue.move):""}</span>`;
   const why=r.status!=="new"||inSessionNote(ex,draft)
     ?`<button type="button" class="text-link focus-ex__why fx-cue__why"${peek?dead()
       :` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"";
