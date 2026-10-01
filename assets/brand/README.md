@@ -40,6 +40,41 @@ The service worker precaches only the four `today-ready` hero variants. The
 other 28 renders load on demand. The complete design and reproduction notes
 live in [`docs/design/plan-054-landing-prototype`](../../docs/design/plan-054-landing-prototype/README.md).
 
+## Landing proof images (interim)
+
+The final landing's walkthrough and the paste-way disclosure use real-app
+captures, regenerated with repo tooling and never copied from the #276
+prototype. `tools/capture-landing-proof.mjs` owns them:
+
+```
+node tools/capture-landing-proof.mjs --proof <scratch-dir>   # capture 12 WebP files + the spots JSON
+node tools/capture-landing-proof.mjs --check                 # recapture nothing; fail on a stale lens
+```
+
+`--proof` rebuilds the bench "add" state from `test/fixtures/landing-proof.json`
+(last session 3 × 60 kg × 10 at RIR 2), asserts the real Focus inputs are
+62.5 kg × 8, and writes to the directory you name, never into this one. Copy the
+files here deliberately. `REPFORGE_URL` names the served worktree and
+`REPFORGE_CHROME` the pinned Chromium. `landing-proof-spots.json` holds the lens
+hotspots (percentages of the 390×844 frame, measured from the live DOM, stored
+once per scene because EN and PT must agree) and the paste-review counts. Commit
+it with the images. `--check` re-measures and fails when it drifts, so R3, R4
+and R6 find a stale lens before it ships.
+
+| Files | Frame | Shows | Status |
+| --- | --- | --- | --- |
+| `wt-focus-{en,pt}-dark.webp` | 390×844 @2×, dark only | Focus, set 1 of 3, last session, the Now line | Interim: regenerate if R3 reshapes Focus |
+| `wt-rest-{en,pt}-dark.webp` | same | The rest sheet after Log set | Interim: retires with the rest sheet in R3 |
+| `wt-actions-{en,pt}-dark.webp` | same | The exercise-actions sheet | Interim: changes with the sheet band in R3 |
+| `wt-note-{en,pt}-dark.webp` | same | The exercise-note sheet with a typed note | Interim: changes with the sheet band in R3 |
+| `paste-review-{en,pt}-{light,dark}.webp` | 390 CSS px wide @2×, cropped from the import-review header through the first row | The review screen for the landing's sample coach message | Interim: changes in R4 |
+| `exercise-chart-{en,pt}-{light,dark}.webp` | 903×1832, Form iPhone Studio | The old Progress chart | Interim: changes in R3 Progress; its renderer lives outside the repo |
+
+Every interim image is regenerated before R6 closes (Plan 064 reconciliation
+C-03). The paste-review counts are read off the captured DOM and can differ by
+language (the library's Portuguese names match the sample less exactly), so the
+landing's alt text uses each language's own count, as `--proof` prints them.
+
 ## `landing-workout-{en,pt}-{light,dark}.webp` (historical)
 
 The previous landing used four renders of the actual Taurifer Focus screen.

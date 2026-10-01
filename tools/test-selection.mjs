@@ -187,6 +187,11 @@ const EXPLICIT_INPUT_RULES = [
     why: "UI screen semantic baseline",
   },
   {
+    match: /^assets\/brand\/landing-proof-spots\.json$/,
+    suiteFiles: ["test/landing-proof-capture.mjs"],
+    why: "landing proof lens hotspots; a measurement record, not rendered UI (tools/capture-landing-proof.mjs --check owns drift)",
+  },
+  {
     match: /^tools\/check-direction-d\.mjs$/,
     suiteFiles: ["test/direction-d-gate.mjs"],
     why: "Direction D acceptance gate",

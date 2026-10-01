@@ -1,33 +1,188 @@
+#!/usr/bin/env node
+/**
+ * Landing proof tooling (Plan 064 R2a-3). Everything here drives the real app;
+ * nothing is redrawn, copied from a prototype or hand-typed.
+ *
+ *   --proof <dir>      Capture the landing's real-app proof images into <dir>:
+ *                        wt-{focus,rest,actions,note}-{en,pt}-dark.webp   (8; 390x844 @2x, dark only)
+ *                        paste-review-{en,pt}-{light,dark}.webp            (4; the import-review screen)
+ *                        landing-proof-spots.json                          (lens hotspots + paste counts)
+ *                        proof-report.json                                 (sizes, counts, review rows)
+ *                      Prints the linked / to-review counts read off each captured paste-review
+ *                      DOM. Never writes into assets/brand/: copy the files there deliberately.
+ *     --scenes a,b       limit to some of focus,rest,actions,note,paste-review
+ *     --spots-only       measure and write the JSON only (no WebP files)
+ *   --check            Capture nothing. Re-measure every lens hotspot (and the paste-review counts)
+ *                      and fail when the stored JSON no longer matches the live DOM, so R3 / R4 / R6
+ *                      cannot ship a lens over the wrong pixels.
+ *     --spots <file>     the stored JSON (default assets/brand/landing-proof-spots.json)
+ *     --scenes a,b       limit the re-measure
+ *   --source <dir>     (historical) 430x932 @3x PNG source captures of the "add" Focus state.
+ *   --matrix <dir>     (historical) landing layout matrix. Its composition assertions belonged to the
+ *                      retired landing; only generic geometry / reachability / image checks remain, so it
+ *                      depends on no landing composition markup. --fault-overflow still proves the
+ *                      overflow check bites; the --fault-narrow / --fault-wrap switches went with the
+ *                      composition they targeted.
+ *
+ * Every mode reads REPFORGE_URL (default http://localhost:8000/) and, when the pinned Chromium is not on
+ * the default path, REPFORGE_CHROME. The Focus state is rebuilt from test/fixtures/landing-proof.json
+ * (bench, 8-10 reps, last session 3 x 60 kg x 10 at RIR 2) and the tool asserts the real Focus inputs are
+ * 62.5 kg x 8 before it captures, so a wrong recommendation fails here, not on the page. Safe-area insets
+ * resolve to 59px / 34px (browser-layout emulation, not physical iPhone evidence). Hotspots are percentages
+ * of the frame, [centre x, centre y, width, height], read from the selectors in SPOT_TARGETS, the one place
+ * to edit when a surface changes. English and Portuguese must agree on every hotspot (they are stored once).
+ *
+ * Interim status of each image this produces: assets/brand/README.md.
+ */
 import assert from 'node:assert/strict';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
+import {createRequire} from 'node:module';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {parseArgs} from 'node:util';
 import {launchChromium, waitForAppBoot} from '../test/browser.mjs';
 import {MINIMAL_PAYLOAD, BUILT_IN_IDS} from '../test/fixtures/shared-setup.mjs';
 import {settle} from './ui-screens/session.mjs';
 
-const {values} = parseArgs({options: {
-  cases: {type: 'string'}, source: {type: 'string'}, matrix: {type: 'string'}, 'fault-next': {type: 'boolean'}, 'fault-overflow': {type: 'boolean'}, 'fault-narrow': {type: 'boolean'}, 'fault-wrap': {type: 'boolean'},
-}});
-assert(Boolean(values.source) !== Boolean(values.matrix), 'Choose --source outputdir or --matrix outputdir');
-const output = resolve(values.source || values.matrix);
+const ROOT = new URL('../', import.meta.url);
+export const DEFAULT_SPOTS_FILE = fileURLToPath(new URL('assets/brand/landing-proof-spots.json', ROOT));
+export const PROOF_FRAME = {width: 390, height: 844, scale: 2};
+export const SAFE_INSETS = {top: 59, bottom: 34};
+export const SPOT_SCHEMA = 1;
+/** Percentage points of the frame a re-measure may move before a stored spot counts as stale. */
+export const SPOT_TOLERANCE = 0.1;
+export const WEBP_QUALITY = 0.86;
+export const LANGS = ['en', 'pt'];
+export const PASTE_SCENE = 'paste-review';
+export const PASTE_THEMES = ['light', 'dark'];
+const NOTE = {
+  en: 'Bench on 4, grip one finger past the ring.',
+  pt: 'Banco no 4, pegada um dedo além da marca.',
+};
+
+/**
+ * The one selector table. Every lens hotspot is a box read from these elements.
+ * `card` is the Focus card in play; the rest live in the sheets the scenes open.
+ * When R3 reshapes a surface, edit here and re-run --proof.
+ */
+export const SPOT_TARGETS = {
+  card: '#workout .is-current',
+  cue: '.focus-cue.is-now',
+  ledgerHead: '.ledger__head > span',
+  ledgerRow: '.ledger__row',
+  dial: '#restSheet .restdial',
+  swap: '#exActionSubstBtn',
+  note: '#exNoteText',
+};
+
+/** Scene table: the runner name, the spots it owns, and what the frame must show. */
+export const PROOF_SCENES = [
+  {name: 'focus', spots: ['cue', 'log', 'last'], shows: 'Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, Now line 62.5 x 8'},
+  {name: 'rest', spots: ['dial'], shows: 'the rest sheet after Log set (retires with the sheet in R3)'},
+  {name: 'actions', spots: ['swap'], shows: 'the exercise-actions sheet'},
+  {name: 'note', spots: ['text'], shows: 'the exercise-note sheet with a typed note'},
+];
+export const sceneFile = (scene, lang) => `wt-${scene}-${lang}-dark.webp`;
+export const pasteFile = (lang, theme) => `paste-review-${lang}-${theme}.webp`;
+export const outputFiles = () => [
+  ...PROOF_SCENES.flatMap(scene => LANGS.map(lang => sceneFile(scene.name, lang))),
+  ...LANGS.flatMap(lang => PASTE_THEMES.map(theme => pasteFile(lang, theme))),
+];
+
+const round2 = value => Number(value.toFixed(2));
+
+/** Compare stored hotspots / counts with a fresh measurement. Returns problem strings; [] means no drift. */
+export function compareSpots(stored, measured, tolerance = SPOT_TOLERANCE) {
+  if (!stored || typeof stored !== 'object') return ['stored spots are missing or not an object'];
+  const problems = [];
+  if (stored.schema !== SPOT_SCHEMA) problems.push(`schema ${stored.schema} != ${SPOT_SCHEMA}`);
+  for (const key of ['width', 'height', 'scale']) {
+    if (stored.frame?.[key] !== measured.frame[key]) problems.push(`frame.${key} ${stored.frame?.[key]} != ${measured.frame[key]}`);
+  }
+  const storedScenes = stored.scenes || {};
+  const storedAny = Object.keys(storedScenes).length > 0 || Object.keys(stored.pasteReview || {}).length > 0;
+  if (!storedAny) {
+    problems.push('stored spots are empty (placeholder): run --proof <dir> and commit the generated landing-proof-spots.json');
+    return problems;
+  }
+  for (const [scene, spots] of Object.entries(measured.scenes)) {
+    if (!storedScenes[scene]) { problems.push(`${scene}: scene not stored`); continue; }
+    for (const [id, box] of Object.entries(spots)) {
+      const old = storedScenes[scene][id];
+      if (!Array.isArray(old) || old.length !== 4) { problems.push(`${scene}.${id}: not stored`); continue; }
+      const moved = box.map((value, index) => round2(value - old[index]));
+      if (moved.some(delta => Math.abs(delta) > tolerance)) {
+        problems.push(`${scene}.${id}: stored [${old}] but live [${box}] (delta [${moved}], tolerance ${tolerance})`);
+      }
+    }
+    for (const id of Object.keys(storedScenes[scene])) {
+      if (!(id in spots)) problems.push(`${scene}.${id}: stored but no longer measured`);
+    }
+  }
+  const storedPaste = stored.pasteReview || {};
+  for (const [lang, counts] of Object.entries(measured.pasteReview || {})) {
+    if (!storedPaste[lang]) { problems.push(`pasteReview.${lang}: not stored`); continue; }
+    for (const key of ['linked', 'review', 'custom']) {
+      if (storedPaste[lang][key] !== counts[key]) problems.push(`pasteReview.${lang}.${key}: stored ${storedPaste[lang][key]} but live ${counts[key]}`);
+    }
+  }
+  return problems;
+}
+
+/** Dimensions of a WebP (lossy VP8 or extended VP8X), or null when the bytes are not WebP. */
+export function webpSize(buffer) {
+  if (buffer.length < 30 || buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') return null;
+  const kind = buffer.toString('ascii', 12, 16);
+  if (kind === 'VP8 ') return {width: buffer.readUInt16LE(26) & 0x3fff, height: buffer.readUInt16LE(28) & 0x3fff};
+  if (kind === 'VP8X') return {width: 1 + buffer.readUIntLE(24, 3), height: 1 + buffer.readUIntLE(27, 3)};
+  return null;
+}
+
+/** The coach message and the reply an assistant would give for it, both derived from the landing catalog. */
+export function pasteSample(catalog) {
+  const message = catalog['landing.ways.paste.message'];
+  assert(message, 'landing.ways.paste.message is missing from the catalog');
+  const [header, ...lines] = message.split('\n');
+  const day = header.split('·')[0].trim();
+  const exercises = lines.map((line, index) => {
+    const match = /^(.+?)\s+(\d+)x(\d+)-(\d+)$/.exec(line.trim());
+    assert(match, `paste sample line is not "<name> SxA-B": ${JSON.stringify(line)}`);
+    return {day, order: index + 1, name: match[1], sets: Number(match[2]), min: Number(match[3]), max: Number(match[4])};
+  });
+  return {message, reply: JSON.stringify({version: 3, meta: {name: day}, exercises}), exercises};
+}
+
+const catalogs = {};
+async function catalog(lang) {
+  catalogs[lang] ||= JSON.parse(await readFile(new URL(`i18n-${lang}.json`, ROOT), 'utf8'));
+  return catalogs[lang];
+}
+
+/** Every one-time guide dismissed at its current version: a returning lifter's screen has none of them. */
+const {GUIDE_DEFINITIONS} = createRequire(import.meta.url)('../guide-registry.js');
+const QUIET_GUIDES = Object.fromEntries(GUIDE_DEFINITIONS.map(guide =>
+  [guide.id, {version: guide.version, status: 'dismissed', lastTransitionAt: null}]));
+
+const fixture = JSON.parse(await readFile(new URL('test/fixtures/landing-proof.json', ROOT), 'utf8'));
 const base = process.env.REPFORGE_URL || 'http://localhost:8000/';
-const fixture = JSON.parse(await readFile(new URL('../test/fixtures/landing-proof.json', import.meta.url), 'utf8'));
-await mkdir(output, {recursive: true});
-const report = {mode: values.source ? 'source' : 'matrix', cases: []};
 
 async function safeInsets(page) {
   await page.route('**/styles.css', async route => {
     const response = await route.fetch();
     await route.fulfill({response, body: (await response.text())
-      .replaceAll('env(safe-area-inset-top)', '59px')
-      .replaceAll('env(safe-area-inset-bottom)', '34px')});
+      .replaceAll('env(safe-area-inset-top)', `${SAFE_INSETS.top}px`)
+      .replaceAll('env(safe-area-inset-bottom)', `${SAFE_INSETS.bottom}px`)});
   });
 }
 
-async function open(browser, {width = 430, height = 932, lang = 'en', theme = 'light', scale = 1,
-  source = false, insets = false, forcedColors = 'none', reducedMotion = 'reduce'}) {
-  const context = await browser.newContext({viewport: {width, height}, deviceScaleFactor: source ? 3 : 1,
+/**
+ * One isolated page. `source` seeds the bench program and marks the landing seen;
+ * `program: false, seen: true` is a fresh device that skips the landing;
+ * `quiet` marks every one-time guide seen so a returning lifter's screen is captured.
+ */
+async function open(browser, {width = 430, height = 932, lang = 'en', theme = 'light', scale = 1, dpr,
+  source = false, program = source, seen = source, quiet = false, insets = false, forcedColors = 'none', reducedMotion = 'reduce'}) {
+  const context = await browser.newContext({viewport: {width, height}, deviceScaleFactor: dpr ?? (source ? 3 : 1),
     locale: lang === 'pt' ? 'pt-BR' : 'en-US', timezoneId: 'UTC', colorScheme: theme,
     serviceWorkers: 'block', reducedMotion, forcedColors});
   const page = await context.newPage();
@@ -47,36 +202,42 @@ async function open(browser, {width = 430, height = 932, lang = 'en', theme = 'l
       row.session = '2026-08-28_Superiores_landing';
     }
   }
-  await page.addInitScript(({state, lang, theme, source, scale}) => {
+  await page.addInitScript(({state, theme, program, seen, guideState, scale}) => {
     if (!sessionStorage.getItem('landing-proof-seeded')) {
-      localStorage.setItem('repforge_ui_v1', JSON.stringify({theme, ...(source ? {entryLandingSeen: true} : {})}));
-      if (source) localStorage.setItem('repforge_v1', JSON.stringify(state));
+      localStorage.setItem('repforge_ui_v1', JSON.stringify({theme, ...(seen ? {entryLandingSeen: true} : {}), ...(guideState ? {guideState} : {})}));
+      if (program) localStorage.setItem('repforge_v1', JSON.stringify(state));
       sessionStorage.setItem('landing-proof-seeded', '1');
     }
     document.addEventListener('DOMContentLoaded', () => {
       document.documentElement.style.fontSize = `${scale * 100}%`;
     }, {once: true});
-  }, {state, lang, theme, source, scale});
+  }, {state, theme, program, seen, guideState: quiet ? QUIET_GUIDES : null, scale});
   await page.goto(base);
   await waitForAppBoot(page, {base});
   return {page, context, state};
 }
 
-async function captureSource(browser) {
-  for (const lang of ['en', 'pt']) for (const theme of ['light', 'dark']) {
+/** Enter the bench session in Focus and prove the recommendation the page will claim. */
+async function assertFocus(page, state, name) {
+  await page.evaluate(day => window.__repforgeEnterWorkout({focus: true, day}), state.program[0].day);
+  await settle(page);
+  const load = page.locator('#workout input[data-k="ex-bench_1_load"]');
+  const reps = page.locator('#workout input[data-k="ex-bench_1_reps"]');
+  assert.equal(Number((await load.inputValue()).replace(',', '.')), 62.5, `${name}: actual Focus next load`);
+  assert.equal(Number(await reps.inputValue()), 8, `${name}: actual Focus next reps`);
+  const rows = await page.locator('#workout .ledger__row.is-past').evaluateAll(elements =>
+    elements.map(row => [...row.children].map(cell => cell.textContent.trim())));
+  assert.deepEqual(rows, [['1', '60', '10', '2'], ['2', '60', '10', '2'], ['3', '60', '10', '2']],
+    `${name}: actual last-session ledger`);
+  return rows;
+}
+
+async function captureSource(browser, output, report) {
+  for (const lang of LANGS) for (const theme of ['light', 'dark']) {
     const name = `workout-${lang}-${theme}`;
     const {page, context, state} = await open(browser, {lang, theme, source: true, insets: true});
     try {
-      await page.evaluate(day => window.__repforgeEnterWorkout({focus: true, day}), state.program[0].day);
-      await settle(page);
-      const load = page.locator('#workout input[data-k="ex-bench_1_load"]');
-      const reps = page.locator('#workout input[data-k="ex-bench_1_reps"]');
-      assert.equal(Number((await load.inputValue()).replace(',', '.')), 62.5, `${name}: actual Focus next load`);
-      assert.equal(Number(await reps.inputValue()), 8, `${name}: actual Focus next reps`);
-      const rows = await page.locator('#workout .ledger__row.is-past').evaluateAll(elements =>
-        elements.map(row => [...row.children].map(cell => cell.textContent.trim())));
-      assert.deepEqual(rows, [['1', '60', '10', '2'], ['2', '60', '10', '2'], ['3', '60', '10', '2']],
-        `${name}: actual last-session ledger`);
+      const rows = await assertFocus(page, state, name);
       await page.screenshot({path: `${output}/${name}.png`});
       await page.evaluate(day => window.__repforgeEnterWorkout({focus: false, day}), state.program[0].day);
       await settle(page);
@@ -101,6 +262,206 @@ async function captureSource(browser) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Proof scenes, hotspots and paste-review                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Runs in the page. Boxes are percentages of the frame: [centre x, centre y, width, height], clipped to
+ * what the person can actually see (a scrolling ancestor hides part of a box, and the lens must not
+ * magnify pixels that are not on the screen).
+ */
+function measureInPage({scene, targets, logLabel}) {
+  const W = innerWidth, H = innerHeight;
+  const pct = (left, top, right, bottom) => [left + (right - left) / 2, top + (bottom - top) / 2, right - left, bottom - top]
+    .map((value, index) => +(100 * value / (index % 2 ? H : W)).toFixed(2));
+  const visible = (scope, selector) => [...scope.querySelectorAll(selector)].find(e => e.getClientRects().length && e.getBoundingClientRect().width);
+  const need = (element, what) => { if (!element) throw new Error(`${scene}: no visible element for ${what}`); return element; };
+  // The rectangle [left, top, right, bottom] of `rect` clipped by every clipping ancestor of `element`.
+  const clipped = (element, rect) => {
+    let [left, top, right, bottom] = [rect.left, rect.top, rect.right, rect.bottom];
+    for (let node = element.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
+      const box = node.getBoundingClientRect();
+      left = Math.max(left, box.left); top = Math.max(top, box.top); right = Math.min(right, box.right); bottom = Math.min(bottom, box.bottom);
+    }
+    left = Math.max(left, 0); top = Math.max(top, 0); right = Math.min(right, W); bottom = Math.min(bottom, H);
+    if (right <= left || bottom <= top) throw new Error(`${scene}: element is not on screen`);
+    return [left, top, right, bottom];
+  };
+  const boxOf = (element, what) => pct(...clipped(need(element, what), element.getBoundingClientRect()));
+  if (scene === 'focus') {
+    const card = need(visible(document, targets.card), targets.card);
+    const head = card.querySelectorAll(targets.ledgerHead);
+    const row = need(card.querySelector(targets.ledgerRow), targets.ledgerRow);
+    const cells = [...row.children];
+    const first = need(head[1], `${targets.ledgerHead}[1]`).getBoundingClientRect();
+    const last = cells[cells.length - 1].getBoundingClientRect();
+    const log = [...card.querySelectorAll('button')].find(b => b.textContent.trim().toLowerCase() === logLabel.toLowerCase());
+    return {
+      cue: boxOf(card.querySelector(targets.cue), `${targets.card} ${targets.cue}`),
+      log: boxOf(log, `button "${logLabel}"`),
+      // From the ledger head through the first last-session row, as far as it is on screen.
+      last: pct(...clipped(row, {left: first.left, top: first.top, right: last.right, bottom: row.getBoundingClientRect().bottom})),
+    };
+  }
+  if (scene === 'rest') return {dial: boxOf(visible(document, targets.dial), targets.dial)};
+  if (scene === 'actions') return {swap: boxOf(visible(document, targets.swap), targets.swap)};
+  if (scene === 'note') {
+    // The first line of the textarea: its full text column, one line tall.
+    const area = need(visible(document, targets.note), targets.note);
+    const style = getComputedStyle(area), r = area.getBoundingClientRect();
+    const left = r.left + area.clientLeft, top = r.top + area.clientTop + parseFloat(style.paddingTop);
+    const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
+    return {text: pct(...clipped(area, {left, top, right: left + area.clientWidth, bottom: top + line}))};
+  }
+  throw new Error(`unknown scene ${scene}`);
+}
+
+const RUNNERS = {
+  focus: async () => {},
+  rest: async (page, {logLabel}) => {
+    await page.locator(`${SPOT_TARGETS.card} button`, {hasText: new RegExp(`^\\s*${logLabel}\\s*$`, 'i')}).first().click();
+    await page.waitForFunction(() => document.querySelector('#woRest')?.classList.contains('is-running'), undefined, {timeout: 20000});
+    await page.click('#woRest');
+    await page.waitForSelector('#restSheet.is-open', {timeout: 20000});
+  },
+  actions: async page => {
+    await page.locator(`${SPOT_TARGETS.card} [data-exactions-open]`).click();
+    await page.waitForSelector(SPOT_TARGETS.swap, {state: 'visible', timeout: 20000});
+    await page.evaluate(() => { const body = document.querySelector('.exactions-sheet__body'); if (body) body.scrollTop = 0; });
+  },
+  note: async (page, {lang}) => {
+    await page.locator('#workout [data-exnote-open]').first().click();
+    await page.waitForSelector('#exNoteSheet.is-open', {timeout: 20000});
+    await page.fill(SPOT_TARGETS.note, NOTE[lang]);
+    await page.evaluate(() => document.activeElement?.blur());
+  },
+};
+
+/** Encode a PNG as WebP in the page's own Chromium; no image tool is needed. */
+async function encodeWebp(page, png) {
+  const b64 = await page.evaluate(async ({data, quality}) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${data}`;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    canvas.getContext('2d').drawImage(image, 0, 0);
+    return canvas.toDataURL('image/webp', quality).split(',')[1];
+  }, {data: png.toString('base64'), quality: WEBP_QUALITY});
+  return Buffer.from(b64, 'base64');
+}
+
+async function captureScene(browser, scene, lang, {images}) {
+  const name = `${scene}-${lang}`;
+  const {page, context, state} = await open(browser, {width: PROOF_FRAME.width, height: PROOF_FRAME.height, dpr: PROOF_FRAME.scale, lang, theme: 'dark',
+    source: true, quiet: true, insets: true});
+  try {
+    await assertFocus(page, state, name);
+    const logLabel = (await catalog(lang))['today.log_set'];
+    await RUNNERS[scene](page, {lang, logLabel});
+    await settle(page);
+    const spots = await page.evaluate(measureInPage, {scene, targets: SPOT_TARGETS, logLabel});
+    const webp = images ? await encodeWebp(page, await page.screenshot({type: 'png'})) : null;
+    return {spots, webp};
+  } finally {await context.close();}
+}
+
+/** The import-review screen for the final page's sample coach message, through the real paste door. */
+async function capturePasteReview(browser, lang, theme, {images}) {
+  const name = `${PASTE_SCENE}-${lang}-${theme}`;
+  const sample = pasteSample(await catalog(lang));
+  const {page, context} = await open(browser, {width: PROOF_FRAME.width, height: 1400, dpr: PROOF_FRAME.scale, lang, theme,
+    seen: true, quiet: true, insets: true});
+  try {
+    await page.evaluate(() => window.closeFirstRun?.());
+    await page.evaluate(() => window.startOnboarding('settings'));
+    await page.waitForSelector('#onboarding.active .entry__hub', {timeout: 20000});
+    await page.click('#entryOwnToggle');
+    await page.click('#entryFreeformStart');
+    await page.fill('#entryFreeformIn', sample.message);
+    await page.waitForFunction(() => document.querySelector('#entryFreeformNeeds')?.hidden === true, undefined, {timeout: 20000});
+    await page.click('#entryFreeformContinue');
+    await page.click('#entryFreeformCopy');
+    await page.waitForSelector('#entryFreeformOut', {timeout: 20000});
+    await page.fill('#entryFreeformOut', sample.reply);
+    await page.click('#entryFreeformReview');
+    await page.waitForSelector('#importReview.active #importRows .improw', {timeout: 25000});
+    await page.waitForFunction(() => document.querySelector('#toast')?.classList.contains('hidden') !== false, undefined, {timeout: 10000});
+    await settle(page);
+    const found = await page.evaluate(() => ({
+      counts: [...document.querySelectorAll('#importCounts .impcount')].map(item => ({
+        n: Number(item.querySelector('b').textContent), label: item.textContent.replace(/^\s*\d+/, '').trim()})),
+      rows: [...document.querySelectorAll('#importRows .improw')].map(row => ({
+        typed: row.querySelector('.improw__from')?.textContent.trim(),
+        suggested: row.querySelector('.improw__name')?.textContent.trim(),
+        status: row.querySelector('.impbadge')?.textContent.trim(),
+        open: row.classList.contains('is-open')})),
+    }));
+    const words = await catalog(lang);
+    const byLabel = key => found.counts.find(item => item.label === words[`import.count_${key}`]);
+    const [linked, review, custom] = ['linked', 'review', 'custom'].map(key => byLabel(key)?.n);
+    assert([linked, review, custom].every(Number.isInteger), `${name}: import counts not readable from #importCounts: ${JSON.stringify(found.counts)}`);
+    assert.equal(found.rows.length, sample.exercises.length, `${name}: one review row per exercise in the sample message`);
+    // The review lists rows that still need a decision first, so compare as sets.
+    assert.deepEqual(found.rows.map(row => row.typed).sort(), sample.exercises.map(item => item.name).sort(), `${name}: the typed names are the sample message's`);
+    let webp = null;
+    if (images) {
+      const clip = await page.evaluate(() => {
+        const top = document.querySelector('#importReview .exview-head').getBoundingClientRect().top;
+        // Header, heading, the linked / to-review counts and the first review row: what the landing's alt describes.
+        const bottom = document.querySelector('#importRows .improw').getBoundingClientRect().bottom;
+        return {x: 0, y: Math.max(0, Math.floor(top)), width: innerWidth, height: Math.ceil(bottom - top) + 12};
+      });
+      webp = await encodeWebp(page, await page.screenshot({type: 'png', clip}));
+    }
+    return {counts: {linked, review, custom}, rows: found.rows, webp};
+  } finally {await context.close();}
+}
+
+/** Run the selected proof scenes. Returns measured spots, counts, and (with images) the WebP buffers by file name. */
+export async function runProof(browser, {scenes, images, log = () => {}}) {
+  const measured = {schema: SPOT_SCHEMA, frame: {...PROOF_FRAME}, tolerance: SPOT_TOLERANCE, scenes: {}, pasteReview: {}};
+  const files = {};
+  const review = {};
+  for (const scene of PROOF_SCENES.filter(item => scenes.includes(item.name))) {
+    const perLang = {};
+    for (const lang of LANGS) {
+      const result = await captureScene(browser, scene.name, lang, {images});
+      perLang[lang] = result.spots;
+      if (result.webp) files[sceneFile(scene.name, lang)] = result.webp;
+      log(`ok ${scene.name} ${lang} ${JSON.stringify(result.spots)}`);
+    }
+    assert.deepEqual(Object.keys(perLang.en).sort(), [...scene.spots].sort(), `${scene.name}: measured spots match the scene table`);
+    const disagreement = compareSpots({schema: SPOT_SCHEMA, frame: measured.frame, scenes: {[scene.name]: perLang.en}},
+      {frame: measured.frame, scenes: {[scene.name]: perLang.pt}});
+    assert.deepEqual(disagreement, [], `${scene.name}: hotspots must be identical in EN and PT, they are stored once`);
+    measured.scenes[scene.name] = perLang.en;
+  }
+  if (scenes.includes(PASTE_SCENE)) {
+    for (const lang of LANGS) for (const theme of PASTE_THEMES) {
+      const result = await capturePasteReview(browser, lang, theme, {images});
+      review[`${lang}-${theme}`] = {counts: result.counts, rows: result.rows};
+      if (result.webp) files[pasteFile(lang, theme)] = result.webp;
+      log(`ok ${PASTE_SCENE} ${lang} ${theme}: linked ${result.counts.linked}, to review ${result.counts.review}, custom ${result.counts.custom}; `
+        + result.rows.map(row => `${row.typed} -> ${row.suggested} [${row.status}]`).join('; '));
+    }
+    for (const lang of LANGS) {
+      const [light, dark] = PASTE_THEMES.map(theme => review[`${lang}-${theme}`].counts);
+      assert.deepEqual(light, dark, `${PASTE_SCENE} ${lang}: light and dark capture disagree on the counts`);
+      measured.pasteReview[lang] = light;
+    }
+  }
+  return {measured, files, review};
+}
+
+/* ------------------------------------------------------------------ */
+/* Historical layout matrix (generic checks only)                       */
+/* ------------------------------------------------------------------ */
+
 const matrix = [
   ...[320, 360, 390, 430, 768].map(width => ({name: `${width}-en`, width})),
   {name: '320-pt', width: 320, lang: 'pt'}, {name: '390-pt', lang: 'pt'}, {name: '390-dark', theme: 'dark'},
@@ -111,63 +472,51 @@ const matrix = [
   {name: '390-forced-colors', forcedColors: 'active'}, {name: '390-safe-insets', insets: true},
 ];
 
-async function assertLanding(page, name, lang, theme) {
-  const images = page.locator('#firstRun [data-shot]');
-  assert.equal(await images.count(), 8, `${name}: all eight product renders are present`);
-  for (let index = 0; index < 8; index++) {
+/**
+ * Generic landing assertions: no horizontal overflow, every product image the page
+ * shows loads, every visible control is reachable and fits the viewport. Nothing here
+ * names a landing section, stage, strip or beat.
+ */
+async function assertLanding(page, name) {
+  const images = page.locator('#firstRun img[src]:visible');
+  const imageCount = await images.count();
+  for (let index = 0; index < imageCount; index++) {
     const image = images.nth(index);
-    const shot = await image.getAttribute('data-shot');
-    assert.equal(await image.getAttribute('src'), `assets/brand/${shot}-${lang}-${theme}.webp`, `${name}: localized ${shot} render`);
     await image.scrollIntoViewIfNeeded();
-    assert(await image.evaluate(node => node.complete && node.naturalWidth > 0), `${name}: ${shot} render loaded`);
+    const src = await image.getAttribute('src');
+    assert(await image.evaluate(node => node.complete && node.naturalWidth > 0), `${name}: image ${src} loaded`);
   }
-  if (values['fault-overflow']) await page.locator('.firstrun-stage').first().evaluate(node => {node.style.width = '200vw';});
-  if (values['fault-narrow']) await page.locator('.firstrun-stage--pair .firstrun-stage__front').evaluate(node => {node.style.width = '65%';});
-  if (values['fault-wrap']) await page.locator('.firstrun-pull__value').evaluate(node => {node.style.width = '4rem';});
-  const composition = await page.evaluate(() => {
-    const box = selector => document.querySelector(selector).getBoundingClientRect();
-    const copy = box('.firstrun-hero__copy'), heroFigure = box('.firstrun-hero__figure');
-    const pair = box('.firstrun-stage--pair');
-    const back = box('.firstrun-stage--pair .firstrun-stage__back');
-    const front = box('.firstrun-stage--pair .firstrun-stage__front');
-    const finalBeat = box('.firstrun-beat:last-child');
-    const closing = box('.firstrun-close');
-    const inside = item => item.left >= pair.left - 1 && item.right <= pair.right + 1 && item.top >= pair.top - 1 && item.bottom <= pair.bottom + 1;
-    const overlap = Math.min(back.right, front.right) - Math.max(back.left, front.left);
-    return {
-      mobileHeroSequence: heroFigure.top >= copy.bottom,
-      pairContained: inside(back) && inside(front),
-      pairOverlap: overlap / Math.min(back.width, front.width),
-      endingAfterProof: closing.top >= finalBeat.bottom,
-    };
+  if (values['fault-overflow']) await page.locator('#firstRun').evaluate(node => {
+    const wide = document.createElement('button');
+    wide.type = 'button';
+    wide.textContent = 'overflow fault';
+    wide.style.cssText = 'display:block;width:200vw';
+    node.firstElementChild.append(wide);
   });
-  if (page.viewportSize().width < 760) assert(composition.mobileHeroSequence, `${name}: hero copy precedes its product render`);
-  assert(composition.pairContained, `${name}: paired devices remain whole inside their stage`);
-  assert(Math.abs(composition.pairOverlap - 0.24) <= 0.01, `${name}: paired-device overlap remains 24%`);
-  assert(composition.endingAfterProof, `${name}: ending follows all six beats`);
+  // Only the document's own scroll width is a defect: the landing clips its decorative bleed.
   const geometry = await page.evaluate(() => {
     const root = document.documentElement, landing = document.querySelector('#firstRun');
     return {document: root.scrollWidth - root.clientWidth, landing: landing.scrollWidth - landing.clientWidth};
   });
-  assert(geometry.document <= 1 && geometry.landing <= 1, `${name}: horizontal overflow ${JSON.stringify(geometry)}`);
+  assert(geometry.document <= 1, `${name}: horizontal overflow ${JSON.stringify(geometry)}`);
   const controls = page.locator('#firstRun button:visible, #firstRun a[href]:visible, #firstRun select:visible');
   const count = await controls.count();
   assert(count > 0, `${name}: landing has controls`);
   for (let index = 0; index < count; index++) {
     const control = controls.nth(index);
     await control.scrollIntoViewIfNeeded();
-    await control.click({trial: true});
     const box = await control.boundingBox();
     const viewport = page.viewportSize();
     assert(box && box.x >= -1 && box.x + box.width <= viewport.width + 1 && box.y >= -1 && box.y + box.height <= viewport.height + 1,
       `${name}: control ${index + 1} fits after scrolling`);
+    await control.click({trial: true});
   }
   await page.locator('#firstRun').evaluate(node => {node.scrollTop = 0;});
   await settle(page);
-  return {controls: count, overflow: geometry, composition};
+  return {controls: count, images: imageCount, overflow: geometry};
 }
 
-async function captureMatrix(browser) {
+async function captureMatrix(browser, output, report) {
   const selected = values.cases ? values.cases.split(',') : matrix.map(item => item.name);
   assert(selected.length && selected.every(name => matrix.some(item => item.name === name)), 'Every requested case must exist');
   for (const item of matrix.filter(item => selected.includes(item.name))) {
@@ -191,21 +540,89 @@ async function captureMatrix(browser) {
         await waitForAppBoot(page, {base});
       }
       await settle(page);
-      const checks = await assertLanding(page, item.name, config.lang, config.theme);
+      const checks = await assertLanding(page, item.name);
       await page.screenshot({path: `${output}/${item.name}.png`});
-      const fullHeight = await page.locator('.firstrun__inner').evaluate(node => Math.ceil(node.getBoundingClientRect().height) + 80);
+      const fullHeight = await page.locator('#firstRun').evaluate(node => Math.ceil(node.scrollHeight) + 80);
       await page.setViewportSize({width: config.width, height: Math.max(config.height, fullHeight)});
       await settle(page);
       await page.screenshot({path: `${output}/${item.name}-full.png`});
       report.cases.push({name: item.name, ...checks});
-      console.log(`PASS ${item.name}: eight localized renders; ${checks.controls} reachable controls; no horizontal overflow`);
+      console.log(`PASS ${item.name}: ${checks.images} product images loaded; ${checks.controls} reachable controls; no horizontal overflow`);
     } finally {await context.close();}
   }
 }
 
-const browser = await launchChromium();
-try {
-  if (values.source) await captureSource(browser);
-  else await captureMatrix(browser);
-  await writeFile(`${output}/proof.json`, `${JSON.stringify(report, null, 2)}\n`);
-} finally {await browser.close();}
+/* ------------------------------------------------------------------ */
+/* Entry                                                                */
+/* ------------------------------------------------------------------ */
+
+let values = {};
+
+async function proofMode(browser, {check}) {
+  const allScenes = [...PROOF_SCENES.map(scene => scene.name), PASTE_SCENE];
+  const scenes = values.scenes ? values.scenes.split(',') : allScenes;
+  assert(scenes.length && scenes.every(name => allScenes.includes(name)), `--scenes must be some of ${allScenes.join(',')}`);
+  const images = !check && !values['spots-only'];
+  const {measured, files, review} = await runProof(browser, {scenes, images, log: line => console.log(line)});
+  if (check) {
+    const file = resolve(values.spots || DEFAULT_SPOTS_FILE);
+    let stored;
+    try {stored = JSON.parse(await readFile(file, 'utf8'));} catch (error) {
+      throw new Error(`cannot read stored spots ${file}: ${error.message}`);
+    }
+    const scoped = scenes.length === allScenes.length ? stored : {...stored,
+      scenes: Object.fromEntries(Object.entries(stored.scenes || {}).filter(([name]) => scenes.includes(name))),
+      pasteReview: scenes.includes(PASTE_SCENE) ? stored.pasteReview : {}};
+    const problems = compareSpots(scoped, measured);
+    if (problems.length) {
+      console.error(`FAIL landing proof spots are stale (${file}):\n  ${problems.join('\n  ')}\nRegenerate with: node tools/capture-landing-proof.mjs --proof <dir>`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`PASS landing proof spots match the live DOM (${Object.keys(measured.scenes).length} scenes, ${Object.keys(measured.pasteReview).length} paste-review languages)`);
+    return;
+  }
+  const output = resolve(values.proof);
+  await mkdir(output, {recursive: true});
+  const sizes = {};
+  for (const [file, buffer] of Object.entries(files)) {
+    await writeFile(`${output}/${file}`, buffer);
+    sizes[file] = {bytes: buffer.length, ...webpSize(buffer)};
+  }
+  await writeFile(`${output}/landing-proof-spots.json`, `${JSON.stringify(measured, null, 2)}\n`);
+  await writeFile(`${output}/proof-report.json`, `${JSON.stringify({sizes, pasteReview: review}, null, 2)}\n`);
+  for (const [file, info] of Object.entries(sizes)) console.log(`wrote ${file} ${info.width}x${info.height} ${info.bytes} bytes`);
+  for (const lang of LANGS) {
+    const counts = measured.pasteReview[lang];
+    if (counts) console.log(`paste-review ${lang}: ${counts.linked} linked, ${counts.review} to review, ${counts.custom} custom`);
+  }
+  if (measured.pasteReview.en && measured.pasteReview.pt) {
+    const same = ['linked', 'review', 'custom'].every(key => measured.pasteReview.en[key] === measured.pasteReview.pt[key]);
+    console.log(same ? 'paste-review: EN and PT counts agree' : 'paste-review: EN and PT counts DISAGREE (the landing alt text must use the true count per language)');
+  }
+}
+
+async function main() {
+  ({values} = parseArgs({options: {
+    cases: {type: 'string'}, source: {type: 'string'}, matrix: {type: 'string'}, proof: {type: 'string'}, check: {type: 'boolean'},
+    spots: {type: 'string'}, scenes: {type: 'string'}, 'spots-only': {type: 'boolean'},
+    'fault-next': {type: 'boolean'}, 'fault-overflow': {type: 'boolean'},
+  }}));
+  assert([values.source, values.matrix, values.proof, values.check].filter(Boolean).length === 1,
+    'Choose exactly one of --proof <dir>, --check, --source <dir>, --matrix <dir>');
+  const browser = await launchChromium();
+  try {
+    if (values.proof || values.check) {
+      await proofMode(browser, {check: Boolean(values.check)});
+      return;
+    }
+    const output = resolve(values.source || values.matrix);
+    await mkdir(output, {recursive: true});
+    const report = {mode: values.source ? 'source' : 'matrix', cases: []};
+    if (values.source) await captureSource(browser, output, report);
+    else await captureMatrix(browser, output, report);
+    await writeFile(`${output}/proof.json`, `${JSON.stringify(report, null, 2)}\n`);
+  } finally {await browser.close();}
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();
