@@ -5700,7 +5700,7 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-route--import :is(.entry__metrics--boxed, .entry__metrics--boxed .entry__metric, .entry__rows, .entry__row){
   border-color:var(--boundary-decorative)
 }
-#onbBody.entry-route--import :is(.entry__row-ico, .entry__metrics--boxed .entry__metric .icon-mask){color:var(--color-action)}
+#onbBody.entry-route--import :is(.entry__row-ico, .entry__metrics--boxed .entry__metric .icon-mask){color:var(--ink-soft)}
 #onbBody.entry-route--import .entry__active{
   background:var(--color-surface);border-color:var(--boundary-decorative);border-radius:var(--radius-surface);
   color:var(--color-ink-secondary);font-family:var(--font-language);
@@ -5885,6 +5885,101 @@ body.is-entry-editor #entryProgramName,
 }
 #onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)[open]>summary,
 #importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)[open]>summary{border-bottom-color:var(--boundary-decorative)}
+
+/* ---- Plan 064 R4c: the import route ----
+   Entry-scoped rules for the import door, the paste door and the file review,
+   after the Plan 058 import blocks above and before R4a's shell block, so the
+   shell's own selectors keep their place in the cascade. Ink is the voice
+   here: nothing on this route is an accent except the primary's arrow. */
+
+/* The way out to Build is a quiet row under the door switch. */
+.entry__switch--doors{flex-direction:column;align-items:center;gap:var(--space-4)}
+#onbBody.entry-route--import #entryWriteOwn{
+  min-height:var(--control-target);border-color:var(--control-quiet-boundary);
+  border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);
+  font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import #entryWriteOwn:is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
+#onbBody.entry-route--import #entryWriteOwn:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody.entry-route--import #entryWriteOwn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#onbBody.entry-route--import #entryWriteOwn:disabled{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+
+/* Fields are asked as sentences, not as column heads. */
+#onbBody.entry-route--import .entry__field>span{
+  font-size:var(--font-size-body);font-weight:var(--weight-semibold);letter-spacing:0;
+  line-height:var(--line-standard);text-transform:none;color:var(--ink)
+}
+#onbBody.entry-route--import .entry__gaps-list{gap:var(--space-8);margin:var(--space-18) 0 var(--space-12)}
+
+/* What was pasted, what stays on the device and what was left out read as
+   quiet bands between hairlines, never as boxes inside the page. */
+#onbBody.entry-route--import .entry__freeform-summary{
+  margin:0 0 var(--space-18);padding:var(--space-8) 0;border:0;border-radius:var(--radius-none);background:transparent;
+  border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)
+}
+#onbBody.entry-route--import .entry__explain{
+  margin:var(--space-14) 0;padding:0;border:0;border-radius:var(--radius-none);background:transparent;
+  color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-reading)
+}
+#onbBody.entry-route--import .entry__notice--info,
+#importReview .entry__notice--info{
+  margin:var(--space-14) 0;padding:var(--space-12) 0 var(--space-12) var(--space-14);
+  border:0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
+  border-left:3px solid var(--boundary-required);border-radius:var(--radius-none);background:transparent;
+  color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-reading)
+}
+#onbBody.entry-route--import .entry__freeform-prompt-preview,
+#onbBody.entry-route--import .entry__original-text,
+#importReview .entry__original-text{
+  border-radius:var(--radius-none);border-width:1px 0;background:transparent
+}
+
+/* A file import's week reads the way every other review's does. */
+#onbBody.entry-route--import .onb__dayname>span:not(.onb__daynum){
+  color:var(--color-ink-secondary);font-family:var(--font-training-data);
+  font-size:var(--font-size-body-small);line-height:var(--line-standard)
+}
+
+/* The review of the matched exercises lives in the route's chrome: Back and
+   Cancel on one row, where the lifter is, the one title, then the rows and a
+   pinned primary. It is its own scroll container, as #onboarding is. */
+#importReview.active{
+  --onb-pad-l:max(var(--gut),env(safe-area-inset-left));
+  --onb-pad-r:max(var(--gut),env(safe-area-inset-right));
+  position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
+  padding:calc(var(--space-12) + env(safe-area-inset-top)) var(--onb-pad-r) 0 var(--onb-pad-l)
+}
+#importBack::before{
+  content:"";flex:none;width:var(--control-icon-size);height:var(--control-icon-size);background:currentColor;
+  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='15 6 9 12 15 18'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='15 6 9 12 15 18'/%3E%3C/svg%3E")
+}
+#importReview .impreview{padding:0;margin-bottom:calc(var(--space-26) + env(safe-area-inset-bottom))}
+#importReview .impreview__head{
+  margin:var(--space-18) 0 var(--space-8);font-size:var(--font-size-title);font-weight:var(--weight-semibold);
+  line-height:var(--line-tight);letter-spacing:0;text-wrap:balance;overflow-wrap:anywhere;color:var(--ink)
+}
+#importReview .impreview__head:focus-visible{outline:none}
+#importReview .onb__explain{
+  margin:0 0 var(--space-12);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)
+}
+#importReview .impreview__file{margin:0 0 var(--space-4);overflow-wrap:anywhere}
+#importReview .impcounts{margin:var(--space-14) 0 var(--space-4)}
+#importReview .impcount{align-items:flex-start;gap:var(--space-4);padding:var(--space-12) var(--space-8) var(--space-12) 0;text-align:left}
+#importReview .impcount+.impcount{border-left:0;padding-left:0}
+#importReview .impcount b{font-weight:var(--weight-medium)}
+#importReview .improw{padding:var(--space-14) 0}
+#importReview .improw.is-folded{padding:var(--space-12) 0}
+#importReview .impbadge.is-open{color:var(--color-ink)}
+#importReview .impreview__safe{margin:var(--space-26) 0 0;text-align:left}
+#importReview .impreview__nav{margin-top:0}
 
 /* Today, day choice, and the read-only session preview use the frozen control roles. */
 #todayDash .btn--cta,#dayPickConfirm,#previewSessionSheet [data-preview-start]{

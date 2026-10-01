@@ -1892,6 +1892,7 @@
   "entry.import_source.lede": "Escolha um arquivo de treino Taurifer. Revise cada exercício antes de ativar o treino.",
   "entry.import_source.pick": "Escolher arquivo",
   "entry.import_source.to_freeform": "Colar um treino",
+  "entry.import_source.write_own": "Prefiro escrever do zero",
   "entry.freeform.title": "Colar um treino de qualquer lugar",
   "entry.freeform.lede": "Cole da forma que tiver: de um treinador, notas, planilha ou outro lugar. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o treino no formato do app.",
   "entry.freeform.input_label": "Seu treino",

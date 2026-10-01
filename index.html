@@ -355,22 +355,30 @@
     </section>
 
     <section id="importReview" class="view ph-no-capture" data-i18n-aria="import.aria" aria-label="Review imported program">
-      <div class="exview-head">
-        <button type="button" class="back-link" id="importBack" data-i18n="import.back">‹ Back</button>
-        <h1 class="exview-head__title" data-i18n="import.title">Import program</h1>
-        <div class="exview-head__right"></div>
-      </div>
-      <div class="impreview">
-        <p class="impreview__file" id="importFile"></p>
-        <div id="importNotImported"></div>
-        <h2 class="impreview__head" data-i18n="import.heading">Review the exercises</h2>
-        <p class="lede" data-i18n="import.lede">Link the names to the library or keep them as they are.</p>
-        <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
-        <div id="importRows"></div>
-        <div id="importOriginalText"></div>
-        <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
-        <button type="button" class="btn btn--cta" id="importCommit" data-i18n="import.commit">Import program</button>
-        <button type="button" class="text-link text-link--center" id="importReviewCancel" data-i18n="import.cancel">Cancel this import</button>
+      <div class="onb impreview-route">
+        <div class="onb__head">
+          <div class="onb__bar">
+            <button type="button" class="back-link onb__back" id="importBack" data-i18n="onb.back">Back</button>
+            <button type="button" class="back-link onb__cancel" id="importReviewCancel" data-i18n="onb.cancel">Cancel</button>
+          </div>
+          <div class="onb__where">
+            <div class="onb__title" id="importWhere" data-i18n="entry.route.import">Import a program</div>
+          </div>
+        </div>
+        <div class="impreview">
+          <h1 class="onb__q impreview__head" id="importHeading" tabindex="-1" data-i18n="import.heading">Review the exercises</h1>
+          <p class="onb__explain" data-i18n="import.lede">Link the names to the library or keep them as they are.</p>
+          <p class="impreview__file" id="importFile"></p>
+          <div id="importNotImported"></div>
+          <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
+          <div id="importRows"></div>
+          <div id="importOriginalText"></div>
+          <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
+        </div>
+        <div class="onb__nav impreview__nav">
+          <p class="onb__reason" id="importCommitReason" hidden></p>
+          <button type="button" class="btn btn--cta" id="importCommit" data-i18n="entry.preview.review">Review draft</button>
+        </div>
       </div>
     </section>
 

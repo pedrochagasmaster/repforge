@@ -1892,6 +1892,7 @@
   "entry.import_source.lede": "Choose a Taurifer program file. Review every exercise before you activate the program.",
   "entry.import_source.pick": "Choose file",
   "entry.import_source.to_freeform": "Paste a program instead",
+  "entry.import_source.write_own": "I'd rather write it from scratch",
   "entry.freeform.title": "Paste a program from anywhere",
   "entry.freeform.lede": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads.",
   "entry.freeform.input_label": "Your program",

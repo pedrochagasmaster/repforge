@@ -1032,6 +1032,62 @@ async function main() {
     assert(!afterDoor.review && afterDoor.onFileDoor,
       "a stale clipboard result cannot act after switching to file import", JSON.stringify(afterDoor));
 
+    /* ---------- Writing from scratch is a sixth exit (Plan 064 R4c, Q632) ----------
+       The import route offers a quiet way out to Build. The pasted text is
+       tab-scoped to the free-form flow, so leaving for Build has to drop it
+       exactly as the five older exits do. */
+    console.log("\nWriting it from scratch leaves the paste door");
+    // Everything from opening the door to leaving it is watched: rendering the
+    // door and its links, typing, and the exit itself make no request.
+    const outbound = [];
+    const onRequest = (request) => {
+      if (!/^(data|blob):/.test(request.url()) && new URL(request.url()).origin !== new URL(BASE).origin) outbound.push(request.url());
+    };
+    page.on("request", onRequest);
+    await toStage3(page);
+    await page.fill("#entryFreeformOut", COMPLETE);
+    const beforeScratch = await page.evaluate(() => sessionStorage.getItem("repforge_freeform_session_v1"));
+    assert(/Overhead press/.test(beforeScratch || ""),
+      "the pasted program is held in the tab session before the exit", String(beforeScratch).slice(0, 80));
+    assert(await page.locator("#entryWriteOwn").isVisible(),
+      "the paste door offers a way to write the program from scratch", "no #entryWriteOwn");
+    const readsBefore = await clipReads(page);
+    assert(readsBefore === 0, "rendering the door and its links reads no clipboard before a tap", String(readsBefore));
+    await page.click("#entryWriteOwn");
+    await settle(page, 300);
+    page.off("request", onRequest);
+    const scratch = await page.evaluate(() => ({
+      session: sessionStorage.getItem("repforge_freeform_session_v1"),
+      entry: window.__repforgeEntryState?.() || null,
+      onBuild: !!document.querySelector("#entryProgramName"),
+      text: document.querySelector("#onbBody")?.innerText || "",
+    }));
+    assert(scratch.session === null,
+      "writing from scratch clears the pasted text from the tab session", String(scratch.session).slice(0, 80));
+    assert(scratch.entry?.route === "build" && scratch.entry?.step === "build_setup" && scratch.onBuild,
+      "the link goes to Build's first question", JSON.stringify({ route: scratch.entry?.route, step: scratch.entry?.step }));
+    assert(!/Overhead press|Coach split|Pull A/.test(JSON.stringify(scratch.entry) + scratch.text),
+      "nothing pasted survives in the entry state or the screen", JSON.stringify(scratch.entry).slice(0, 120));
+    assert(outbound.length === 0 && (await clipReads(page)) === readsBefore,
+      "the exit makes no request and reads no clipboard", JSON.stringify({ outbound, reads: (await clipReads(page)) - readsBefore }));
+    await page.click("#onbBack");
+    await settle(page, 200);
+    await page.click("#entryOwnToggle");
+    await page.click("#entryFreeformStart");
+    await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
+    assert((await page.inputValue("#entryFreeformIn")) === "",
+      "coming back to the paste door finds it empty", await page.inputValue("#entryFreeformIn"));
+    await page.click("#entryFreeformFile");
+    await page.waitForSelector("#entryImportPick", { timeout: 20000 });
+    assert(await page.locator("#entryWriteOwn").isVisible(),
+      "the file door offers the same way out", "no #entryWriteOwn on the file door");
+    await toStage3(page);
+    await page.fill("#entryFreeformOut", GAPPED);
+    await page.click("#entryFreeformReview");
+    await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 20000 });
+    assert((await page.locator("#entryWriteOwn").count()) === 0,
+      "gap repair does not offer to leave: the lifter is mid-repair", "#entryWriteOwn present on the gaps step");
+
     // Portuguese copy exists for every clipboard string.
     const ptClipboard = await page.evaluate(() => {
       const keys = ["clipboard_import", "clipboard_busy", "clipboard_or",

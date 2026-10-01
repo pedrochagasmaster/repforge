@@ -1449,6 +1449,32 @@
       ]
     },
     {
+      "id": "entrywriteown",
+      "selector": "#entryWriteOwn",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Leaves the import route for Build, where the lifter writes the program from scratch. A route change only: it makes no request, reads no clipboard, and drops any pasted text from the tab session.",
+      "owner": "plan-064/r4c",
+      "catalogStates": [
+        "onboarding-import/source",
+        "onboarding-import/freeform-empty",
+        "onboarding-import/freeform-filled",
+        "onboarding-import/freeform-stage2",
+        "onboarding-import/freeform-stage3",
+        "onboarding-import/freeform-unreadable"
+      ]
+    },
+    {
       "id": "entryfreeformin",
       "selector": "#entryFreeformIn",
       "roles": {

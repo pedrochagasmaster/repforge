@@ -12120,10 +12120,20 @@ function renderImportReview(){
     $$("#importRows [data-imp-act]").forEach(b=>
       b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey,b.dataset.impIdx));
   }
-  const commit=$("#importCommit");
+  /* The one primary lives in the pinned region. While rows still need a
+     decision it is disabled, drops its arrow, and the count says why directly
+     above it, the same way every route's pinned action does. */
+  const commit=$("#importCommit"),reason=$("#importCommitReason");
   if(commit){
-    commit.disabled=counts.review>0;
-    commit.textContent=counts.review>0?t("import.commit_blocked",{n:counts.review}):t("entry.preview.review")}
+    const blocked=counts.review>0;
+    commit.disabled=blocked;
+    commit.textContent=t("entry.preview.review");
+    commit.classList.toggle("btn--noarrow",blocked);
+    if(blocked)commit.setAttribute("aria-describedby","importCommitReason");
+    else commit.removeAttribute("aria-describedby");
+    if(reason){
+      reason.hidden=!blocked;
+      reason.textContent=blocked?t("import.commit_blocked",{n:counts.review}):""}}
 }
 
 function importRowHtml(row){
@@ -12232,6 +12242,8 @@ function openImportReview(draft){
   document.body.classList.add("is-import");
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="importReview"));
   window.scrollTo({top:0});
+  // The review is its own scroll container, like the route it belongs to.
+  const reviewView=$("#importReview");if(reviewView)reviewView.scrollTop=0;
   renderImportReview();
   const counts=importCounts(draft),target=counts.review
     ?$("#importRows .improw.is-open [data-imp-act]")
@@ -12950,7 +12962,7 @@ function renderFreeformGapsStep(){
     notImportedHtml+
     (entryFreeformGapErrors.size?`<p class="entry__notice entry__notice--warn" role="alert">${esc(t("entry.freeform.gap_error"))}</p>`:"")+
     `<div class="entry__gaps-list">${gapRows}</div>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryFreeformSubmitGaps">${esc(t("entry.freeform.gaps_submit"))}</button>`+
+    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryFreeformSubmitGaps">${esc(t("entry.freeform.gaps_submit"))}</button>`+
     `<button type="button" class="btn btn--steel" id="entryFreeformBackToReply">${esc(t("entry.freeform.back_to_reply"))}</button></div>`;
 }
 
@@ -14504,7 +14516,22 @@ function renderImportFileStep(){
   return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`+
-    `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformSwitch">${esc(t("entry.import_source.to_freeform"))}</button></p>`}
+    `<div class="entry__switch entry__switch--doors"><button type="button" class="btn btn--ghost" id="entryFreeformSwitch">${esc(t("entry.import_source.to_freeform"))}</button>`+
+    entryWriteOwnLink()+`</div>`}
+/* The quiet way out of the import route. A lifter who has a program in their
+   head rather than in a file or a message can write it themselves in Build.
+   It is a route change, not a request: nothing is sent and nothing is read. */
+function entryWriteOwnLink(){
+  return `<button type="button" class="btn btn--ghost entry__write-own" id="entryWriteOwn">${esc(t("entry.import_source.write_own"))}</button>`}
+/* The import route's own controls (Plan 064 R4c). wireEntryDom makes one call
+   to this, so the shared handler list stays R4a's and R4b's. */
+function wireEntryImportControls(root){
+  const writeOwn=root?.querySelector("#entryWriteOwn");
+  if(writeOwn)writeOwn.onclick=()=>{
+    /* A sixth exit from the paste door, after the five in ADR 0014. The pasted
+       program belongs to this flow, so it is dropped before Build opens. */
+    resetFreeformImport();
+    entrySelectRoute("build")}}
 function freeformAppLink(app){
   const program=freeformProgram();
   const spec=FREEFORM_APPS[app];
@@ -14602,7 +14629,8 @@ function renderFreeformSourceStep(){
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     summaryHtml+
     `<div class="entry__freeform ph-no-capture">${bodyHtml}</div>`+
-    `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformFile">${esc(t("entry.freeform.to_file"))}</button></p>`}
+    `<div class="entry__switch entry__switch--doors"><button type="button" class="btn btn--ghost" id="entryFreeformFile">${esc(t("entry.freeform.to_file"))}</button>`+
+    entryWriteOwnLink()+`</div>`}
 /* Typing must not cost the caret or the field: the links, the counter and the
    empty-state note are refreshed in place rather than through a re-render. */
 function refreshFreeformControls(){
@@ -15050,6 +15078,7 @@ function wireEntryDom(){
      inert. The markup already carries `inert`; this keeps a synthetic click
      from reaching a handler that would overwrite the draft. */
   const doorsWait=()=>entryUiNotice==="resume";
+  wireEntryImportControls($("#onbBody"));
   $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>{
     if(doorsWait())return;
     entrySelectRoute(btn.dataset.entryRoute,{goal:btn.dataset.entryGoal||null})});
