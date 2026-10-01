@@ -6589,27 +6589,6 @@
       ]
     },
     {
-      "id": "link-row-cta-not-id",
-      "selector": ".link-row-cta:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/overview"
-      ]
-    },
-    {
       "id": "pchip-not-id",
       "selector": ".pchip:not([id])",
       "roles": {
