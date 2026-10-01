@@ -715,7 +715,7 @@
   "delta.not_comparable.text": "Nenhuma série de trabalho registrada.",
   "delta.improved.label": "Melhorou",
   "delta.improved.text": "Superou a última sessão.",
-  "delta.flat.label": "Estável",
+  "delta.flat.label": "Manteve",
   "delta.flat.text": "Igualou a última sessão.",
   "delta.regressed.label": "Regressou",
   "delta.regressed.text": "Abaixo da última sessão.",
