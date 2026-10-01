@@ -369,12 +369,39 @@ contract review R0 records for Direction D's new content jobs.
     Recommendation copy uses "target/meta" and "weight/peso" as I-05 and C-04
     set; RIR is explained where it first appears on each surface; "Pause",
     never "Hold", for the timer.
-11. **Motion.** Everything through `motion-layer.js`; reduced motion removes
-    all of it; new motion limited to the shelf crossfade (≤160 ms), the drain
-    bar transform, disclosure height, and the landing's scroll-linked proof
-    section only if it degrades to static bands without JavaScript and under
-    reduced motion. Nothing animates to celebrate. Record each addition in
-    `docs/design/interaction-runtime-audit.md`.
+11. **Motion.** Everything goes through `motion-layer.js`. Reduced motion
+    removes all of it and leaves the state change and its information
+    identical. Nothing animates to celebrate, and orange is spent only within
+    the §8.8 budget. New motion is limited to the following, each recorded in
+    `docs/design/interaction-runtime-audit.md` with its owner and reduced-motion
+    path:
+    - **Training loop:** the drain bar transform; the rest block entering and
+      leaving the cue slot as a measured height change with a crossfade
+      (≤200 ms); the shelf changing job with a crossfade and a ≤12 px rise
+      (≤160 ms); the shelf field outline and the ledger open-row outline
+      travelling with `layoutShift`; the selected field's value changing
+      direction-aware by ≤6 px (≤120 ms). None of these may delay or disable
+      the shelf CTA.
+    - **Navigation:** the dock lens and the Progress tab underline travelling
+      with `layoutShift`; drill-downs and Today → Focus as an interruptible
+      push on the new `navPush` spring; an interactive edge swipe back on
+      pushed pages outside Focus, owned by `motion-layer.js`. The top-level
+      view fade stays as it is.
+    - **Progress chart:** the selected-session marker travelling between
+      discrete sessions; a clip reveal of the line on open and of only the new
+      segment when a session is added; shared sessions travelling on a scope
+      change. A metric change only crossfades.
+    - **Disclosure and system states:** disclosure height on Why, the summary
+      muscle list, the persist-retry banner and the restored-draft notice; an
+      indeterminate hairline only while a durable write is in flight.
+    - **Public and first run:** the landing proof's stepped reveal, static
+      without JavaScript and under reduced motion; the generated program's
+      reading-order build once per generation, subject to OG-1.
+    Amended by owner decision on 2026-10-01 (#295, comment 5941747309); the
+    owner's per-case picks, vocabulary, constraints and slice mapping are in
+    [`docs/design/motion-rule-11-amendment.md`](../docs/design/motion-rule-11-amendment.md)
+    (copied from #297 at `4317edc`). The summary keeps its count ramp; its row
+    stagger stays removed.
 12. **Accessibility.** 44 × 44 targets at 360 in PT and EN; focus order and
     restoration per surface; `aria-pressed` on shelf fields; sheets never
     trap focus; charts and counts are labeled with text alternatives;
