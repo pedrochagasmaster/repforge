@@ -71,7 +71,7 @@
     "onboarding-recommend/background": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "Structured-program experience and recent six-week consistency."
+      "scenario": "The carried goal with Change, then structured-program experience and recent six-week consistency."
     },
     "onboarding-recommend/schedule": {
       "owner": "plan-054",
@@ -101,7 +101,7 @@
     "onboarding-recommend/result": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "One candidate surface with rationale, editable program facts, and explicit activation."
+      "scenario": "The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation."
     },
     "onboarding-recommend/result-existing": {
       "owner": "plan-054",
@@ -151,7 +151,7 @@
     "onboarding-custom/result": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "The custom candidate, rationale, editable facts, and explicit activation on one surface."
+      "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation."
     },
     "onboarding-browse/schedule": {
       "owner": "plan-054",
@@ -792,6 +792,26 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "workout/substituted-actions"
+    },
+    "onboarding-recommend/chip-editor-open": {
+      "owner": "plan-064/r4b",
+      "content": "flat",
+      "scenario": "The review with the days-per-week chip open on its inline editor: the same numeric cards as the question, an Update program action, and the pinned activation set aside."
+    },
+    "onboarding-recommend/result-corrected": {
+      "owner": "plan-064/r4b",
+      "content": "flat",
+      "scenario": "A changed answer rebuilt the program in place: the change statement with Before and Now, an added exercise tagged new, and its day open."
+    },
+    "onboarding-recommend/result-avoided": {
+      "owner": "plan-064/r4b",
+      "content": "flat",
+      "scenario": "An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore."
+    },
+    "onboarding-custom/shape": {
+      "owner": "plan-064/r4b",
+      "content": "flat",
+      "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers."
     }
   },
   "components": [
@@ -1111,7 +1131,9 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected"
       ]
     },
     {
@@ -1185,7 +1207,10 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected"
       ]
     },
     {
@@ -1720,7 +1745,10 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected"
       ]
     },
     {
@@ -3581,7 +3609,11 @@
         "onboarding-recommend/result-existing",
         "onboarding-recommend/schedule",
         "onboarding-recovery/rules-drift",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected",
+        "onboarding-custom/shape"
       ]
     },
     {
@@ -3643,7 +3675,11 @@
         "onboarding-import/preview",
         "onboarding-shared/preview",
         "onboarding-recovery/resume",
-        "onboarding-recovery/rules-drift"
+        "onboarding-recovery/rules-drift",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected",
+        "onboarding-custom/shape"
       ]
     },
     {
@@ -3683,7 +3719,8 @@
         "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
         "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift"
+        "onboarding-recovery/rules-drift",
+        "onboarding-custom/shape"
       ]
     },
     {
@@ -3743,7 +3780,8 @@
         "onboarding-recovery/rules-drift",
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-custom/shape"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -6033,7 +6071,9 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "onboarding-recommend/result-avoided",
+        "onboarding-browse/catalogue"
       ]
     },
     {
@@ -7121,7 +7161,9 @@
         "onboarding-recommend/priorities",
         "onboarding-recommend/schedule",
         "onboarding-recovery/rules-drift",
-        "progress/schedule-diagnosis"
+        "progress/schedule-diagnosis",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-custom/shape"
       ]
     },
     {
@@ -7718,7 +7760,10 @@
         "progress/exercise-chart",
         "progress/overview",
         "progress/overview-action",
-        "progress/overview-baseline"
+        "progress/overview-baseline",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected"
       ]
     },
     {
@@ -8239,7 +8284,124 @@
         "onboarding-custom/schedule",
         "onboarding-custom/environment",
         "onboarding-custom/priorities",
-        "onboarding-custom/exercise-preferences"
+        "onboarding-custom/exercise-preferences",
+        "onboarding-custom/shape"
+      ]
+    },
+    {
+      "id": "entry-chip-not-id",
+      "selector": ".entry-chip:not([id])",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Opens the answer editor for one answer under the chip, in place; aria-expanded and aria-controls carry the state, and the open chip is ringed in ink.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-avoided",
+        "onboarding-custom/result"
+      ]
+    },
+    {
+      "id": "entrygoalchange",
+      "selector": "#entryGoalChange",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Reopens the goal question the hub already asked, without leaving the about screen.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/background",
+        "onboarding-custom/background"
+      ]
+    },
+    {
+      "id": "entryskip",
+      "selector": "#entrySkip",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Skips the optional priorities section while nothing in it is chosen; it is offered only when it discards nothing.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/priorities"
+      ]
+    },
+    {
+      "id": "entrychipapply",
+      "selector": "#entryChipApply",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Rebuilds the program from the edited answers in one step and states what changed.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/chip-editor-open"
+      ]
+    },
+    {
+      "id": "entrychipkeep",
+      "selector": "#entryChipKeep",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Closes the answer editor and keeps the program as it was.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/chip-editor-open"
       ]
     }
   ],

@@ -519,7 +519,7 @@
       "id": "background",
       "flow": "onboarding-recommend",
       "label": "Recommend 2 — training background",
-      "scenario": "Structured-program experience and recent six-week consistency.",
+      "scenario": "The carried goal with Change, then structured-program experience and recent six-week consistency.",
       "variants": "localized"
     },
     {
@@ -561,7 +561,7 @@
       "id": "result",
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation and review",
-      "scenario": "One candidate surface with rationale, editable program facts, and explicit activation.",
+      "scenario": "The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation.",
       "variants": "demandingText"
     },
     {
@@ -569,6 +569,27 @@
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation with a program active",
       "scenario": "The merged candidate surface while the current program remains untouched.",
+      "variants": "localized"
+    },
+    {
+      "id": "chip-editor-open",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — answer editor open",
+      "scenario": "The review with the days-per-week chip open on its inline editor: the same numeric cards as the question, an Update program action, and the pinned activation set aside.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-corrected",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — after a changed answer",
+      "scenario": "A changed answer rebuilt the program in place: the change statement with Before and Now, an added exercise tagged new, and its day open.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-avoided",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — after avoiding an exercise",
+      "scenario": "An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore.",
       "variants": "localized"
     },
     {
@@ -628,10 +649,17 @@
       "variants": "customAccessibility"
     },
     {
+      "id": "shape",
+      "flow": "onboarding-custom",
+      "label": "Custom 6b — weekly structure",
+      "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers.",
+      "variants": "customAccessibility"
+    },
+    {
       "id": "result",
       "flow": "onboarding-custom",
       "label": "Custom — generated program and review",
-      "scenario": "The custom candidate, rationale, editable facts, and explicit activation on one surface.",
+      "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation.",
       "variants": "customAccessibility"
     },
     {

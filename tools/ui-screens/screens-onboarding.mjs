@@ -133,6 +133,25 @@ async function selectCandidate(page) {
  */
 async function customTo(page, step) {
   await route(page, "custom");
+  if (step === "shape") {
+    // A split with two compatible structures is rare in the released rules, so the
+    // catalog offers the second one through the same override the entry tests use.
+    await page.evaluate(() => {
+      const base = window.__repforgeOnboarding.services();
+      window.__repforgeProgramEntryServicesOverride = {
+        ...base,
+        splitChoices: (answers) => {
+          const result = base.splitChoices(answers);
+          if (result.choices.length !== 1) return result;
+          const first = result.choices[0];
+          return { ...result, choices: [first, {
+            ...first, id: `${first.id}-alternate`, blueprintId: `${first.blueprintId}-alternate`, default: false,
+            name: `${first.name} alternate`, namePt: `${first.namePt} alternativa`,
+          }] };
+        },
+      };
+    });
+  }
   if (step === "desired-result") return;
   await pick(page, "desiredResult", "balanced"); await next(page);
   if (step === "background") return;
@@ -152,8 +171,20 @@ async function customTo(page, step) {
     if (step === "exercise-preferences") return;
   }
   await next(page);
+  if (step === "shape") {
+    await page.waitForSelector('[data-entry-pick="splitPreference"]', { timeout: 20000 });
+    return;
+  }
   await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 20000 });
   if (step === "result") return;
+}
+
+/** A generated review with the answer chip for `chip` open on its editor. */
+async function reviewWithEditor(page, chip) {
+  await recommendTo(page, { result: true, desired: "balanced" });
+  await selectCandidate(page);
+  await page.click(`[data-entry-chip="${chip}"]`);
+  await page.waitForSelector("#entryEditor", { timeout: 20000 });
 }
 
 /** Keep the preference screens representative: the empty state is useful for
@@ -525,6 +556,8 @@ const FOCUS_SELECTOR = {
   "onboarding-start/first-run-close": ".firstrun-close__actions",
   "onboarding-start/hub-own-open": "#entryOwnToggle",
   "onboarding-recommend/avoidance-pain": ".entry__pain",
+  "onboarding-recommend/chip-editor-open": ".entry-chips",
+  "onboarding-recommend/result-avoided": ".entry__constraints",
   "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",
   "onboarding-build/editor-ready": "#entryEditorActivate",
@@ -602,6 +635,27 @@ export const ONBOARDING_SCENARIOS = {
   },
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
   "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
+  "onboarding-recommend/chip-editor-open": (page) => reviewWithEditor(page, "days"),
+  "onboarding-recommend/result-corrected": async (page) => {
+    await reviewWithEditor(page, "days");
+    await pick(page, "daysPerWeek", "4");
+    await page.click("#entryChipApply");
+    await page.waitForSelector("#entryChange", { timeout: 25000 });
+  },
+  "onboarding-recommend/result-avoided": async (page) => {
+    await reviewWithEditor(page, "prio");
+    const search = page.locator("#entryAvoidSearch");
+    // Avoid an exercise the program contains, so the statement is about a real change.
+    const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
+    const first = await page.evaluate(() => (window.__repforgeEntryState().result.preview.program[0] || {}).libraryId);
+    const name = await page.evaluate((id) => window.__repforgeLibraryEntry?.(id)?.name || "", first);
+    await search.fill(portuguese ? name.split(" ")[0] : name);
+    await page.waitForTimeout(150);
+    await page.locator(`[data-entry-avoid-add="${first}"]`).click();
+    await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${first}|dislike"]`);
+    await page.click("#entryChipApply");
+    await page.waitForSelector("#entryChange", { timeout: 25000 });
+  },
   "onboarding-recommend/replacement-confirm": async (page) => {
     await recommendTo(page, { result: true, existing: true });
     await selectCandidate(page);
@@ -616,6 +670,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-custom/environment": (page) => customTo(page, "environment"),
   "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
   "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
+  "onboarding-custom/shape": (page) => customTo(page, "shape"),
   "onboarding-custom/result": (page) => customTo(page, "result"),
 
   "onboarding-browse/schedule": (page) => browseTo(page, "schedule"),
