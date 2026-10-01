@@ -28,7 +28,6 @@ export const ALPHA_EVENT_NAMES = Object.freeze([
   "history_session_outcome",
   "share_setup_outcome",
   "guide_replay",
-  "program_readiness_navigated",
 ]);
 
 export const VALID_ALPHA_EVENTS = Object.freeze([
@@ -61,7 +60,6 @@ export const VALID_ALPHA_EVENTS = Object.freeze([
   ["history_session_outcome", { action: "edit_save", status: "success" }],
   ["share_setup_outcome", { blocker_count_bucket: "2-5", action: "repair_opened" }],
   ["guide_replay", { guideId: "progress" }],
-  ["program_readiness_navigated", { ready_count_bucket: "1" }],
 ]);
 
 export const INVALID_EVENTS = Object.freeze([
@@ -128,7 +126,6 @@ export const EVENT_DUPLICATE_POLICIES = Object.freeze({
   history_session_outcome: "repeatable",
   share_setup_outcome: "repeatable",
   guide_replay: "repeatable",
-  program_readiness_navigated: "repeatable",
 });
 
 export const FORBIDDEN_PROPERTY_NAMES = Object.freeze([
