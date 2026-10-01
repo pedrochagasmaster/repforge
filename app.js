@@ -10365,6 +10365,18 @@ function renderGuideReplayList(){
   $$("#guideReplayList [data-guide-replay]").forEach(button=>{
     button.onclick=()=>replayContextualGuide(button.dataset.guideReplay)
   })}
+// The browser's own answer, appended to the backup line. A stale answer from an
+// earlier render must not overwrite a newer one, and a browser without the API
+// reads the same as one that will not promise.
+let storageNoteGen=0;
+function paintStorageNote(backupLine){
+  const sn=$("#storageNote");if(!sn)return;
+  sn.textContent=backupLine;
+  const gen=++storageNoteGen;
+  (async()=>{let kept=false;try{kept=(await navigator.storage?.persisted?.())===true}catch{}
+    if(gen!==storageNoteGen)return;
+    sn.textContent=`${backupLine} ${t(kept?"settings.storage.persisted":"settings.storage.not_persisted")}`})()}
+
 function renderSettings(){
   renderGuideReplayList();
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
@@ -10388,7 +10400,7 @@ function renderSettings(){
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
-  const sn=$("#storageNote");if(sn)sn.textContent=ago;
+  paintStorageNote(ago);
   const deg=$("#storageDegraded");
   if(deg){const on=!!DurableState.getStorageHealth().degraded;deg.textContent=on?t("settings.storage.degraded"):"";deg.classList.toggle("hidden",!on);deg.hidden=!on}
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}

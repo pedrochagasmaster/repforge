@@ -8,7 +8,8 @@
  * copy a first session gets instead of records, dialog behaviour (focus trap,
  * Escape, background inert), where each action lands, and the toast fallback
  * for a save that cannot open the screen. It also owns the persistent-storage
- * request (made once, at the first completed session, never at boot).
+ * request (made once, at the first completed session, never at boot) and the
+ * Settings durability line that reports what the browser says.
  *
  * Run: node test/session-summary.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -266,6 +267,8 @@ const persistCalls = (page) =>
   page.evaluate((k) => +sessionStorage.getItem(k) || 0, PERSIST_CALLS);
 const resetPersistCalls = (page) =>
   page.evaluate((k) => sessionStorage.removeItem(k), PERSIST_CALLS);
+const setBrowserPersisted = (page, value) =>
+  page.evaluate(([k, v]) => sessionStorage.setItem(k, v ? "1" : "0"), [PERSISTED, value]);
 
 async function run() {
   const browser = await launchChromium();
@@ -589,6 +592,53 @@ async function run() {
   assert(replayedClose.logLength === 1 && replayedClose.draft === null && replayedClose.artifacts.length === 0,
     "boot replays the retained workout finish and drains its transaction artifacts",
     JSON.stringify(replayedClose));
+
+  // ---- 8 — Settings says what the browser says about durability ----------------
+  phase("Settings reports whether the browser keeps the data");
+  const DURABILITY = {
+    en: {
+      kept: "This browser keeps Taurifer's data unless you clear it.",
+      mayClear: "This browser may clear Taurifer's data if space runs low. Export a backup regularly.",
+    },
+    pt: {
+      kept: "Este navegador mantém os dados do Taurifer, a menos que você os apague.",
+      mayClear: "Este navegador pode apagar os dados do Taurifer se o espaço acabar. Exporte um backup com frequência.",
+    },
+  };
+  for (const lang of ["en", "pt"]) {
+    for (const persisted of [true, false]) {
+      await setBrowserPersisted(page, persisted);
+      const state = fixture();
+      state.settings.lang = lang;
+      await seed(page, state);
+      await page.click("#openSettings");
+      await page.waitForSelector("#settings.view.active");
+      const want = persisted ? DURABILITY[lang].kept : DURABILITY[lang].mayClear;
+      await page
+        .waitForFunction((w) => document.querySelector("#storageNote")?.textContent.includes(w), want, { timeout: 3000 })
+        .catch(() => {});
+      const note = await page.evaluate(() => document.querySelector("#storageNote")?.textContent.trim() || "");
+      const other = persisted ? DURABILITY[lang].mayClear : DURABILITY[lang].kept;
+      assert(
+        note.includes(want) && !note.includes(other),
+        `Settings (${lang}) says the browser ${persisted ? "keeps" : "may clear"} the data`,
+        note
+      );
+    }
+  }
+  // A browser with no storage API reads the same as one that will not promise.
+  await page.evaluate(() => sessionStorage.removeItem("__persisted"));
+  await page.addInitScript(() => {
+    try { Object.defineProperty(navigator.storage, "persisted", { configurable: true, value: undefined }); } catch {}
+  });
+  await seed(page, fixture());
+  await page.click("#openSettings");
+  await page.waitForSelector("#settings.view.active");
+  await page
+    .waitForFunction((w) => document.querySelector("#storageNote")?.textContent.includes(w), DURABILITY.en.mayClear, { timeout: 3000 })
+    .catch(() => {});
+  const unavailable = await page.evaluate(() => document.querySelector("#storageNote")?.textContent.trim() || "");
+  assert(unavailable.includes(DURABILITY.en.mayClear), "Settings still renders when persisted() is unavailable", unavailable);
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 
