@@ -552,6 +552,8 @@
   "settings.storage.last_backup": "Last backup was {lastBackup}.",
   "settings.storage.last_backup_never": "No backup exported yet.",
   "settings.storage.degraded": "Taurifer saved to one browser store but could not update the other. Export a backup. Taurifer will keep trying to repair the second copy.",
+  "settings.storage.persisted": "This browser keeps Taurifer's data unless you clear it.",
+  "settings.storage.not_persisted": "This browser may clear Taurifer's data if space runs low. Export a backup regularly.",
   "dialog.glossary.aria": "Definition",
   "dialog.close": "Close",
   "dialog.block_review.aria": "Block review",

@@ -3209,9 +3209,7 @@ function capturePendingBlock(strategy,review){
 function hasArchivableProgram(snapshot){
   const meta=snapshot?.programMeta;
   const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
-  if(!meta||!hasDefinition)return false;
-  return meta.onboarded===true||Array.isArray(snapshot?.log)&&snapshot.log.length>0||
-    Array.isArray(snapshot?.programHistory)&&snapshot.programHistory.length>0}
+  return !!meta&&!!hasDefinition}
 function captureProgramReplacementIntent(snapshot=state,review=null){
   const meta=snapshot?.programMeta;
   if(!hasArchivableProgram(snapshot))return null;
@@ -7123,6 +7121,13 @@ async function finish(io,{expectedDraft=null,completion="normal"}={}){
   return{result,completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
   return Object.freeze({start,leave,finish,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,flush:drainDraftWork})})();
 
+// Asked once, at the first completed session: a device with nothing logged has
+// nothing to protect, and Firefox turns the request into a permission prompt.
+// No preference is stored; persisted() is the source of truth.
+async function requestPersistentStorage(){try{
+  if(!navigator.storage?.persist||await navigator.storage.persisted?.())return;
+  await navigator.storage.persist()}catch{}}
+
 async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   const {result,completed,capturedRaw}=await WorkoutSession.finish(io,{expectedDraft,completion});
   if(!completed){
@@ -7141,7 +7146,7 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   const {rows,prevLog,session,date,day:savedDay,startedAt,draftId}=completed;
   if(typeof window.__repforgeDraftAfterSaveCommit==="function")
     await window.__repforgeDraftAfterSaveCommit({session,draftId});
-  if(!prevLog.some(isWork)&&rows.some(isWork))captureEvent("first_set_logged",{});
+  if(!prevLog.some(isWork)&&rows.some(isWork)){captureEvent("first_set_logged",{});requestPersistentStorage()}
   captureEvent("session_completed",{
     set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
     exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
@@ -10403,6 +10408,18 @@ function renderGuideReplayList(){
   $$("#guideReplayList [data-guide-replay]").forEach(button=>{
     button.onclick=()=>replayContextualGuide(button.dataset.guideReplay)
   })}
+// The browser's own answer, appended to the backup line. A stale answer from an
+// earlier render must not overwrite a newer one, and a browser without the API
+// reads the same as one that will not promise.
+let storageNoteGen=0;
+function paintStorageNote(backupLine){
+  const sn=$("#storageNote");if(!sn)return;
+  sn.textContent=backupLine;
+  const gen=++storageNoteGen;
+  (async()=>{let kept=false;try{kept=(await navigator.storage?.persisted?.())===true}catch{}
+    if(gen!==storageNoteGen)return;
+    sn.textContent=`${backupLine} ${t(kept?"settings.storage.persisted":"settings.storage.not_persisted")}`})()}
+
 function renderSettings(){
   renderGuideReplayList();
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
@@ -10426,7 +10443,7 @@ function renderSettings(){
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
-  const sn=$("#storageNote");if(sn)sn.textContent=ago;
+  paintStorageNote(ago);
   const deg=$("#storageDegraded");
   if(deg){const on=!!DurableState.getStorageHealth().degraded;deg.textContent=on?t("settings.storage.degraded"):"";deg.classList.toggle("hidden",!on);deg.hidden=!on}
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}

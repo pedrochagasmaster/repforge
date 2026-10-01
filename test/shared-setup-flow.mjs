@@ -1985,6 +1985,30 @@ export async function runSharedSetupFlow(browser) {
     }
   });
 
+  await runCase("Un-onboarded device with a program archives it on setup-link activation", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    await persistState(page, firstRunEligibleState([]));
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "unonboarded-archive"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(500);
+    const local = (await readBothReplicas(page)).local || {};
+    const history = Array.isArray(local.programHistory) ? local.programHistory : [];
+    assert(local.programMeta?.onboarded === true && local.programMeta?.id !== "prog-existing", "the shared program is now active", JSON.stringify({ id: local.programMeta?.id, name: local.programMeta?.name }));
+    const archived = history.find((row) => row.id === "prog-existing");
+    assert(!!archived, "the un-onboarded predecessor is archived into programHistory", JSON.stringify(history.map((row) => ({ id: row.id, name: row.meta?.name }))));
+    assert(archived?.meta?.name === "Existing split", "the archived entry keeps the predecessor name", JSON.stringify(archived?.meta));
+    assert((archived?.program || []).some((row) => row.id === "ex-existing"), "the archived entry keeps the predecessor exercise", JSON.stringify(archived?.program));
+    await context.close();
+  });
+
   await runCase("Custom-definition collisions remap or reuse, never overwrite", async () => {
     const { context, page } = await openAppPage(browser);
     await clearSite(page);
