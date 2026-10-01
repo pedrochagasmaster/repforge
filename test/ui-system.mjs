@@ -393,7 +393,7 @@ function radiusContractErrors(candidate) {
       JSON.stringify(variant.radiusRecipes) !== JSON.stringify(radiusRecipe)) return ["landing stage radius scope or recipe changed"];
   return [];
 }
-assert.equal(inventory.contextualVariants.length, 15, "one exact landing radius recipe raises the variant count from 14 to 15");
+assert.equal(inventory.contextualVariants.length, 16, "the landing radius recipe and the workout shelf variant make 16 contextual variants");
 assert.deepEqual(radiusContractErrors(inventory), [], "normal stage, compact stage, and reasoning crop retain exact Plan 054 geometry");
 const flattenedRadius = structuredClone(inventory);
 flattenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").radiusRecipes[1].token = "--radius-prominent";

@@ -7599,7 +7599,7 @@
       "rationale": "Ledger sets are flat read-only data on one decorative hairline per break; opening or correcting a set is a separate action role added by the slice that renders it.",
       "owner": "plan-064/r1a",
       "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3c (Focus ledger), then R3h (session summary). The selected and open row boundary waits on OG-4 and is not part of this row.",
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3c (Focus ledger), then R3h (session summary). The open or corrected row is the separate ledgerline-open row (OG-4).",
       "catalogStates": [
         "workout/focus",
         "workout/correction",
