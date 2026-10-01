@@ -2717,10 +2717,8 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    Full-bleed over the app: the work is done, so nothing else competes for the
    page. One column, the evidence in the order it matters — records, how the
    lifts moved, what the muscles took, where the week now stands.
-   Motion is one beat. `is-played` is set a frame after the panel is up, so the
-   strike is seen rather than missed, and every block settles in behind it in
-   reading order. The animations only exist under `is-played`, so a panel that
-   never gets there is a fully legible page rather than a blank one.
+   It opens at rest (Direction D spec section 8): nothing animates to celebrate
+   the save, so the panel is a fully legible page the moment it is up.
    ============================================================ */
 .sumsheet{
   /* The bottom band is named because the pinned action has to reach through it:
@@ -2734,14 +2732,6 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 }
 .sumsheet.hidden{display:none!important}
 .sumsheet__body{width:min(100%,var(--maxw));margin:0 auto}
-
-/* Each block carries its own index, so the stagger follows the reading order
-   however many blocks this particular session earned. */
-.sumsheet.is-played .sumsheet__body>*{
-  animation:sum-settle .4s cubic-bezier(.2,.7,.2,1) both;
-  animation-delay:calc(var(--i,0) * 55ms);
-}
-@keyframes sum-settle{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 /* The report is a ledger (Direction D, spec 4.4): flat groups on hairlines, outcome
    words in ink, green only for a record, and no mark celebrating the save. */
@@ -2827,11 +2817,6 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 #sumDone:active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
 #sumDone:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #sumDone:disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
-
-@media (prefers-reduced-motion:reduce){
-  /* The panel still arrives as a full screen; it just stops moving to do it. */
-  .sumsheet.is-played .sumsheet__body>*{animation:none}
-}
 
 /* The restore-backup and end-block panels: native <dialog> elements sharing the
    shape of the storage-recovery dialog above them, scrim included. Neither

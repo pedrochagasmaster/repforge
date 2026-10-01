@@ -169,7 +169,13 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   }
 }
 assert(!/animateSetCompletion|animateLedger|animate\(.*ledger/i.test(layer), "set completion remains a short CSS acknowledgement");
-assert(polish.includes(".ledger__row.is-fresh") && polish.includes(".sumsheet.is-played"), "CSS still owns frequent surfaces");
+assert(polish.includes(".ledger__row.is-fresh"), "CSS still owns frequent surfaces");
+// Direction D spec section 8: the session summary opens at rest. No staged class, no entry stagger, no count-up
+// ramp and no celebratory crest animation remain anywhere a stylesheet or the app could start one.
+assert(!/is-played|sum-settle|sum-crest|taurifer-sum-strike|sum-ring/.test(styles + polish),
+  "the session summary has no staged-entry, stagger or crest animation in CSS");
+assert(!/is-played|rampSessionStats|data-ramp|data-kfmt/.test(app) && !/sumsheet[^{]*\{[^}]*animation/.test(styles + polish),
+  "the session summary has no count-up ramp or entry stagger in the app");
 assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(layer), "navigation, toasts and effort explanations remain CSS-owned");
 {
   const sheet = { offsetHeight: 200, style: { removeProperty() {} } };

@@ -192,20 +192,6 @@ nav button:active{transform:scale(.975)}
   transform-origin:left center;
 }
 
-/* ---- Session completion: keep the milestone, reduce the launch scale ---- */
-.sumsheet.is-played .sum-crest__mark{
-  animation:taurifer-sum-strike .34s cubic-bezier(.2,.85,.25,1) both;
-}
-.sumsheet.is-played .sum-crest__mark::before{
-  animation:sum-ring .65s .06s cubic-bezier(.2,.7,.2,1) both;
-}
-@keyframes taurifer-sum-strike{
-  0%{opacity:.45;transform:scale(.92)}
-  60%{opacity:1;transform:scale(1.035)}
-  100%{opacity:1;transform:scale(1)}
-}
-/* The existing 55ms reading-order stagger remains intentionally unchanged. */
-
 /* ---- Hover belongs to devices that can actually hover ----
    The base sheet keeps its fine-pointer hover language. On coarse/no-hover
    pointers, restore each affected control to its resting state so taps do not
@@ -263,8 +249,6 @@ nav button:active{transform:scale(.975)}
   .effortpop.is-closing,
   .effortpop.is-open .effortpop__arrow,
   .effortpop.is-bump .effortpop__hint,
-  .sumsheet.is-played .sum-crest__mark,
-  .sumsheet.is-played .sum-crest__mark::before{animation:none}
   .toast,.tour,.installbanner,.toggle::after{transition:none}
   .toggle:active::after{transform:none}
   .toggle[aria-checked="true"]:active::after,

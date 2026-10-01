@@ -7477,8 +7477,7 @@ function sessionSummaryHtml(s){
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   out.push(`<p class="sum-sub">${esc(s.meso.current!=null?t("summary.saved_week",{date:formatLongDate(s.date),n:s.meso.current}):formatLongDate(s.date))}</p>`);
   // What the work itself was: sets, load moved, lifts touched, plus the clock when it measured this session.
-  const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val" data-ramp="${esc(n)}"`+
-    `${k?' data-kfmt="1"':""}>${esc(k?kfmt(n):fmt(n))}</div>`+
+  const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val">${esc(k?kfmt(n):fmt(n))}</div>`+
     `<div class="statrow__cap">${esc(cap)}</div></div>`;
   const cells=[cell(s.sets,tp(s.sets,"logged set")),
     cell(toDisplay(s.volume),t("summary.stat.moved",{unit}),true),
@@ -7514,38 +7513,10 @@ function sessionSummaryHtml(s){
     `<button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
   return out.join("")}
 
-/** The stat row spins up to its numbers instead of printing them. They are the
- *  reward, so they are the one thing on the screen that moves by itself — and
- *  the ramp always lands on exactly the figure the markup already rendered, so
- *  a reader who never sees the motion reads the same page. */
-function rampSessionStats(root,delayMs=0){
-  const cells=[...(root?.querySelectorAll("[data-ramp]")||[])];
-  if(!cells.length)return;
-  const targets=cells.map(el=>({el,to:+el.dataset.ramp||0,k:el.dataset.kfmt==="1"}));
-  const paint=e=>{for(const{el,to,k}of targets)el.textContent=k?kfmt(to*e):fmt(Math.round(to*e))};
-  // Reduced motion — or a tab with no screen to animate onto — keeps the
-  // finished numbers the markup already carries.
-  if(document.hidden||window.matchMedia?.("(prefers-reduced-motion:reduce)").matches)return;
-  paint(0);
-  const dur=520,start=performance.now()+delayMs;
-  // rAF stops in a backgrounded tab. This timer is what guarantees the numbers
-  // are never left sitting at zero for a lifter who looks back at the screen.
-  const land=setTimeout(()=>paint(1),delayMs+dur+400);
-  const step=now=>{
-    if(now<start)return requestAnimationFrame(step);
-    const p=Math.min(1,(now-start)/dur);
-    paint(1-Math.pow(1-p,3));
-    if(p<1)requestAnimationFrame(step);
-    else clearTimeout(land)};
-  requestAnimationFrame(step)}
-
 let sessionSummaryCurrent=null;
 function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
   body.innerHTML=sessionSummaryHtml(s);
-  // Each block carries its reading position, so the stylesheet can stagger
-  // however many blocks this particular session earned.
-  [...body.children].forEach((el,i)=>el.style.setProperty("--i",i));
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const more=$("#sumMuscles");if(more)more.onclick=()=>{
     const open=more.getAttribute("aria-expanded")!=="true";
@@ -7561,7 +7532,6 @@ function clearSessionSummaryView(){
   const el=$("#sessionSummary");
   if(el&&activeModal?.el===el)closeModal(el);
   $("#sessionSummaryBody")?.replaceChildren();
-  el?.classList.remove("is-played");
 }
 
 /** The screen the lifter earns by finishing. It opens over the workout, so
@@ -7570,19 +7540,10 @@ function openSessionSummary(s){
   const el=$("#sessionSummary");if(!el)return false;
   sessionSummaryCurrent=s;
   renderSessionSummary(s);
-  el.classList.remove("is-played");
+  // The summary opens at rest: every figure is already printed and nothing animates
+  // to celebrate the save (Direction D spec section 8).
   const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
   if(!ok){sessionSummaryCurrent=null;return false}
-  // One beat, played on the frame after the panel is up so the strike is seen
-  // rather than missed. `prefers-reduced-motion` turns every step of it off.
-  requestAnimationFrame(()=>{
-    if(activeModal?.el!==el)return;
-    el.classList.add("is-played");
-    // The numbers wait for their own block to arrive before they start. The
-    // stylesheet owns the stagger, so the delay is read off it rather than
-    // duplicated here.
-    const stats=el.querySelector(".sum-stats");
-    rampSessionStats(stats,stats?parseFloat(getComputedStyle(stats).animationDelay)*1000||0:0)});
   el.scrollTop=0;
   captureEvent("session_summary_viewed",{});
   return true}
@@ -7591,7 +7552,6 @@ function closeSessionSummary(opts={}){
   const el=$("#sessionSummary");
   sessionSummaryCurrent=null;
   if(el&&activeModal?.el===el)closeModal(el);
-  el?.classList.remove("is-played");
   // Finishing a session ends it: the shell steps back to Today either way.
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");
   if(opts.nav)navTo(opts.nav);

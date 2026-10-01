@@ -164,25 +164,33 @@ async function enterLog(page) {
 async function finish(page) {
   await finishEarly(page);
   await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
-  await settleStats(page);
+  await assertOpensAtRest(page);
 }
 
-/** The stat row spins up to its numbers, so read it once it has landed. */
-async function settleStats(page) {
-  const read = () =>
-    page.evaluate(() =>
-      [...document.querySelectorAll("#sessionSummary .sum-stats .statrow__val")]
-        .map((n) => n.textContent)
-        .join("|")
-    );
+/**
+ * The summary opens at rest (Direction D spec section 8: nothing animates to celebrate the save).
+ * The first read after it is up already holds the final figures; nothing is running, no staged class
+ * is set, every block is fully opaque, and a second read a beat later is identical.
+ */
+async function assertOpensAtRest(page) {
+  const probe = () =>
+    page.evaluate(() => {
+      const el = document.querySelector("#sessionSummary");
+      return {
+        figures: [...el.querySelectorAll(".sum-stats .statrow__val")].map((n) => n.textContent).join("|"),
+        running: el.getAnimations({ subtree: true }).length,
+        played: el.classList.contains("is-played"),
+        staged: !!el.querySelector("[style*='--i'], [data-ramp]"),
+        opaque: [...el.querySelectorAll("#sessionSummaryBody > *")].every((n) => getComputedStyle(n).opacity === "1"),
+      };
+    });
+  const first = await probe();
   await page.waitForTimeout(900);
-  let prev = await read();
-  for (let i = 0; i < 20; i++) {
-    await page.waitForTimeout(100);
-    const now = await read();
-    if (now === prev) return;
-    prev = now;
-  }
+  const later = await probe();
+  assert(first.figures === later.figures && first.figures.split("|").every((v) => /[1-9]/.test(v)),
+    "the summary opens with its final figures already printed (no count-up)", JSON.stringify({ first: first.figures, later: later.figures }));
+  assert(first.running === 0 && later.running === 0, "nothing on the summary is animating", JSON.stringify({ first: first.running, later: later.running }));
+  assert(!first.played && !first.staged && first.opaque, "no entry stagger: no staged class, every block fully opaque from the first frame", JSON.stringify(first));
 }
 
 const readSummary = (page) =>
