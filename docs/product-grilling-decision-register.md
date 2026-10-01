@@ -825,6 +825,39 @@ Plan numbers below are advisor-plan numbers, not `plans/NNN`.
 | Q620 — persistent-storage request and copy | Recommendation | Request once, after the first completed session, never at first boot. Settings shows whether the browser keeps the data and, if not, advises regular backups. A proactive backup reminder is a separate Later item that needs a design first. |
 | Q621 — plan-index fix timing | Recommendation | After PR #248 merges, in one small docs change that also records Plan 057's state. |
 
+### Q622–Q637 — onboarding design tournament (reopened September 29, 2026)
+
+The onboarding design tournament (`docs/design/onboarding-tournament/`, PR
+#279) stopped after Round 2 with product decisions PD-1 to PD-5 and several
+open design items for the owner (`final-report.md` §9). The owner reopened
+this register for that one branch, answered every question with the
+recommended option except where noted, and closed it after Q637. PD-n and O-n
+refer to `docs/design/onboarding-tournament/round-1/synthesis-spec.md`.
+
+| Question | Answer | Canonical outcome |
+|---|---|---|
+| Q622 — PD-1, deferred route choice | A | Closed. Start keeps opening Plan 054's five-job chooser. The chooser's featured Recommend block may itself be Recommend's first question (Q627), which captures PD-1's measured saving without the policy change. |
+| Q623 — PD-2 and PD-3, assumed session length and rest | A | Closed. Session minutes and preferred rest stay asked, with nothing preselected (Plan 048 #7). |
+| Q624 — PD-4, an example program before any answer | A | Closed. No compiled program appears before the lifter answers; the landing keeps the owner-selected Today proof. |
+| Q625 — PD-5, production catalog corrections | B | A standalone PR against `main` after PR #256 merges: the European-Portuguese and brand-rule entry strings the tournament overrides, the cancel dialog's "Guardar rascunho e sair", and the rules-drift button that contradicts its body copy. Regenerate `i18n.js` and the screen catalog with it. |
+| Q626 — the tournament's result | B, without judges | Build the recommended synthesis once as a single Round 3 candidate in the tournament harness, checked by the acceptance run only. No new judging round. |
+| Q627 — Recommend's grouping | A | The chooser's featured block is the goal question. Recommend then has four sections: experience and consistency; schedule; environment; optional priorities and avoidance. |
+| Q628 — answers on the review | C | Editable answer chips placed after the first training day, with the other days collapsed, so the program comes first on every route, Custom included. |
+| Q629 — editing an answer from the review | A | Inline expansion at every size. No bottom sheets for answer editing. |
+| Q630 — landing composition | A | Headline, lede and both actions first, then the Today proof. Plan 054's visual gate still applies. |
+| Q631 — decline on the shared-link gate | A | Start only, as today. Revisit when coaches send links to real users; a decline would have to restore the pre-link language and clear the fragment (ADR 0007). |
+| Q632 — Build from the import route | A | A quiet "Prefiro escrever do zero" link. Build stays in the chooser's own-program group. |
+| Q633 — resume card placement | A | On the chooser only. A returning lifter never sees the one-time landing, so a card there would go unseen. |
+| Q634 — Round 3 acceptance bar | A | Before building Round 3, add mechanical checks for every defect the Round 2 judges found (import-mode data loss, dialog focus, focus after an answer, change statement in view after an apply, usable editor height at 320 px and 200% text, Skip never discarding a constraint, no raw keys, program first on every review). Round 3 passes only with zero hard failures across all eight matrix cells. |
+| Q635 — where these decisions are recorded | A | Here, and as rows in `docs/backlog.md`. |
+| Q636 — when a passing Round 3 reaches production | A | As a new plan sequenced before Plan 059, shipped as its own PR, never folded into another overhaul PR (Q604). Gated on Round 3 passing and the owner's visual approval. |
+| Q637 — marking changed rows | A | After a correction the review shows the before/after count with focus moved to it, and marks each added exercise with an accent edge and a "novo" text tag. |
+
+Superseded on 2026-09-30: the clause in Q636, "shipped as its own PR", is
+superseded by the owner's 2026-09-30 unified-topology decision, codified in
+[Plan 064](../plans/064-unified-redesign-convergence.md). Every other answer in
+Q622–Q637 stands.
+
 ## Canonical decisions reached across the session
 
 The ledger above preserves sequence. This section is the consolidated product
