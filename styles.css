@@ -4212,6 +4212,9 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #history.is-session-page>.pagehead{display:none}
 #history .histpage__head{display:flex;flex-direction:column;align-items:flex-start}
 #history .histpage__head .back-link{margin-left:calc(-1 * var(--space-4))}
+/* The editor, delete and conflict heads share a row with the date: the way back keeps its width and the date wraps under it at large text. */
+#history .history-selection__head{flex-wrap:wrap}
+#history .history-selection__head .back-link{flex:none}
 #history .histpage__title{margin:var(--space-4) 0 0;font-family:var(--font-language);overflow-wrap:anywhere}
 #history .histpage__title:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 #history .histpage__lede{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
