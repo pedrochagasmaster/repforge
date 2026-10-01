@@ -1013,7 +1013,7 @@ try {
         };
         return {
           installShown: shown("#firstRunInstall"),
-          heroPresent: !!document.querySelector(".firstrun-hero"),
+          heroPresent: !!document.querySelector('#firstRun [data-landing-section="hero"]'),
         };
       });
 
@@ -1031,7 +1031,7 @@ try {
 
       const globals = await page.evaluate(() => {
         const cues = [...document.querySelectorAll("[data-guide-cue]")].map((el) => el.dataset.guideCue);
-        const headline = document.querySelector(".firstrun-hero__title");
+        const headline = document.querySelector("#firstRunHeadline");
         const above = [...document.querySelectorAll("#firstRun [data-guide-cue]")]
           .filter((el) => el.getBoundingClientRect().top < headline.getBoundingClientRect().top);
         return {

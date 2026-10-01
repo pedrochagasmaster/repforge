@@ -29,16 +29,15 @@
  * sessions, owner decision L-2) are derived with progress-model.js from the exact
  * history the chart image is captured from (tools/landing-prototype/fixture.mjs).
  *
- * PART 2 - the final page (RED until the page packet lands). Enabled with
- *   REPFORGE_LANDING_FINAL=1
- * It asserts that each new section exists, that the proof has seven steps, that
- * the three outcome cases and the chart show the oracle's numbers, that the FAQ
- * has five <details>, and that the persistent Build dock exists on the standard
- * landing but never on the shared-link gate. The page packet removes this env
- * gate in the same change that makes these assertions pass; until then the block
- * is not part of the lane CI runs.
+ * PART 2 - the final page (always on since the page packet landed). It asserts
+ * that each section exists, that the proof has seven steps, that the three
+ * outcome cases and the chart show the oracle's numbers, that the FAQ has five
+ * <details>, that the persistent Build dock exists on the standard landing but
+ * never on the shared-link gate, and that the proof controller mounts and
+ * disposes with the gate (nothing it starts outlives the landing) and degrades
+ * to static cards under reduced motion, enlarged text and short screens.
  *
- * Hooks PART 2 expects (the page packet builds to these; all inside #firstRun):
+ * Hooks PART 2 reads (all inside #firstRun):
  *   [data-landing-section="hero|proof|ways|track|data|faq|close|footer"]
  *   [data-landing-step]            x7 in the proof section, in order; the last is
  *                                  the result step
@@ -48,6 +47,7 @@
  *   details.faq                    x5 in the faq section
  *   #firstRunCreateDock            the persistent Build control; absent on the
  *                                  valid shared-link gate
+ *   window.__repforgeLandingProof()  what the open landing's proof controller holds
  *
  * Run: node test/landing-variants.mjs   (with a static server on REPFORGE_URL)
  */
@@ -67,7 +67,6 @@ import { realisticState } from "../tools/landing-prototype/fixture.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const FAULT = process.env.REPFORGE_LANDING_VARIANTS_FAULT;
-const FINAL = process.env.REPFORGE_LANDING_FINAL === "1";
 const require = createRequire(import.meta.url);
 
 const KEY = "repforge_v1";
@@ -197,9 +196,11 @@ async function clearSite(page) {
 }
 
 /** A clean, empty device showing the generic landing (or the gate the UA implies). */
-async function landingPage(browser, { ua = ANDROID_UA, lang = "en", standalone = false, width = 390, height = 844 } = {}) {
+async function landingPage(browser, { ua = ANDROID_UA, lang = "en", standalone = false, width = 390, height = 844, reducedMotion = false, theme = null } = {}) {
   const { context, page, errors } = await openAppPage(browser, { ua, locale: LOCALE[lang], standalone, width, height });
+  if (reducedMotion) await page.emulateMedia({ reducedMotion: "reduce" });
   await clearSite(page);
+  if (theme) await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify({ theme: value })), { key: UIKEY, value: theme });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   await waitForFirstRun(page);
@@ -290,7 +291,7 @@ async function characterize(browser) {
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(s.route === "generic", `[${lang}] a first visit with no link is the generic landing`, s.route);
     assert(s.headline === tr(lang, "landing.headline"), `[${lang}] headline is landing.headline`, s.headline);
-    assert(s.lede === tr(lang, "landing.body"), `[${lang}] lede is landing.body`, s.lede);
+    assert(s.lede === tr(lang, "landing.hero.sub"), `[${lang}] lede is landing.hero.sub`, s.lede);
     assert(s.create.shown && s.create.text === tr(lang, "landing.build"), `[${lang}] Build action reads landing.build`, JSON.stringify(s.create));
     assert(s.import.shown && s.import.text === tr(lang, "landing.track"), `[${lang}] Track action reads landing.track`, JSON.stringify(s.import));
     assert(s.privacy.shown && s.privacy.text === tr(lang, "privacy.title"), `[${lang}] Privacy link reads privacy.title`, JSON.stringify(s.privacy));
@@ -578,7 +579,58 @@ function engineTruth() {
 }
 
 // ===========================================================================
-// PART 2 - the final page (RED until the page packet lands)
+// PART 1c - copy that must stay true to the code it describes, Node only
+// ===========================================================================
+const RETIRED_KEYS = [
+  "landing.ethos", "landing.privacy", "landing.body", "landing.closing.body", "landing.preview.alt",
+  "landing.program.title", "landing.system.title", "landing.shot.focus.alt", "landing.proof.example",
+];
+/** What the captured import-review screen shows for the sample message: the counts differ by language. */
+const PASTE_COUNTS = { en: { linked: 1, review: 3 }, pt: { linked: 0, review: 4 } };
+const DEFAULT_WEEKS = (() => {
+  const match = /mesocycleLengthWeeks:(\d+),mesocycleStatus:"active"/.exec(APP_SOURCE);
+  return match ? Number(match[1]) : NaN;
+})();
+
+function copyPins() {
+  phase("Copy pins: the page's claims against the code they describe");
+  const transfer = readFileSync(new URL("../install-transfer.js", import.meta.url), "utf8");
+  const maxAge = /const COOKIE_MAX_AGE = (\d+);/.exec(transfer);
+  assert(maxAge && Number(maxAge[1]) === 3600, "the install-transfer cookie lives 3600 seconds: the hour the FAQ promises", maxAge?.[0]);
+  assert(/within an hour/.test(CATALOG.en["landing.faq.store.transfer"]) && /uma hora/.test(CATALOG.pt["landing.faq.store.transfer"]),
+    "both FAQ transfer answers say it expires within an hour");
+  assert(DEFAULT_WEEKS === 6, "the ways' {weeks} is the default programMeta.mesocycleLengthWeeks", String(DEFAULT_WEEKS));
+  for (const lang of ["en", "pt"]) {
+    assert(CATALOG[lang]["landing.ways.written.body"].includes("{weeks}"), `[${lang}] the program length is a placeholder, never typed into the catalog`);
+    for (const key of ["landing.demo.s7.text", "landing.outcomes.did_same", "landing.outcomes.did_mixed", "landing.outcomes.target", "landing.chart.caption", "landing.chart.alt"]) {
+      assert(!/\d/.test(CATALOG[lang][key].replace(/\{\w+\}/g, "").replace(/e1RM/g, "")), `[${lang}] ${key} carries no hard-coded number`, CATALOG[lang][key]);
+    }
+    for (const key of RETIRED_KEYS) assert(!(key in CATALOG[lang]), `[${lang}] retired key ${key} is gone`);
+  }
+  // The lens spots and the import-review counts are measured from the live app by
+  // tools/capture-landing-proof.mjs into assets/brand/landing-proof-spots.json; the
+  // page's own tables must be those numbers, so a recapture that moves a spot or a
+  // count fails here instead of shipping a lens over the wrong pixels.
+  const literal = (name) => {
+    const match = new RegExp(`const ${name}=(\\{[\\s\\S]*?\\});\\n`).exec(APP_SOURCE);
+    return match ? new Function(`"use strict";return (${match[1]});`)() : null;
+  };
+  const pageSpots = literal("LANDING_SPOTS"), pagePaste = literal("LANDING_PASTE_SHOT");
+  assert(!!pageSpots && !!pagePaste, "app.js carries the proof's lens spots and the import-review figures");
+  let stored = null;
+  try { stored = JSON.parse(readFileSync(new URL("../assets/brand/landing-proof-spots.json", import.meta.url), "utf8")); } catch {}
+  if (stored && pageSpots && pagePaste) {
+    assert(isDeepStrictEqual(stored.scenes, pageSpots), "the lens spots in app.js equal the measured assets/brand/landing-proof-spots.json", JSON.stringify({ stored: stored.scenes, page: pageSpots }));
+    const counts = Object.fromEntries(Object.entries(stored.pasteReview).map(([lang, c]) => [lang, { linked: c.linked, review: c.review }]));
+    assert(isDeepStrictEqual(counts, pagePaste.counts), "the import-review counts in app.js are each language's own measured counts", JSON.stringify({ stored: counts, page: pagePaste.counts }));
+    assert(stored.frame.width === 390 && stored.frame.height === 844, "the spots were measured on the 390 x 844 frame the static crops assume", JSON.stringify(stored.frame));
+  } else {
+    console.log("  (assets/brand/landing-proof-spots.json is not written yet: the spot table is not compared)");
+  }
+}
+
+// ===========================================================================
+// PART 2 - the final page
 // ===========================================================================
 const SECTIONS = ["hero", "proof", "ways", "track", "data", "faq", "close", "footer"];
 
@@ -591,13 +643,15 @@ const readFinal = (sectionNames) => {
   const outcomes = {};
   for (const id of ["add", "hold", "reduce"]) {
     const node = section("track")?.querySelector(`[data-landing-outcome="${id}"]`);
-    outcomes[id] = node ? { text: text(node), next: text(node.querySelector("[data-landing-next]")) } : null;
+    outcomes[id] = node ? { text: text(node), next: text(node.querySelector("[data-landing-next]")), explain: text(node.querySelector("[data-landing-explain]")) } : null;
   }
   const outcomeCount = section("track")?.querySelectorAll("[data-landing-outcome]").length ?? 0;
   const chartNode = section("track")?.querySelector("[data-landing-chart]") || null;
   const chart = chartNode ? {
     alt: chartNode.querySelector("img")?.getAttribute("alt") || "",
     src: chartNode.querySelector("img")?.getAttribute("src") || "",
+    width: chartNode.querySelector("img")?.getAttribute("width") || "",
+    height: chartNode.querySelector("img")?.getAttribute("height") || "",
     caption: text(chartNode.querySelector("figcaption")),
   } : null;
   const faq = [...(section("faq")?.querySelectorAll("details") || [])];
@@ -605,7 +659,9 @@ const readFinal = (sectionNames) => {
   const target = footerLink ? root.querySelector(footerLink.getAttribute("href")) : null;
   return {
     sections, steps, outcomes, outcomeCount, chart,
-    faqCount: faq.length, faqQuestions: faq.map((d) => text(d.querySelector("summary"))),
+    waysWritten: text(section("ways")?.querySelector('[data-landing-fill="ways.written"]')),
+    faqCount: faq.length, faqQuestions: faq.map((d) => text(d.querySelector("summary"))), faqOpen: faq.filter((d) => d.open).length,
+    rirAnswer: text(faq[2]?.querySelector(".firstrun-qa__a")),
     footerPrivacyTargetsData: !!target && target === section("data"),
   };
 };
@@ -620,6 +676,27 @@ const dockState = () => {
   return { present: true, visible: !hiddenByAria && onScreen };
 };
 
+const proofState = () => window.__repforgeLandingProof?.() ?? null;
+const stepState = () => {
+  const root = document.querySelector("#firstRun");
+  const steps = [...root.querySelectorAll("[data-landing-step]")];
+  const shown = (node) => {
+    const box = node.getBoundingClientRect();
+    return box.width > 0 && box.height > 0 && Number.parseFloat(getComputedStyle(node).opacity) > 0;
+  };
+  return {
+    count: steps.length,
+    current: steps.filter((step) => step.getAttribute("aria-current") === "step").length,
+    visible: steps.filter(shown).length,
+    withText: steps.filter((step) => step.textContent.trim().length > 0).length,
+    pinnedClass: !!root.querySelector(".firstrun-proof__track.is-pinned"),
+    phones: root.querySelectorAll(".firstrun-proof__phone").length,
+    rail: root.querySelectorAll(".firstrun-proof__rail button").length,
+    crops: [...root.querySelectorAll(".firstrun-step__crop")].filter(shown).length,
+    overflowX: document.documentElement.scrollWidth > innerWidth || root.scrollWidth > root.clientWidth,
+  };
+};
+
 async function scrollLanding(page, selector, block = "start") {
   await page.evaluate(({ selector, block }) => {
     const node = document.querySelector(selector);
@@ -628,17 +705,28 @@ async function scrollLanding(page, selector, block = "start") {
   await page.waitForTimeout(700);
 }
 
+/** Scroll the landing so the pinned proof sits at the middle of step `index`. */
+async function scrollToStep(page, index) {
+  await page.evaluate((i) => {
+    const root = document.querySelector("#firstRun");
+    const track = document.querySelector("#firstRunProofTrack"), stage = document.querySelector("#firstRunProofStage");
+    const span = track.offsetHeight - stage.offsetHeight;
+    root.scrollTo({ top: track.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + span * (i + 0.5) / 7, behavior: "instant" });
+  }, index);
+  await page.waitForTimeout(500);
+}
+
 async function finalPage(browser) {
-  // The failing contract, standard landing, in both languages.
+  // Standard landing, both languages, both themes' captures.
   for (const lang of ["en", "pt"]) {
-    phase(`Final page [${lang}] (RED): new sections and engine-true numbers`);
-    const { context, page } = await landingPage(browser, { lang });
+    phase(`Final page [${lang}]: sections and engine-true numbers`);
+    const { context, page, errors } = await landingPage(browser, { lang });
     const f = await page.evaluate(readFinal, SECTIONS);
 
     for (const name of SECTIONS) assert(f.sections[name], `[${lang}] the ${name} section is present (data-landing-section="${name}")`);
 
     assert(f.steps.length === 7, `[${lang}] the proof has seven steps in the document`, `found ${f.steps.length}`);
-    assert(f.steps.length > 0 && f.steps.every((step) => step.length > 0), `[${lang}] every proof step carries its text without scripting`, JSON.stringify(f.steps.map((s) => s.length)));
+    assert(f.steps.length > 0 && f.steps.every((step) => step.length > 0), `[${lang}] every proof step carries its text without the pinned stage`, JSON.stringify(f.steps.map((s) => s.length)));
     const add = LANDING_CASES.add;
     const last = f.steps.at(-1) || "";
     assert(
@@ -650,41 +738,230 @@ async function finalPage(browser) {
     assert(f.outcomeCount === 3, `[${lang}] the track section shows exactly three outcomes`, `found ${f.outcomeCount}`);
     for (const id of ["add", "hold", "reduce"]) {
       const c = LANDING_CASES[id], want = ENGINE[id];
-      const out = f.outcomes[id] ?? { text: "", next: "" };
+      const out = f.outcomes[id] ?? { text: "", next: "", explain: "" };
       assert(!!f.outcomes[id], `[${lang}] the ${id} outcome is present`);
       assert(hasNumber(out.next, want.load, lang) && hasNumber(out.next, want.reps, lang),
         `[${lang}] ${id}: next target equals the engine's ${want.load} x ${want.reps}`, out.next);
+      const shownLoad = lang === "pt" ? String(want.load).replace(".", ",") : String(want.load);
+      assert(out.next === tr(lang, "landing.outcomes.target", { load: `${shownLoad} kg`, reps: want.reps }),
+        `[${lang}] ${id}: the next target is the catalog template filled with the engine's numbers`, out.next);
       assert(hasNumber(out.text, c.logged[0][0], lang) && hasNumber(out.text, c.repMin, lang) && hasNumber(out.text, c.repMax, lang),
         `[${lang}] ${id}: the card shows the logged load ${c.logged[0][0]} and the target range ${c.repMin}-${c.repMax}`, out.text);
     }
+    // {list}: the language chooses the conjunction.
+    const listed = lang === "pt" ? "8, 7 e 6" : "8, 7 and 6";
+    assert(f.outcomes.hold?.explain.startsWith(tr(lang, "landing.outcomes.did_mixed", { list: listed, load: "100 kg", min: 5, max: 8 })),
+      `[${lang}] hold: the mixed reps read "${listed}"`, f.outcomes.hold?.explain);
+    assert(f.outcomes.add?.explain.startsWith(tr(lang, "landing.outcomes.did_same", { reps: 10, load: "60 kg", sets: 3, min: 8, max: 10 })),
+      `[${lang}] add: identical reps use the same-reps sentence`, f.outcomes.add?.explain);
     const labels = { add: "rec.add.label", hold: "rec.hold_add_reps.label", reduce: "rec.reduce.label" };
     for (const id of Object.keys(labels)) {
       assert(!!f.outcomes[id] && f.outcomes[id].text.includes(tr(lang, labels[id])), `[${lang}] ${id}: the verdict uses the app's own label (${labels[id]})`, f.outcomes[id]?.text);
     }
+    assert(f.waysWritten === tr(lang, "landing.ways.written.body", { weeks: DEFAULT_WEEKS }), `[${lang}] the ways' program length is the default ${DEFAULT_WEEKS} weeks`, f.waysWritten);
 
     const chart = deriveChart(lang);
     assert(!!f.chart, `[${lang}] the strength-trend figure is present (data-landing-chart)`);
-    const shownChart = f.chart ?? { alt: "", caption: "", src: "" };
+    const shownChart = f.chart ?? { alt: "", caption: "", src: "", width: "", height: "" };
     for (const [where, text] of [["alt", shownChart.alt], ["caption", shownChart.caption]]) {
       assert(hasNumber(text, chart.from, lang) && hasNumber(text, chart.to, lang) && hasNumber(text, chart.sessions, lang),
         `[${lang}] chart ${where} states ${chart.from} -> ${chart.to} kg over ${chart.sessions} sessions (Progress model)`, text);
     }
     assert(shownChart.src.includes(`exercise-chart-${lang}-`), `[${lang}] the chart image is the ${lang} capture`, shownChart.src);
+    assert(shownChart.width === "903" && shownChart.height === "1832", `[${lang}] the chart image reserves its box (width and height)`, `${shownChart.width}x${shownChart.height}`);
 
     assert(f.faqCount === 5, `[${lang}] the questions section has five <details>`, `found ${f.faqCount}`);
+    assert(f.faqOpen === 0, `[${lang}] every question starts closed`);
+    assert(f.rirAnswer === tr(lang, "glossary.RIR"), `[${lang}] the RIR answer is the app's own definition (glossary.RIR)`, f.rirAnswer);
     assert(f.footerPrivacyTargetsData, `[${lang}] the footer Privacy link goes to the data section, not the sheet`);
+    const pasteAlt = await page.evaluate(() => document.querySelector('[data-shot="paste-review"]')?.getAttribute("alt") || "");
+    const pasteTemplate = tr(lang, "landing.ways.paste.alt", { screen: tr(lang, "import.heading"), ...PASTE_COUNTS[lang], status: tr(lang, "import.status.probable") });
+    const pasteRe = new RegExp(`^${escapeRe(pasteTemplate).replace(/\\\{\w+\\\}/g, ".+")}$`);
+    assert(pasteRe.test(pasteAlt), `[${lang}] the import-review alt states this language's own counts (${PASTE_COUNTS[lang].linked} linked, ${PASTE_COUNTS[lang].review} to review)`, pasteAlt);
+    const pasteSize = await page.evaluate(() => { const img = document.querySelector('[data-shot="paste-review"]'); return `${img.getAttribute("width")}x${img.getAttribute("height")}`; });
+    assert(pasteSize === (lang === "pt" ? "780x1140" : "780x1162"), `[${lang}] the import-review capture reserves its own ${lang} box`, pasteSize);
 
-    // The persistent Build control: hidden at the top, present once the hero action is behind.
+    // Every capture is referenced with its box so a missing file cannot shift the layout.
+    const images = await page.evaluate(() => [...document.querySelectorAll("#firstRun img")].map((img) => ({
+      src: img.getAttribute("src"), width: img.getAttribute("width"), height: img.getAttribute("height"), decoding: img.getAttribute("decoding"),
+    })));
+    assert(images.every((img) => img.width && img.height), `[${lang}] every landing image declares width and height`, JSON.stringify(images.filter((img) => !img.width || !img.height)));
+    assert(!images.some((img) => /today-ready/.test(img.src || "")), `[${lang}] the retired today-ready hero images are not referenced`);
+    const sources = await page.evaluate(() => [...document.querySelectorAll("#firstRun picture source")].length);
+    assert(sources === 0, `[${lang}] no prefers-color-scheme <picture> source: themes swap by data-theme`, String(sources));
+
+    // The persistent Build control: hidden at the top, present once the hero action is behind, gone at the close.
     const top = await page.evaluate(dockState);
     assert(!top.visible, `[${lang}] the dock is hidden while the hero action is on screen`, JSON.stringify(top));
     await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
     const past = await page.evaluate(dockState);
     assert(past.present && past.visible, `[${lang}] #firstRunCreateDock shows once the hero action has scrolled away`, JSON.stringify(past));
+    await scrollLanding(page, '#firstRun [data-landing-section="close"]');
+    const closing = await page.evaluate(dockState);
+    assert(!closing.visible, `[${lang}] the dock steps aside at the closing action`, JSON.stringify(closing));
+    assert(errors.length === 0, `[${lang}] no uncaught page errors while the captures are missing or present`, errors.slice(0, 2).join(" | "));
+    await context.close();
+  }
+
+  // Appearance follows <html data-theme>.
+  phase("Final page: captures follow the chosen appearance");
+  for (const theme of ["light", "dark"]) {
+    const { context, page } = await landingPage(browser, { lang: "en", theme });
+    const shots = await page.evaluate(() => ({
+      theme: document.documentElement.dataset.theme,
+      sources: [...document.querySelectorAll("#firstRun [data-shot]")].map((img) => img.getAttribute("src")),
+      proof: [...document.querySelectorAll("#firstRun [data-landing-crop]")].map((img) => img.getAttribute("src")),
+    }));
+    assert(shots.theme === theme && shots.sources.length === 2 && shots.sources.every((src) => src.endsWith(`-en-${theme}.webp`)),
+      `[${theme}] the paste review and the chart swap to their ${theme} captures`, JSON.stringify(shots));
+    assert(shots.proof.length === 7 && shots.proof.every((src) => /wt-(focus|rest|actions|note)-en-dark\.webp$/.test(src)),
+      `[${theme}] the proof screens are the dark captures in either theme`, JSON.stringify(shots.proof));
+    await context.close();
+  }
+
+  // The proof controller: mounts with the gate, disposes with it.
+  phase("Proof controller: the pinned stage, its rail, and a clean exit");
+  {
+    const { context, page, errors } = await landingPage(browser, { lang: "en" });
+    const open = await page.evaluate(proofState);
+    assert(open?.open && open.pinned && open.listeners > 0 && open.observers === 2, "opening the landing mounts the controller with its pinned stage", JSON.stringify(open));
+    await page.waitForTimeout(400);
+    const before = await page.evaluate(stepState);
+    assert(before.pinnedClass && before.phones === 1 && before.rail === 7 && before.count === 7 && before.current === 1,
+      "the pinned stage has one phone, a seven-step rail and exactly one current step", JSON.stringify(before));
+    assert(before.visible === 1, "only the current step is painted while pinned", JSON.stringify(before));
+    assert(!before.overflowX, "no horizontal scroll while pinned", JSON.stringify(before));
+    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    await scrollToStep(page, 3);
+    const mid = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), current: document.querySelector("[data-landing-step][aria-current='step']")?.dataset.scene }));
+    assert(mid.step === 3 && mid.current === "rest", "scrolling the track moves the proof to step 4 (the rest screen)", JSON.stringify(mid));
+    await scrollToStep(page, 6);
+    const lens = await page.evaluate(() => ({ step: window.__repforgeLandingProof().step, read: document.querySelector(".firstrun-proof__lens")?.dataset.read || null }));
+    assert(lens.step === 6 && !!lens.read, "the last step puts the lens on an element", JSON.stringify(lens));
+    // A rail detent scrolls to its step and marks the button current.
+    await page.click('.firstrun-proof__rail button[data-go="1"]');
+    await page.waitForFunction(() => window.__repforgeLandingProof().step === 1, undefined, { timeout: 4000 }).catch(() => {});
+    const railed = await page.evaluate(() => ({ step: window.__repforgeLandingProof().step, current: [...document.querySelectorAll(".firstrun-proof__rail button")].map((b) => b.getAttribute("aria-current") === "step") }));
+    assert(railed.step === 1 && railed.current.filter(Boolean).length === 1 && railed.current[1] === true, "a rail button scrolls to its step and is the one current button", JSON.stringify(railed));
+
+    // Leaving the landing disposes everything the controller started.
+    await page.evaluate(() => window.closeFirstRun());
+    const closed = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), phones: document.querySelectorAll(".firstrun-proof__phone").length, pinned: !!document.querySelector(".is-pinned") }));
+    assert(closed.open === false && closed.listeners === 0 && closed.observers === 0 && closed.timers === 0 && closed.frames === 0 && closed.phones === 0 && !closed.pinned,
+      "closing the landing leaves no listener, observer, timer, frame or injected node", JSON.stringify(closed));
+    // And scrolling a hidden landing starts nothing.
+    await page.evaluate(() => { const r = document.querySelector("#firstRun"); r.scrollTop = 50; r.dispatchEvent(new Event("scroll")); window.dispatchEvent(new Event("resize")); });
+    await page.waitForTimeout(150);
+    const still = await page.evaluate(() => window.__repforgeLandingProof());
+    assert(still.frames === 0 && still.timers === 0 && still.listeners === 0, "scroll and resize on a closed landing start nothing", JSON.stringify(still));
+    // Reopening builds a fresh controller.
+    await page.evaluate(() => window.openFirstRun());
+    const again = await page.evaluate(proofState);
+    assert(again?.open && again.pinned && again.step === 0, "reopening mounts a fresh controller at step one", JSON.stringify(again));
+    await page.evaluate(() => window.closeFirstRun());
+    assert(errors.length === 0, "mounting and disposing raise no page errors", errors.slice(0, 2).join(" | "));
+    await context.close();
+  }
+
+  // Degradation: reduced motion, enlarged text and short screens get the seven static cards.
+  phase("Proof controller: static cards when the stage cannot or should not pin");
+  for (const [label, opts, prepare] of [
+    ["reduced motion", { reducedMotion: true }, null],
+    ["a short screen (320 x 560)", { width: 320, height: 560 }, null],
+    ["enlarged text (200%)", {}, async (page) => {
+      await page.evaluate(() => { document.documentElement.style.fontSize = "32px"; window.dispatchEvent(new Event("resize")); });
+      await page.waitForTimeout(300);
+    }],
+  ]) {
+    const { context, page } = await landingPage(browser, { lang: "pt", ...opts });
+    if (prepare) await prepare(page);
+    const ctl = await page.evaluate(proofState);
+    const st = await page.evaluate(stepState);
+    assert(ctl?.open && ctl.pinned === false, `${label}: the stage is not pinned`, JSON.stringify(ctl));
+    assert(st.phones === 0 && st.rail === 0 && !st.pinnedClass, `${label}: no phone, lens or rail is built`, JSON.stringify(st));
+    assert(st.count === 7 && st.visible === 7 && st.withText === 7, `${label}: all seven steps are painted with their text`, JSON.stringify(st));
+    assert(st.crops === 7, `${label}: each step carries its own screen crop`, JSON.stringify(st));
+    assert(!st.overflowX, `${label}: no horizontal scroll`, JSON.stringify(st));
+    if (label === "enlarged text (200%)") {
+      await page.evaluate(() => { document.documentElement.style.fontSize = ""; window.dispatchEvent(new Event("resize")); });
+      await page.waitForTimeout(300);
+      const back = await page.evaluate(proofState);
+      assert(back?.pinned === true, "restoring the text size pins the stage again", JSON.stringify(back));
+    }
+    await context.close();
+  }
+
+  // Actions on the standard landing.
+  phase("Final page: the dock, the footer link, the paste disclosure, the questions");
+  {
+    const { context, page } = await landingPage(browser, { lang: "en" });
+    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    await page.click("#firstRunCreateDock");
+    await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+    await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
+    const snap = await storageSnapshot(page);
+    assert(!snap.onboarded && snap.programRows === 0 && snap.logRows === 0, "the dock opens the hub like Build, without saving a program", JSON.stringify(snap));
+    await context.close();
+  }
+  {
+    const { context, page } = await landingPage(browser, { lang: "en" });
+    await scrollLanding(page, '#firstRun [data-landing-section="footer"]');
+    await page.click("#firstRunFooterPrivacy");
+    await page.waitForTimeout(900);
+    const result = await page.evaluate(() => ({
+      sheet: !document.querySelector("#privacySheet")?.hidden,
+      focus: document.activeElement?.id || null,
+      hash: location.hash,
+      landing: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+    }));
+    assert(!result.sheet && result.focus === "firstRunData" && result.hash === "" && result.landing,
+      "the footer Privacy link moves to the data band and focuses it; it does not open the sheet or change the address", JSON.stringify(result));
+
+    // The paste disclosure.
+    await page.evaluate(() => document.querySelector("#firstRunHandBtn").scrollIntoView({ block: "center", behavior: "instant" }));
+    const closed = await page.evaluate(() => ({ expanded: document.querySelector("#firstRunHandBtn").getAttribute("aria-expanded"), hidden: document.querySelector("#firstRunHand").hidden }));
+    await page.click("#firstRunHandBtn");
+    const opened = await page.evaluate(() => ({
+      expanded: document.querySelector("#firstRunHandBtn").getAttribute("aria-expanded"), hidden: document.querySelector("#firstRunHand").hidden,
+      alt: document.querySelector("#firstRunHand img")?.getAttribute("alt") || "",
+      where: (document.querySelector('[data-landing-fill="ways.where"]')?.textContent || "").replace(/\s+/g, " ").trim(),
+      message: document.querySelector("#firstRunHand pre")?.textContent || "",
+    }));
+    assert(closed.expanded === "false" && closed.hidden === true && opened.expanded === "true" && opened.hidden === false,
+      "the paste disclosure toggles aria-expanded and the region", JSON.stringify({ closed, opened }));
+    assert(opened.message === tr("en", "landing.ways.paste.message"), "the sample coach message is the catalog's", opened.message);
+    assert(opened.alt.includes(tr("en", "import.heading")) && opened.alt.includes(tr("en", "import.status.probable")), "the paste screenshot has a descriptive alt", opened.alt);
+    assert(opened.where === tr("en", "landing.ways.paste.where", { track: tr("en", "landing.track"), hub: tr("en", "entry.hub.title"), own: tr("en", "entry.hub.own.title"), paste: tr("en", "entry.hub.freeform.title") }),
+      "the where-to-paste line names the app's own controls", opened.where);
+
+    // Questions are native <details>; Tab leaves a summary for the next stop, not for the top of the page.
+    await page.evaluate(() => document.querySelector('[data-landing-section="faq"] details summary').scrollIntoView({ block: "center", behavior: "instant" }));
+    await page.locator('[data-landing-section="faq"] details summary').first().focus();
+    await page.keyboard.press("Tab");
+    const next = await page.evaluate(() => ({ inFaq: !!document.activeElement?.closest('[data-landing-section="faq"]'), tag: document.activeElement?.tagName }));
+    assert(next.inFaq && next.tag === "SUMMARY", "Tab moves from one question to the next, not back to the first tab stop", JSON.stringify(next));
+    await page.keyboard.press("Enter");
+    const toggled = await page.evaluate(() => document.querySelectorAll('[data-landing-section="faq"] details[open]').length);
+    assert(toggled === 1, "Enter on a focused question opens it", String(toggled));
+    await context.close();
+  }
+
+  // The invalid link keeps the safe actions, so the dock is allowed there.
+  phase("Final page, invalid link: Build and Track stay, and so may the dock");
+  {
+    const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, locale: LOCALE.en });
+    await clearSite(page);
+    await page.goto(`${APP_INDEX}?landing-variants=final-invalid#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    const dock = await page.evaluate(dockState);
+    assert(dock.present && dock.visible, "the dock shows on the invalid-link landing once the hero action is behind", JSON.stringify(dock));
     await context.close();
   }
 
   // The dock never appears on the confirmation gate.
-  phase("Final page, shared link (RED where it can be): no persistent Build control");
+  phase("Final page, shared link: no persistent Build control");
   {
     const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, locale: LOCALE.en });
     await clearSite(page);
@@ -705,6 +982,13 @@ async function finalPage(browser) {
       assert(!dock.visible, `the dock is not shown on the shared gate (at ${selector.match(/"(\w+)"/)?.[1] ?? selector})`, JSON.stringify(dock));
       assert(!gate.createVisible && !gate.importVisible, "no Build or Track is visible on the shared gate", JSON.stringify(gate));
     }
+    const ctl = await page.evaluate(proofState);
+    assert(ctl?.open && ctl.observers === 0, "the shared gate watches no hero action: the dock logic is not mounted", JSON.stringify(ctl));
+    const close = await page.evaluate(() => ({
+      actions: getComputedStyle(document.querySelector(".firstrun-close__actions")).display,
+      dockDisplay: getComputedStyle(document.querySelector("#firstRunDock")).display,
+    }));
+    assert(close.actions === "none" && close.dockDisplay === "none", "the closing actions and the dock are removed from the shared gate", JSON.stringify(close));
     await context.close();
   }
 }
@@ -713,15 +997,11 @@ async function finalPage(browser) {
 async function main() {
   console.log(`Landing variants\nTarget: ${BASE}${FAULT ? `\nFault: ${FAULT}` : ""}`);
   engineTruth();
+  copyPins();
   const browser = await launchChromium();
   try {
     await characterize(browser);
-    if (FINAL) {
-      console.log("\n=== Final page contract (REPFORGE_LANDING_FINAL=1): RED until the page packet lands ===");
-      await finalPage(browser);
-    } else {
-      console.log("\n(final-page section block skipped; set REPFORGE_LANDING_FINAL=1 to run it)");
-    }
+    await finalPage(browser);
   } finally {
     await browser.close();
   }

@@ -379,22 +379,27 @@ const widenedPreferenceOwner = structuredClone(inventory);
 widenedPreferenceOwner.components.find((item) => item.selector === preferenceSelector).catalogStates.push("onboarding-custom/result");
 assert.ok(preferenceContractErrors(widenedPreferenceOwner).length, "preference buttons cannot claim another catalog state");
 
+const sameSet = (left, right) => JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
+// The final landing's catalog states (Plan 064 R2): the hero, and the scrolled bands below it.
+const landingScrolled = ["proof", "ways", "track", "data", "faq-open", "close"].map((name) => `onboarding-start/first-run-${name}`);
+const landingHero = ["onboarding-shared/invalid", "onboarding-start/first-run"];
+const landingStates = [...landingHero, ...landingScrolled];
+const landingEverywhere = ["onboarding-shared/gate", ...landingStates];
 const radiusRecipe = [
-  { selector: ".firstrun-stage", condition: "default", token: "--radius-landing-stage" },
-  { selector: ".firstrun-stage--signature-crop", condition: "min-width:341px", token: "--radius-landing-crop" },
-  { selector: ".firstrun-stage", condition: "max-width:340px", token: "--radius-landing-stage-compact" },
+  { selector: ".firstrun-proof__glass", condition: "default", token: "--radius-landing-stage" },
+  { selector: ".firstrun-step__crop", condition: "default", token: "--radius-landing-crop" },
+  { selector: ".firstrun-proof__glass", condition: "max-width:340px", token: "--radius-landing-stage-compact" },
 ];
-const radiusCatalog = ["onboarding-shared/gate", "onboarding-shared/invalid", "onboarding-start/first-run"];
 function radiusContractErrors(candidate) {
   const matches = candidate.contextualVariants.filter((item) => item.id === "landing-device-stage-radius");
   const variant = matches[0];
-  if (matches.length !== 1 || variant.selector !== ".firstrun-stage" || variant.role !== "radius:landing-device-stage" ||
-      JSON.stringify(variant.catalogStates) !== JSON.stringify(radiusCatalog) ||
+  if (matches.length !== 1 || variant.selector !== ".firstrun-proof__glass, .firstrun-step__crop" || variant.role !== "radius:landing-device-stage" ||
+      !sameSet(variant.catalogStates, landingEverywhere) ||
       JSON.stringify(variant.radiusRecipes) !== JSON.stringify(radiusRecipe)) return ["landing stage radius scope or recipe changed"];
   return [];
 }
-assert.equal(inventory.contextualVariants.length, 16, "the landing radius recipe and the workout shelf variant make 16 contextual variants");
-assert.deepEqual(radiusContractErrors(inventory), [], "normal stage, compact stage, and reasoning crop retain exact Plan 054 geometry");
+assert.equal(inventory.contextualVariants.length, 16, "the landing recipes, radius and headline plus the workout shelf make 16 contextual variants");
+assert.deepEqual(radiusContractErrors(inventory), [], "the proof's phone plate, its compact plate and the step crop retain the Plan 054 geometry");
 const flattenedRadius = structuredClone(inventory);
 flattenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").radiusRecipes[1].token = "--radius-prominent";
 assert.ok(radiusContractErrors(flattenedRadius).length, "mapping the crop to prominent is rejected");
@@ -405,13 +410,15 @@ const widenedRadiusOwner = structuredClone(inventory);
 widenedRadiusOwner.contextualVariants.find((item) => item.id === "landing-device-stage-radius").catalogStates.push("onboarding-shared/preview");
 assert.ok(radiusContractErrors(widenedRadiusOwner).length, "stage radius cannot claim the entry preview state");
 
-const landingStates = ["onboarding-shared/invalid", "onboarding-start/first-run"];
+// Owner decision L-1 (PR #295): the ink pill with its arrow, the underlined Track link, and the one floating Build control.
 const landingRecipes = [
-  { id: "landing-accent-primary", role: "primary", boundary: "decorative",
-    selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart"],
-    states: ["onboarding-shared/gate", ...landingStates] },
-  { id: "landing-bordered-navigation", role: "quiet-navigation", boundary: "required",
-    selectors: ["#firstRunImport", "#firstRunImportClose"], states: landingStates },
+  { id: "landing-ink-primary", role: "primary", boundary: "decorative", elevation: undefined,
+    selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart"], states: landingEverywhere,
+    stateFor: (selector) => selector === "#firstRunSharedStart" ? ["onboarding-shared/gate"] : landingStates },
+  { id: "landing-text-link", role: "quiet-navigation", boundary: undefined, elevation: undefined,
+    selectors: ["#firstRunImport", "#firstRunImportClose"], states: landingStates, stateFor: () => landingStates },
+  { id: "landing-sticky-build", role: "primary", boundary: "decorative", elevation: "floating",
+    selectors: ["#firstRunCreateDock"], states: landingScrolled, stateFor: () => landingScrolled },
 ];
 function landingContractErrors(candidate) {
   const errors = [];
@@ -420,29 +427,37 @@ function landingContractErrors(candidate) {
     const variant = declarations[0];
     if (declarations.length !== 1 || variant.role !== recipe.role ||
         JSON.stringify(variant.selector.split(/,\s*/)) !== JSON.stringify(recipe.selectors) ||
-        JSON.stringify(variant.catalogStates) !== JSON.stringify(recipe.states)) errors.push(`${recipe.id} declaration`);
+        !sameSet(variant.catalogStates, recipe.states)) errors.push(`${recipe.id} declaration`);
     const members = candidate.components.filter((item) => item.variant === recipe.id);
     if (JSON.stringify(members.map((item) => item.selector)) !== JSON.stringify(recipe.selectors)) errors.push(`${recipe.id} exact members`);
     for (const selector of recipe.selectors) {
       const item = candidate.components.find((member) => member.selector === selector);
-      const states = selector === "#firstRunSharedStart" ? ["onboarding-shared/gate"] : landingStates;
-      if (!item || item.roles.control !== recipe.role || item.roles.boundary !== recipe.boundary ||
-          JSON.stringify(item.catalogStates) !== JSON.stringify(states) ||
+      if (!item || item.roles.control !== recipe.role || item.roles.boundary !== recipe.boundary || item.roles.elevation !== recipe.elevation ||
+          !sameSet(item.catalogStates, recipe.stateFor(selector)) ||
           !item.states.includes("focus-visible") || !item.states.includes("disabled")) errors.push(`${selector} role, boundary, state or catalog owner`);
     }
   }
+  const hero = candidate.contextualVariants.find((item) => item.id === "landing-headline-scale");
+  if (hero?.selector !== ".firstrun-h1" || !sameSet(hero.catalogStates, landingEverywhere)) errors.push("landing-headline-scale declaration");
+  if (candidate.contextualVariants.some((item) => item.id === "landing-climax-data")) errors.push("retired climax variant is back");
   return errors;
 }
-assert.deepEqual(landingContractErrors(inventory), [], "four landing actions and shared Start have two exact recipes and only their rendered states");
+assert.deepEqual(landingContractErrors(inventory), [], "the creation pill, the Track link and the sticky Build control have exact recipes and only their rendered states");
 const wrongLandingRole = structuredClone(inventory);
 wrongLandingRole.components.find((item) => item.selector === "#firstRunImport").roles.control = "secondary";
 assert.ok(landingContractErrors(wrongLandingRole).some((error) => error.includes("#firstRunImport")), "visual resemblance cannot silently reclassify import");
 const widenedLandingVariant = structuredClone(inventory);
-widenedLandingVariant.contextualVariants.find((item) => item.id === "landing-bordered-navigation").selector = ".firstrun__cta--secondary";
-assert.ok(landingContractErrors(widenedLandingVariant).includes("landing-bordered-navigation declaration"), "a broad landing selector cannot replace exact IDs");
+widenedLandingVariant.contextualVariants.find((item) => item.id === "landing-text-link").selector = ".firstrun__link";
+assert.ok(landingContractErrors(widenedLandingVariant).includes("landing-text-link declaration"), "a broad landing selector cannot replace exact IDs");
 const wrongLandingOwner = structuredClone(inventory);
 wrongLandingOwner.components.find((item) => item.selector === "#firstRunCreateClose").catalogStates.push("onboarding-shared/preview");
 assert.ok(landingContractErrors(wrongLandingOwner).some((error) => error.includes("#firstRunCreateClose")), "landing recipe cannot spread into the shared proposal state");
+const flatDock = structuredClone(inventory);
+delete flatDock.components.find((item) => item.selector === "#firstRunCreateDock").roles.elevation;
+assert.ok(landingContractErrors(flatDock).some((error) => error.includes("#firstRunCreateDock")), "the sticky Build control cannot lose its floating elevation role");
+const gateDock = structuredClone(inventory);
+gateDock.components.find((item) => item.selector === "#firstRunCreateDock").catalogStates.push("onboarding-shared/gate");
+assert.ok(landingContractErrors(gateDock).some((error) => error.includes("#firstRunCreateDock")), "the sticky Build control cannot claim the received-program gate");
 
 const preview = await maybeStartLocalPreview([{ lane: "state" }], { cwd: ROOT });
 setCaptureBase(preview.env.REPFORGE_URL);
@@ -535,48 +550,60 @@ try {
         "--color-action-text", "--color-action-on-fill", "--color-ink", "--color-focus",
         "--color-disabled-reason", "--bg", "--well", "--surface", "--control-primary-disabled-bg",
         "--control-selection-ink", "--control-selection-boundary",
+        "--band-night-bg", "--band-night-raised", "--band-night-ink", "--band-night-ink-soft", "--band-night-ink-faint",
+        "--band-night-accent", "--band-night-boundary-required", "--band-night-cta-bg", "--band-night-cta-ink",
+        "--band-orange-bg", "--band-orange-ink", "--band-orange-cta-ink", "--band-orange-cta-mark",
+        "--band-ink-bg", "--band-ink-ink",
       ].map((token) => [token, resolve(token)]));
       sample.remove();
       return colors;
     });
     const rgb = (token) => landingColors[token].match(/\d+/g).slice(0, 3).map(Number);
     const ratio = (a, b) => contrastRatio(rgb(a), rgb(b));
-    assert.ok(ratio("--color-action-on-fill", "--color-action-text") >= 4.5, `${theme} landing fill label has AA contrast`);
-    for (const paper of ["--bg", "--well"]) {
-      assert.ok(ratio("--color-ink", paper) >= 4.5, `${theme} landing import label has AA contrast on ${paper}`);
-      assert.ok(ratio("--color-action-text", paper) >= 3, `${theme} required import boundary has AA contrast on ${paper}`);
-    }
+    // The final page's bands hold their measured pairs in both appearances (contract: Landing bands, OG-3).
+    assert.ok(ratio("--band-night-cta-ink", "--band-night-cta-bg") >= 4.5, `${theme} night creation pill label has AA contrast`);
+    assert.ok(ratio("--band-night-cta-bg", "--band-night-bg") >= 3, `${theme} night creation pill is distinct from the night band`);
+    assert.ok(ratio("--band-orange-cta-ink", "--band-orange-ink") >= 4.5, `${theme} orange-band creation pill label has AA contrast`);
+    assert.ok(ratio("--band-orange-cta-mark", "--band-orange-ink") >= 3, `${theme} orange-band creation arrow has 3:1 on the pill`);
+    assert.ok(ratio("--band-orange-ink", "--band-orange-bg") >= 4.5, `${theme} text on the orange band has AA contrast`);
+    assert.ok(ratio("--band-orange-ink", "--band-orange-bg") >= 3, `${theme} the orange-band pill is distinct from the orange field`);
+    assert.ok(ratio("--band-night-ink", "--band-night-bg") >= 4.5 && ratio("--band-night-ink-soft", "--band-night-raised") >= 4.5 &&
+      ratio("--band-night-ink-faint", "--band-night-bg") >= 4.5, `${theme} night-band text has AA contrast on both grounds`);
+    assert.ok(ratio("--band-night-boundary-required", "--band-night-raised") >= 3, `${theme} the proof rail's inactive step has 3:1 on the raised night band`);
+    assert.ok(ratio("--band-night-accent", "--band-night-raised") >= 3, `${theme} the proof rail's current step has 3:1 on the raised night band`);
+    assert.ok(ratio("--band-ink-ink", "--band-ink-bg") >= 4.5, `${theme} text on the ink band has AA contrast`);
     assert.ok(ratio("--color-focus", "--bg") >= 3, `${theme} landing focus ring is visible outside the button`);
     assert.ok(ratio("--color-ink", "--control-primary-disabled-bg") >= 4.5, `${theme} disabled creation label remains readable`);
-    assert.ok(ratio("--color-disabled-reason", "--bg") >= 4.5, `${theme} disabled import label remains readable`);
     assert.ok(ratio("--control-selection-ink", "--surface") >= 4.5, `${theme} Include and Avoid default labels have AA contrast`);
     assert.ok(ratio("--control-selection-ink", "--well") >= 4.5, `${theme} Include and Avoid hover labels have AA contrast`);
     assert.ok(ratio("--control-selection-boundary", "--surface") >= 3, `${theme} preference selection boundary is visible`);
     assert.ok(ratio("--color-focus", "--surface") >= 3, `${theme} preference focus outline is visible`);
     assert.ok(ratio("--color-disabled-reason", "--surface") >= 4.5, `${theme} disabled preference explanation remains readable`);
 
-    for (const [width, expectedStage, expectedCrop] of [[390, 24, 14], [340, 20, 20], [320, 20, 20]]) {
+    for (const [width, expectedStage, expectedCrop] of [[390, 24, 14], [340, 20, 14], [320, 20, 14]]) {
       await opened.page.setViewportSize({ width, height: 844 });
+      await opened.page.waitForTimeout(250);
       const radii = await opened.page.evaluate(() => ({
-        stages: [...document.querySelectorAll(".firstrun-stage:not(.firstrun-stage--signature-crop)")]
-          .map((stage) => getComputedStyle(stage).borderTopLeftRadius),
-        crops: [...document.querySelectorAll(".firstrun-stage--signature-crop")]
-          .map((stage) => getComputedStyle(stage).borderTopLeftRadius),
+        stages: [...document.querySelectorAll(".firstrun-proof__glass")].map((stage) => getComputedStyle(stage).borderTopLeftRadius),
+        crops: [...document.querySelectorAll(".firstrun-step__crop")].map((crop) => getComputedStyle(crop).borderTopLeftRadius),
       }));
-      assert.ok(radii.stages.length > 0, `${theme} landing has a normal device stage at ${width}px`);
-      assert.ok(radii.crops.length > 0, `${theme} landing has a signature crop at ${width}px`);
+      assert.ok(radii.stages.length > 0, `${theme} landing has a pinned phone plate at ${width}px`);
+      assert.ok(radii.crops.length > 0, `${theme} landing has step crops at ${width}px`);
       assert.ok(radii.stages.every((radius) => radius === `${expectedStage}px`),
-        `${theme} normal device stage keeps ${expectedStage}px at ${width}px: ${JSON.stringify(radii)}`);
+        `${theme} phone plate keeps ${expectedStage}px at ${width}px: ${JSON.stringify(radii)}`);
       assert.ok(radii.crops.every((radius) => radius === `${expectedCrop}px`),
-        `${theme} signature crop keeps ${expectedCrop}px at ${width}px: ${JSON.stringify(radii)}`);
+        `${theme} step crop keeps ${expectedCrop}px at ${width}px: ${JSON.stringify(radii)}`);
     }
     await opened.page.setViewportSize({ width: 390, height: 844 });
+    await opened.page.waitForTimeout(250);
     const typography = await opened.page.evaluate(() => ({
-      prose: getComputedStyle(document.querySelector('.firstrun-facts b[data-i18n="landing.program.fact2.value"]')).fontFamily,
-      data: getComputedStyle(document.querySelector('.firstrun-facts b[data-i18n="landing.program.fact3.value"]')).fontFamily,
+      prose: getComputedStyle(document.querySelector(".firstrun-step__text")).fontFamily,
+      data: getComputedStyle(document.querySelector(".firstrun-oc__n")).fontFamily,
+      proofData: getComputedStyle(document.querySelector(".firstrun-step__value")).fontFamily,
     }));
     assert.match(typography.prose, /Plex Sans/, `${theme} ordinary landing prose uses the language font`);
-    assert.match(typography.data, /Plex Mono/, `${theme} actual counts and training data retain Mono`);
+    assert.match(typography.data, /Plex Mono/, `${theme} the next targets keep Mono`);
+    assert.match(typography.proofData, /Plex Mono/, `${theme} the proof's result keeps Mono`);
 
     const cdp = await opened.context.newCDPSession(opened.page);
     await cdp.send("DOM.enable");
@@ -586,26 +613,13 @@ try {
     assert.ok(nodeId, "landing Import control is present for pressed-state proof");
     await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
     const pressedImport = await opened.page.locator("#firstRunImport").evaluate((button) => {
-      const resolve = (token, property) => {
-        const probe = document.createElement("span");
-        probe.style.setProperty(property, `var(${token})`);
-        document.body.append(probe);
-        const value = getComputedStyle(probe).getPropertyValue(property);
-        probe.remove();
-        return value;
-      };
-      return {
-        background: getComputedStyle(button).backgroundColor,
-        ink: getComputedStyle(button).color,
-        boundary: getComputedStyle(button).borderTopColor,
-        expectedWell: resolve("--well", "background-color"),
-        expectedInk: resolve("--color-ink", "color"),
-        expectedBoundary: resolve("--color-action-text", "color"),
-      };
+      const style = getComputedStyle(button);
+      return { decoration: style.textDecorationColor, ink: style.color, background: style.backgroundColor, line: style.textDecorationLine, border: style.borderTopWidth };
     });
-    assert.equal(pressedImport.background, pressedImport.expectedWell, `${theme} Import press retains the hover paper`);
-    assert.equal(pressedImport.ink, pressedImport.expectedInk, `${theme} Import press retains hover ink`);
-    assert.equal(pressedImport.boundary, pressedImport.expectedBoundary, `${theme} Import press retains its required boundary`);
+    assert.equal(pressedImport.decoration, pressedImport.ink, `${theme} Track press draws its underline in full ink`);
+    assert.equal(pressedImport.background, "rgba(0, 0, 0, 0)", `${theme} Track is a text link: no fill`);
+    assert.match(pressedImport.line, /underline/, `${theme} Track stays underlined`);
+    assert.equal(pressedImport.border, "0px", `${theme} Track has no boundary of its own`);
     await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] });
     await cdp.detach();
   }
@@ -622,6 +636,8 @@ try {
   });
   const real = await opened.page.evaluate(measureRenderedRoles, [{ selector: "#firstRunCreate", kind: "text" }]);
   assert.equal(real[0].status, "pass", `actual landing CTA has compliant rendered label: ${JSON.stringify(real)}`);
+  const realLink = await opened.page.evaluate(measureRenderedRoles, [{ selector: "#firstRunImport", kind: "text" }, { selector: "#firstRunPrivacy", kind: "text" }]);
+  assert.ok(realLink.every((item) => item.status === "pass"), `actual landing Track and Privacy labels are compliant: ${JSON.stringify(realLink)}`);
   const wrongExceptionStates = inventory.exceptions.map((item) => item.selector === ".firstrun__logo"
     ? { ...item, catalogStates: ["settings/main"] } : item);
   const exceptionCoverage = await opened.page.evaluate(inspectRoleCoverage, {

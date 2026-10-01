@@ -18,9 +18,12 @@
  * that the event is consumed, and that no install is claimed unless Chrome
  * said "accepted".
  *
- * Plan 054 supersedes the full ethos hero with the owner-selected product loop.
- * This suite locks its prescription, logged sets, derived next target, early
- * entry actions, and responsive separation from controls across both locales.
+ * Plan 064 R2 rebuilt the landing as the final page's bands (see
+ * test/landing-variants.mjs for its sections and numbers). This suite keeps the
+ * install and gate semantics and, for the page itself, only what a lifter on a
+ * phone depends on, read through production IDs: the headline, the lede, both
+ * entry actions on the first screen, the brand lockup, no horizontal overflow
+ * from 320 to 1280 wide, and typography that follows 200% root text.
  *
  * Two more sections cover the install offer outside first run:
  *
@@ -49,6 +52,26 @@ import {
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const SW_SOURCE = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+// Expected landing copy comes from the shipped catalogs, never from literals here.
+const CATALOG = {
+  en: JSON.parse(readFileSync(new URL("../i18n-en.json", import.meta.url), "utf8")),
+  pt: JSON.parse(readFileSync(new URL("../i18n-pt.json", import.meta.url), "utf8")),
+};
+const tr = (lang, key) => {
+  const value = CATALOG[lang][key];
+  if (typeof value !== "string") throw new Error(`catalog ${lang} has no string for ${key}`);
+  return value;
+};
+/** The literal runs of a catalog template: a rendered string built from it contains them all, in order. */
+const coversTemplate = (text, lang, key) => {
+  let at = 0;
+  for (const piece of tr(lang, key).split(/\{\w+\}/).map((part) => part.trim()).filter((part) => part.length > 3)) {
+    const found = text.indexOf(piece, at);
+    if (found < 0) return false;
+    at = found + piece.length;
+  }
+  return true;
+};
 const IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
 const IOS_CHROME_UA =
@@ -262,11 +285,11 @@ const card = () => ({
   continueLabel: document.querySelector("#firstRunContinueLabel")?.textContent || null,
   create: !!document.querySelector("#firstRunCreate"),
   import: !!document.querySelector("#firstRunImport"),
-  heroTitle: document.querySelector(".firstrun-hero__title")?.textContent || null,
+  heroTitle: document.querySelector("#firstRunHeadline")?.textContent || null,
   heroBody: document.querySelector("#firstRunLede")?.textContent || null,
-  // Every device has a translated description. Read the whole visual sequence,
-  // not one preferred screenshot, so a missing localized beat is observable.
-  previewText: [...document.querySelectorAll(".firstrun-shot")]
+  // Every device has a translated description. Read every image on the page,
+  // not one preferred screenshot, so a missing localized capture is observable.
+  previewText: [...document.querySelectorAll("#firstRun img")]
     .map((image) => image.getAttribute("alt") || "").join(" ").replace(/\s+/g, " ").trim(),
   privacy: document.querySelector("#firstRunPrivacy")?.textContent.trim() || null,
   // The gate stands the mark on its paper, so it draws the ground-free
@@ -274,83 +297,43 @@ const card = () => ({
   markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
 });
 
-// Measure the sectioned composition independently of the individual angles.
-const heroShape = () => {
-  const title = document.querySelector(".firstrun-hero__title");
-  const hero = document.querySelector(".firstrun-hero");
-  const preview = document.querySelector(".firstrun-hero__figure .firstrun-shot");
+// What a lifter on a phone depends on, read through production IDs and the
+// section hooks: no composition selector of the old hero, stage or beats.
+const landingShape = () => {
+  const hero = document.querySelector('[data-landing-section="hero"]');
+  const title = document.querySelector("#firstRunHeadline");
+  const lede = document.querySelector("#firstRunLede");
+  const create = document.querySelector("#firstRunCreate");
+  const track = document.querySelector("#firstRunImport");
+  const proof = document.querySelector('[data-landing-section="proof"]');
   const logo = document.querySelector(".firstrun__logo");
   const wordmark = document.querySelector(".firstrun__wordmark");
-  const lede = document.querySelector(".firstrun__lede");
-  const actions = document.querySelector("#firstRunStandardProgram");
-  const firstControl = document.querySelector("#firstRunCreate");
-  const secondControl = document.querySelector("#firstRunImport");
-  const proof = document.querySelector(".firstrun-beats");
-  const next = document.querySelector(".firstrun-pull__value");
-  const bounds = selector => document.querySelector(selector).getBoundingClientRect();
-  const pair = document.querySelector('.firstrun-stage--pair');
-  const pairBox = pair.getBoundingClientRect();
-  const back = bounds('.firstrun-stage__back'), front = bounds('.firstrun-stage__front');
-  const beats = [...document.querySelectorAll('.firstrun-beat')];
-  const sections = [...document.querySelectorAll('.firstrun-beats > *')];
-  const lastBeat = sections.at(-1).getBoundingClientRect();
-  const signatureCopy = document.querySelector('.firstrun-signature__copy');
-  const signatureFigure = document.querySelector('.firstrun-signature__figure');
-  const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
-  const p = preview.getBoundingClientRect();
-  const copy = document.querySelector(".firstrun-hero__copy").getBoundingClientRect();
-  const controls = actions.getBoundingClientRect();
-  const t = title.getBoundingClientRect();
-  const h = hero.getBoundingClientRect();
-  const intersects = (one, two) =>
-    one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
-  const overlap = Math.max(0, Math.min(back.right, front.right) - Math.max(back.left, front.left));
-  const pairWhole = [back, front].every((box) =>
-    box.left >= pairBox.left - 1 && box.right <= pairBox.right + 1 &&
-    box.top >= pairBox.top - 1 && box.bottom <= pairBox.bottom + 1);
-  // The "why this weight" crop deliberately laps over the signature anchor's
-  // foot corner (and may bleed a few px past the edge, like the hero figure);
-  // page-level containment is `noHorizontalOverflow`'s job, not this check's.
-  const anchorBox = bounds('.firstrun-stage--signature');
-  const cropBox = bounds('.firstrun-stage--signature-crop');
-  const signatureCropAttached = intersects(anchorBox, cropBox);
-  const narrowSequence = beats.every((beat) => {
-    const copyBox = beat.querySelector('.firstrun-beat__copy').getBoundingClientRect();
-    const figureBox = beat.querySelector('.firstrun-beat__figure').getBoundingClientRect();
-    return figureBox.top >= copyBox.bottom + 16 && Math.abs(figureBox.left - copyBox.left) <= 1;
-  }) && (() => {
-    const copyBox = signatureCopy.getBoundingClientRect(), figureBox = signatureFigure.getBoundingClientRect();
-    return figureBox.top >= copyBox.bottom + 16 && Math.abs(figureBox.left - copyBox.left) <= 1;
-  })();
+  const lockup = document.querySelector(".firstrun__brand").getBoundingClientRect();
+  const box = (node) => node.getBoundingClientRect();
+  const intersects = (one, two) => one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
+  const root = document.querySelector("#firstRun");
+  const h = box(hero);
+  const sections = ["hero", "proof", "ways", "track", "data", "faq", "close", "footer"].map((name) => document.querySelector(`[data-landing-section="${name}"]`));
+  const nextTargets = [...document.querySelectorAll("[data-landing-next]")].map((node) => node.textContent.replace(/\s+/g, " ").trim());
+  const chart = document.querySelector("[data-landing-chart]");
   return {
-    narrowSequence,
-    pairWhole,
-    signatureCropAttached,
-    pairOverlap: Math.round(100 * overlap / back.width),
-    endingAfterProof: bounds('.firstrun-close').top >= lastBeat.bottom,
     titleAlign: getComputedStyle(title).textAlign,
-    previewSeparated: !intersects(p, controls) && !intersects(p, t) && !intersects(p, lede.getBoundingClientRect()),
-    previewInsideViewport: p.left >= -1 && p.right <= innerWidth + 1,
-    previewFacts: (preview.getAttribute("alt") || "").replace(/\s+/g, " ").trim(),
-    noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-    heroBottom: h.bottom,
-    ledeTop: lede.getBoundingClientRect().top,
-    firstControlTop: firstControl?.getBoundingClientRect().top ?? null,
-    actionsInFirstViewport: [firstControl, secondControl].every((el) => {
-      const box = el.getBoundingClientRect();
-      return box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
+    headlineSize: parseFloat(getComputedStyle(title).fontSize),
+    copyInsideHero: [title, lede, create, track].every((node) => box(node).left >= h.left - 1 && box(node).right <= h.right + 1),
+    actionsSeparated: !intersects(box(create), box(title)) && !intersects(box(create), box(lede)) && !intersects(box(track), box(create)),
+    noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth && root.scrollWidth <= root.clientWidth,
+    actionsInFirstViewport: [create, track].every((el) => {
+      const b = box(el);
+      return b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth;
     }),
-    proofTop: p.top,
-    proofFacts: `${proof?.textContent || ""} ${[...proof.querySelectorAll('img')].map(image => image.alt).join(' ')}`.replace(/\s+/g, " ").trim(),
-    nextSize: next ? parseFloat(getComputedStyle(next).fontSize) : null,
-    proofSeparated: !!proof && proof.getBoundingClientRect().top >= h.bottom && !intersects(proof.getBoundingClientRect(), controls) &&
-      !intersects(proof.getBoundingClientRect(), t) && !intersects(proof.getBoundingClientRect(), lede.getBoundingClientRect()),
+    proofTop: box(proof).top,
     viewportHeight: innerHeight,
-    copyInsideHero: copy.left >= h.left - 1 && copy.right <= h.right + 1,
-    logoWidth: Math.round(logo.getBoundingClientRect().width),
+    logoWidth: Math.round(box(logo).width),
     wordmarkSize: parseFloat(getComputedStyle(wordmark).fontSize),
-    lockupInsideViewport: row.left >= 0 && row.right <= innerWidth,
-    previewWidthFraction: +(p.width / innerWidth).toFixed(3),
+    lockupInsideViewport: lockup.left >= 0 && lockup.right <= innerWidth,
+    sectionsInOrder: sections.every((node, i) => node && (i === 0 || box(sections[i - 1]).top <= box(node).top)),
+    nextTargets,
+    chartAlt: chart?.querySelector("img")?.getAttribute("alt") || "",
   };
 };
 
@@ -369,19 +352,24 @@ async function run() {
     assert(!shown.section, "Chromium does not promote installation before first value", JSON.stringify(shown));
     assert(shown.title === null && shown.action === null, "the gated card exposes no dead install action", JSON.stringify(shown));
     assert(
-      shown.heroTitle === "Walk into the gym knowing exactly what to do.",
+      shown.heroTitle === tr("en", "landing.headline"),
       "the product landing leads the gate",
       shown.heroTitle
     );
     assert(
-      shown.heroBody === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.",
+      shown.heroBody === tr("en", "landing.hero.sub"),
       "the landing explains the product loop",
       JSON.stringify(shown.heroBody)
     );
     assert(
-        /recommended program screen/.test(shown.previewText || "") && /Create a program screen/.test(shown.previewText || "") &&
-        /focused set view/.test(shown.previewText || "") && /Why this weight sheet/.test(shown.previewText || ""),
-      "the renders cover getting started, the program, and the prescription's reasoning",
+      shown.heroTitle === tr("en", "landing.headline"),
+      "the headline is the catalog's landing.headline",
+      shown.heroTitle
+    );
+    assert(
+      ["landing.demo.alt.focus", "landing.demo.alt.rest", "landing.demo.alt.actions", "landing.demo.alt.note", "landing.ways.paste.alt", "landing.chart.alt"]
+        .every((key) => coversTemplate(shown.previewText || "", "en", key)),
+      "the renders describe the workout screen, rest, actions, notes, the import review and the strength trend",
       shown.previewText
     );
     assert(shown.privacy === "Privacy", "the landing links to Privacy", shown.privacy);
@@ -540,7 +528,7 @@ async function run() {
     }));
     assert(st.create && st.import, "the screen still asks the program question", JSON.stringify(st));
     assert(!st.section, "no install section is drawn", JSON.stringify(st));
-    assert(st.lede === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.", "the landing copy does not invent an unavailable install action", st.lede);
+    assert(st.lede === tr("en", "landing.hero.sub"), "the landing copy does not invent an unavailable install action", st.lede);
     assert(!st.continueShown, "no browser to continue in, no link offering it", JSON.stringify(st));
     assert(!st.banner && !st.topButton, "and nothing else promotes an install", JSON.stringify(st));
     allErrors.push(...errors);
@@ -569,7 +557,7 @@ async function run() {
     assert(st.create && st.import, "the installed app still offers Create and Import", JSON.stringify(st));
     assert(!st.onboarding, "it does not jump straight into the wizard", JSON.stringify(st));
     assert(!st.section, "it promotes no install", JSON.stringify(st));
-    assert(st.lede === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.", "the installed landing keeps its product explanation", st.lede);
+    assert(st.lede === tr("en", "landing.hero.sub"), "the installed landing keeps its product explanation", st.lede);
     assert(!st.continueShown, "and there is no browser to continue in", JSON.stringify(st));
     assert(!st.banner, "the banner stays away", JSON.stringify(st));
     assert(!st.topButton, "the top install button stays away", JSON.stringify(st));
@@ -668,11 +656,13 @@ async function run() {
       pt.body
     );
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
-    assert(pt.heroTitle === "Chegue na academia sabendo exatamente o que fazer.", "PT landing title", pt.heroTitle);
+    assert(pt.heroTitle === tr("pt", "landing.headline"), "PT landing title", pt.heroTitle);
+    assert(pt.heroBody === tr("pt", "landing.hero.sub"), "PT landing body", JSON.stringify(pt.heroBody));
     assert(
-      pt.heroBody === "É só aparecer e treinar. O Taurifer monta seu treino, registra suas séries e já diz a próxima carga.",
-      "PT landing body",
-      JSON.stringify(pt.heroBody)
+      ["landing.demo.alt.focus", "landing.demo.alt.rest", "landing.demo.alt.actions", "landing.demo.alt.note", "landing.ways.paste.alt", "landing.chart.alt"]
+        .every((key) => coversTemplate(pt.previewText || "", "pt", key)),
+      "PT renders are described in Portuguese",
+      pt.previewText
     );
     await context.close();
     allErrors.push(...errors);
@@ -702,37 +692,24 @@ async function run() {
         // Measure only after the production fonts are ready.
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(150);
-        const shape = await page.evaluate(heroShape);
+        const shape = await page.evaluate(landingShape);
         const at = `${width}px ${locale}`;
-        assert(shape.previewSeparated, `${at}: product preview does not cover copy or entry actions`, JSON.stringify(shape));
-        assert(shape.previewInsideViewport, `${at}: product preview stays inside the viewport`, JSON.stringify(shape));
-        // Locale-tolerant: the accessible name is translated, and Portuguese
-        // writes the load 62,5. The exact English wording is asserted once,
-        // in the en-US landing block above.
-        assert(/program|treino/i.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) && /100 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts), `${at}: the complete product narrative remains present`, shape.proofFacts);
+        assert(shape.sectionsInOrder, `${at}: hero, proof, ways, track, data, questions, close and footer follow in order`, JSON.stringify(shape));
+        assert(shape.nextTargets.length === 3 && shape.nextTargets.every((text) => /\d/.test(text)) && /100/.test(shape.chartAlt) && /92[.,]5/.test(shape.chartAlt),
+          `${at}: the three next targets and the strength trend remain live text`, JSON.stringify(shape));
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         assert(
-          shape.logoWidth >= 39 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,
+          shape.logoWidth >= 32 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,
           `${at}: the brand lockup remains legible and contained`,
           JSON.stringify(shape)
         );
         assert(shape.noHorizontalOverflow, `${at}: the page has no horizontal overflow`, JSON.stringify(shape));
-        assert(shape.copyInsideHero, `${at}: landing copy stays within its grid region`, JSON.stringify(shape));
-        assert(shape.proofSeparated, `${at}: live product proof stays clear of headline and actions`, JSON.stringify(shape));
-        if (width <= 340) assert(shape.narrowSequence, `${at}: every beat keeps copy before its full-width stage`, JSON.stringify(shape));
-        assert(shape.pairWhole, `${at}: both entry devices stay whole inside their stage`, JSON.stringify(shape));
-        assert(shape.pairOverlap >= 23 && shape.pairOverlap <= 25 && shape.endingAfterProof, `${at}: the entry pair keeps 24% overlap and the ending follows the narrative`, JSON.stringify(shape));
-        assert(shape.signatureCropAttached, `${at}: the reasoning crop stays attached to the signature anchor and inside the viewport`, JSON.stringify(shape));
-        assert(shape.nextSize >= 16, `${at}: the next target remains readable live text`, JSON.stringify(shape));
-        assert(/5–8 reps · RIR 0–2/.test(shape.proofFacts) && /100 kg × 8 · RIR 1/.test(shape.proofFacts) &&
-          /15/.test(shape.proofFacts) && /8[,.]123 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts),
-          `${at}: prescription, completed work, and progress facts remain live text`, shape.proofFacts);
+        assert(shape.copyInsideHero, `${at}: landing copy stays within the hero`, JSON.stringify(shape));
+        assert(shape.actionsSeparated, `${at}: the entry actions do not cover the headline or the lede`, JSON.stringify(shape));
         if (width <= 430) {
           assert(shape.actionsInFirstViewport, `${at}: both entry actions fit completely on the first screen`, JSON.stringify(shape));
           assert(shape.proofTop !== null && shape.proofTop < shape.viewportHeight,
             `${at}: the product proof begins on the first screen`, JSON.stringify(shape));
-          assert(shape.previewWidthFraction >= 0.6,
-            `${at}: the device is large enough to inspect on a phone`, JSON.stringify(shape));
         }
         allErrors.push(...errors);
         await context.close();
@@ -757,21 +734,22 @@ async function run() {
             return el ? Number.parseFloat(getComputedStyle(el).fontSize) : null;
           };
           return {
-            headline: px(".firstrun-hero__title"),
+            headline: px("#firstRunHeadline"),
             lede: px("#firstRunLede"),
             primaryCta: px("#firstRunCreate"),
             secondaryCta: px("#firstRunImport"),
-            beatLabel: px(".firstrun-beat__index"),
-            beatBody: px(".firstrun-beat__body"),
-            beatTitle: px(".firstrun-beat__title"),
-            ethos: px(".firstrun-ethos p"),
+            sectionTitle: px("#firstRunProofTitle"),
+            stepBody: px(".firstrun-step__text"),
+            outcomeBody: px("[data-landing-explain]"),
+            questionTitle: px(".firstrun-qa summary"),
+            closingTitle: px("#firstRunCloseTitle"),
           };
         });
         const before = await sizes();
         await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
         await page.waitForTimeout(50);
         const after = await sizes();
-        const shape = await page.evaluate(heroShape);
+        const shape = await page.evaluate(landingShape);
         const at = `${width}px ${locale}`;
         assert(
           Object.keys(before).every((key) =>
@@ -780,9 +758,8 @@ async function run() {
           JSON.stringify({ before, after })
         );
         assert(shape.noHorizontalOverflow, `${at}: 200% root text produces no horizontal overflow`, JSON.stringify(shape));
-        if (width <= 340) assert(shape.narrowSequence, `${at}: enlarged narrow stages retain causal order`, JSON.stringify(shape));
-        assert(shape.pairWhole && shape.pairOverlap >= 23 && shape.pairOverlap <= 25, `${at}: enlarged text does not clip or shift the entry pair`, JSON.stringify(shape));
-        assert(shape.previewSeparated && shape.proofSeparated, `${at}: 200% root text keeps the product proof clear of copy and actions`, JSON.stringify(shape));
+        assert(shape.copyInsideHero && shape.actionsSeparated, `${at}: 200% root text keeps the hero copy and entry actions apart and inside`, JSON.stringify(shape));
+        assert(shape.sectionsInOrder, `${at}: 200% root text keeps the sections in order`, JSON.stringify(shape));
         allErrors.push(...errors);
         await context.close();
       }
@@ -791,7 +768,7 @@ async function run() {
 
   // ---- Known landing contrast fixes hold (owner audit) ----
   {
-    console.log("\nLanding contrast: shared caption, ethos, and chooser guide text");
+    console.log("\nLanding contrast: shared caption, band text, and chooser guide text");
     const luminance = (rgb) => {
       const c = rgb.map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
       return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -863,13 +840,16 @@ async function run() {
         await page.waitForTimeout(60);
       }
       const at = `${locale} x${scale}`;
-      const info = await contrastOf(page, ".firstrun-ethos p");
-      const r = ratio(info.fg, info.bg);
-      assert(r + 1e-6 >= 4.5, `${at}: the ethos line meets 4.5:1 against its rendered background`,
-        JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      for (const [selector, what] of [[".firstrun-close__body", "the closing line on the orange band"], [".firstrun-rows p", "a data row on the ink band"],
+        [".firstrun-footer .firstrun-wrap span", "the footer wordmark on the night band"], ["#firstRunLede", "the hero subtitle on the night band"]]) {
+        const info = await contrastOf(page, selector);
+        const r = ratio(info.fg, info.bg);
+        assert(r + 1e-6 >= 4.5, `${at}: ${what} meets 4.5:1 against its rendered background`,
+          JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      }
       const imageBackgrounds = await page.evaluate(() => {
         const layers = [];
-        for (let el = document.querySelector(".firstrun-ethos p"); el; el = el.parentElement) {
+        for (let el = document.querySelector(".firstrun-close__body"); el; el = el.parentElement) {
           for (const pseudo of [null, "::before", "::after"]) {
             const style = getComputedStyle(el, pseudo);
             if (style.backgroundImage !== "none") layers.push(style.backgroundImage);
@@ -883,7 +863,7 @@ async function run() {
         }
         return layers;
       });
-      assert(imageBackgrounds.length === 0, `${at}: no background image sits behind the ethos text`, JSON.stringify(imageBackgrounds));
+      assert(imageBackgrounds.length === 0, `${at}: no background image sits behind the closing text`, JSON.stringify(imageBackgrounds));
       allErrors.push(...errors);
       await context.close();
     }
@@ -1177,7 +1157,7 @@ async function run() {
         width: 320,
         payload: long,
       });
-      const shape = await page.evaluate(heroShape);
+      const shape = await page.evaluate(landingShape);
       const gate = await page.evaluate(sharedGateSnapshot);
       assert(shape.noHorizontalOverflow, "shared 320px: page has no horizontal overflow", JSON.stringify(shape));
       assert(gate.startVisible && !gate.overflow, "shared 320px: long name does not overflow the gate", JSON.stringify(gate));

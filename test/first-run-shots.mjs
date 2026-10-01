@@ -2,8 +2,12 @@
 /**
  * First-run layout proof at the review viewports.
  *
- * Writes the four PR screenshots and a compact geometry report. Run with the
- * repository served over HTTP and REPFORGE_URL pointing at that server.
+ * Writes one screenshot of the hero per viewport and a compact geometry report of
+ * the final page (Plan 064 R2): where the headline, the subtitle, both entry
+ * actions and the start of the proof sit on the first screen. Run with the
+ * repository served over HTTP and REPFORGE_URL pointing at that server. Canonical
+ * evidence of every band is the catalog (tools/capture-ui-screens.mjs); this
+ * is the manual tool for looking at a new viewport.
  */
 import { mkdirSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
@@ -63,11 +67,12 @@ for (const [width, height] of VIEWPORTS) {
     return {
       headlineHeight: box("#firstRunHeadline").height,
       headlineSize: parseFloat(getComputedStyle(document.querySelector("#firstRunHeadline")).fontSize),
-      previewWidth: box(".firstrun-hero__figure img").width,
-      previewHeight: box(".firstrun-hero__figure img").height,
-      heroBottom: box(".firstrun-hero").bottom,
-      introductionTop: box(".firstrun__lede").top,
+      heroBottom: box('[data-landing-section="hero"]').bottom,
+      introductionTop: box("#firstRunLede").top,
       firstControlTop: box("#firstRunCreate").top,
+      trackBottom: box("#firstRunImport").bottom,
+      proofTop: box('[data-landing-section="proof"]').top,
+      pinned: window.__repforgeLandingProof?.().pinned ?? null,
     };
   });
   await page.screenshot({ path: join(OUT, `first-run-${width}x${height}.png`) });
