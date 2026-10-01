@@ -11,7 +11,37 @@
     "onboarding-start/first-run": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "First empty visit. Hero, getting-started/program chapter, the signature progression system, and a closing chapter, with early Build and Track actions, Privacy, and device-local seen state."
+      "scenario": "First empty visit. The hero with its headline, subtitle, Build, Track and chips, Privacy, and the device-local seen state; the bands below it are catalogued by the scrolled first-run states."
+    },
+    "onboarding-start/first-run-proof": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the proof band: seven steps over the real workout screen, with the pinned phone, lens and rail, and the persistent Build control."
+    },
+    "onboarding-start/first-run-ways": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the three ways to start, with the paste hand-off closed."
+    },
+    "onboarding-start/first-run-track": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the three engine outcomes and the strength-trend chart."
+    },
+    "onboarding-start/first-run-data": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the ink data band and its three rows."
+    },
+    "onboarding-start/first-run-faq-open": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the questions with the RIR answer open."
+    },
+    "onboarding-start/first-run-close": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the closing orange band; the persistent Build control has stepped aside."
     },
     "onboarding-start/hub": {
       "owner": "plan-054",
@@ -2412,7 +2442,13 @@
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-shared/preview",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -2422,7 +2458,7 @@
         "control": "primary",
         "boundary": "decorative"
       },
-      "variant": "landing-accent-primary",
+      "variant": "landing-ink-primary",
       "facets": [],
       "states": [
         "default",
@@ -2432,11 +2468,17 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Opens the main first-run creation route without saving a program; the approved landing gives this primary action an accent fill.",
-      "owner": "plan-058",
+      "rationale": "Opens the main first-run creation route without saving a program; the final page draws it as the ink pill with its arrow (parchment on the night band).",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -2446,7 +2488,7 @@
         "control": "primary",
         "boundary": "decorative"
       },
-      "variant": "landing-accent-primary",
+      "variant": "landing-ink-primary",
       "facets": [],
       "states": [
         "default",
@@ -2456,21 +2498,26 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Repeats the same main first-run creation route at the closing chapter with the same accent-filled primary treatment.",
-      "owner": "plan-058",
+      "rationale": "Repeats the same creation route at the closing band as the ink pill on the orange field, with its orange arrow.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways"
       ]
     },
     {
       "id": "firstrunimport",
       "selector": "#firstRunImport",
       "roles": {
-        "control": "quiet-navigation",
-        "boundary": "required"
+        "control": "quiet-navigation"
       },
-      "variant": "landing-bordered-navigation",
+      "variant": "landing-text-link",
       "facets": [],
       "states": [
         "default",
@@ -2479,21 +2526,26 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Opens the import route without committing training state; the approved opaque landing button needs its accent boundary to remain identifiable.",
-      "owner": "plan-058",
+      "rationale": "Opens the import route without committing training state; the final page draws it as an underlined text link under the creation pill.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways"
       ]
     },
     {
       "id": "firstrunimportclose",
       "selector": "#firstRunImportClose",
       "roles": {
-        "control": "quiet-navigation",
-        "boundary": "required"
+        "control": "quiet-navigation"
       },
-      "variant": "landing-bordered-navigation",
+      "variant": "landing-text-link",
       "facets": [],
       "states": [
         "default",
@@ -2502,11 +2554,17 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Repeats the same import route at the closing chapter without committing training state and keeps the same required accent boundary.",
-      "owner": "plan-058",
+      "rationale": "Repeats the same import route at the closing band as an underlined text link, with no boundary of its own.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -2529,7 +2587,13 @@
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -2539,7 +2603,7 @@
         "control": "primary",
         "boundary": "decorative"
       },
-      "variant": "landing-accent-primary",
+      "variant": "landing-ink-primary",
       "facets": [],
       "states": [
         "default",
@@ -2549,10 +2613,126 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the received-program first-run gate into review; its existing accent fill shares the exact first-run primary recipe.",
-      "owner": "plan-058",
+      "rationale": "Advances the received-program first-run gate into review; it takes the same ink-pill recipe as the other creation actions on the night band.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate"
+      ]
+    },
+    {
+      "id": "firstruncreatedock",
+      "selector": "#firstRunCreateDock",
+      "roles": {
+        "control": "primary",
+        "boundary": "decorative",
+        "elevation": "floating"
+      },
+      "variant": "landing-sticky-build",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "The landing's persistent Build control: the same creation route as the hero action, floating once the hero action has scrolled away and stepping aside at the closing action. It is the one floating surface outside the dock, the workout shelf and the sheets, and it never exists on the received-program gate.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
+      "id": "firstrunproofrail",
+      "selector": ".firstrun-proof__rail button",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "landing-proof-rail",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "One of seven detents under the pinned proof: it scrolls the landing to its step without committing any state. The bar is the button's own bottom edge and the current step is marked by aria-current.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
+      "id": "firstrunhandbtn",
+      "selector": "#firstRunHandBtn",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Opens the paste hand-off inside the third way, in place; aria-expanded and aria-controls carry the state.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
+      "id": "firstrunfooterprivacy",
+      "selector": "#firstRunFooterPrivacy",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to the data band on the same page; the header Privacy action stays the single opener of the privacy sheet.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -7504,7 +7684,16 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
         "onboarding-shared/preview",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
         "program/progression-editor",
         "progress/exercise-chart",
         "progress/overview",
@@ -7524,13 +7713,20 @@
       "states": [
         "default"
       ],
-      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink.",
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); R3b (Today prescription rows) and R3h (session summary) add their catalog states when they render it.",
       "owner": "plan-064/r1a",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3b (Today prescription rows), then R3h (session summary). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
       "catalogStates": [
-        "today/ready",
-        "today/draft-resume"
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "today/draft-resume",
+        "today/ready"
       ]
     },
     {
@@ -7752,52 +7948,85 @@
   ],
   "contextualVariants": [
     {
-      "id": "landing-accent-primary",
+      "id": "landing-ink-primary",
       "selector": "#firstRunCreate, #firstRunCreateClose, #firstRunSharedStart",
       "role": "primary",
-      "rationale": "The two creation controls share a route, and received-program Start advances its own gate to review; all three are exact first-run primary actions with the approved accent fill.",
-      "owner": "plan-054/058",
+      "rationale": "The creation controls and received-program Start are one recipe, the ink pill with its arrow: the parchment action on the night band, the near-black action on the orange band, the arrow in the action's own ink on parchment (the prototype's orange arrow measured 2.05:1 there) and the orange band's mark on near-black. Owner decision L-1 on PR #295.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
       ]
     },
     {
-      "id": "landing-bordered-navigation",
+      "id": "landing-text-link",
       "selector": "#firstRunImport, #firstRunImportClose",
       "role": "quiet-navigation",
-      "rationale": "The two import controls open the same route without a training-state write; the opaque paper and required accent boundary preserve the approved landing hierarchy.",
-      "owner": "plan-054/058",
+      "rationale": "The two import controls open the same route without a training-state write; they are underlined text links with no boundary, in the ink of the band they sit on. Owner decision L-1 on PR #295.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
+      "id": "landing-sticky-build",
+      "selector": "#firstRunCreateDock",
+      "role": "primary",
+      "rationale": "The landing's persistent Build control floats with the existing floating elevation and takes the night or orange-band ink that reads against the band beneath it. It is the one floating surface outside the dock, the workout shelf and the sheets, and it is absent on the received-program gate. Owner decision L-1 on PR #295.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
       ]
     },
     {
       "id": "landing-device-stage-radius",
-      "selector": ".firstrun-stage",
+      "selector": ".firstrun-proof__glass, .firstrun-step__crop",
       "role": "radius:landing-device-stage",
-      "rationale": "The approved Plan 054 product-render plate uses 24px at normal width, 20px at compact width, and its smaller overlapping crop uses 14px above the compact breakpoint. The later compact rule also gives the crop 20px at 320px.",
-      "owner": "plan-054/058",
+      "rationale": "The proof's phone plate uses 24px at normal width and 20px at compact width, and each static step crop uses 14px: the Plan 054 device-stage geometry, re-pointed from the retired .firstrun-stage to the final page's plate and crop.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
       ],
       "radiusRecipes": [
         {
-          "selector": ".firstrun-stage",
+          "selector": ".firstrun-proof__glass",
           "condition": "default",
           "token": "--radius-landing-stage"
         },
         {
-          "selector": ".firstrun-stage--signature-crop",
-          "condition": "min-width:341px",
+          "selector": ".firstrun-step__crop",
+          "condition": "default",
           "token": "--radius-landing-crop"
         },
         {
-          "selector": ".firstrun-stage",
+          "selector": ".firstrun-proof__glass",
           "condition": "max-width:340px",
           "token": "--radius-landing-stage-compact"
         }
@@ -7921,13 +8150,19 @@
       "id": "full-screen-entry-gate",
       "selector": "#firstRun",
       "role": "modal",
-      "rationale": "The first-run gate blocks the app without a card shadow; its landing composition remains the owner-selected direction.",
+      "rationale": "The first-run gate blocks the app without a card shadow; the final page's bands scroll inside it.",
       "owner": "plan-054/058",
       "catalogStates": [
         "onboarding-start/first-run",
         "onboarding-shared/preview",
         "onboarding-shared/gate",
-        "onboarding-shared/invalid"
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -7958,23 +8193,20 @@
     },
     {
       "id": "landing-headline-scale",
-      "selector": ".firstrun .firstrun-hero__title",
+      "selector": ".firstrun-h1",
       "role": "typography:landing-headline",
-      "rationale": "The approved first-run editorial headline rises above the general display scale and uses a distinct wide layout size.",
-      "owner": "plan-054/058",
+      "rationale": "The hero headline and the closing title are the first-run headline variant: above the general display scale, with a distinct wide size (section 8.1). No landing section takes any other off-scale size.",
+      "owner": "plan-064/r2",
       "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
         "onboarding-start/first-run",
-        "onboarding-shared/preview"
-      ]
-    },
-    {
-      "id": "landing-climax-data",
-      "selector": ".firstrun-pull--climax .firstrun-pull__value",
-      "role": "typography:landing-climax-data",
-      "rationale": "The approved four-session data proof is the largest landing statement and stays Plex Mono.",
-      "owner": "plan-054/058",
-      "catalogStates": [
-        "onboarding-start/first-run"
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -8039,13 +8271,19 @@
     {
       "selector": ".firstrun__logo",
       "role": "decorative brand artwork",
-      "rationale": "The ground-free mark restores its paper plate in dark appearance; the plate is not a selectable or elevated card.",
-      "owner": "plan-054/058",
+      "rationale": "The ground-free mark stands on its paper plate in both appearances, because the hero is the night band in both; the plate is not a selectable or elevated card.",
+      "owner": "plan-064/r2",
       "catalogStates": [
-        "onboarding-start/first-run",
-        "onboarding-shared/preview",
         "onboarding-shared/gate",
-        "onboarding-shared/invalid"
+        "onboarding-shared/invalid",
+        "onboarding-shared/preview",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways"
       ],
       "cssLiterals": [
         {

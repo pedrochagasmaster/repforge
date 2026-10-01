@@ -487,6 +487,12 @@ async function activationConflict(page) {
 
 /** Bring the frame's subject into view for surfaces taller than the viewport. */
 const FOCUS_SELECTOR = {
+  // The landing is one scrolling page inside #firstRun; each scrolled state brings its band to the middle of the frame.
+  "onboarding-start/first-run-ways": ".firstrun-way--surface",
+  "onboarding-start/first-run-track": '[data-landing-outcome="hold"]',
+  "onboarding-start/first-run-data": ".firstrun-rows",
+  "onboarding-start/first-run-faq-open": ".firstrun-qa[open]",
+  "onboarding-start/first-run-close": ".firstrun-close__actions",
   "onboarding-start/hub-own-open": "#entryOwnToggle",
   "onboarding-recommend/avoidance-pain": ".entry__pain",
   "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
@@ -494,8 +500,28 @@ const FOCUS_SELECTOR = {
   "onboarding-build/editor-ready": "#entryEditorActivate",
 };
 
+/**
+ * The landing's proof is pinned: one phone, one lens, seven steps. Its frame is the
+ * middle of step 4 (the rest timer), where the lens, the rail and the persistent Build
+ * control are all in view. The scroll is the track's own geometry, not a pixel offset.
+ */
+const FOCUS_PROOF_STEP = { "onboarding-start/first-run-proof": 3 };
+
+const openLanding = (page) => page.evaluate(() => window.openFirstRun());
+async function openLandingQuestion(page) {
+  await openLanding(page);
+  await page.click('[data-landing-section="faq"] details:nth-of-type(3) summary');
+  await page.waitForSelector(".firstrun-qa[open]", { timeout: 10000 });
+}
+
 export const ONBOARDING_SCENARIOS = {
-  "onboarding-start/first-run": (page) => page.evaluate(() => window.openFirstRun()),
+  "onboarding-start/first-run": openLanding,
+  "onboarding-start/first-run-proof": openLanding,
+  "onboarding-start/first-run-ways": openLanding,
+  "onboarding-start/first-run-track": openLanding,
+  "onboarding-start/first-run-data": openLanding,
+  "onboarding-start/first-run-faq-open": openLandingQuestion,
+  "onboarding-start/first-run-close": openLanding,
   "onboarding-start/hub": (page) => openHub(page),
   "onboarding-start/hub-own-open": async (page) => {
     await openHub(page);
@@ -607,5 +633,16 @@ export async function focusOnboardingSubject(page, key) {
     }
     if (sel) document.querySelector(sel)?.scrollIntoView({ block: "center", inline: "nearest" });
   }, FOCUS_SELECTOR[key] || null);
+  if (FOCUS_PROOF_STEP[key] !== undefined) {
+    await page.evaluate((index) => {
+      const root = document.querySelector("#firstRun");
+      const track = document.querySelector("#firstRunProofTrack");
+      const stage = document.querySelector("#firstRunProofStage");
+      if (!root || !track || !stage) return;
+      const span = track.offsetHeight - stage.offsetHeight;
+      root.scrollTo({ top: track.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + span * (index + 0.5) / 7, behavior: "auto" });
+    }, FOCUS_PROOF_STEP[key]);
+    await sleep(page, 400);
+  }
   await sleep(page, 200);
 }

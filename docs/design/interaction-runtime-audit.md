@@ -118,7 +118,7 @@ stays reachable through the Move controls.
 | The scrim behind those three | none — they were the only modals that did not dim the page | **Native `<dialog>`** | `::backdrop` on the shared `--scrim` token | A div has no backdrop to draw, which is the only reason these three were the exception. Moving to the element that has one made the app's modals agree; the sheets, the storage-recovery dialog and the leave-editor dialog were all already drawing it |
 | The nine bottom sheets | `div[role="dialog"]` + a separate scrim element | **Unchanged** | — | Not an appropriate substitute: the top layer would break the sheet/scrim pair, the `--kb` and `--vvh` sizing that keeps a sheet above the software keyboard, and the swipe gesture that dismisses it |
 | Session summary | `div[role="dialog"]`, full-bleed | **Unchanged** | — | A staged celebratory screen whose `is-played` choreography and `delayHide` `transitionend` contract would all need re-verifying, for no behaviour a lifter would notice |
-| First-run gate | `div[role="dialog"]`, full-screen | **Unchanged** | — | A boot gate rather than a dialog over content; its class semantics are what the install-mode matrix is written against |
+| First-run gate | `div[role="dialog"]`, full-screen | **Unchanged** (the gate); the page inside it adds the motion recorded in [The landing's pinned proof](#the-landings-pinned-proof) | — | A boot gate rather than a dialog over content; its class semantics are what the install-mode matrix is written against |
 | Tour | `div[role="dialog"]` overlay | **Unchanged** | — | A coach mark pinned over live UI, with PR #231's interruptible enter/exit. The top layer would sever it from the page it is pointing at |
 | Install banner | `div[role="dialog"]` | **Unchanged** | — | Not modal at all. Its `role` is arguably wrong, but changing what it announces is a separate decision from this one |
 | Glossary popover | Class toggle with an outside-click listener | **Unchanged** | — | Anchored to the term that opened it and non-modal; `showModal` would be the wrong element and a scrim the wrong behaviour |
@@ -131,6 +131,45 @@ stays reachable through the Move controls.
 | Button, dock and toggle press feedback | CSS transitions, 100–240ms | **CSS retained** | — | Hundreds of times a session |
 
 ---
+
+## The landing's pinned proof
+
+Plan 064 section 8.11 admits one scroll-linked section, "only if it degrades to
+static bands without JavaScript and under reduced motion". The landing's proof is
+that section. It adds no runtime: the vendored Motion bundle is not involved, and
+every transition is CSS on the existing `revealIn` curve (`cubic-bezier(.2,.7,.2,1)`).
+
+| What moves | How | Duration |
+| --- | --- | --- |
+| The step caption and the phone screen change with the scroll position | Opacity crossfade; the transition is only enabled one frame after the first state is painted (`.is-ready`), so no caption flashes on entry | 200ms |
+| The lens glides to the element a step reads, then (last step only) to the second element 1.5s later | `left`, `top`, `width`, `height`, `margin`, `border-radius` and the background crop on one transition; the second reading is one recorded `setTimeout` | 350ms; opacity 200ms |
+| The phone dims while the lens reads | `filter` on the screen layer | 200ms |
+| The persistent Build control appears and steps aside | `transform` plus `visibility`; it is never rendered on the received-program gate | 200ms |
+| The disclosure and question icons open | A 90 degree `transform` of one bar | 200ms |
+
+Not carried from the prototype: the overshoot spring, the arrow nudge on hover and
+press, the hover rotation of the icons, the caption lift, the sheen on the lens and
+the 450ms to 750ms durations. Nothing animates to celebrate. The paste hand-off and
+the questions open and close without animating height: they are state changes.
+
+The position is read from `#firstRun`, not the window: the page scrolls inside the
+fixed dialog. One `requestAnimationFrame`-coalesced passive scroll listener drives
+the pinned steps, the lens and the ground the Build control reads against; two
+`IntersectionObserver`s rooted on `#firstRun` watch the hero action and the closing
+action. All of it, with the resize and motion-preference listeners, the timer and
+the frames, lives in one controller that `openFirstRun` mounts and
+`suspendFirstRun`/`closeFirstRun` dispose; `window.__repforgeLandingProof()` reports
+what it holds and `test/landing-variants.mjs` proves it is nothing once the gate is
+closed.
+
+Reduced motion is an alternate state, not a slower one. The controller reads the
+single decision in `motion-layer.js` (`RepForgeMotion.reducedMotion`, with the media
+query as the fallback) at mount and again when the preference changes, and under
+reduced motion it never builds the phone, lens or rail: the proof is the seven
+static cards, each with its own crop of the screen it reads, and anything that would
+scroll smoothly jumps. The same static cards are shown on a screen shorter than
+600px and under enlarged root text, where a pinned phone would be unreadable. The
+information is identical in every case; nothing depends on the motion to say it.
 
 ## The motion vocabulary
 

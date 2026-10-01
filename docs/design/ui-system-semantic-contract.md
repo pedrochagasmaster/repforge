@@ -581,6 +581,94 @@ use `--band-orange-*`, and the ink band uses `--band-ink-*`, each over its
 existing values. R2 builds the page and measures it in the rendered-role audit
 on every landing state, theme and locale.
 
+### Landing recipes and page structure (R2a-B, 2026-10-01)
+
+Plan 064 R2a-B builds the final page inside `#firstRun`. The authority is two
+owner records on PR #295 and nothing here is inferred from the prototype: OG-3
+(accept the final page as is) and the R2a/R4 decisions at
+[comment 5927122354](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5927122354):
+L-1 (the ink-pill primary with its arrow, "Track" as an underlined text link and
+the floating sticky Build control are as drawn), L-2 (the chart figures stay) and
+L-3 (the headline is the ethos line). This section **supersedes** the landing rows
+above for the first-run landing: the `landing-accent-primary` and
+`landing-bordered-navigation` recipes and their state table, the
+`.firstrun-stage` device-stage radius row and the `landing-climax-data` type
+variant describe a page that no longer exists. The text above is kept so the
+earlier decisions stay readable; where it differs, this section governs. No type
+size, radius step, shadow value or palette value is added, and `styles.css`
+holds no colour, size, radius or shadow literal in the landing.
+
+**Button recipes.** Selector-exact, with the same facts in
+`tools/ui-role-inventory.json`:
+
+| Variant | Exact selector | Role | Recipe |
+| --- | --- | --- | --- |
+| `landing-ink-primary` | `#firstRunCreate`, `#firstRunCreateClose`, `#firstRunSharedStart` | primary, decorative boundary | A 56px `--radius-surface` pill with no border of its own and a trailing arrow. On the night band: `--band-night-cta-bg` ground, `--band-night-cta-ink` label and arrow (12.77:1). On the orange band: `--band-orange-ink` ground, `--band-orange-cta-ink` label (16.63:1) and `--band-orange-cta-mark` arrow (6.33:1 on the pill). Label `control` 16/600. Disabled keeps the shared primary disabled ground and ink. |
+| `landing-text-link` | `#firstRunImport`, `#firstRunImportClose` | quiet-navigation, no boundary | An underlined text link, `control` 16/600, in the ink of the band it sits on (`--band-night-ink`, `--band-orange-ink`); the underline is `-ink-soft` and takes full ink on hover and press. 44px target. It has no fill and no border. |
+| `landing-sticky-build` | `#firstRunCreateDock` | primary, decorative boundary, **floating** elevation | The same pill, floating on `--elevation-floating-shadow`. It is the landing's persistent Build control: it appears once the hero action has scrolled away, steps aside at the closing action, opens the same route as `#firstRunCreate`, and never exists on the received-program gate (`display:none` and no observer). Its ink follows the band beneath it: the night recipe over a dark ground, the orange-band recipe over a light one. |
+
+The sticky Build control is the one floating surface outside the dock, the
+workout shelf and the sheets (section 8.2): it is not a fifth elevation, it is
+a persistent-action *variant* on the existing `floating` role. Its focus ring is
+the app's own focus accent (`--color-focus`), because the ground it floats over
+changes while the lifter scrolls.
+
+**The night pill's arrow.** The prototype drew the arrow in `--accent` on the
+parchment pill, which measures 2.05:1, below the 3:1 floor for a mark. No existing
+token is both orange and passing there, and adding one is a token decision this
+packet does not make, so the night pill draws its arrow in `--band-night-cta-ink`.
+The orange-band pill keeps its orange arrow (`--band-orange-cta-mark`, 6.33:1).
+
+**Device-stage radius.** `landing-device-stage-radius` is re-pointed from
+`.firstrun-stage` to the proof's phone plate and the step crop: `.firstrun-proof__glass`
+24px (`--radius-landing-stage`), 20px at 340px and below
+(`--radius-landing-stage-compact`), and `.firstrun-step__crop` 14px
+(`--radius-landing-crop`). The crop no longer takes the compact step.
+
+**Headline.** `.firstrun-h1` (the hero headline and the closing title) is the first-run
+headline variant `--font-size-landing-headline` (`-wide` from 700px, and
+`--font-size-title` at 340px and below), weight 500. No landing section takes any
+other off-scale size: the prototype's 17, 15, 15.5, 14.5, 13 and 26px snap to the
+existing tiers as follows.
+
+| Prototype size | Tier used |
+| --- | --- |
+| h1 `clamp(36px,10vw,46px)` | `--font-size-landing-headline` 38px (`-wide` 52px) |
+| h2 `clamp(30px,8.4vw,38px)` | `--font-size-title` 30px |
+| sub 17px | `--font-size-subtitle` 18px (hero), `--font-size-body` 16px (bands) |
+| action 17px, track and disclosure 15px | `--font-size-control` 16px |
+| summary and verdict 17px, brand 650 18px | `--font-size-subtitle` 18px at weight 600 |
+| 15.5px and 15px body | `--font-size-body` 16px and `--font-size-body-small` 14px |
+| 14.5px and 13px | `--font-size-body-small` 14px |
+| result figure 26px Mono | `--font-size-focal-data` 28px |
+| next-target figure 17px Mono | `--font-size-body` 16px |
+
+Spacing is composed from the `--space-*` scale (the prototype's 24, 40, 48, 64 and
+80px rhythm is `calc(var(--space-8) * 3 | 5 | 6)` and `calc(var(--space-32) * 2)`).
+
+**Page structure.** Each band is a `section` with `data-landing-section`; the page
+scrolls inside the fixed `#firstRun` dialog, so every observer and sticky element is
+rooted on it. The proof's seven steps are static cards first (each with its own
+crop of the screen it reads); the controller adds the pinned phone, lens and rail
+only when motion is welcome, the screen is at least 600px tall and the root text
+is not enlarged, and removes them again with the gate. The seven rail buttons
+(`.firstrun-proof__rail button`, quiet-navigation, bottom edge as the bar, marked
+current by `aria-current="step"`), the paste disclosure `#firstRunHandBtn`
+(disclosure) and the five `summary` controls (the shared disclosure row) are
+inventoried; the footer Privacy link `#firstRunFooterPrivacy` moves to the data
+band and never opens the sheet, so `#firstRunPrivacy` stays the single opener.
+`.verdictmark` draws the three outcomes (up, maintained, down): the prototype's
+all-orange glyphs and the dash on hold become the shared component's ink and
+orange-for-up recipe, a forced deviation recorded on the changed-frame board.
+The mark keeps its paper plate in both appearances because the hero is the night
+band in both (the `.firstrun__logo` exception row).
+
+**Rendered states.** The landing's catalog states are the hero
+(`onboarding-start/first-run`, `onboarding-shared/gate`, `onboarding-shared/invalid`) and
+six scrolled states, `onboarding-start/first-run-proof`, `-ways`, `-track`, `-data`,
+`-faq-open` and `-close`, so the rendered-role audit measures every band, in both
+themes and both locales.
+
 ### Measured contrast
 
 Light and dark are the two `styles.css` themes. A row shows light then dark.

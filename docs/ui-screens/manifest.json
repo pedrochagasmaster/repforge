@@ -435,8 +435,50 @@
       "id": "first-run",
       "flow": "onboarding-start",
       "label": "One-time landing",
-      "scenario": "First empty visit. Hero, getting-started/program chapter, the signature progression system, and a closing chapter, with early Build and Track actions, Privacy, and device-local seen state.",
+      "scenario": "First empty visit. The hero: headline, subtitle, the Build pill, the Track link, three chips and Privacy, with the device-local seen state. The bands below it have their own scrolled states.",
       "variants": "accessibility"
+    },
+    {
+      "id": "first-run-proof",
+      "flow": "onboarding-start",
+      "label": "One-time landing — proof",
+      "scenario": "Scrolled to the proof: seven steps over the real workout screen with the pinned phone, lens and rail, and the persistent Build control.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-ways",
+      "flow": "onboarding-start",
+      "label": "One-time landing — three ways",
+      "scenario": "Scrolled to the three ways to start your training: the orange, surface and ink stripes, with the paste hand-off closed.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-track",
+      "flow": "onboarding-start",
+      "label": "One-time landing — outcomes",
+      "scenario": "Scrolled to the three engine outcomes (add, hold, back off) with their next targets, and the strength-trend chart.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-data",
+      "flow": "onboarding-start",
+      "label": "One-time landing — your data",
+      "scenario": "Scrolled to the ink band: the history stays on the phone, in three rows.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-faq-open",
+      "flow": "onboarding-start",
+      "label": "One-time landing — questions",
+      "scenario": "Scrolled to the questions with the RIR answer open.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-close",
+      "flow": "onboarding-start",
+      "label": "One-time landing — close",
+      "scenario": "Scrolled to the closing orange band with the Build pill and the Track link; the persistent Build control has stepped aside.",
+      "variants": "standard"
     },
     {
       "id": "hub",

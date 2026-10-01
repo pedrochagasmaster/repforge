@@ -81,17 +81,42 @@ it is not referenced or precached. Current landing rules live in
 
 ## First-run modes
 
-The Plan 054 landing (`#firstRun`) is the one-time threshold into an empty
-device. It uses warm paper, ink, burnt orange, the Taurifer lockup and an
-editorial headline. An actual workout capture rendered through Form iPhone
-Studio sits beside live prescription, logged-work and next-target facts.
-The owner-directed refinement and historical reference hashes live in
+The landing (`#firstRun`) is the one-time threshold into an empty device. Plan 064
+R2 rebuilt it as the owner-accepted final page (OG-3): one scrolling page of
+bands. The night hero carries the headline, the subtitle, the Build pill, the Track
+link and three chips; the night proof pins the app's real workout screen over seven
+steps, each read by a lens; three ways to start run as an orange, a surface and an
+ink stripe; three engine outcomes and the strength-trend chart show that the next
+target follows what the lifter did; an ink band says where the history lives;
+five questions follow, and an orange band closes before the night footer. A
+floating Build control follows the hero action once it has scrolled away.
+
+The headline is the landing's one ethos line (owner decision L-3): the old
+"Plan. Lift. Progress." line and the one-line privacy sentence are gone. Every
+number on the page is produced when it renders, never typed into markup or a
+catalog value: the three outcomes come from `progression-engine.js` with the
+app's default settings, the chart's figures from the Progress model over the
+history the chart image is captured from, and each sentence that carries a
+number is a catalog template with `{curly}` placeholders. Copy makes no absolute
+promise: warm-ups are left out of the next target, "free" is scoped to building
+and logging, and "works offline" is qualified by "once opened".
+
+Orange is a field here and nowhere else in the app: the first way's stripe, the
+closing band and the install card carry near-black ink on the accent, the night
+bands hold the dark palette in both appearances, and the ink band inverts the
+page. The prototype's orange arrow on the parchment pill measured 2.05:1, so the
+night pill draws its arrow in its own ink. The proof's phone shows the dark
+captures in both appearances; the paste review and the chart swap on the chosen
+appearance (`data-theme`), never on `prefers-color-scheme`. The owner-directed
+refinement and historical reference hashes of the earlier landing live in
 `docs/design/plan-054-landing-directions.md`. No gym photograph ships on the page.
 
 **Generic** — no shared setup source. It renders only while no program,
 content, or history exists and `repforge_ui_v1.entryLandingSeen` is not true.
-Build my program and Track my current program are the early entry actions.
-Privacy opens the existing disclosure surface. A later empty visit boots the
+Build my program is the ink pill and Track my current program the underlined link
+under it, repeated at the closing band; the floating Build control opens the same
+route. Privacy in the header opens the existing disclosure surface, and the footer
+Privacy link goes to the data band on the same page. A later empty visit boots the
 ordinary Today/Program no-program states.
 
 **Shared valid** — a valid setup proposal on an eligible device. The headline
@@ -103,7 +128,8 @@ required for activation.
 
 **Shared invalid** — an invalid or unsupported link says that it cannot be used
 and that nothing was saved, retains the specific live-region reason, and offers
-the safe generic entry actions. It does not consume `entryLandingSeen`.
+the safe generic entry actions. It does not consume `entryLandingSeen`. The shared
+valid gate shows no Build, Track or floating control anywhere on the page.
 
 Shared captions remain localized rather than assembled from fragments:
 
@@ -236,7 +262,10 @@ woff2 files; no external font services.
 Principles the tokens can't express:
 
 - One accent, used sparingly — emphasis, primary actions, small highlights.
-  Never decorative washes or large orange fields.
+  Never decorative washes or large orange fields. The one-time landing is the
+  approved exception: its first way's stripe, its closing band and the install
+  card are orange fields that carry near-black ink (Plan 064 R2, OG-3). Nothing
+  else in the app is.
 - Page content stays flat: hairlines (`--rule`) separate content, whitespace
   groups it. Depth is allowlisted by semantic role only — `flat`, `selected`,
   `floating`, `modal`, and `persistent-action` as defined in
@@ -252,8 +281,9 @@ Principles the tokens can't express:
 Dark appearance carries the same material grammar rather than introducing a
 second visual identity: warm charcoal paper, off-white ink, ember orange,
 hairlines and whitespace. Working-surface primary actions use a quiet parchment
-inversion. The one-time landing's owner-selected burnt-orange CTA is the
-approved exception. Artwork painted on cream — the exercise illustrations and
+inversion. The one-time landing's night, orange and ink bands (OG-3) are the
+approved exception, and its creation pill follows them: parchment with ink on the
+night band, near-black with an orange arrow on the orange band (L-1). Artwork painted on cream — the exercise illustrations and
 the ground-free mark — keeps that paper as a deliberate archival
 plate with a corner of its own, rather than being inverted, tinted, dimmed, or
 dissolved into charcoal with a gradient. Repeated status markers should not all
