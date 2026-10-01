@@ -66,7 +66,7 @@ console.log("\nD-owned state list");
     "R3g's Why states are enforced");
   check(["session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first"].every((key) => status(key) === "implemented"),
     "R3h's session summary states are enforced");
-  check(["today/done", "today/draft-resume", "progress/overview", "program/overview"].every((key) => status(key) === "pending"),
+  check(["today/done", "today/draft-resume", "progress/overview"].every((key) => status(key) === "pending"),
     "states that still need a drawing, or whose slice has not landed, stay pending");
   // The parity oracle accepts a status's word in either vocabulary; in PT they must be the same words
   // (CONTEXT.md "Session outcome": Melhorou, Manteve, Regressou).
