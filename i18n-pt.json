@@ -2312,8 +2312,6 @@
   "stats.overview.evidence.other": "{kind}, {n} sessões",
   "stats.overview.strength": "Força neste bloco",
   "stats.overview.week": "Semana {n} de {total} em andamento",
-  "stats.outcome_short.missing_effort": "Sem RIR",
-  "stats.outcome_short.single_observation": "Primeira sessão",
   "stats.volume_scope_aria": "Período de volume",
   "stats.volume.scope.this_week": "Esta semana",
   "stats.volume.scope.block_to_date": "Bloco até aqui",

@@ -2312,8 +2312,6 @@
   "stats.overview.evidence.other": "{kind}, {n} sessions",
   "stats.overview.strength": "Strength this block",
   "stats.overview.week": "Week {n} of {total} in progress",
-  "stats.outcome_short.missing_effort": "No RIR",
-  "stats.outcome_short.single_observation": "First session",
   "stats.volume_scope_aria": "Volume period",
   "stats.volume.scope.this_week": "This week",
   "stats.volume.scope.block_to_date": "Block to date",

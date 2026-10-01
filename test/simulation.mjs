@@ -11337,16 +11337,26 @@ async function main() {
 
   await page.click("#exBack");
   await nav(page, "stats");
+  // Progress's own totals are no longer the shared row (Plan 064 R3i), so the shared
+  // component is probed in place on the Progress page: the rule under test is the
+  // stylesheet's, not whichever surface currently renders it.
   const sharedRules = await page.evaluate(() => {
-    const row = document.querySelector("#thisWeek .statrow, #stats .statrow, #metrics.metrics");
-    if (!row) return null;
+    const host = document.querySelector("#stats");
+    if (!host) return null;
+    const row = document.createElement("div");
+    row.className = "statrow";
+    row.innerHTML = '<div class="statrow__cell"><div class="statrow__val">1</div><div class="statrow__cap">a</div></div>' +
+      '<div class="statrow__cell"><div class="statrow__val">2</div><div class="statrow__cap">b</div></div>';
+    host.append(row);
     const cs = getComputedStyle(row);
-    const cell = row.querySelector(".statrow__cell, .metric");
-    return {
+    const cell = row.querySelector(".statrow__cell");
+    const result = {
       top: cs.borderTopWidth,
       bottom: cs.borderBottomWidth,
-      sep: cell ? getComputedStyle(cell, "::after").content : null,
+      sep: getComputedStyle(cell, "::after").content,
     };
+    row.remove();
+    return result;
   });
   assert(
     sharedRules &&
@@ -11355,7 +11365,7 @@ async function main() {
       sharedRules.sep !== "none",
     "Shared stat rows outside the exercise page keep their rules and cell separators",
     JSON.stringify(sharedRules),
-    "Progress tab → .statrow computed borders"
+    "Progress tab → probe .statrow computed borders"
   );
 
   // Console errors
