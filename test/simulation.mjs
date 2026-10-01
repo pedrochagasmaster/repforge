@@ -3415,7 +3415,7 @@ async function main() {
     assert(
       tempered?.status === "add" &&
         tempered?.block?.dir === "falling" &&
-        /smallest load increase/i.test(tempered?.text || ""),
+        /smallest weight increase/i.test(tempered?.text || ""),
       "Falling block trend tempers a bold double jump to one load step",
       JSON.stringify(tempered),
       "Seed falling e1RM trend + easy top-range latest session → Add load, not Add load ++"
