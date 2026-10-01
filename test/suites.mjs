@@ -49,6 +49,7 @@ export const SUITES = {
     s("test/program-compiler-plan048-preferences.mjs"),
     s("test/program-entry-contracts.mjs"),
     s("test/ui-screens.mjs"),
+    s("test/direction-d-fixture.mjs"),
     s("test/workout-draft.mjs"),
     s("test/workout-draft-migration.mjs"),
     s("test/schedule.mjs"),
