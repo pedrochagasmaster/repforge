@@ -97,7 +97,6 @@
         <p class="section-label" id="todaySessionLabel" data-i18n="today.session_label">Today's session</p>
         <div id="todaySession" class="today-session"></div>
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
-        <button type="button" class="btn btn--steel today-otherday" id="previewSession" data-i18n="today.preview">Preview session</button>
         <button type="button" class="btn btn--steel today-otherday" id="chooseAnotherDay" data-i18n="today.choose_day">Choose another day</button>
         <button type="button" class="btn btn--steel hidden" id="reviewTodaySession"><span data-i18n="today.done_review">View today's session</span><span class="chevron" aria-hidden="true"></span></button>
         <button type="button" class="text-link text-link--center hidden" id="logAnotherSession" data-i18n="today.done_another">Log another session</button>
@@ -1026,23 +1025,6 @@ Triceps pushdown 3x12-15</pre>
       <button type="button" id="exNoteSave" data-i18n="dialog.save">Save</button>
     </div>
   </div>
-  <div id="previewSessionScrim" class="sheet-scrim hidden"></div>
-  <div id="previewSessionSheet" class="sheet sheet--preview hidden" role="dialog" aria-modal="true" aria-labelledby="previewSessionTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head sheet__head--stack">
-      <div class="sheet__titles">
-        <p class="sheet__title" id="previewSessionTitle" data-i18n="preview.session.title">Session preview</p>
-        <p class="sheet__sub" data-preview-day data-i18n="preview.session.subtitle">Today's planned session</p>
-      </div>
-    </div>
-    <div class="sheet__body preview__body">
-      <div id="previewSessionList" class="preview__list" role="group" aria-labelledby="previewSessionTitle"></div>
-    </div>
-    <div class="sheet__foot sheet__foot--stack">
-      <button type="button" class="btn btn--cta btn--noarrow" data-preview-start data-i18n="today.start">Start workout</button>
-      <button type="button" class="text-link text-link--center" id="previewSessionClose" data-i18n="dialog.close">Close</button>
-    </div>
-  </div>
   <div id="sessionSheetScrim" class="sheet-scrim hidden"></div>
   <div id="sessionSheet" class="sheet sheet--session hidden" role="dialog" aria-modal="true" aria-labelledby="sessionSheetTitle" hidden>
     <div class="sheetband">
@@ -1129,12 +1111,11 @@ Triceps pushdown 3x12-15</pre>
 
   <div id="dayPickScrim" class="sheet-scrim hidden"></div>
   <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head sheet__head--stack">
-      <div class="sheet__titles">
-        <p class="sheet__title" id="dayPickTitle" data-i18n="today.choose_day_title">Choose another day</p>
-        <p class="sheet__sub" data-i18n="today.choose_day_sub">Pick which day of your program to train today.</p>
-      </div>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="dayPickTitle" data-i18n="today.choose_day_title">Choose another day</h2>
+      <button type="button" class="sheetband__close" data-daypick-close data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" data-i18n="today.choose_day_sub">Pick which day of your program to train today.</p>
     </div>
     <div class="sheet__body daypick__body">
       <div id="dayPickList" class="daypick__list" role="group" aria-labelledby="dayPickTitle"></div>

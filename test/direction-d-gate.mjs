@@ -40,17 +40,28 @@ console.log("\nD-owned state list");
     .filter((cells) => cells.length >= 8 && /^`[a-z-]+\/[a-z-]+`$/.test(cells[1]) && cells[4] === "`redesign (D)`")
     .map((cells) => cells[1].replaceAll("`", ""));
   check(owned.length === 35, "the treatment table has 35 `redesign (D)` screens", `found ${owned.length}`);
-  check(DIRECTION_D_STATES.length === 35 && DIRECTION_D_STATES.every((item) => owned.includes(item.key)) &&
-    owned.every((key) => DIRECTION_D_STATES.some((item) => item.key === key)),
-  "the gate's state list is exactly those 35 states", `${DIRECTION_D_STATES.length} listed`);
+  // The reconciliation's "Retire and add list": states R3 adds to the catalog are D states from the day they exist.
+  const added = doc.split("\n").filter((line) => /^\| Add \|/.test(line) && /\| R3 \|/.test(line))
+    .flatMap((line) => [...line.matchAll(/`([a-z-]+\/[a-z-]+)`/g)].map((match) => match[1]));
+  check(added.length >= 8, "the add list names the new R3 catalog states", `found ${added.join(", ")}`);
+  const listed = DIRECTION_D_STATES.map((item) => item.key);
+  check(owned.every((key) => listed.includes(key)) && listed.every((key) => owned.includes(key) || added.includes(key)) &&
+    new Set(listed).size === listed.length,
+  "the gate's list is the 35 treatment-table states plus only states the add list names", `${listed.length} listed`);
   const built = ["workout/focus", "workout/focus-glossary", "workout/correction",
     "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
-    "program/overview"];
+    "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies"];
   check(DIRECTION_D_STATES.every((item) => (item.status === "implemented") === built.includes(item.key)) &&
     DIRECTION_D_STATES.filter((item) => item.status === "implemented").length === built.length,
   "only the states an R3 sub-slice has built are implemented; every other D state is pending",
   JSON.stringify(DIRECTION_D_STATES.filter((item) => item.status === "implemented").map((item) => item.key)));
+  const status = (key) => DIRECTION_D_STATES.find((item) => item.key === key)?.status;
+  check(DIRECTION_D_STATES.every((item) => ["pending", "implemented"].includes(item.status)), "every D state is pending or implemented");
+  check(["today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies"].every((key) => status(key) === "implemented"),
+    "R3b's Today states are enforced");
+  check(["today/done", "today/draft-resume", "progress/overview", "program/overview"].every((key) => status(key) === "pending"),
+    "states that still need a drawing, or whose slice has not landed, stay pending");
   check(validateStateList(DIRECTION_D_STATES, manifest).length === 0, "the list is valid against the live manifest",
     show(validateStateList(DIRECTION_D_STATES, manifest)));
   check(has(validateStateList([{ key: "today/not-a-state", status: "pending" }], manifest), "today/not-a-state", "manifest"),
@@ -235,19 +246,21 @@ try {
   // ------------------------------------------------ the gate over today's app
   console.log("\nThe real gate");
   const allPending = DIRECTION_D_STATES.map((item) => ({ key: item.key, status: "pending" }));
-  const pendingRun = await runGate({ states: allPending, locales: ["pt", "en"], renderPending: ["today/ready"], browser, manifest });
+  const pendingRun = await runGate({ states: allPending, locales: ["pt", "en"], renderPending: ["today/done", "workout/focus"], browser, manifest });
   check(pendingRun.ok && pendingRun.failures.length === 0, "the gate does not fail a D state that is still pending", show(pendingRun.failures));
-  check(pendingRun.enforced.length === 0 && pendingRun.pending.length === 35, "with every state pending, none is enforced and 35 are pending",
+  check(pendingRun.enforced.length === 0 && pendingRun.pending.length === DIRECTION_D_STATES.length,
+    `with every state pending, none is enforced and all ${DIRECTION_D_STATES.length} are pending`,
     `enforced ${pendingRun.enforced.length}, pending ${pendingRun.pending.length}`);
-  check(["pt", "en"].every((locale) => pendingRun.rendered.some((item) => item.key === "today/ready" && item.locale === locale)),
-    "a pending sample was actually rendered in PT and EN", JSON.stringify(pendingRun.rendered));
+  check(["today/done", "workout/focus"].every((key) => pendingRun.rendered.some((item) => item.key === key && item.locale === "pt") &&
+    pendingRun.rendered.some((item) => item.key === key && item.locale === "en")),
+  "the pending samples were actually rendered in PT and EN", JSON.stringify(pendingRun.rendered));
 
   const built = await runGate({ states: DIRECTION_D_STATES, locales: ["pt", "en"], browser, manifest });
   const implemented = DIRECTION_D_STATES.filter((item) => item.status === "implemented").map((item) => item.key);
   check(built.ok && built.failures.length === 0, "every implemented D state passes all five checks in PT and EN at 360", show(built.failures));
   check(built.enforced.join() === implemented.join() && implemented.every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
-  "the implemented states were actually rendered and enforced in PT and EN", JSON.stringify(built.rendered));
+  "the implemented states were actually rendered and enforced in PT and EN", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
 
   // A control that no R3 sub-slice rebuilds: Settings is rules-only, so flipping it must always fail.
   const flipped = await runGate({ states: [{ key: "settings/main", status: "implemented" }], locales: ["en"], browser, manifest });

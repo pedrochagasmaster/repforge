@@ -284,9 +284,14 @@
       "scenario": "A fresh device after leaving setup, with no program or workout controls."
     },
     "today/ready": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3b",
       "content": "flat",
-      "scenario": "A seeded program with recent max-rep evidence makes the Today readiness shortcut visible."
+      "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
+    },
+    "today/mixed-strategies": {
+      "owner": "plan-064/r3b",
+      "content": "flat",
+      "scenario": "The Direction D mixed day: anchor and back-off, rep goal, fixed effort, a manual slot in soft ink with no mark, a custom exercise and a lift with a set logged without RIR."
     },
     "today/rest-bar": {
       "owner": "plan-058",
@@ -738,11 +743,6 @@
       "content": "flat",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation."
     },
-    "today/preview": {
-      "owner": "plan-057",
-      "content": "flat",
-      "scenario": "Read-only session preview through production controls."
-    },
     "workout/session": {
       "owner": "plan-055",
       "content": "flat",
@@ -878,7 +878,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -3840,7 +3841,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -3935,86 +3937,6 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-preview"
-      ]
-    },
-    {
-      "id": "previewsession",
-      "selector": "#previewSession",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "install/banner",
-        "today/draft-resume",
-        "today/ready",
-        "today/rest-bar",
-        "workout/invalid-draft"
-      ]
-    },
-    {
-      "id": "previewsessionclose",
-      "selector": "#previewSessionClose",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/preview"
-      ]
-    },
-    {
-      "id": "previewsessionscrim",
-      "selector": "#previewSessionScrim",
-      "roles": {
-        "elevation": "modal"
-      },
-      "variant": "scrim",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Scrim suppresses the page behind its blocking sheet.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/preview"
-      ]
-    },
-    {
-      "id": "previewsessionsheet",
-      "selector": "#previewSessionSheet",
-      "roles": {
-        "elevation": "modal"
-      },
-      "variant": "bottom-sheet",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/preview"
       ]
     },
     {
@@ -4637,28 +4559,6 @@
       ]
     },
     {
-      "id": "readyline",
-      "selector": "#readyLine",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Opens Focus on the first lift with an add-load recommendation, starting or resuming its reversible workout draft as a supporting action.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/ready",
-        "today/rest-bar"
-      ]
-    },
-    {
       "id": "reviewtodaysession",
       "selector": "#reviewTodaySession",
       "roles": {
@@ -5220,7 +5120,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -5473,32 +5374,6 @@
       ]
     },
     {
-      "id": "todayexmore",
-      "selector": "#todayExMore",
-      "roles": {
-        "control": "disclosure"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "install/banner",
-        "today/draft-resume",
-        "today/ready",
-        "today/rest-bar",
-        "workout/invalid-draft"
-      ]
-    },
-    {
       "id": "todayprogram-segbar",
       "selector": "#todayProgram .segbar",
       "roles": {
@@ -5520,10 +5395,10 @@
         "today/done",
         "today/draft-resume",
         "today/no-program",
-        "today/preview",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -5573,10 +5448,10 @@
         "today/done",
         "today/draft-resume",
         "today/no-program",
-        "today/preview",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -5631,7 +5506,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -5951,7 +5827,6 @@
         "progress/sibling-lower-frequency",
         "progress/sibling-shorter-session",
         "progress/volume-reduction-preview",
-        "today/preview",
         "workout/correction",
         "workout/focus",
         "workout/focus-glossary",
@@ -7240,31 +7115,6 @@
       ]
     },
     {
-      "id": "today-ex-not-id",
-      "selector": ".today-ex:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "install/banner",
-        "today/draft-resume",
-        "today/ready",
-        "today/rest-bar",
-        "workout/invalid-draft"
-      ]
-    },
-    {
       "id": "vrow-evrow-not-id",
       "selector": ".vrow.evrow:not([id])",
       "roles": {
@@ -7286,27 +7136,6 @@
         "progress/volume",
         "progress/volume-block",
         "progress/volume-drill-in"
-      ]
-    },
-    {
-      "id": "preview-row-not-id",
-      "selector": "button.preview__row:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "A Today preview row opens exercise detail; its chevron denotes navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/preview"
       ]
     },
     {
@@ -7459,7 +7288,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -7528,7 +7358,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -7593,7 +7424,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); R3b (Today prescription rows) and R3h (session summary) add their catalog states when they render it. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally render it (R3b); R3h (session summary) adds its states when it renders it. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
       "owner": "plan-064/r1a",
       "catalogStates": [
         "onboarding-shared/gate",
@@ -7608,7 +7439,10 @@
         "today/draft-resume",
         "today/ready",
         "history/session",
-        "program/overview"
+        "program/overview",
+        "today/mixed-strategies",
+        "today/rest-bar",
+        "today/day-picker"
       ]
     },
     {
@@ -7657,13 +7491,8 @@
       ],
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-064/r1a",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: the workout sheets' close buttons need ids the suites hook (#sessionSheetClose, #exActionsClose), so they have exact rows; the id-less class renders with the day picker (R3b) and Why (R3g). A consumer that needs an id gets its own exact row, as #whyClose has.",
       "catalogStates": [
-        "today/day-picker",
-        "workout/why-this-weight",
-        "workout/exercise-actions",
-        "workout/session"
+        "today/day-picker"
       ]
     },
     {
@@ -7708,8 +7537,10 @@
       "owner": "plan-064/r1a",
       "catalogStates": [
         "today/ready",
+        "today/rest-bar",
+        "today/day-picker",
         "today/draft-resume",
-        "program/overview"
+        "today/mixed-strategies"
       ]
     },
     {
@@ -8645,7 +8476,8 @@
         "program/overview",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -8970,7 +8802,6 @@
         "program/text-export",
         "settings/privacy-disclosure",
         "today/day-picker",
-        "today/preview",
         "workout/early-finish",
         "workout/exercise-actions",
         "workout/exercise-note",
@@ -9054,7 +8885,8 @@
         "program/overview",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -9110,7 +8942,8 @@
         "program/overview",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/mixed-strategies"
       ]
     },
     {

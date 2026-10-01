@@ -2323,7 +2323,6 @@ let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
-const TODAY_EX_PREVIEW=3;let todayExOpen=false;
 // Two-level Progress navigation (Plan 056): Overview/Review are the primary
 // tasks; Strength/Volume/PRs are a labelled Evidence group. Old one-level seg
 // values keep working: evidence keys map onto the Evidence view and unknown
@@ -5684,6 +5683,7 @@ function openDayPickSheet(){
   if(!sheet)return;
   dayPickSelected=day;
   renderDayPickList();
+  const bandClose=sheet.querySelector("[data-daypick-close]");if(bandClose)bandClose.onclick=()=>closeDayPickSheet();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
     initialFocus:$("#dayPickList .daypick__row.is-selected")||$("#dayPickList .daypick__row"),
@@ -6030,27 +6030,82 @@ function todayPrimaryControl(){
 function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
   const sid=done.at(-1).session;HistoryUi.startReading(sid);
   navTo("history");HistoryUi.focusRead(sid)}
-// The day's exercises, previewed on Today: sets × rep range per row, the rest
-// behind a "+N" disclosure. Tapping a row opens that exercise's page.
-function todayExListHtml(exs){if(!exs.length)return"";
-  const collapsible=exs.length>TODAY_EX_PREVIEW,extra=exs.length-TODAY_EX_PREVIEW;
-  const shown=collapsible&&!todayExOpen?exs.slice(0,TODAY_EX_PREVIEW):exs;
-  const rows=shown.map(e=>`<button type="button" class="today-ex" data-exopen="${esc(e.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:e.name}))}">`+
-    `<span class="today-ex__name">${esc(e.name)}</span>`+
-    `<span class="today-ex__value">${esc(`${e.sets} × ${e.min}–${e.max}`)}<span class="chevron" aria-hidden="true"></span></span></button>`).join("");
-  const label=todayExOpen?t("today.fewer_exercises"):extra===1?t("today.more_exercises_one"):t("today.more_exercises",{n:extra});
-  const more=collapsible
-    ?`<button type="button" class="today-exmore" id="todayExMore" aria-expanded="${todayExOpen?"true":"false"}" aria-controls="todayExList">`+
-      `<span>${esc(label)}</span><span class="chevron ${todayExOpen?"is-up":"is-down"}" aria-hidden="true"></span></button>`
-    :"";
-  return `<div class="today-exlist" id="todayExList">${rows}${more}</div>`}
+/* ---- Today prescription (Direction D, spec 4.1) ----
+   The table reads recommendation(ex) for every exercise of the selected day.
+   Nothing here decides a load or a reps target: the load is recommendation().load,
+   the reps come from setSuggestion() or the authored strategy parameters, and the
+   verdict glyph only names the status and reason the engine already attached. */
+const TODAY_TALLY_ORDER=["up","hold","recover","stalled","down","new","manual"];
+const TODAY_TALLY_KEYS={
+  up:["today.tally.up.one","today.tally.up.other"],
+  hold:["today.tally.hold.one","today.tally.hold.other"],
+  recover:["today.tally.recover.one","today.tally.recover.other"],
+  stalled:["today.tally.stalled.one","today.tally.stalled.other"],
+  down:["today.tally.down.one","today.tally.down.other"],
+  new:["today.tally.new.one","today.tally.new.other"],
+  manual:["today.tally.manual.one","today.tally.manual.other"]};
+/** One word for a recommendation, from the status and reason the engine attached. */
+function rxVerdict(rec){
+  if(rec.status==="manual")return"manual";
+  if(rec.status==="new")return"new";
+  if(rec.status==="add"||rec.status==="add2")return"up";
+  if(rec.status==="reduce")return rec.reason==="stalled"?"stalled":"down";
+  if(rec.reason==="recover")return"recover";
+  return"hold"}
+/** The shared verdict mark. Only up and down draw a glyph; the word beside it carries the rest. */
+function verdictMarkHtml(glyph){
+  if(glyph!=="up"&&glyph!=="down")return"";
+  return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`}
+/** "100 × 8, 8, 8" for one load, "100 × 8, 90 × 10" when the load moved. */
+function rxSetsLine(sets){
+  const rows=sets.filter(x=>+x.reps>0);if(!rows.length)return"";
+  const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
+  return same?`${fmtLoad(rows[0].load)} × ${rows.map(x=>x.reps).join(", ")}`
+    :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
+function rxTargetText(ex,rec){
+  const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
+  if(rec.status==="manual")return `${ex.sets} × ${ex.min}–${ex.max}`;
+  if(strategy==="rep_goal")return t("today.target.total",{n:params.repGoal});
+  if(strategy==="anchor_backoff")return t("today.target.anchor",{n:params.backoffSets});
+  if(strategy==="effort_target")return `${params.workingSets||ex.sets} × ${params.targetReps}`;
+  const first=setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1));
+  return `${ex.sets} × ${first.reps??ex.min}`}
+/** Pure view model: one row per exercise of the day, built once per render. */
+function todayRxModel(exs){
+  return exs.map(ex=>{
+    const rec=recommendation(ex),glyph=rxVerdict(rec),prev=last(ex);
+    const sub=glyph==="stalled"?rec.label
+      :prev.length?t("today.sub.before",{sets:rxSetsLine(prev)}):t("today.sub.first");
+    return{ex,rec,glyph,sub,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(ex,rec)}})}
+function todayTallyHtml(model){
+  const counts={};for(const row of model)counts[row.glyph]=(counts[row.glyph]||0)+1;
+  const items=TODAY_TALLY_ORDER.filter(g=>counts[g]).map(g=>
+    `<li class="today-tally__i">${verdictMarkHtml(g)}<span>${esc(t(TODAY_TALLY_KEYS[g][counts[g]===1?0:1],{n:counts[g]}))}</span></li>`);
+  return items.length?`<ul class="today-tally">${items.join("")}</ul>`:""}
+function todayRxRowHtml(row,index){
+  const{ex,rec,glyph}=row,verdictId=`rxv${index}`,hasVerdict=!!rec.label&&glyph!=="manual";
+  return `<button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:ex.name}))}"${hasVerdict?` aria-describedby="${verdictId}"`:""}>`+
+    `<span class="rxrow__mark">${verdictMarkHtml(glyph)}</span>`+
+    `<span class="rxrow__name">${esc(ex.name)}<span class="rxrow__sub">${esc(row.sub)}</span></span>`+
+    `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
+    `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
+    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button>`}
+function todayRxHtml(exs){
+  if(!exs.length)return"";
+  const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));
+  return todayTallyHtml(model)+
+    `<div class="today-rx__head"><h3 class="today-rx__title">${esc(t("today.rx.title"))}</h3>`+
+    `<span class="today-rx__meta">${esc(t("today.rx.meta",{lifts:exs.length,sets}))}</span></div>`+
+    `<div class="today-rx" id="todayExList"><div class="today-rx__grid">`+
+    `<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`+
+    model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
 /* Today with nothing behind it. Backing out of onboarding used to land here on
    a bundled program the lifter had never seen, which read as "your training" —
    so the empty device now says it is empty and offers the way back in. Every
    part of the dashboard that describes a program is taken down together: a week
    strip and an Up next built from no program are the same lie in smaller type. */
 function renderTodayNoProgram(){
-  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#previewSession","#chooseAnotherDay",
+  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
     "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
     "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
@@ -6082,22 +6137,14 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const sessLabel=$("#todaySessionLabel");if(sessLabel){const key=recap?"today.done_label":"today.session_label";
     sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key)}
   const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
-  else if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
-    sess.innerHTML=`<div class="today-session__name">${esc(dayLabel(day))}</div>`+
-      (mus.length?`<div class="today-session__muscles">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
-      `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
-      (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
-      todayExListHtml(exs)}
+  else if(sess){const exs=exercises();
+    sess.innerHTML=`<div class="today-session__name today-session__name--day">${esc(dayLabel(day))}</div>`+todayRxHtml(exs)}
     // A one-day split has no other day to offer, so the picker would open onto
     // the day Today already leads with.
     const canPickDay=!recap&&days().length>1;
-    for(const[sel,shown]of[["#startWorkout",!recap],["#previewSession",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+    for(const[sel,shown]of[["#startWorkout",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
-    const ready=$("#readyLine");if(ready)ready.onclick=()=>{
-      const first=exercises().find(e=>{const status=recommendation(e).status;return status==="add"||status==="add2"});
-      if(first)void goToLogExercise(first.id)}
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
-    const more=$("#todayExMore");if(more)more.onclick=()=>{todayExOpen=!todayExOpen;renderToday()}
   // A draft with logged or filled sets means the session is still open.
   const cta=$("#startWorkout")?.querySelector("span");
   if(cta){const key=inProgress?"today.continue":"today.start";
@@ -6135,54 +6182,6 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
     woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
-/* ---- Today preview (read-only) ---- */
-// Pure view model: no draft, no timestamps, no side effects.
-function plannedPreviewModel(d=day){
-  const exs=exercises(d);
-  return exs.map(ex=>{
-    const rec=recommendation(ex);
-    return {id:ex.id,name:ex.name,sets:ex.sets,min:ex.min,max:ex.max,primary:ex.primary,notes:ex.notes||"",rec};
-  });
-}
-function previewExerciseRowHtml(ex){
-  const sets=`${ex.sets} × ${ex.min}–${ex.max}`;
-  const meta=[ex.primary?muscleListLabel(ex.primary):"",ex.notes?`${t("log.setup")}: ${ex.notes}`:""].filter(Boolean).join(" · ");
-  const rec = ex.rec && ex.rec.status!=="new" ? `<span class="preview__meta">${esc(ex.rec.label)} · ${esc(ex.rec.text)}</span>` : "";
-  return `<button type="button" class="preview__row" data-preview-exercise data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:ex.name}))}">`+
-    `<span class="preview__row-main"><span class="preview__name">${esc(ex.name)}</span><span class="preview__sets">${esc(sets)}</span></span>`+
-    (meta?`<span class="preview__meta">${esc(meta)}</span>`:"")+rec+`</button>`;
-}
-function renderPreviewSessionSheet(){
-  const list=$("#previewSessionList");if(!list)return;
-  const dayEl=document.querySelector("[data-preview-day]");if(dayEl)dayEl.textContent=dayLabel(day);
-  const rows=plannedPreviewModel(day);
-  list.innerHTML=rows.map(previewExerciseRowHtml).join("");
-  $$("#previewSessionList [data-exopen]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.exopen;
-    closePreviewSessionSheet().then(()=>openExerciseView(id,"log"));
-  });
-}
-function openPreviewSessionSheet(){
-  if(!hasProgramContent())return;
-  renderPreviewSessionSheet();
-  const sheet=$("#previewSessionSheet"),scrim=$("#previewSessionScrim");
-  if(!sheet)return;
-  document.body.classList.add("is-sheet-open");
-  openModal(sheet,{
-    initialFocus:$("#previewSessionList .preview__row")||$("#previewSessionClose"),
-    onEscape:closePreviewSessionSheet,
-    scrim,
-    delayHide:reducedMotion()?0:280
-  });
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
-}
-function closePreviewSessionSheet(){
-  const sheet=$("#previewSessionSheet");
-  if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
-  return closeModal(sheet);
-}
-
 /* ---- Session sheet (Focus workout) ---- */
 let sessionEarlyRevision = null;
 let sessionEarlyDraftId = null;
@@ -17297,13 +17296,6 @@ function init(){
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({});
-  const previewToday=$("#previewSession");if(previewToday)previewToday.onclick=()=>openPreviewSessionSheet();
-  const previewClose=$("#previewSessionClose");if(previewClose)previewClose.onclick=()=>closePreviewSessionSheet();
-  const previewScrim=$("#previewSessionScrim");if(previewScrim)previewScrim.onclick=()=>closePreviewSessionSheet();
-  const previewStart=document.querySelector("[data-preview-start]");if(previewStart)previewStart.onclick=async()=>{
-    const p=closePreviewSessionSheet(); if(p && typeof p.then==="function") await p;
-    await enterWorkout({});
-  };
   const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
   const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();
   // Training twice in a day is the lifter's call, never Today's suggestion, so it

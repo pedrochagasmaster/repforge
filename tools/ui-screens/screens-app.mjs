@@ -141,7 +141,7 @@ async function assertDockFitsExternalTextScale(page) {
 async function assertTodayExerciseFitsExternalTextScale(page) {
   await withExternalTextScale(page, async () => {
     await page.evaluate(() => {
-      const row = document.querySelector(".today-ex");
+      const row = document.querySelector(".rxrow");
       const dock = document.querySelector("nav");
       if (!row || !dock) throw new Error("Today external-scale proof is missing the exercise row or dock");
       const rowBottom = row.getBoundingClientRect().bottom;
@@ -151,9 +151,9 @@ async function assertTodayExerciseFitsExternalTextScale(page) {
     await page.evaluate(() => new Promise(requestAnimationFrame));
     const clearance = await page.evaluate(() => {
       const root = document.documentElement;
-      const row = document.querySelector(".today-ex");
-      const name = row?.querySelector(".today-ex__name");
-      const value = row?.querySelector(".today-ex__value");
+      const row = document.querySelector(".rxrow");
+      const name = row?.querySelector(".rxrow__name");
+      const value = row?.querySelector(".rxrow__target");
       const dock = document.querySelector("nav");
       if (!row || !name || !value || !dock) return { error: "Today row, value, or dock is missing" };
       const style = getComputedStyle(name);
@@ -261,11 +261,24 @@ const D_FIXTURE_STATES = new Set([
   "history/list", "history/session", // R3j
   "program/overview", // R3k
 ]);
+/**
+ * Direction D states that show the lifter before the day's session is saved.
+ * The review page's "today" session is part of the fixture log (the summary
+ * states draw it), so Today's states read the log as it stood that morning.
+ */
+const DIRECTION_D_BEFORE_SESSION = new Set(["today/ready", "today/day-picker", "today/rest-bar", "today/mixed-strategies"]);
+function directionDBeforeSession() {
+  const state = directionDState();
+  const today = CAPTURE_NOW.slice(0, 10);
+  state.log = state.log.filter((row) => String(row.date) < today);
+  return state;
+}
 
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
+  if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
     return emptyEntryState(lang);
@@ -274,28 +287,6 @@ export function appState(key, lang) {
   // the review page draws. Every other state keeps catalogState().
   if (D_FIXTURE_STATES.has(key)) return localeState(directionDState(), lang);
   const state = catalogState();
-  if (key === "today/ready") {
-    const exercise = state.program.find((item) => item.name === "Barbell bench press");
-    const date = isoDaysAgo(1);
-    if (!exercise) throw new Error("Today hot-readiness fixture is missing its bench press");
-    state.log.push(...Array.from({ length: exercise.sets }, (_, index) => ({
-      session: "today-ready-hot",
-      date,
-      day: exercise.day,
-      name: exercise.name,
-      exerciseId: exercise.id,
-      set: index + 1,
-      load: 90,
-      reps: exercise.max,
-      rir: 1,
-      work: true,
-      notes: "",
-      created: `${date}T12:${String(index).padStart(2, "0")}:00.000Z`,
-      primary: exercise.primary,
-      secondary: exercise.secondary,
-      performedLibraryId: exercise.libraryId || undefined,
-    })));
-  }
   if (key.startsWith("session/summary-")) {
     const dayExercises = state.program.filter((exercise) => exercise.day === "Day 1");
     const loads = dayExercises.map((_, index) => 80 + index * 5);
@@ -700,14 +691,13 @@ export const APP_SCENARIOS = {
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/ready": async (page) => {
     await dismissChrome(page);
-    const ready = page.locator("#readyLine");
-    await ready.waitFor({ state: "visible", timeout: 20000 });
-    const label = (await ready.innerText()).trim();
-    if (!label) throw new Error("Today readiness shortcut has no accessible text");
+    const rows = page.locator("#todayExList .rxrow");
+    await rows.first().waitFor({ state: "visible", timeout: 20000 });
+    if ((await rows.count()) < 5) throw new Error("Today shows every exercise of the day, not a preview of three");
     await sleep(page, 300);
     if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
       await page.evaluate(() => {
-        const row = document.querySelector(".today-ex");
+        const row = document.querySelector(".rxrow");
         const dock = document.querySelector("nav");
         if (!row || !dock) throw new Error("Today 200% exercise row or dock is missing");
         const rowBottom = row.getBoundingClientRect().bottom;
@@ -715,9 +705,9 @@ export const APP_SCENARIOS = {
         window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
       });
       const clearance = await page.evaluate(() => {
-        const row = document.querySelector(".today-ex");
-        const name = row?.querySelector(".today-ex__name");
-        const value = row?.querySelector(".today-ex__value");
+        const row = document.querySelector(".rxrow");
+        const name = row?.querySelector(".rxrow__name");
+        const value = row?.querySelector(".rxrow__target");
         const dock = document.querySelector("nav");
         if (!row || !name || !value || !dock) return { error: "Today row, value, or dock is missing" };
         const nameStyle = getComputedStyle(name);
@@ -743,6 +733,19 @@ export const APP_SCENARIOS = {
       await assertDockFitsExternalTextScale(page);
       await assertTodayExerciseFitsExternalTextScale(page);
     }
+  },
+  "today/mixed-strategies": async (page) => {
+    await dismissChrome(page);
+    // The fixture's mixed day is the second day of the split; Today leads with Day 1.
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 2 · mixed" }); });
+    await sleep(page, 500);
+    // Opening the day made an untouched draft; clear it so Today offers Start, not Continue.
+    await page.evaluate(async () => { window.__repforgeLeaveWorkout(); await window.__repforgeWorkoutDraft.clear(); });
+    await page.evaluate(() => document.querySelector('nav [data-view="log"]')?.click());
+    const rows = page.locator("#todayExList .rxrow");
+    await rows.first().waitFor({ state: "visible", timeout: 20000 });
+    if ((await rows.count()) !== 6) throw new Error("Today's mixed day shows its six exercises");
+    await sleep(page, 300);
   },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
@@ -851,7 +854,6 @@ export const APP_SCENARIOS = {
     await assertGlossaryViewport(page, "Focus");
     await sleep(page, 400);
   },
-  "today/preview": async page => { await page.click("#previewSession"); await page.waitForSelector("#previewSessionSheet.is-open"); },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); await resetSheetScroll(page, "#sessionEarlySection"); },
   "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },

@@ -816,12 +816,6 @@ div.settings-row{cursor:default}
 .today-session__name{font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.02em;margin:4px 0 6px;color:var(--color-ink)}
 .today-session__muscles{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .today-session__meta{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
-.today-ready{display:flex;align-items:center;gap:8px;margin:12px 0 0;font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-secondary-ink);cursor:pointer;background:var(--control-secondary-bg);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);padding:8px 12px;text-align:left;min-height:var(--control-target)}
-.today-ready:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
-.today-ready:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
-.today-ready:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.today-ready:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-.today-ready__dot{width:7px;height:7px;border-radius:var(--radius-round);background:var(--color-action);flex:none}
 .today-session + .btn--cta,#startWorkout{margin-top:32px}
 /* The alternative to the day Today leads with, so it sits under the CTA and
    reads as the quieter of the two. */
@@ -1779,9 +1773,6 @@ body.is-sheet-open{overflow:hidden}
 .sheet--daypick{height:auto}
 .sheet__head--stack{grid-template-columns:1fr;padding:4px 16px 14px}
 .sheet__head--stack .sheet__titles{text-align:left}
-#dayPickSheet .sheet__head--stack .sheet__title,#previewSessionSheet .sheet__head--stack .sheet__title{font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-/* The head's one-line sub is a caption for a title; this one is a sentence. */
-#dayPickSheet .sheet__head--stack .sheet__sub,#previewSessionSheet .sheet__head--stack .sheet__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);white-space:normal;overflow:visible;margin-top:4px}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
    The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d);
    the rest and Why sheets keep their own head until their slices land. */
@@ -1805,54 +1796,26 @@ body.is-sheet-open{overflow:hidden}
 .daypick__body{flex-direction:column;overflow:hidden;padding:0 16px}
 .daypick__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
 .daypick__row{
-  display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:12px 12px 12px 9px;
-  background:var(--control-selection-bg);border:0;border-bottom:1px solid var(--boundary-decorative);border-left:3px solid var(--control-selection-boundary);
+  display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:56px;padding:var(--space-8) var(--space-12) var(--space-8) 9px;
+  background:var(--control-selection-bg);border:0;border-bottom:1px solid var(--boundary-decorative);border-left:3px solid var(--control-selection-boundary);border-radius:var(--radius-none);
   cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-selection-ink);
 }
 .daypick__row:last-child{border-bottom:0}
-.daypick__row:hover:not(:disabled){background:var(--well);border-left-color:var(--control-selection-boundary);color:var(--control-selection-ink)}
-.daypick__row:active:not(:disabled){background:var(--well);border-left-color:var(--control-selection-boundary);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
+.daypick__row:hover:not(:disabled){background:var(--well);color:var(--control-selection-ink)}
+.daypick__row:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
 .daypick__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.daypick__row.is-selected{border-left-color:var(--control-selected-boundary);background:var(--control-selection-active-bg);border-radius:0 var(--radius-control) var(--radius-control) 0;color:var(--control-selection-ink)}
-.daypick__row:disabled{background:var(--control-selection-bg);border-left-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+/* The armed day takes the well and the quiet selected boundary (ink, never orange) on its rail. */
+.daypick__row.is-selected{border-left-color:var(--boundary-selected-quiet);background:var(--well);color:var(--control-selection-ink)}
+.daypick__row:disabled{background:var(--control-selection-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .daypick__n{flex:none;min-width:18px;text-align:center;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
-.daypick__row.is-selected .daypick__n{color:var(--control-selected-boundary)}
 .daypick__main{min-width:0;flex:1}
-/* The chip rides the title's line only, so the line under it keeps the full
-   width and never has to drop the count to make room. */
-.daypick__line{display:flex;align-items:center;gap:8px}
-.daypick__title{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.daypick__sub{display:block;margin-top:2px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* Keep the full day choice readable when enlarged text narrows the sheet.
-   The list owns the added height and remains the sheet's scroll region. */
-@container (max-width:15em){
-  .daypick__title,
-  .daypick__sub{overflow:visible;text-overflow:clip;white-space:normal}
-}
+.daypick__line{display:flex;align-items:baseline;gap:var(--space-8)}
+.daypick__title{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.daypick__sub{display:block;margin-top:2px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
 /* The day Today is already on, marked wherever it sits in the split. */
-.daypick__chip{
-  flex:none;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);text-transform:uppercase;letter-spacing:.06em;
-  color:var(--color-action-text);background:var(--control-selection-active-bg);border-radius:var(--radius-pill);padding:4px 9px;
-  /* Sits inside the title's own line box, so the chipped row is no taller than
-     the rows around it. */
-  line-height:var(--line-tight);
-}
+.daypick__chip{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sheet__foot--stack{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--rule)}
 .sheet__foot--stack .text-link{min-height:44px}
-.sheet--preview{height:auto}
-.preview__body{flex-direction:column;overflow:hidden;padding:0 16px}
-.preview__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
-#previewSessionSheet .preview__row{display:flex;flex-direction:column;gap:4px;width:100%;min-height:var(--control-target);padding:12px 12px;text-align:left;background:var(--control-quiet-bg);color:var(--control-quiet-ink);border:0;border-bottom:1px solid var(--boundary-decorative);cursor:pointer}
-#previewSessionSheet .preview__row:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-bottom-color:var(--boundary-decorative)}
-#previewSessionSheet .preview__row:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-#previewSessionSheet .preview__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#previewSessionSheet .preview__row:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-#previewSessionSheet .preview__row:last-child{border-bottom:0}
-#previewSessionSheet .preview__row-main{display:flex;justify-content:space-between;gap:12px;align-items:center}
-#previewSessionSheet .preview__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#previewSessionSheet .preview__sets{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);flex:none;white-space:nowrap}
-#previewSessionSheet .preview__meta{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-
 /* The exercise library has static muscle data with the same legacy class name,
    but it is not an interactive Today preview row. Keep its stacked details. */
 #exercisePreview .preview__row{display:flex;flex-direction:column;gap:4px;width:100%;padding:12px 12px;text-align:left;background:none;border:0;border-bottom:1px solid var(--boundary-decorative)}
@@ -3323,7 +3286,8 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .today-prog__week{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
 .today-prog .segbar{margin-top:12px}
 #todayProgram .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
-#todayProgram .segbar__seg.is-done,#todayProgram .segbar__seg.is-current{background:var(--color-action)}
+#todayProgram .segbar__seg.is-done{background:var(--color-ink)}
+#todayProgram .segbar__seg.is-current{background:var(--color-ink-secondary)}
 
 /* Today, once a session is saved: a recap stands where the start CTA would be. */
 .today-done{padding:4px 0 8px}
@@ -3346,40 +3310,33 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #logAnotherSession:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #logAnotherSession:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 
-/* Today's exercise preview — hairline rows, first few visible, rest disclosed. */
-.today-exlist{margin-top:10px;border-top:1px solid var(--boundary-decorative)}
-.today-ex{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
-  min-height:var(--control-target);padding:12px 0;background:var(--control-quiet-bg);border:0;border-bottom:1px solid var(--boundary-decorative);
-  cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-quiet-ink);
+/* Today prescription (Direction D, spec 4.1): the day's exercises as a table of
+   aligned columns on hairlines. The rows are the shared .rxrow; this block only
+   places them. The columns come from one grid the head and the rows share, so
+   the load and the target line up whatever the widest figure is. */
+.today-session__name--day{font-size:var(--font-size-title);line-height:var(--line-tight);margin:var(--space-4) 0 0;text-wrap:balance}
+.today-tally{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-16);margin:var(--space-12) 0 0;padding:0;list-style:none;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+.today-tally__i{display:inline-flex;align-items:center;gap:var(--space-4)}
+.today-tally .verdictmark__glyph{width:15px;height:15px}
+.today-rx__head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12);flex-wrap:wrap;margin-top:var(--space-26);padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
+.today-rx__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+.today-rx__meta{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.today-rx{container-type:inline-size}
+.today-rx__grid{display:grid;grid-template-columns:1rem minmax(0,1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
+.today-rx__cols,.today-rx__grid > .rxrow{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
+.today-rx__cols{align-items:baseline;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.today-rx__cols > :nth-child(n+3){text-align:right}
+.rxrow.is-manual .rxrow__load,.rxrow.is-manual .rxrow__target{color:var(--color-ink-secondary)}
+/* Enlarged text: the load and the target drop to a second line under the name,
+   as the drawing does, instead of squeezing the name into a sliver. */
+@container (max-width:18rem){
+  .today-rx__cols{display:none}
+  .today-rx__grid{grid-template-columns:1rem minmax(0,1fr) auto}
+  .today-rx__grid > .rxrow .rxrow__name{grid-column:2 / -1}
+  .today-rx__grid > .rxrow .rxrow__load{grid-column:2;text-align:left}
+  .today-rx__grid > .rxrow .rxrow__target{grid-column:3}
 }
-.today-ex:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-bottom-color:var(--boundary-decorative)}
-.today-ex:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-.today-ex:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.today-ex:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-.today-ex__name{min-width:0;flex:1;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.today-ex__value{flex:none;display:inline-flex;align-items:center;gap:10px;font-family:var(--font-training-data);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
-/* Give the exercise name its own line when enlarged text narrows the row;
-   keep the prescribed volume visible as the next line. */
-@container (max-width:15em){
-  .today-ex{flex-wrap:wrap;align-items:flex-start}
-  .today-ex__name{
-    flex:1 0 100%;overflow:visible;overflow-wrap:anywhere;text-overflow:clip;white-space:normal
-  }
-  .today-ex__value{margin-left:auto}
-}
-.today-exmore{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
-  min-height:var(--control-target);padding:12px 0;background:var(--control-disclosure-bg);border:0;
-  cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-disclosure-ink);
-}
-.today-exmore:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
-.today-exmore:active:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
-.today-exmore:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.today-exmore:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-/* The list ends on its own padding, so the CTA sits closer than it does without one. */
-.today-session:has(.today-exlist) + .btn--cta,
-.today-session:has(.today-exlist) + #startWorkout{margin-top:4px}
+#todayDash #upNextBtn .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip}
 .segbar__seg{flex:1;height:4px;border-radius:var(--radius-pill);background:var(--boundary-required)}
 .segbar__seg.is-done,.segbar__seg.is-current{background:var(--accent)}
 /* Exercise progress: done is near-black, the current one orange, the rest gray. */
@@ -3394,7 +3351,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .week-letters__m{margin-top:8px;min-height:18px;display:flex;align-items:center;justify-content:center}
 .week-letters__check{font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink)}
 .week-letters__dot{width:6px;height:6px;border-radius:var(--radius-round);background:var(--boundary-required);display:inline-block}
-.week-letters__dot.is-today{width:8px;height:8px;background:var(--color-action)}
+.week-letters__dot.is-today{width:8px;height:8px;background:var(--color-ink)}
 .ov-week-line{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:6px}
 /* One segment per planned session; filled ones are the sessions already logged. The
    line above says the same thing in words, so the bar is decoration to assistive tech. */
@@ -6086,39 +6043,39 @@ body.is-entry-editor #entryProgramName,
 #importReview .impreview__safe{margin:var(--space-26) 0 0;text-align:left}
 #importReview .impreview__nav{margin-top:0}
 
-/* Today, day choice, and the read-only session preview use the frozen control roles. */
-#todayDash .btn--cta,#dayPickConfirm,#previewSessionSheet [data-preview-start]{
+/* Today and day choice use the frozen control roles. */
+#todayDash .btn--cta,#dayPickConfirm{
   min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
 #todayDash .btn--cta::after{color:var(--color-action)}
-#todayDash .btn--cta:active:not(:disabled),#dayPickConfirm:active:not(:disabled),#previewSessionSheet [data-preview-start]:active:not(:disabled){transform:var(--control-pressed-transform)}
-#todayDash .btn--cta:focus-visible,#dayPickConfirm:focus-visible,#previewSessionSheet [data-preview-start]:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#todayDash .btn--cta:disabled,#dayPickConfirm:disabled,#previewSessionSheet [data-preview-start]:disabled{
+#todayDash .btn--cta:active:not(:disabled),#dayPickConfirm:active:not(:disabled){transform:var(--control-pressed-transform)}
+#todayDash .btn--cta:focus-visible,#dayPickConfirm:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#todayDash .btn--cta:disabled,#dayPickConfirm:disabled{
   background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
-#previewSession,#chooseAnotherDay{
+#chooseAnotherDay{
   display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:10px;padding:8px 13px;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
-#previewSession:hover:not(:disabled),#chooseAnotherDay:hover:not(:disabled),#previewSessionClose:hover:not(:disabled),#dayPickCancel:hover:not(:disabled),#todayDash #upNextBtn:hover:not(:disabled){
+#chooseAnotherDay:hover:not(:disabled),#dayPickCancel:hover:not(:disabled),#todayDash #upNextBtn:hover:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
-#previewSession:active:not(:disabled),#chooseAnotherDay:active:not(:disabled),#previewSessionClose:active:not(:disabled),#dayPickCancel:active:not(:disabled),#todayDash #upNextBtn:active:not(:disabled){
+#chooseAnotherDay:active:not(:disabled),#dayPickCancel:active:not(:disabled),#todayDash #upNextBtn:active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)
 }
-#previewSession:focus-visible,#chooseAnotherDay:focus-visible,#previewSessionClose:focus-visible,#dayPickCancel:focus-visible,#todayDash #upNextBtn:focus-visible{
+#chooseAnotherDay:focus-visible,#dayPickCancel:focus-visible,#todayDash #upNextBtn:focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
 }
-#previewSession:disabled,#chooseAnotherDay:disabled,#previewSessionClose:disabled,#dayPickCancel:disabled,#todayDash #upNextBtn:disabled{
+#chooseAnotherDay:disabled,#dayPickCancel:disabled,#todayDash #upNextBtn:disabled{
   background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
   opacity:1;cursor:not-allowed;transform:none
 }
-#previewSessionClose,#dayPickCancel{
+#dayPickCancel{
   display:block;width:100%;min-height:var(--control-target);padding:8px 0;border:1px solid var(--control-quiet-boundary);
   border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)

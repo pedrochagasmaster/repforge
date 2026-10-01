@@ -157,7 +157,7 @@ export const SUITES = {
     s("test/notifications.mjs", [], { seconds: 13 }),
     s("test/appearance.mjs"),
     s("test/ui-system.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 13 }),
-    s("test/direction-d-gate.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 15 }),
+    s("test/direction-d-gate.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 60 }),
     ...shards(UI_SYSTEM_SHARDS).map((shard) =>
       s("tools/check-ui-system.mjs", ["--shard", shard], { domains: RENDERED_DOMAINS, cost: "long", tier: "packet", timeoutMs: 900000, seconds: 300 })),
     s("test/accessibility.mjs", [], { seconds: 46 }),
@@ -169,7 +169,7 @@ export const SUITES = {
     s("test/today-done.mjs"),
     s("test/today-day-picker.mjs", [], { seconds: 16 }),
     s("test/today-week-line.mjs"),
-    s("test/today-preview.mjs"),
+    s("test/today-no-draft.mjs"),
     s("test/focus-mode.mjs", [], { seconds: 31 }),
     s("test/workout-draft-parity.mjs", [], { seconds: 17 }),
     s("test/focus-only-parity.mjs", [], { seconds: 23 }),

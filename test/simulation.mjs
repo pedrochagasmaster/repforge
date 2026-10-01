@@ -4695,7 +4695,7 @@ async function main() {
   const doneState = await page.evaluate(() => ({
     recap: !!document.querySelector(".today-done"),
     start: !!document.querySelector("#startWorkout:not(.hidden)"),
-    ready: !!document.querySelector("#readyLine"),
+    ready: !!document.querySelector("#readyLine, #todayExList"),
   }));
   assert(
     doneState.recap && !doneState.start && !doneState.ready,
@@ -4704,21 +4704,31 @@ async function main() {
     "Save a session dated today → Today drops the start CTA for a recap"
   );
 
-  // The readiness line belongs to the session Today is offering, so move the
-  // ledger back a day to get an untrained day and the line that comes with it.
+  // Direction D (decision 10) dropped the readiness route: the verdict mark on each
+  // row and the tally above the table carry "ready to increase", and a tap on the
+  // row opens the exercise page. Move the ledger back a day to get an untrained day.
   await backdateLog(page, 1);
-  const readyText = await page.locator("#readyLine, .today-ready").first().textContent();
+  const hotToday = await page.evaluate((id) => ({
+    up: !!document.querySelector(`#todayExList .rxrow[data-exopen="${id}"] .verdictmark--up`),
+    tally: document.querySelector(".today-tally")?.textContent?.trim() || "",
+    readinessRoute: !!document.querySelector("#readyLine, .today-ready"),
+  }), exHot.id);
   assert(
-    /ready|prontos|hot|increase|aumentar/i.test(readyText || ""),
-    "Today readiness line shows lifts ready to increase",
-    `label="${readyText}"`,
-    "Log → after add-load recs → Today shows N ready"
+    hotToday.up && /\S/.test(hotToday.tally) && !hotToday.readinessRoute,
+    "Today marks lifts ready to increase on their rows and in the tally, with no readiness route",
+    JSON.stringify(hotToday),
+    "Log → after add-load recs → Today rows carry the up mark"
   );
-  await page.locator("#readyLine, .today-ready").first().click();
+  await page.locator(`#todayExList .rxrow[data-exopen="${exHot.id}"]`).click();
+  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+  assert(await page.locator("#exercise.view.active").isVisible(),
+    "A tap on the hot lift's row opens its exercise page", "Exercise page is not visible",
+    "Tap the up-marked Today row → exercise page");
+  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), exHot.id);
   await page.waitForSelector(`#workout .exercise.is-current[data-ex="${exHot.id}"]`, { timeout: 5000 });
   assert(await page.locator(`#workout .exercise.is-current[data-ex="${exHot.id}"]`).isVisible(),
-    "Readiness line opens Focus on the first hot lift", "Hot lift is not visible",
-    "Tap Today readiness → first hot exercise is selected");
+    "Logging the hot lift opens Focus on it", "Hot lift is not visible",
+    "Exercise page → log this exercise → first hot exercise is selected");
 
   // Session notes persist on saved rows (notes field is Focus-chrome-hidden; set via DOM)
   await page.evaluate(() => {

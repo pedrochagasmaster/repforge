@@ -848,7 +848,14 @@
       "id": "ready",
       "flow": "today",
       "label": "Today — ready to start",
-      "scenario": "A seeded program with recent max-rep evidence makes the readiness shortcut visible.",
+      "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it.",
+      "variants": "demandingDockText"
+    },
+    {
+      "id": "mixed-strategies",
+      "flow": "today",
+      "label": "Today — mixed strategies",
+      "scenario": "The Direction D mixed day: anchor and back-off, rep goal, fixed effort, a manual slot in soft ink with no mark, a custom exercise and a lift with a set logged without RIR.",
       "variants": "demandingDockText"
     },
     {
@@ -1479,13 +1486,6 @@
       "flow": "install",
       "label": "Install transfer — claimed then expired",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "preview",
-      "flow": "today",
-      "label": "Read-only session preview",
-      "scenario": "Read-only session preview through production controls.",
       "variants": "demandingText"
     },
     {

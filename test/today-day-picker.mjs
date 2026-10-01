@@ -333,7 +333,7 @@ phase("dismissing the picker changes nothing");
   // The sheet is a list of buttons, so a swipe that ends over one must dismiss
   // rather than arm the day the thumb happens to be resting on.
   await openPicker(page);
-  const rail = await page.locator("#dayPickSheet .sheet__head").boundingBox();
+  const rail = await page.locator("#dayPickSheet .sheetband").boundingBox();
   const from = { x: Math.round(rail.x + rail.width / 2), y: Math.round(rail.y + rail.height / 2) };
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();

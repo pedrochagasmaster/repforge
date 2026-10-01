@@ -69,14 +69,26 @@ const IMPLEMENTED_D_STATES = new Set([
   "history/list", "history/session",
   // R3k: the Program overview as a ledger (readiness retired).
   "program/overview",
+  // R3b: Today, the prescription table, the day picker and the mixed-strategies day.
+  "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
 ]);
-export const DIRECTION_D_STATES = D_STATE_KEYS.map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
+/**
+ * Drawn states the Plan 064 R3 sub-slices add to the catalog (reconciliation
+ * "Retire and add list"). They are Direction D states from the day they exist.
+ */
+const D_ADDED_STATE_KEYS = [
+  "today/mixed-strategies",
+];
+export const DIRECTION_D_STATES = [...D_STATE_KEYS, ...D_ADDED_STATE_KEYS].map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 
 /** Plan 064 section 8.8 / Direction D spec section 7: the only uses of the accent. */
 export const ORANGE_CATEGORIES = Object.freeze([
   "verdict-glyph", "current-exercise-segment", "timer-drain-bar", "cta-arrow", "active-dock-icon",
 ]);
-/** [{ category, selector, pseudo?: "::before" | "::after" }]. Empty on purpose: see GAPS. */
+/**
+ * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its
+ * states paint (see GAPS: the entries are the slice's reading of the budget, for owner approval).
+ */
 export const ORANGE_ALLOWLIST = [
   // R3c: the current exercise's segment in Focus's exercise bar (the bar inside the segment button).
   { category: "current-exercise-segment", selector: "#woProgress .segbar__seg.is-current .segbar__bar" },
@@ -84,6 +96,8 @@ export const ORANGE_ALLOWLIST = [
   { category: "cta-arrow", selector: ".focus-shelf .btn--cta[data-fnext]", pseudo: "::after" },
   // R3c: the up verdict glyph beside the cue.
   { category: "verdict-glyph", selector: ".verdictmark--up .verdictmark__glyph" },
+  // R3b: Today's Start workout CTA keeps its arrow.
+  { category: "cta-arrow", selector: ".btn--cta", pseudo: "::after" },
   // R3j: the dock's active item. Direction D leaves the dock as shipped (spec section 7), so the
   // active tab keeps painting its icon, its label and its selection edge in the accent.
   { category: "active-dock-icon", selector: "nav button.active .nav__icon" },
@@ -99,7 +113,7 @@ export const TIMER_SCOPES = ["#restSheet", ".restdial"];
 export const PARITY_ATTRIBUTES = Object.freeze({ outcome: "data-parity-outcome", session: "data-parity-session", target: "data-parity-target" });
 
 export const GAPS = Object.freeze([
-  "Orange allowlist: Plan 064 section 8.8 and the D spec section 7 name five permitted uses (verdict glyph, current exercise segment, running timer's drain bar, CTA arrow, active dock icon) but no governing document binds any of them to a selector or pseudo-element, and two of them do not exist in the app yet. ORANGE_ALLOWLIST is therefore empty: on an implemented state every accent-painted element fails until its R3 sub-slice adds an entry the owner has approved.",
+  "Orange allowlist: Plan 064 section 8.8 and the D spec section 7 name five permitted uses (verdict glyph, current exercise segment, running timer's drain bar, CTA arrow, active dock icon) but no governing document binds any of them to a selector or pseudo-element, and two of them do not exist in the app yet. ORANGE_ALLOWLIST therefore holds only what each R3 sub-slice adds for the states it enforces (R3b: the up verdict glyph, the CTA arrow, and the active dock item's ring, icon and label); every entry is the sub-slice's reading of the budget and is listed in its handoff for the owner to approve. Two budget uses still have no element: the current-exercise segment and a running timer's drain bar.",
   "Overflow exception: the spec excepts 'the tab row' but D's single tab row has no selector until R3 builds it (spec section 4.6). OVERFLOW_EXCEPTIONS is empty, so a scrolling tab row fails until the Progress sub-slice adds its entry. 'D surfaces' for the ellipsis rule is read as the whole rendered page of a D-owned state.",
   "Parity markup: no governing document says how a rendered outcome word or target is tied to an exercise. The gate defines the minimum: data-parity-outcome=<exerciseId> (optional data-parity-session=<sessionId>, default the latest logged session) on the element whose text is the outcome word, and data-parity-target=<exerciseId> on the element that shows the target; an unmarked element whose own text equals a delta.*.label is an orphan outcome word. The contract needs orchestrator approval before R3 sub-slices emit it. Targets compare the load only: recommendation() carries no reps, and the per-set reps come from setSuggestion, which the spec's section 10 does not name.",
   "Banned words: the governing documents name only 'Regrediu', 'Hold' as a timer label and em dashes (D spec section 6, strings appendix), plus the brand guide's curly-quote and Portuguese-English-word rules that test/i18n.mjs enforces. There is no single banned-word list. The gate duplicates the patterns from test/i18n.mjs (it runs its assertions on import and cannot be imported), so they can drift. 'Timer label' is scoped to TIMER_SCOPES.",
@@ -461,9 +475,12 @@ export function checkStrings(evidence, catalog) {
     const whole = value.replace(/\s+/g, " ").trim();
     if (!/\p{L}/u.test(whole) || matchers.some((pattern) => pattern.test(whole))) return true;
     const rest = dataPattern ? whole.replace(dataPattern, " ") : whole;
-    return rest.split(/\s*[·•|,;:()[\]/+×–]\s*|\s+-\s+/u).map((fragment) => fragment.replace(/\s+/g, " ").trim())
+    // A slash stays inside a fragment first ("Costas médias/superiores" is one catalog word);
+    // only a fragment that is not whole-string a catalog value is split on it.
+    const known = (fragment) => matchers.some((pattern) => pattern.test(fragment)) || residueOk(fragment);
+    return rest.split(/\s*[·•|,;:()[\]+×–]\s*|\s+-\s+/u).map((fragment) => fragment.replace(/\s+/g, " ").trim())
       .filter((fragment) => /\p{L}/u.test(fragment))
-      .every((fragment) => matchers.some((pattern) => pattern.test(fragment)) || residueOk(fragment));
+      .every((fragment) => known(fragment) || fragment.split(/\s*\/\s*/u).filter((part) => /\p{L}/u.test(part)).every(known));
   };
   const seen = new Set();
   for (const item of evidence.text) {
