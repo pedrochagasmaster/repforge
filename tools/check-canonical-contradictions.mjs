@@ -38,6 +38,7 @@ const SCOPE = [
   "plans/048-program-entry-onboarding-redesign.md",
   "plans/064-unified-redesign-convergence.md",
   "docs/design/plan-064-reconciliation.md",
+  "docs/design/onboarding-g-brief.md",
   "docs/ui-overhaul-disposition-register.md",
   "docs/recovery-week-policy.md",
   "docs/block-transition-provenance.md",
