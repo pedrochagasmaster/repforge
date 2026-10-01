@@ -68,7 +68,8 @@ Treatment values: `redesign (D)` builds to the Direction D spec in R3; `redesign
 | `onboarding-browse` | 4 | 28 | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |
 | `onboarding-build` | 4 | 31 | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |
 | `onboarding-import` | 10 | 55 | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |
-| `onboarding-shared` | 3 | 18 | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |
+| `onboarding-shared` gate, invalid | 2 | 11 | `redesign (landing)` | I-04, L-08, G-37, L-05 | R2 |
+| `onboarding-shared` preview | 1 | 7 | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |
 | `onboarding-recovery` | 2 | 14 | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |
 | `today` | 5 | 44 | `redesign (D)` (2 need drawing) | I-01 §4.1, §4.2, L-01, OG-6, I-02 | R3 |
 | `today` | 1 | 3 | `rules only` | I-03 | R3 |
@@ -93,14 +94,14 @@ Totals by treatment (screens / frames):
 
 | Treatment | Screens | Frames |
 |---|---:|---:|
-| `redesign (landing)` | 1 | 7 |
-| `redesign (onboarding, after OG-1)` | 44 | 241 |
+| `redesign (landing)` | 3 | 18 |
+| `redesign (onboarding, after OG-1)` | 42 | 230 |
 | `redesign (D)` | 35 | 239 |
 | `rules only` | 64 | 397 |
 | `retire` | 4 | 31 |
 | **Total** | **148** | **915** |
 
-Totals by owning slice (screens): R2 1, R3 77, R4 44, R6 26.
+Totals by owning slice (screens): R2 3, R3 77, R4 42, R6 26.
 
 ### Per-screen table
 
@@ -148,8 +149,8 @@ Totals by owning slice (screens): R2 1, R3 77, R4 44, R6 26.
 | `onboarding-import/freeform-unreadable` | 3 | rules only | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |  |
 | `onboarding-import/review` | 7 | rules only | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |  |
 | `onboarding-import/preview` | 8 | rules only | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |  |
-| `onboarding-shared/gate` | 8 | rules only | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |  |
-| `onboarding-shared/invalid` | 3 | rules only | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |  |
+| `onboarding-shared/gate` | 8 | rules only | `redesign (landing)` | I-04, L-08, G-37, L-05 | R2 | corrected by orchestrator |
+| `onboarding-shared/invalid` | 3 | rules only | `redesign (landing)` | I-04, L-08, G-37, L-05 | R2 | corrected by orchestrator |
 | `onboarding-shared/preview` | 7 | rules only | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |  |
 | `onboarding-recovery/resume` | 7 | rules only | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |  |
 | `onboarding-recovery/rules-drift` | 7 | rules only | `redesign (onboarding, after OG-1)` | OG-1, I-06, L-04 to L-07 | R4 |  |
