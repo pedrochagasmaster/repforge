@@ -186,6 +186,8 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
 }
 
 // Outcome words stay visible beside their canonical improved/maintained/declined facts.
+// The declined lift repeats its load with a rep fewer: under the Session outcome rule a
+// lower load is never read as declined, so the decline must happen at the same load.
 // The final assertion deliberately hides those words: the rendered semantic
 // oracle must reject a presentation that leaves outcome meaning to color alone.
 {
@@ -195,7 +197,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
     { session: "outcome-steady-1", date: "2026-09-14", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 8, rir: 2, set: 1, work: true },
     { session: "outcome-steady-2", date: "2026-09-16", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 8, rir: 2, set: 1, work: true },
     { session: "outcome-worse-1", date: "2026-09-14", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 8, rir: 2, set: 1, work: true },
-    { session: "outcome-worse-2", date: "2026-09-16", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 85, reps: 7, rir: 2, set: 1, work: true },
+    { session: "outcome-worse-2", date: "2026-09-16", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 7, rir: 2, set: 1, work: true },
   ];
   const { context, page } = await freshPage({ seededLog: outcomeLog });
   await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
@@ -362,7 +364,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
 }
 
 // Two visible observations are still baseline-building when effort is absent,
-// and a changed exposure is not promoted to an action outcome. Both cases use
+// and a changed exposure (a lower load with no gain in strength or volume; a higher load is judged on e1RM) is not promoted to an action outcome. Both cases use
 // the real producer → model → renderer path.
 {
   const scopedMeta = seedProgramMeta({ id: "evidence-contract", started: "2026-09-14", blockId: "block-contract" });
@@ -370,7 +372,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
     { session: "bench-1", date: "2026-09-15", created: "2026-09-15T09:00:00.000Z", blockId: "block-contract", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 100, reps: 8, set: 1, work: true },
     { session: "bench-2", date: "2026-09-16", created: "2026-09-16T09:00:00.000Z", blockId: "block-contract", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 101, reps: 8, set: 1, work: true },
     { session: "rdl-1", date: "2026-09-15", created: "2026-09-15T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 8, rir: 2, set: 1, work: true },
-    { session: "rdl-2", date: "2026-09-16", created: "2026-09-16T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 103, reps: 7, rir: 2, set: 1, work: true },
+    { session: "rdl-2", date: "2026-09-16", created: "2026-09-16T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 95, reps: 8, rir: 2, set: 1, work: true },
   ];
   const { context, page } = await freshPage({ seededLog: contractLog, seededMeta: scopedMeta });
   const values = await page.evaluate(() => {
