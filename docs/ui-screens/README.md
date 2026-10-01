@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 157 screens,
-942 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 161 screens,
+955 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -65,14 +65,17 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Recommend 1 — desired result](screens/onboarding-recommend/desired-result__phone-390-light-en.png) | 3 | Route header, Cancel, progress 1 of 5, three desired-result choices. |
-| [Recommend 2 — training background](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | Structured-program experience and recent six-week consistency. |
+| [Recommend 2 — training background](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | The carried goal with Change, then structured-program experience and recent six-week consistency. |
 | [Recommend 3 — real week](screens/onboarding-recommend/schedule__phone-390-light-en.png) | 3 | Days per week, session-minute ceiling, preferred rest. |
 | [Recommend 4 — environment](screens/onboarding-recommend/environment__phone-390-light-en.png) | 3 | Environment shortcuts with the capability correction disclosure closed. |
 | [Recommend 4 — equipment correction](screens/onboarding-recommend/environment-correction__phone-390-light-en.png) | 7 | The capability correction disclosure open. |
 | [Recommend 5 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
 | [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
-| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | One candidate surface with rationale, editable program facts, and explicit activation. |
+| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation. |
 | [Recommend — recommendation with a program active](screens/onboarding-recommend/result-existing__phone-390-light-en.png) | 3 | The merged candidate surface while the current program remains untouched. |
+| [Recommend — answer editor open](screens/onboarding-recommend/chip-editor-open__phone-390-light-en.png) | 3 | The review with the days-per-week chip open on its inline editor: the same numeric cards as the question, an Update program action, and the pinned activation set aside. |
+| [Recommend — after a changed answer](screens/onboarding-recommend/result-corrected__phone-390-light-en.png) | 3 | A changed answer rebuilt the program in place: the change statement with Before and Now, an added exercise tagged new, and its day open. |
+| [Recommend — after avoiding an exercise](screens/onboarding-recommend/result-avoided__phone-390-light-en.png) | 3 | An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore. |
 | [Recommend — confirm replacement](screens/onboarding-recommend/replacement-confirm__phone-390-light-en.png) | 3 | The explicit archive-and-replace confirmation. History is not changed. |
 | [Recommend — activation conflict](screens/onboarding-recommend/activation-conflict__phone-390-light-en.png) | 3 | Another tab changed the active program. The newer program stays active. |
 
@@ -86,7 +89,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
 | [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
 | [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
-| [Custom — generated program and review](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The custom candidate, rationale, editable facts, and explicit activation on one surface. |
+| [Custom 6b — weekly structure](screens/onboarding-custom/shape__phone-390-light-en.png) | 4 | Two compatible weekly structures to choose from; shown only when more than one fits the answers. |
+| [Custom — generated program and review](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation. |
 
 ### Onboarding — Browse Taurifer programs
 
