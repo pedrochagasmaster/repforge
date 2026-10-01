@@ -23,8 +23,9 @@ The pasted program and the reply are never exported, put in a state proposal,
 or logged. They are held for the length of the flow in tab-scoped
 `sessionStorage` (`repforge_freeform_session_v1`, carrying source, reply, stage
 and last provider), so a phone that evicts the tab during the hand-off does not
-lose a coach's message, and they are cleared at all five exits: transition to
-review, cancel, start over, switching to the file door, and activation. Which
+lose a coach's message, and they are cleared at all six exits: transition to
+review, cancel, start over, switching to the file door, writing the program from
+scratch in Build (after a confirmation when text was pasted), and activation. Which
 door a staged import came through rides the same tab scope
 (`repforge_import_source_v1`) from the review commit to the activation a screen
 later, because `importDraft` is already null by then; it holds only
