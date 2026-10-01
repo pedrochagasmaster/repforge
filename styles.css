@@ -6022,3 +6022,128 @@ body.is-entry-editor #entryProgramName,
   opacity:1;cursor:not-allowed;transform:none;
 }
 #shareSetupLink:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+
+/* ---- Plan 064 R1a: shared redesign components (unrendered until R3) ----
+   Four components on existing Plan 058 roles. Nothing renders these classes
+   yet, so no frame can change; each first renders in the slice its inventory
+   row names. They add no token, tier, radius step, shadow or palette value.
+   Layout lengths are the ones Plan 064 section 8.3 and 8.6 state (48 and 56
+   rows, 44 close reserve) or the shipped sheet geometry (38 by 5 handle, 16
+   gutter); the spacing scale is an owner-gated token and is not introduced
+   here. Excluded until their gates resolve: the selected or open row
+   boundary, the tab-row indicator, the shelf shell and the rest clock. */
+
+/* Verdict mark: the glyph beside a rec.*.label word. The word carries the
+   meaning and the glyph is redundant, so consumers mark the glyph
+   aria-hidden. Orange is limited to an up verdict glyph (section 8.8);
+   records use the improved color; declines stay ink. The word is never the
+   accent: --accent is 3.57:1 on --bg in light, below the 4.5:1 text floor. */
+.verdictmark{
+  display:inline-flex;align-items:center;gap:6px;min-width:0;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);
+}
+.verdictmark__glyph{
+  display:block;flex:none;width:16px;height:16px;background:var(--color-ink);
+  -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
+}
+.verdictmark--up .verdictmark__glyph{background:var(--color-action);transform:rotate(-90deg)}
+.verdictmark--down .verdictmark__glyph{background:var(--color-ink);transform:rotate(90deg)}
+.verdictmark--record{color:var(--color-improved)}
+.verdictmark--record .verdictmark__glyph{
+  background:var(--color-improved);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+}
+.verdictmark--maintained{color:var(--color-maintained)}
+.verdictmark--maintained .verdictmark__glyph{display:none}
+
+/* Sheet header band: one band for every sheet. Handle, section-title title,
+   an optional body-small line, and a 44px close reserve whose button is
+   centred on the first title line. The band draws no separator; separators
+   inside sheets wait on the --rule-on-surface decision. */
+.sheetband{
+  display:grid;grid-template-columns:minmax(0,1fr) var(--control-target);
+  grid-template-areas:"handle handle" "title close" "sub sub";
+  align-items:start;column-gap:8px;padding:0 16px 16px;
+}
+.sheetband__handle{
+  grid-area:handle;justify-self:center;display:block;width:38px;height:5px;margin:8px 0 0;
+  border-radius:var(--radius-compact);background:var(--boundary-floating);
+}
+.sheetband__title{
+  grid-area:title;min-width:0;margin:0;
+  padding-block:calc((var(--control-target) - var(--font-size-section-title) * var(--line-tight)) / 2);
+  font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);
+  overflow-wrap:anywhere;
+}
+.sheetband__sub{
+  grid-area:sub;margin:0;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
+}
+.sheetband__close{
+  grid-area:close;align-self:start;display:inline-flex;align-items:center;justify-content:center;
+  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);margin:0;padding:0;
+  border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
+}
+.sheetband__close:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+.sheetband__close:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.sheetband__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.sheetband__close:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+
+/* Ledger row base: flat, read-only data on one decorative hairline per break.
+   At least 48px; the two-line row (value line plus previous-set line) is 56px.
+   Values are right-aligned Mono on a shared 12px inset. The selected and open
+   row boundary is not here: it waits on the quiet-selected boundary decision. */
+.ledgerline__head,.ledgerline{
+  display:grid;grid-template-columns:2.4rem minmax(0,1fr);column-gap:12px;align-items:center;
+  width:100%;padding-inline:12px;font-variant-numeric:tabular-nums;
+}
+.ledgerline__head{
+  padding-block:0 10px;border-bottom:1px solid var(--boundary-decorative);
+  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
+}
+.ledgerline__head > :last-child{text-align:right}
+.ledgerline{
+  min-height:48px;margin:0;padding-block:6px;
+  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);background:none;color:var(--color-ink);
+}
+.ledgerline--two{min-height:56px}
+.ledgerline__idx{
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.ledgerline__vals{
+  min-width:0;display:flex;justify-content:flex-end;gap:12px;text-align:right;
+  font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
+}
+.ledgerline__prev{
+  grid-column:2;min-width:0;text-align:right;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
+}
+
+/* Prescription row: name and strategy line, mark, load and target on one first
+   baseline. The whole row opens the exercise (quiet-navigation). Columns follow
+   the widest load and target forms (66px and 78px at the default root size) and
+   scale with the root so they reflow at 200% text. Manual rows leave the mark
+   slot empty so names still align. */
+.rxrow{
+  display:grid;grid-template-columns:1rem minmax(0,1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);
+  column-gap:12px;align-items:baseline;width:100%;min-height:48px;margin:0;padding:12px 0;
+  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;text-align:left;
+  font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
+}
+.rxrow:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-bottom-color:var(--boundary-decorative)}
+.rxrow:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.rxrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.rxrow:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+.rxrow__mark{position:relative;top:.15em;display:flex;align-items:center;min-width:0}
+.rxrow__name{min-width:0;overflow-wrap:anywhere}
+.rxrow__sub{display:block;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.rxrow__load{
+  text-align:right;white-space:nowrap;
+  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink);
+}
+.rxrow__target{
+  text-align:right;white-space:nowrap;
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);
+}
+.rxrow__op,.rxrow__unit{color:var(--color-ink-secondary)}

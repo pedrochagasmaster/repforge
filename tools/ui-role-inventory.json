@@ -7511,6 +7511,125 @@
         "progress/overview-action",
         "progress/overview-baseline"
       ]
+    },
+    {
+      "id": "verdictmark",
+      "selector": ".verdictmark",
+      "roles": {
+        "elevation": "flat",
+        "typography": "body-small"
+      },
+      "variant": "verdict-mark",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink.",
+      "owner": "plan-064/r1a",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3b (Today prescription rows), then R3h (session summary). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
+      "catalogStates": [
+        "today/ready",
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "sheetband",
+      "selector": ".sheetband",
+      "roles": {
+        "elevation": "modal",
+        "typography": "section-title"
+      },
+      "variant": "sheet-header-band",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The one header band for every sheet: handle, section-title title, optional body-small line and a 44px close reserve, inside the sheet's modal layer.",
+      "owner": "plan-064/r1a",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3b (day picker), then R3d and R3g (workout sheets, Why). Existing sheets are not migrated here.",
+      "catalogStates": [
+        "today/day-picker",
+        "workout/why-this-weight",
+        "workout/exercise-actions",
+        "workout/session"
+      ]
+    },
+    {
+      "id": "sheetband-close-not-id",
+      "selector": ".sheetband__close:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "sheet-header-band",
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "owner": "plan-064/r1a",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; renders with the sheet header band. A consumer that needs an id gets its own exact row, as #whyClose has.",
+      "catalogStates": [
+        "today/day-picker",
+        "workout/why-this-weight",
+        "workout/exercise-actions",
+        "workout/session"
+      ]
+    },
+    {
+      "id": "ledgerline",
+      "selector": ".ledgerline",
+      "roles": {
+        "elevation": "flat",
+        "boundary": "decorative"
+      },
+      "variant": "ledger-data",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Ledger sets are flat read-only data on one decorative hairline per break; opening or correcting a set is a separate action role added by the slice that renders it.",
+      "owner": "plan-064/r1a",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3c (Focus ledger), then R3h (session summary). The selected and open row boundary waits on OG-4 and is not part of this row.",
+      "catalogStates": [
+        "workout/focus",
+        "workout/correction",
+        "session/summary"
+      ]
+    },
+    {
+      "id": "rxrow-not-id",
+      "selector": ".rxrow:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "prescription-row",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the whole row opens the exercise.",
+      "owner": "plan-064/r1a",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3b (Today prescription table), then R3k (Program overview) and R3i (Progress attention and strength rows).",
+      "catalogStates": [
+        "today/ready",
+        "today/draft-resume",
+        "program/overview"
+      ]
     }
   ],
   "contextualVariants": [
