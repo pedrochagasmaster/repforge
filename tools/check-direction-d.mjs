@@ -67,6 +67,8 @@ const IMPLEMENTED_D_STATES = new Set([
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions",
   // R3j: History's week list with the frequency counts and the calendar sheet, and the session page.
   "history/list", "history/session",
+  // R3k: the Program overview as a ledger (readiness retired).
+  "program/overview",
 ]);
 export const DIRECTION_D_STATES = D_STATE_KEYS.map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 
