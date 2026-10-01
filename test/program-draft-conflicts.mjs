@@ -657,6 +657,7 @@ async function runNormalProgramImportConflict(browser) {
     await queueNewerDraftLoad(writer, "105");
     await waitForPendingStorageLocks(locker, 1);
     await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
+    await confirmEntryReplace(writer);
     await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
     await releaseStorageLock(locker);
@@ -693,6 +694,12 @@ async function runNormalProgramImportConflict(browser) {
   }
 }
 
+// Replacing an active program asks first; the dialog stands where the native confirm did.
+async function confirmEntryReplace(page) {
+  const replace = page.locator("#entryReplaceConfirm");
+  if (await replace.waitFor({ state: "visible", timeout: 1500 }).then(() => true, () => false)) await replace.click();
+}
+
 async function runOnboardingProgramImportConflict(browser) {
   console.log("\n5. Onboarding program import conflicts with a newer draft");
   const context = await browser.newContext({
@@ -719,6 +726,7 @@ async function runOnboardingProgramImportConflict(browser) {
     await queueNewerDraftLoad(writer, "106.25");
     await waitForPendingStorageLocks(locker, 1);
     await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
+    await confirmEntryReplace(writer);
     await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
     await releaseStorageLock(locker);

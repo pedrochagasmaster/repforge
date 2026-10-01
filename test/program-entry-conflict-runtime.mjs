@@ -68,6 +68,9 @@ try {
   assert.notEqual(newer, before, "tab B creates a newer active-program revision");
 
   await pageA.click("#entryEditorActivate");
+  // Replacing an active program asks first; the dialog stands where the native confirm did.
+  const replace = pageA.locator("#entryReplaceConfirm");
+  if (await replace.waitFor({ state: "visible", timeout: 1500 }).then(() => true, () => false)) await replace.click();
   await pageA.waitForFunction(() => /changed in another tab|alterado em outra aba/i.test(document.querySelector("#onbBody")?.textContent || ""), { timeout: 10000 }).catch(async (error) => {
     console.error("activation conflict UI missing", await pageA.evaluate(() => ({ body: document.querySelector("#onbBody")?.textContent, active: document.querySelector("#onboarding")?.outerHTML.slice(0, 800) })));
     throw error;
