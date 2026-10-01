@@ -7078,6 +7078,13 @@ async function finish(io,{expectedDraft=null,completion="normal"}={}){
   return{result,completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
   return Object.freeze({start,leave,finish,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,flush:drainDraftWork})})();
 
+// Asked once, at the first completed session: a device with nothing logged has
+// nothing to protect, and Firefox turns the request into a permission prompt.
+// No preference is stored; persisted() is the source of truth.
+async function requestPersistentStorage(){try{
+  if(!navigator.storage?.persist||await navigator.storage.persisted?.())return;
+  await navigator.storage.persist()}catch{}}
+
 async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   const {result,completed,capturedRaw}=await WorkoutSession.finish(io,{expectedDraft,completion});
   if(!completed){
@@ -7096,7 +7103,7 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   const {rows,prevLog,session,date,day:savedDay,startedAt,draftId}=completed;
   if(typeof window.__repforgeDraftAfterSaveCommit==="function")
     await window.__repforgeDraftAfterSaveCommit({session,draftId});
-  if(!prevLog.some(isWork)&&rows.some(isWork))captureEvent("first_set_logged",{});
+  if(!prevLog.some(isWork)&&rows.some(isWork)){captureEvent("first_set_logged",{});requestPersistentStorage()}
   captureEvent("session_completed",{
     set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
     exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),

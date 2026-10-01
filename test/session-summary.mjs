@@ -7,7 +7,8 @@
  * reps outranks e1RM), the counts, the muscle and week blocks, the baseline
  * copy a first session gets instead of records, dialog behaviour (focus trap,
  * Escape, background inert), where each action lands, and the toast fallback
- * for a save that cannot open the screen.
+ * for a save that cannot open the screen. It also owns the persistent-storage
+ * request (made once, at the first completed session, never at boot).
  *
  * Run: node test/session-summary.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -236,9 +237,40 @@ const appInert = (page) =>
     return root?.inert === true;
   });
 
+/** Stub the browser's storage durability API in every page of the context. The
+ *  counter and the answer live in sessionStorage so they survive the reloads a
+ *  seed performs; `persist()` is denied, so `persisted()` stays whatever the
+ *  test set and only the app's own once-only rule can keep the count at one. */
+const PERSIST_CALLS = "__persistCalls";
+const PERSISTED = "__persisted";
+async function stubStorageDurability(context) {
+  await context.addInitScript(([calls, persisted]) => {
+    try {
+      const st = navigator.storage;
+      if (!st) return;
+      Object.defineProperty(st, "persist", {
+        configurable: true,
+        value: async () => {
+          sessionStorage.setItem(calls, String((+sessionStorage.getItem(calls) || 0) + 1));
+          return false;
+        },
+      });
+      Object.defineProperty(st, "persisted", {
+        configurable: true,
+        value: async () => sessionStorage.getItem(persisted) === "1",
+      });
+    } catch {}
+  }, [PERSIST_CALLS, PERSISTED]);
+}
+const persistCalls = (page) =>
+  page.evaluate((k) => +sessionStorage.getItem(k) || 0, PERSIST_CALLS);
+const resetPersistCalls = (page) =>
+  page.evaluate((k) => sessionStorage.removeItem(k), PERSIST_CALLS);
+
 async function run() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await stubStorageDurability(context);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message)));
@@ -358,11 +390,17 @@ async function run() {
 
   // ---- 4 — a first session has no records to claim -----------------------------
   phase("A first session is a baseline, not a record");
+  assert((await persistCalls(page)) === 0, "a session that already has history never asks for persistent storage");
+  await resetPersistCalls(page);
   await seed(page, fixture());
+  assert((await persistCalls(page)) === 0, "boot never asks for persistent storage");
   await enterLog(page);
   await logSet(page, "ex2", 1, 12.5, 10, 1);
+  assert((await persistCalls(page)) === 0, "logging a set does not ask for persistent storage");
   await finish(page);
   s = await readSummary(page);
+  await page.waitForFunction((k) => +sessionStorage.getItem(k) >= 1, PERSIST_CALLS, { timeout: 3000 }).catch(() => {});
+  assert((await persistCalls(page)) === 1, "the first completed session asks for persistent storage once", String(await persistCalls(page)));
   assert(!s.prBadges.length, "a lift with no history sets no personal record", JSON.stringify(s.prBadges));
   assert(
     /first session/i.test(s.baseline) && /compare/i.test(s.baseline),
@@ -376,6 +414,15 @@ async function run() {
     "one set reads as one set, not '1 sets'",
     JSON.stringify([s.statVals[0], s.statCaps[0]])
   );
+
+  // A second completed session must not ask again.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  await enterLog(page);
+  await logSet(page, "ex2", 1, 12.5, 10, 1);
+  await finish(page);
+  await page.waitForTimeout(300);
+  assert((await persistCalls(page)) === 1, "a second completed session does not ask again", String(await persistCalls(page)));
 
   // ---- 5 — where the actions land ----------------------------------------------
   phase("See the session lands on the session");
