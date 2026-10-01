@@ -1834,6 +1834,61 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
+  await runCase("Cancel on the shared preview asks keep or discard and never returns to the gate silently", async () => {
+    /* Plan 064 R4c, owner decision Q-C: the preview's Cancel keeps the
+       keep-or-discard question, drawn as the entry dialog. Going back to the
+       gate would undo the lifter's Start without erasing the staged draft, so
+       it is not offered. */
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
+    if (!encoded.ok) {
+      assert(false, "encode required for the cancel dialog", JSON.stringify(encoded));
+      await context.close();
+      return;
+    }
+    await page.goto(setupUrl(encoded.value, "cancel-dialog"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    if (!(await clickSharedStart(page, { activate: false }))) {
+      await context.close();
+      return;
+    }
+    const snapshot = () => page.evaluate(() => {
+      const dialog = document.querySelector("#entryDialog");
+      return {
+        open: !!dialog?.open,
+        title: dialog?.querySelector(".entry-dialog__title")?.textContent || "",
+        actions: [...(dialog?.querySelectorAll(".entry-dialog__actions button") || [])].map((button) => button.id),
+        gate: !!document.querySelector("#firstRun:not(.hidden)"),
+        preview: !!document.querySelector("#onboarding.active #entryActivate"),
+        onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true,
+        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+        focus: document.activeElement?.id || "",
+      };
+    });
+    await page.click("#onbCancel");
+    await page.waitForSelector("#entryDialog[open] #entryCancelKeep", { timeout: 5000 });
+    const asking = await snapshot();
+    assert(asking.open && JSON.stringify(asking.actions) === JSON.stringify(["entryCancelKeep", "entryCancelDiscard", "entryCancelContinue"]),
+      "Cancel on the shared preview asks keep, discard or continue", JSON.stringify(asking));
+    assert(!asking.gate && asking.preview && !asking.onboarded,
+      "while it asks, the preview stays and the gate does not come back", JSON.stringify(asking));
+    await page.click("#entryCancelContinue");
+    await page.waitForFunction(() => !document.querySelector("#entryDialog")?.open, null, { timeout: 5000 });
+    const continued = await snapshot();
+    assert(!continued.open && continued.preview && !continued.gate && continued.setupDraft && continued.focus === "onbCancel",
+      "continuing closes the dialog on the same preview and returns focus to Cancel", JSON.stringify(continued));
+    await page.click("#onbCancel");
+    await page.waitForSelector("#entryDialog[open] #entryCancelDiscard", { timeout: 5000 });
+    await page.click("#entryCancelDiscard");
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
+    const discarded = await snapshot();
+    assert(!discarded.setupDraft && !discarded.onboarded,
+      "discarding drops the staged draft and activates nothing", JSON.stringify(discarded));
+    await context.close();
+  });
+
   await runCase("Invalid, unsupported, and oversized sources fail closed", async () => {
     const cases = [
       ["unsupported-version", INVALID_DECODE_INPUTS["unsupported-version"], SHARED_COPY.en.unsupported],
