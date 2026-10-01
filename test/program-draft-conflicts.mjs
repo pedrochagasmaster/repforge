@@ -40,6 +40,10 @@ const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
 const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
 const OLD_APP = execFileSync("git", ["show", `${OLD_APP_SHA}:app.js`], { encoding: "utf8" });
+// An installed older version runs its own shell with its own app.js, so the legacy
+// writer gets that commit's index.html too (the current shell retired DOM it binds).
+const OLD_INDEX = execFileSync("git", ["show", `${OLD_APP_SHA}:index.html`], { encoding: "utf8" });
+const OLD_DOCUMENT = /\/(?:index\.html)?(?:\?[^/]*)?$/;
 const failures = [];
 let passed = 0;
 
@@ -210,6 +214,11 @@ async function openOldPopup(context, opener, name) {
     return route.fulfill({ status: 200, contentType: "text/javascript", body: OLD_APP });
   };
   await context.route(/\/app\.js(?:\?|$)/, handler);
+  const shellHandler = (route) => {
+    if (route.request().resourceType() !== "document" || route.request().frame().page() === opener) return route.continue();
+    return route.fulfill({ status: 200, contentType: "text/html", body: OLD_INDEX });
+  };
+  await context.route(OLD_DOCUMENT, shellHandler);
   const popup = context.waitForEvent("page");
   await opener.evaluate(({ url, name }) => {
     window.__draftConflictStaleTab = window.open(url, name);
@@ -217,6 +226,7 @@ async function openOldPopup(context, opener, name) {
   const page = await popup;
   await waitForApp(page);
   await context.unroute(/\/app\.js(?:\?|$)/, handler);
+  await context.unroute(OLD_DOCUMENT, shellHandler);
   return page;
 }
 

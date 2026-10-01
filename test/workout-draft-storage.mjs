@@ -15,6 +15,10 @@ const CHECKPOINT = `${DRAFT}:v2-checkpoint`;
 const RECOVERY = `${DRAFT}:recovery`;
 const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
 const OLD_APP = execFileSync("git", ["show", `${OLD_APP_SHA}:app.js`], { encoding: "utf8" });
+// An installed older version runs its own shell with its own app.js, so the legacy
+// writer gets that commit's index.html too (the current shell retired DOM it binds).
+const OLD_INDEX = execFileSync("git", ["show", `${OLD_APP_SHA}:index.html`], { encoding: "utf8" });
+const OLD_DOCUMENT = /\/(?:index\.html)?(?:\?[^/]*)?$/;
 const failures = [];
 let passed = 0;
 
@@ -53,6 +57,9 @@ async function openOldApp(context) {
     contentType: "text/javascript",
     body: OLD_APP,
   }));
+  await page.route(OLD_DOCUMENT, (route) => route.request().resourceType() === "document"
+    ? route.fulfill({ status: 200, contentType: "text/html", body: OLD_INDEX })
+    : route.continue());
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForBoot(page);
   return page;
