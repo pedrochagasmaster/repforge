@@ -2044,6 +2044,7 @@
   "entry.freeform.toast_repair_copied": "Repair prompt copied to clipboard.",
   "entry.freeform.view_original": "View original pasted text",
   "entry.freeform.confirm_discard": "Switching to file import will discard your pasted text. Continue?",
+  "entry.freeform.confirm_write_own": "Writing your program from scratch will discard your pasted text. Continue?",
   "entry.freeform.confirm_start_over": "Start over and discard your pasted text and reply?",
   "entry.freeform.gap_sets_placeholder": "e.g. 3",
   "entry.freeform.gap_reps_placeholder": "e.g. 8-12 or 10",

@@ -14530,6 +14530,9 @@ function wireEntryImportControls(root){
   if(writeOwn)writeOwn.onclick=()=>{
     /* A sixth exit from the paste door, after the five in ADR 0014. The pasted
        program belongs to this flow, so it is dropped before Build opens. */
+    /* Owner decision (#295, 2026-10-01): ask first when text was pasted, as
+       the switch to the file door does. */
+    if((entryFreeformInput.trim().length>10||entryFreeformReply.trim().length>10)&&!confirm(t("entry.freeform.confirm_write_own")))return;
     resetFreeformImport();
     entrySelectRoute("build")}}
 function freeformAppLink(app){

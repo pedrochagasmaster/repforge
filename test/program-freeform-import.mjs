@@ -1053,6 +1053,21 @@ async function main() {
       "the paste door offers a way to write the program from scratch", "no #entryWriteOwn");
     const readsBefore = await clipReads(page);
     assert(readsBefore === 0, "rendering the door and its links reads no clipboard before a tap", String(readsBefore));
+    // Owner decision (#295): with text pasted, the link asks first. Declining
+    // keeps the paste door and the pasted text exactly as they were.
+    dialogAction = "dismiss"; lastDialog = null;
+    await page.click("#entryWriteOwn");
+    await settle(page, 200);
+    const kept = await page.evaluate(() => ({
+      session: sessionStorage.getItem("repforge_freeform_session_v1"),
+      step: window.__repforgeEntryState?.()?.step || null,
+    }));
+    const confirmCopy = await page.evaluate(() => window.RepForgeI18n?.t?.("entry.freeform.confirm_write_own") || "");
+    assert(confirmCopy.length > 0 && lastDialog?.type === "confirm" && lastDialog?.message === confirmCopy,
+      "writing from scratch asks before discarding pasted text", JSON.stringify(lastDialog));
+    assert(/Overhead press/.test(kept.session || "") && await page.locator("#entryFreeformOut").isVisible(),
+      "declining keeps the pasted text and the paste door", JSON.stringify(kept).slice(0, 120));
+    dialogAction = "accept";
     await page.click("#entryWriteOwn");
     await settle(page, 300);
     page.off("request", onRequest);
