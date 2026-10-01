@@ -36,8 +36,10 @@ angles are recorded in `tools/landing-prototype/render.sh`. All outputs are
 cropped to the same 903×1832 frame so a more rotated phone does not render
 smaller than the others. No app content is redrawn or generated.
 
-The service worker precaches only the four `today-ready` hero variants. The
-other 28 renders load on demand. The complete design and reproduction notes
+The final landing page (Plan 064 R2) no longer shows these renders; the
+`today-ready` heroes left the precache with it. The service worker now precaches
+only the landing proof's first frame, `wt-focus-{en,pt}-dark.webp`, so the
+walkthrough opens offline; every other landing image loads on demand. The complete design and reproduction notes
 live in [`docs/design/plan-054-landing-prototype`](../../docs/design/plan-054-landing-prototype/README.md).
 
 ## Landing proof images (interim)
