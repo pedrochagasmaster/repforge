@@ -107,6 +107,7 @@ try {
   // The retained Plan 050 worker still needs its historical route flag before
   // the current worker migrates the draft. Current-code calls below omit it.
   await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1", focus: true }));
+  // This page still runs the retained Plan 050 build, whose header carries the Next chevron.
   await page.locator("#woNext").click();
   await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${secondId}"]`);
   for (const [field, value] of [["load", "72.5"], ["reps", "9"], ["rir", "1"]]) {
@@ -141,7 +142,7 @@ try {
   assert.equal(await page.evaluate((draft) => localStorage.getItem(draft), DRAFT), migrated.raw,
     "a second boot reads the same migration instead of converting twice");
   await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
-  await page.locator("#woNext").click();
+  await page.locator("#workout .exercise.is-current [data-fnextrow]").click();
   await page.waitForFunction((id) => window.__repforgeWorkoutDraft.current()?.session.selectedExerciseId === id, secondId);
   const selectedRaw = await page.evaluate((draft) => localStorage.getItem(draft), DRAFT);
 

@@ -193,7 +193,8 @@ async function main() {
     await sessionField(page, "#sessionBodyweight", 82.5);
     await sessionField(page, "#sessionNotes", SESSION_NOTE);
     await selectExercise(page, first.id);
-    await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+    await page.locator("#woOverflowBtn").click();
+    await page.locator("#exActionNotesBtn").click();
     await page.locator("#exNoteText").fill(EXERCISE_NOTE);
     await page.locator("#exNoteSave").click();
     await page.locator("#exNoteSheet").waitFor({state: "hidden"});
@@ -233,9 +234,9 @@ async function main() {
       const card = document.querySelector("#workout .exercise.is-current");
       return {
         name: card?.querySelector(".focus-ex__name")?.textContent?.trim(),
-        completed: card?.querySelectorAll(".ledger__row[data-editn]:not(.is-editing)").length,
+        completed: card?.querySelectorAll(".ledgerline[data-editn]").length,
         active: ["load", "reps", "rir"].map(
-          (field) => card?.querySelector(`.focus-well [data-k$="_${field}"]`)?.value,
+          (field) => card?.querySelector(`.focus-shelf [data-k$="_${field}"]`)?.value,
         ),
       };
     });
@@ -246,27 +247,27 @@ async function main() {
       JSON.stringify(focusFirst),
     );
 
-    await page.locator("#workout .exercise.is-current .ledger__row[data-editn]").click();
+    await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft?.exercises?.[id];
       return window.__repforgeFocus.editing()?.exId === id &&
         exercise?.sets?.[exercise.setOrder[0]]?.completion === "pending";
     }, { id: first.id });
-    await fillVisible(page, "#workout .exercise.is-current .focus-well [data-k$='_load']", 55);
+    await fillVisible(page, "#workout .exercise.is-current .focus-shelf [data-k$='_load']", 55);
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft?.exercises?.[id];
       return exercise?.sets?.[exercise.setOrder[0]]?.edited?.load === "55";
     }, { id: first.id });
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft?.exercises?.[id];
       return window.__repforgeFocus.editing() === null &&
         exercise?.sets?.[exercise.setOrder[0]]?.completion !== "pending";
     }, { id: first.id });
-    const corrected = await page.locator("#workout .exercise.is-current .ledger__row[data-editn] .ledger__load").textContent();
+    const corrected = await page.locator("#workout .exercise.is-current .ledgerline[data-editn] .ledgerline__vals > .fx-col:first-child").textContent();
     assert(corrected?.trim() === "55", "Focus correction updates the committed set in place", corrected || "missing row");
 
     await page.waitForSelector("#workout.is-focus", { timeout: 5000 });
@@ -284,9 +285,9 @@ async function main() {
     const pendingAgain = await page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current");
       return {
-        completed: card?.querySelectorAll(".ledger__row[data-editn]:not(.is-editing)").length,
+        completed: card?.querySelectorAll(".ledgerline[data-editn]").length,
         active: ["load", "reps", "rir"].map(
-          (field) => card?.querySelector(`.focus-well [data-k$="_${field}"]`)?.value,
+          (field) => card?.querySelector(`.focus-shelf [data-k$="_${field}"]`)?.value,
         ),
       };
     });
@@ -295,7 +296,7 @@ async function main() {
       "Focus projects the corrected uncommitted set as the next ordered set",
       JSON.stringify(pendingAgain),
     );
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft?.exercises?.[id];
@@ -315,8 +316,8 @@ async function main() {
       const firstCard = document.querySelector("#workout .exercise.is-current");
       const firstState = {
         name: firstCard?.querySelector(".focus-ex__name")?.textContent?.trim(),
-        completed: firstCard?.querySelectorAll(".ledger__row[data-editn]").length,
-        activeLoad: firstCard?.querySelector(".focus-well [data-k$='_load']")?.value,
+        completed: firstCard?.querySelectorAll(".ledgerline[data-editn]").length,
+        activeLoad: firstCard?.querySelector(".focus-shelf [data-k$='_load']")?.value,
       };
       const secondIndex = window.__repforgeFocus.list().findIndex((exercise) => exercise.id === secondId);
       window.__repforgeFocus.to(secondIndex);
@@ -324,7 +325,7 @@ async function main() {
       return {
         firstState,
         secondValues: ["load", "reps", "rir"].map(
-          (field) => secondCard?.querySelector(`.focus-well [data-k$="_${field}"]`)?.value,
+          (field) => secondCard?.querySelector(`.focus-shelf [data-k$="_${field}"]`)?.value,
         ),
         visibleIds: window.__repforgeFocus.list().map((exercise) => exercise.id),
         thirdId,

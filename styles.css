@@ -828,10 +828,12 @@ div.settings-row{cursor:default}
 .today-otherday{width:100%;min-height:48px;margin-top:10px}
 
 /* ---- Active workout ---- */
-.wo-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;min-height:44px}
-.wo-head__center{text-align:center;min-width:0;flex:1;overflow:hidden}
-.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wo-head__sub{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-8);margin-bottom:0;min-height:var(--control-target)}
+/* The title wraps rather than truncates, so it hangs from the top of the bar: when the timer chip widens and
+   takes room from it, the controls and the first line of the title stay where they were. */
+.wo-head__center{text-align:center;min-width:0;flex:1;padding-top:var(--space-12)}
+.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.wo-head__sub{display:none}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
 /* Rest lives in the workout chrome, never over the card's controls: a square
    with the stopwatch while idle, a counting pill once it is running. */
@@ -857,18 +859,6 @@ div.settings-row{cursor:default}
 /* The active workout reads the timer from its header. */
 body.is-focus-wo .restbar{display:none!important}
 
-.wo-progress{margin:2px 0 12px}
-.wo-progress__top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
-.wo-progress__lab{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.1em;line-height:var(--line-standard);text-transform:uppercase;color:var(--color-ink-secondary)}
-.focusnav{
-  flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
-  border:1px solid var(--control-quiet-boundary);background:var(--control-quiet-bg);cursor:pointer;
-  color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--control-icon-size);line-height:1;border-radius:var(--radius-round);
-}
-.focusnav:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)}
-.focusnav:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);transform:var(--control-pressed-transform)}
-.focusnav:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.focusnav:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 #leaveWorkout,#sessionSheetBtn{
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
   background:var(--control-quiet-bg);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);color:var(--control-quiet-ink);
@@ -879,16 +869,30 @@ body.is-focus-wo .restbar{display:none!important}
 #leaveWorkout:disabled,#sessionSheetBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #woOverflowBtn{
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
-  background:var(--control-disclosure-bg);border:1px solid var(--control-disclosure-boundary);border-radius:var(--radius-round);color:var(--control-disclosure-ink);
+  background:var(--control-quiet-bg);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);color:var(--control-quiet-ink);
 }
-#woOverflowBtn:hover:not(:disabled),#woOverflowBtn[aria-expanded="true"]{background:var(--well);border-color:var(--control-disclosure-boundary);color:var(--control-disclosure-ink)}
-#woOverflowBtn:active:not(:disabled){background:var(--well);border-color:var(--control-disclosure-boundary);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
+#woOverflowBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+#woOverflowBtn:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #woOverflowBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#woOverflowBtn:disabled{background:var(--control-disclosure-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-.segbar--ex{gap:8px;margin:0}
-#woProgress .segbar--ex .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
-#woProgress .segbar--ex .segbar__seg.is-done{background:var(--color-ink)}
-#woProgress .segbar--ex .segbar__seg.is-current{background:var(--color-action)}
+#woOverflowBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+#leaveWorkout .icon-mask{transform:rotate(90deg)}
+/* Exercise progress: one segment per exercise, each a button into that exercise.
+   The bar is drawn inside a 44px target. */
+#woProgress{margin:0}
+.segbar--ex{gap:var(--space-8);margin:0}
+#woProgress .segbar__seg{
+  position:relative;flex:1 1 0;min-width:0;height:var(--control-target);margin:0;padding:0;border:0;border-radius:var(--radius-none);
+  background:var(--control-quiet-bg);cursor:pointer;
+}
+#woProgress .segbar__bar{
+  position:absolute;left:0;right:0;top:50%;height:5px;margin-top:-2px;border-radius:var(--radius-compact);background:var(--boundary-required);
+}
+#woProgress .segbar__seg.is-done .segbar__bar{background:var(--color-ink)}
+#woProgress .segbar__seg.is-current .segbar__bar{background:var(--color-action)}
+#woProgress span.segbar__seg{cursor:default}
+#woProgress button.segbar__seg:hover:not(:disabled){background:var(--well)}
+#woProgress button.segbar__seg:active:not(:disabled){transform:var(--control-pressed-transform)}
+#woProgress .segbar__seg:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 body.is-workout.is-focus-wo #logWorkspace,
 body.is-workout.is-focus-wo #logForm{padding-bottom:0}
 /* Focus fills the screen by layout, not by arithmetic: every box between the
@@ -901,7 +905,15 @@ body.is-focus-wo{padding-bottom:0}
 body.is-workout.is-focus-wo main{
   display:flex;flex-direction:column;
   height:calc(100dvh - env(safe-area-inset-bottom));
-  padding-bottom:10px;
+  padding-bottom:0;
+  /* The deck reaches both edges so the shelf can; the rest of the screen keeps the gutter. */
+  padding-left:0;padding-right:0;
+}
+body.is-workout.is-focus-wo #log > :not(#workoutShell),
+body.is-workout.is-focus-wo #workoutShell > :not(#logForm),
+body.is-workout.is-focus-wo #logForm > :not(#workout),
+body.is-workout.is-focus-wo #workout > :not(.deck){
+  margin-left:max(var(--gut),env(safe-area-inset-left));margin-right:max(var(--gut),env(safe-area-inset-right));
 }
 body.is-workout.is-focus-wo #log.view.active,
 body.is-workout.is-focus-wo #workoutShell,
@@ -916,162 +928,220 @@ body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
    A paged track: the live card at rest position, an inert copy of each
    neighbour parked just off either side. Dragging moves all three as one. */
 body.is-focus-wo{overflow-x:hidden}
-.deck{position:relative;margin:4px 0 0;overflow-x:clip;overflow-clip-margin:24px}
+.deck{position:relative;margin:0;overflow-x:clip;overflow-clip-margin:24px}
 /* Each card sits in its own slot; the track carries all three as one. */
 .deck__track{position:absolute;inset:0;will-change:transform}
 .deck__track.is-settling{transition:transform .21s cubic-bezier(.2,.7,.2,1)}
 .deck__slot{position:absolute;top:0;bottom:0;width:100%}
-.deck__slot--prev,.deck__slot--next{visibility:hidden;pointer-events:none}
+/* The neighbours are parked off screen and take no part in layout until a swipe or a slide shows them. */
+.deck__slot--prev,.deck__slot--next{display:none;visibility:hidden;pointer-events:none}
 .deck__slot--prev{right:calc(100% + 14px)}
 .deck__slot--next{left:calc(100% + 14px)}
 .deck.is-swiping .deck__slot,
-.deck__track.is-settling .deck__slot{visibility:visible}
+.deck__track.is-settling .deck__slot{display:block;visibility:visible}
 @media (prefers-reduced-motion:reduce){
   .deck__track.is-settling{transition:none}
 }
 
-/* ---- Focus card ---- */
+/* ---- Focus card (Direction D) ----
+   Flat paper: no card, no border, no depth. The exercise and its cue sit on
+   top, the ledger of every set under them, and the shelf is the only floating
+   layer. The card is as wide as the screen so the shelf can reach both edges;
+   the context region carries the page gutter. */
 article.exercise--focus{
   position:absolute;inset:0;margin:0;
   display:flex;flex-direction:column;overflow:hidden;
-  background:var(--color-surface);border:1px solid var(--boundary-floating);border-radius:var(--radius-prominent);
-  padding:0;box-shadow:var(--elevation-focus-shadow);
+  background:var(--bg);border:0;border-radius:var(--radius-none);
+  padding:0;box-shadow:none;
   touch-action:pan-y;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
 article.exercise--focus input,article.exercise--focus textarea{-webkit-user-select:text;user-select:text}
-article.exercise--focus.is-dragging{box-shadow:var(--elevation-floating-shadow)}
-article.exercise--focus.is-peek{box-shadow:var(--elevation-focus-shadow)}
 
-.fcard__context{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
-.fcard__context:has(.ledger__row.is-past){min-height:88px}
-.fcard__head{flex:none;padding:18px 20px 0}
-.focus-ex__eyebrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.focus-ex__muscle{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.focus-ex__setof{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink-secondary);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
-.focus-ex__setof b{color:var(--color-action-text);font-weight:var(--weight-semibold)}
-.focus-ex__title{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px;margin-top:5px}
-.focus-ex__titletext{min-width:0;flex:1 1 100%}
-.focus-ex__name{overflow-wrap:anywhere;font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);letter-spacing:-0.02em;margin:0;line-height:var(--line-tight);color:var(--color-ink)}
-.exercise--focus .focus-ex__name .ex__namebtn{background:var(--control-quiet-bg);color:var(--control-quiet-ink);font-family:var(--font-language);font-size:inherit;font-weight:inherit;line-height:inherit}
+.fcard__context{
+  flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;
+  padding:var(--space-8) var(--gut) var(--space-16);
+}
+.fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.fx-head{display:flex;align-items:center;gap:var(--space-12);margin:0 0 var(--space-16)}
+.fx-head .exthumb{flex:none;width:56px;height:56px;border-radius:var(--radius-surface)}
+.fx-head__text{min-width:0;flex:1}
+.focus-ex__name{
+  margin:0;overflow-wrap:anywhere;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
+  line-height:var(--line-tight);color:var(--color-ink);
+}
+.exercise--focus .focus-ex__name .ex__namebtn{
+  display:block;padding:0;text-align:left;background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font-family:var(--font-language);font-size:inherit;font-weight:inherit;line-height:inherit;
+}
 .exercise--focus .focus-ex__name .ex__namebtn:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 .exercise--focus .focus-ex__name .ex__namebtn:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .focus-ex__name .ex__namebtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 .exercise--focus .focus-ex__name .ex__namebtn:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-.focus-ex__target{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:6px 0 0}
-.focus-ex__alvo{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);margin-right:6px}
-.focus-ex__tools{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
-/* One shape for every card tool. */
-.focus-ex__tools .focus-tool{
-  position:relative;flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
-  display:inline-flex;align-items:center;justify-content:center;
-  border:1px solid transparent;border-radius:var(--radius-surface);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  cursor:pointer;font-size:inherit;text-transform:none;letter-spacing:0;
+.focus-ex__meta{
+  margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);
+  color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
-.focus-ex__tools .focus-tool:not(.ex__skip):hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)}
-.focus-ex__tools .focus-tool:not(.ex__skip):active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);transform:var(--control-pressed-transform)}
-.focus-ex__tools .focus-tool:not(.ex__skip):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.focus-ex__tools .focus-tool:not(.ex__skip):disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-.focus-ex__tools .focus-tool.ex__skip{background:var(--control-selection-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
-.focus-ex__tools .focus-tool.ex__skip:hover:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
-.focus-ex__tools .focus-tool.ex__skip:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary);transform:var(--control-pressed-transform)}
-.focus-ex__tools .focus-tool.ex__skip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.focus-ex__tools .focus-tool.ex__skip:disabled{background:var(--control-selection-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+
+/* The cue: the verb and the load on the first line, the reps on the second. The
+   mark column is kept when there is no mark, so the lines never shift. */
+.fx-cue{
+  display:grid;grid-template-columns:var(--space-18) minmax(0,1fr);column-gap:var(--space-8);align-items:start;
+  margin:0 0 var(--space-12);
+}
+.fx-cue__mark{
+  grid-column:1;grid-row:1;justify-self:start;
+  padding-top:calc((var(--font-size-section-title) * var(--line-tight) - 16px) / 2);
+}
+.fx-cue__l1{
+  grid-column:2;grid-row:1;margin:0;overflow-wrap:anywhere;font-family:var(--font-language);font-size:var(--font-size-section-title);
+  font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);
+}
+.fx-cue__load{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
+.fx-cue__l2{
+  grid-column:2;margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.exercise--focus .text-link.focus-ex__why,.exercise--focus .fx-cue__cancel{
+  grid-column:2;justify-self:start;display:inline-flex;align-items:center;min-height:var(--control-target);margin:var(--space-4) 0 0;padding:0;
+  border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;
+  text-decoration:underline;text-underline-offset:.2em;
+}
+.exercise--focus .text-link.focus-ex__why:hover:not(:disabled),.exercise--focus .fx-cue__cancel:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+.exercise--focus .text-link.focus-ex__why:active:not(:disabled),.exercise--focus .fx-cue__cancel:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exercise--focus .text-link.focus-ex__why:focus-visible,.exercise--focus .fx-cue__cancel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.exercise--focus .text-link.focus-ex__why:disabled,.exercise--focus .fx-cue__cancel:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+.fx-note{
+  display:flex;align-items:flex-start;gap:var(--space-8);margin:0 0 var(--space-12);padding:var(--space-12) 0 0;
+  border-top:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere;
+}
+.fx-note .icon-mask{flex:none;margin-top:2px}
+
 .exercise--focus .term{background:var(--control-quiet-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);font-family:var(--font-language)}
 .exercise--focus .term:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);text-decoration-color:var(--control-quiet-ink)}
 .exercise--focus .term:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .curset__cell-lab .term:active:not(:disabled){transform:translate(-50%,-50%) var(--control-pressed-transform)}
 .exercise--focus .term:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .exercise--focus .term:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-.focus-ex__tools .focus-tool.has-note::after{
-  content:"";position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:var(--radius-round);background:var(--color-action);
-}
-.exercise--focus .delta-prev{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:0 0 10px}
+.exercise--focus .delta-prev{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:0 0 var(--space-8)}
 
-/* The ledger retains a readable band; compact screens scroll the context above the fixed set controls. */
-.fcard__ledger{
-  flex:1 0 112px;min-height:112px;overflow-y:auto;overscroll-behavior:contain;
-  touch-action:none;
-  padding:0 20px 6px;margin-top:18px;
-  scrollbar-width:thin;scrollbar-color:var(--boundary-decorative) transparent;
+/* The ledger is the record, one row per set. Values sit in right-aligned Mono
+   columns that the head's labels share; the set being worked on wears the open
+   ring, and sets still to do read in soft ink until the lifter confirms them. */
+.fcard__ledger{margin:var(--space-8) 0 0}
+.fcard__ledger .ledgerline__head{align-items:center;min-height:calc(var(--control-target) + 1px);padding-block:0}
+.fcard__ledger .ledgerline__head .ledgerline__vals{
+  align-items:center;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;
 }
-/* A logged or previous-session band is the card's record of the work. Reserve
-   a third of the full-height card for it, but let scaled text use the compact
-   ledger path so the record remains scrollable without hiding the controls. */
-.fcard__ledger:has(.ledger__row.is-past),
-.fcard__ledger:has(.ledger__row[data-editn]){min-height:30vh}
-.exercise--focus.is-text-scaled .fcard__ledger:has(.ledger__row.is-past),
-.exercise--focus.is-text-scaled .fcard__ledger:has(.ledger__row[data-editn]){min-height:112px}
-.fcard__ledger.is-scrollable{touch-action:pan-y}
-.fcard__ledger::-webkit-scrollbar{width:4px}
-.fcard__ledger::-webkit-scrollbar-thumb{background:var(--boundary-decorative);border-radius:var(--radius-compact)}
-.fcard__ledger::-webkit-scrollbar-track{background:transparent}
-.ledger__top{position:sticky;top:0;z-index:1;background:var(--surface)}
-.ledger__lab{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);margin:0 0 10px}
-.ledger__count{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:0 0 10px}
-.ledger__ticks{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 16px}
-.ledger__tick{
-  width:24px;height:24px;border-radius:var(--radius-round);border:1px solid var(--boundary-decorative);
-  display:inline-block;position:relative;
-}
-.ledger__tick::after{
-  content:"";position:absolute;inset:0;background:var(--color-ink-secondary);
-  -webkit-mask:var(--check) no-repeat center/12px;mask:var(--check) no-repeat center/12px;
-}
-.ledger__head,.ledger__row{
-  display:grid;grid-template-columns:2.4rem minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.2fr) 1.75rem;gap:12px;
-  align-items:center;font-variant-numeric:tabular-nums;width:100%;
-}
-.ledger__more:hover:not(:disabled),.ledger__more[aria-expanded="true"]{background:var(--well);color:var(--control-disclosure-ink)}
-.ledger__more:active:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
-.ledger__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.ledger__more:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-.ledger__head{
-  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
-  padding:0 0 10px;border-bottom:1px solid var(--boundary-decorative);
-}
-.ledger__head span,.ledger__row > span{min-width:0}
-.ledger__n{padding-left:2px;font-weight:600;color:var(--ink-soft)}
-.ledger__load{white-space:nowrap}
-.ledger__row{
-  position:relative;width:100%;min-height:52px;padding:6px 0;margin:0;
-  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:0;
-  background:none;color:var(--color-ink);font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
-  text-align:left;cursor:pointer;
-}
-.ledger__row .ledger__n{color:var(--color-ink)}
-.ledger__check{
-  width:20px;height:20px;justify-self:end;background:var(--ink);
+.fcard__ledger .ledgerline__head .term{margin:0;padding-block:0}
+.ledgerline__vals > .fx-col{flex:0 0 auto;min-width:0;text-align:right}
+.ledgerline__vals > .fx-col:nth-child(1){min-width:4.5rem}
+.ledgerline__vals > .fx-col:nth-child(2){min-width:2.5rem}
+.ledgerline__vals > .fx-col:nth-child(3){min-width:4.5rem}
+.ledgerline__vals > .fx-col.is-soft{color:var(--color-ink-secondary)}
+button.ledgerline{cursor:pointer;text-align:left;border-top:0;border-inline:0}
+button.ledgerline:hover:not(:disabled){background:var(--well)}
+button.ledgerline:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.ledgerline .fx-check{
+  display:block;width:20px;height:20px;background:var(--color-ink);
   -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
 }
-.ledger__row.is-past,.ledger__row.is-empty{cursor:default}
-.ledger__row.is-past .ledger__check,.ledger__row.is-empty .ledger__check{display:none}
-.ledger__row.is-empty{grid-template-columns:1fr auto 24px;color:var(--color-ink-secondary);font-family:var(--font-language)}
-.fcard__ledger:has(.ledger__row.is-past) .ledger__head,
-.fcard__ledger:has(.ledger__row.is-past) .ledger__row.is-past{
-  grid-template-columns:2.4rem minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.3fr);
+/* The open row's ring is a real 2px edge, so the rendered-role audit can measure it; the
+   padding gives the 2px back, which leaves the row the size of its neighbours. */
+.fcard__ledger .ledgerline--open{
+  align-content:center;padding-block:4px;padding-inline:10px;border:2px solid var(--boundary-selected-quiet);box-shadow:none;
 }
-.ledger__empty{color:var(--color-ink-secondary);font-family:var(--font-language)}
-.ledger__dash{color:var(--color-ink-secondary)}
-/* A logged effort reads as its word, which needs more room than a RIR digit. */
-.ledger__eff{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* The set being re-opened is marked in place: it stays where it was logged. */
-.ledger__row.is-editing{background:var(--well)}
-.ledger__row.is-editing::before{
-  content:"";position:absolute;left:-20px;top:0;bottom:0;width:3px;background:var(--color-action);
+.fx-next{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
+  padding:0 var(--space-12);border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-regular);line-height:var(--line-standard);text-align:left;
 }
-.ledger__row.is-editing .ledger__check{background:var(--color-action)}
-.ledger__more{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  width:100%;min-height:var(--control-target);padding:8px 0;margin:0;
-  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:0;
-  background:var(--control-disclosure-bg);color:var(--control-disclosure-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;cursor:pointer;
-}
-.ledger__more .icon-mask{transition:transform .2s ease}
-.ledger__more[aria-expanded="true"] .icon-mask{transform:rotate(180deg)}
-@media (prefers-reduced-motion:reduce){.ledger__more .icon-mask{transition:none}}
+.fx-next b{font-weight:var(--weight-semibold)}
+.fx-next:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+.fx-next:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.fx-next:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.fx-next:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
+.fx-next__chev{flex:none;transform:rotate(-90deg)}
 
+/* A first-set cue rides above the shelf, in the flow, and keeps the shelf on the edge. */
+.exercise--focus .guide-cue{flex:none;margin:var(--space-8) var(--gut)}
+#workoutShell .guide-cue{background:var(--well)}
+
+/* ---- The shelf ----
+   Three fields, the pads for the selected one, and the one action. The shell is
+   `.workshelf`; the field, pad and action recipes below sit on their own control
+   roles. A field is a button until a second tap turns it into the real input. */
+.focus-shelf{flex:none;position:relative}
+.focus-shelf{--control-selection-bg:var(--shelf-field-bg)}
+.shelf__fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-8)}
+.shelf__field{position:relative;min-width:0}
+.shelf__fieldbtn{
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;width:100%;min-height:64px;margin:0;
+  padding:var(--space-8) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
+  background:var(--control-selection-bg);color:var(--control-selection-ink);text-align:left;cursor:pointer;
+}
+.shelf__fieldbtn:hover:not(:disabled){background:var(--well)}
+.shelf__fieldbtn:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.shelf__fieldbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--elevation-selected-quiet-shadow)}
+.shelf__lab{
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);
+  color:var(--color-ink-secondary);overflow-wrap:anywhere;
+}
+.shelf__val{
+  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);
+  color:var(--control-selection-ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
+}
+.shelf__field.is-untouched .shelf__val{color:var(--color-ink-secondary)}
+/* The input is always present so the draft handlers have one element to read and
+   flag. Until the second tap it is invisible and inert; then it takes the field's place. */
+.shelf__input{
+  position:absolute;inset:0;width:100%;height:100%;min-height:64px;margin:0;padding:var(--space-8) var(--space-12) 0;
+  opacity:0;pointer-events:none;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
+  background:var(--control-field-bg);color:var(--control-field-ink);box-shadow:var(--elevation-selected-quiet-shadow);
+  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);
+  font-variant-numeric:tabular-nums;text-align:left;
+}
+.shelf__field.is-editing .shelf__input{opacity:1;pointer-events:auto;padding-top:calc(var(--space-8) + var(--font-size-body-small) * var(--line-standard) + 2px);padding-bottom:0}
+.shelf__lab--edit{position:absolute;top:var(--space-8);left:var(--space-12);right:var(--space-12);pointer-events:none}
+.shelf__field.is-editing .shelf__fieldbtn{visibility:hidden}
+.shelf__input:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.shelf__input[aria-invalid="true"]{border-color:var(--control-error-boundary);box-shadow:none}
+.shelf__input[aria-invalid="true"]:focus-visible{outline-color:var(--control-error-boundary)}
+.shelf__fieldbtn[aria-invalid="true"]{border-color:var(--control-error-boundary)}
+.shelf__pads{display:flex;gap:var(--space-8)}
+.shelf__pads .shelf__pad{
+  flex:1 1 0;width:auto;min-width:0;height:56px;min-height:56px;padding:0 var(--space-12);border-radius:var(--radius-control);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);white-space:nowrap;
+}
+.focus-shelf .btn--cta{margin:0}
+.focus-shelf .btn--cta.saveset{
+  border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);
+  font-family:var(--font-language);text-transform:none;letter-spacing:normal;font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+  min-height:54px;min-width:0;padding:0 var(--space-18);border-radius:var(--radius-control);
+}
+.focus-shelf .btn--cta.saveset:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
+.focus-shelf .btn--cta.saveset:active:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)}
+.focus-shelf .btn--cta.saveset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.focus-shelf .btn--cta.saveset:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+/* Exercise and workout completion are the same shape, one step apart. */
+.focus-shelf.is-done .focus-done{padding-bottom:var(--space-4)}
+.focus-done__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);margin:0}
+.focus-done__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:var(--space-4) 0 0}
+/* The effort word's explainer opens over its field, as it did over the old cell. */
+.shelf__field .effortpop{bottom:calc(100% + 4px)}
+
+/* ---- A set lands ----
+   Logging a set re-renders the whole card, so the motion is written into the
+   markup of that one render (`is-fresh`) rather than driven from a handler:
+   the card the lifter sees next is the card that plays it, once. It moves
+   transform and opacity only, and nothing about it celebrates. */
+.ledgerline.is-fresh{animation:setland-row .34s cubic-bezier(.2,.7,.2,1) both}
+@keyframes setland-row{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ledgerline.is-fresh{animation:none}}
 
 /* ---- Well: attached, and the same height whatever the ledger is doing ---- */
 .focus-well{
@@ -1104,79 +1174,6 @@ article.exercise--focus.is-peek{box-shadow:var(--elevation-focus-shadow)}
 .focus-well .btn--cta.saveset:active:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)}
 .focus-well .btn--cta.saveset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .focus-well .btn--cta.saveset:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-.exercise--focus .text-link.focus-ex__why{display:block;min-height:var(--control-target);padding:8px 0 0;border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left}
-.exercise--focus .text-link.focus-ex__why:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
-.exercise--focus .text-link.focus-ex__why:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-.exercise--focus .text-link.focus-ex__why:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.exercise--focus .text-link.focus-ex__why:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-/* Exercise and workout completion are the same shape, one step apart. */
-.focus-well.is-done{padding-top:18px;padding-bottom:24px}
-.focus-done{display:flex;align-items:center;gap:14px}
-.focus-done__mark{
-  flex:none;width:46px;height:46px;border-radius:var(--radius-round);border:2px solid var(--color-action);position:relative;
-}
-.focus-done__mark::after{
-  content:"";position:absolute;inset:0;background:var(--color-action);
-  -webkit-mask:var(--check) no-repeat center/22px;mask:var(--check) no-repeat center/22px;
-}
-.focus-done__text{min-width:0}
-.focus-done__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.01em;color:var(--color-ink)}
-.focus-done__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:3px}
-
-/* ---- A set lands ----
-   Logging a set re-renders the whole card, so the motion is written into the
-   markup of that one render (`is-fresh`) rather than driven from a handler:
-   the card the lifter sees next is the card that plays it, once.
-   Everything here moves transform, opacity and colour only. The ledger sizes
-   and scrolls itself to the newest row straight after the render, and that
-   measurement has to read the settled layout, not a frame of the animation. */
-.ledger__row.is-fresh{
-  animation:setland-row .34s cubic-bezier(.2,.7,.2,1) both,
-            setland-wash .8s cubic-bezier(.3,0,.6,1) backwards;
-}
-@keyframes setland-row{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@keyframes setland-wash{
-  0%,35%{background-color:rgba(var(--accent-rgb),.13)}
-  100%{background-color:rgba(var(--accent-rgb),0)}
-}
-/* The tick is the receipt for the set: it snaps in accent, settles to ink. */
-.ledger__row.is-fresh .ledger__check{animation:setland-check .46s .12s cubic-bezier(.2,1.3,.4,1) both}
-@keyframes setland-check{
-  0%{opacity:0;transform:scale(.3);background-color:var(--accent)}
-  55%{opacity:1;transform:scale(1.16);background-color:var(--accent)}
-  100%{opacity:1;transform:scale(1);background-color:var(--ink)}
-}
-/* Past the fold the ticks are the ledger, so the newest one lands the same way. */
-.ledger__tick.is-fresh{animation:setland-tick .44s .1s cubic-bezier(.2,1.3,.4,1) both}
-@keyframes setland-tick{
-  0%{opacity:0;transform:scale(.4)}
-  55%{opacity:1;transform:scale(1.14)}
-  100%{opacity:1;transform:scale(1)}
-}
-/* The counter moved on, so it ticks over rather than swapping in place. */
-.focus-ex__setof.is-fresh b{display:inline-block;animation:setland-count .38s cubic-bezier(.2,.9,.3,1) both}
-@keyframes setland-count{
-  0%{opacity:0;transform:translateY(-7px)}
-  60%{opacity:1}
-  100%{opacity:1;transform:none}
-}
-/* The well re-arms for the next set: the cue first, its numbers just behind. */
-.focus-well.is-fresh .focus-cue{animation:setland-arm .3s .04s cubic-bezier(.2,.7,.2,1) both}
-.focus-well.is-fresh .curset{animation:setland-arm .3s .1s cubic-bezier(.2,.7,.2,1) both}
-@keyframes setland-arm{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-/* Finishing the exercise is the larger beat: the mark draws in under a ring. */
-.focus-well.is-fresh.is-done .focus-done__mark{animation:setland-mark .44s cubic-bezier(.2,1.25,.4,1) both}
-.focus-well.is-fresh.is-done .focus-done__mark::before{
-  content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--accent);
-  animation:setland-ring .66s .08s cubic-bezier(.2,.7,.2,1) both;
-}
-.focus-well.is-fresh.is-done .focus-done__text{animation:setland-arm .34s .1s cubic-bezier(.2,.7,.2,1) both}
-@keyframes setland-mark{
-  0%{opacity:0;transform:scale(.55)}
-  60%{opacity:1;transform:scale(1.08)}
-  100%{opacity:1;transform:scale(1)}
-}
-@keyframes setland-ring{from{opacity:.6;transform:scale(1)}to{opacity:0;transform:scale(1.55)}}
 
 /* Rest bar — one floating clock, parked just above the tab bar in every mode */
 .restbar{
@@ -2086,74 +2083,24 @@ body.is-sheet-open{overflow:hidden}
   .restctl__label{white-space:nowrap;overflow-wrap:normal;word-break:normal}
 }
 
-/* Narrow phones: tighter gutters and a set column the ledger can still line up. */
-@media (max-width:360px){
-  .fcard__head,.fcard__ledger{padding-left:16px;padding-right:16px}
-  .focus-well{padding-left:16px;padding-right:16px}
-  .ledger__head,.ledger__row{grid-template-columns:2.1rem minmax(0,1.5fr) minmax(0,0.9fr) minmax(0,1.15fr) 1.5rem;gap:8px}
-  .fcard__ledger:has(.ledger__row.is-past) .ledger__head,
-  .fcard__ledger:has(.ledger__row.is-past) .ledger__row.is-past{
-    grid-template-columns:2.1rem minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.25fr);
-  }
-  .ledger__row.is-editing::before{left:-16px}
-}
-/* Short screens trade padding and type scale, never a control: the ledger may
-   shrink to a row or two, but the well keeps its inputs and its action. */
+/* Short screens trade padding, never a control: the ledger scrolls above the
+   shelf, and the shelf keeps its three fields, its pads and its action. */
 @media (max-height:740px){
-  body.is-workout.is-focus-wo main{padding-bottom:8px}
-  .wo-head{margin-bottom:10px}
-  .wo-progress{margin:0 0 8px}
-  .wo-progress__top{margin-bottom:8px}
-  .fcard__head{padding-top:15px}
-  .fcard__ledger{margin-top:12px}
-  .fcard__ledger:has(.ledger__row.is-past),
-  .fcard__ledger:has(.ledger__row[data-editn]){min-height:112px}
-  .exercise--focus .focus-ex__name{font-size:var(--font-size-section-title)}
-  .focus-well{padding:12px 14px 14px}
-  .focus-well.is-done{padding-bottom:21px}
-  .curset{--curset-val:var(--font-size-section-title);margin-top:8px}
-  .curset__cell-lab{margin-bottom:6px}
-  .curset__val--word{font-size:var(--font-size-section-title)}
-}
-@media (max-height:660px){
-  body.is-workout.is-focus-wo main{padding-bottom:6px}
-  .wo-head{margin-bottom:6px}
-  .wo-progress__top{margin-bottom:6px}
-  .fcard__head{padding-top:12px}
-  .fcard__ledger{margin-top:8px}
-  .focus-ex__muscle{display:none}
-  .exercise--focus .focus-ex__name{font-size:var(--font-size-metric)}
-  .focus-ex__target{margin-top:4px}
-  .focus-well{padding:10px 14px 12px}
-  .focus-well.is-done{padding-bottom:18px}
-  .focus-cue{font-size:var(--font-size-body-small)}
-  .curset{--curset-val:var(--font-size-metric);margin-top:4px}
-  .curset__cell{padding-top:2px}
-  .curset__cell-lab{margin-bottom:4px}
-  .curset__val--word{font-size:var(--font-size-metric)}
-  .curset__underline{margin-top:5px}
-  .focus-well .btn--cta,.focus-well .btn--cta.saveset{height:48px;min-height:48px;font-size:var(--font-size-control);margin-top:8px}
-  .focus-well__cancel{margin-top:2px;padding:4px}
-  .ledger__row,.ledger__more{min-height:46px}
-  .ledger__ticks{display:none}
-  .focus-done__mark{width:40px;height:40px}
-  .focus-done__mark::after{-webkit-mask-size:19px;mask-size:19px}
-  .focus-done__title{font-size:var(--font-size-control)}
+  .fx-head{margin-bottom:var(--space-12)}
+  .focus-shelf{padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
 }
 @media (max-height:600px){
-  .exercise--focus .focus-ex__name{font-size:var(--font-size-subtitle);line-height:var(--line-standard)}
-  .focus-ex__target{font-size:var(--font-size-body-small)}
-  .focus-cue{font-size:var(--font-size-caption);line-height:var(--line-tight)}
-  .curset{--curset-val:var(--font-size-body)}
-  .curset__val--word{font-size:var(--font-size-body)}
-  .curset__cell input.curset__val,.curset__val--word{min-height:var(--control-target)}
-  .effortpop__hint{padding:6px 10px;font-size:var(--font-size-caption)}
-  .curset__underline{margin-top:0}
-  .ledger__head{padding-bottom:8px}
-  .ledger__row,.ledger__more{min-height:44px}
-  .focus-well .btn--cta,.focus-well .btn--cta.saveset{height:var(--control-target);min-height:var(--control-target);margin-top:2px}
+  .shelf__fieldbtn,.shelf__input{min-height:56px}
+  .shelf__pads .shelf__pad{height:48px;min-height:48px}
+  .focus-shelf .btn--cta.saveset{min-height:48px}
 }
-
+/* On the narrowest phones a three-digit load needs the room its padding took, or it wraps onto a second line. */
+@media (max-width:340px){
+  .shelf__fieldbtn{padding-left:var(--space-8);padding-right:var(--space-8)}
+  .shelf__input{padding-left:var(--space-8);padding-right:var(--space-8)}
+  .shelf__lab--edit{left:var(--space-8);right:var(--space-8)}
+  .wo-head__title{-webkit-line-clamp:2}
+}
 
 /* ---- Metrics (aliased to unified stat-band above) ---- */
 .trend{font-size:var(--font-size-body-small);color:var(--ink-soft);margin:0;display:grid;gap:3px}

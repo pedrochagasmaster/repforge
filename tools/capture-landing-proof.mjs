@@ -67,9 +67,12 @@ const NOTE = {
  */
 export const SPOT_TARGETS = {
   card: '#workout .is-current',
-  cue: '.focus-cue.is-now',
-  ledgerHead: '.ledger__head > span',
-  ledgerRow: '.ledger__row',
+  cue: '.fx-cue',
+  ledgerHead: '.ledgerline__head',
+  ledgerRow: '.ledgerline',
+  log: '.focus-shelf .saveset',
+  more: '#woOverflowBtn',
+  noteRow: '#exActionNotesBtn',
   dial: '#restSheet .restdial',
   swap: '#exActionSubstBtn',
   note: '#exNoteText',
@@ -77,7 +80,7 @@ export const SPOT_TARGETS = {
 
 /** Scene table: the runner name, the spots it owns, and what the frame must show. */
 export const PROOF_SCENES = [
-  {name: 'focus', spots: ['cue', 'log', 'last'], shows: 'Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, Now line 62.5 x 8'},
+  {name: 'focus', spots: ['cue', 'log', 'last'], shows: 'Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, cue 62.5 x 8'},
   {name: 'rest', spots: ['dial'], shows: 'the rest sheet after Log set (retires with the sheet in R3)'},
   {name: 'actions', spots: ['swap'], shows: 'the exercise-actions sheet'},
   {name: 'note', spots: ['text'], shows: 'the exercise-note sheet with a typed note'},
@@ -225,8 +228,12 @@ async function assertFocus(page, state, name) {
   const reps = page.locator('#workout input[data-k="ex-bench_1_reps"]');
   assert.equal(Number((await load.inputValue()).replace(',', '.')), 62.5, `${name}: actual Focus next load`);
   assert.equal(Number(await reps.inputValue()), 8, `${name}: actual Focus next reps`);
-  const rows = await page.locator('#workout .ledger__row.is-past').evaluateAll(elements =>
-    elements.map(row => [...row.children].map(cell => cell.textContent.trim())));
+  // The previous session rides under each matching row as one line: "last 60 x 10 · RIR 2" / "antes 60 x 10 · RIR 2".
+  const rows = await page.locator('#workout .exercise.is-current .ledgerline__prev').evaluateAll(lines =>
+    lines.map((line, index) => {
+      const match = line.textContent.match(/(\d+(?:[.,]\d+)?) \u00d7 (\d+) \u00b7 RIR (\d+)/);
+      return match ? [String(index + 1), match[1], match[2], match[3]] : [line.textContent.trim()];
+    }));
   assert.deepEqual(rows, [['1', '60', '10', '2'], ['2', '60', '10', '2'], ['3', '60', '10', '2']],
     `${name}: actual last-session ledger`);
   return rows;
@@ -293,17 +300,15 @@ function measureInPage({scene, targets, logLabel}) {
   const boxOf = (element, what) => pct(...clipped(need(element, what), element.getBoundingClientRect()));
   if (scene === 'focus') {
     const card = need(visible(document, targets.card), targets.card);
-    const head = card.querySelectorAll(targets.ledgerHead);
-    const row = need(card.querySelector(targets.ledgerRow), targets.ledgerRow);
-    const cells = [...row.children];
-    const first = need(head[1], `${targets.ledgerHead}[1]`).getBoundingClientRect();
-    const last = cells[cells.length - 1].getBoundingClientRect();
-    const log = [...card.querySelectorAll('button')].find(b => b.textContent.trim().toLowerCase() === logLabel.toLowerCase());
+    const head = need(card.querySelector(targets.ledgerHead), targets.ledgerHead).getBoundingClientRect();
+    const row = need(card.querySelector(`#workout .exercise.is-current ${targets.ledgerRow}:not(.ledgerline__head)`), targets.ledgerRow);
+    const rowBox = row.getBoundingClientRect();
+    const log = need(card.querySelector(targets.log), targets.log);
     return {
       cue: boxOf(card.querySelector(targets.cue), `${targets.card} ${targets.cue}`),
-      log: boxOf(log, `button "${logLabel}"`),
-      // From the ledger head through the first last-session row, as far as it is on screen.
-      last: pct(...clipped(row, {left: first.left, top: first.top, right: last.right, bottom: row.getBoundingClientRect().bottom})),
+      log: boxOf(log, `${targets.log} (${logLabel})`),
+      // From the ledger head through the first row and its last-session line, as far as it is on screen.
+      last: pct(...clipped(row, {left: head.left, top: head.top, right: rowBox.right, bottom: rowBox.bottom})),
     };
   }
   if (scene === 'rest') return {dial: boxOf(visible(document, targets.dial), targets.dial)};
@@ -322,18 +327,19 @@ function measureInPage({scene, targets, logLabel}) {
 const RUNNERS = {
   focus: async () => {},
   rest: async (page, {logLabel}) => {
-    await page.locator(`${SPOT_TARGETS.card} button`, {hasText: new RegExp(`^\\s*${logLabel}\\s*$`, 'i')}).first().click();
+    await page.locator(`${SPOT_TARGETS.card} ${SPOT_TARGETS.log}`).first().click();
     await page.waitForFunction(() => document.querySelector('#woRest')?.classList.contains('is-running'), undefined, {timeout: 20000});
     await page.click('#woRest');
     await page.waitForSelector('#restSheet.is-open', {timeout: 20000});
   },
   actions: async page => {
-    await page.locator(`${SPOT_TARGETS.card} [data-exactions-open]`).click();
+    await page.locator(SPOT_TARGETS.more).click();
     await page.waitForSelector(SPOT_TARGETS.swap, {state: 'visible', timeout: 20000});
     await page.evaluate(() => { const body = document.querySelector('.exactions-sheet__body'); if (body) body.scrollTop = 0; });
   },
   note: async (page, {lang}) => {
-    await page.locator('#workout [data-exnote-open]').first().click();
+    await page.locator(SPOT_TARGETS.more).click();
+    await page.locator(SPOT_TARGETS.noteRow).click();
     await page.waitForSelector('#exNoteSheet.is-open', {timeout: 20000});
     await page.fill(SPOT_TARGETS.note, NOTE[lang]);
     await page.evaluate(() => document.activeElement?.blur());

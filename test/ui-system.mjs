@@ -182,13 +182,12 @@ assert.equal(inventory.components.find((item) => item.selector === 'button[data-
   "numeric Program set steppers do not claim a selected state");
 assert.equal(roleOf("#entryFreeformStartOver"), "destructive", "Start over discards staged work");
 
-const focusSkipSelectors = ["#exActionSkipBtn", ".focus-tool.ex__skip:not([id])"];
+const focusSkipSelectors = ["#exActionSkipBtn"];
 const focusSkipStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
 function focusSkipContractErrors(candidate) {
   const errors = [];
   const expected = [
     ["#exActionSkipBtn", "selection", null, []],
-    [".focus-tool.ex__skip:not([id])", "selection", "focus-icon", ["icon-only"]],
   ];
   for (const [selector, role, variant, facets] of expected) {
     const members = candidate.components.filter((item) => item.selector === selector);

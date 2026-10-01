@@ -6,7 +6,7 @@
  * page through all 35 screens in order, so a single broken step silently
  * poisoned every frame after it.
  */
-import { catalogState, emptyEntryState, localeState } from "./fixtures.mjs";
+import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, sleep } from "./session.mjs";
 
 export function stabilizeShareUrlForCapture(value) {
@@ -253,6 +253,11 @@ async function assertLibraryTabsFitExternalTextScale(page) {
   });
 }
 
+/** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
+const D_FIXTURE_STATES = new Set([
+  "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
+]);
+
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
@@ -261,6 +266,9 @@ export function appState(key, lang) {
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
     return emptyEntryState(lang);
   }
+  // Direction D owns these states (spec section 11): they render the one lifter
+  // the review page draws. Every other state keeps catalogState().
+  if (D_FIXTURE_STATES.has(key)) return localeState(directionDState(), lang);
   const state = catalogState();
   if (key === "today/ready") {
     const exercise = state.program.find((item) => item.name === "Barbell bench press");
@@ -396,7 +404,7 @@ async function logCurrentSet(page) {
       else if (key.endsWith("_rir")) el.value = "1";
       el.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    card?.querySelector(".saveset, .focus-well .btn--cta")?.click();
+    card?.querySelector(".saveset")?.click();
   });
   await sleep(page, 600);
 }
@@ -863,11 +871,11 @@ export const APP_SCENARIOS = {
   "today/preview": async page => { await page.click("#previewSession"); await page.waitForSelector("#previewSessionSheet.is-open"); },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); },
-  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
@@ -877,14 +885,14 @@ export const APP_SCENARIOS = {
   },
   "workout/substituted-actions": async page => {
     await focusMode(page);
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickList .pickrow").first().click();
     await page.locator("#exPickSheet").waitFor({state:"hidden"});
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await resetSheetScroll(page, ".exactions-sheet__body");
   },
-  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/reorder": async page => {
     await focusMode(page);
     await page.click("#sessionSheetBtn");
@@ -997,7 +1005,9 @@ export const APP_SCENARIOS = {
   },
   "workout/exercise-note": async (page) => {
     await focusMode(page);
-    await page.locator("#workout [data-exnote-open]").first().click({ timeout: 20000 });
+    // The header's ⋯ opens the exercise actions; the note is one of them.
+    await page.locator("#woOverflowBtn").click({ timeout: 20000 });
+    await page.locator("#exActionNotesBtn").click({ timeout: 20000 });
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
   },

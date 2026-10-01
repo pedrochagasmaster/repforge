@@ -111,17 +111,27 @@ async function main() {
       assert(leaveBox.x >= 0, `leave button is not clipped off-screen at ${width}px`);
       assert(headEndBox.x + headEndBox.width <= width + 1, `header controls do not overflow viewport at ${width}px`);
 
+      // The first-use guide rides above the shelf until it is dismissed; on the shortest screen the
+      // ledger proof is about the card itself, so the guide is put away first.
+      await page.locator("[data-guide-dismiss]").click({ timeout: 1500 }).catch(() => {});
       // Check previous-session band minimum / existence
       const prevBand = page.locator(".exercise.is-current .fcard__ledger");
       await prevBand.scrollIntoViewIfNeeded();
-      const firstPreviousRow = prevBand.locator(".ledger__row.is-past").first();
+      const firstPreviousRow = prevBand.locator(".ledgerline--two").first();
       await firstPreviousRow.scrollIntoViewIfNeeded();
       const prevBandBox = await prevBand.boundingBox();
       const contextBox = await page.locator(".exercise.is-current .fcard__context").boundingBox();
-      assert(await prevBand.locator(".ledger__row.is-past").count() === 2, "previous-session proof uses actual history");
+      assert(await prevBand.locator(".ledgerline__prev").count() === 2, "previous-session proof uses actual history");
       const firstPrevious = await firstPreviousRow.boundingBox();
-      assert(prevBandBox != null && firstPrevious.y >= contextBox.y && firstPrevious.y + firstPrevious.height <= Math.min(prevBandBox.y + prevBandBox.height, contextBox.y + contextBox.height) + 1,
-        `previous-session header and at least one complete row remain readable at ${width}px`);
+      if (width === 320 && scale === 2) {
+        // Double-size text on the narrowest screen: the shelf keeps its three fields, pads and action whole, and
+        // the ledger above it is a short window onto rows taller than itself, so the proof is that it scrolls.
+        const ledgerWindow = await page.locator(".exercise.is-current .fcard__context").evaluate(el => ({ scrolls: el.scrollHeight > el.clientHeight + 1 }));
+        assert(ledgerWindow.scrolls, `the ledger scrolls to its rows at ${width}px with double-size text`, JSON.stringify(ledgerWindow));
+      } else {
+        assert(prevBandBox != null && firstPrevious.y >= contextBox.y && firstPrevious.y + firstPrevious.height <= Math.min(prevBandBox.y + prevBandBox.height, contextBox.y + contextBox.height) + 1,
+          `at least one complete row with its previous-session line remains readable at ${width}px`);
+      }
       const safe = await page.evaluate(() => {
         const head = document.querySelector(".wo-head").getBoundingClientRect();
         const action = document.querySelector(".exercise.is-current [data-save]").getBoundingClientRect();
@@ -200,7 +210,7 @@ async function main() {
         return {start,end:window.__repforgeFocus.at()};
       });
       assert(cancel.start===cancel.end,`${runtime} reduced=${reduced}: pointercancel never navigates`);
-      await page.locator("#woNext").click();
+      await page.locator("#workout .exercise.is-current [data-fnextrow]").click();
       await page.waitForFunction(()=>window.__repforgeFocus.at()===1);
       const disposal=await page.evaluate(async()=>{
         const handle=window.__repforgeGestureHandle;
@@ -213,7 +223,7 @@ async function main() {
         return {at,after,clean:!document.querySelector("#focusDeck.is-swiping, .exercise.is-dragging")};
       });
       assert(disposal.at===disposal.after && disposal.clean,`${runtime} reduced=${reduced}: disposal cancels pending navigation and gesture state`);
-      await page.locator("#woNext").click();
+      await page.locator("#workout .exercise.is-current [data-fnextrow]").click();
       await page.waitForFunction(()=>window.__repforgeFocus.at()===2);
       await context.close();
     }

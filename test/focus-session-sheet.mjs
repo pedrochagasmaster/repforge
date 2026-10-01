@@ -199,7 +199,7 @@ async function main() {
     await repsInput.fill("10");
     await rirInput.fill("2");
     await flushDraft(page);
-    await page.locator("#workout .exercise.is-current:not(.is-peek) .focus-well .saveset").first().click();
+    await page.locator("#workout .exercise.is-current:not(.is-peek) .focus-shelf .saveset").first().click();
     await flushDraft(page);
 
     /* ---- Early finish: stale revision rejection ---- */

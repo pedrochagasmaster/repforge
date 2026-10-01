@@ -1098,10 +1098,21 @@ const targetText=ex=>isEffortMode()
   :t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)});
 function setEffortPick(key,eff){
   $$(`[data-effspin="${key}"]`).forEach(el=>{
-    el.dataset.e=eff;el.textContent=effortLabel(eff);
-    el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
-    el.setAttribute("aria-valuetext",effortLabel(eff));
-    const pop=el.closest(".curset__cell")?.querySelector(".effortpop");
+    el.dataset.e=eff;
+    // The shelf's field keeps its caption; the word is only the value inside it.
+    (el.querySelector(".shelf__val")||el).textContent=effortLabel(eff);
+    const rowCell=el.closest(".exercise")?.querySelector('.ledgerline--open [data-lv="rir"]');
+    if(rowCell){rowCell.textContent=effortLabel(eff);rowCell.classList.remove("is-soft")}
+    el.closest(".shelf__field")?.classList.remove("is-untouched");
+    // The pads name the word they step to, so they follow the word.
+    $$(`[data-effstep="${key}"]`).forEach(b=>{
+      const dir=+b.dataset.dir,to=EFFORT_STEPS[Math.max(0,EFFORT_STEPS.indexOf(eff))+dir];
+      b.textContent=t("focus.shelf.pad_effort",{sign:dir>0?"+":"−",effort:effortLabel(to||eff)});
+      b.disabled=!to});
+    if(el.getAttribute("role")==="spinbutton"){
+      el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
+      el.setAttribute("aria-valuetext",effortLabel(eff))}
+    const pop=el.closest(".curset__cell,.shelf__field")?.querySelector(".effortpop");
     fillEffortPop(pop,eff,{bump:!!pop?.classList.contains("is-open")})})}
 
 /* ---- Effort explainer ----
@@ -1129,7 +1140,7 @@ function openEffortPop(key){
   const spin=$(`[data-effspin="${key}"]`),pop=$(`[data-effpop="${key}"]`);
   if(!spin||!pop)return;
   closeEffortPop({except:pop});
-  spin.closest(".curset__cell")?.classList.add("is-active");
+  spin.closest(".curset__cell,.shelf__field")?.classList.add("is-active");
   fillEffortPop(pop,spin.dataset.e);
   clearTimeout(pop.closeT);pop.classList.remove("is-closing");
   pop.classList.add("is-open");spin.classList.add("is-open")}
@@ -1140,7 +1151,7 @@ function closeEffortPop({except=null}={}){
     clearTimeout(pop.closeT);pop.closeT=setTimeout(()=>pop.classList.remove("is-closing"),240);
     const spin=$(`[data-effspin="${pop.dataset.effpop}"]`);
     spin?.classList.remove("is-open");
-    spin?.closest(".curset__cell")?.classList.remove("is-active")})}
+    spin?.closest(".curset__cell,.shelf__field")?.classList.remove("is-active")})}
 const toggleEffortPop=key=>{
   const pop=$(`[data-effpop="${key}"]`);
   if(pop?.classList.contains("is-open"))closeEffortPop();else openEffortPop(key)};
@@ -2303,11 +2314,6 @@ let focusEdit=null;
 let focusLogged=null;
 /** True while the card being written is the one that just gained a set. */
 const focusIsFresh=(ex,peek)=>!peek&&!!focusLogged&&focusLogged.exId===ex.id;
-/** Exercises whose older logged sets the lifter unfolded from behind the
- *  disclosure row. Folding is the default once a session gets long. */
-const focusUnfolded=new Set();
-/** Sets logged before older rows fold away, and how many stay above the fold. */
-const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,programReadyView=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
@@ -5834,6 +5840,13 @@ function focusGo(dir){
   focusIndex=next;focusEdit=null;
   if(activeWorkoutDraft&&fl[next])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:fl[next].id});
   renderWorkout();window.scrollTo({top:0});return true}
+/** Jump to an exercise by its place in the deck: a neighbour slides in the way
+ *  a swipe does, anything further away lands directly. */
+function focusJump(to){
+  const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,d=to-at;
+  if(!d||to<0||to>=fl.length)return false;
+  if(Math.abs(d)===1)return focusAnimateTo(d);
+  window.__repforgeFocus.to(to);return true}
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
 function focusCard(){return $("#workout.is-focus .exercise.is-current")}
@@ -6115,7 +6128,8 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
-  const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day);
+  // The workout header names the day until a workout is open; then updateWorkoutHeader owns the title.
+  if(!workoutActive){const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day)}
   const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
     woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
@@ -6502,17 +6516,31 @@ function focusRefLoad(ex,n,draft,prev){
     if(Number.isFinite(v)&&v>0)return v}
   const old=prev.find(x=>x.set===n)||prev.at(-1);
   return old&&old.load!=null?+old.load:null}
-/** The one line above the inputs: what to do with this set, and why. */
+/** The two lines above the ledger: what to do with this set, and why. Line one
+ *  is the verb and the load, line two the reps to aim for. The load is the
+ *  engine's: `setSuggestion` for this set, never a figure derived here. */
 function focusCue(ex,n,r,draft,prev,editing){
-  if(editing)return{kind:"edit",label:t("focus.cue.editing"),text:t("focus.cue.editing_set",{n,total:ex.sets})};
+  const unit=unitLabel();
+  if(editing){const text=t("focus.cue.editing_set",{n,total:ex.sets});
+    return{kind:"edit",move:"",label:t("focus.cue.editing"),text,headHtml:esc(text),sub:""}}
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
-  if(r.status==="manual")return{kind:"manual",label:"",text:""};
-  if(sg.load==null)return{kind:"start",label:t("focus.cue.start"),text:t("focus.cue.pick_load",{min:ex.min,max:ex.max})};
+  if(r.status==="manual"){const head=t("program.progression.strategy.manual");
+    return{kind:"manual",move:"",label:"",text:"",headHtml:esc(head),sub:t("focus.cue.reps",{reps:`${ex.min}–${ex.max}`})}}
+  if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
+    return{kind:"start",move:"",label:t("focus.cue.start"),text:head,headHtml:esc(head),sub:""}}
   const ref=focusRefLoad(ex,n,draft,prev);
   const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
   const reps=sg.reps!=null?sg.reps:ex.min;
-  return{kind:"now",label:t("focus.cue.now"),
-    text:`${t(`focus.cue.${move}`,{load:fmtLoad(sg.load),unit:unitLabel()})} · ${t("focus.cue.reps",{reps})}`}}
+  // The load rides in the sentence as a token so the figure can be set in Mono.
+  const sentence=t(`focus.cue.${move}`,{load:"\u0000",unit});
+  const loadText=fmtLoad(sg.load);
+  // The first target of the day is `recommendation()`'s own load; a later set's
+  // is the engine's in-session answer, which the parity check does not compare.
+  const parity=sg.src==="base"&&!sg.tempered?` data-parity-target="${esc(ex.id)}"`:"";
+  return{kind:"now",move,label:t("focus.cue.now"),
+    text:`${t(`focus.cue.${move}`,{load:loadText,unit})} · ${t("focus.cue.reps",{reps})}`,
+    headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${esc(loadText)}</b>`),
+    sub:t("focus.cue.reps",{reps})}}
 
 /** How a logged set reads back in the ledger. */
 function focusRowVals(ex,n,r,draft,prev,effortMode){
@@ -6523,59 +6551,61 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
     :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
   return{load,reps:String(repsVal),eff}}
 
-function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false,fresh=false}){
-  const cells=`<span class="ledger__n">${n}</span><span class="ledger__load">${esc(vals.load)}</span><span>${esc(vals.reps)}</span>`+
-    `<span class="${effortMode?"ledger__eff":""}">${esc(vals.eff)}</span>`+
-    `<span class="ledger__check" aria-hidden="true"></span>`;
-  return `<button type="button" class="ledger__row${editing?" is-editing":""}${fresh?" is-fresh":""}"${peek?dead()
-    :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}`+
-    `${editing?' aria-current="true"':""}>${cells}</button>`}
+/** The effort window a set that has not been logged is aimed at. These are the
+ *  program's own parameters and the lifter's RIR ceiling, formatted — the same
+ *  figures the exercise line above shows. */
+function focusTargetEffort(ex){
+  if(isEffortMode())return effortLabel(targetEffort());
+  const p=progressionForExercise(ex)?.strategy?.params||{};
+  const lo=p.targetRirMin!=null?p.targetRirMin:p.anchorTargetRirMin!=null?p.anchorTargetRirMin:0;
+  const hi=p.targetRirMax!=null?p.targetRirMax:p.anchorTargetRirMax!=null?p.anchorTargetRirMax:state.settings.rirHigh;
+  return `${fmt(lo)}–${fmt(hi)}`}
 
-/** The upper ledger: last session before the first set lands, the session's own
- *  rows after that, with older rows folded away once the list gets long. */
+/** The previous session's matching set, as the second line of a ledger row. */
+function focusPrevLine(x,effortMode){
+  if(!x)return"";
+  const load=fmtLoad(x.load),reps=x.reps;
+  if(x.rir==null||x.rir==="")return t("focus.prev_line_norir",{load,reps});
+  return effortMode?t("focus.prev_line_effort",{load,reps,effort:effortLabel(effortForRir(x.rir))})
+    :t("focus.prev_line",{load,reps,rir:fmt(x.rir)})}
+
+/** What the lifter has confirmed on a set. `touched.effort` also covers RIR. */
+function shelfTouched(exId,n){
+  const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
+  const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
+  return draft.sets[setId]?.touched||{}}
+
+/** The ledger: one row per set. Logged sets read back and reopen on a tap, the
+ *  set being worked on (or corrected) wears the open ring, and the sets still
+ *  to do show their targets in soft ink. The second line of every row is the
+ *  previous session's matching set. */
 function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
-  const head=(check=true)=>`<div class="ledger__head"><span>${esc(t("log.set"))}</span><span>${loadHeadHtml()}</span>`+
-    `<span>${esc(t("log.reps"))}</span><span>${effortMode?esc(t("log.effort")):"RIR"}</span>`+
-    (check?`<span></span>`:"")+`</div>`;
-  // What the columns mean, and how far the session has got, stay put while the
-  // rows underneath them scroll.
-  const top=inner=>`<div class="ledger__top">${inner}</div>`;
-  const done=focusDoneSets(ex);
-  if(!done.length){
-    if(prev.length){
-      const rows=prev.map(x=>{
-        const eff=effortMode?effortLabel(effortForRir(x.rir)):fmt(x.rir);
-        return `<div class="ledger__row is-past"><span class="ledger__n">${x.set}</span>`+
-          `<span class="ledger__load">${esc(fmtLoad(x.load))}</span><span>${esc(String(x.reps))}</span>`+
-          `<span class="${effortMode?"ledger__eff":""}">${esc(String(eff))}</span></div>`}).join("");
-      return top(`<p class="ledger__lab">${esc(t("focus.last_session"))}</p>${head(false)}`)+rows}
-    return top(head())+`<div class="ledger__row is-empty"><span class="ledger__empty">${esc(t("focus.ledger.empty"))}</span>`+
-      `<span class="ledger__dash" aria-hidden="true">—</span><span></span></div>`}
+  const active=focusActiveSet(ex);
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
-  // The set that just landed is drawn once as fresh, so it arrives instead of
-  // appearing. Folding always keeps the newest rows, so it is never hidden.
   const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
-  const open=focusUnfolded.has(ex.id);
-  const folds=done.length>=FOCUS_FOLD_MIN&&!open;
-  const hidden=folds?done.slice(0,done.length-FOCUS_FOLD_KEEP):[];
-  const shown=folds?done.slice(done.length-FOCUS_FOLD_KEEP):done;
-  const rowsFor=list=>list.map(n=>focusLedgerRow(ex,n,focusRowVals(ex,n,r,draft,prev,effortMode),
-    {effortMode,editing:n===editN,peek,fresh:n===freshN})).join("");
-  // A long session leads with a count and a run of ticks, so the sets that
-  // scrolled behind the fold are still accounted for at a glance.
-  const summary=done.length>=FOCUS_FOLD_MIN
-    ?`<p class="ledger__count">${esc(t("focus.ledger.done_count",{n:done.length}))}</p>`+
-      `<div class="ledger__ticks" aria-hidden="true">${done.map(n=>`<span class="ledger__tick${n===freshN?" is-fresh":""}"></span>`).join("")}</div>`
-    :"";
-  let disclosure="";
-  if(done.length>=FOCUS_FOLD_MIN){
-    const span=open?done.slice(0,done.length-FOCUS_FOLD_KEEP):hidden;
-    const from=span[0],to=span.at(-1);
-    disclosure=`<button type="button" class="ledger__more"${peek?dead()
-      :` data-fold="${esc(ex.id)}" aria-controls="ledger_${esc(ex.id)}"`} aria-expanded="${open?"true":"false"}">`+
-      `<span>${esc(t(open?"focus.ledger.hide":"focus.ledger.show",{from,to}))}</span>`+
-      `<span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`}
-  return top(summary+head())+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
+  const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
+    `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span>`+
+    `<span class="fx-col">${effortMode?(peek?esc(t("log.effort")):term("Effort")):(peek?"RIR":term("RIR"))}</span></span></div>`;
+  const rows=[];
+  for(let n=1;n<=ex.sets;n++){
+    const key=`${ex.id}_${n}`;
+    const done=committed.has(key)&&n!==editN;
+    const open=n===active;
+    const vals=focusRowVals(ex,n,r,draft,prev,effortMode);
+    const prevLine=focusPrevLine(prev.find(x=>x.set===n),effortMode);
+    const touched=open||done?shelfTouched(ex.id,n):{};
+    const soft=field=>!done&&!(field==="rir"?touched.effort:touched[field])?" is-soft":"";
+    const rirText=open||done?vals.eff:focusTargetEffort(ex);
+    const cells=`<span class="ledgerline__idx">${done?`<span class="fx-check" aria-hidden="true"></span>`:n}</span>`+
+      `<span class="ledgerline__vals"><span class="fx-col${open||done?soft("load"):" is-soft"}" data-lv="load">${esc(vals.load||"—")}</span>`+
+      `<span class="fx-col${open||done?soft("reps"):" is-soft"}" data-lv="reps">${esc(vals.reps)}</span>`+
+      `<span class="fx-col${open||done?soft("rir"):" is-soft"}" data-lv="rir">${esc(rirText)}</span></span>`+
+      (prevLine?`<small class="ledgerline__prev">${esc(prevLine)}</small>`:"");
+    const cls=`ledgerline${prevLine?" ledgerline--two":""}${open?" ledgerline--open":""}${n===freshN?" is-fresh":""}`;
+    if(done)rows.push(`<button type="button" class="${cls}"${peek?dead()
+      :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}</button>`);
+    else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}</div>`)}
+  return head+`<div id="ledger_${esc(ex.id)}">${rows.join("")}</div>`}
 
 /** One value cell of the well: label, big value, hairline, and its steppers.
  *  `extra` rides along out of flow — the effort explainer, which floats over
@@ -6657,6 +6687,149 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     `<span class="focus-cue__text">${esc(cue.text)}</span></p>`+
     cursetHtml(ex,n,r,draft,prev,{peek})+action+`</div>`}
 
+/** The line under the exercise name: sets and reps, the effort window, and the
+ *  name of the strategy that sets the target. Read off the program's own
+ *  envelope; a slot with none is the range it always was. */
+function focusExMeta(ex){
+  const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
+  const sets=+p.workingSets||+ex.sets||1;
+  const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
+  const names={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
+    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff"),
+    manual:t("program.progression.strategy.manual")};
+  const name=names[id]||t("program.progression.strategy.unsupported");
+  let line;
+  if(id==="rep_goal")line=t("focus.exmeta.goal",{sets,goal:p.repGoal,rmin,rmax});
+  else if(id==="effort_target")line=t("focus.exmeta.effort",{sets,reps:p.targetReps,rmin,rmax});
+  else if(id==="anchor_backoff")line=t("focus.exmeta.anchor",{amin:p.anchorRepMin,amax:p.anchorRepMax,n:p.backoffSets,bmin:p.backoffRepMin,bmax:p.backoffRepMax});
+  else if(id==="manual"||!names[id])line=t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max});
+  else line=t("focus.exmeta.range",{sets,min:p.repMin!=null?p.repMin:ex.min,max:p.repMax!=null?p.repMax:ex.max,rmin,rmax});
+  return `${line} · ${name}`}
+
+/* ---- The shelf ----
+   The shelf replaces the input well as a presentation over the same DraftV2
+   commands. It holds nothing of its own that is saved: the three fields show
+   the values of the active set, the pads nudge the selected one through the
+   `.stepbtn` handler, a typed value goes through the same input handler as
+   ever, and the one action is the `.saveset` handler. Which field is selected,
+   and whether it is a live input, is this transient state alone. */
+let shelfUi={key:"",field:"reps",editing:false};
+const shelfFor=key=>shelfUi.key===key?shelfUi:{key,field:"reps",editing:false};
+const shelfSelect=(key,field,editing=false)=>{shelfUi={key,field,editing}};
+/** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
+const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):String(raw??"")};
+/** The load step the pads move by, in the unit the lifter sees. */
+function shelfLoadStep(){
+  const kg=parseDec(state.settings.minJump)||2.5;
+  return fmt(Math.round(toDisplay(kg)*10)/10)}
+
+function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
+  const key=`${ex.id}_${n}`,sel=ui.field===id;
+  const effortField=id==="rir"&&effortMode;
+  const live=sel&&ui.editing&&!effortField&&!peek;
+  const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps")
+    :effortField?t("log.effort"):t("stats.table.rir");
+  const name=`${label}, ${t("focus.set_label",{n})}`;
+  const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.rirVal;
+  const shown=effortField?effortLabel(vals.effortVal):id==="reps"?String(vals.repsVal??""):shelfText(raw);
+  const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
+  const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
+  const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
+  if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`;
+  const hooks=effortField
+    ?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" aria-describedby="effpop_${esc(key)}"`:"";
+  const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}>${face}</button>`;
+  // The input is always in the document, so the draft handlers and validation
+  // have one element to read and flag; it only takes the field's place on a
+  // second tap, and stays out of the tab order and the accessibility tree until then.
+  const input=effortField?"":`<input class="shelf__input" data-k="${esc(key)}_${id}" type="text" inputmode="${id==="reps"?"numeric":"decimal"}" `+
+    `enterkeyhint="${id==="rir"?"done":"next"}" aria-label="${esc(name)}" autocomplete="off" value="${esc(String(raw??""))}"`+
+    `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
+  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(label)}</span>`:"";
+  return `<div class="${cls}" data-field="${id}" data-set="${esc(key)}">${button}${input}${caption}${effortField?effortPopHtml(key,vals.effortVal):""}</div>`}
+
+function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
+  const key=`${ex.id}_${n}`,id=ui.field;
+  const pad=(dir,text,{attrs="",off=false}={})=>`<button type="button" class="stepbtn shelf__pad"${peek?dead()
+    :`${attrs} data-dir="${dir}"${off?" disabled":""}`}>${esc(text)}</button>`;
+  const sign=dir=>dir>0?"+":"−";
+  if(id==="rir"&&effortMode){
+    const at=Math.max(0,EFFORT_STEPS.indexOf(vals.effortVal));
+    return [-1,1].map(dir=>{const to=EFFORT_STEPS[at+dir],word=effortLabel(to||vals.effortVal);
+      return pad(dir,t("focus.shelf.pad_effort",{sign:sign(dir),effort:word}),{attrs:` data-effstep="${esc(key)}"`,off:!to})}).join("")}
+  const attrs=` data-step="${esc(key)}_${id}"`;
+  return [-1,1].map(dir=>pad(dir,id==="load"?t("focus.shelf.pad_load",{sign:sign(dir),step:shelfLoadStep(),unit:unitLabel()})
+    :id==="reps"?t("focus.shelf.pad_reps",{sign:sign(dir)}):t("focus.shelf.pad_rir",{sign:sign(dir)}),{attrs})).join("")}
+
+/** The shelf: the fields of the active set, the pads for the selected one and
+ *  the single action that commits it — or, once the exercise is complete, the
+ *  step the lifter takes next. */
+function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
+  const n=focusActiveSet(ex);
+  if(!n){
+    const done=focusDoneSets(ex).length;
+    const title=allDone?t("focus.wo_done_title"):t("focus.ex_done_title");
+    const sub=allDone
+      ?t("focus.wo_done_sub",{n:focusList().length,lifts:tp(focusList().length,"lift")})
+      :t("focus.ex_done_sets",{n:done,sets:tp(done,"logged set")});
+    const cta=allDone||!hasNext
+      ?`<button type="button" class="btn btn--cta btn--noarrow"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
+      :`<button type="button" class="btn btn--cta"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
+    return `<div class="focus-shelf workshelf is-done" role="region" aria-label="${esc(title)}">`+
+      `<div class="focus-done"><p class="focus-done__title">${esc(title)}</p><p class="focus-done__sub">${esc(sub)}</p></div>`+cta+`</div>`}
+  const effortMode=isEffortMode();
+  const key=`${ex.id}_${n}`,ui=shelfFor(key);
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id);
+  const vals=setFieldVals(ex,n,r,draft,prev);
+  const touched=shelfTouched(ex.id,n);
+  const label=editing?t("log.save_set_aria",{n}):t("focus.shelf.log_set",{n});
+  const fields=["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
+  return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
+    `<div class="shelf__fields">${fields}</div>`+
+    `<div class="shelf__pads">${shelfPadsHtml(ex,n,ui,vals,{effortMode,peek})}</div>`+
+    `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`}
+
+/** Rebuild the live card's shelf after the selection, an edit or an effort step
+ *  changed what it shows, then put focus where the lifter was. The ledger and
+ *  the cue above it are untouched, so nothing scrolls or replays. */
+function refreshShelf({focus=null}={}){
+  const card=focusCard();if(!card||!activeWorkoutDraft)return false;
+  const base=prog.find(card.dataset.ex);if(!base)return false;
+  const ex=sessionExercise(base),draft=hydrateWorkoutDraft(),fl=focusList();
+  const at=Math.max(0,fl.findIndex(e=>e.id===ex.id));
+  const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
+  const old=card.querySelector(".focus-shelf");if(!old)return false;
+  old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
+  bindWorkout();
+  // The first-set cue points at the shelf's action; the rebuilt action is the same control.
+  if(activeGuideId&&activeGuideAnchor&&!activeGuideAnchor.isConnected){
+    const anchor=guideAnchor(guideDefinition(activeGuideId));if(anchor)activeGuideAnchor=anchor}
+  if(focus){
+    const shelf=card.querySelector(".focus-shelf");
+    const el=focus.startsWith("pad:")?shelf?.querySelector(`.shelf__pad[data-dir="${focus.slice(4)}"]`)
+      :shelf?.querySelector(`.shelf__field.is-editing .shelf__input[data-k$="_${focus}"]`)||shelf?.querySelector(`[data-shelf-field="${focus}"]`);
+    if(el){try{el.focus({preventScroll:true})}catch{}if(el.matches("input"))el.select()}}
+  return true}
+
+/** Keep the shelf and the open ledger row reading what a field now holds. */
+function syncShelfField(input){
+  const field=input.closest(".shelf__field");if(!field)return;
+  const id=field.dataset.field;
+  const text=id==="reps"?String(input.value||""):shelfText(input.value);
+  const val=field.querySelector(".shelf__val");if(val)val.textContent=text||"—";
+  field.classList.remove("is-untouched");
+  const cell=input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`);
+  if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
+
+/** A field the draft flags must be seen, not just focused: bring its input into the shelf. */
+function shelfReveal(input){
+  if(!input?.matches?.(".shelf__input"))return input;
+  const field=input.closest(".shelf__field");
+  if(!field||field.classList.contains("is-editing"))return input;
+  shelfSelect(field.dataset.set,field.dataset.field,true);
+  if(!refreshShelf())return input;
+  return $(`#workout .shelf__input[data-k="${CSS.escape(input.dataset.k)}"]`)||input}
+
 /** A whole focus card. `peek` renders the inert copy that rides in from the
  *  side during a swipe: the same card, down to every control and the space it
  *  takes, so nothing pops in or reflows when the copy becomes the live one.
@@ -6664,7 +6837,7 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
  *  tab stop — and no `data-k` field, which would duplicate the draft keys the
  *  live card owns. */
 function focusCardHtml(ex,r,draft,prev,opts){
-  const{peek=false,hasNext=true,allDone=false,showSkip=true}=opts;
+  const{peek=false,hasNext=true,allDone=false,nextName=""}=opts;
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
   const deltaText=deltaPreviewFor(ex,draft);
@@ -6672,35 +6845,32 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const name=perf||ex.name;
   const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
     `${peek?dead():` data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}"`}>${esc(name)}</button></h3>`;
-  const setNo=n||ex.sets;
-  // The counter only ticks when it actually moved: the last set of an exercise
-  // leaves it on the total it already read.
-  const setofFresh=n&&focusIsFresh(ex,peek)?" is-fresh":"";
   const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
-  const tools=`<div class="focus-ex__tools">`+
-    `<button type="button" class="focus-tool${noteVal?" has-note":""}"`+
-    `${peek?dead():` data-exnote-open="${esc(ex.id)}" aria-label="${esc(t("focus.note_aria",{name}))}"`}>`+
-    `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
-    `<button type="button" class="focus-tool"`+
-    `${peek?dead():` data-exactions-open="${esc(ex.id)}" aria-label="${esc(t("focus.actions_aria",{name}))}"`}>`+
-    `<span class="icon-mask icon-mask--sm icon-mask--overflow" aria-hidden="true"></span></button>`+
-    (showSkip?`<button type="button" class="focus-tool ex__skip"`+
-      `${peek?dead():` data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name}))}"`}>`+
-      `<span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`:"")+
-    `</div>`;
+  const note=noteVal?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(noteVal)}</span></p>`:"";
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
+  const cue=n?focusCue(ex,n,r,draft,prev,editing):null;
+  const mark=cue&&(cue.move==="up"||cue.move==="down")
+    ?`<span class="verdictmark verdictmark--${cue.move} fx-cue__mark"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`
+    :`<span class="fx-cue__mark" aria-hidden="true"></span>`;
+  const why=r.status!=="new"||inSessionNote(ex,draft)
+    ?`<button type="button" class="text-link focus-ex__why fx-cue__why"${peek?dead()
+      :` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"";
+  const cancel=cue?.kind==="edit"
+    ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
+  const cueHtml=cue?`<div class="fx-cue is-${cue.kind}">${mark}<p class="fx-cue__l1">${cue.headHtml}</p>`+
+    (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+why+cancel+`</div>`:"";
+  const nextRow=hasNext&&nextName
+    ?`<button type="button" class="fx-next"${peek?dead():" data-fnextrow"}><span>${esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(nextName)}</b>`)}</span>`+
+      `<span class="icon-mask icon-mask--sm icon-mask--chev-down fx-next__chev" aria-hidden="true"></span></button>`:"";
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
-    `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}"><div class="fcard__head"><div class="focus-ex__eyebrow">`+
-    `<span class="focus-ex__muscle">${esc(muscleListLabel(ex.primary))}</span>`+
-    `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
-    `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
-    `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
-    (r.status!=="new"||inSessionNote(ex,draft)?`<button type="button" class="text-link focus-ex__why"`+
-      `${peek?dead():` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"")+
-    `</div>${tools}</div></div>`+
+    `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}">`+
+    `<div class="fx-head">${exerciseThumb(exerciseRefEntry(ex),{size:"sm"})}<div class="fx-head__text">${nameHtml}`+
+    `<p class="focus-ex__meta">${esc(focusExMeta(ex))}</p></div></div>`+
+    cueHtml+note+
     `<div class="fcard__ledger"><p class="delta-prev${deltaText?"":" hidden"}" aria-live="polite">${esc(deltaText)}</p>`+
-    `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div></div>`+
-    focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
+    `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+nextRow+`</div>`+
+    focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
  *  screen in its own slot. Dragging — or tapping through — moves all three
@@ -6708,16 +6878,17 @@ function focusCardHtml(ex,r,draft,prev,opts){
 function focusDeckHtml(ex,r,draft,prev,{fl,at}){
   const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
-  // A neighbour is rendered exactly as it will be once it lands: same well,
-  // same tools, same skip — the swipe is a move, not a rebuild.
+  const nameAt=i=>fl[i]?(substituted.get(fl[i].id)||fl[i].name):"";
+  // A neighbour is rendered exactly as it will be once it lands: same ledger,
+  // same shelf — the swipe is a move, not a rebuild.
   const peek=(i,side)=>fl[i]
     ? (()=>{const active=sessionExercise(fl[i]);return slot(focusCardHtml(active,recommendation(active),draft,last(active),
-        {peek:true,hasNext:i<fl.length-1,allDone,showSkip:i<fl.length-1}),side)
+        {peek:true,hasNext:i<fl.length-1,allDone,nextName:nameAt(i+1)}),side)
       })()
     : "";
   return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(t("focus.deck_aria"))}"><div class="deck__track" id="focusTrack">`+
     peek(at-1,"prev")+
-    slot(focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,showSkip:at<fl.length-1}))+
+    slot(focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,nextName:nameAt(at+1)}))+
     peek(at+1,"next")+
     `</div></div>`}
 function renderWorkout(){
@@ -6737,6 +6908,7 @@ function renderWorkout(){
   // it has been written, so the next render draws the same card at rest.
   focusLogged=null;
   bindWorkout();
+  updateWorkoutHeader(fl,at);
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
   updateSessionBanner();
@@ -6748,6 +6920,32 @@ function renderWorkout(){
   queueMicrotask(()=>maybeShowContextualGuides(["first-set"]));
   queueMicrotask(()=>maybeShowContextualGuides(["focus-utilities"]));
 }
+/** The header's centre: which day, and where in it. The week the day belongs to
+ *  is Today's to say, so the line carries no second clause. */
+function updateWorkoutHeader(fl,at){
+  const title=$("#woDayTitle");
+  if(title)title.textContent=fl.length?t("focus.head.day_ex",{day:dayLabel(day),n:at+1,m:fl.length}):dayLabel(day);
+  syncWorkoutMore()}
+/** ⋯ is the current exercise's actions. Where the device offers voice input and
+ *  the lifter has turned it on, the same button opens a short menu that holds
+ *  both; the button says which it is. */
+function workoutMoreIsMenu(){const voice=$("#voiceBtn");return !!voice&&!voice.classList.contains("hidden")}
+function syncWorkoutMore(){
+  const b=$("#woOverflowBtn");if(!b)return;
+  if(workoutMoreIsMenu()){
+    b.setAttribute("aria-haspopup","true");b.setAttribute("aria-controls","woOverflow");
+    if(!b.hasAttribute("aria-expanded"))b.setAttribute("aria-expanded","false")}
+  else{b.setAttribute("aria-haspopup","dialog");b.setAttribute("aria-controls","exActionsSheet");b.removeAttribute("aria-expanded")}}
+function openWorkoutMore(){
+  if(workoutMoreIsMenu()){
+    const menu=$("#woOverflow");
+    if(menu&&!$("#woExActions")){
+      const item=document.createElement("button");
+      item.type="button";item.id="woExActions";item.className="wo-overflow__item";item.textContent=t("ex.actions.title");
+      item.onclick=()=>{closeWorkoutOverflow();const card=focusCard();if(card)openExActionsSheet(card.dataset.ex)};
+      menu.prepend(item)}
+    toggleWorkoutOverflow();return}
+  const card=focusCard();if(card)openExActionsSheet(card.dataset.ex)}
 /** After a render, bring every card in the deck to the row that matters — the
  *  peeks included, so a neighbour rides in already showing what it will show
  *  once it lands. The card's own height comes from the layout, so nothing is
@@ -6760,19 +6958,12 @@ function sizeFocusCard(card){
   if(!card)return;
   const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
   card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
-  const ledger=card.querySelector(".fcard__ledger");if(!ledger)return;
-  const scrolls=ledger.scrollHeight>ledger.clientHeight+1;
-  ledger.classList.toggle("is-scrollable",scrolls);
-  // The newest logged row is the one worth showing; before the first set lands
-  // the top of the ledger is where last session reads from.
-  if(!scrolls)return;
-  const rows=ledger.querySelectorAll(".ledger__row:not(.is-past)");
-  const anchor=ledger.querySelector(".ledger__row.is-editing")
-    ||(rows.length?ledger.lastElementChild:null);
-  if(!anchor){ledger.scrollTop=0;return}
-  const gap=anchor.getBoundingClientRect().bottom-ledger.getBoundingClientRect().bottom;
-  if(gap>0||anchor.getBoundingClientRect().top<ledger.getBoundingClientRect().top)
-    ledger.scrollTop=Math.max(0,ledger.scrollTop+gap+8)}
+  // The context region scrolls as one: keep the row being worked on in view.
+  const context=card.querySelector(".fcard__context");
+  const open=context?.querySelector(".ledgerline--open");if(!open)return;
+  const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
+  if(row.bottom>box.bottom)context.scrollTop+=row.bottom-box.bottom+8;
+  else if(row.top<box.top)context.scrollTop=Math.max(0,context.scrollTop-(box.top-row.top)-8)}
 
 async function refreshAfterCommittedEdit(row){
   if(!row?.dataset.set||!committed.has(row.dataset.set))return{status:"unchanged"};
@@ -6797,7 +6988,7 @@ function clearFieldInvalid(root){
 function applyFieldError(res){
   if(!res||res.ok)return false;
   const el=res.el;
-  if(el){el.setAttribute("aria-invalid","true");try{el.focus()}catch{}}
+  if(el){const live=shelfReveal(el)||el;live.setAttribute("aria-invalid","true");try{live.focus()}catch{}}
   toast(t(res.error?.key||"validation.load"));
   return true}
 function applyDraftIssue(issues){
@@ -6822,12 +7013,13 @@ function applyDraftIssue(issues){
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
-  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".curset"),target=draftTargetFromKey(i.dataset.k);
+  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".shelf__field"),target=draftTargetFromKey(i.dataset.k);
     if(!activeWorkoutDraft||!target?.field)return;
     row?.classList.remove("is-suggested");
     const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
     if(result.status!=="applied")return;
+    syncShelfField(i);
     updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);await refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
@@ -6867,7 +7059,6 @@ function bindWorkout(){
       inp.value=fmtPlain(toDisplay(nextKg));
     }
     await inp.oninput?.()});
-  $w(".ex__skip").forEach(b=>b.onclick=()=>applySkipToggle(b.dataset.skip));
   const stepEffort=async(key,dir)=>{
     const el=$(`[data-effspin="${key}"]`);if(!el)return;
     const i=Math.max(0,EFFORT_STEPS.indexOf(el.dataset.e));
@@ -6877,33 +7068,42 @@ function bindWorkout(){
     setEffortPick(key,next);
     const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
-    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);refreshAfterCommittedEdit(el.closest(".curset"))};
+    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);refreshAfterCommittedEdit(el.closest(".shelf__field"))};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
   $w("[data-effspin]").forEach(el=>{
-    // Tapping the word asks what it means; the ± buttons beside it change it.
-    el.onclick=()=>toggleEffortPop(el.dataset.effspin);
+    // The tap belongs to the field handler (select, then explain); the arrow
+    // keys step the word the way the pads do.
     el.onkeydown=e=>{
-      if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){e.preventDefault();toggleEffortPop(el.dataset.effspin);return}
       if(e.key==="Escape"){closeEffortPop();return}
       const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
       const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
       if(!step&&jump==null)return;
       e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
+  $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
+    const key=b.dataset.set,id=b.dataset.shelfField,ui=shelfFor(key);
+    const effortField=id==="rir"&&isEffortMode();
+    // A second tap on the selected field opens it: a typed value, or the word's explainer.
+    if(ui.field===id&&effortField){toggleEffortPop(key);return}
+    if(ui.field===id&&!ui.editing){shelfSelect(key,id,true);refreshShelf({focus:id});return}
+    closeEffortPop();shelfSelect(key,id,false);refreshShelf({focus:id})});
   $w(".ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
   {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
     if(progEl){progEl.classList.remove("hidden");
-      progEl.innerHTML=`<div class="wo-progress__top">`+
-        `<button type="button" class="focusnav" id="woPrev" aria-label="${esc(t("focus.prev_ex"))}"${at<=0?" disabled":""}>‹</button>`+
-        `<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
-        `<button type="button" class="focusnav" id="woNext" aria-label="${esc(t("focus.next_ex"))}"${at>=fl.length-1?" disabled":""}>›</button></div>`+
-        `<div class="segbar segbar--ex" data-progress-dimension="exercise-set" data-progress-scope="workout-exercise-order">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
-      $("#woPrev").onclick=()=>focusAnimateTo(-1);
-      $("#woNext").onclick=()=>focusAnimateTo(1)}
+      // The segments are the visible route between exercises (with the Next row
+      // and the swipe); the live region still says which exercise this is.
+      progEl.innerHTML=`<span class="visually-hidden">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</span>`+
+        `<div class="segbar segbar--ex" data-progress-dimension="exercise-set" data-progress-scope="workout-exercise-order">`+
+        fl.map((_,i)=>i===at
+          // The current exercise is where the lifter already is: its segment is a mark, not a control.
+          ?`<span class="segbar__seg is-current" data-focusgo="${i}" aria-hidden="true"><span class="segbar__bar"></span></span>`
+          :`<button type="button" class="segbar__seg${i<at?" is-done":""}" data-focusgo="${i}" `+
+            `aria-label="${esc(t("today.exercise_of",{n:i+1,m:fl.length}))}"><span class="segbar__bar" aria-hidden="true"></span></button>`).join("")+`</div>`;
+      progEl.querySelectorAll("button[data-focusgo]").forEach(b=>b.onclick=()=>focusJump(+b.dataset.focusgo))}
     const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
-    $w("[data-fnext]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
-    // Tap a logged row to reopen that set in the well, with a way back out.
+    $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
+    // Tap a logged row to reopen that set in the shelf, with a way back out.
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
@@ -6921,12 +7121,7 @@ function bindWorkout(){
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
       const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
       if(restored.status!=="applied")return;focusEdit=null;renderWorkout()});
-    $w("[data-fold]").forEach(b=>b.onclick=()=>{
-      const id=b.dataset.fold;
-      focusUnfolded.has(id)?focusUnfolded.delete(id):focusUnfolded.add(id);
-      renderWorkout()});
-    $w("[data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen));
-    $w("[data-exactions-open]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.exactionsOpen))}
+    }
   updateFocusChrome();
 }
 
@@ -8618,7 +8813,7 @@ async function applyCommandText(text){
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
   return true}
 window.__repforgeApplyCommandText=applyCommandText;
-function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled));syncWorkoutMore()}
 function startVoiceInput(){
   if(!SR)return;const rec=new SR();rec.lang=I18N?I18N.speechLang():"en-US";rec.interimResults=false;rec.maxAlternatives=1;
   rec.onresult=e=>{const said=e.results[0]?.[0]?.transcript;if(said)applyCommandText(said)};
@@ -16764,10 +16959,11 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   // the cue is a flex sibling with no room and collapses into a vertical
   // sliver of one word per line. Focus's own controls likewise need the whole
   // owning surface as their insertion point so a cue never joins a fixed row.
-  const placement=anchor.closest(".focus-well")||anchor.closest(".wo-head")||
+  const shelf=anchor.closest(".focus-shelf");
+  const placement=shelf||anchor.closest(".wo-head")||
     anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry-feature")||
     anchor.closest("#statsSeg")||anchor;
-  placement.insertAdjacentElement("afterend",cue);
+  placement.insertAdjacentElement(shelf?"beforebegin":"afterend",cue);
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
   activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
   const stored=guideStored(id);
@@ -17073,7 +17269,7 @@ function init(){
   // opens the day that follows the one already done rather than repeating it.
   const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
-  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();toggleWorkoutOverflow()};
+  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();openWorkoutMore()};
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
   // iOS does not reliably bubble click to document, so touchstart backs it up.
   const dismissOverflow=e=>{

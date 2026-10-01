@@ -5770,35 +5770,10 @@
       ]
     },
     {
-      "id": "wonext",
-      "selector": "#woNext",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
-    {
       "id": "wooverflowbtn",
       "selector": "#woOverflowBtn",
       "roles": {
-        "control": "disclosure"
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [
@@ -5809,37 +5784,9 @@
         "hover",
         "pressed",
         "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
-    {
-      "id": "woprev",
-      "selector": "#woPrev",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [
         "disabled"
       ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Opens the current exercise's actions sheet without committing training state; where voice input is on, the same button opens a short menu, which the catalog never shows.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
@@ -6146,7 +6093,9 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "retained until R3e: the shelf replaced the input well in R3c, and the legacy well is no longer rendered by any state. R3e deletes this row with the well."
     },
     {
       "id": "daypick-row-not-id",
@@ -6442,68 +6391,14 @@
       "id": "exercise-focus",
       "selector": ".exercise--focus",
       "roles": {
-        "elevation": "floating"
+        "elevation": "flat"
       },
-      "variant": "movable-focus-card",
+      "variant": null,
       "facets": [],
       "states": [
         "default"
       ],
-      "rationale": "The active exercise moves as one layer; inner training sections remain flat.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
-    {
-      "id": "focus-tool-ex-skip-not-id",
-      "selector": ".focus-tool.ex__skip:not([id])",
-      "roles": {
-        "control": "selection"
-      },
-      "variant": "focus-icon",
-      "facets": [
-        "icon-only"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
-    {
-      "id": "focus-tool-not-ex-skip-not-id",
-      "selector": ".focus-tool:not(.ex__skip):not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": "focus-icon",
-      "facets": [
-        "icon-only"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "The active exercise is flat paper that moves as one layer when swiped; its ledger and cue are flat content and only the shelf below floats.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
@@ -6532,7 +6427,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "retained until R3e: the shelf replaced the input well in R3c, and the legacy well is no longer rendered by any state. R3e deletes this row with the well."
     },
     {
       "id": "guide-cue-dismiss-not-id",
@@ -6636,28 +6533,6 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/review"
-      ]
-    },
-    {
-      "id": "ledger-row-is-editing-not-id",
-      "selector": ".ledger__row.is-editing:not([id])",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction"
       ]
     },
     {
@@ -7427,6 +7302,27 @@
       ]
     },
     {
+      "id": "text-link-fx-cue-cancel-not-id",
+      "selector": ".text-link.fx-cue__cancel:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "owner": "plan-064/r3c",
+      "catalogStates": [
+        "workout/correction"
+      ]
+    },
+    {
       "id": "text-link-recblock-why-not-id",
       "selector": ".text-link.recblock__why:not([id])",
       "roles": {
@@ -7873,7 +7769,7 @@
     },
     {
       "id": "ledgerline",
-      "selector": ".ledgerline",
+      "selector": "div.ledgerline:not(.ledgerline--open)",
       "roles": {
         "elevation": "flat",
         "boundary": "decorative"
@@ -7883,14 +7779,14 @@
       "states": [
         "default"
       ],
-      "rationale": "Ledger sets are flat read-only data on one decorative hairline per break; opening or correcting a set is a separate action role added by the slice that renders it.",
+      "rationale": "Ledger sets still to do are flat read-only data on one decorative hairline per break, in soft ink with the previous session's matching set as a second line. A logged set is its own row (ledgerline-done) because tapping it reopens the set; the open or corrected row is ledgerline-open (OG-4).",
       "owner": "plan-064/r1a",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1a; first rendered by R3c (Focus ledger), then R3h (session summary). The open or corrected row is the separate ledgerline-open row (OG-4).",
       "catalogStates": [
-        "workout/focus",
         "workout/correction",
-        "session/summary"
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
       ]
     },
     {
@@ -7930,13 +7826,14 @@
       "states": [
         "default"
       ],
-      "rationale": "The open or corrected ledger row is a selected child on the flat ledger: well ground and a 2px inset boundary in the quiet selected boundary (ink), no outward shadow. The ring is the selected cue and reaches 3:1 on the well and on the page ground in both themes (OG-4).",
+      "rationale": "The open or corrected ledger row is a selected child on the flat ledger: a well ground and a 2px edge in the quiet selected boundary (ink), no outward shadow. The edge is drawn as the row's border so the rendered-role audit can measure it; it reaches 3:1 on the well and on the page ground in both themes (OG-4).",
       "owner": "plan-064/r1b",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3c (Focus ledger and correction). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
       "catalogStates": [
+        "workout/correction",
         "workout/focus",
-        "workout/correction"
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
       ]
     },
     {
@@ -8030,10 +7927,148 @@
       ],
       "rationale": "The workout shelf keeps the set-logging actions reachable under Focus: persistent-action with a shallow top edge and the persistent depth, the existing prominent top radius, and no second raised card inside. Within it the field and adjustment roles take the drawn grounds (well and page ground); fields, pads and the primary action are separate rows added by the slice that renders them (OG-4).",
       "owner": "plan-064/r1b",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3c (Focus shelf). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
       "catalogStates": [
-        "workout/focus"
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "shelf-fieldbtn-not-id",
+      "selector": ".shelf__fieldbtn:not([id])",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": "workout-shelf-field",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Chooses which field of the active set the pads act on, without committing data. The selected field carries the 2px quiet selected boundary (ink); its ground is the shelf's well (OG-4).",
+      "owner": "plan-064/r3c",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "shelf-input-not-id",
+      "selector": ".shelf__input:not([id])",
+      "roles": {
+        "control": "field"
+      },
+      "variant": "workout-shelf-field",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Accepts or edits an explicit value: the real input a second tap on the selected shelf field turns it into, under the draft key the input handlers read.",
+      "owner": "plan-064/r3c",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending interaction: the input is invisible and inert until the second tap on a selected field, and no catalog state taps twice. test/focus-mode.mjs opens it and checks it.",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "fx-next-not-id",
+      "selector": ".fx-next:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to the next exercise without committing training state: the visible route beside the exercise bar and the swipe.",
+      "owner": "plan-064/r3c",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "woprogress-seg-not-id",
+      "selector": "#woProgress button.segbar__seg:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to its exercise without committing training state. The current exercise's segment is a mark, not a control; the bar inside each segment is the exercise-set progress mark.",
+      "owner": "plan-064/r3c",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "ledgerline-done-not-id",
+      "selector": "button.ledgerline:not([id])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": "ledger-data",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Reopens a logged set for correction: a reversible supporting action, since cancelling puts the set back as it was.",
+      "owner": "plan-064/r3c",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending interaction: a logged row is visible only after a set is logged with no sheet open, and every catalog state that logs a set either opens a sheet over the card or reopens that set for correction.",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
       ]
     },
     {
@@ -8725,7 +8760,11 @@
       "rationale": "The workout shelf is a full-width persistent-action surface under Focus with the existing prominent top radius, a shallow top edge and the persistent depth; its fields sit on the well and its pads on the page ground, scoped to the shelf. Selector-exact: no other surface inherits it by visual resemblance (OG-4).",
       "owner": "plan-064/r1b",
       "catalogStates": [
-        "workout/focus"
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
       ]
     }
   ],

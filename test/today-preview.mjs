@@ -196,7 +196,7 @@ async function main() {
       "Start workout creates DraftV2 through the production entry path");
     // Touch a field so the draft counts as in-progress and Today will show "Continue".
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-    const loadInput = page.locator("#workout .exercise.is-current .focus-well input[data-k$='_load']");
+    const loadInput = page.locator("#workout .exercise.is-current .focus-shelf input[data-k$='_load']");
     if (await loadInput.count()) {
       await loadInput.first().fill("40");
       await page.evaluate(() => window.__repforgeWorkoutDraft.flush());

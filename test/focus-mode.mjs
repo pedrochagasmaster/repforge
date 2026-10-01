@@ -2,11 +2,13 @@
 /**
  * Focus-mode state machine checks.
  *
- * One pass per state the definitive mockups document, driven through the real
+ * One pass per state the Direction D drawings document, driven through the real
  * UI: new exercise, returning exercise, mid-exercise logging in both RIR and
- * effort modes, folded history, editing a logged set, rest, the note sheet,
+ * effort modes, a long ledger, correcting a logged set, rest, the note sheet,
  * exercise completion, workout completion and swipe navigation — plus the
- * accessibility and viewport rules that hold across all of them.
+ * accessibility and viewport rules that hold across all of them. The shelf is a
+ * presentation over the same DraftV2 commands the old input well used; the
+ * checks here are about what it shows and how it behaves, not about storage.
  *
  * Run: node test/focus-mode.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -142,16 +144,16 @@ async function seedPrev(page, i, sets) {
   await reload(page);
 }
 
-/** Commit `n` sets on the focused exercise through the well, as a lifter would. */
+/** Commit `n` sets on the focused exercise through the shelf, as a lifter would. */
 async function logSets(page, n, { load = 100, reps = 4 } = {}) {
   let done = 0;
   for (let i = 0; i < n; i++) {
-    const loadInput = page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_load']");
+    const loadInput = page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_load']");
     if (!(await loadInput.count())) break;
     await loadInput.first().fill(String(load));
-    const repsInput = page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']");
+    const repsInput = page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']");
     if (await repsInput.count()) await repsInput.first().fill(String(reps));
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").first().click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").first().click();
     await page.waitForTimeout(140);
     done++;
   }
@@ -162,37 +164,39 @@ const cardState = (page) =>
   page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
     if (!card) return null;
-    const ledger = card.querySelector(".fcard__ledger");
-    const well = card.querySelector(".focus-well");
-    const cta = well?.querySelector(".btn--cta");
+    const context = card.querySelector(".fcard__context");
+    const shelf = card.querySelector(".focus-shelf");
+    const cta = shelf?.querySelector(".btn--cta");
     const cardBox = card.getBoundingClientRect();
+    const text = (el) => el?.textContent?.replace(/\s+/g, " ").trim() || "";
+    const rows = [...card.querySelectorAll("#ledger_" + CSS.escape(card.dataset.ex) + " .ledgerline")];
+    const logged = card.querySelectorAll(".ledgerline[data-editn]");
+    const lastLogged = logged[logged.length - 1];
     return {
-      setOf: card.querySelector(".focus-ex__setof")?.textContent?.trim() || "",
-      cueLabel: card.querySelector(".focus-cue__lab")?.textContent?.trim() || "",
-      cueText: card.querySelector(".focus-cue__text")?.textContent?.trim() || "",
-      ledgerRows: card.querySelectorAll(".ledger__row[data-editn]").length,
-      pastRows: card.querySelectorAll(".ledger__row.is-past").length,
-      emptyRow: !!card.querySelector(".ledger__row.is-empty"),
-      fold: card.querySelector(".ledger__more")?.textContent?.trim() || "",
-      foldExpanded: card.querySelector(".ledger__more")?.getAttribute("aria-expanded") || "",
-      count: card.querySelector(".ledger__count")?.textContent?.trim() || "",
-      editing: card.querySelectorAll(".ledger__row.is-editing").length,
+      cueL1: text(card.querySelector(".fx-cue__l1")),
+      cueL2: text(card.querySelector(".fx-cue__l2")),
+      cueKind: [...(card.querySelector(".fx-cue")?.classList || [])].find((c) => c.startsWith("is-")) || "",
+      meta: text(card.querySelector(".focus-ex__meta")),
+      rows: rows.length,
+      logged: logged.length,
+      queued: rows.filter((r) => !r.matches(".ledgerline--open") && !r.matches("[data-editn]")).length,
+      open: card.querySelectorAll(".ledgerline--open").length,
+      editing: card.querySelectorAll(".ledgerline--open[aria-current]").length,
+      prevLines: card.querySelectorAll(".ledgerline__prev").length,
       cancel: !!card.querySelector("[data-fcancel]"),
-      ctaText: cta?.textContent?.trim() || "",
+      ctaText: text(cta),
       ctaArrow: cta ? !cta.classList.contains("btn--noarrow") : null,
       ctaHeight: cta ? Math.round(cta.getBoundingClientRect().height) : 0,
-      doneTitle: card.querySelector(".focus-done__title")?.textContent?.trim() || "",
-      doneSub: card.querySelector(".focus-done__sub")?.textContent?.trim() || "",
-      wellTop: well ? Math.round(well.getBoundingClientRect().top) : 0,
-      wellHeight: well ? well.offsetHeight : 0,
+      doneTitle: text(card.querySelector(".focus-done__title")),
+      doneSub: text(card.querySelector(".focus-done__sub")),
+      nextRow: text(card.querySelector(".fx-next")),
+      shelfTop: shelf ? Math.round(shelf.getBoundingClientRect().top) : 0,
+      shelfHeight: shelf ? Math.round(shelf.getBoundingClientRect().height) : 0,
+      shelfBottom: shelf ? Math.round(shelf.getBoundingClientRect().bottom) : 0,
       spill: card.scrollHeight - card.clientHeight,
-      ledgerScrolls: ledger ? ledger.scrollHeight > ledger.clientHeight + 1 : false,
-      ledgerBottom: ledger ? Math.round(ledger.getBoundingClientRect().bottom) : 0,
-      lastRowBottom: (() => {
-        const rows = card.querySelectorAll(".ledger__row[data-editn]");
-        const last = rows[rows.length - 1];
-        return last ? Math.round(last.getBoundingClientRect().bottom) : 0;
-      })(),
+      contextScrolls: context ? context.scrollHeight > context.clientHeight + 1 : false,
+      contextBottom: context ? Math.round(context.getBoundingClientRect().bottom) : 0,
+      lastLoggedBottom: lastLogged ? Math.round(lastLogged.getBoundingClientRect().bottom) : 0,
       cardBottom: Math.round(cardBox.bottom),
       pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
@@ -217,17 +221,20 @@ async function main() {
   await setSetCount(page, 0, 5);
   await enterFocus(page, 0);
   let st = await cardState(page);
-  assert(st.emptyRow && st.ledgerRows === 0 && st.pastRows === 0,
-    "an exercise with no history shows an empty ledger row", JSON.stringify(st));
-  assert(/start/i.test(st.cueLabel) && /load/i.test(st.cueText),
+  assert(st.rows === 5 && st.logged === 0 && st.open === 1 && st.queued === 4 && st.prevLines === 0,
+    "an exercise with no history lists every set, the first one open, with no previous-session line", JSON.stringify(st));
+  assert(st.cueKind === "is-start" && /pick a load/i.test(st.cueL1),
     "the cue asks for a load to start with", JSON.stringify(st));
-  assert(st.ctaText.toLowerCase() === "log set" && st.ctaArrow === false,
-    "the commit action is arrowless", JSON.stringify(st));
+  assert(st.ctaText.toLowerCase() === "log set 1" && st.ctaArrow === false,
+    "the commit action names the set and is arrowless", JSON.stringify(st));
+  assert(/\d.*reps/.test(st.meta),
+    "the exercise line carries the sets, the reps and the strategy", JSON.stringify(st));
   assert(st.spill <= 1 && !st.pageScrollsX,
     "the card fits its own box and the page does not scroll sideways", JSON.stringify(st));
 
   // ---- 02 — returning exercise ----------------------------------------------
   phase("State 02: returning exercise with previous-session context");
+  await setSetCount(page, 1, 4);
   await seedPrev(page, 1, [
     { load: 100, reps: 10, rir: 2 },
     { load: 100, reps: 10, rir: 2 },
@@ -236,102 +243,86 @@ async function main() {
   ]);
   await enterFocus(page, 1);
   st = await cardState(page);
-  assert(st.pastRows === 4 && st.ledgerRows === 0,
-    "last session's four sets lead the ledger", JSON.stringify(st));
-  assert(/now/i.test(st.cueLabel) && /\d/.test(st.cueText),
-    "the cue names the load to work at", JSON.stringify(st));
-  const ledgerTopLabel = await page.evaluate(
-    () => document.querySelector("#workout .exercise.is-current .ledger__lab")?.textContent?.trim() || ""
-  );
-  assert(/last session/i.test(ledgerTopLabel),
-    "the previous session is labelled as such", ledgerTopLabel);
+  assert(st.prevLines === 4 && st.logged === 0 && st.open === 1,
+    "each of last session's four sets rides under its own row", JSON.stringify(st));
+  assert(st.cueKind === "is-now" && /\d/.test(st.cueL1) && /reps/.test(st.cueL2),
+    "the cue names the load to work at and the reps to aim for", JSON.stringify(st));
   const pastLayout = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const n = card.querySelector(".ledger__row.is-past .ledger__n");
-    const load = card.querySelector(".ledger__row.is-past .ledger__load");
-    const lab = card.querySelector(".curset__cell.is-load .curset__cell-lab");
+    const prev = [...card.querySelectorAll(".ledgerline__prev")].map((el) => el.textContent.replace(/\s+/g, " ").trim());
     const cardBox = card.getBoundingClientRect();
-    const nBox = n.getBoundingClientRect();
-    const loadBox = load.getBoundingClientRect();
-    const cols = getComputedStyle(card.querySelector(".ledger__row.is-past")).gridTemplateColumns.split(" ").filter(Boolean);
+    const idx = card.querySelector(".ledgerline .ledgerline__idx").getBoundingClientRect();
+    const heads = [...card.querySelectorAll(".ledgerline__head .fx-col")].map((s) => s.textContent.replace(/\s+/g, " ").trim());
+    // The head's labels and every row's values share their right edges.
+    const rightEdges = [...card.querySelectorAll(".ledgerline__head .fx-col, .ledgerline .ledgerline__vals > .fx-col")]
+      .reduce((acc, el) => { (acc[[...el.parentElement.children].indexOf(el)] ||= []).push(Math.round(el.getBoundingClientRect().right)); return acc; }, {});
     return {
-      inset: Math.round(nBox.left - cardBox.left),
-      loadLab: lab?.textContent?.replace(/\s+/g, " ").trim() || "",
-      unitInValue: !!card.querySelector(".curset__unit"),
-      pastLoad: load?.textContent?.trim() || "",
-      headLoad: [...card.querySelectorAll(".ledger__head > span")].map((s) => s.textContent.replace(/\s+/g, " ").trim())[1] || "",
-      pastCols: cols.length,
-      loadFits: load ? load.scrollWidth <= load.clientWidth + 1 : false,
-      loadWide: loadBox.width,
+      prev,
+      inset: Math.round(idx.left - cardBox.left),
+      heads,
+      aligned: Object.values(rightEdges).every((edges) => Math.max(...edges) - Math.min(...edges) <= 1),
+      unitInValue: [...card.querySelectorAll(".ledgerline .ledgerline__vals > .fx-col")].some((el) => /kg|lb/i.test(el.textContent)),
     };
   });
-  assert(pastLayout.inset >= 18,
+  assert(pastLayout.prev.every((line) => /^last 100 × (10|9) · RIR 2$/.test(line)),
+    "the previous session reads as a line of its own under the matching set", JSON.stringify(pastLayout));
+  assert(pastLayout.inset >= 12,
     "the set number sits in from the card edge", JSON.stringify(pastLayout));
-  assert(/load/i.test(pastLayout.loadLab) && /kg|lb/i.test(pastLayout.loadLab),
-    "the unit sits on the Load label", pastLayout.loadLab);
+  assert(/kg|lb/i.test(pastLayout.heads[0] || ""),
+    "the ledger load header carries the unit", JSON.stringify(pastLayout));
   assert(!pastLayout.unitInValue,
-    "the load figure is not followed by a unit", JSON.stringify(pastLayout));
-  assert(!/kg|lb/i.test(pastLayout.pastLoad),
-    "previous-session load cells are the number only", pastLayout.pastLoad);
-  assert(/load/i.test(pastLayout.headLoad) && /kg|lb/i.test(pastLayout.headLoad),
-    "the ledger load header carries the unit", pastLayout.headLoad);
-  assert(pastLayout.pastCols === 4 && pastLayout.loadFits,
-    "previous-session columns use the card width without cropping load", JSON.stringify(pastLayout));
+    "the load figures are numbers only", JSON.stringify(pastLayout));
+  assert(pastLayout.aligned,
+    "the head's labels and every row's values share their columns", JSON.stringify(pastLayout));
 
   // ---- 03 — mid-exercise with numeric RIR ------------------------------------
   phase("State 03: mid-exercise logging with numeric RIR");
   await boot(page);
   await setSetCount(page, 0, 5);
   await enterFocus(page, 0);
-  const wellBefore = (await cardState(page)).wellHeight;
+  const shelfBefore = (await cardState(page)).shelfHeight;
   await logSets(page, 2);
   st = await cardState(page);
-  assert(st.ledgerRows === 2, "two logged sets show in the ledger", JSON.stringify(st));
-  assert(/3/.test(st.setOf), "the set counter advances to set 3", st.setOf);
-  assert(st.wellHeight === wellBefore,
-    "the well keeps its height as sets accumulate", `${wellBefore} -> ${st.wellHeight}`);
-  assert(st.lastRowBottom <= st.ledgerBottom + 1,
-    "the newest row is fully in view", JSON.stringify(st));
+  assert(st.logged === 2 && st.rows === 5, "two logged sets read back in the ledger and every set keeps its row", JSON.stringify(st));
+  assert(/3/.test(st.ctaText) && st.ctaText.toLowerCase() === "log set 3",
+    "the action advances to set 3", st.ctaText);
+  assert(st.shelfHeight === shelfBefore,
+    "the shelf keeps its height as sets accumulate", `${shelfBefore} -> ${st.shelfHeight}`);
+  assert(st.lastLoggedBottom <= st.contextBottom + 1,
+    "the newest logged row is fully in view", JSON.stringify(st));
   const loggedInset = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const n = card.querySelector(".ledger__row[data-editn] .ledger__n");
+    const n = card.querySelector(".ledgerline[data-editn] .ledgerline__idx");
     if (!card || !n) return null;
     return Math.round(n.getBoundingClientRect().left - card.getBoundingClientRect().left);
   });
-  assert(loggedInset != null && loggedInset >= 18,
-    "logged set numbers also sit in from the card edge", String(loggedInset));
-  const rirCell = await page.evaluate(
-    () => !!document.querySelector('#workout .exercise.is-current .focus-well [data-k$="_rir"]')
-  );
-  assert(rirCell, "the well's third column is a numeric RIR field", String(rirCell));
+  assert(loggedInset != null && loggedInset >= 12,
+    "logged set marks also sit in from the card edge", String(loggedInset));
+  const rirCell = await page.evaluate(() => ({
+    field: !!document.querySelector('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]'),
+    input: !!document.querySelector('#workout .exercise.is-current .focus-shelf [data-k$="_rir"]'),
+  }));
+  assert(rirCell.field && rirCell.input, "the shelf's third field is a numeric RIR field", JSON.stringify(rirCell));
 
   // ---- 03b — a logged set lands -----------------------------------------------
   phase("State 03b: a logged set lands with one pass of motion");
   const setLanded = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const rows = [...card.querySelectorAll(".ledger__row[data-editn]")];
-    const fresh = card.querySelector(".ledger__row.is-fresh");
+    const rows = [...card.querySelectorAll(".ledgerline[data-editn]")];
+    const fresh = card.querySelector(".ledgerline.is-fresh");
     const anim = (el) => (el ? getComputedStyle(el).animationName : "");
     return {
-      freshRows: card.querySelectorAll(".ledger__row.is-fresh").length,
+      freshRows: card.querySelectorAll(".ledgerline.is-fresh").length,
       newest: !!fresh && fresh === rows[rows.length - 1],
       rowAnim: anim(fresh),
-      checkAnim: anim(fresh?.querySelector(".ledger__check")),
-      cueAnim: anim(card.querySelector(".focus-well.is-fresh .focus-cue")),
-      cursetAnim: anim(card.querySelector(".focus-well.is-fresh .curset")),
-      counterAnim: anim(card.querySelector(".focus-ex__setof.is-fresh b")),
       // A peek is inert scenery: it must never replay the live card's beat.
       peekFresh: document.querySelectorAll("#focusDeck .is-peek .is-fresh").length,
     };
   });
   assert(setLanded.freshRows === 1 && setLanded.newest,
     "only the set that just landed is marked fresh", JSON.stringify(setLanded));
-  assert(/setland-row/.test(setLanded.rowAnim) && /setland-check/.test(setLanded.checkAnim),
-    "the new ledger row and its tick animate in", JSON.stringify(setLanded));
-  assert(/setland-arm/.test(setLanded.cueAnim) && /setland-arm/.test(setLanded.cursetAnim),
-    "the well re-arms for the next set", JSON.stringify(setLanded));
-  assert(/setland-count/.test(setLanded.counterAnim),
-    "the set counter ticks over", JSON.stringify(setLanded));
+  assert(/setland-row/.test(setLanded.rowAnim),
+    "the new ledger row arrives with one pass of motion", JSON.stringify(setLanded));
   assert(setLanded.peekFresh === 0, "the neighbouring peek cards stay still", JSON.stringify(setLanded));
   // The card is redrawn on every navigation and every draft change, so the beat
   // has to belong to the render that logged the set and to no other.
@@ -340,8 +331,69 @@ async function main() {
   const replayed = await page.evaluate(() => document.querySelectorAll("#workout .is-fresh").length);
   assert(replayed === 0, "a later render draws the same card at rest", String(replayed));
   st = await cardState(page);
-  assert(st.ledgerRows === 2 && st.lastRowBottom <= st.ledgerBottom + 1,
+  assert(st.logged === 2 && st.lastLoggedBottom <= st.contextBottom + 1,
     "the landing animation leaves the ledger where the layout puts it", JSON.stringify(st));
+
+  // ---- 03c — the shelf --------------------------------------------------------
+  phase("State 03c: the shelf's fields, pads and typed values");
+  const shelfProbe = () => page.evaluate(() => {
+    const shelf = document.querySelector("#workout .exercise.is-current .focus-shelf");
+    const fields = [...shelf.querySelectorAll(".shelf__field")];
+    return {
+      fields: fields.map((f) => f.dataset.field),
+      pressed: fields.map((f) => f.querySelector("[data-shelf-field]").getAttribute("aria-pressed")),
+      editing: fields.filter((f) => f.classList.contains("is-editing")).map((f) => f.dataset.field),
+      values: fields.map((f) => f.querySelector(".shelf__val")?.textContent?.trim()),
+      soft: fields.map((f) => f.classList.contains("is-untouched")),
+      pads: [...shelf.querySelectorAll(".shelf__pad")].map((b) => b.textContent.trim()),
+      inputHidden: fields.map((f) => {
+        const i = f.querySelector(".shelf__input");
+        return i ? [getComputedStyle(i).opacity, i.getAttribute("aria-hidden"), i.tabIndex] : null;
+      }),
+      open: document.querySelector("#workout .exercise.is-current .ledgerline--open [data-lv='reps']")?.textContent?.trim(),
+    };
+  });
+  let sh = await shelfProbe();
+  assert(sh.fields.join() === "load,reps,rir" && sh.pressed.join() === "false,true,false",
+    "reps is the selected field by default", JSON.stringify(sh));
+  assert(sh.pads.join("|") === "− 1 rep|+ 1 rep", "the pads name the selected field's step", JSON.stringify(sh));
+  assert(sh.inputHidden.every((i) => i && i[0] === "0" && i[1] === "true" && i[2] === -1) && sh.editing.length === 0,
+    "the real inputs stay out of sight and out of the tab order until a field is opened", JSON.stringify(sh));
+  assert(sh.soft.every(Boolean), "values the lifter has not confirmed read in soft ink", JSON.stringify(sh));
+  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='load']").click();
+  sh = await shelfProbe();
+  assert(sh.pressed.join() === "true,false,false" && /kg|lb/.test(sh.pads[0]) && sh.editing.length === 0,
+    "a first tap selects a field and the pads follow it", JSON.stringify(sh));
+  await page.locator("#workout .exercise.is-current .shelf__pad").nth(1).click();
+  await page.waitForTimeout(250);
+  const stepped = await page.evaluate(() => {
+    const d = window.__repforgeWorkoutDraft.current();
+    const exercise = d.exercises[d.session.selectedExerciseId];
+    const set = exercise.sets[exercise.setOrder.find((id) => exercise.sets[id].completion === "pending")];
+    return { load: set.edited.load, touched: set.touched.load };
+  });
+  const loadShown = (await shelfProbe()).values[0];
+  assert(stepped.touched === true && Number(stepped.load) === Number(loadShown.replace(",", ".")),
+    "a pad steps the draft through the stepper handler and the field follows", JSON.stringify({ stepped, loadShown }));
+  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='load']").click();
+  sh = await shelfProbe();
+  assert(sh.editing.join() === "load", "a second tap on the selected field opens it as the real input", JSON.stringify(sh));
+  const focusedKey = await page.evaluate(() => document.activeElement?.dataset?.k || "");
+  assert(/_load$/.test(focusedKey), "the opened input takes focus under its draft key", focusedKey);
+  await page.keyboard.type("111");
+  await page.waitForTimeout(200);
+  const typed = await page.evaluate(() => {
+    const d = window.__repforgeWorkoutDraft.current();
+    const exercise = d.exercises[d.session.selectedExerciseId];
+    const set = exercise.sets[exercise.setOrder.find((id) => exercise.sets[id].completion === "pending")];
+    return { draft: set.edited.load, shown: document.querySelector("#workout .exercise.is-current .ledgerline--open [data-lv='load']")?.textContent?.trim() };
+  });
+  assert(typed.draft.endsWith("111") && typed.shown?.endsWith("111"),
+    "typing runs the draft handler and the open ledger row reads the same value", JSON.stringify(typed));
+  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='reps']").click();
+  sh = await shelfProbe();
+  assert(sh.pressed.join() === "false,true,false" && sh.editing.length === 0,
+    "choosing another field closes the input and returns to its button", JSON.stringify(sh));
 
   // ---- 07 — rest lives in the workout chrome ---------------------------------
   phase("State 07: active rest timer in the workout chrome");
@@ -349,7 +401,7 @@ async function main() {
   const rest = await page.evaluate(() => {
     const chip = document.querySelector("#woRest");
     const card = document.querySelector("#workout .exercise.is-current");
-    const cta = card.querySelector(".focus-well .btn--cta").getBoundingClientRect();
+    const cta = card.querySelector(".focus-shelf .btn--cta").getBoundingClientRect();
     const chipBox = chip.getBoundingClientRect();
     return {
       running: chip.classList.contains("is-running"),
@@ -594,22 +646,22 @@ async function main() {
     return draft.exerciseOrder.reduce((count, exerciseId) => count + draft.exercises[exerciseId].setOrder
       .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0);
   });
-  await page.locator(".ledger__row[data-editn]").nth(1).click();
+  await page.locator(".ledgerline[data-editn]").nth(1).click();
   await page.waitForTimeout(200);
   st = await cardState(page);
-  assert(st.editing === 1, "the edited row stays in place and is marked", JSON.stringify(st));
-  assert(/editing/i.test(st.cueLabel) && /2/.test(st.cueText),
-    "the well says which set is being edited", JSON.stringify(st));
-  assert(st.cancel && /save changes/i.test(st.ctaText) && st.ctaArrow === false,
+  assert(st.editing === 1 && st.open === 1, "the edited row stays in place and wears the open ring", JSON.stringify(st));
+  assert(/set 2 of/i.test(st.cueL1),
+    "the cue says which set is being edited", JSON.stringify(st));
+  assert(st.cancel && st.ctaText.toLowerCase() === "save set 2" && st.ctaArrow === false,
     "editing is reversible and commits without an arrow", JSON.stringify(st));
-  assert(st.ledgerRows === 3, "no row disappears while it is being edited", JSON.stringify(st));
-  await page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']").first().fill("9");
-  await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+  assert(st.logged + st.editing === 3, "no row disappears while it is being edited", JSON.stringify(st));
+  await page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").first().fill("9");
+  await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForTimeout(250);
   const afterEdit = await page.evaluate(() => {
     const draft = window.__repforgeWorkoutDraft.current();
-    const rows = [...document.querySelectorAll(".ledger__row[data-editn]")].map((r) =>
-      [...r.querySelectorAll("span")].map((s) => s.textContent.trim())
+    const rows = [...document.querySelectorAll(".ledgerline[data-editn]")].map((r) =>
+      [...r.querySelectorAll(".ledgerline__vals > .fx-col")].map((s) => s.textContent.trim())
     );
     const done = draft.exerciseOrder.reduce((count, exerciseId) => count + draft.exercises[exerciseId].setOrder
       .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0);
@@ -618,25 +670,27 @@ async function main() {
   assert(afterEdit.done === beforeEdit,
     "saving an edit updates the record instead of adding one",
     `${beforeEdit} -> ${afterEdit.done}`);
-  assert(afterEdit.rows[1] && afterEdit.rows[1][2] === "9",
+  assert(afterEdit.rows[1] && afterEdit.rows[1][1] === "9",
     "the edited value lands on the row it came from", JSON.stringify(afterEdit.rows));
   // …and cancelling puts the set back exactly as it was.
-  await page.locator(".ledger__row[data-editn]").nth(1).click();
+  await page.locator(".ledgerline[data-editn]").nth(1).click();
   await page.waitForTimeout(180);
-  await page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']").first().fill("2");
+  await page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").first().fill("2");
   await page.locator("[data-fcancel]").click();
   await page.waitForTimeout(250);
   const afterCancel = await page.evaluate(() =>
-    [...document.querySelectorAll(".ledger__row[data-editn]")].map((r) =>
-      [...r.querySelectorAll("span")].map((s) => s.textContent.trim())
+    [...document.querySelectorAll(".ledgerline[data-editn]")].map((r) =>
+      [...r.querySelectorAll(".ledgerline__vals > .fx-col")].map((s) => s.textContent.trim())
     )
   );
-  assert(afterCancel[1] && afterCancel[1][2] === "9",
+  assert(afterCancel[1] && afterCancel[1][1] === "9",
     "cancelling an edit restores the set it opened with", JSON.stringify(afterCancel));
 
   // ---- 08 — the note sheet ---------------------------------------------------
   phase("State 08: exercise-note editor");
-  await page.locator("[data-exnote-open]").first().click();
+  await page.locator("#woOverflowBtn").click();
+  await page.waitForSelector("#exActionsSheet.is-open");
+  await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
   await page.waitForTimeout(280);
   const sheet = await page.evaluate(() => {
@@ -705,15 +759,18 @@ async function main() {
   const noteSaved = await page.evaluate(() => ({
     draft: Object.fromEntries(Object.entries(window.__repforgeWorkoutDraft.current()?.exercises || {})
       .map(([id, exercise]) => [id, exercise.setupNotes])),
-    marked: !!document.querySelector("#workout .exercise.is-current .focus-tool.has-note"),
+    marked: /Seat 4, feet high\./.test(document.querySelector("#workout .exercise.is-current .fx-note")?.textContent || ""),
     closed: document.querySelector("#exNoteSheet").hidden,
   }));
   assert(Object.values(noteSaved.draft).includes("Seat 4, feet high.") && noteSaved.closed,
     "saving the sheet writes the note into the session draft", JSON.stringify(noteSaved));
-  assert(noteSaved.marked, "the card's note tool shows the exercise now has one");
-  assert(await page.evaluate(() => document.activeElement?.matches?.("[data-exnote-open]") && document.activeElement.isConnected),
-    "saving the sheet returns focus to the newly rendered note tool");
-  await page.locator("[data-exnote-open]").first().click();
+  assert(noteSaved.marked, "the card's note line shows the exercise now has one");
+  assert(await page.evaluate(() => document.activeElement?.id === "woOverflowBtn" && document.activeElement.isConnected),
+    "saving the sheet returns focus to the header's actions button");
+  await page.locator("#woOverflowBtn").click();
+  await page.waitForSelector("#exActionsSheet.is-open");
+  await page.locator("#exActionNotesBtn").click();
+  await page.waitForSelector("#exNoteSheet:not(.hidden)");
   await page.waitForTimeout(250);
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => {
@@ -722,8 +779,8 @@ async function main() {
   }, { timeout: 2000 });
   assert(await page.evaluate(() => document.querySelector("#exNoteSheet").hidden),
     "Escape closes the note sheet");
-  assert(await page.evaluate(() => document.activeElement?.matches?.("[data-exnote-open]")),
-    "Escape returns focus to the note tool");
+  assert(await page.evaluate(() => document.activeElement?.id === "woOverflowBtn"),
+    "Escape returns focus to the header's actions button");
 
   // ---- 04 — effort mode -------------------------------------------------------
   phase("State 04: mid-exercise logging with Easy / Hard / Max");
@@ -733,162 +790,174 @@ async function main() {
   await logSets(page, 4, { load: 7.5, reps: 4 });
   st = await cardState(page);
   const effort = await page.evaluate(() => {
-    const spin = document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]");
-    const head = [...document.querySelectorAll("#workout .exercise.is-current .ledger__head > span")].map((s) => s.textContent.trim());
-    const row = document.querySelector(".ledger__row[data-editn]");
+    const spin = document.querySelector("#workout .exercise.is-current .focus-shelf [data-effspin]");
+    const head = [...document.querySelectorAll("#workout .exercise.is-current .ledgerline__head .fx-col")].map((s) => s.textContent.trim());
+    const row = document.querySelector(".ledgerline[data-editn]");
     return {
-      role: spin?.getAttribute("role"),
-      label: spin?.getAttribute("aria-label") || "",
-      valueText: spin?.getAttribute("aria-valuetext") || "",
-      valueNow: spin?.getAttribute("aria-valuenow") || "",
-      hint: document.querySelector("#workout .exercise.is-current .focus-well .effortpop__hint")?.textContent?.trim() || "",
+      tag: spin?.tagName,
+      pressed: spin?.getAttribute("aria-pressed"),
+      label: spin?.querySelector(".shelf__lab")?.textContent?.trim() || "",
+      value: spin?.querySelector(".shelf__val")?.textContent?.trim() || "",
+      valueNow: spin?.dataset.e || "",
+      hint: document.querySelector("#workout .exercise.is-current .focus-shelf .effortpop__hint")?.textContent?.trim() || "",
       head,
-      rowEffort: row ? [...row.querySelectorAll("span")][3]?.textContent?.trim() : "",
-      rirField: !!document.querySelector('#workout .exercise.is-current .focus-well [data-k$="_rir"]'),
+      rowEffort: row ? [...row.querySelectorAll(".ledgerline__vals > .fx-col")][2]?.textContent?.trim() : "",
+      rirField: !!document.querySelector('#workout .exercise.is-current .focus-shelf [data-k$="_rir"]'),
     };
   });
-  assert(effort.role === "spinbutton" && effort.label && effort.valueText && effort.valueNow,
-    "the effort column is a named spinbutton", JSON.stringify(effort));
-  assert(!effort.rirField && /effort/i.test(effort.head[3] || ""),
-    "effort mode replaces the RIR column everywhere", JSON.stringify(effort));
+  assert(effort.tag === "BUTTON" && effort.pressed === "false" && /effort/i.test(effort.label) && /^(easy|hard|max)$/i.test(effort.value) && effort.valueNow,
+    "the effort field shows its word under its own caption", JSON.stringify(effort));
+  assert(!effort.rirField && /effort/i.test(effort.head[2] || ""),
+    "effort mode replaces the RIR field and column everywhere", JSON.stringify(effort));
   assert(/^(easy|hard|max)$/i.test(effort.rowEffort) && effort.hint,
     "a logged set reads back as the word that was tapped", JSON.stringify(effort));
   await page.click('#workout .term[data-term="Effort"]');
   await page.waitForSelector("#glossary:not(.hidden)");
   const effortTerm = await page.locator("#glossary .glossary__body").textContent();
   assert(/RIR 0|≈ 0|reps in reserve/i.test(effortTerm || ""),
-    "the Effort glossary target stays clickable above the word field", effortTerm || "empty glossary");
+    "the Effort glossary term stays clickable in the ledger head", effortTerm || "empty glossary");
   await page.click("#glossary .glossary__close");
   await page.waitForFunction(() => document.querySelector("#glossary")?.classList.contains("hidden"));
-  const wellAlign = await page.evaluate(() => {
-    const cells = [...document.querySelectorAll("#workout .exercise.is-current .focus-well .curset__cell")];
-    const band = (sel) => cells.map((c) => {
+  const shelfAlign = await page.evaluate(() => {
+    const fields = [...document.querySelectorAll("#workout .exercise.is-current .focus-shelf .shelf__field")];
+    const band = (sel) => fields.map((c) => {
       const el = c.querySelector(sel);
       return el ? Number(el.getBoundingClientRect().top.toFixed(3)) : null;
     });
     const spread = (arr) => Math.max(...arr) - Math.min(...arr);
-    const lines = band(".curset__underline");
-    const steps = band(".curset__steps");
-    return {
-      n: cells.length,
-      labs: spread(band(".curset__cell-lab")),
-      vals: spread(band(".curset__val")),
-      lines: spread(lines),
-      steps: spread(steps),
-      // The steppers hang off the hairline; a caption may not wedge in between.
-      gap: Math.max(...steps.map((s, i) => s - lines[i])),
-    };
+    return { n: fields.length, labs: spread(band(".shelf__lab")), vals: spread(band(".shelf__val")), tops: spread(band(".shelf__fieldbtn")) };
   });
-  assert(wellAlign.n === 3 && wellAlign.labs <= 1 && wellAlign.vals <= 1 &&
-    wellAlign.lines <= 1 && wellAlign.steps <= 1 && wellAlign.gap <= 6,
-    "effort, load and reps share one baseline in the well", JSON.stringify(wellAlign));
-  assert(st.ledgerRows === 4 && !st.fold,
-    "four logged sets still show in full", JSON.stringify(st));
-  // The reps-left shorthand is a pill off the word, not a caption under the steppers.
+  assert(shelfAlign.n === 3 && shelfAlign.labs <= 1 && shelfAlign.vals <= 1 && shelfAlign.tops <= 1,
+    "effort, load and reps share one baseline in the shelf", JSON.stringify(shelfAlign));
+  assert(st.logged === 4 && st.rows === 6, "four logged sets still show in full", JSON.stringify(st));
+  // The reps-left shorthand is a pill off the word, not a caption among the pads.
   const popClosed = await page.evaluate(() => {
-    const pop = document.querySelector(".focus-well .effortpop");
-    const steps = document.querySelector(".focus-well .curset__cell.is-effort .curset__steps");
-    const p = pop?.getBoundingClientRect(), s = steps?.getBoundingClientRect();
+    const pop = document.querySelector(".focus-shelf .effortpop");
+    const pads = document.querySelector(".focus-shelf .shelf__pads");
+    const p = pop?.getBoundingClientRect(), s = pads?.getBoundingClientRect();
     return { present: !!pop, open: !!pop?.classList.contains("is-open"),
-      inCell: !!pop?.closest(".curset__cell.is-effort"),
-      // Nothing of it may sit under the ± buttons any more.
-      belowSteps: !!(p && s) && p.top > s.bottom };
+      inField: !!pop?.closest(".shelf__field"),
+      // Nothing of it may sit among the pads.
+      belowFields: !!(p && s) && p.top > s.top };
   });
-  assert(popClosed.present && popClosed.inCell && !popClosed.open && !popClosed.belowSteps,
-    "the effort shorthand starts closed and clear of the steppers", JSON.stringify(popClosed));
-  await page.locator(".focus-well [data-effspin]").click();
+  assert(popClosed.present && popClosed.inField && !popClosed.open && !popClosed.belowFields,
+    "the effort shorthand starts closed and clear of the pads", JSON.stringify(popClosed));
+  // A first tap selects the field; a second asks what the word means.
+  await page.locator(".focus-shelf [data-effspin]").click();
+  await page.waitForTimeout(120);
+  const selected = await page.evaluate(() => ({
+    pressed: document.querySelector(".focus-shelf [data-effspin]").getAttribute("aria-pressed"),
+    open: !!document.querySelector(".focus-shelf .effortpop.is-open"),
+    pads: [...document.querySelectorAll("#workout .exercise.is-current .shelf__pad")].map((b) => b.textContent.trim()),
+  }));
+  assert(selected.pressed === "true" && !selected.open && selected.pads.length === 2 && selected.pads.every((t) => /easy|hard|max/i.test(t)),
+    "a first tap selects the effort field and its pads name the words they step to", JSON.stringify(selected));
+  await page.locator(".focus-shelf [data-effspin]").click();
   await page.waitForTimeout(420);
   const popOpen = await page.evaluate(() => {
-    const pop = document.querySelector(".focus-well .effortpop");
-    const spin = document.querySelector(".focus-well [data-effspin]");
+    const pop = document.querySelector(".focus-shelf .effortpop");
+    const spin = document.querySelector(".focus-shelf [data-effspin]");
     const pill = pop?.querySelector(".effortpop__hint");
     const c = pill.getBoundingClientRect(), s = spin.getBoundingClientRect();
-    const well = document.querySelector(".focus-well").getBoundingClientRect();
+    const shelf = document.querySelector(".focus-shelf").getBoundingClientRect();
     return {
       open: pop.classList.contains("is-open"),
       text: pill.textContent.trim(),
       above: Math.round(s.top - c.bottom),
-      // Centred on the word it explains, and inside the well.
+      // Centred on the word it explains, and inside the shelf's width.
       offCentre: Math.round(Math.abs((c.left + c.right) / 2 - (s.left + s.right) / 2)),
-      inside: c.left >= well.left - 1 && c.right <= well.right + 1,
+      inside: c.left >= shelf.left - 1 && c.right <= shelf.right + 1,
       opacity: +getComputedStyle(pill).opacity,
     };
   });
   assert(popOpen.open && popOpen.text && popOpen.above >= 0 && popOpen.above <= 60 &&
     popOpen.offCentre <= 2 && popOpen.inside && popOpen.opacity > .9,
-    "tapping the effort word pops its shorthand open just above it", JSON.stringify(popOpen));
+    "tapping the selected effort field pops its shorthand open just above it", JSON.stringify(popOpen));
   // Stepping the word under an open pill rewrites the pill rather than closing it.
-  await page.locator(".exercise.is-current .focus-well [data-effstep]").last().click();
+  await page.locator(".exercise.is-current .focus-shelf [data-effstep]").last().click();
   await page.waitForTimeout(300);
   const popStepped = await page.evaluate(() => {
-    const pop = document.querySelector(".focus-well .effortpop");
+    const pop = document.querySelector(".focus-shelf .effortpop");
     return { open: pop.classList.contains("is-open"),
-      text: pop.querySelector(".effortpop__hint")?.textContent?.trim() || "" };
+      text: pop.querySelector(".effortpop__hint")?.textContent?.trim() || "",
+      pads: [...document.querySelectorAll("#workout .exercise.is-current .shelf__pad")].map((b) => `${b.textContent.trim()}${b.disabled ? " (off)" : ""}`),
+      soft: document.querySelector(".focus-shelf [data-effspin]").closest(".shelf__field").classList.contains("is-untouched") };
   });
   assert(popStepped.open && popStepped.text && popStepped.text !== popOpen.text,
     "the open shorthand follows the effort word as it steps", JSON.stringify(popStepped));
-  await page.locator(".exercise.is-current .focus-ex__muscle").click();
+  assert(popStepped.soft === false && /max.*\(off\)/i.test(popStepped.pads[1] || ""),
+    "stepping confirms the word, and the pad that cannot go further says so", JSON.stringify(popStepped));
+  const disabledPad = await page.evaluate(() => {
+    const lin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    const rgb = (c) => String(c).match(/\d+(?:\.\d+)?/g).slice(0, 3).map(Number);
+    const pad = document.querySelector("#workout .exercise.is-current .shelf__pad:disabled");
+    const style = getComputedStyle(pad);
+    const [a, b] = [lum(...rgb(style.color)), lum(...rgb(style.backgroundColor))].sort((x, y) => y - x);
+    return { color: style.color, background: style.backgroundColor, contrast: (a + 0.05) / (b + 0.05) };
+  });
+  assert(disabledPad.contrast >= 3, "a disabled pad stays readable (3:1 against its ground)", JSON.stringify(disabledPad));
+  await page.locator(".exercise.is-current .focus-ex__meta").click();
   await page.waitForTimeout(400);
   const popDismissed = await page.evaluate(() => {
-    const pop = document.querySelector(".focus-well .effortpop");
+    const pop = document.querySelector(".focus-shelf .effortpop");
     return { open: pop.classList.contains("is-open"), opacity: +getComputedStyle(pop).opacity };
   });
   assert(!popDismissed.open && popDismissed.opacity < .05,
     "a tap outside dismisses the explainer", JSON.stringify(popDismissed));
-  // Keyboard operation of the spinner.
-  await page.focus("#workout .exercise.is-current .focus-well [data-effspin]");
-  const effBefore = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]").dataset.e);
+  // Keyboard operation of the field.
+  await page.focus("#workout .exercise.is-current .focus-shelf [data-effspin]");
+  const effBefore = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-shelf [data-effspin]").dataset.e);
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(120);
-  const effAfter = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]").dataset.e);
-  assert(effBefore !== effAfter, "arrow keys move the effort spinner", `${effBefore} -> ${effAfter}`);
-  // Editing a logged set in effort mode reopens the word it was logged with.
-  await page.locator(".ledger__row[data-editn]").first().click();
+  const effAfter = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-shelf [data-effspin]").dataset.e);
+  assert(effBefore !== effAfter, "arrow keys move the effort word", `${effBefore} -> ${effAfter}`);
+  // Correcting a logged set in effort mode reopens the word it was logged with.
+  await page.locator(".ledgerline[data-editn]").first().click();
   await page.waitForTimeout(200);
   const editEffort = await page.evaluate(() => ({
-    spin: document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]")?.dataset.e,
-    row: [...document.querySelector(".ledger__row.is-editing").querySelectorAll("span")][3]?.textContent?.trim(),
-    editing: document.querySelectorAll(".ledger__row.is-editing").length,
+    spin: document.querySelector("#workout .exercise.is-current .focus-shelf [data-effspin]")?.dataset.e,
+    row: [...document.querySelector(".ledgerline--open").querySelectorAll(".ledgerline__vals > .fx-col")][2]?.textContent?.trim(),
+    editing: document.querySelectorAll(".ledgerline--open[aria-current]").length,
   }));
   assert(editEffort.editing === 1 && !!editEffort.spin &&
     editEffort.row?.toLowerCase().startsWith(editEffort.spin.slice(0, 3)),
     "editing an effort set reopens the word it was logged with", JSON.stringify(editEffort));
-  await page.click("#workout .exercise.is-current .focus-well [data-effstep][data-dir='-1']");
-  await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+  // Correcting a set starts on reps again; the effort field is one tap away.
+  await page.click("#workout .exercise.is-current .focus-shelf [data-shelf-field='rir']");
+  await page.click("#workout .exercise.is-current .focus-shelf [data-effstep][data-dir='-1']");
+  await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForTimeout(250);
   const savedEffort = await page.evaluate(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     const exercise = draft.exercises[draft.session.selectedExerciseId];
     return { effort: exercise.sets[exercise.setOrder[0]].edited.effort,
-      rows: document.querySelectorAll(".ledger__row[data-editn]").length };
+      rows: document.querySelectorAll(".ledgerline[data-editn]").length };
   });
   assert(savedEffort.effort && savedEffort.rows === 4,
     "saving an effort edit updates the set in place", JSON.stringify(savedEffort));
 
-  // ---- 05 — folded history ----------------------------------------------------
-  phase("State 05: high-volume exercise with folded set history");
+  // ---- 05 — a long ledger -----------------------------------------------------
+  phase("State 05: high-volume exercise with a long ledger");
   await boot(page, { rirMode: "effort" });
   await setSetCount(page, 4, 10);
   await enterFocus(page, 4);
+  const longBefore = await cardState(page);
   await logSets(page, 8, { load: 70, reps: 8 });
   st = await cardState(page);
-  assert(st.ledgerRows === 2 && /1.*6/.test(st.fold) && st.foldExpanded === "false",
-    "older sets fold behind one disclosure row", JSON.stringify(st));
-  assert(/8/.test(st.count), "the fold summary counts every logged set", st.count);
-  assert(!/recolhido/i.test(await page.evaluate(() => document.querySelector("#workout").textContent)),
-    "the fold carries no explanatory blurb");
-  assert(st.wellHeight >= 150 && st.spill <= 1,
-    "a long session never shrinks the well or spills the card", JSON.stringify(st));
-  await page.click("#workout .exercise.is-current .ledger__more");
-  await page.waitForTimeout(220);
-  const unfolded = await cardState(page);
-  assert(unfolded.ledgerRows === 8 && unfolded.foldExpanded === "true",
-    "expanding the disclosure reveals every set", JSON.stringify(unfolded));
-  assert(unfolded.wellHeight === st.wellHeight,
-    "unfolding does not move the well", `${st.wellHeight} -> ${unfolded.wellHeight}`);
-  await page.click("#workout .exercise.is-current .ledger__more");
-  await page.waitForTimeout(220);
-  assert((await cardState(page)).ledgerRows === 2, "the disclosure folds back");
+  assert(st.logged === 8 && st.rows === 10 && st.open === 1,
+    "every set keeps its row: eight logged, one open, one queued", JSON.stringify(st));
+  assert(st.shelfHeight === longBefore.shelfHeight && st.shelfHeight >= 150 && st.spill <= 1,
+    "a long session never shrinks the shelf or spills the card", JSON.stringify({ longBefore, st }));
+  const openInView = await page.evaluate(() => {
+    const context = document.querySelector("#workout .exercise.is-current .fcard__context");
+    const ctx = context.getBoundingClientRect();
+    const row = document.querySelector("#workout .exercise.is-current .ledgerline--open").getBoundingClientRect();
+    return { row: Math.round(row.bottom), ctx: Math.round(ctx.bottom), scrolls: context.scrollHeight > context.clientHeight + 1 };
+  });
+  assert(openInView.row <= openInView.ctx + 1, "the context scrolls so the open row stays in view", JSON.stringify(openInView));
+  assert(!(await page.evaluate(() => document.querySelector("#workout .exercise.is-current [data-fold], #workout .exercise.is-current .ledger__more"))),
+    "there is no fold: the ledger is one row per set");
 
   // ---- 09 — exercise complete --------------------------------------------------
   phase("State 09: exercise complete with another exercise remaining");
@@ -898,7 +967,7 @@ async function main() {
   await logSets(page, 3);
   st = await cardState(page);
   assert(/complete/i.test(st.doneTitle) && /3/.test(st.doneSub),
-    "the well reports the exercise finished", JSON.stringify(st));
+    "the shelf reports the exercise finished", JSON.stringify(st));
   assert(/next exercise/i.test(st.ctaText) && st.ctaArrow === true,
     "the next action is a navigation, and may carry an arrow", JSON.stringify(st));
   const atBefore = await page.evaluate(() => window.__repforgeFocus.at());
@@ -950,10 +1019,10 @@ async function main() {
     "the final card reports the workout finished", JSON.stringify(st));
   assert(/finish/i.test(st.ctaText) && st.ctaArrow === false,
     "finishing the workout is a commit, so no arrow", JSON.stringify(st));
-  const noSkip = await page.evaluate(
-    () => !document.querySelector("#workout .exercise.is-current [data-skip]")
+  const noNext = await page.evaluate(
+    () => !document.querySelector("#workout .exercise.is-current .fx-next, #workout .exercise.is-current [data-fnext]")
   );
-  assert(noSkip, "the last exercise offers no skip");
+  assert(noNext, "the last exercise offers no way further along");
   await page.click("[data-ffinish]");
   await page.waitForTimeout(400);
   const saved = await page.evaluate((k) => (JSON.parse(localStorage.getItem(k) || "{}").log || []).length, KEY);
@@ -985,13 +1054,14 @@ async function main() {
     };
     return {
       name: card.querySelector(".focus-ex__name")?.textContent?.trim() || "",
-      tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
-      steppers: card.querySelectorAll(".curset__steps .stepbtn").length,
-      cta: card.querySelector(".focus-well .btn--cta")?.textContent?.trim() || "",
-      rows: card.querySelectorAll(".ledger__row").length,
-      head: box(".fcard__head"),
+      fields: card.querySelectorAll(".shelf__field").length,
+      pads: card.querySelectorAll(".shelf__pad").length,
+      cta: card.querySelector(".focus-shelf .btn--cta")?.textContent?.trim() || "",
+      rows: card.querySelectorAll(".ledgerline").length,
+      next: card.querySelectorAll(".fx-next").length,
+      head: box(".fx-head"),
       ledger: box(".fcard__ledger"),
-      well: box(".focus-well"),
+      shelf: box(".focus-shelf"),
     };
   };
   const midSwipe = await page.evaluate(`(${shape})(document.querySelector(".deck__slot--next"))`);
@@ -1001,11 +1071,11 @@ async function main() {
     const card = document.querySelector("#workout .exercise.is-current");
     return {
       peekVisible: getComputedStyle(peek).visibility === "visible",
-      peekHasWell: !!peek.querySelector(".focus-well"),
+      peekHasShelf: !!peek.querySelector(".focus-shelf"),
       // Composed, not wired: a peek carries no draft field and no hook that a
       // handler could fire on the neighbour's behalf.
-      peekWired: !!peek.querySelector("[data-k], [data-save], [data-skip], [data-fold], [data-step]," +
-        "[data-effstep], [data-effspin], [data-editn], [data-exopen], [data-exnote-open], [data-fnext], [data-ffinish]"),
+      peekWired: !!peek.querySelector("[data-k], [data-save], [data-shelf-field], [data-step], [data-why], [data-fcancel]," +
+        "[data-effstep], [data-effspin], [data-editn], [data-exopen], [data-fnext], [data-fnextrow], [data-ffinish]"),
       peekInert: !!peek.querySelector(".exercise--focus[inert]"),
       peekTabbable: [...peek.querySelectorAll("button, input, textarea")]
         .filter((el) => el.tabIndex >= 0).length,
@@ -1015,10 +1085,10 @@ async function main() {
       pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
   });
-  assert(midState.trackMoved && midState.peekVisible && midSwipe.name && midState.peekHasWell,
+  assert(midState.trackMoved && midState.peekVisible && midSwipe.name && midState.peekHasShelf,
     "the neighbouring card rides in fully composed", JSON.stringify({ ...midState, ...midSwipe }));
-  assert(midSwipe.tools >= 1 && midSwipe.steppers === 6 && !!midSwipe.cta,
-    "the card riding in already carries its tools, steppers and action",
+  assert(midSwipe.fields === 3 && midSwipe.pads === 2 && !!midSwipe.cta && midSwipe.next === 1,
+    "the card riding in already carries its fields, pads, action and next row",
     JSON.stringify(midSwipe));
   assert(midState.cardUpright && midState.stacked === 0,
     "the cards travel flat and upright, with no stack behind them", JSON.stringify(midState));
@@ -1031,29 +1101,22 @@ async function main() {
   assert((await page.evaluate(() => window.__repforgeFocus.at())) === 1,
     "a swipe past the threshold advances the deck");
   const landed = await page.evaluate(`(${shape})(document.querySelector("#workout .exercise.is-current"))`);
-  const same = ["name", "tools", "steppers", "cta", "rows", "head", "ledger", "well"]
+  const same = ["name", "fields", "pads", "cta", "rows", "next", "head", "ledger", "shelf"]
     .filter((k) => landed[k] !== midSwipe[k]);
   assert(same.length === 0,
     "the card that landed is the one that rode in — nothing pops in, nothing reflows",
     JSON.stringify({ peek: midSwipe, landed, differs: same }));
-  // The whole card is a handle, not just its header. A scroll container that
-  // has nothing to scroll must not claim the touch and cancel the gesture.
+  // The whole card is a handle, not just its header. The one scroll region only
+  // takes vertical gestures, and no gesture zooms.
   const grip = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const ledger = card.querySelector(".fcard__ledger");
-    return {
-      card: getComputedStyle(card).touchAction,
-      ledger: getComputedStyle(ledger).touchAction,
-      scrolls: ledger.scrollHeight > ledger.clientHeight + 1,
-      marked: ledger.classList.contains("is-scrollable"),
-    };
+    const context = card.querySelector(".fcard__context");
+    return { card: getComputedStyle(card).touchAction, context: getComputedStyle(context).touchAction };
   });
-  assert(grip.card === "pan-y" && grip.ledger === (grip.scrolls ? "pan-y" : "none") &&
-    grip.scrolls === grip.marked,
-    "the ledger only takes vertical gestures when it has something to scroll, and no gesture zooms",
-    JSON.stringify(grip));
-  // Drag from three heights: header, middle of the ledger, and the well.
-  for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["well", 0.86]]) {
+  assert(grip.card === "pan-y" && grip.context === "pan-y",
+    "the card and its scroll region take vertical gestures only, so a horizontal swipe is the deck's", JSON.stringify(grip));
+  // Drag from three heights: header, middle of the ledger, and the shelf.
+  for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["shelf", 0.9]]) {
     const at = await page.evaluate(() => window.__repforgeFocus.at());
     const b = await page.locator("#workout .exercise.is-current").boundingBox();
     const gy = Math.round(b.y + b.height * frac);
@@ -1069,22 +1132,24 @@ async function main() {
     const moved = (await page.evaluate(() => window.__repforgeFocus.at())) === at + 1;
     assert(moved, `a swipe started over the ${where} advances the deck`, `at ${at} -> ${await page.evaluate(() => window.__repforgeFocus.at())}`);
     if (moved) {
-      await page.click("#woPrev");
+      await page.click("#woProgress [data-focusgo='0']");
       await page.waitForTimeout(300);
     }
   }
   // Swiping is never the only way through, and every way runs the same slide.
-  await page.click("#woPrev");
+  await page.click("#woProgress [data-focusgo='1']");
+  await page.waitForTimeout(450);
+  await page.click("#woProgress [data-focusgo='0']");
   await page.waitForTimeout(60);
   const chevSlide = await page.evaluate(() => ({
     settling: document.querySelector("#focusTrack").classList.contains("is-settling"),
     swiping: document.querySelector("#focusDeck").classList.contains("is-swiping"),
   }));
   assert(chevSlide.settling && chevSlide.swiping,
-    "the header chevron slides the deck too", JSON.stringify(chevSlide));
+    "the exercise bar slides the deck too", JSON.stringify(chevSlide));
   await page.waitForTimeout(400);
   assert((await page.evaluate(() => window.__repforgeFocus.at())) === 0,
-    "the header chevron walks back");
+    "a segment of the exercise bar walks back to its exercise");
   await page.evaluate(() => document.body.focus());
   await page.keyboard.press("ArrowRight");
   await page.waitForTimeout(400);
@@ -1101,18 +1166,20 @@ async function main() {
          document.getElementById(el.getAttribute("aria-labelledby") || ""));
     const controls = [
       ...card.querySelectorAll("button"),
-      ...document.querySelectorAll("#woPrev, #woNext, #woRest"),
+      ...document.querySelectorAll("#woProgress button, #woRest, #leaveWorkout, #sessionSheetBtn, #woOverflowBtn"),
     ].filter((el) => el.offsetParent !== null && !el.disabled && !el.closest("[inert]"));
     const small = controls
       .filter((el) => { const r = el.getBoundingClientRect(); return r.width < 44 || r.height < 44; })
       .map((el) => `${el.className}:${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)}`);
     const segs = [...document.querySelectorAll("#woProgress .segbar__seg")];
-    const colour = (el) => getComputedStyle(el).backgroundColor;
+    const colour = (el) => getComputedStyle(el.querySelector(".segbar__bar")).backgroundColor;
     return {
       unnamed: controls.filter((el) => !named(el)).length,
       small,
       deckNamed: !!document.querySelector("#focusDeck")?.getAttribute("aria-label"),
-      inputsLabelled: [...card.querySelectorAll(".focus-well input")].every((i) => !!i.getAttribute("aria-label")),
+      inputsLabelled: [...card.querySelectorAll(".focus-shelf input")].every((i) => !!i.getAttribute("aria-label")),
+      segmentsNamed: segs.filter((el) => el.matches("button")).every((el) => !!el.getAttribute("aria-label")) && segs.filter((el) => el.matches(".is-current")).length === 1,
+      pressed: [...card.querySelectorAll("[data-shelf-field]")].every((el) => ["true", "false"].includes(el.getAttribute("aria-pressed"))),
       carriersAbsent: card.querySelectorAll(".focus-inputs").length === 0,
       done: segs[0] ? colour(segs[0]) : "",
       current: segs[1] ? colour(segs[1]) : "",
@@ -1121,8 +1188,8 @@ async function main() {
   });
   assert(a11y.unnamed === 0, "every visible control has an accessible name", JSON.stringify(a11y));
   assert(a11y.small.length === 0, "every control is at least 44×44", JSON.stringify(a11y.small));
-  assert(a11y.deckNamed && a11y.inputsLabelled && a11y.carriersAbsent,
-    "the deck is named, the fields are labelled and hidden carriers are absent",
+  assert(a11y.deckNamed && a11y.inputsLabelled && a11y.carriersAbsent && a11y.segmentsNamed && a11y.pressed,
+    "the deck is named, the fields are labelled and pressed-state, the segments are named and hidden carriers are absent",
     JSON.stringify(a11y));
   assert(a11y.done !== a11y.current && a11y.current !== a11y.upcoming &&
     /27, 26, 23|rgb\(27/.test(a11y.done) && /224, 78, 20/.test(a11y.current),
@@ -1138,33 +1205,7 @@ async function main() {
   const rmPage = await rmCtx.newPage();
   await boot(rmPage);
   await enterFocus(rmPage, 0);
-  phase("C1: disabled Focus navigation contrast");
-  const navContrast = await rmPage.evaluate(() => {
-    const lin = (c) => {
-      const s = c / 255;
-      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-    };
-    const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-    const hexToRgb = (hex) => {
-      const n = parseInt(String(hex).replace("#", ""), 16);
-      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-    };
-    const parseRgb = (c) => {
-      const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      return m ? [+m[1], +m[2], +m[3]] : null;
-    };
-    const prev = document.querySelector("#woPrev");
-    const color = getComputedStyle(prev).color;
-    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
-    const rgb = parseRgb(color);
-    const [br, bgc, bb] = hexToRgb(bg);
-    const L1 = lum(...rgb);
-    const L2 = lum(br, bgc, bb);
-    const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
-    return { disabled: prev.disabled, color, contrast: (hi + 0.05) / (lo + 0.05) };
-  });
-  assert(navContrast.disabled === true, "previous chevron is disabled on the first exercise", JSON.stringify(navContrast));
-  assert(navContrast.contrast >= 3, "disabled Focus navigation reaches the 3:1 usability target", JSON.stringify(navContrast));
+  phase("Reduced motion");
   const motion = await rmPage.evaluate(() => {
     const track = document.querySelector("#focusTrack");
     return {
@@ -1176,16 +1217,11 @@ async function main() {
   await logSets(rmPage, 1);
   const rmLanded = await rmPage.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const fresh = card.querySelector(".ledger__row.is-fresh");
+    const fresh = card.querySelector(".ledgerline.is-fresh");
     const anim = (el) => (el ? getComputedStyle(el).animationName : "");
-    return {
-      marked: !!fresh,
-      row: anim(fresh),
-      check: anim(fresh?.querySelector(".ledger__check")),
-      well: anim(card.querySelector(".focus-well.is-fresh .curset")),
-    };
+    return { marked: !!fresh, row: anim(fresh) };
   });
-  assert(rmLanded.marked && rmLanded.row === "none" && rmLanded.check === "none" && rmLanded.well === "none",
+  assert(rmLanded.marked && rmLanded.row === "none",
     "reduced motion logs the set without playing it in", JSON.stringify(rmLanded));
   await rmCtx.close();
 
@@ -1200,14 +1236,14 @@ async function main() {
     await logSets(vp, 2);
     const fit = await vp.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current");
-      const ledger = card.querySelector(".fcard__ledger");
-      const cta = card.querySelector(".focus-well .btn--cta").getBoundingClientRect();
+      const context = card.querySelector(".fcard__context");
+      const cta = card.querySelector(".focus-shelf .btn--cta").getBoundingClientRect();
       const cardBox = card.getBoundingClientRect();
-      const clipped = [...card.querySelectorAll(".focus-cue__text, .focus-ex__target, .ledger__head > span")]
+      const clipped = [...card.querySelectorAll(".fx-cue__l1, .focus-ex__meta, .ledgerline__head > span")]
         .filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).textOverflow !== "ellipsis").length;
       return {
         spill: card.scrollHeight - card.clientHeight,
-        ledger: Math.round(ledger.clientHeight),
+        ledger: Math.round(context.clientHeight),
         ctaWhole: cta.bottom <= cardBox.bottom + 1 && cta.height >= 44,
         clipped,
         pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -1215,7 +1251,7 @@ async function main() {
       };
     });
     assert(fit.spill <= 1 && fit.ctaWhole, `${name}: the card fits and keeps its action`, JSON.stringify(fit));
-    assert(fit.ledger >= 44, `${name}: the ledger still shows a row`, JSON.stringify(fit));
+    assert(fit.ledger >= 44, `${name}: the scrolling ledger area still shows a row`, JSON.stringify(fit));
     assert(fit.clipped === 0 && !fit.pageScrollsX && !fit.pageScrollsY,
       `${name}: no clipped labels, no stray scrolling`, JSON.stringify(fit));
     await vpCtx.close();
@@ -1372,9 +1408,9 @@ async function main() {
       const r = window.__repforgeRecommendation?.(ex);
       return r && { status: r.status, load: r.load, reenterReps: !!r.reenterReps };
     }, seed.id);
-    const cue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
-    const loadVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
-    const repsVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue();
+    const cue = `${await f1Page.locator(".exercise.is-current .fx-cue__l1").textContent()} ${await f1Page.locator(".exercise.is-current .fx-cue__l2").textContent()}`;
+    const loadVal = await f1Page.locator(".exercise.is-current .shelf__input[data-k$='_load']").inputValue();
+    const repsVal = await f1Page.locator(".exercise.is-current .shelf__input[data-k$='_reps']").inputValue();
     assert(rec?.status === "hold" && rec.load === 55 && rec.reenterReps && loadVal === "55" && !/53\.75/.test(cue || ""),
       "F1 mixed hold: Focus first-set load is on-grid 55 kg", `cue="${cue}" rec=${JSON.stringify(rec)}`);
     assert(repsVal === "6" && /aim for 6 reps/.test(cue || ""),

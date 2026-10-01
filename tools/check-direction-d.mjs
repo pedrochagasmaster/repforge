@@ -58,14 +58,26 @@ const D_STATE_KEYS = [
   "history/list", "history/session", "history/edit-dirty", "history/edit-invalid",
   "program/overview",
 ];
-export const DIRECTION_D_STATES = D_STATE_KEYS.map((key) => ({ key, status: "pending" }));
+/** States an R3 sub-slice has built; the gate enforces these and only these. */
+const IMPLEMENTED_D_STATES = new Set([
+  // R3c: the Focus surface (shelf, ledger, cue, header routes) over DraftV2.
+  "workout/focus", "workout/focus-glossary", "workout/correction",
+]);
+export const DIRECTION_D_STATES = D_STATE_KEYS.map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 
 /** Plan 064 section 8.8 / Direction D spec section 7: the only uses of the accent. */
 export const ORANGE_CATEGORIES = Object.freeze([
   "verdict-glyph", "current-exercise-segment", "timer-drain-bar", "cta-arrow", "active-dock-icon",
 ]);
 /** [{ category, selector, pseudo?: "::before" | "::after" }]. Empty on purpose: see GAPS. */
-export const ORANGE_ALLOWLIST = [];
+export const ORANGE_ALLOWLIST = [
+  // R3c: the current exercise's segment in Focus's exercise bar (the bar inside the segment button).
+  { category: "current-exercise-segment", selector: "#woProgress .segbar__seg.is-current .segbar__bar" },
+  // R3c: Next exercise is a navigation, so its CTA keeps the arrow (the only arrow a Focus state can show).
+  { category: "cta-arrow", selector: ".focus-shelf .btn--cta[data-fnext]", pseudo: "::after" },
+  // R3c: the up verdict glyph beside the cue.
+  { category: "verdict-glyph", selector: ".verdictmark--up .verdictmark__glyph" },
+];
 /** [{ id, selector }]. Empty on purpose: see GAPS. */
 export const OVERFLOW_EXCEPTIONS = [];
 /** Where "Hold" as a label is banned: the shipped rest surfaces. Inline rest adds its selector with R3. */
@@ -277,10 +289,24 @@ export function collectGateEvidence(options = {}) {
 
   // 5. strings
   const textVisible = (element) => visible(element) && !element.closest("[aria-hidden='true']");
+  // A sentence that sets one figure or name in a second face ("Hold <b>102,5</b> kg") is one string.
+  // It is read whole when every child element is inline text, so the catalog pattern can match it.
+  const inlineTags = new Set(["B", "STRONG", "I", "EM", "SPAN", "SMALL", "U", "MARK", "SUB", "SUP", "ABBR", "TIME"]);
+  const sentence = (element) => {
+    const children = [...element.children];
+    if (!children.length || !children.every((child) => inlineTags.has(child.tagName) && !child.matches("button, a, input, [role='button']"))) return null;
+    let out = "";
+    for (const node of element.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) out += node.textContent || "";
+      else if (node.nodeType === Node.ELEMENT_NODE && !node.matches("[aria-hidden='true'], .visually-hidden") && visible(node)) out += node.textContent || "";
+    }
+    return out.replace(/\s+/g, " ").trim() || null;
+  };
   const text = [];
   for (const element of all) {
     if (!textVisible(element)) continue;
-    const own = [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || "").join("").trim();
+    const whole = [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || "").trim()) ? sentence(element) : null;
+    const own = whole || [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || "").join("").trim();
     if (own) text.push({ locator: locator(element), text: own });
     for (const attribute of ["aria-label", "title", "alt"]) {
       if (element.hasAttribute(attribute) && element.getAttribute(attribute).trim()) text.push({ locator: locator(element), text: element.getAttribute(attribute) });

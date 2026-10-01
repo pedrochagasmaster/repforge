@@ -8,7 +8,7 @@ export async function selectExercise(page, id) {
 export async function openActions(page, id) {
   await selectExercise(page, id);
   if (!await page.locator("#exActionsSheet").isVisible()) {
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
   }
 }
 

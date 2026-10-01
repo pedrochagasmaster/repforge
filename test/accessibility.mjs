@@ -715,9 +715,10 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
-  const noteBtn = page.locator("#workout [data-exnote-open]").first();
-  const noteId = await noteBtn.getAttribute("data-exnote-open");
-  await noteBtn.click();
+  // The note opens from the exercise actions, which the header's three-dot button opens.
+  const noteId = "woOverflowBtn";
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.waitForFunction(() => {
     const s = document.querySelector("#exNoteSheet");
     return s && !s.hidden && !s.classList.contains("hidden");
@@ -734,24 +735,23 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const after = await page.evaluate(() => ({
     hidden: document.querySelector("#exNoteSheet")?.hidden || document.querySelector("#exNoteSheet")?.classList.contains("hidden"),
     leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
-    focusNote: document.activeElement?.getAttribute("data-exnote-open"),
+    focusNote: document.activeElement?.id,
   }));
   assert(after.hidden, "Exercise Note: Escape is Cancel and hides the sheet", JSON.stringify(after));
   assert(after.leaked.length === 0, "Exercise Note: close restores inertness", JSON.stringify(after.leaked));
   assert(after.focusNote === noteId, "Exercise Note: Cancel returns focus to the exact note trigger", JSON.stringify({ noteId, after }));
 
-  await page.evaluate((id) => {
-    [...document.querySelectorAll("#workout [data-exnote-open]")].find((b) => b.dataset.exnoteOpen === id)?.click();
-  }, noteId);
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet:not([hidden])", { timeout: 8000 });
   await page.locator("#exNoteText").fill("Saved focus note");
   await page.locator("#exNoteSave").click();
   await page.waitForFunction((id) => {
     const sheet = document.querySelector("#exNoteSheet");
-    return !!(sheet?.hidden && document.activeElement?.getAttribute("data-exnote-open") === id);
+    return !!(sheet?.hidden && document.activeElement?.id === id);
   }, noteId, { timeout: 8000 });
   const saved = await page.evaluate(() => ({
-    focusNote: document.activeElement?.getAttribute("data-exnote-open"),
+    focusNote: document.activeElement?.id,
     leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(saved.focusNote === noteId, "Exercise Note: Save returns focus after the rerender", JSON.stringify({ noteId, saved }));
@@ -1806,7 +1806,7 @@ async function runTouchTarget320Regression(browser) {
     await clearState(page);
     await seedLangUnit(page, "en", "kg", false, mode);
     await page.click("#startWorkout");
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus .exercise.is-current .focus-well");
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus .exercise.is-current .focus-shelf");
     await page.evaluate(() =>
       document.getAnimations().forEach((animation) => animation.finish())
     );
@@ -1940,7 +1940,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)");
 
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator("#exActionsClose").click();
@@ -1949,7 +1949,7 @@ async function runDimmedStateAccessibility(browser) {
     );
     const warmup = await auditEnabledControlText(
       page,
-      "#workout .exercise.is-current .focus-well"
+      "#workout .exercise.is-current .focus-shelf"
     );
     assert(
       warmup.controls.length >= 5,
@@ -1963,7 +1963,7 @@ async function runDimmedStateAccessibility(browser) {
     );
 
     const skippedId=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
@@ -1989,7 +1989,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
     await page.locator("#sessionSheet").waitFor({state:"hidden"});
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     const skip=lang==="pt"?"Pular exercício":"Skip exercise";
     assert(await page.getByRole("button",{name:skip,exact:true}).count()===1,
       `restoring returns the action to Skip semantics (${lang})`);
@@ -2133,8 +2133,8 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   });
   assert(fonts.every((f) => f.px >= 16), "visible editable fields are at least 16px", JSON.stringify(fonts));
   const touch = await page.evaluate(() => {
-    const step = document.querySelector(".stepbtn, .curset__step");
-    const field = document.querySelector("#workout input, #workout .curset__val");
+    const step = document.querySelector(".stepbtn");
+    const field = document.querySelector("#workout input");
     return {
       step: step ? getComputedStyle(step).touchAction : null,
       field: field ? getComputedStyle(field).touchAction : null,
@@ -2145,14 +2145,14 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   await page.waitForSelector("#workout .exercise.is-current");
   const grip = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const ledger = card?.querySelector(".fcard__ledger");
+    const ledger = card?.querySelector(".fcard__context");
     return {
       card: card ? getComputedStyle(card).touchAction : null,
       ledger: ledger ? getComputedStyle(ledger).touchAction : null,
       scrolls: ledger ? ledger.scrollHeight > ledger.clientHeight + 1 : false,
     };
   });
-  const wantLedger = grip.scrolls ? "pan-y" : "none";
+  const wantLedger = "pan-y";
   assert(grip.card === "pan-y" && grip.ledger === wantLedger, "Focus card/ledger take panning only, never a zoom", JSON.stringify(grip));
   await context.close();
 }

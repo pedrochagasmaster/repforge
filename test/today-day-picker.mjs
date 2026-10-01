@@ -134,7 +134,8 @@ async function view(page) {
         aria: b.getAttribute("aria-label") || "",
       })),
       confirmText: document.querySelector("#dayPickConfirm")?.textContent?.trim() || "",
-      day: document.querySelector("#woDayTitle")?.textContent?.trim() || "",
+      // The header reads "Day 3 · exercise 1 of 6" once a workout is open; the day is the first part.
+      day: (document.querySelector("#woDayTitle")?.textContent || "").split(" \u00b7 ")[0].trim(),
       todayName: document.querySelector("#todaySession .today-session__name")?.textContent?.trim() || "",
       workoutOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
       activeTab: document.querySelector("#dayTabs button.active")?.dataset.day || "",
@@ -379,7 +380,7 @@ phase("an in-progress session is protected by the discard prompt");
     ...new Set(JSON.parse(localStorage.getItem(k) || "{}").program.map((e) => e.day)),
   ], KEY);
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
-  await page.waitForSelector("#workoutShell:not(.hidden) #workout .exercise.is-current .curset", { timeout: 5000 });
+  await page.waitForSelector("#workoutShell:not(.hidden) #workout .exercise.is-current .focus-shelf", { timeout: 5000 });
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const ex = (state.program || []).find((e) => e.day === state.program[0].day);

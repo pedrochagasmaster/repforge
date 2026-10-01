@@ -233,7 +233,8 @@ async function run() {
   await page.click('nav button[data-view="log"]');
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
-  await page.locator("[data-exnote-open]").first().click();
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);
   await page.fill("#exNoteText", "Seat 4, feet high.");
@@ -245,7 +246,7 @@ async function run() {
       ...window.__sheet("#exNoteSheet"),
       draft: JSON.parse(localStorage.getItem(d) || "{}").__exnotes || {},
       kept: [...document.querySelectorAll("[data-exnote]")].map((t) => t.value).filter(Boolean),
-      focus: document.activeElement?.matches?.("[data-exnote-open]") === true,
+      focus: document.activeElement?.id === "woOverflowBtn",
     }),
     DRAFT
   );
@@ -255,13 +256,14 @@ async function run() {
     "the typed note is discarded, not saved",
     JSON.stringify(note)
   );
-  assert(note.focus, "focus returns to the note button on the card", String(note.focus));
+  assert(note.focus, "focus returns to the three-dot button that opened the note", String(note.focus));
 
   // The note's body is one big textarea, so a thumb that starts there is still
   // swiping the sheet — while a mouse there is selecting text and must be left
   // to it.
   phase("the note's own text area drags for a thumb, not for a mouse");
-  await page.locator("[data-exnote-open]").first().click();
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);
   const field = await page.evaluate(() => {

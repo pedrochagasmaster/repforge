@@ -109,7 +109,7 @@ async function main() {
      * 1. Sheet trigger on current Focus card
      * ====================================================================== */
     console.log("\nExercise actions: visible control on Focus card");
-    const actionsTrigger = page.locator("#workout .exercise.is-current [data-exactions-open]");
+    const actionsTrigger = page.locator("#woOverflowBtn");
     assert(await actionsTrigger.count() > 0, "the live Focus card provides an Exercise actions trigger");
     await actionsTrigger.click();
 
@@ -161,7 +161,7 @@ async function main() {
     await page.waitForTimeout(300);
 
     // Open Exercise actions for seed-ex-2
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     console.log("\nRepeat-last: honest no-history handling");
@@ -329,7 +329,7 @@ async function main() {
       "substitution record is applied to the active exercise in DraftV2", JSON.stringify(subCheck));
 
     // Open Exercise actions again to verify "Restore original" option appears
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     const restoreOrigBtn = page.locator("#exActionRestoreOrigBtn");
@@ -352,7 +352,7 @@ async function main() {
      * 6. Skip and restore exercise
      * ====================================================================== */
     console.log("\nSkip/restore: single-exercise status control");
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     const skipBtn = page.locator("#exActionSkipBtn");

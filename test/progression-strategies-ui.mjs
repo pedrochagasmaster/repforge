@@ -206,7 +206,7 @@ async function workoutSurface(page) {
   await page.evaluate(async () => {
     await window.__repforgeEnterWorkout({});
   });
-  await page.waitForSelector('#workout.is-focus article.is-current .curset');
+  await page.waitForSelector('#workout.is-focus article.is-current .focus-shelf');
   const data = await page.evaluate(() => {
     const card = document.querySelector('#workout.is-focus article.is-current');
     const P = window.__repforgeProgression;
@@ -217,17 +217,19 @@ async function workoutSurface(page) {
     for (let n = 1; n <= ex.sets; n++) suggestions.push(P.setSuggestion(ex, n, rec, draft, null));
     const isLb = state.settings.unit === "lb";
     const formatLoad = (val) => isLb ? String(toDisplay(val)) : String(val);
+    // Effort is the shelf's third field; selecting it brings its two word pads.
+    document.querySelector('#workout.is-focus article.is-current .focus-shelf [data-shelf-field="rir"][data-effspin]')?.click();
     const targets = {
       loads: suggestions.map((s) => formatLoad(s.load)),
       reps: suggestions.map((s) => String(s.reps)),
-      recommendation: card.querySelector('.focus-ex__target')?.textContent?.trim() || "",
+      recommendation: card.querySelector('.fx-cue')?.textContent?.trim() || "",
       effortControls: card.querySelectorAll("[data-effspin], [data-effstep]").length,
     };
     const focus = {
-      load: card.querySelector('.curset input[data-k$="_load"]')?.value || "",
-      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value || "",
+      load: card.querySelector('.focus-shelf input[data-k$="_load"]')?.value || "",
+      reps: card.querySelector('.focus-shelf input[data-k$="_reps"]')?.value || "",
       whyName: card.querySelector('[data-why]')?.getAttribute('aria-label') || "",
-      effortSpinner: !!card.querySelector('[role="spinbutton"][data-effspin]'),
+      effortSpinner: !!card.querySelector('.focus-shelf [data-effspin]'),
     };
     return { targets, focus };
   });
@@ -311,8 +313,8 @@ try {
       });
     }
   });
-  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset");
-  await page.locator("#workout.is-focus .exercise.is-current .focus-well .saveset").click();
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf .saveset");
+  await page.locator("#workout.is-focus .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForFunction(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     const exId = draft?.exerciseOrder?.[0] || "ex0";
@@ -322,8 +324,8 @@ try {
   const set2Values = await page.evaluate(() => {
     const card = document.querySelector("#workout.is-focus article.is-current");
     return {
-      load: card.querySelector('.curset input[data-k$="_load"]')?.value,
-      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value,
+      load: card.querySelector('.focus-shelf input[data-k$="_load"]')?.value,
+      reps: card.querySelector('.focus-shelf input[data-k$="_reps"]')?.value,
     };
   });
   assert(set2Values.load === "77.5" && set2Values.reps === "7",
@@ -393,8 +395,8 @@ try {
       });
     }
   });
-  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset");
-  await page.locator("#workout.is-focus .exercise.is-current .focus-well .saveset").click();
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf .saveset");
+  await page.locator("#workout.is-focus .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForFunction(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     const exId = draft?.exerciseOrder?.[0] || "ex0";
@@ -404,8 +406,8 @@ try {
   const set2ValuesEffort = await page.evaluate(() => {
     const card = document.querySelector("#workout.is-focus article.is-current");
     return {
-      load: card.querySelector('.curset input[data-k$="_load"]')?.value,
-      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value,
+      load: card.querySelector('.focus-shelf input[data-k$="_load"]')?.value,
+      reps: card.querySelector('.focus-shelf input[data-k$="_reps"]')?.value,
     };
   });
   assert(set2ValuesEffort.load === "77.5" && set2ValuesEffort.reps === "7",
