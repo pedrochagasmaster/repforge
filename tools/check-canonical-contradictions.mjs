@@ -57,6 +57,23 @@ const check = (cond, message) => {
 };
 
 const docs = new Map(SCOPE.map((p) => [p, read(p)]));
+
+// --- Plan numbers are unique: two live plans never share a number (Plan 064
+// §4: one Plan 063; a later plan that collides takes the next free number) ---
+{
+  const byNumber = new Map();
+  for (const name of readdirSync(join(ROOT, "plans"))) {
+    const match = /^(\d{3})-.*\.md$/.exec(name);
+    if (match) byNumber.set(match[1], [...(byNumber.get(match[1]) || []), name]);
+  }
+  // A companion (an amendment of the same plan) declares its base plan in a
+  // "**Base plan:** `plans/<file>`" header; it does not count as a second plan.
+  const basePlanOf = (name) => /\*\*Base plan:\*\*\s*`plans\/([^`]+)`/.exec(read(`plans/${name}`))?.[1];
+  for (const [number, names] of byNumber) {
+    const plans = names.filter((name) => !names.includes(basePlanOf(name) ?? ""));
+    check(plans.length === 1, `plans/: plan number ${number} is used by more than one plan: ${plans.join(", ")}`);
+  }
+}
 const linesOf = (p) => docs.get(p).split("\n");
 
 // --- Forbidden live-policy phrases (zero hits allowed in scope) ---
