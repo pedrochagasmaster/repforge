@@ -43,7 +43,7 @@ Ordered by backlog status, then by the order the owner set within it.
 | [001](001-setup-link-eligibility-decision.md) | Activation archives an un-onboarded device's program instead of discarding it | Now: data-safety (2) (Q607, Q619) | S | — | TODO |
 | [002](002-sw-never-cache-error-responses.md) | Service worker never caches error responses over good copies | Now: data-safety (3) (Q609) | S | — | TODO |
 | [023](023-wire-alpha-trust-telemetry.md) | Emit the alpha's recommendation-trust events; guard against unwired events | Now: measurement (Q610, Q616–Q618) | M | before Plan 059's evidence gate | TODO |
-| [024](024-pilot-data-durability.md) | Request persistent storage after the first session; storage status in Settings | Now: browser persistence (Q606, Q620) | S | — | TODO |
+| [024](024-pilot-data-durability.md) | Request persistent storage after the first session; storage status in Settings | Now: browser persistence (Q606, Q620) | S | — | DONE — B1 and B2 (B3 stays the Later backup-reminder item) |
 | [011](011-i18n-generator-check-in-ci.md) | CI runs `build-i18n --check`, which names what drifted | Now: CI/docs drift (Q612) | S | — | TODO |
 | [006](006-install-transfer-constant-drift-guard.md) | Test guards the transfer client against contract drift | Now: CI/docs drift (Q612) | S | — | TODO |
 | [005](005-claude-md-stale-architecture-table.md) | CLAUDE.md points drifting architecture facts to live owners | Now: CI/docs drift (Q614) | S | — | DONE — PR #269 |
