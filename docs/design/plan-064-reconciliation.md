@@ -1414,6 +1414,24 @@ and the batch gate comment on PR #295 links it.
   engine finding PF-1 appears in every candidate and is not a candidate
   difference.
 
+## OG-6 drawing approvals
+
+Each Direction D screen that needed a drawing is drawn on the review page (`redesign/direction-d`, drawing only, never shipped) and approved by the owner on PR #295. A state is buildable in R3 once its row is here; the treatment table above keeps its original "needs drawing" note as history.
+
+| Round | State | Review page | Path on that branch | Owner approval |
+|---|---|---|---|---|
+| 1 | `today/done` | `e04e7f3` | `docs/design/main-screen-directions/dir-d.js` (`today-done`) | [#295, 2026-10-01](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5933076242) |
+| 1 | `today/draft-resume` | `e04e7f3` | `dir-d.js` (`today-draft-resume`) | same |
+| 1 | `workout/exercise-note` | `e04e7f3` | `dir-d.js` (`workout-exercise-note`) | same |
+| 1 | `workout/session` | `e04e7f3` | `dir-d.js` (`workout-session`) | same |
+| 1 | `workout/early-finish` | `e04e7f3` | `dir-d.js` (`workout-early-finish`) | same |
+| 1 | `workout/warmup-actions` | `e04e7f3` | `dir-d.js` (`workout-warmup-actions`) | same |
+| 1 | `workout/reorder` | `e04e7f3` | `dir-d.js` (`workout-reorder`) | same |
+| 1 | `workout/skipped-actions` | `e04e7f3` | `dir-d.js` (`workout-skipped-actions`) | same |
+| 1 | `workout/substituted-actions` | `e04e7f3` | `dir-d.js` (`workout-substituted-actions`) | same |
+
+Each approval includes that screen's listed differences from today's app (the round's board). Carried to the next round by the same decision: redraw the already-approved `workout/exercise-actions` so reorder and finish early live only on the session sheet (decision 11), and draw the exercise-complete shelf (OG-4 proposal 3). Still to draw: Progress (6) and History edit (2).
+
 ## Reconcilable rows
 
 Each Plan 064 §5.3 row is either resolved here, with its evidence, or assigned
