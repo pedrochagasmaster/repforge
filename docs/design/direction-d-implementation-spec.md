@@ -9,8 +9,11 @@
   its 2026-09-25 amendments, and the review page (not migrated; branch
   `redesign/direction-d` at `2f2fc044`, path
   `docs/design/main-screen-directions/index.html`)
-- **Workfront PR:** #272 (`redesign/direction-d`), which carries this spec,
-  the plan, the review page, the session-outcome fix and the backlog order
+- **Workfront PR:** #295 (`redesign/unified-convergence`, Plan 064), which
+  implements this spec as slice R3. #272 (`redesign/direction-d`, read at
+  `2f2fc044`) is its source branch: it carried this spec, the plan, the review
+  page (still the OG-6 drawing surface), the session-outcome fix and the
+  backlog order
 - **Scheduling:** backlog row "Direction D redesign"
 
 ## 0. How to read this

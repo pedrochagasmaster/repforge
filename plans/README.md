@@ -34,8 +34,8 @@ Next work. Plan 059 remains planned and validates the resulting stable
 candidate last. This bounded exception does not pull unrelated Later/Gated
 work forward.
 
-Plan 063 (Direction D) is owner-selected and lives on PR #272's branch until
-Plan 064's R0 slice migrates it; it keeps its number as the main-app
+Plan 063 (Direction D) is owner-selected; Plan 064's R0 slice migrated it from
+PR #272's branch at `2f2fc044` onto the workfront (PR #295); it keeps its number as the main-app
 specification consumed by Plan 064. No other work may use the number 063;
 PR #258's branch-local plan of that number is renumbered when that work
 resumes. The Opus orchestrator's starting brief is

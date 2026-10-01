@@ -4,7 +4,8 @@
 
 **Answered coverage:** Q1–Q602, subject to the transcript notes below; plus
 Q603–Q621, a reopened branch triaging the advisor plans in `advisor-plans/`
-(September 23, 2026)
+(September 23, 2026); plus Q622–Q637, a reopened branch closing the onboarding
+design tournament's open decisions (September 29, 2026)
 
 **Pending:** No product-level branch remained when the owner closed the session
 **Purpose:** Preserve the owner’s answers, qualifications, corrections,
