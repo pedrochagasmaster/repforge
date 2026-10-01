@@ -2051,7 +2051,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
-        "library/exercise-detail-glossary"
+        "library/exercise-detail-glossary",
+        "progress/exercise-chart"
       ]
     },
     {
@@ -2476,7 +2477,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
-        "library/exercise-detail-glossary"
+        "library/exercise-detail-glossary",
+        "progress/exercise-chart"
       ]
     },
     {
@@ -2870,30 +2872,6 @@
       "catalogStates": [
         "workout/focus-glossary",
         "library/exercise-detail-glossary"
-      ]
-    },
-    {
-      "id": "gotovolume",
-      "selector": "#gotoVolume",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
       ]
     },
     {
@@ -3868,57 +3846,6 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "today/mixed-strategies"
-      ]
-    },
-    {
-      "id": "overviewvolume-vrow-bar",
-      "selector": "#overviewVolume .vrow__bar",
-      "roles": {
-        "progress": "week",
-        "boundary": "required"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "current",
-        "complete",
-        "insufficient"
-      ],
-      "rationale": "Progress dimension week; scope: muscle sets against this-week plan.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
-      ],
-      "progressScopes": {
-        "current-week-muscle-sets": "week"
-      }
-    },
-    {
-      "id": "overviewvolumemore",
-      "selector": "#overviewVolumeMore",
-      "roles": {
-        "control": "disclosure"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
       ]
     },
     {
@@ -5153,33 +5080,8 @@
       ]
     },
     {
-      "id": "statexercise",
-      "selector": "#statExercise",
-      "roles": {
-        "control": "selection"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "selected",
-        "disabled"
-      ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
-      ]
-    },
-    {
       "id": "stats-button-role-tab",
-      "selector": "#stats button[role=\"tab\"]",
+      "selector": "#stats button[role=\"tab\"]:not(.tabrow__tab)",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -5198,7 +5100,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes the visible evidence panel or scope without committing data.",
+      "rationale": "Changes the visible evidence panel or scope without committing data. The five section tabs are the shared tab row (.tabrow__tab); this row covers the remaining in-panel scope and filter controls.",
       "owner": "plan-058",
       "catalogStates": [
         "progress/exercise-chart",
@@ -5335,56 +5237,6 @@
         "settings/main",
         "settings/privacy"
       ]
-    },
-    {
-      "id": "thisweek-ov-week-bar",
-      "selector": "#thisWeek .ov-week-bar",
-      "roles": {
-        "progress": "week",
-        "boundary": "required"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "current",
-        "complete",
-        "insufficient"
-      ],
-      "rationale": "Progress dimension week; scope: completed sessions in current week.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/guided-repair",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline",
-        "progress/prs",
-        "progress/prs-drill-in",
-        "progress/recovery-active",
-        "progress/recovery-ineligible",
-        "progress/recovery-preview",
-        "progress/recovery-questions",
-        "progress/recovery-reassessment",
-        "progress/review",
-        "progress/review-active",
-        "progress/review-complete",
-        "progress/review-insufficient",
-        "progress/schedule-diagnosis",
-        "progress/sibling-lower-frequency",
-        "progress/sibling-shorter-session",
-        "progress/strength",
-        "progress/strength-all-history",
-        "progress/strength-comparison",
-        "progress/strength-current-block",
-        "progress/strength-sparse",
-        "progress/volume",
-        "progress/volume-block",
-        "progress/volume-drill-in",
-        "progress/volume-reduction-preview"
-      ],
-      "progressScopes": {
-        "current-week-sessions": "week"
-      }
     },
     {
       "id": "toast",
@@ -5783,7 +5635,6 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "progress/exercise-chart",
         "progress/overview",
         "progress/overview-action"
       ]
@@ -5949,26 +5800,6 @@
         "onboarding-recommend/result-avoided",
         "onboarding-browse/catalogue",
         "history/session"
-      ]
-    },
-    {
-      "id": "card-chartcard",
-      "selector": ".card.chartcard",
-      "roles": {
-        "elevation": "flat"
-      },
-      "variant": "evidence-chart",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Chart grouping remains ordinary flat content despite its bounded fill.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
       ]
     },
     {
@@ -6506,7 +6337,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
-        "library/exercise-detail-glossary"
+        "library/exercise-detail-glossary",
+        "progress/exercise-chart"
       ]
     },
     {
@@ -7158,7 +6990,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
-        "library/exercise-detail-glossary"
+        "library/exercise-detail-glossary",
+        "progress/exercise-chart"
       ]
     },
     {
@@ -7183,30 +7016,6 @@
         "progress/volume",
         "progress/volume-block",
         "progress/volume-drill-in"
-      ]
-    },
-    {
-      "id": "vrow-not-evrow-not-id",
-      "selector": "button.vrow:not(.evrow):not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "A volume row drills into muscle evidence; its chevron denotes navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
       ]
     },
     {
@@ -7450,10 +7259,6 @@
         "onboarding-start/first-run-track",
         "onboarding-start/first-run-ways",
         "program/progression-editor",
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
         "onboarding-recommend/result-corrected"
@@ -7471,7 +7276,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink; hold draws \"=\" and recover a return arrow, both in ink (owner decision on #295, 2026-10-01), while stalled and new stay word-only. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; the session summary (R3h) renders it for each lift's outcome word, its record line and the next target. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text.",
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink; hold draws \"=\" and recover a return arrow, both in ink (owner decision on #295, 2026-10-01), while stalled and new stay word-only. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; the session summary (R3h) renders it for each lift's outcome word, its record line and the next target. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text. Progress renders it too (R3i): the attention rows' mark from the engine's recommendation for each lift whose load changes.",
       "owner": "plan-064/r1a",
       "catalogStates": [
         "onboarding-shared/gate",
@@ -7501,7 +7306,8 @@
         "session/summary-declined",
         "session/summary-mixed",
         "session/summary-first",
-        "history/session"
+        "progress/overview",
+        "progress/overview-action"
       ]
     },
     {
@@ -7647,15 +7453,36 @@
       "states": [
         "default"
       ],
-      "rationale": "The row of tabs sits on one decorative hairline; each tab's selected state, not the hairline, carries the required cue. The paper fade drawn while the row overflows is a gradient the rendered-role audit cannot measure, so it is not part of this component.",
+      "rationale": "The row of tabs sits on one decorative hairline; each tab's selected state, not the hairline, carries the required cue. The paper fade drawn while the row overflows is a gradient the rendered-role audit cannot measure, so it is not part of this component. Progress renders it (R3i): one row of five sections above every Progress tab.",
       "owner": "plan-064/r1b",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3i (Progress tab row). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
       "catalogStates": [
+        "progress/guided-repair",
         "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/recovery-active",
+        "progress/recovery-ineligible",
+        "progress/recovery-preview",
+        "progress/recovery-questions",
+        "progress/recovery-reassessment",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
         "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse",
         "progress/volume",
-        "progress/prs"
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/volume-reduction-preview"
       ]
     },
     {
@@ -7679,15 +7506,36 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes the visible evidence panel or scope without committing data. The selected tab carries a 2px indicator in the quiet selected boundary (ink), 3:1 or better on the page ground and the surface in both themes (OG-4); a consumer that needs an id gets its own exact row.",
+      "rationale": "Changes the visible evidence panel or scope without committing data. The selected tab carries a 2px indicator in the quiet selected boundary (ink), 3:1 or better on the page ground and the surface in both themes (OG-4); a consumer that needs an id gets its own exact row. Progress renders it (R3i): Overview, Strength, Volume, PRs and Review.",
       "owner": "plan-064/r1b",
-      "sourceOnly": true,
-      "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3i (Progress tab row). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
       "catalogStates": [
+        "progress/guided-repair",
         "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/recovery-active",
+        "progress/recovery-ineligible",
+        "progress/recovery-preview",
+        "progress/recovery-questions",
+        "progress/recovery-reassessment",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
         "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse",
         "progress/volume",
-        "progress/prs"
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/volume-reduction-preview"
       ]
     },
     {
@@ -8446,6 +8294,28 @@
         "session/summary-mixed",
         "session/summary-first"
       ]
+    },
+    {
+      "id": "strrow-not-id",
+      "selector": "button.strrow:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. Strength this block (R3i): a lift with two or more sessions opens its chart; the row carries the outcome word, the sparkline and the top-load change.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action"
+      ]
     }
   ],
   "contextualVariants": [
@@ -8816,20 +8686,6 @@
       "boundary": "required"
     },
     {
-      "selector": "#completedVolume .vrow__bar",
-      "role": "relative data bar, not goal progress",
-      "rationale": "Shows each muscle as a share of the observed maximum, with no planned target or completion value.",
-      "owner": "plan-056/058",
-      "catalogStates": [
-        "progress/volume",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline",
-        "progress/exercise-chart"
-      ],
-      "boundary": "decorative"
-    },
-    {
       "selector": ".safaribar__side",
       "role": "decorative Safari instruction drawing",
       "rationale": "The illustrated Safari controls are aria-hidden teaching artwork, not live control boundaries.",
@@ -8846,9 +8702,10 @@
       "rationale": "The licensed illustration keeps its sampled mediaBg paper; its reviewed static fallback remains the same warm plate when metadata is absent.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-preview",
         "library/exercise-detail",
-        "library/exercise-detail-glossary"
+        "library/exercise-detail-glossary",
+        "library/exercise-preview",
+        "progress/exercise-chart"
       ],
       "cssLiterals": [
         {

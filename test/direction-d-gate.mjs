@@ -53,7 +53,9 @@ console.log("\nD-owned state list");
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
     "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
     "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
-    "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first"];
+    "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
+    "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/strength", "progress/strength-current-block",
+    "progress/strength-all-history", "progress/strength-comparison", "progress/strength-sparse"];
   check(DIRECTION_D_STATES.every((item) => (item.status === "implemented") === built.includes(item.key)) &&
     DIRECTION_D_STATES.filter((item) => item.status === "implemented").length === built.length,
   "only the states an R3 sub-slice has built are implemented; every other D state is pending",
@@ -66,7 +68,7 @@ console.log("\nD-owned state list");
     "R3g's Why states are enforced");
   check(["session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first"].every((key) => status(key) === "implemented"),
     "R3h's session summary states are enforced");
-  check(["today/done", "today/draft-resume", "progress/overview"].every((key) => status(key) === "pending"),
+  check(["today/done", "today/draft-resume"].every((key) => status(key) === "pending"),
     "states that still need a drawing, or whose slice has not landed, stay pending");
   // The parity oracle accepts a status's word in either vocabulary; in PT they must be the same words
   // (CONTEXT.md "Session outcome": Melhorou, Manteve, Regressou).

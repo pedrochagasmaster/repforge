@@ -630,23 +630,23 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
   border-bottom:1px solid var(--rule);margin:0 0 18px;scrollbar-width:none;
 }
 .tabs::-webkit-scrollbar{display:none}
-.tabs button,.seg.seg--stats button,.seg.seg--window button,#prFilterSeg button{
+.tabs button,.seg.seg--window button,#prFilterSeg button{
   flex:none;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
   padding:12px 14px;font-size:var(--font-size-body-small);font-weight:500;letter-spacing:0;text-transform:none;
   font-family:var(--font-language);border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:0;
   white-space:nowrap;
 }
-.tabs button.active,.seg.seg--stats button.active,.seg.seg--window button.active,#prFilterSeg button.active{
+.tabs button.active,.seg.seg--window button.active,#prFilterSeg button.active{
   color:var(--ink);border-bottom-color:var(--accent);background:transparent;box-shadow:none;
 }
 
 /* Day tabs / legacy seg */
 .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
-.seg:not(.seg--stats):not(.seg--window) button{
+.seg:not(.seg--window) button{
   flex:1;min-width:0;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
   cursor:pointer;border-radius:var(--radius-control);padding:11px 8px;font-weight:600;font-size:var(--font-size-body-small);
 }
-.seg:not(.seg--stats):not(.seg--window) button.active{
+.seg:not(.seg--window) button.active{
   color:var(--ink);border-color:var(--accent);background:var(--surface);
 }
 
@@ -675,8 +675,6 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
   text-transform:none;letter-spacing:0;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .statrow--4 .statrow__cap,.metrics .metric__label{font-size:var(--font-size-label)}
-.metric__val small{font-weight:500;font-size:var(--font-size-caption);color:var(--ink-soft);margin-left:2px}
-.metric--hot::after{display:none!important;content:none!important}
 
 /* ---- Recommendation block ---- */
 .recblock{
@@ -2127,15 +2125,6 @@ textarea.sheetfield__input{
   .wo-head__title{-webkit-line-clamp:2}
 }
 
-/* ---- Metrics (aliased to unified stat-band above) ---- */
-.trend{font-size:var(--font-size-body-small);color:var(--ink-soft);margin:0;display:grid;gap:3px}
-.trend__fig{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin:0}
-.trend b{color:var(--ink);font-weight:600}
-.trend__delta{font-weight:600;white-space:nowrap}
-.trend .up{color:var(--positive)}.trend .down{color:var(--danger)}
-.prledger{margin:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
-  border:0;border-radius:0;background:transparent}
-.prledger table{font-size:var(--font-size-caption);margin:0}
 .pr-kind{display:inline-block;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px}
 .pr-kind--load{color:var(--accent-deep);background:rgba(var(--accent-rgb),.06)}
 .pr-kind--reps{color:var(--ink);background:rgba(var(--ink-rgb),.05)}
@@ -2844,31 +2833,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .settings-warn{margin:8px 0 0;font-size:var(--font-size-body-small);line-height:1.4;color:var(--accent-deep)}
 .settings-warn.hidden,[hidden].settings-warn{display:none}
 
-.thisweek{margin-bottom:14px;padding:0;background:transparent;border:0}
-
 .attention{display:flex;flex-direction:column;gap:0;margin-bottom:14px}
-.attn__grp{display:flex;flex-direction:column;gap:0;padding:0;border-bottom:0}
-.attn__lead{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);width:100%;margin:16px 0 4px}
-.attn__chip{
-  display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:12px 0;
-  border:0;border-bottom:1px solid var(--control-quiet-boundary);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  border-radius:var(--radius-none);cursor:pointer;font-family:var(--font-language);font-size:var(--font-size-control);
-  font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;
-}
-.attn__chip:hover{background:var(--well);color:var(--control-quiet-ink)}
-.attn__chip .listrow__main{flex:1;min-width:0}
-.attn__chip .listrow__title{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
-/* The reason is the only thing on the row a lifter has not already read in the
-   title, so it gets the width the destination label used to take and a second
-   line to land in. Ten rows that all stopped at "…weekly volume t…" read as a
-   rendering fault rather than as ten lifts sharing one cause. */
-.attn__chip .listrow__sub{
-  font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);margin-top:2px;line-height:var(--line-reading);
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
-}
-/* This week reads as a headline: verdict, then the arithmetic, then the session bar.
-   Rules live in .statrow under it, so this block stays flat. */
-.ov-week-status{font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);letter-spacing:-0.02em;line-height:var(--line-tight);color:var(--color-ink);margin:0}
 
 /* A grouped-list row: 44px tall, full-bleed to the card edge so the press tint
    and the hairline read as part of the list above it. The box's own 44px hit
@@ -2983,20 +2948,6 @@ body.is-sheet-open .installbanner{display:none}
 
 .stats-seg{display:none}
 .stats-seg.active{display:block}
-.seg--stats{margin-bottom:14px;background:transparent;border:0;border-radius:0;padding:0;gap:0;border-bottom:1px solid var(--rule);
-  display:flex;flex-wrap:nowrap;justify-content:space-between;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.seg--stats::-webkit-scrollbar{display:none}
-/* All five sections have to sit on one phone width — trim the tab padding rather than
-   leave "Review" hanging off the edge. The end tabs flush with the page gutters, and
-   anything narrower than the row still scrolls. */
-.seg.seg--stats button{min-height:var(--control-target);padding:12px 9px;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard)}
-.seg.seg--stats button:first-child{padding-left:0}
-.seg.seg--stats button:last-child{padding-right:0}
-/* Evidence is a secondary group under the two primary tasks (Plan 056): the
-   same tab row language, visually smaller so it never competes with them. */
-.seg.seg--stats.seg--evidence{border-bottom:0;margin-bottom:6px}
-.seg.seg--stats.seg--evidence button{padding:8px 9px;font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
-.seg.seg--stats.seg--evidence button.active{color:var(--control-selection-ink);border-bottom-color:var(--control-selected-boundary)}
 /* Evidence summary rows (Plan 056 UI-08): full names, one value, drill-in. */
 .evrow{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:11px 2px;background:none;border:0;border-bottom:1px solid var(--rule)}
 .evrow .listrow__main{flex:1;min-width:0}
@@ -3006,15 +2957,6 @@ body.is-sheet-open .installbanner{display:none}
 button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;color:inherit;font:inherit}
 .vrow.evrow{display:grid;grid-template-columns:1fr auto auto auto;gap:6px 12px;align-items:center}
 .vrow.evrow .vrow__bar{grid-column:1/-1}
-@media (max-width:360px){.seg.seg--stats button{padding:12px 6px;font-size:var(--font-size-body-small)}}
-/* The smallest phone is the one width where six columns still ask for more room
-   than the card has, so the ledger tightens before it falls back to scrolling. */
-@media (max-width:360px){
-  .chartcard{padding:14px}
-  .chartcard .prledger th{font-size:var(--font-size-label)}
-  .chartcard .prledger td{font-size:var(--font-size-caption)}
-  .chartcard .prledger th + th,.chartcard .prledger td + td{padding-left:6px}
-}
 .seg--window{margin:8px 0 12px}
 
 #history .session--edit{display:block}
@@ -4034,34 +3976,167 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
     position:static;right:auto;grid-column:2;grid-row:1;justify-self:end;min-width:0
   }
 }
-/* One lift, four facts: which lift it is, how its top set has moved, the records
-   behind that, and the curve. They shared a card and nothing else — the picker
-   and its caption were inset 14px while the figures, the ledger and the canvas
-   ran to the card's own border, and the seven gaps between them were each
-   chosen on its own. One column at one inset, one rhythm, and a hairline only
-   where the subject changes. */
-.chartcard{padding:16px;border-radius:var(--radius-surface);background:var(--color-surface);border-color:var(--boundary-decorative);box-shadow:var(--elevation-flat-shadow)}
-.chartcard > .field,.chartcard > .lede{margin:0}
-.chartcard .strength-pick select{padding:0 22px 0 0;font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--control-selection-ink)}
-.chartcard .trend{margin-top:8px}
-/* The records are what the two figures are drawn from, and the curve is those
-   records over time, so each earns a rule rather than a guessed gap. */
-.chartcard .prledger{margin-top:16px;padding-top:15px;border-top:1px solid var(--boundary-decorative)}
-.chartcard__cap{margin-top:16px;padding-top:15px;border-top:1px solid var(--boundary-decorative)}
-/* This ledger is a block inside a card, not a wide table on a page of its own,
-   so it drops the shared 520px floor: seven narrow columns fit the card's
-   column, and the last of them stops being cut off mid-figure. */
-.chartcard .prledger table{min-width:0}
-.chartcard .prledger th{padding:9px 0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.chartcard .prledger td{padding:9px 0;font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink)}
-.chartcard .prledger th + th,.chartcard .prledger td + td{padding-left:8px}
-.chartcard .prledger tr > :last-child{text-align:right}
-/* The last row's own rule and the chart caption's would otherwise sit 15px
-   apart with nothing between them. One seam. */
-.chartcard .prledger tbody tr:last-child > *{border-bottom:0}
 .chart-wrap{margin:4px 0 0}
-.strength-pick{margin-bottom:0}
 .is-danger{color:var(--danger)!important}
+
+/* ---- Progress: one tab row, the overview and the Strength tab (Plan 064 R3i) ----
+   Direction D on the shared roles: the tab row is the R1b .tabrow, rows are
+   flat hairline-separated bands (never cards), figures are Mono, and the accent
+   appears only on an up verdict glyph. Nothing here animates. Every length is
+   a --space-* step or a multiple of --control-target. */
+#stats .tabrow{margin:var(--space-14) 0 0}
+#stats .guide-cue{
+  margin:var(--space-14) 0 0;padding:var(--space-12) 0 var(--space-8);background:transparent;
+  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
+  grid-template-columns:minmax(0,1fr) var(--control-target);column-gap:var(--space-8);
+}
+#stats .guide-cue__title{margin:0;font-size:var(--font-size-body)}
+#stats .guide-cue__body{margin-top:var(--space-4);color:var(--color-ink-secondary)}
+#stats .guide-cue__dismiss{margin:calc(-1 * var(--space-4)) 0 0;justify-self:end}
+
+.ovtotals{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);
+  margin-top:var(--space-18);padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);
+}
+.ovtotals--3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ovtotal{min-width:0}
+.ovtotal__val{
+  display:block;font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);
+  line-height:var(--line-tight);color:var(--color-ink);white-space:nowrap;
+}
+.ovtotal__of{font-style:normal;font-size:var(--font-size-body);color:var(--color-ink-secondary)}
+.ovtotal__cap{
+  display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.ovweekline{
+  margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.ovsec{
+  display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12);
+  margin-top:var(--space-26);padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);
+}
+.ovsec__title{
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
+  line-height:var(--line-tight);color:var(--color-ink);
+}
+.ovsec__meta{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.ovnone{
+  margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.attention{margin-bottom:0}
+
+/* Needs attention: the mark, the lift and its figure share the first line; the
+   verdict and its reason run the full width under them, the evidence kind in
+   soft text below. The whole row is one button. */
+.attn__chip{
+  display:grid;grid-template-columns:24px minmax(0,1fr) auto;column-gap:var(--space-8);row-gap:0;align-items:baseline;
+  width:100%;min-height:64px;padding:var(--space-12) 0;border:0;border-bottom:1px solid var(--boundary-decorative);
+  border-radius:var(--radius-none);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;
+}
+.attn__chip:hover{background:var(--well)}
+.attn__chip:active{background:var(--well);transform:var(--control-pressed-transform)}
+.attn__chip:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.attnrow__mark{grid-column:1;display:flex;align-self:start;padding-top:var(--space-4)}
+.attnrow__name{grid-column:2;min-width:0;font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+.attnrow__fig{
+  grid-column:3;display:inline-flex;align-items:center;gap:var(--space-4);white-space:nowrap;
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink);
+}
+.attnrow__verdict{
+  grid-column:2 / -1;margin-top:var(--space-4);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);
+  line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere;
+}
+.attnrow__label::after{content:".\00a0"}
+.attnrow__evidence{
+  grid-column:2 / -1;margin-top:var(--space-4);font-size:var(--font-size-caption);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+
+/* Strength this block: name, outcome and date at the left, the sparkline, then
+   the top-load change. Two sessions or more open the lift's chart; a single
+   session is a dot and stays inert. */
+.spark{flex:none;display:block}
+.spark__line{fill:none;stroke:var(--color-ink-secondary);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+.spark__dot{fill:var(--color-ink)}
+.strrow{
+  display:grid;grid-template-columns:minmax(0,1fr) 60px auto;gap:var(--space-12);align-items:baseline;
+  width:100%;min-height:56px;padding:var(--space-8) 0;border:0;border-bottom:1px solid var(--boundary-decorative);
+  border-radius:var(--radius-none);background:var(--control-quiet-bg);color:var(--control-quiet-ink);text-align:left;
+  font-family:var(--font-language);font-size:var(--font-size-control);line-height:var(--line-standard);
+}
+button.strrow{cursor:pointer}
+button.strrow:hover{background:var(--well)}
+button.strrow:active{background:var(--well);transform:var(--control-pressed-transform)}
+button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.strrow--snap{grid-template-columns:minmax(0,1fr) 60px 5rem}
+.strrow .spark{align-self:center}
+.strrow__main{display:block;min-width:0}
+.strrow__name{display:block;font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink)}
+.strrow__sub{display:block;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.strrow__fig{
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-tight);
+  color:var(--color-ink);white-space:nowrap;text-align:right;
+}
+
+/* The Strength tab: the scope control, then a row per lift that opens in place. */
+#stats #strengthScopeSeg{
+  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;margin:var(--space-14) 0 0;padding:3px;
+  border:1px solid var(--boundary-decorative);border-radius:var(--radius-control);background:var(--well);
+}
+#stats #strengthScopeSeg > button{
+  min-height:var(--control-target);margin:0;padding:4px var(--space-8);border:2px solid transparent;border-radius:var(--radius-compact);
+  background:var(--control-quiet-bg);color:var(--color-ink-secondary);text-align:center;white-space:normal;overflow-wrap:anywhere;
+  font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+}
+#stats #strengthScopeSeg > button.active{
+  border-color:var(--boundary-selected-quiet);background:var(--surface);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
+}
+.evrow--d{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n f" "o s" "k s";column-gap:var(--space-12);row-gap:0;
+  align-items:center;min-height:64px;padding:var(--space-12) 0;border-bottom-color:var(--boundary-decorative);
+}
+.evrow--d.is-open{border-bottom-color:transparent}
+.evrow--d .evrow__name{grid-area:n;align-self:start;min-width:0;font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink)}
+.evrow--d .evrow__fig{grid-area:f;display:inline-flex;align-items:center;gap:var(--space-4);white-space:nowrap}
+.evrow--d .evrow__val{font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink)}
+.evrow--d .evrow__out{
+  grid-area:o;margin-top:var(--space-4);min-width:0;font-size:var(--font-size-body-small);font-weight:var(--weight-medium);
+  line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere;
+}
+.evrow--d .evrow__out.is-soft{font-weight:var(--weight-regular);color:var(--color-ink-secondary)}
+.evrow--d .evrow__kind{grid-area:k;font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.evrow--d .evrow__spark{grid-area:s;align-self:center;justify-self:end}
+#stats .evrow--d .evrow__detail,#stats .evrow__detail{padding:0 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative);overflow-x:visible}
+.evrow__detail .lede{margin:0 0 var(--space-4)}
+.evtable{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;margin-top:var(--space-8)}
+.evtable th,.evtable td{
+  padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);text-align:right;white-space:normal;overflow-wrap:anywhere;
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);
+}
+.evtable th{
+  padding-top:0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
+}
+.evtable th:first-child,.evtable td:first-child{width:26%;text-align:left;font-family:var(--font-language)}
+.evtable th + th,.evtable td + td{padding-left:var(--space-8)}
+.evtable tbody tr:last-child td{border-bottom:0}
+
+/* A narrow screen or enlarged text: the rows stack instead of squeezing the words. */
+@container (max-width:21em){
+  .ovtotals,.ovtotals--3{grid-template-columns:minmax(0,1fr)}
+  .attn__chip{grid-template-columns:24px minmax(0,1fr)}
+  .attnrow__fig{grid-column:2;grid-row:2;margin-top:var(--space-4)}
+  .attnrow__verdict{grid-row:3}
+  .attnrow__evidence{grid-row:4}
+  .strrow,.strrow--snap{grid-template-columns:minmax(0,1fr) auto}
+  .strrow .spark{display:none}
+  .evrow--d{grid-template-areas:"n n" "f f" "o o" "k s"}
+  .evrow--d .evrow__fig{justify-self:start;margin-top:var(--space-4)}
+}
 
 /* ---- History list, frequency counts and calendar sheet (Plan 064 R3j) ----
    Weeks, not a calendar strip: sessions group under their block week, the
@@ -6060,19 +6135,6 @@ body.is-entry-editor #entryProgramName,
 #stats .subhead{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
 #stats .subhead::after{background:var(--boundary-decorative)}
 #stats .lede{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#stats .statrow__val,#stats .metric__val{font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-#stats .statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
-#stats .metrics .metric__val{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;font-family:var(--font-training-data)}
-#stats .statrow__cap,#stats .metric__label{font-size:var(--font-size-caption);font-family:var(--font-language);color:var(--color-ink-secondary);font-weight:var(--weight-regular);line-height:var(--line-standard)}
-#stats .statrow--4 .statrow__cap,#stats .metrics .metric__label{font-size:var(--font-size-label)}
-#stats .metric__val small{font-weight:var(--weight-medium);font-size:var(--font-size-caption);color:var(--color-ink-secondary);margin-left:2px}
-#stats .trend{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#stats .trend b{color:var(--color-ink);font-weight:var(--weight-semibold)}
-#stats .trend__delta{font-weight:var(--weight-semibold)}
-#stats .trend .up{color:var(--color-improved)}
-#stats .trend .down{color:var(--color-declined)}
-#stats .prledger{border-radius:var(--radius-none)}
-#stats .prledger table{font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink)}
 #stats .pr-kind{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);border-radius:var(--radius-compact)}
 #stats .pr-kind--load,#stats .pr-kind--e1rm{color:var(--color-action-text)}
 #stats .pr-kind--reps{color:var(--color-ink-secondary)}
@@ -6102,21 +6164,12 @@ body.is-entry-editor #entryProgramName,
 #stats .listrow__meta{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #stats .empty{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);border-color:var(--boundary-decorative)}
 #stats .listrow__sub{white-space:normal;overflow-wrap:anywhere}
-#stats .seg--stats{border-bottom-color:var(--boundary-decorative)}
-#stats .seg--stats > button,#stats #prFilterSeg > button,#stats .seg--window > button{color:var(--color-ink-secondary)}
-#stats .seg--stats > button:hover:not(:disabled),#stats #prFilterSeg > button:hover:not(:disabled),#stats .seg--window > button:hover:not(:disabled){color:var(--control-selection-ink)}
-#stats .seg--stats > button.active,#stats #prFilterSeg > button.active,#stats .seg--window > button.active{color:var(--control-selection-ink);border-bottom-color:var(--control-selected-boundary)}
-#stats .seg--stats > button:focus-visible,#stats #prFilterSeg > button:focus-visible,#stats .seg--window > button:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+#stats #prFilterSeg > button,#stats .seg--window > button{color:var(--color-ink-secondary)}
+#stats #prFilterSeg > button:hover:not(:disabled),#stats .seg--window > button:hover:not(:disabled){color:var(--control-selection-ink)}
+#stats #prFilterSeg > button.active,#stats .seg--window > button.active{color:var(--control-selection-ink);border-bottom-color:var(--control-selected-boundary)}
+#stats #prFilterSeg > button:focus-visible,#stats .seg--window > button:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 #stats button[role="tab"]:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
-#stats .seg--stats > button:disabled,#stats #prFilterSeg > button:disabled,#stats .seg--window > button:disabled{color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);cursor:not-allowed}
-#stats #gotoVolume,#stats #overviewVolumeMore{min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-quiet-ink)}
-#stats #gotoVolume:hover,#stats #overviewVolumeMore:hover{background:var(--well);color:var(--control-quiet-ink)}
-#stats #gotoVolume:active,#stats #overviewVolumeMore:active{transform:var(--control-pressed-transform)}
-#stats #gotoVolume:focus-visible,#stats #overviewVolumeMore:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#stats #statsDeep > summary{min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-disclosure-ink)}
-#stats #statsDeep > summary:hover{background:var(--well);color:var(--control-disclosure-ink)}
-#stats #statsDeep > summary:active{background:var(--well);transform:var(--control-pressed-transform)}
-#stats #statsDeep > summary:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+#stats #prFilterSeg > button:disabled,#stats .seg--window > button:disabled{color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);cursor:not-allowed}
 #stats .evrow:hover,#stats .prtl__row:hover{background:var(--well);color:var(--control-disclosure-ink)}
 #stats .evrow:active,#stats .prtl__row:active{background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
 #stats .evrow:focus-visible,#stats .prtl__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
@@ -6131,10 +6184,7 @@ body.is-entry-editor #entryProgramName,
 #stats button.vrow .vrow__status{grid-row:2;grid-column:1/3;text-align:left}
 #stats button.vrow .vrow__bar{grid-row:3;grid-column:1/-1}
 #stats button.vrow>.chevron{grid-row:1/3;grid-column:3;align-self:center;justify-self:end}
-#overviewVolume .vrow__bar,#volumeDash .vrow__bar,#completedVolume .vrow__bar{box-sizing:border-box;height:6px;border:1px solid var(--boundary-required)}
-#stats .attn__chip:hover,#stats .attn__chip:active{background:var(--well);color:var(--control-quiet-ink)}
-#stats .attn__chip:active{transform:var(--control-pressed-transform)}
-#stats .attn__chip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#volumeDash .vrow__bar{box-sizing:border-box;height:6px;border:1px solid var(--boundary-required)}
 #stats #reviewPanel .blockprogress > p b{font-weight:var(--weight-semibold);color:var(--color-ink)}
 #stats #reviewPanel .review__outcomes{color:var(--color-ink)}
 #stats #reviewPanel .review__readonly{color:var(--color-warning)}
@@ -6148,7 +6198,6 @@ body.is-entry-editor #entryProgramName,
 #stats #reviewPanel .btn--cta:focus-visible,#stats #reviewPanel .btn--steel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #stats #reviewPanel .btn--cta:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 #stats #reviewPanel .btn--steel:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-#stats .chartcard .strength-pick select:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 
 /* P4d History consumers keep their read, edit, and delete hierarchy flat.
    These rules apply the frozen control roles without changing History state. */

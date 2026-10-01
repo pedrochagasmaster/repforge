@@ -797,7 +797,6 @@ const bootTelemetry=()=>{if(installTransferMutationFrozen())return null;try{
   return result}catch{return null}};
 const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
-  const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
   const langSel=$("#lang");if(langSel){if(state?.settings?.lang)langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
   $$("[data-term]").forEach(b=>{const key=b.dataset.term;b.textContent=t(`glossary.term.${key}`)||key;if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(key,b)}});
 };
@@ -1675,7 +1674,7 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
-let state,prog,day,installPrompt=null,saving=false,volWindow=7;
+let state,prog,day,installPrompt=null,saving=false;
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
@@ -4791,13 +4790,23 @@ function renderEvidenceView(){
   if(!evidenceView)return;
   const fn=evidenceRenderers()[evidenceView];
   if(fn)fn()}
+/** One row of five tabs (Plan 064 R3i): the selected tab is the Evidence view when
+ *  one is open, otherwise the primary task. Selection is exclusive. */
+function paintStatsTabs(){
+  const on=evidenceView||statsSeg;
+  $$("#statsSeg button").forEach(b=>{const sel=b.dataset.seg===on;
+    b.classList.toggle("active",sel);b.setAttribute("aria-selected",sel?"true":"false");
+    // A row that scrolls keeps its selected tab in view.
+    if(sel&&b.parentElement&&b.parentElement.scrollWidth>b.parentElement.clientWidth){
+      const row=b.parentElement,left=b.offsetLeft-row.offsetLeft;
+      if(left<row.scrollLeft||left+b.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=Math.max(0,left-16)}})}
 function setEvidenceView(view){
   if(!EVIDENCE_SEG[view]){evidenceView=null;
-    $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
+    paintStatsTabs();
     for(const id of Object.values(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
     return}
   evidenceView=view;
-  $$("#statsEvidence button").forEach(b=>{const on=b.dataset.seg===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===view)}
   renderEvidenceView()}
@@ -4808,11 +4817,10 @@ function setStatsSeg(seg){
   // Opening the review is the move onto it, not re-selecting it while it is showing.
   const opensReview=seg==="review"&&!(statsSeg==="review"&&!evidenceView&&$("#stats")?.classList.contains("active"));
   statsSeg=seg;evidenceView=null;
-  $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
-  $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
+  paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
-  if(seg==="overview")redrawChart();else if(seg==="review")renderReview();
+  if(seg==="review")renderReview();
   if(opensReview)captureBlockReviewViewed();
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
 window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
@@ -7595,6 +7603,54 @@ window.__repforgeProgression={
   sessionsFor:ex=>sessionsFor(ex),
   programSlot:id=>{const slot=prog.find(id);return slot?sessionExercise(slot):null}};
 
+/* ---- Progress: overview and Strength (Plan 064 R3i) ----
+   Every figure and word below is a model output read back. The series and its
+   points come from progress-model.js through strengthProjection(); an outcome
+   word is the compareExerciseSession label the summary and History read; an
+   attention target is recommendation(). Nothing is derived in this layer. */
+function sparklineSvg(values,w=60,h=22){
+  const nums=values.map(Number).filter(Number.isFinite);
+  if(!nums.length)return"";
+  const min=Math.min(...nums),span=Math.max(...nums)-min||1;
+  const pts=nums.length===1?[[w/2,h/2]]:nums.map((v,i)=>[2+i*(w-4)/(nums.length-1),h-3-(v-min)/span*(h-6)]);
+  const line=pts.length>1?`<path class="spark__line" d="${pts.map((q,i)=>`${i?"L":"M"}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" ")}"/>`:"";
+  const last=pts.at(-1);
+  return`<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">${line}<circle class="spark__dot" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="${pts.length>1?2.4:3}"/></svg>`}
+const STRENGTH_KIND_KEYS={snapshot:"stats.evidence.snapshot",comparison:"stats.evidence.comparison",trend:"stats.evidence.trend"};
+/** "Tendência, 4 sessões": the evidence kind and how many sessions back it. */
+function strengthKindText(series){
+  if(series.presentation==="empty"||!STRENGTH_KIND_KEYS[series.presentation])return t("stats.evidence.empty");
+  const n=series.evidenceCount;
+  return t(n===1?"stats.overview.evidence.one":"stats.overview.evidence.other",{kind:t(STRENGTH_KIND_KEYS[series.presentation]),n})}
+/** `a→b kg`: the scope's first and latest top load, both the model's points. */
+function strengthFigure(series){
+  const pts=series.points;if(!pts.length)return"—";
+  const last=fmtLoad(pts.at(-1).value);
+  return pts.length>1?`${fmtLoad(pts[0].value)}→${last} ${unitLabel()}`:`${last} ${unitLabel()}`}
+function strengthSessionRows(key,sessionId){
+  return state.log.filter(r=>isWork(r)&&liftKey(r)===key&&String(r.session??r.date)===String(sessionId))}
+/** The word under a lift's name. With a sufficient outcome it is the label of
+ *  compareExerciseSession for the latest session, marked for the parity check;
+ *  otherwise it is the short reason the model gave (no outcome is invented). */
+function strengthOutcomeWord(key,series,latest){
+  if(!latest)return{html:esc(t("stats.evidence.baseline")),soft:true,status:""};
+  const rows=strengthSessionRows(key,latest.session),slot=currentExerciseForLiftKey(key);
+  const cmp=rows.length?compareExerciseSession(slot||exerciseIdentityFromRow(rows[0]),rows):null;
+  const parity=slot?` data-parity-outcome="${esc(slot.id)}" data-parity-session="${esc(latest.session)}"`:"";
+  const word=label=>`<span class="evword"${parity}>${esc(label)}</span>`;
+  if(series.outcome&&cmp)return{html:word(cmp.label),soft:false,status:series.outcome};
+  const reason=series.reason;
+  if(reason==="single-observation")return{html:esc(t("stats.outcome_short.single_observation")),soft:true,status:""};
+  if(reason==="missing-effort")return{html:esc(t("stats.outcome_short.missing_effort")),soft:true,status:""};
+  if((reason==="changed-load"||reason==="incompatible-exposure")&&cmp)return{html:word(cmp.label),soft:true,status:""};
+  return{html:esc(t("stats.evidence.baseline")),soft:true,status:""}}
+/** The two-point change, `+2,5 kg (+2,63%)`. A rep-only improvement moved no
+ *  load, so its zero change is not printed and the row reads the word alone. */
+function strengthChangeText(series){
+  const comparison=series.comparison;
+  if(!comparison||!comparison.absolute)return"";
+  return t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${fmt(toDisplay(comparison.absolute))} ${unitLabel()}`,
+    percentage:`${comparison.percentage>0?"+":""}${fmt(comparison.percentage)}`})}
 function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   const scopeSeg=$("#strengthScopeSeg");
@@ -7610,30 +7666,35 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   if(!keys.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const nameOf=k=>dash.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
   el.innerHTML=[...keys].sort((a,b)=>nameOf(a).localeCompare(nameOf(b),locTag())).map(k=>{
-    const series=projection.series.get(k);
-    const label=t(`stats.evidence.${series.presentation}`);
-    const outcome=series.outcome&&EVIDENCE_OUTCOME_KEYS[series.outcome]?` · ${t(EVIDENCE_OUTCOME_KEYS[series.outcome])}`:"";
-    const reason=!series.outcome&&series.reason&&series.presentation!=="empty"?` · ${t(`stats.evidence.reason.${series.reason}`)}`:"";
-    const baseline=series.presentation==="empty"?` · ${t("stats.evidence.baseline")}`:"";
-    const value=series.latest?`${fmtLoad(series.latest.value)}×${series.latest.reps}`:"—";
-    const comparison=series.comparison;
-    const change=comparison?` · ${t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${fmt(toDisplay(comparison.absolute))} ${unitLabel()}`,percentage:`${comparison.percentage>0?"+":""}${fmt(comparison.percentage)}`})}`:"";
-    const detail=strengthDetailTable(k,projection);
-    return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
-      `<div class="listrow__main"><div class="listrow__title">${esc(nameOf(k))}</div>`+
-      `<div class="listrow__sub">${esc(label)}${esc(outcome||reason||baseline)}${esc(change)}</div></div>`+
-      `<span class="evrow__val">${esc(value)}</span><span class="chevron" aria-hidden="true"></span></button>`+
-      `<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`}).join("");
+    const series=projection.series.get(k),detail=strengthDetailTable(k,projection);
+    const panel=`<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`;
+    // A slot with no history in this scope keeps its shipped row: nothing is drawn for it.
+    if(series.presentation==="empty")
+      return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
+        `<div class="listrow__main"><div class="listrow__title">${esc(nameOf(k))}</div>`+
+        `<div class="listrow__sub">${esc(t("stats.evidence.empty"))}${esc(` · ${t("stats.evidence.baseline")}`)}</div></div>`+
+        `<span class="evrow__val">—</span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
+    const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
+    return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
+      `<b class="evrow__name">${esc(nameOf(k))}</b>`+
+      `<span class="evrow__fig"><span class="evrow__val">${esc(strengthFigure(series))}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
+      `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
+      `<span class="evrow__kind">${esc(strengthKindText(series))}</span>`+
+      `<span class="evrow__spark">${sparklineSvg(series.points.map(point=>point.value))}</span></button>${panel}`}).join("");
   $$("#strengthDash [data-evkey]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-evdetail="${b.dataset.evkey}"]`);if(!detail)return;
-    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
+    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");b.classList.toggle("is-open",open);
+    const chev=b.querySelector(".chevron.is-down, .chevron.is-up");if(chev){chev.classList.toggle("is-down",!open);chev.classList.toggle("is-up",open)}})}
+/** The rows opened under a lift: why there is no outcome when there is none,
+ *  the scope's date range, and one line per session. */
 function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
   const sess=projection.sessions.filter(x=>x.liftKey===k);
   if(!sess.length)return `<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`;
-  const u=unitLabel();
-  return `<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`+
-    table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[t("stats.table.top")]:fmtLoad(s.top),[t("stats.table.reps")]:s.topReps,
-      [t("stats.table.e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)})))}
+  const series=projection.series.get(k),u=unitLabel();
+  const reason=series&&!series.outcome&&series.reason?`<p class="lede">${esc(t(`stats.evidence.reason.${series.reason}`))}</p>`:"";
+  const range=sess.length>1?`<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`:"";
+  return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[t("stats.table.top")]:fmtLoad(s.top),[t("stats.table.reps")]:s.topReps,
+      [t("stats.table.e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
 function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
@@ -7641,23 +7702,41 @@ function legacyStrengthTable(el){
   el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
     [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
 
-// The week reads as a headline: the arithmetic the model computed, a session bar so
-// "3 of 4" is legible without reading, and the baseline tally. Every number comes
+// The week reads as two totals and a line (Plan 064 R3i). Every number comes
 // from the same evidence model the lists below render, so none of them disagree.
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return;
-  const w=Model.buildWeekStatus(prog.toJSON(),progressEvidenceMeta(),state.log,today());
+  const meta=progressEvidenceMeta(),w=Model.buildWeekStatus(prog.toJSON(),meta,state.log,today());
   const records=strengthEvidenceRecords("current-block"),baselineN=records.filter(r=>r.evidenceState==="insufficient").length;
-  const segs=Math.max(w.plannedSessions,w.completedSessions,1),done=Math.min(w.completedSessions,segs);
-  el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.in_progress"))}</div>`+
-    `<div class="ov-week-line">${esc(t("stats.this_week.progress",{sessions:`${w.completedSessions} / ${w.plannedSessions}`,sets:`${w.completedWorkingSets} / ${w.plannedWorkingSets}`}))}</div>`+
-    `<div class="ov-week-bar" data-progress-dimension="week" data-progress-scope="current-week-sessions" aria-hidden="true">`+
-    Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
-    `<div class="statrow">`+
-    `<div class="statrow__cell" data-week-metric="sessions"><div class="statrow__val">${w.completedSessions}</div><div class="statrow__cap">${esc(t("stats.this_week.sessions"))}</div></div>`+
-    `<div class="statrow__cell" data-week-metric="sets"><div class="statrow__val">${w.completedWorkingSets}</div><div class="statrow__cap">${esc(t("stats.this_week.working_sets"))}</div></div>`+
-    `<div class="statrow__cell" data-week-metric="baseline"><div class="statrow__val">${baselineN}</div><div class="statrow__cap">${esc(t("stats.this_week.baseline"))}</div></div>`+
-    `</div>`}
+  const weekLine=w.status==="in-progress"&&w.week?t("stats.overview.week",{n:w.week,total:meta.mesocycleLengthWeeks}):t("stats.this_week.in_progress");
+  const cell=(metric,done,planned,caption)=>`<div class="ovtotal" data-week-metric="${metric}"><b class="ovtotal__val"><span class="ovtotal__n">${done}</span>`+
+    `${planned>0?`<i class="ovtotal__of">/${planned}</i>`:""}</b><span class="ovtotal__cap">${esc(caption)}</span></div>`;
+  el.innerHTML=`<div class="ovtotals${baselineN>0?" ovtotals--3":""}">`+
+    cell("sessions",w.completedSessions,w.plannedSessions,t("stats.this_week.sessions"))+
+    cell("sets",w.completedWorkingSets,w.plannedWorkingSets,t("stats.this_week.working_sets"))+
+    (baselineN>0?cell("baseline",baselineN,0,t("stats.this_week.baseline")):"")+`</div>`+
+    `<p class="ovweekline">${esc(weekLine)}</p>`}
+/** Strength this block: a row per lift that has a session, in program order. A
+ *  row with two or more sessions opens that lift's chart; one session is a dot
+ *  with no chart behind it. */
+function renderOverviewStrength(){const el=$("#overviewStrength");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model){el.innerHTML="";return}
+  const projection=strengthProjection("current-block"),order=prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`);
+  const keys=[...projection.series.keys()].filter(k=>projection.series.get(k).evidenceCount>0)
+    .sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return(ia<0?1e6:ia)-(ib<0?1e6:ib)});
+  if(!keys.length){el.innerHTML="";return}
+  const nameOf=k=>projection.dashboard.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
+  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.strength"))}</h3><span class="ovsec__meta">${esc(t("stats.metric.top_load"))}</span></div>`+
+    keys.map(k=>{
+      const series=projection.series.get(k),latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest);
+      const body=`<span class="strrow__main"><b class="strrow__name">${esc(nameOf(k))}</b>`+
+        `<span class="strrow__sub${word.soft?" is-soft":""}">${word.html}${latest?esc(` · ${shortDate(latest.date)}`):""}</span></span>`+
+        `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig">${esc(strengthFigure(series))}</span>`;
+      return series.evidenceCount>1
+        ?`<button type="button" class="strrow" data-ovkey="${esc(k)}">${body}</button>`
+        :`<div class="strrow strrow--snap" data-ovkey="${esc(k)}">${body}</div>`}).join("");
+  $$("#overviewStrength button[data-ovkey]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ovkey,"stats"))}
 function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
 function volumeStatusKey(planned,completed){
   if(!planned)return completed>0?"high":"on-target";
@@ -7689,19 +7768,6 @@ function overviewVolumeProjection(){
     if(ra!==rb)return ra-rb;
     return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
 function overviewVolumeSorted(){return overviewVolumeProjection()}
-function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
-  const rows=overviewVolumeSorted(),shown=rows.slice(0,8),more=rows.length-shown.length;
-  el.innerHTML=rows.length?shown.map(row=>{
-    const fillClass=row.statusKey==="high"?" is-high":row.statusKey==="on-target"?" is-on":"";
-    const statusClass=row.statusKey==="on-target"?" is-on":"";
-    return `<button type="button" class="vrow" data-muscle="${esc(row.muscle)}"><span class="vrow__name">${esc(muscleLabel(row.muscle))}</span>`+
-      `<span class="vrow__bar" data-progress-dimension="week" data-progress-scope="current-week-muscle-sets"><span class="vrow__fill${fillClass}" style="width:${row.pct}%"></span></span>`+
-      `<span class="vrow__num">${fmt(row.completed7)} / ${fmt(row.planned)}</span>`+
-      `<span class="vrow__status${statusClass}">${esc(row.status)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+
-      (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
-    :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;
-  $$("#overviewVolume [data-muscle]").forEach(button=>button.onclick=()=>{volumeDrillMuscle=button.dataset.muscle;setEvidenceView("volume")});
-  const moreBtn=$("#overviewVolumeMore");if(moreBtn)moreBtn.onclick=()=>setStatsSeg("volume")}
 function recentDeltaRows(){const sessMap=new Map();
   for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created});
     mergeLogChronology(sessMap.get(x.session),x)}
@@ -7726,53 +7792,10 @@ function renderStats(){
       `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
       `<button type="button" class="btn btn--cta" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
     const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
-    for(const sel of["#thisWeek","#attention","#metrics","#statsDeep","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
+    for(const sel of["#thisWeek","#attention","#overviewStrength"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
   renderThisWeek();
-  renderOverviewVolume();
-  // Stat exercise options: the label and identity both follow what was actually
-  // performed, so reusing a program slot cannot merge two different movements.
-  const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
-  const keyLabel=k=>{const rows=state.log.filter(r=>liftKey(r)===k);
-    const latest=[...rows].sort((a,b)=>compareLogChronology(b,a))[0];
-    return latest?displayName(latest):k};
-  const sums=summaries();
-  const totalVol=sum(state.log.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
-  const bestE=state.log.length?Math.max(...state.log.filter(isWork).map(x=>e1rm(+x.load,+x.reps))):0;
-  const lc=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
-  const tiles=[
-    {label:lc(t("stats.metric.sessions")),val:new Set(state.log.map(x=>x.session)).size},
-    {label:lc(t("stats.metric.sets_logged")),val:state.log.length},
-    {label:lc(t("stats.metric.volume")),val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
-    {label:lc(t("stats.metric.best_e1rm")),val:fmt(Math.round(toDisplay(bestE))),unit:unitLabel(),hot:bestE>0},
-  ];
-  $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div><div class="metric__label">${t.label}</div></div>`).join("");
-
-  const old=$("#statExercise").value;
-  $("#statExercise").innerHTML=keys.map(k=>`<option value="${esc(k)}">${esc(keyLabel(k))}</option>`).join("")||`<option>${esc(t("stats.table.no_data"))}</option>`;
-  if(keys.includes(old))$("#statExercise").value=old;
-  else if(keys.length)$("#statExercise").value=keys[0];
-  const sel=$("#statExercise").value,rows=sums.filter(x=>x.liftKey===sel);
-  draw(rows);
-
-  if(rows.length){const first=rows[0].top,latest=rows.at(-1).top,delta=latest-first,be=Math.max(...rows.map(r=>r.e1rm));
-    const dir=delta>0?"up":delta<0?"down":"";const arrow=delta>0?"▲":delta<0?"▼":"·";
-    // Two figures, not one sentence: what the top set did, and the best estimate
-    // behind it. The movement over sessions belongs to the first of them, so it
-    // sits on that line rather than wrapping into the second.
-    $("#trend").innerHTML=`<p class="trend__fig"><span>${t("stats.trend.top_load",{a:fmtLoad(first),b:fmtLoad(latest),unit:unitLabel()})}</span>`+
-      `<span class="trend__delta ${dir}">${arrow} ${esc(t("stats.trend.over_sessions",{signed:fmt(toDisplay(Math.abs(delta))),unit:unitLabel(),sessions:`${rows.length} ${tp(rows.length,"session")}`}))}</span></p>`+
-      `<p class="trend__fig"><span>${t("stats.trend.best_e1rm",{top:fmt(Math.round(toDisplay(be))),unit:unitLabel()})}</span></p>`;
-  }else $("#trend").innerHTML="";
-
-  $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.top")]:fmtLoad(x.top),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir),[t("stats.table.e1rm")]:fmt(Math.round(toDisplay(x.e1rm))),[t("stats.table.vol")]:kfmt(toDisplay(x.volume))})));
-  const rd=$("#recentDeltas");if(rd)rd.innerHTML=table(recentDeltaRows());
-  const topByLift=new Map();
-  for(const x of state.log){if(!isWork(x))continue;const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
-    if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:displayName(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
-  const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({[t("stats.table.exercise")]:r.Exercise,[unitLabel()]:fmtLoad(r.load),[t("stats.table.reps")]:r.reps,[t("stats.table.rir")]:fmt(r.rir),[t("stats.table.date")]:r.date}));
-  $("#tops").innerHTML=table(progRows);
-  renderPRs();renderAttention();renderCompleted();renderReview();
+  renderAttention();renderOverviewStrength();renderReview();
   if(statsSeg==="review")renderReview();
   renderEvidenceView();
   if($("#stats")?.classList.contains("active")&&!evidenceView)
@@ -8864,23 +8887,6 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
     const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
 
-function renderPRs(){const el=$("#prLedger");if(!el)return;
-  const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>ev.liftKey===sel);
-  if(!events.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.log_prs"))}</div>`;return}
-  // No e1RM column: the figures above the ledger name the best estimate, and the
-  // chart below it is that estimate over time under a caption saying so. Three
-  // printings of one number were what pushed the seventh column off the card.
-  el.innerHTML=`<table><thead><tr><th>${esc(t("stats.table.date"))}</th><th>${esc(t("stats.table.kind"))}</th><th>${esc(t("stats.table.load"))}</th><th>${esc(t("stats.table.reps"))}</th><th>${esc(t("stats.table.rir"))}</th><th>${esc(t("stats.table.delta_vs_prev"))}</th></tr></thead><tbody>${
-    events.map(ev=>{const kindCls=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
-      const kindLabel=ev.kind==="e1rm"?t("stats.pr.e1rm"):ev.kind==="reps"?t("stats.pr.reps"):t("stats.pr.load");
-      const delta=ev.kind==="e1rm"?(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}`:"—")
-        :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"—")
-        :(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}`:"—");
-      return `<tr class="pr-row"><td>${esc(ev.date)}</td><td><span class="pr-kind ${kindCls}">${esc(kindLabel)}</span></td>`+
-        `<td>${esc(fmtLoad(ev.load))}</td><td>${esc(ev.reps)}</td><td>${esc(fmt(ev.rir))}</td>`+
-        `<td>${esc(delta)}</td></tr>`}).join("")
-  }</tbody></table>`}
-
 // Needs action is derived only from canonical sufficient evidence records.
 function attentionGroups(){
   const items=RepForgeProgressModel.buildProgramActionQueue(prog.toJSON(),progressEvidenceMeta(),state.log,
@@ -8900,18 +8906,41 @@ window.__repforgeAttention=attentionGroups;
 // Lifts on the Attention board — everything the board lists, so the "attention" cell in
 // the weekly stat row and the "ATTENTION · n" heading always report the same lifts.
 function attentionCount(groups){return(groups||attentionGroups()).reduce((n,g)=>n+g.items.length,0)}
+/** The glyph column of an attention row, from the engine's recommendation for the
+ *  lift. Only up and down draw a glyph; hold and recover keep the column and carry
+ *  their variant class, which the shared mark gives a glyph. */
+function attentionVerdict(rec){
+  if(!rec||rec.status==="manual"||rec.status==="new")return"hold";
+  if(rec.status==="add"||rec.status==="add2")return"up";
+  if(rec.status==="reduce")return rec.stalled?"recover":"down";
+  return rec.reason==="recover"?"recover":"hold"}
+function attentionMarkHtml(move){
+  return move==="up"||move==="down"
+    ?`<span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`
+    :`<span class="verdictmark verdictmark--${move}" aria-hidden="true"></span>`}
+/** Needs attention: one row per lift the action queue lists. The mark, label and
+ *  reason are the engine's recommendation for the lift, the evidence line is the
+ *  model's, and the whole row opens that lift's chart. */
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const groups=attentionGroups(),count=attentionCount(groups);
-  el.innerHTML=`<p class="section-label">${esc(t("stats.needs_action"))}<span class="section-label__count">${esc(t("stats.section_count",{n:count}))}</span></p>`+
-    // The recommendation *is* the group here, so it is stated once as the lead.
-    // Each row keeps it in its own accessible name, so a chip still answers
-    // "why" on its own without printing the same sentence beside every lift.
-    (groups.length?groups.map(group=>`<div class="attn__grp attn--${esc(group.cls)}"><span class="attn__lead">${esc(group.lead)}</span>`+
-      group.items.map(({ex,item,why})=>`<button type="button" class="attn__chip" data-action-lift="${esc(item.destinationId)}" data-attn="${esc(ex.id)}" data-attngo="${esc(group.key)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-        `<div class="listrow__sub visually-hidden">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("")
-      :`<p class="lede">${esc(t("stats.needs_action.none"))}</p>`);
-  $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>{strengthScope="current-block";setEvidenceView("strength");
-    const row=$(`#strengthDash [data-evkey="${CSS.escape(button.dataset.actionLift)}"]`);row?.focus();row?.scrollIntoView({block:"center"})})}
+  const groups=attentionGroups(),count=attentionCount(groups),projection=strengthProjection("current-block");
+  const rows=groups.flatMap(group=>group.items.map(entry=>({...entry,group})));
+  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.attention",{n:count}))}</h3></div>`+
+    (rows.length?rows.map(({ex,item,group})=>{
+      const slot=currentExerciseForLiftKey(item.destinationId),rec=slot?recommendation(slot):null;
+      const series=projection.series.get(item.destinationId),last=series?.latest?.value,target=rec&&rec.load!=null?rec.load:null;
+      const figure=target!=null
+        ?(last!=null&&!sameLoad(last,target)?`${fmtLoad(last)}→${fmtLoad(target)} ${unitLabel()}`:`${fmtLoad(target)} ${unitLabel()}`)
+        :last!=null?`${fmtLoad(last)} ${unitLabel()}`:"";
+      const parity=target!=null&&slot?` data-parity-target="${esc(slot.id)}"`:"";
+      const verdict=rec&&rec.label?`<span class="attnrow__label">${esc(rec.label)}</span><span class="attnrow__reason">${esc(rec.text)}</span>`:`<span class="attnrow__reason">${esc(group.lead)}</span>`;
+      return `<button type="button" class="attn__chip attnrow" data-action-lift="${esc(item.destinationId)}" data-attn="${esc(ex.id)}" data-attngo="${esc(group.key)}">`+
+        `<span class="attnrow__mark">${attentionMarkHtml(attentionVerdict(rec))}</span>`+
+        `<b class="attnrow__name">${esc(ex.name)}</b>`+
+        `<span class="attnrow__fig"><span${parity}>${esc(figure)}</span><span class="chevron" aria-hidden="true"></span></span>`+
+        `<span class="attnrow__verdict">${verdict}</span>`+
+        `<small class="attnrow__evidence">${esc(series?strengthKindText(series):"")}</small></button>`}).join("")
+      :`<p class="ovnone">${esc(t("stats.needs_action.none"))}</p>`);
+  $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>openExerciseView(button.dataset.actionLift,"stats"))}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
@@ -9137,13 +9166,6 @@ function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
 function legacyVolumeTable(el){
   const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:muscleLabel(r.muscle),[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
   el.innerHTML=table(rows)}
-function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
-  const arr=[...m.entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff),max=Math.max(...arr.map(x=>x.eff),1);
-  el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(x.name))}</span>`+
-    `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
-    `<span class="vrow__num"><b>${fmt(x.eff)}</b> ${esc(tp(x.eff,"set"))}</span></div>`).join(""):`<div class="table"><div class="empty">${esc(t("stats.empty.no_hard_sets",{n:volWindow}))}</div></div>`;
-  $$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});}
-
 function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
 window.__repforgeChartLabelDecimals=chartLabelDecimals;
 function chartPalette(){
@@ -9218,8 +9240,7 @@ function draw(rows,sel="#chart"){
 
 function redrawChart(){
   if($("#exercise")?.classList.contains("active")&&exView){draw(summaries().filter(x=>x.liftKey===exView.key),"#exChart");return}
-  if(!$("#stats").classList.contains("active")||statsSeg!=="overview"||evidenceView!=null)return;
-  const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
+}
 
 // @ci-domain history
 function adoptHistoryDurableHead(head){
@@ -17582,7 +17603,6 @@ function init(){
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>HistoryUi.setQuery(histSearch.value);
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>HistoryUi.clearSearch();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
-  const gotoVol=$("#gotoVolume");if(gotoVol)gotoVol.onclick=()=>setStatsSeg("volume");
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
   const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
@@ -17620,13 +17640,11 @@ function init(){
     const s=t.selectionStart,en=t.selectionEnd;t.value=next;
     if(s!=null)try{t.setSelectionRange(s,en)}catch{}});
   $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
-  $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
   applyDraftContextToDom();
   updateBodyweightField();
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});
-  $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
   // Unsaved JSON now outlives a render, so collapsing Advanced is the way to
   // throw a scratch edit away — including one too broken to save.
@@ -17653,9 +17671,7 @@ function init(){
   const ne=$("#notifyEnabled");
   if(ne)ne.onchange=()=>setNotificationsEnabled(!!ne.checked);
   ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=commitChangedSettings});
-  $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
-  $$("#statsEvidence button").forEach(b=>b.onclick=()=>setEvidenceView(b.dataset.seg));
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=async()=>{

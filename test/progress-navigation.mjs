@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Plan 056 P3 — two-level Progress navigation.
-// Covers the old statsSeg migration map, the secondary Evidence group, and the
-// Program End block route into the single Review surface.
+// Plan 056 P3 / Plan 064 R3i — Progress navigation: one tab row of five.
+// Covers the old statsSeg migration map, exclusive selection across the five
+// tabs, and the Program End block route into the single Review surface.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { assertServingApp } from "./browser.mjs";
@@ -34,10 +34,7 @@ async function freshPage() {
 
 function snapOf(page) {
   return page.evaluate(() => ({
-    primary: [...document.querySelectorAll("#statsSeg button")].map((b) => ({
-      seg: b.dataset.seg, selected: b.getAttribute("aria-selected"), active: b.classList.contains("active"),
-    })),
-    evidence: [...document.querySelectorAll("#statsEvidence button")].map((b) => ({
+    tabs: [...document.querySelectorAll("#statsSeg button")].map((b) => ({
       seg: b.dataset.seg, selected: b.getAttribute("aria-selected"), active: b.classList.contains("active"),
     })),
     panels: {
@@ -52,36 +49,32 @@ function snapOf(page) {
   }));
 }
 
-// One-view sanity: with no seeded state the primary group is Overview/Review
-// and the Evidence group carries the three secondary views.
+// One-view sanity: Progress is one tab row of five, and exactly one tab is selected at a time.
 {
   const { context, page } = await freshPage();
   const nav = await snapOf(page);
-  assert.deepEqual(nav.primary.map((b) => b.seg), ["overview", "review"], "primary tabs are Overview and Review");
-  assert.deepEqual(nav.evidence.map((b) => b.seg), ["strength", "volume", "prs"], "Evidence group carries strength/volume/prs");
+  assert.deepEqual(nav.tabs.map((b) => b.seg), ["overview", "strength", "volume", "prs", "review"], "one row carries Overview, Strength, Volume, PRs and Review");
   assert.equal(nav.panels.overview, true, "Overview panel is the default");
   const roles = await page.evaluate(() => ({
-    primaryRole: document.querySelector("#statsSeg")?.getAttribute("role"),
-    evidenceRole: document.querySelector("#statsEvidence")?.getAttribute("role"),
-    evidenceLabel: document.querySelector("#statsEvidence")?.getAttribute("aria-label"),
+    role: document.querySelector("#statsSeg")?.getAttribute("role"),
+    label: document.querySelector("#statsSeg")?.getAttribute("aria-label"),
+    legacyGroup: !!document.querySelector("#statsEvidence"),
+    tabRow: document.querySelector("#statsSeg")?.classList.contains("tabrow"),
   }));
-  assert.equal(roles.primaryRole, "tablist");
-  assert.equal(roles.evidenceRole, "tablist");
-  assert.ok(roles.evidenceLabel, "Evidence group is labelled");
+  assert.equal(roles.role, "tablist");
+  assert.ok(roles.label, "the tab row is labelled");
+  assert.equal(roles.legacyGroup, false, "no second Evidence group remains");
+  assert.equal(roles.tabRow, true, "the row is the shared tab row");
 
-  // Evidence selection activates its panel without becoming a primary task.
-  await page.click('#statsEvidence button[data-seg="volume"]');
-  let s = await snapOf(page);
-  assert.equal(s.panels.volume, true, "Evidence volume opens its panel");
-  assert.equal(s.evidence.find((b) => b.seg === "volume").selected, "true");
-  assert.equal(s.primary.find((b) => b.seg === "overview").selected, "true", "primary selection unchanged while Evidence is open");
-
-  // Returning to a primary task closes the Evidence view.
-  await page.click('#statsSeg button[data-seg="review"]');
-  s = await snapOf(page);
-  assert.equal(s.panels.review, true, "primary Review opens the review panel");
-  assert.equal(s.panels.volume, false, "Evidence panel closes");
-  assert.equal(s.evidence.every((b) => b.selected === "false"), true, "Evidence tabs deselect");
+  // Every tab opens its own panel and deselects the others.
+  for (const seg of ["volume", "strength", "prs", "review", "overview"]) {
+    await page.click(`#statsSeg button[data-seg="${seg}"]`);
+    const s = await snapOf(page);
+    assert.equal(s.panels[seg], true, `${seg} opens its panel`);
+    assert.deepEqual(s.tabs.filter((b) => b.selected === "true").map((b) => b.seg), [seg], `${seg} is the only selected tab`);
+    assert.deepEqual(s.tabs.filter((b) => b.active).map((b) => b.seg), [seg], `${seg} is the only active tab`);
+    assert.equal(Object.entries(s.panels).filter(([, open]) => open).length, 1, `${seg} is the only open panel`);
+  }
   await context.close();
 }
 
@@ -94,7 +87,7 @@ function snapOf(page) {
     for (const seg of ["strength", "volume", "prs"]) {
       window.__repforgeStatsNav.setStatsSeg(seg);
       out[seg] = {
-        evidenceActive: [...document.querySelectorAll("#statsEvidence button")].some((b) => b.dataset.seg === seg && b.classList.contains("active")),
+        tabActive: [...document.querySelectorAll("#statsSeg button")].filter((b) => b.classList.contains("active")).map((b) => b.dataset.seg).join() === seg,
         panel: document.querySelector(panelId[seg])?.classList.contains("active") ?? false,
       };
     }
@@ -111,7 +104,7 @@ function snapOf(page) {
     return out;
   });
   for (const seg of ["strength", "volume", "prs"]) {
-    assert.equal(mapped[seg].evidenceActive, true, `legacy "${seg}" maps onto the Evidence view`);
+    assert.equal(mapped[seg].tabActive, true, `legacy "${seg}" selects its tab`);
     assert.equal(mapped[seg].panel, true, `legacy "${seg}" shows its panel`);
   }
   assert.equal(mapped.unknown.overviewSelected, true, "unknown seg value returns to Overview");
@@ -140,7 +133,7 @@ function snapOf(page) {
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   const routed = await snapOf(page);
   assert.equal(routed.panels.review, true, "End block opens the single Review surface");
-  assert.equal(routed.primary.find((b) => b.seg === "review").active, true, "Review is the active primary tab");
+  assert.equal(routed.tabs.find((b) => b.seg === "review").active, true, "Review is the active tab");
   assert.equal(routed.confirmOpen, false, "the separate end-block confirm dialog does not open");
   assert.equal(routed.dialogOpen, false, "the separate block-review dialog does not open");
   const focusOk = await page.evaluate(() => document.activeElement === document.querySelector('#statsSeg button[data-seg="review"]'));
@@ -150,4 +143,4 @@ function snapOf(page) {
 
 assert.deepEqual(errors, [], "no page errors during navigation journeys");
 await browser.close();
-console.log("PASS: progress navigation (two-level tabs, migration map, End block route)");
+console.log("PASS: progress navigation (one tab row, migration map, End block route)");

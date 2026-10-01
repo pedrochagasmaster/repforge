@@ -260,6 +260,9 @@ const D_FIXTURE_STATES = new Set([
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "history/list", "history/session", // R3j
   "program/overview", // R3k
+  "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
+  "progress/strength", "progress/strength-current-block", "progress/strength-all-history", // R3i
+  "progress/strength-comparison", "progress/strength-sparse", // R3i
 ]);
 /**
  * Direction D states that show the lifter before the day's session is saved.
@@ -297,6 +300,25 @@ function directionDThroughSession(sessionId) {
   return state;
 }
 
+/**
+ * States the review page draws on an earlier day of the same block (OG-6 round
+ * 2): the lifter has fewer sessions then, so Progress shows its baseline,
+ * snapshot and comparison shapes. The drawing's days shift by -21 like the
+ * rest of the fixture: end of week 1 (Sun 16 Aug), the Monday after it (17
+ * Aug, week 2) and Wednesday 19 Aug. `APP_CLOCK` is the capture clock for the
+ * state; `APP_ASOF` is the last day of the log the lifter has by then.
+ */
+export const APP_CLOCK = {
+  "progress/overview-baseline": "2026-08-17T12:00:00.000Z",
+  "progress/strength-comparison": "2026-08-19T12:00:00.000Z",
+  "progress/strength-sparse": "2026-08-16T12:00:00.000Z",
+};
+const APP_ASOF = {
+  "progress/overview-baseline": "2026-08-16",
+  "progress/strength-comparison": "2026-08-19",
+  "progress/strength-sparse": "2026-08-16",
+};
+
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
@@ -309,7 +331,11 @@ export function appState(key, lang) {
   }
   // Direction D owns these states (spec section 11): they render the one lifter
   // the review page draws. Every other state keeps catalogState().
-  if (D_FIXTURE_STATES.has(key)) return localeState(directionDState(), lang);
+  if (D_FIXTURE_STATES.has(key)) {
+    const drawn = localeState(directionDState(), lang);
+    if (APP_ASOF[key]) drawn.log = drawn.log.filter((row) => row.date <= APP_ASOF[key]);
+    return drawn;
+  }
   const state = catalogState();
   if (key.startsWith("program/share-")) {
     const libraryIds = ["sq_bb", "lc_mc", "pr_bb", "rw1_db", "dl_cb", "pd_bw", "dl_bb", "sp_cb", "cu_bb", "le_mc", "ci_mc", "tr_cb"];
@@ -443,8 +469,7 @@ async function openShare(page) {
 
 async function progressSegment(page, segment) {
   await view(page, "stats");
-  const primary = segment === "overview" || segment === "review";
-  await page.click(`${primary ? "#statsSeg" : "#statsEvidence"} [data-seg="${segment}"]`);
+  await page.click(`#statsSeg [data-seg="${segment}"]`);
   await sleep(page, 500);
 }
 
@@ -1031,29 +1056,15 @@ export const APP_SCENARIOS = {
   "progress/overview-action": (page) => view(page, "stats"),
   "progress/exercise-chart": async (page) => {
     await view(page, "stats");
-    await page.evaluate(() => {
-      const select = document.querySelector("#statExercise");
-      if (!select) return;
-      const option = [...select.options].find((o) => /Barbell back squat/i.test(o.textContent));
-      if (option) {
-        select.value = option.value;
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    });
-    await page.evaluate(() => document.querySelector(".chartcard")?.scrollIntoView({ block: "center" }));
-    await page.waitForFunction(() => {
-      const canvas = document.querySelector("#chart");
-      if (!canvas || !canvas.width) return false;
-      const box = canvas.getBoundingClientRect();
-      return box.top >= 0 && box.bottom <= window.innerHeight;
-    }, undefined, { timeout: 20000 });
+    await page.evaluate(() => window.openExerciseView("library:sq_bb", "stats"));
+    await page.waitForSelector("#exercise.view.active #exChart", { timeout: 20000 });
     await sleep(page, 500);
   },
   "progress/strength": (page) => progressSegment(page, "strength"),
   "progress/strength-current-block": (page) => progressSegment(page, "strength"),
   "progress/strength-all-history": async (page) => { await progressSegment(page, "strength"); await page.click('#strengthScopeSeg [data-scope="all-history"]'); },
-  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const key=await page.evaluate(()=>[...document.querySelectorAll("#strengthDash [data-evkey]")].map(row=>row.dataset.evkey).find(id=>window.__repforgeProgressEvidence.strength(id)?.presentation==="comparison"));const row=page.locator(`#strengthDash [data-evkey="${key}"]`);await row.scrollIntoViewIfNeeded();await row.click(); },
-  "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const key=await page.evaluate(()=>[...document.querySelectorAll("#strengthDash [data-evkey]")].map(row=>row.dataset.evkey).find(id=>window.__repforgeProgressEvidence.strength(id)?.evidenceState==="insufficient"));const row=page.locator(`#strengthDash [data-evkey="${key}"]`);await row.scrollIntoViewIfNeeded(); },
+  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const row = page.locator('#strengthDash [data-evkey="library:sq_bb"]'); await row.scrollIntoViewIfNeeded(); await row.click(); },
+  "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const row = page.locator('#strengthDash [data-evkey="library:sqk_mc"]'); await row.scrollIntoViewIfNeeded(); await row.click(); },
   "progress/volume": (page) => progressSegment(page, "volume"),
   "progress/volume-block": async (page) => { await progressSegment(page, "volume"); await page.click('#volumeScopeSeg [data-vscope="block-to-date"]'); },
   "progress/volume-drill-in": async (page) => { await progressSegment(page, "volume"); await page.locator("#volumeDash [data-volume-muscle]").first().click(); },
@@ -1066,7 +1077,10 @@ export const APP_SCENARIOS = {
   "progress/schedule-diagnosis": openScheduleDiagnosis,
   "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
   "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
-  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000}); },
+  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000});
+    // The progress guide is dismissed here. The rendered-role audit reads the dock's ground from the page's top-left
+    // quadrant, and with the guide above it, this short page would put the primary action there.
+    await page.click("[data-guide-dismiss]"); },
   "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
   "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
   "progress/recovery-questions": openRecoveryPreview,

@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ROOT, captureKey, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
 import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
-import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
@@ -229,7 +229,7 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
       try {
         if (!scenarios[key]) throw new Error("missing production catalog scenario");
         const opened = await openPage(browser, manifest, capture,
-          isOnboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale), { userAgent: APP_USER_AGENT[key] });
+          isOnboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
         context = opened.context;
         if (!isOnboarding) await dismissChrome(opened.page);
         await scenarios[key](opened.page);

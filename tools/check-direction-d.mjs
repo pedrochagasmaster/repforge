@@ -30,7 +30,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, loadManifest } from "./ui-screens/manifest.mjs";
-import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { dismissChrome, launchChromium, openPage, setCaptureBase, settle } from "./ui-screens/session.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
 import { validateCatalogEvidence } from "./ui-screens/catalog-contract.mjs";
@@ -75,6 +75,10 @@ const IMPLEMENTED_D_STATES = new Set([
   "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
   // R3h: the session summary, the five states, enforced on #sessionSummary (STATE_SCOPES).
   "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
+  // R3i: Progress's single tab row, the overview, its attention and strength rows, and the Strength tab.
+  "progress/overview", "progress/overview-baseline", "progress/overview-action",
+  "progress/strength", "progress/strength-current-block", "progress/strength-all-history",
+  "progress/strength-comparison", "progress/strength-sparse",
 ]);
 /**
  * Drawn states the Plan 064 R3 sub-slices add to the catalog (reconciliation
@@ -121,7 +125,10 @@ export const ORANGE_ALLOWLIST = [
   { category: "active-dock-icon", selector: "nav button.active" },
 ];
 /** [{ id, selector }]. Empty on purpose: see GAPS. */
-export const OVERFLOW_EXCEPTIONS = [];
+export const OVERFLOW_EXCEPTIONS = [
+  // R3i: Direction D's single Progress tab row scrolls sideways when five tabs do not fit (spec section 4.6).
+  { id: "progress-tab-row", selector: ".tabrow" },
+];
 /** Where "Hold" as a label is banned: the shipped rest surfaces. Inline rest adds its selector with R3. */
 export const TIMER_SCOPES = ["#restSheet", ".restdial"];
 
@@ -577,7 +584,7 @@ export async function runGate({
         try {
           if (!APP_SCENARIOS[key]) throw new Error("missing production catalog scenario");
           const capture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-360", theme, locale, text: "normal", motion: "normal" };
-          const opened = await openPage(browser, gate, capture, appState(key, gate.locales[locale].lang), { userAgent: APP_USER_AGENT[key] });
+          const opened = await openPage(browser, gate, capture, appState(key, gate.locales[locale].lang), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
           context = opened.context;
           await dismissChrome(opened.page);
           await APP_SCENARIOS[key](opened.page);

@@ -168,58 +168,25 @@
         </div>
         <div class="pagehead__actions"></div>
       </div>
-      <div id="statsSeg" class="seg seg--stats" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
-        <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true" data-i18n="stats.overview">Overview</button>
-        <button type="button" role="tab" data-seg="review" aria-selected="false" data-i18n="stats.review">Review</button>
-      </div>
-      <div id="statsEvidence" class="seg seg--stats seg--evidence" role="tablist" data-i18n-aria="stats.evidence_aria" aria-label="Evidence">
-        <button type="button" role="tab" data-seg="strength" aria-selected="false" data-i18n="stats.strength">Strength</button>
-        <button type="button" role="tab" data-seg="volume" aria-selected="false" data-i18n="stats.volume">Volume</button>
-        <button type="button" role="tab" data-seg="prs" aria-selected="false" data-i18n="stats.prs">PRs</button>
+      <div id="statsSeg" class="tabrow" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
+        <button type="button" role="tab" class="tabrow__tab active" data-seg="overview" aria-selected="true" data-i18n="stats.overview">Overview</button>
+        <button type="button" role="tab" class="tabrow__tab" data-seg="strength" aria-selected="false" data-i18n="stats.strength">Strength</button>
+        <button type="button" role="tab" class="tabrow__tab" data-seg="volume" aria-selected="false" data-i18n="stats.volume">Volume</button>
+        <button type="button" role="tab" class="tabrow__tab" data-seg="prs" aria-selected="false" data-i18n="stats.prs">PRs</button>
+        <button type="button" role="tab" class="tabrow__tab" data-seg="review" aria-selected="false" data-i18n="stats.review">Review</button>
       </div>
       <div id="segOverview" class="stats-seg active">
         <div id="statsIntro" class="emptystate hidden"></div>
-        <p class="section-label" data-i18n="today.this_week">This week</p>
-        <div id="thisWeek" class="thisweek card card--plain"></div>
+        <div id="thisWeek" class="ovweek"></div>
         <div id="attention" class="attention"></div>
-        <div id="metrics" class="metrics"></div>
-        <p class="section-label section-label--row">
-          <span data-i18n="stats.strength_trend">Strength trend</span>
-        </p>
-        <div class="card chartcard">
-          <label class="field strength-pick"><span class="visually-hidden" data-i18n="stats.exercise">Exercise</span><select id="statExercise"></select></label>
-          <div id="trend" class="trend"></div>
-          <div id="prLedger" class="prledger"></div>
-          <p class="lede chartcard__cap" data-i18n="stats.e1rm_caption">Estimated e1RM</p>
-          <div class="chart-wrap">
-            <canvas id="chart" height="240" data-i18n-aria="stats.chart_aria" aria-label="Top load over time"></canvas>
-          </div>
-        </div>
-        <p class="section-label section-label--row">
-          <span data-i18n="stats.volume_7d">Volume · 7 days</span>
-          <button type="button" class="link-accent" id="gotoVolume" data-i18n="stats.see_volume">See volume ›</button>
-        </p>
-        <div id="overviewVolume" class="volume"></div>
-        <details class="advanced" id="statsDeep">
-          <summary data-i18n="stats.deep.summary">Charts and tables</summary>
-          <h3 class="subhead" data-i18n="stats.completed_hard_sets">Completed hard sets</h3>
-          <p class="lede" id="statsHardSetLede">This section groups logged sets within your RIR ceiling by muscle. It does not include planned sets.</p>
-          <div id="volWindow" class="seg seg--window" role="tablist" data-i18n-aria="stats.volume_window_aria" aria-label="Volume window">
-            <button type="button" data-win="7" class="active" role="tab" aria-selected="true" data-i18n="stats.window.7_days">7 days</button>
-            <button type="button" data-win="28" role="tab" aria-selected="false" data-i18n="stats.window.28_days">28 days</button>
-          </div>
-          <div id="completedVolume" class="volume"></div>
-          <h3 class="subhead" data-i18n="stats.recent_performance">Recent performance</h3><div id="recent" class="table"></div>
-          <h3 class="subhead" data-i18n="stats.recent_session_deltas">Recent session deltas</h3><div id="recentDeltas" class="table"></div>
-          <h3 class="subhead" data-i18n="stats.top_loads_by_exercise">Top loads by exercise</h3><div id="tops" class="table"></div>
-        </details>
+        <div id="overviewStrength" class="ovstrength"></div>
       </div>
       <div id="segStrength" class="stats-seg">
         <div id="strengthScopeSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.scope_aria" aria-label="Strength scope">
           <button type="button" data-scope="current-block" class="active" role="tab" aria-selected="true" data-i18n="stats.scope.current_block">Current block</button>
           <button type="button" data-scope="all-history" role="tab" aria-selected="false" data-i18n="stats.scope.all_history">All history</button>
         </div>
-        <h3 class="subhead" data-i18n="stats.strength">Strength</h3><div id="strengthDash"></div></div>
+        <div class="ovsec"><h3 class="ovsec__title" data-i18n="stats.strength">Strength</h3><span class="ovsec__meta" data-i18n="stats.metric.top_load">Top load</span></div><div id="strengthDash"></div></div>
       <div id="segVolume" class="stats-seg">
         <div id="volumeScopeSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.volume_scope_aria" aria-label="Volume period">
           <button type="button" data-vscope="this-week" class="active" role="tab" aria-selected="true" data-i18n="stats.volume.scope.this_week">This week</button>

@@ -1049,32 +1049,6 @@ function auditLogIntegrity(state) {
   return issues;
 }
 
-/** Compare Stats tiles to raw state (Sessions + Sets logged must match exactly). */
-async function auditStatsMetrics(page, state) {
-  await nav(page, "stats");
-  const tiles = await page.evaluate(() =>
-    [...document.querySelectorAll("#metrics .metric")].map((t) => ({
-      label: t.querySelector(".metric__label")?.textContent?.trim(),
-      val: t.querySelector(".metric__val")?.childNodes[0]?.textContent?.trim(),
-    }))
-  );
-  const expectedSessions = String(new Set(state.log.map((r) => r.session)).size);
-  const expectedSets = String(state.log.length);
-  const sessionsTile = tiles.find((t) => /^sessions$/i.test(t.label || ""));
-  const setsTile = tiles.find((t) => /^sets(\s+logged)?$/i.test(t.label || ""));
-  return {
-    ok: sessionsTile?.val === expectedSessions && setsTile?.val === expectedSets,
-    detail: `Sessions UI=${sessionsTile?.val} expected=${expectedSessions}; Sets UI=${setsTile?.val} expected=${expectedSets}`,
-  };
-}
-
-async function openStatsDeep(page) {
-  await page.evaluate(() => {
-    const d = document.querySelector("#statsDeep");
-    if (d) d.open = true;
-  });
-}
-
 async function whyInfo(page, id) {
   await selectFocusExercise(page,id);
   await page.locator("#workout .exercise.is-current [data-why]").click();
@@ -1475,51 +1449,27 @@ async function main() {
 
   beginPhase("Phase 1d: Attention board (P15)");
   await nav(page, "stats");
+  const attnRows = await page.evaluate(() => [...document.querySelectorAll("#attention .attn__chip")].map((row) => ({
+    id: row.getAttribute("data-attn"),
+    lift: row.getAttribute("data-action-lift"),
+    group: row.getAttribute("data-attngo"),
+    name: row.querySelector(".attnrow__name")?.textContent.trim() || "",
+    verdict: row.querySelector(".attnrow__verdict")?.textContent.trim() || "",
+    evidence: row.querySelector(".attnrow__evidence")?.textContent.trim() || "",
+  })));
   assert(
-    (await page.locator("#attention .attn__grp").count()) > 0,
-    "Attention board renders at least one group after seed",
-    "No .attn__grp in #attention",
+    attnRows.length > 0,
+    "Attention board renders at least one row after seed",
+    "No .attn__chip in #attention",
     "Bulk seed → Stats Overview → attention board"
   );
+  // Plan 064 R3i: one row per lift, each naming the lift, the engine's verdict
+  // and reason, and the evidence behind it, in the row's own accessible name.
   assert(
-    (await page.locator("#attention .attn__lead").count()) > 0,
-    "Attention group exposes a lead label",
-    "No .attn__lead found",
-    "Stats Overview → inspect attention board headings"
-  );
-  // Plan 056: the recommendation *is* the group, so it is stated once as the
-  // group's lead and never repeated beside each lift. Each row still carries it
-  // in its own accessible name, so a chip answers "why this lift" on its own.
-  assert(
-    (await page.locator("#attention .attn__why").count()) === 0,
-    "No legacy per-group why paragraph survives beside the lead",
-    "a .attn__why element is still rendered",
-    "Stats Overview → inspect an attention group"
-  );
-  const attnReasons = await page.evaluate(() => {
-    return [...document.querySelectorAll("#attention .attn__grp")].map((g) => {
-      const lead = g.querySelector(".attn__lead")?.textContent.trim() || "";
-      const subs = [...g.querySelectorAll(".attn__chip .listrow__sub")];
-      return {
-        lead,
-        leadCount: g.querySelectorAll(".attn__lead").length,
-        rows: subs.length,
-        subsPainted: subs.filter((s) => s.getBoundingClientRect().height > 2).length,
-        named: subs.every((s) => s.closest(".attn__chip").textContent.includes(s.textContent.trim())),
-      };
-    });
-  });
-  assert(
-    attnReasons.length > 0 && attnReasons.every((g) => g.lead && g.leadCount === 1),
-    "Each group states its recommendation exactly once in visible text",
-    JSON.stringify(attnReasons),
-    "Stats Overview → compare a group's lead against its rows"
-  );
-  assert(
-    attnReasons.every((g) => g.subsPainted === 0 && g.named),
-    "A row's reason is never painted twice but is still in its accessible name",
-    JSON.stringify(attnReasons),
-    "Stats Overview → inspect the rows under a group lead"
+    attnRows.every((r) => r.name && r.verdict && r.evidence && r.lift),
+    "Each attention row names the lift, its verdict and reason, and its evidence",
+    JSON.stringify(attnRows.filter((r) => !(r.name && r.verdict && r.evidence && r.lift))),
+    "Stats Overview → inspect the attention rows"
   );
   const attnGroups = await page.evaluate(() =>
     typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : null
@@ -1532,32 +1482,30 @@ async function main() {
     JSON.stringify(attnGroups?.map((g) => g.key)),
     "page.evaluate window.__repforgeAttention after seed"
   );
-  // Every action shares one destination now: the lift's scoped Strength evidence.
+  const attnHeading = await page.locator("#attention .ovsec__title").textContent();
+  assert(
+    attnHeading.includes(`(${attnGroups.reduce((n, g) => n + g.items.length, 0)})`) && attnRows.length === attnGroups.reduce((n, g) => n + g.items.length, 0),
+    "The attention heading and rows list exactly the lifts the action queue returns",
+    `heading=${attnHeading} rows=${attnRows.length}`,
+    "Stats Overview → heading count against __repforgeAttention"
+  );
+  // Every row opens that lift's page, with Progress as the way back.
   const actionAttnChip = page.locator("#attention .attn__chip").first();
-  if ((await actionAttnChip.count()) > 0) {
-    const actionMeta = await page.evaluate(() => {
-      const chip = document.querySelector("#attention .attn__chip");
-      return chip ? { id: chip.getAttribute("data-attn"), lift: chip.getAttribute("data-action-lift") } : null;
-    });
-    await actionAttnChip.click();
-    await page.waitForSelector("#segStrength.active", { timeout: 5000 });
-    const actionNavOk = await page.evaluate(
-      ({ lift }) => document.querySelector("#stats")?.classList.contains("active") &&
-        document.querySelector('#strengthScopeSeg button.active')?.dataset.scope === "current-block" &&
-        !!document.querySelector(`#strengthDash [data-evkey="${lift}"]`),
-      actionMeta || { lift: "" }
-    );
-    assert(
-      actionMeta?.id && actionMeta?.lift && actionNavOk,
-      "An action row opens that lift's current-block Strength evidence",
-      `meta=${JSON.stringify(actionMeta)} navOk=${actionNavOk}`,
-      "Stats → click an action chip → Strength evidence"
-    );
-    await nav(page, "stats");
-    await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
-  } else {
-    pass("Action chip navigation skipped (no evidence-backed actions)");
-  }
+  await actionAttnChip.click();
+  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+  const actionNavOk = await page.evaluate(() => ({
+    back: document.querySelector("#exBack")?.textContent || "",
+    name: document.querySelector("#exDetail .exdet__name, #exDetail h1, #exDetail h2")?.textContent || "",
+  }));
+  assert(
+    actionNavOk.back.includes(await page.evaluate(() => window.RepForgeI18n.t("nav.stats"))) && actionNavOk.name.length > 0,
+    "An attention row opens that lift's page and goes back to Progress",
+    JSON.stringify(actionNavOk),
+    "Stats → click an attention row → lift page"
+  );
+  await page.evaluate(() => closeExerciseView());
+  await nav(page, "stats");
+  await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
 
   // PWA shell loads (manifest + service worker registration)
   const pwaOk = await page.evaluate(async () => {
@@ -2160,75 +2108,65 @@ async function main() {
 
   state = await getState(page);
   await nav(page, "stats");
-  await openStatsDeep(page);
 
-  const metricsAudit = await auditStatsMetrics(page, state);
+  // The overview carries two week totals and a strength row per lift with a session
+  // this block; the all-time tiles, the trend card and the deep tables are retired.
+  const overviewAudit = await page.evaluate(() => ({
+    sessions: document.querySelector('#thisWeek [data-week-metric="sessions"] .ovtotal__n')?.textContent?.trim(),
+    sets: document.querySelector('#thisWeek [data-week-metric="sets"] .ovtotal__n')?.textContent?.trim(),
+    rows: document.querySelectorAll("#overviewStrength .strrow").length,
+    retired: ["#metrics", "#statExercise", "#statsDeep", "#overviewVolume", "#chart"].filter((sel) => document.querySelector(sel)),
+  }));
   assert(
-    metricsAudit.ok,
-    "Stats session/set counts match persisted log",
-    metricsAudit.detail,
-    "Stats tab → Sessions and Sets logged tiles vs repforge_v1"
+    /^\d+$/.test(overviewAudit.sessions || "") && /^\d+$/.test(overviewAudit.sets || ""),
+    "Stats overview renders the week's session and set totals",
+    JSON.stringify(overviewAudit),
+    "Stats tab → two week totals"
+  );
+  assert(
+    overviewAudit.rows > 0 && overviewAudit.retired.length === 0,
+    "Stats overview lists strength rows and none of the retired blocks",
+    JSON.stringify(overviewAudit),
+    "Stats tab → Strength this block"
   );
 
-  const metricsText = await page.locator("#metrics").textContent();
-  assert(
-    /sessions/i.test(metricsText) && /sets/i.test(metricsText),
-    "Stats metrics render",
-    metricsText?.slice(0, 120),
-    "Stats tab → check metric tiles"
-  );
-
-  const statOptions = await page.locator("#statExercise option").count();
-  assert(
-    statOptions > 0,
-    "Stats exercise dropdown populated",
-    `Option count: ${statOptions}`,
-    "Stats tab → exercise select"
-  );
-
-  // Chart should not throw on render
+  // The canvas chart lives on the exercise page.
+  await page.evaluate((id) => openExerciseView(id, "log"), state.program[0].id);
+  await page.waitForSelector("#exercise.view.active #exChart", { timeout: 5000 });
   const chartRendered = await page.evaluate(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c && c.width > 0;
   });
   assert(
     chartRendered,
     "Chart canvas renders with data",
     "Canvas width is 0 or missing",
-    "Stats tab → select exercise with history"
-  );
-
-  const trendText = await page.locator("#trend").textContent();
-  assert(
-    trendText && trendText.length > 5,
-    "Trend summary shows progression",
-    `Trend: "${trendText}"`,
-    "Stats tab → select logged exercise"
+    "Exercise page → chart"
   );
 
   await page.setViewportSize({ width: 800, height: 900 });
   await page.waitForFunction(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c && c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
   });
   const okWide = await page.evaluate(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
   });
   await page.setViewportSize({ width: 380, height: 900 });
   await page.waitForFunction(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
   });
   const okNarrow = await page.evaluate(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
   });
   assert(
     okWide && okNarrow,
     "Chart canvas tracks viewport width on resize",
     `wide=${okWide} narrow=${okNarrow}`,
-    "Stats → resize viewport → canvas backing width follows clientWidth"
+    "Exercise page → resize viewport → canvas backing width follows clientWidth"
   );
 
   const chartLabelDecimalsNarrow = await page.evaluate(() => window.__repforgeChartLabelDecimals(1));
@@ -2245,6 +2183,7 @@ async function main() {
     `Expected 0, got ${chartLabelDecimalsWide}`,
     "page.evaluate(() => window.__repforgeChartLabelDecimals(30))"
   );
+  await page.evaluate(() => closeExerciseView());
   await page.setViewportSize({ width: 390, height: 844 });
 
   // ── Phase 8: Export JSON, modify, re-import ──────────────────────
@@ -2580,54 +2519,14 @@ async function main() {
     "Log another exercise at 250 kg, then PR the first exercise at 150 kg → Save"
   );
   await nav(page, "stats");
-  await page.evaluate(() => {
-    document.querySelector("#statsDeep").open = true;
-  });
-  await page.waitForTimeout(100);
-  const ledger = await page.textContent("#prLedger");
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("prs"));
+  await page.waitForSelector("#prTimeline .prtl__row", { timeout: 5000 });
+  const ledger = await page.evaluate(() => [...document.querySelectorAll("#prTimeline .pr-kind")].map((el) => el.textContent.trim()).join(" "));
   assert(
     /load/i.test(ledger) && /e1RM/i.test(ledger),
-    "PR ledger renders load and e1RM PRs",
-    `Ledger: ${ledger}`,
-    "Stats → Dig deeper → PR ledger under the trend"
-  );
-  // The strength trend card holds four things about one lift. They used to keep
-  // three different left edges — the picker inset 14px, the figures and the
-  // canvas flush to the card's border — and the ledger was cut off mid-column
-  // by a 520px floor meant for full-page tables.
-  const trendCard = await page.evaluate(() => {
-    const card = document.querySelector(".chartcard");
-    const kids = [...card.children].map((el) => {
-      const r = el.getBoundingClientRect();
-      return { cls: el.className, left: Math.round(r.left), right: Math.round(r.right) };
-    });
-    const led = card.querySelector("#prLedger");
-    const cap = card.querySelector(".chartcard__cap");
-    const wrap = card.querySelector(".chart-wrap");
-    return {
-      columns: [...new Set(kids.map((k) => `${k.left}|${k.right}`))],
-      kids,
-      ledgerOverflow: led.scrollWidth - led.clientWidth,
-      captionAboveChart:
-        !!cap && !!wrap && cap.compareDocumentPosition(wrap) === Node.DOCUMENT_POSITION_FOLLOWING,
-      e1rmColumns: [...led.querySelectorAll("th")].filter((h) => /e1rm/i.test(h.textContent)).length,
-    };
-  });
-  assert(
-    trendCard.columns.length === 1,
-    "Every block in the strength trend card shares one text column",
-    JSON.stringify(trendCard.kids)
-  );
-  assert(
-    trendCard.ledgerOverflow === 0,
-    "The record ledger fits the card instead of scrolling behind its edge",
-    `overflow=${trendCard.ledgerOverflow}px`,
-    "Stats → Strength trend → the ledger's last column is whole"
-  );
-  assert(
-    trendCard.captionAboveChart && trendCard.e1rmColumns === 0,
-    "The e1RM caption labels the chart it belongs to, and the number is printed once",
-    JSON.stringify(trendCard)
+    "PR timeline renders load and e1RM PRs",
+    `Kinds: ${ledger}`,
+    "Stats → PRs → timeline"
   );
   await nav(page, "log");
   await selectDay(page, "Day 3");
@@ -4746,60 +4645,36 @@ async function main() {
     "Log → fill notes → Save workout"
   );
 
-  // Stats: completed hard sets + attention board
+  // Stats: completed hard sets (Volume tab) + attention board
   await nav(page, "stats");
-  await page.evaluate(() => {
-    const d = document.querySelector("#statsDeep");
-    if (d) d.open = true;
-  });
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("volume"));
   await page.waitForTimeout(150);
   assert(
-    (await page.locator("#completedVolume .vrow").count()) > 0,
+    (await page.locator("#volumeDash .vrow").count()) > 0,
     "Completed hard sets render per muscle",
-    "No completed-volume rows",
-    "Stats → Completed hard sets shows logged volume"
+    "No volume rows",
+    "Stats → Volume shows logged volume"
   );
+  await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
   assert(
-    (await page.locator("#attention .attn__grp").count()) > 0 &&
+    (await page.locator("#attention .attn__chip").count()) > 0 &&
       (await page.evaluate(() => window.__repforgeAttention().every((g) => ["progress", "repeat", "review"].includes(g.key)))),
-    "Action board lists evidence-backed recommendation groups",
+    "Action board lists evidence-backed recommendation rows",
     JSON.stringify(await page.evaluate(() => window.__repforgeAttention().map((g) => g.key))),
-    "Stats → action board shows recommendation groups"
-  );
-  assert(
-    (await page.locator("#attention .attn__why").count()) === 0 &&
-      (await page.locator("#attention .attn__lead").count()) > 0,
-    "Each group states its recommendation once as a lead, with no duplicate why line",
-    "a legacy .attn__why element is still rendered",
-    "Stats → action board → each group has exactly one visible reason"
+    "Stats → action board shows the lifts the queue returns"
   );
   const attnChip = page.locator("#attention .attn__chip").first();
   const attnLift = await attnChip.getAttribute("data-action-lift");
   await attnChip.click();
-  await page.waitForSelector("#segStrength.active", { timeout: 5000 });
+  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
   assert(
-    await page.evaluate(
-      (lift) => document.querySelector('#strengthScopeSeg button.active')?.dataset.scope === "current-block" &&
-        !!document.querySelector(`#strengthDash [data-evkey="${lift}"]`),
-      attnLift
-    ),
-    "An action chip opens that lift's current-block Strength evidence",
+    await page.evaluate(() => document.querySelector("#exDetail .exdet__name")?.textContent.trim().length > 0),
+    "An attention row opens that lift's page",
     `lift=${attnLift}`,
-    "Stats → click an action chip → Strength evidence for that lift"
+    "Stats → click an attention row → the lift's page"
   );
-  await page.evaluate(() => {
-    window.__repforgeStatsNav.setStatsSeg("overview");
-    const d = document.querySelector("#statsDeep");
-    if (d) d.open = true;
-  });
-  await page.waitForTimeout(150);
-  await page.click('#volWindow button[data-win="28"]');
-  assert(
-    (await page.locator('#volWindow button[data-win="28"]').getAttribute("class")).includes("active"),
-    "Volume window toggle selects 28-day range",
-    "28d button not active",
-    "Stats → Completed hard sets → 28d window"
-  );
+  await page.evaluate(() => closeExerciseView());
+  await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
 
   // Edit a logged session in History
   await nav(page, "history");
@@ -5265,21 +5140,20 @@ async function main() {
     "History → Every set table after substitute save"
   );
   await nav(page, "stats");
-  await page.evaluate(() => document.querySelector("#statsDeep")?.setAttribute("open", ""));
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const performedLiftKey = subRow?.performedLibraryId ? `library:${subRow.performedLibraryId}` : null;
-  await page.selectOption("#statExercise", performedLiftKey);
   await page.waitForTimeout(80);
   const chartRows = await page.evaluate((expected) => {
-    const sel = document.querySelector("#statExercise").value;
     const log = JSON.parse(localStorage.getItem("repforge_v1")).log.filter((r) => !r.warmup);
-    return sel === expected && log.some((r) =>
+    const series = window.__repforgeProgressEvidence.strength(expected);
+    return !!document.querySelector(`#strengthDash [data-evkey="${expected}"]`) && series?.evidenceCount >= 1 && log.some((r) =>
       r.performedLibraryId && `library:${r.performedLibraryId}` === expected);
   }, performedLiftKey);
   assert(
     chartRows,
-    "Stats chart attributes substituted sessions to the performed movement",
+    "Strength evidence attributes substituted sessions to the performed movement",
     `performedLiftKey=${performedLiftKey}`,
-    "Stats → select the performed substitute → chart has data"
+    "Stats → Strength → the performed substitute has its own row with a session"
   );
 
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
@@ -6431,27 +6305,19 @@ async function main() {
   await nav(page, "stats");
   const segBtnCount = await page.locator("#statsSeg button").count();
   assert(
-    segBtnCount === 2,
-    "Stats primary control has Overview and Review (Plan 056)",
+    segBtnCount === 5,
+    "Stats has one tab row of five (Plan 064 R3i)",
     `button count=${segBtnCount}`,
     "Stats tab → inspect #statsSeg buttons"
   );
   const segLabels = await page.locator("#statsSeg button").allTextContents();
   assert(
-    segLabels.includes("Overview") && segLabels.includes("Review"),
-    "Primary segments are Overview and Review",
+    ["Overview", "Strength", "Volume", "PRs", "Review"].every((label) => segLabels.includes(label)),
+    "The tab row carries Overview, Strength, Volume, PRs and Review",
     `labels=${segLabels.join(",")}`,
-    "Stats tab → primary segment button labels"
+    "Stats tab → tab labels"
   );
-  const evBtnCount = await page.locator("#statsEvidence button").count();
-  const evLabels = await page.locator("#statsEvidence button").allTextContents();
-  assert(
-    evBtnCount === 3 && evLabels.includes("Strength") && evLabels.includes("Volume") && evLabels.includes("PRs"),
-    "Evidence group carries Strength, Volume, PRs",
-    `count=${evBtnCount} labels=${evLabels.join(",")}`,
-    "Stats tab → inspect #statsEvidence buttons"
-  );
-  await page.click('#statsEvidence button[data-seg="strength"]');
+  await page.click('#statsSeg button[data-seg="strength"]');
   await page.waitForTimeout(80);
   const strengthVisible = await page.evaluate(() => {
     const s = document.querySelector("#segStrength");
@@ -6531,7 +6397,7 @@ async function main() {
   );
   const thisWeekText = await page.locator("#thisWeek").innerText();
   assert(
-    /week in progress|building baseline/i.test(thisWeekText) &&
+    /week (\d+ of \d+ )?in progress|building baseline/i.test(thisWeekText) &&
       !/\b(improved|stable|attention)\b/i.test(thisWeekText),
     "This Week card shows neutral in-progress status",
     `text=${thisWeekText.slice(0, 80)}`,
@@ -6657,9 +6523,9 @@ async function main() {
         "Today → #todayWeek"
       );
       await nav(f2Page, "stats");
-      const progressText = await f2Page.locator("#thisWeek").textContent();
+      const progressText = await f2Page.locator('#thisWeek [data-week-metric="sessions"] .ovtotal__val').textContent();
       assert(
-        progressText.includes("3 / 5 sessions"),
+        progressText.replace(/\s+/g, "") === "3/5",
         "F2: Progress This week shows the current program-week progress",
         `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
         "Stats → Overview → #thisWeek counts the three sessions in the current program week"
@@ -8082,7 +7948,7 @@ async function main() {
   await seedHistoricalLog(page);
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsEvidence button[data-seg="strength"]');
+  await page.click('#statsSeg button[data-seg="strength"]');
   await page.waitForTimeout(80);
   assert(
     (await page.locator("#strengthDash .evrow").count()) > 0,
@@ -8128,7 +7994,7 @@ async function main() {
 
   beginPhase("Phase: volume dashboard (P13)");
   await nav(page, "stats");
-  await page.click('#statsEvidence button[data-seg="volume"]');
+  await page.click('#statsSeg button[data-seg="volume"]');
   await page.waitForTimeout(80);
   const volSegActive = await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active"));
   assert(
@@ -8169,7 +8035,7 @@ async function main() {
   );
 
   beginPhase("Phase: PR timeline (P14)");
-  await page.click('#statsEvidence button[data-seg="prs"]');
+  await page.click('#statsSeg button[data-seg="prs"]');
   await page.waitForTimeout(80);
   const prSegActive = await page.evaluate(() => document.querySelector("#segPRs")?.classList.contains("active"));
   assert(
@@ -8226,23 +8092,15 @@ async function main() {
   await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 10, 2);
   await saveWorkout(page, { earlyFinish: true });
   await nav(page, "stats");
-  await page.evaluate(() => {
-    document.querySelector("#statsDeep").open = true;
-  });
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+  await page.click('#strengthScopeSeg button[data-scope="all-history"]');
   await page.waitForTimeout(150);
-  const recentDeltasEl = await page.$("#recentDeltas table");
+  const strengthWord = await page.locator(`#strengthDash .evword[data-parity-outcome="${browseEx.id}"]`).first().textContent().catch(() => "");
   assert(
-    recentDeltasEl,
-    "Recent session deltas table renders in statsDeep",
-    "Missing #recentDeltas table",
-    "Stats → Dig deeper → Recent session deltas"
-  );
-  const recentDeltasText = await page.textContent("#recentDeltas");
-  assert(
-    /Improved|Flat|New|Regressed|Changed load/.test(recentDeltasText || ""),
-    "Recent deltas table includes a status label",
-    `Content: ${(recentDeltasText || "").slice(0, 240)}`,
-    "Seed 2+ comparable sessions with working sets"
+    /Improved|Flat|Regressed|Changed load|Not comparable/.test(strengthWord || ""),
+    "Strength row names the lift's session outcome from the same comparison",
+    `Content: ${strengthWord || "(missing)"}`,
+    "Seed 2+ comparable sessions with working sets, then Stats → Strength"
   );
   await nav(page, "log");
   await selectDay(page, browseDay);
@@ -9726,10 +9584,8 @@ async function main() {
   }
 
   const statsPeriodGone = await page.evaluate(() => !document.querySelector("#statsPeriod"));
-  assert(statsPeriodGone, "#statsPeriod is absent; volume window stays on #volWindow", "statsPeriod still in DOM");
+  assert(statsPeriodGone, "#statsPeriod is absent", "statsPeriod still in DOM");
   await nav(page, "stats");
-  const volWindow = await page.locator("#volWindow").count();
-  assert(volWindow === 1, "Completed hard sets still has the 7/28-day control", `volWindow=${volWindow}`);
 
   const positioning = await page.evaluate(async () => {
     const manifest = await (await fetch("./manifest.webmanifest")).json();
@@ -9951,7 +9807,7 @@ async function main() {
       const groups = window.__repforgeAttention();
       const records = window.__repforgeProgressEvidence.records("current-block");
       const metric = (name) =>
-        document.querySelector(`#thisWeek [data-week-metric="${name}"] .statrow__val`)?.textContent?.trim();
+        document.querySelector(`#thisWeek [data-week-metric="${name}"] .ovtotal__n`)?.textContent?.trim();
       const chips = [...document.querySelectorAll("#attention [data-attn]")].map((el) => ({
         id: el.getAttribute("data-attn"),
         group: el.getAttribute("data-attngo"),
@@ -9965,11 +9821,10 @@ async function main() {
         baselineDom: metric("baseline"),
         sessionsDom: metric("sessions"),
         chips,
-        countText: document.querySelector("#attention .section-label__count")?.textContent?.trim() || "",
+        countText: document.querySelector("#attention .ovsec__title")?.textContent?.trim() || "",
         attentionText: document.querySelector("#attention")?.textContent || "",
-        leads: [...document.querySelectorAll("#attention .attn__lead")].map((el) => el.textContent.trim()),
-        leadCounts: [...document.querySelectorAll("#attention .attn__grp")]
-          .map((group) => group.querySelectorAll(".attn__lead").length),
+        verdicts: [...document.querySelectorAll("#attention .attn__chip")]
+          .map((row) => row.querySelector(".attnrow__verdict")?.textContent.trim() || ""),
       };
     });
 
@@ -10027,11 +9882,11 @@ async function main() {
       "action rows store exercise IDs and lift identities, not display names",
       snap.chips.map((c) => `${c.id}/${c.lift}`).join(",")
     );
-    // The recommendation is stated once per group, not repeated beside each lift.
+    // Each row states the engine's verdict and reason for its own lift.
     assert(
-      snap.leadCounts.length > 0 && snap.leadCounts.every((count) => count === 1),
-      "each group states its recommendation exactly once in visible text",
-      JSON.stringify({ leads: snap.leads, leadCounts: snap.leadCounts })
+      snap.verdicts.length > 0 && snap.verdicts.every((text) => text.length > 0),
+      "each attention row states its verdict and reason",
+      JSON.stringify({ verdicts: snap.verdicts })
     );
     assert(
       snap.w.improvedLifts >= 1 && snap.w.regressedLifts >= 1 && snap.w.flatLifts === 1,
@@ -10040,19 +9895,22 @@ async function main() {
     );
 
     // One destination replaces the old per-group routing: an action opens the
-    // lift's scoped Strength evidence, which is where the decision is made.
+    // lift's own page, with Progress as the way back.
     await page.click('#attention [data-attn="ex-reduce"]');
     const actionLand = await page.evaluate(() => ({
-      stats: document.querySelector("#stats")?.classList.contains("active"),
-      strength: !!document.querySelector("#segStrength")?.classList.contains("active"),
-      scope: document.querySelector('#strengthScopeSeg button.active')?.dataset.scope || "",
-      row: !!document.querySelector('#strengthDash [data-evkey="movement:slot:ex-reduce"]'),
+      page: !!document.querySelector("#exercise.view.active"),
+      back: document.querySelector("#exBack")?.textContent || "",
+      name: document.querySelector("#exDetail .exdet__name")?.textContent || "",
     }));
     assert(
-      actionLand.stats && actionLand.strength && actionLand.scope === "current-block" && actionLand.row,
-      "an action opens that lift's current-block Strength evidence",
+      actionLand.page && actionLand.back.includes("Progress") && actionLand.name.length > 0,
+      "an action opens that lift's page and goes back to Progress",
       JSON.stringify(actionLand)
     );
+    await page.evaluate(() => closeExerciseView());
+    await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+    await page.waitForSelector("#segStrength.active");
+    await page.click('#strengthScopeSeg button[data-scope="current-block"]');
 
     // Two exercises sharing a display name keep separate evidence identities.
     const curlRows = await page.evaluate(() => ["curl-a", "curl-b"].map((id) => {
@@ -10936,37 +10794,32 @@ async function main() {
     };
   };
 
+  // The overview's volume block is retired (Plan 064 R3i); its projection stays a
+  // test seam, so these checks read the rows the block used to render from it.
   const readOverview = async () =>
     page.evaluate(() => {
-      const rows = [...document.querySelectorAll("#overviewVolume .vrow")].map((row) => {
-        const fill = row.querySelector(".vrow__fill");
-        const bar = row.querySelector(".vrow__bar");
-        return {
-          muscle: row.getAttribute("data-muscle"),
-          name: row.querySelector(".vrow__name")?.textContent,
-          num: row.querySelector(".vrow__num")?.textContent.trim(),
-          status: row.querySelector(".vrow__status")?.textContent.trim(),
-          on: fill?.classList.contains("is-on") || false,
-          high: fill?.classList.contains("is-high") || false,
-          width: fill?.style.width,
-          fillBox: fill?.getBoundingClientRect().width || 0,
-          barBox: bar?.getBoundingClientRect().width || 0,
-        };
-      });
-      return {
-        rows,
-        more: document.querySelector("#overviewVolumeMore")?.textContent.trim() || "",
-        hook: window.__repforgeOverviewVolume
-          ? window.__repforgeOverviewVolume.sorted().map((r) => ({
-              muscle: r.muscle,
-              planned: r.planned,
-              completed7: r.completed7,
-              status: r.status,
-              pct: window.__repforgeOverviewVolume.pct(r.planned, r.completed7),
-              label: window.__repforgeOverviewVolume.label(r.muscle),
-            }))
-          : [],
-      };
+      const hook = window.__repforgeOverviewVolume
+        ? window.__repforgeOverviewVolume.sorted().map((r) => ({
+            muscle: r.muscle,
+            planned: r.planned,
+            completed7: r.completed7,
+            status: r.status,
+            statusKey: r.statusKey,
+            pct: window.__repforgeOverviewVolume.pct(r.planned, r.completed7),
+            label: window.__repforgeOverviewVolume.label(r.muscle),
+          }))
+        : [];
+      const rows = hook.slice(0, 8).map((r) => ({
+        muscle: r.muscle,
+        name: r.label,
+        num: `${r.completed7} / ${r.planned}`,
+        status: r.status,
+        on: r.statusKey === "on-target",
+        high: r.statusKey === "high",
+        width: `${r.pct}%`,
+        fillBox: r.pct,
+      }));
+      return { rows, more: hook.length > 8 ? hook.length - 8 : 0, hook, retired: !document.querySelector("#overviewVolume") };
     });
 
   const baseVol = await getState(page);
@@ -10974,8 +10827,9 @@ async function main() {
   await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  await page.waitForSelector("#attention", { timeout: 5000 });
   const enVol = await readOverview();
+  assert(enVol.retired, "The overview no longer renders a volume block", "#overviewVolume is still in the DOM", "Stats → Overview");
   assert(
     enVol.rows.map((r) => r.muscle).join("|") ===
       "Quads|Rear delts|Adductors|Side delts|Chest|Glutes|Spinal erectors|Front delts",
@@ -11021,8 +10875,13 @@ async function main() {
     "__repforgeOverviewVolume.pct for Biceps with no plan"
   );
 
+  await page.evaluate(() => {
+    const lift = state.log.find((row) => row.exerciseId)?.exerciseId;
+    openExerciseView(lift, "log");
+  });
+  await page.waitForSelector("#exercise.view.active #exChart", { timeout: 5000 });
   await page.waitForFunction(() => {
-    const p = document.querySelector("#chart")?.__rfPaint;
+    const p = document.querySelector("#exChart")?.__rfPaint;
     return Array.isArray(p?.fillText) && p.fillText.length > 0;
   }, { timeout: 5000 });
   const chartPaint = await page.evaluate(() => {
@@ -11033,7 +10892,7 @@ async function main() {
       if (!m) return raw;
       return "#" + [+m[1], +m[2], +m[3]].map((n) => n.toString(16).padStart(2, "0")).join("");
     };
-    const paint = document.querySelector("#chart")?.__rfPaint || { fillText: [], stroke: [], fill: [] };
+    const paint = document.querySelector("#exChart")?.__rfPaint || { fillText: [], stroke: [], fill: [] };
     return {
       exposed: "__repforgeChartPaint" in window,
       fillText: paint.fillText.map((x) => ({
@@ -11049,7 +10908,7 @@ async function main() {
     chartPaint.exposed !== true,
     "C1: app.js does not ship chart paint instrumentation",
     `window.__repforgeChartPaint in page: ${chartPaint.exposed}`,
-    "Inspect window after Stats → Overview chart draw"
+    "Inspect window after the exercise page chart draw"
   );
   const latestValueText = chartPaint.fillText.find(
     (x) => /\b(kg|lb)\b/i.test(x.text) && /600/.test(x.font)
@@ -11059,14 +10918,14 @@ async function main() {
     latestValueText && latestValueText.fillStyle === "#b8410e",
     "C1: latest-value canvas text uses accent-deep, not brand orange",
     JSON.stringify(latestValueText || { fillText: chartPaint.fillText }),
-    "Stats → Overview chart → latest-value fillText"
+    "Exercise page chart → latest-value fillText"
   );
   assert(
     unitTexts.length > 0 && unitTexts.every((x) => x.fillStyle !== "#e04e14") &&
       chartPaint.fillText.every((x) => x.fillStyle !== "#e04e14"),
     "C1: no canvas fillText uses brand orange",
     JSON.stringify(chartPaint.fillText.map((x) => ({ text: x.text, fillStyle: x.fillStyle }))),
-    "Inspect #chart.__rfPaint.fillText colors"
+    "Inspect #exChart.__rfPaint.fillText colors"
   );
   // Plan 056 sparse policy: a one-point snapshot draws no connector at all;
   // comparison/trend keep the brand-orange data stroke.
@@ -11077,42 +10936,33 @@ async function main() {
       (chartPresentation !== "snapshot" && hasAccentStroke),
     "C1: data stroke follows the sparse-evidence policy and stays brand orange",
     JSON.stringify(chartPaint.stroke),
-    "Inspect #chart.__rfPaint.stroke colors"
+    "Inspect #exChart.__rfPaint.stroke colors"
   );
   assert(
     chartPaint.fill.some((x) => x.fillStyle === "#e04e14") &&
       chartPaint.fill.every((x) => x.fillStyle === "#e04e14"),
     "C1: chart points stay brand orange",
     JSON.stringify(chartPaint.fill),
-    "Inspect #chart.__rfPaint.fill colors"
+    "Inspect #exChart.__rfPaint.fill colors"
   );
 
-  assert(
-    enVol.more === "+5 more" && enVol.hook.length - enVol.rows.length === 5,
-    "F10: English +{n} more matches hidden row count",
-    `more="${enVol.more}" hidden=${enVol.hook.length - enVol.rows.length} total=${enVol.hook.length}`,
-    "Overview volume truncation"
-  );
-  await page.click("#overviewVolumeMore");
+  await page.evaluate(() => closeExerciseView());
+  await nav(page, "stats");
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("volume"));
   await page.waitForSelector("#segVolume.active", { timeout: 5000 });
   const volTableCount = await page.locator("#volumeDash .vrow").count();
-  const volActive = await page.evaluate(
-    () =>
-      document.querySelector('#statsEvidence button[data-seg="volume"]')?.classList.contains("active") &&
-      document.querySelector("#segVolume")?.classList.contains("active")
-  );
   assert(
-    volActive && volTableCount === enVol.hook.length,
-    "F10: +more opens the complete Volume segment",
-    `active=${volActive} rows=${volTableCount} expected=${enVol.hook.length}`,
-    "Overview → +n more → Volume"
+    enVol.hook.length > enVol.rows.length && volTableCount === enVol.hook.length,
+    "F10: the Volume tab lists every muscle the overview projection ranks",
+    `rows=${volTableCount} expected=${enVol.hook.length}`,
+    "Stats → Volume"
   );
 
   await persistState(page, volumeAuditState(await getState(page), "pt"));
   await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  await page.waitForSelector("#attention", { timeout: 5000 });
   const ptVol = await readOverview();
   assert(
     ptVol.rows.map((r) => r.muscle).join("|") ===
@@ -11127,20 +10977,6 @@ async function main() {
     ptVol.rows.map((r) => r.name).join("|"),
     "Overview volume names in PT"
   );
-  assert(
-    ptVol.more === "+5 mais",
-    "F10: Portuguese +{n} more copy",
-    `more="${ptVol.more}"`,
-    "Overview volume truncation in PT"
-  );
-  await page.click("#overviewVolumeMore");
-  await page.waitForSelector("#segVolume.active", { timeout: 5000 });
-  assert(
-    await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active")),
-    "F10: Portuguese +more still opens Volume",
-    "segVolume not active",
-    "PT Overview → +n mais → Volume"
-  );
   const ptCalves = ptVol.hook.find((r) => r.muscle === "Calves");
   assert(
     /rumo ao período completo/i.test(ptCalves?.status || "") && ptCalves.completed7 > ptCalves.planned,
@@ -11153,7 +10989,7 @@ async function main() {
   await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  await page.waitForSelector("#attention", { timeout: 5000 });
   const enHigh = await readOverview();
   const hsQuads = enHigh.rows.find((r) => r.muscle === "Quads");
   const hsChest = enHigh.rows.find((r) => r.muscle === "Chest");
@@ -11181,7 +11017,7 @@ async function main() {
   await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  await page.waitForSelector("#attention", { timeout: 5000 });
   const ptHigh = await readOverview();
   assert(
     /construindo base/i.test(ptHigh.rows.find((r) => r.muscle === "Quads")?.status || "") &&

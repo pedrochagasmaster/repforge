@@ -444,22 +444,25 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     "End block: focus lands on the Review tab and the panel opens", JSON.stringify(route));
   assert(!route.confirmOpen && !route.dialogOpen && route.leaked.length === 0,
     "End block: no competing dialog opens and inertness is untouched", JSON.stringify(route));
-  // Evidence is a secondary tablist with correct tab semantics.
-  const evidenceTabs = await page.evaluate(() => {
-    const group = document.querySelector("#statsEvidence");
+  // Progress is one labelled tablist of five tabs with correct tab semantics.
+  const progressTabs = await page.evaluate(() => {
+    const group = document.querySelector("#statsSeg");
     return {
       role: group?.getAttribute("role"),
-      tabs: [...(group?.querySelectorAll("button") || [])].map((b) => ({ seg: b.dataset.seg, selected: b.getAttribute("aria-selected") })),
+      label: group?.getAttribute("aria-label"),
+      tabs: [...(group?.querySelectorAll("button") || [])].map((b) => ({ seg: b.dataset.seg, role: b.getAttribute("role"), selected: b.getAttribute("aria-selected") })),
     };
   });
-  assert(evidenceTabs.role === "tablist" && evidenceTabs.tabs.length === 3 && evidenceTabs.tabs.every((t) => t.selected === "false"),
-    "Evidence group is a labelled secondary tablist with three unselected tabs", JSON.stringify(evidenceTabs));
-  await page.click('#statsEvidence button[data-seg="volume"]');
+  assert(progressTabs.role === "tablist" && progressTabs.label && progressTabs.tabs.length === 5
+    && progressTabs.tabs.every((t) => t.role === "tab" && t.selected === (t.seg === "review" ? "true" : "false")),
+  "Progress tabs are one labelled tablist of five with only Review selected", JSON.stringify(progressTabs));
+  await page.click('#statsSeg button[data-seg="volume"]');
   const evSel = await page.evaluate(() => ({
-    selected: document.querySelector('#statsEvidence button[data-seg="volume"]')?.getAttribute("aria-selected"),
+    selected: document.querySelector('#statsSeg button[data-seg="volume"]')?.getAttribute("aria-selected"),
+    reviewSelected: document.querySelector('#statsSeg button[data-seg="review"]')?.getAttribute("aria-selected"),
     panel: document.querySelector("#segVolume")?.classList.contains("active"),
   }));
-  assert(evSel.selected === "true" && evSel.panel, "Evidence selection exposes aria-selected and its panel", JSON.stringify(evSel));
+  assert(evSel.selected === "true" && evSel.reviewSelected === "false" && evSel.panel, "Tab selection exposes aria-selected and its panel", JSON.stringify(evSel));
   await context.close();
 }
 
@@ -483,7 +486,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   assert(routed.active && routed.panel && !routed.confirmOpen && !routed.dialogOpen && routed.leaked.length === 0,
     "Block Review route: focus lands on the Review tab, no dialogs, no inertness leak", JSON.stringify(routed));
   // Opening Evidence and returning keeps the keyboard on a real control.
-  await page.click('#statsEvidence button[data-seg="strength"]');
+  await page.click('#statsSeg button[data-seg="strength"]');
   await page.click('#statsSeg button[data-seg="review"]');
   const back = await page.evaluate(() => ({
     panel: document.querySelector("#segReview")?.classList.contains("active"),
@@ -2203,17 +2206,20 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   });
   await page.waitForSelector("#stats.view.active");
   await page.evaluate(() => typeof setStatsSeg === "function" && setStatsSeg("overview"));
-  await page.waitForSelector("#statExercise", { state: "visible" });
+  await page.waitForSelector('#statsSeg button[data-seg="strength"]', { state: "visible" });
+  // Keyboard modality: Tab off the Strength tab and back, so :focus-visible applies to the tab.
+  await page.focus('#statsSeg button[data-seg="strength"]');
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
   const strengthRing = await page.evaluate(() => {
-    const el = document.querySelector("#statExercise");
-    if (!el) return { missing: true };
-    el.focus();
+    const el = document.activeElement;
+    if (!el || el.dataset?.seg !== "strength") return { missing: true, active: el?.id || el?.tagName };
     const st = getComputedStyle(el);
     return { outline: st.outlineStyle, outlineW: parseFloat(st.outlineWidth) || 0, shadow: st.boxShadow, outlineColor: st.outlineColor };
   });
   assert(
     !strengthRing.missing && ((strengthRing.outline !== "none" && strengthRing.outlineW > 0) || (strengthRing.shadow && strengthRing.shadow !== "none")),
-    "Strength select shows a non-zero focus outline/ring",
+    "Progress tab shows a non-zero focus outline/ring",
     JSON.stringify(strengthRing)
   );
   await context.close();
@@ -2283,20 +2289,8 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       });
       await page.waitForSelector("#stats.view.active");
       await page.evaluate(() => {
-        if (typeof redrawChart === "function") redrawChart();
-        const canvas = document.querySelector("#chart");
-        if (canvas) canvas.__fillTexts = [];
-        if (typeof draw === "function") {
-          const rows = (state.log || []).filter((r) => r.exerciseId === (state.program?.[0]?.id)).map((r) => ({ date: r.date, e1rm: r.load * (1 + r.reps / 30), top: r.load }));
-          draw(rows.length ? rows : [], "#chart");
-        }
-      });
-      const chart = await canvasContrast(page, "#chart");
-      assert(chart.fails.length === 0, `#chart canvas text contrast (${lang}, ${populated ? "populated" : "empty"})`, JSON.stringify(chart));
-      assert(!!chart.palette && !!chart.palette.text, "window.__repforgeChartPalette exposes tokenized chart text color", JSON.stringify(chart.palette));
-      await page.evaluate(() => {
         const key = state.program?.[0]?.id;
-        if (key && typeof openExerciseView === "function") openExerciseView(key, "stats");
+        if (key && typeof openExerciseView === "function") openExerciseView(key, "log");
       });
       await page.waitForSelector("#exChart", { timeout: 8000 });
       await page.evaluate((populated) => {
@@ -2309,6 +2303,7 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       }, populated);
       const exChart = await canvasContrast(page, "#exChart");
       assert(exChart.fails.length === 0, `#exChart canvas text contrast (${lang}, ${populated ? "populated" : "empty"})`, JSON.stringify(exChart));
+      assert(!!exChart.palette && !!exChart.palette.text, "window.__repforgeChartPalette exposes tokenized chart text color", JSON.stringify(exChart.palette));
       await page.evaluate(() => {
         document.body.classList.remove("is-exercise");
         if (typeof closeExerciseView === "function") closeExerciseView();

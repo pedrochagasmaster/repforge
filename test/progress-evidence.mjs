@@ -90,8 +90,9 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
 async function assertCanonicalOutcomeLabels(page, outcomes) {
   for (const { key, outcome } of outcomes) {
     const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
-    const label = await page.evaluate((value) => window.RepForgeI18n.t(`stats.outcome.${value}`), outcome);
-    const status = row.locator(".listrow__sub");
+    // The word is the compareExerciseSession label the summary and History read.
+    const label = await page.evaluate((value) => window.RepForgeI18n.t(`delta.${{ improved: "improved", maintained: "flat", declined: "regressed" }[value]}.label`), outcome);
+    const status = row.locator(".evrow__out");
     assert.ok(await status.isVisible(), `the ${outcome} outcome label stays visible in its evidence row`);
     assert.ok((await status.textContent()).includes(label),
       `the ${outcome} outcome keeps its localized text distinction in the rendered row`);
@@ -139,7 +140,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.equal(seamAll.points.length, 4, "all-history scope includes pre-block rows");
   assert.equal(seamAll.presentation, "trend");
   const lateralAll = page.locator(`#strengthDash [data-evkey="${keys.lateral}"]`);
-  assert.match(await lateralAll.locator(".evrow__val").textContent(), /62\.5×8/, "all-history latest includes historical observations");
+  assert.match(await lateralAll.locator(".evrow__val").textContent(), /62\.5 kg/, "all-history latest includes historical observations");
   await lateralAll.click();
   assert.equal(await page.locator(`#strengthDash [data-evdetail="${keys.lateral}"] tbody tr`).count(), 1,
     "all-history drill-in includes the historical session");
@@ -214,7 +215,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   ], "the production evidence producer supplies all three canonical outcomes");
   await assertCanonicalOutcomeLabels(page, outcomes);
 
-  await page.addStyleTag({ content: "#strengthDash .listrow__sub { visibility: hidden !important; }" });
+  await page.addStyleTag({ content: "#strengthDash .evrow__out { visibility: hidden !important; }" });
   await assert.rejects(() => assertCanonicalOutcomeLabels(page, outcomes),
     /the improved outcome label stays visible in its evidence row/,
     "the deliberate color-only presentation failure is rejected by the rendered outcome oracle");
@@ -227,7 +228,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await en.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const enKey = await en.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
   await en.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await en.page.locator(`#strengthDash [data-evkey="${enKey}"] .evrow__val`).textContent(), /62\.5×8/,
+  assert.match(await en.page.locator(`#strengthDash [data-evkey="${enKey}"] .evrow__val`).textContent(), /62\.5 kg/,
     "English kg renders the decimal once without reparsing it");
   await en.context.close();
 
@@ -235,7 +236,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await pt.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const key = await pt.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
   await pt.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await pt.page.locator(`#strengthDash [data-evkey="${key}"] .evrow__val`).textContent(), /62,5×8/,
+  assert.match(await pt.page.locator(`#strengthDash [data-evkey="${key}"] .evrow__val`).textContent(), /62,5 kg/,
     "Portuguese kg renders the decimal once without reparsing it");
   await pt.context.close();
 
@@ -243,7 +244,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await lb.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const lbKey = await lb.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
   await lb.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await lb.page.locator(`#strengthDash [data-evkey="${lbKey}"] .evrow__val`).textContent(), /137\.79×8/,
+  assert.match(await lb.page.locator(`#strengthDash [data-evkey="${lbKey}"] .evrow__val`).textContent(), /137\.79 lb/,
     "62.5 kg converts to pounds exactly once");
   await lb.context.close();
 }
@@ -308,8 +309,8 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   const { context, page } = await freshPage({ seededLog: sparseLog });
   const overview = await page.locator("#segOverview").textContent();
   assert.doesNotMatch(overview, /Attention|Below/, "legacy warning labels are absent for baseline-building evidence");
-  assert.match(overview, /Needs action\s*0|Needs action[\s\S]*Nothing requires action/,
-    "insufficient evidence contributes zero Needs action items");
+  assert.match(overview, /Needs attention\s*\(0\)[\s\S]*Nothing requires action/,
+    "insufficient evidence contributes zero Needs attention items");
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
   assert.match(await page.locator("#reviewPanel").textContent(), /baseline building/i,
     "the same insufficient records reach Review as neutral baseline state");
@@ -1027,8 +1028,14 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
 }
 
 // Canvas chart labels follow the app's text scale, including the 200% setting.
+// The exercise page owns the canvas now that the overview carries none.
+async function openExerciseCanvas(page) {
+  await page.evaluate(() => openExerciseView("pev-1", "log"));
+  await page.waitForSelector("#exercise.view.active #exChart", { timeout: 5000 });
+}
 {
   const { context, page } = await freshPage();
+  await openExerciseCanvas(page);
   const fonts = await page.evaluate(() => {
     document.documentElement.style.fontSize = "200%";
     const seen = [];
@@ -1043,7 +1050,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
         { date: "2026-09-14", e1rm: 60, top: 55 },
         { date: "2026-09-16", e1rm: 62, top: 57 },
         { date: "2026-09-18", e1rm: 65, top: 60 },
-      ], "#chart");
+      ], "#exChart");
     } finally {
       prototype.fillText = original;
     }
@@ -1059,9 +1066,10 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   async function assertEmptyChartFits(lang) {
     const empty = await freshPage({ lang });
     await empty.page.setViewportSize({ width: 320, height: 844 });
+    await openExerciseCanvas(empty.page);
     const lines = await empty.page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
-      const canvas = document.querySelector("#chart");
+      const canvas = document.querySelector("#exChart");
       const extents = [];
       const prototype = CanvasRenderingContext2D.prototype;
       const original = prototype.fillText;
@@ -1071,7 +1079,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
         return original.call(this, text, x, y);
       };
       try {
-        draw([], "#chart");
+        draw([], "#exChart");
       } finally {
         prototype.fillText = original;
       }
