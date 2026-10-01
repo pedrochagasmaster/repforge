@@ -417,3 +417,222 @@ Use `node tools/check-ui-system.mjs --state <flow/screen> --verbose` to
 reproduce one rendered state. For selection inspection use
 `node tools/run-tests.mjs affected --list --base <slice-base>`; the Plan 058
 checkpoint records the current broad selection and local cutoff.
+
+## Plan 064 contract review amendment (2026-10-01)
+
+Plan 064 R1b amends this contract for the content jobs and tokens the owner
+approved. The authority is two owner records on PR #295, and nothing here is
+inferred from a prototype or a recommendation:
+
+- OG-4: [owner decisions recorded, 2026-10-01](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5923364252)
+  (the polish proposals, the seven content jobs and the routed choices).
+- OG-1, OG-2, OG-3 and OG-5: [owner decisions recorded, 2026-10-01](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5923279555)
+  (for the landing bands, OG-3).
+
+The review that framed these choices is the "Contract review for Direction D
+content jobs" section of `docs/design/plan-064-reconciliation.md`. Every value
+below is either an existing palette value or token, or comes verbatim from the
+pinned sources named in the tables: the Direction D review page at `2f2fc044`
+(`docs/design/main-screen-directions/phone.css`) and the landing final page at
+`336b492d` (`docs/design/landing-candidates/final/index.html`). No type size,
+radius step, shadow value, control role or layer is added. Contrast ratios are
+WCAG 2.x relative-luminance ratios over the opaque hex values in `styles.css`
+(alpha pairs are composited over their field first), measured with
+`contrastRatio` from `tools/ui-system-core.mjs`. The required floors are the
+contract's: 4.5:1 for text, 3:1 for large text and for required boundaries,
+icons and state marks.
+
+R1b adds tokens and four unrendered shared components. It changes no existing
+token value and no existing rule, so no rendered frame changes. The changes that
+alter a rendered frame are named below as pending, each with the slice that
+makes it.
+
+### New tokens
+
+Tokens that depend on the theme are declared in both theme blocks. Lengths are
+declared once.
+
+| Token | Light | Dark | Source of the value | Job |
+| --- | --- | --- | --- | --- |
+| `--boundary-selected-quiet` | `var(--ink)` | `var(--ink)` | `phone.css` `--boundary-selected-quiet:var(--ink)`; OG-4 "the quiet-selected boundary token aliases `--ink`" | The selected boundary where orange is rationed: shelf fields, the open ledger row, the tab indicator |
+| `--elevation-selected-quiet-shadow` | `inset 0 0 0 2px var(--boundary-selected-quiet)` | same | The existing `--elevation-selected-shadow` recipe (2px inset) with the quiet boundary; OG-4 "2px contract recipe in ink ... no new width" | The ledger open row's ring |
+| `--rule-on-surface` | `var(--rule)` | `var(--rule-strong)` | `phone.css` lines 53 and 90 | A decorative separator drawn on `--surface` (sheets, the shelf). Never the sole cue for a required mark |
+| `--space-4`, `-8`, `-12`, `-14`, `-16`, `-18`, `-26`, `-32` | 4, 8, 12, 14, 16, 18, 26, 32 px | same | `phone.css` line 55, which copies the `DESIGN.md` `spacing` scale | Margins, padding and gaps in the redesigned surfaces |
+| `--gut` | 16px | same | `phone.css` `--gut:16px`; `DESIGN.md` `gutter` | The page gutter. `--settings-inset` stays Settings-only |
+| `--shelf-field-bg` | `var(--well)` | `var(--well)` | `phone.css` `--control-field-bg:var(--well)`; OG-4 "fields on `--well`" | Field ground, on the workout shelf only |
+| `--shelf-pad-bg` | `var(--bg)` | `var(--bg)` | `phone.css` `--control-adjustment-bg:var(--bg)`; OG-4 "pads on `--bg`" | Pad ground, on the workout shelf only |
+| `--band-night-bg` | `#141310` | `#141310` | The dark palette `--bg`; landing `.night` | Landing hero, proof band and footer ground |
+| `--band-night-raised` | `#1E1C18` | `#1E1C18` | The dark palette `--surface` | Proof-band field |
+| `--band-night-ink`, `-ink-soft`, `-ink-faint` | `#F2EFE9`, `#ADA79D`, `#99938A` | same | The dark palette `--ink`, `--ink-soft`, `--ink-faint` | Primary, supporting and faint text on the night band |
+| `--band-night-rule` | `#2E2B26` | `#2E2B26` | The dark palette `--rule` | Decorative hairlines on the night band |
+| `--band-night-accent`, `-accent-text` | `#F2703B`, `#FF8A3D` | same | The dark palette `--accent`, `--accent-deep` | Rail current step; proof result |
+| `--band-night-boundary-required` | `var(--band-night-ink-soft)` | same | The dark palette `--boundary-required` (`--ink-soft`) | The two marks the final page draws in `#4A453D` (rail inactive step, "Abrir o app" pill border) |
+| `--band-night-cta-bg`, `-cta-ink` | `#DED7CC`, `#161513` | same | The dark palette `--cta`, `--cta-ink` | A primary action on the night band |
+| `--band-orange-bg` | `var(--accent)` | `var(--accent)` | Landing `--field:var(--accent)` | Orange stripe and closing band field |
+| `--band-orange-ink` | `#141310` | `#141310` | Landing `--field-ink:#141310`; the dark palette `--bg` | Text and the action ground on the orange band |
+| `--band-orange-cta-ink`, `-cta-mark` | `#F4F2EF`, `#F2703B` | same | Landing `.close .cta` and `.close .cta::after`; the light palette `--bg` and the dark palette `--accent` | Label and arrow on the action over the orange band |
+| `--band-ink-bg`, `--band-ink-ink` | `var(--ink)`, `var(--bg)` | same | Landing `.ways .w3` | Ink band field and its primary text |
+| `--band-ink-ink-soft`, `--band-ink-rule` | `rgba(var(--bg-rgb),.78)`, `rgba(var(--bg-rgb),.22)` | same | Landing `.ways .w3>p` (.78) and its `--rule` (.22) | Supporting text and a decorative hairline on the ink band |
+
+The names `--band-*` and `--shelf-*` are R1b's. The values are not new: each
+holds an existing palette value or token, or the verbatim source value above.
+Where the light and dark columns read the same, a colour token is still declared in
+both blocks so each theme block shows the whole set; the spacing lengths are not.
+
+### Roles, variants and components
+
+- **Quiet selection (OG-4).** The `selected` layer's recipe stays an inset
+  2px boundary. Where orange is rationed it uses `--boundary-selected-quiet`
+  (ink) instead of `--boundary-selected`. The contract gains no width, and
+  1.5px is rejected. Consumers: the shelf field, the open ledger row, and the
+  tab indicator.
+- **Workout shelf (OG-4).** A "Workout shelf" contextual variant of
+  `persistent-action` is added to the variants table above:
+
+  | Variant | Exact selector | Parent role |
+  | --- | --- | --- |
+  | Workout shelf | `.workshelf` | persistent-action |
+
+  Its recipe is a full-width surface with `--radius-prominent` on the top
+  corners and none below (an existing radius step), a `--boundary-persistent`
+  top edge and `--elevation-persistent-shadow`. Fields and pads carry a
+  boundary and no shadow, so no second raised card sits inside. Within the
+  shelf the field role's ground is `--well` and the adjustment role's ground is
+  `--bg`; the override is scoped to `.workshelf`. The shelf's fields, pads and
+  primary action keep the roles `selection`/`field`, `adjustment` and `primary`
+  and are inventoried by R3c with the slice that renders them.
+- **Ledger open row (OG-4).** `.ledgerline--open`, layer `selected`: a `--well`
+  ground, `--radius-surface`, and the 2px quiet boundary. The row being
+  corrected uses the same modifier. The decorative hairline of the flat row
+  gives way to the ring.
+- **Tab row (OG-4).** `.tabrow` with `.tabrow__tab`: each tab is `selection`
+  at 44 by 44 or more, label `control` 16/500 (selected 600), unselected label
+  `--color-ink-secondary`. The selected indicator is 2px in
+  `--boundary-selected-quiet` instead of the shipped 2px `--accent`. The paper
+  fade drawn while the row overflows is a gradient the rendered-role audit
+  reports as `unsupported`, so it is not part of the component.
+- **Frequency counts (OG-4).** `.freqcount`: flat and not interactive, one
+  labelled image for assistive technology, bars in ink, a decorative
+  `--boundary-decorative` baseline, and an optional planned marker on
+  `--boundary-required`. The prototype's `--rule-strong` marker is not carried:
+  it measures 1.31:1 in light and 1.95:1 in dark on `--bg`. Radii use
+  `--radius-compact`, not the prototype's 2px. The progress classification of
+  the per-week bars (a count against a planned denominator) is decided by R3j
+  under the Progress section above, with evidence.
+- **Spacing scale (OG-4).** The `--space-*` scale and `--gut` are named
+  tokens. The contract still defines no spacing role, and `--strict-css` still
+  scans only type, weight, radius, shadow and color, so the scale is a naming
+  convention that new rules use, not an enforced one.
+- **Decorative separators on surfaces (OG-4).** `--rule-on-surface` is the
+  decorative separator inside sheets and the shelf: `--rule` in light and
+  `--rule-strong` in dark. It is decorative only and never carries a required
+  mark; a required boundary uses `--boundary-required`.
+
+### Type role changes
+
+- **Section heads (OG-4, proposal 2).** `section-title` (24px) now names a
+  sheet or a page section. An in-flow section head, such as "Prescrição de
+  hoje" and its peers, uses `subtitle` (18px/600). The type paragraph above,
+  which says `section-title` "names a section or sheet", is read with this
+  narrowing. Pending: the consumers move in the R3 slices that render them.
+- **Focal exercise name (OG-4, proposal 1).** The Focus exercise name is
+  `subtitle` 18px, not `feature-title` 28px. The `feature-title` definition
+  above ("names a focal exercise, program, result, or editorial beat") is read
+  without "focal exercise". Pending: the shipped `.focus-ex__name` moves in
+  R3c.
+- **Rest clock (OG-4, C-02).** The responsive rest clock variant adopts
+  `clamp(2rem,10cqi,2.625rem)`. **Pending implementation in R3f.** R1b does not
+  change `--font-size-rest-clock` or any existing rule: the shipped value is
+  still `clamp(2rem,10vw,2.625rem)`, and changing it would change rest frames
+  at 200% text. In the app `:root` is already the size container, so `10cqi`
+  and `10vw` resolve to the same length on a phone to within a scrollbar width.
+  The inline rest clock joins this variant when R3f gives it a selector.
+
+### Approved without an addition
+
+- Content jobs 4, 6 and 7 (prescription row, sheet header band, rows on a
+  first baseline) need no contract addition; R1a's components stand.
+- Inline rest (job 3) follows from Direction D's ratified inline rest: the
+  inline clock joins the rest-clock variant, and the inline drain bar gets a
+  selector-exact temporal-status exception like `#restSheet .restdial__arc`
+  (it measures 3.05:1 in light and 4.80:1 in dark against its `--rule` track).
+  **Pending in R3f**, which chooses the selectors; the drain bar must not match
+  a progress candidate selector.
+- Proposals 3, 4 and 5 (exercise-complete shelf, invalid-set reason string,
+  overrun after Skip) change no role, tier or radius. Proposal 3 goes to an
+  OG-6 drawing round before R3c builds it. The `body-small` reason beside the
+  disabled primary action uses `--color-disabled-reason` (5.71:1 in light,
+  7.12:1 in dark on `--surface`).
+- Left to engineering and not owner choices: whether the Focus art tile needs a
+  selector-exact exception (only if it paints the sampled paper), the frequency
+  bars' progress classification (R3j), and the role of the cue line that
+  returns after rest, which these owner records do not decide.
+
+### Landing bands (OG-3)
+
+The landing final page at `336b492d` is accepted as is. Its night hero, proof
+band and footer are built as a named surface pair holding the existing
+dark-palette values in both themes (`--band-night-*`); no new palette value is
+added. The page's two `#4A453D` marks (the rail's inactive step and the "Abrir o
+app" pill border) measure 1.79:1 on `--band-night-raised` and 1.95:1 on
+`--band-night-bg`, below 3:1, so they use `--band-night-boundary-required`
+(`--ink-soft` in the dark palette) instead. The orange stripe and closing band
+use `--band-orange-*`, and the ink band uses `--band-ink-*`, each over its
+existing values. R2 builds the page and measures it in the rendered-role audit
+on every landing state, theme and locale.
+
+### Measured contrast
+
+Light and dark are the two `styles.css` themes. A row shows light then dark.
+
+| Pair | Floor | Light | Dark |
+| --- | --- | --- | --- |
+| `--boundary-selected-quiet` (ink) on `--well` | 3:1 | 16.42:1 | 15.60:1 |
+| `--boundary-selected-quiet` on `--surface` | 3:1 | 17.40:1 | 14.82:1 |
+| `--boundary-selected-quiet` on `--bg` | 3:1 | 15.57:1 | 16.19:1 |
+| Ledger open row: `--ink-soft` on `--well` | 4.5:1 | 5.39:1 | 7.49:1 |
+| Shelf field: `--boundary-required` on `--well` | 3:1 | 5.39:1 | 7.49:1 |
+| Shelf field value `--ink` on `--well` | 4.5:1 | 16.42:1 | 15.60:1 |
+| Shelf pad: `--boundary-required` on `--bg` | 3:1 | 5.11:1 | 7.78:1 |
+| Shelf pad label `--ink` on `--bg` | 4.5:1 | 15.57:1 | 16.19:1 |
+| Tab selected label `--ink` on `--bg` | 4.5:1 | 15.57:1 | 16.19:1 |
+| Tab unselected label `--ink-soft` on `--bg` | 4.5:1 | 5.11:1 | 7.78:1 |
+| Tab unselected label `--ink-soft` on `--surface` | 4.5:1 | 5.71:1 | 7.12:1 |
+| Tab indicator on `--bg` | 3:1 | 15.57:1 | 16.19:1 |
+| Frequency bar `--ink` on `--bg` | 3:1 | 15.57:1 | 16.19:1 |
+| Frequency planned marker `--boundary-required` on `--bg` | 3:1 | 5.11:1 | 7.78:1 |
+| Frequency label `--ink-soft` on `--bg` | 4.5:1 | 5.11:1 | 7.78:1 |
+| `--rule-on-surface` on `--surface` (decorative) | none | 1.31:1 | 1.79:1 |
+| Frequency baseline `--boundary-decorative` on `--bg` (decorative) | none | 1.17:1 | 1.32:1 |
+| Rejected reference: `--rule-strong` on `--bg` | 3:1 | 1.31:1 (fails) | 1.95:1 (fails) |
+| Orange band: `--band-orange-ink` on `--band-orange-bg` | 4.5:1 | 4.66:1 | 6.33:1 |
+| Orange band action: `--band-orange-cta-ink` on `--band-orange-ink` | 4.5:1 | 16.63:1 | 16.63:1 |
+| Orange band action: `--band-orange-cta-mark` on `--band-orange-ink` | 3:1 | 6.33:1 | 6.33:1 |
+| Ink band: `--band-ink-ink` on `--band-ink-bg` | 4.5:1 | 15.57:1 | 16.19:1 |
+| Ink band: `--band-ink-ink-soft` (.78) on `--band-ink-bg` | 4.5:1 | 9.84:1 | 8.56:1 |
+| Ink band: `--band-ink-rule` (.22) on `--band-ink-bg` (decorative) | none | 1.95:1 | 1.61:1 |
+
+The night band is identical in both themes:
+
+| Pair | Floor | Ratio |
+| --- | --- | --- |
+| `--band-night-ink` on `--band-night-bg` | 4.5:1 | 16.19:1 |
+| `--band-night-ink-soft` on `--band-night-bg` | 4.5:1 | 7.78:1 |
+| `--band-night-ink-faint` on `--band-night-bg` | 4.5:1 | 6.10:1 |
+| `--band-night-ink` on `--band-night-raised` | 4.5:1 | 14.82:1 |
+| `--band-night-ink-soft` on `--band-night-raised` | 4.5:1 | 7.12:1 |
+| `--band-night-ink-faint` on `--band-night-raised` | 4.5:1 | 5.59:1 |
+| `--band-night-accent-text` on `--band-night-raised` (26px Mono, large) | 3:1 | 7.25:1 |
+| `--band-night-accent` on `--band-night-raised` | 3:1 | 5.80:1 |
+| `--band-night-accent` on `--band-night-bg` | 3:1 | 6.33:1 |
+| `--band-night-boundary-required` on `--band-night-raised` | 3:1 | 7.12:1 |
+| `--band-night-boundary-required` on `--band-night-bg` | 3:1 | 7.78:1 |
+| `--band-night-cta-ink` on `--band-night-cta-bg` | 4.5:1 | 12.77:1 |
+| `--band-night-cta-bg` on `--band-night-bg` | 3:1 | 13.00:1 |
+| `--band-night-rule` on `--band-night-bg` (decorative) | none | 1.32:1 |
+| `--band-night-rule` on `--band-night-raised` (decorative) | none | 1.21:1 |
+| Rejected reference: `#4A453D` on `--band-night-raised` | 3:1 | 1.79:1 (fails) |
+| Rejected reference: `#4A453D` on `--band-night-bg` | 3:1 | 1.95:1 (fails) |
+
+Every new pair that carries required meaning passes its floor in both themes.
+The two `#4A453D` references are the pair this amendment replaces.
