@@ -1706,6 +1706,8 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
     const sheet = document.querySelector("#historyCalSheet");
     return sheet && Math.abs(sheet.getBoundingClientRect().bottom - window.innerHeight) < 2;
   });
+  // The sheet is within 2px of its rest position before its entry transition ends; measure the settled sheet.
+  await settleAnimations(page);
   const layout = await page.evaluate(() => {
     const root = document.documentElement;
     const history = document.querySelector("#history");
