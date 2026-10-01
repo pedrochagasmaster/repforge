@@ -148,7 +148,8 @@ export function cssLiteralDebt(css, exceptions = []) {
       literal = measures.some((measure) => Number(measure[1]) !== 0) && value !== "50%";
     }
     if (isShadow) literal = value !== "none" && !/^var\([^)]*\)$/.test(value);
-    const colorValue = value.replace(/url\([^)]*\)/gi, " ");
+    // Token names are not colours: var(--band-orange-bg) names a token, not the keyword orange.
+    const colorValue = value.replace(/url\([^)]*\)/gi, " ").replace(/--[\w-]+/g, " ");
     const hasColorLiteral = /#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})\b/i.test(colorValue)
       || /\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch|color|device-cmyk)\s*\((?!\s*var\()/i.test(colorValue)
       || namedColor.test(colorValue);

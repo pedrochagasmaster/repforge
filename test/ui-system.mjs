@@ -92,6 +92,9 @@ for (const declaration of ["font-size:15px", "font-weight:700", "border-radius:1
   const bad = `.seeded { ${declaration}; }`;
   assert.equal(cssLiteralDebt(bad).length, 1, `checker rejects seeded ${declaration} outside token definitions`);
 }
+assert.equal(cssLiteralDebt(".seeded { background:var(--band-orange-bg); color:var(--band-orange-ink); --x:var(--band-orange-cta-mark); }").length, 0,
+  "a token whose name contains a colour keyword is not a colour literal");
+assert.equal(cssLiteralDebt(".seeded { background:orange; }").length, 1, "the colour keyword itself is still rejected");
 for (const weight of [400, 500, 600]) {
   assert.equal(cssLiteralDebt(`.seeded { font-weight:${weight}; }`).length, 0,
     `the frozen ${weight} text weight remains supported`);

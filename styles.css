@@ -4227,15 +4227,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
    the night action's arrow takes its label ink because the prototype's orange
    arrow measured 2.05:1 on the parchment pill.
    The shell is unchanged: .firstrun is the fixed, scrolling dialog, so the
-   page scrolls inside it and every sticky or observed element is rooted on it.
-   The orange-band tokens are re-named below (token definitions only) because the
-   literal-debt scan reads the word "orange" in a token name as a colour. */
-:root{
-  --firstrun-field-bg:var(--band-orange-bg);
-  --firstrun-field-ink:var(--band-orange-ink);
-  --firstrun-field-cta-ink:var(--band-orange-cta-ink);
-  --firstrun-field-cta-mark:var(--band-orange-cta-mark);
-}
+   page scrolls inside it and every sticky or observed element is rooted on it. */
 .firstrun{
   /* Above the app shell and its docked chrome, below the sheet layer (40/41):
      the iOS instructions are a sheet over this screen, not under it. */
@@ -4298,17 +4290,17 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun-band--raised{--firstrun-band-bg:var(--band-night-raised)}
 .firstrun-band--orange{
-  --firstrun-band-bg:var(--firstrun-field-bg);
-  --firstrun-ink:var(--firstrun-field-ink);
-  --firstrun-ink-soft:var(--firstrun-field-ink);
-  --firstrun-ink-faint:var(--firstrun-field-ink);
-  --firstrun-rule:var(--firstrun-field-ink);
-  --firstrun-line:var(--firstrun-field-ink);
-  --firstrun-focus:var(--firstrun-field-ink);
-  --firstrun-accent-text:var(--firstrun-field-ink);
-  --firstrun-cta-bg:var(--firstrun-field-ink);
-  --firstrun-cta-ink:var(--firstrun-field-cta-ink);
-  --firstrun-cta-mark:var(--firstrun-field-cta-mark);
+  --firstrun-band-bg:var(--band-orange-bg);
+  --firstrun-ink:var(--band-orange-ink);
+  --firstrun-ink-soft:var(--band-orange-ink);
+  --firstrun-ink-faint:var(--band-orange-ink);
+  --firstrun-rule:var(--band-orange-ink);
+  --firstrun-line:var(--band-orange-ink);
+  --firstrun-focus:var(--band-orange-ink);
+  --firstrun-accent-text:var(--band-orange-ink);
+  --firstrun-cta-bg:var(--band-orange-ink);
+  --firstrun-cta-ink:var(--band-orange-cta-ink);
+  --firstrun-cta-mark:var(--band-orange-cta-mark);
 }
 .firstrun-band--ink{
   --firstrun-band-bg:var(--band-ink-bg);
@@ -4448,9 +4440,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-dock.is-on{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,.7,.2,1),visibility 0s}
 .firstrun-dock .firstrun__cta{box-shadow:var(--elevation-floating-shadow)}
 .firstrun-dock[data-ground="light"]{
-  --firstrun-cta-bg:var(--firstrun-field-ink);
-  --firstrun-cta-ink:var(--firstrun-field-cta-ink);
-  --firstrun-cta-mark:var(--firstrun-field-cta-mark);
+  --firstrun-cta-bg:var(--band-orange-ink);
+  --firstrun-cta-ink:var(--band-orange-cta-ink);
+  --firstrun-cta-mark:var(--band-orange-cta-mark);
 }
 .firstrun.is-shared .firstrun-dock{display:none}
 
@@ -4541,8 +4533,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-way__title{margin:0;font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:-.015em}
 .firstrun-way p{margin:var(--firstrun-gap-1) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading)}
 .firstrun-way--field{
-  background:var(--firstrun-field-bg);color:var(--firstrun-field-ink);
-  --firstrun-ink:var(--firstrun-field-ink);--firstrun-ink-soft:var(--firstrun-field-ink);--firstrun-focus:var(--firstrun-field-ink);
+  background:var(--band-orange-bg);color:var(--band-orange-ink);
+  --firstrun-ink:var(--band-orange-ink);--firstrun-ink-soft:var(--band-orange-ink);--firstrun-focus:var(--band-orange-ink);
 }
 .firstrun-way--surface{
   background:var(--surface);color:var(--color-ink);
