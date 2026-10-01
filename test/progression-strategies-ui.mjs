@@ -423,6 +423,9 @@ try {
   assert(anchorAdvance.suggestions[0].load > anchorAdvance.suggestions[1].load,
     "the anchor is always heavier than its back-offs");
   assert(leaked(anchorAdvance).length === 0, "no strategy id or raw key reaches the lifter", leaked(anchorAdvance).join(" | "));
+  const anchorWhy = anchorAdvance.explain.map((row) => row.text).join(" ");
+  assert(anchorWhy.includes("Your top set was 100 kg for 5 reps.") && anchorWhy.includes("You logged RIR 2 on it."),
+    "Why names the top set as logged (5 reps, RIR 2), not its capacity (7)", anchorWhy);
   const anchorSurface = await workoutSurface(page);
   assert(anchorSurface.targets.loads[0] === "102.5" && anchorSurface.targets.loads.slice(1).every((value) => value === "82.5"),
     "the engine exposes the heavy anchor and lighter targets", JSON.stringify(anchorSurface.targets));
@@ -437,6 +440,9 @@ try {
   assert(anchorLogged.suggestions[1].load === 80,
     "today's anchor re-derives the untouched back-offs", anchorLogged.suggestions[1].load);
   assert(anchorLogged.rec.text.length > 0, "the in-session copy explains the lighter sets");
+  const anchorLoggedWhy = anchorLogged.explain.map((row) => row.text).join(" ");
+  assert(anchorLoggedWhy.includes("Your top set was 100 kg for 5 reps."),
+    "in session, Why names today's logged top set", anchorLoggedWhy);
 
   const anchorFailed = await capture(page, {
     lang: "en", program: anchorProgram,

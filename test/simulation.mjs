@@ -6786,8 +6786,8 @@ async function main() {
     [deltaFix("s2", 1, 110, 8, 2)]
   );
   assert(
-    ["improved", "changed_load"].includes(higherLoadFewerReps.status),
-    "Session delta: higher load + fewer reps → improved or changed_load",
+    higherLoadFewerReps.status === "improved",
+    "Session delta: higher load + fewer reps, e1RM up more than 1% → improved",
     `status=${higherLoadFewerReps.status}`,
     "100×10 → 110×8"
   );
@@ -6814,6 +6814,29 @@ async function main() {
     `status=${lowerLoadMoreReps.status}`,
     "100×8@RIR1 → 95×9@RIR2"
   );
+
+  // Session outcome rule (CONTEXT.md): one case per row of the owner-approved table.
+  const outcomeRows = (session, load, reps, rirs) => reps.map((r, i) => deltaFix(session, i + 1, load, r, rirs[i]));
+  const outcomeCases = [
+    ["prescribed load increase with the expected rep drop reads flat, not regressed",
+      outcomeRows("s1", 100, [8, 8, 8], [1, 1, 0]), outcomeRows("s2", 102.5, [7, 6, 6], [1, 1, 0]), "flat"],
+    ["load up, e1RM more than 1% lower → regressed",
+      outcomeRows("s1", 100, [8], [1]), outcomeRows("s2", 105, [5], [1]), "regressed"],
+    ["same load, fewer total reps, same best set → regressed (was changed_load)",
+      outcomeRows("s1", 25, [10, 9, 9], [1, 1, 0]), outcomeRows("s2", 25, [10, 9, 8], [1, 1, 0]), "regressed"],
+    ["same load, same total reps, weaker best set → flat",
+      outcomeRows("s1", 100, [10, 8, 8], [1, 1, 1]), outcomeRows("s2", 100, [9, 9, 8], [1, 1, 1]), "flat"],
+    ["load down, more volume at similar effort → improved",
+      outcomeRows("s1", 100, [8, 8, 8], [1, 1, 1]), outcomeRows("s2", 95, [10, 10, 10], [1, 1, 1]), "improved"],
+    ["load down, e1RM more than 1% higher → improved",
+      outcomeRows("s1", 100, [5], [1]), outcomeRows("s2", 97.5, [8], [1]), "improved"],
+    ["deload (lower load, less work) → changed_load, never regressed",
+      outcomeRows("s1", 100, [8, 8, 8], [1, 1, 0]), outcomeRows("s2", 90, [8, 8, 8], [2, 2, 2]), "changed_load"],
+  ];
+  for (const [label, prev, cur, expected] of outcomeCases) {
+    const result = await runDelta(prev, cur);
+    assert(result.status === expected, `Session outcome: ${label}`, `status=${result.status}`, `expected ${expected}`);
+  }
 
   const warmupIgnored = await runDelta(
     [deltaFix("s1", 1, 100, 8, 2)],
