@@ -841,19 +841,20 @@ try {
       const rows = [...document.querySelectorAll(".entry-body--schedule .radio-card")];
       const rects = rows.map((el) => el.getBoundingClientRect());
       const groups = [...document.querySelectorAll(".entry-body--schedule .onb__opts")];
-      const seg = document.querySelector(".entry-body--schedule .onb__seg");
+      const seg = document.querySelector(".entry-body--schedule .onb__num");
       return {
-        // Days and the session ceiling read as segmented bands; the rest
-        // chooser is a bounded grouped list. Both are bounded surfaces, not
-        // the old flush hairline rows.
+        // Days and the session ceiling are numbers set as equal cards in a grid;
+        // the rest chooser is a bounded grouped list. Every control is a bounded
+        // surface, never a flush hairline row.
         segmented: seg ? getComputedStyle(seg).display : "",
-        bounded: groups.length > 0 && groups.every((group) => getComputedStyle(group).borderRadius !== "0px"),
+        bounded: groups.length > 0 && groups.every((group) => getComputedStyle(group).borderRadius !== "0px" ||
+          [...group.querySelectorAll(".radio-card")].every((card) => getComputedStyle(card).borderRadius !== "0px")),
         noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
           rect.right <= other.left + 1 || other.right <= rect.left + 1 ||
           rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
       };
     });
-    assert(scheduleComposition.segmented === "flex" && scheduleComposition.bounded,
+    assert(scheduleComposition.segmented === "grid" && scheduleComposition.bounded,
       "schedule days and duration use bounded reflowing controls", JSON.stringify(scheduleComposition));
     assert(scheduleComposition.noOverlap,
       "schedule groups stay compact without overlap", JSON.stringify(scheduleComposition));
@@ -932,7 +933,7 @@ try {
       assert(false, "avoidance search returned at least one exercise for 'bench'");
     }
     await page.click("#onbNext");
-    await page.waitForSelector("[data-entry-select-candidate]");
+    await page.waitForSelector("#entryActivate");
     const recommendationCopy = await page.locator("#onbBody").innerText();
     const resultHeader = {
       eyebrow: await page.locator("#onbEyebrow").innerText(),
@@ -947,10 +948,11 @@ try {
       "recommendation rationale cites the chosen goal and schedule", recommendationCopy);
     assert(/about half/i.test(recommendationCopy) && /first week/i.test(recommendationCopy),
       "recommendation explains the temporary interrupted return treatment", recommendationCopy);
-    assert(/full commercial gym/i.test(recommendationCopy) && /Review this program/.test(recommendationCopy),
-      "recommendation cites the environment and offers an explicit review action", recommendationCopy);
-    const candidateCount = await page.locator("[data-entry-select-candidate]").count();
-    assert(candidateCount === 1, "recommend shows only the primary result", String(candidateCount));
+    assert(/full commercial gym/i.test(recommendationCopy) && /Use this program/.test(recommendationCopy),
+      "recommendation cites the environment and offers the explicit activation action", recommendationCopy);
+    const candidateCount = await page.locator("#entryCandidateReview").count();
+    assert(candidateCount === 1 && await page.locator("[data-entry-select-candidate]").count() === 0,
+      "recommend shows only the primary result, with no separate review step", String(candidateCount));
     const mergedResult = await page.evaluate(() => ({
       step: window.__repforgeEntryState?.()?.step,
       activate: !!document.querySelector("#entryActivate"),
@@ -967,17 +969,15 @@ try {
         typeof draftEnvelope.ownerId === "string" && draftEnvelope.state?.route === "recommend",
       "setup draft persistence records ownership and revision"
     );
-    await page.locator("[data-entry-select-candidate]").first().click();
-    await page.waitForSelector("#entryActivate");
     assert(await page.evaluate(() => window.__repforgeEntryState?.()?.step) === "result",
-      "review action stays on the merged candidate surface");
+      "the result is the review: one merged candidate surface");
     const reviewCopy = await page.locator("#onbBody").innerText();
     assert(/Build Muscle/.test(reviewCopy) && /Taurifer recommendation/.test(reviewCopy),
       "review names the candidate and its human-readable source", reviewCopy);
     assert(/exercises/.test(reviewCopy) && /working sets/.test(reviewCopy) && /minutes/.test(reviewCopy),
       "review shows exercise, set, and approximate-duration facts", reviewCopy);
-    assert(/Priorities/i.test(reviewCopy) && /Equipment assumptions/i.test(reviewCopy) && /Progression/i.test(reviewCopy),
-      "review presents priorities, equipment assumptions, and progression", reviewCopy);
+    assert(/Built from your answers/.test(reviewCopy) && /Avoids/.test(reviewCopy) && /Uses .*(Barbell|Machine)/.test(reviewCopy) && /Progresses by/.test(reviewCopy),
+      "review presents the answers it was built from, the equipment it assumes, and its progression", reviewCopy);
     assert(/updates targets from completed training/i.test(reviewCopy),
       "common preview keeps factual copy for supported Taurifer strategies", reviewCopy);
     assert(await page.locator("#onbBody details").count() === 3,
@@ -1118,8 +1118,6 @@ try {
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     await page.click("#onbNext");
     await page.click("#onbNext");
-    await page.waitForSelector("[data-entry-select-candidate]", { timeout: 10000 });
-    await page.click("[data-entry-select-candidate]");
     await page.waitForSelector("#entryActivate", { timeout: 10000 });
     const staged = await page.evaluate(() => structuredClone(
       window.__repforgeEntryState().result?.preview?.progressionRelations || []));
@@ -1161,8 +1159,6 @@ try {
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     await page.click("#onbNext");
     await page.click("#onbNext");
-    await page.waitForSelector("[data-entry-select-candidate]", { timeout: 10000 });
-    await page.click("[data-entry-select-candidate]");
     await page.waitForSelector("#entryActivate", { timeout: 10000 });
     const relation = await page.evaluate(() => window.__repforgeEntryState().result.preview.progressionRelations?.[0]);
     const targetId = relation?.members?.[0]?.exerciseId;
@@ -1217,12 +1213,243 @@ try {
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     await page.click("#onbNext");
     await page.click("#onbNext");
-    await page.waitForSelector("[data-entry-select-candidate]", { timeout: 10000 });
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
     const preview = await page.evaluate(() => window.__repforgeEntryState().result?.preview?.program || []);
     assert(preview.some((exercise) => exercise.libraryId === "cd_mc"),
       "the generated candidate retains a compatible exact movement from the active program");
     assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
       "history-aware generation leaves the familiar active program byte-identical");
+    await context.close();
+  }
+
+  console.log("\nAn answer chip recompiles the review as ONE transition and one persist");
+  {
+    const { context, page } = await openFresh(browser);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    await page.waitForFunction((key) => !!JSON.parse(localStorage.getItem(key) || "{}").state?.result, DRAFT, { timeout: 10000 });
+    // Spy on every write of the setup draft, as the persisted envelope would be read back.
+    await page.evaluate((key) => {
+      window.__draftWrites = [];
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (name, value) {
+        if (name === key) {
+          try {
+            const state = JSON.parse(value).state || {};
+            window.__draftWrites.push({ step: state.step, hasResult: !!state.result, days: state.answers?.daysPerWeek,
+              resultDays: state.result?.preview?.days?.length ?? null, fingerprint: state.result?.answersFingerprint || null });
+          } catch { window.__draftWrites.push({ unreadable: true }); }
+        }
+        return original.apply(this, arguments);
+      };
+    }, DRAFT);
+    const before = await page.evaluate(() => window.__repforgeEntryState());
+    assert(before.step === "result" && before.answers.daysPerWeek === 3 && before.result?.preview?.days?.length === 3,
+      "the review starts as a three-day recommendation", JSON.stringify({ step: before.step, days: before.answers.daysPerWeek }));
+    const chip = page.locator('[data-entry-chip="days"]');
+    assert(await chip.count() === 1 && await chip.getAttribute("aria-expanded") === "false",
+      "the review lists an answer chip for the weekly days that starts collapsed");
+    await chip.click();
+    await page.waitForSelector("#entryEditor", { timeout: 5000 });
+    assert(await page.locator('[data-entry-chip="days"]').getAttribute("aria-expanded") === "true" &&
+      await page.locator("#entryActivate").count() === 0,
+    "an open editor expands its chip and hides the pinned activation");
+    await page.locator('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="4"]').click();
+    const midEdit = await page.evaluate(() => ({ state: window.__repforgeEntryState(), writes: window.__draftWrites.length }));
+    assert(midEdit.state.answers.daysPerWeek === 3 && !!midEdit.state.result && midEdit.writes === 0,
+      "choosing inside the editor changes nothing durable: committed answers, result and draft stay as they were",
+      JSON.stringify({ days: midEdit.state.answers.daysPerWeek, result: !!midEdit.state.result, writes: midEdit.writes }));
+    await page.click("#entryChipApply");
+    await page.waitForSelector("#entryChange", { timeout: 10000 });
+    await page.waitForFunction(() => window.__draftWrites.length >= 1, undefined, { timeout: 10000 });
+    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => ({ state: window.__repforgeEntryState(), writes: window.__draftWrites }));
+    assert(after.state.step === "result" && after.state.answers.daysPerWeek === 4 && after.state.result?.preview?.days?.length === 4,
+      "applying lands on the same result step with a four-day program",
+      JSON.stringify({ step: after.state.step, days: after.state.answers.daysPerWeek, built: after.state.result?.preview?.days?.length }));
+    assert(after.writes.length === 1 && after.writes.every((write) => write.step === "result" && write.hasResult && write.days === 4 && write.resultDays === 4),
+      "the edit is exactly one persist and no persisted draft ever had {step: result, result: null}", JSON.stringify(after.writes));
+    const fingerprintOk = await page.evaluate(() => {
+      const state = window.__repforgeEntryState();
+      return window.RepForgeProgramEntry.setResult({ ...state, result: null }, { fingerprint: "probe" }).result.answersFingerprint === state.result.answersFingerprint;
+    });
+    assert(fingerprintOk, "the result's answersFingerprint matches the new answers");
+    const statement = await page.evaluate(() => {
+      const el = document.querySelector("#entryChange");
+      const pinned = document.querySelector("#onbBody .entry__pinned");
+      const rect = el.getBoundingClientRect();
+      return { text: el.innerText, changed: el.dataset.changed, total: el.dataset.total, focused: document.activeElement === el,
+        top: Math.round(rect.top), bottom: Math.round(rect.bottom), pinnedTop: pinned ? Math.round(pinned.getBoundingClientRect().top) : null,
+        viewport: window.innerHeight };
+    });
+    assert(/Answer changed/.test(statement.text) && /exercises changed/.test(statement.text) && statement.focused &&
+      statement.top >= 0 && statement.bottom <= (statement.pinnedTop ?? statement.viewport),
+    "the change statement names the change, takes focus and sits in view above the pinned region", JSON.stringify(statement));
+    await context.close();
+  }
+
+  console.log("\nEvery code the compiler and entry model can emit has copy, and an unknown one is loud");
+  {
+    const { readFileSync } = await import("node:fs");
+    const read = (name) => readFileSync(new URL(`../${name}`, import.meta.url), "utf8");
+    const compiler = read("program-compiler.js"), adapter = read("program-entry-adapter.js"), entry = read("program-entry.js");
+    const found = { limitation: new Set(), reduction: new Set(), failure: new Set(), readiness: new Set() };
+    for (const line of compiler.split("\n")) {
+      if (!/limitations\.push\(/.test(line)) continue;
+      const code = line.slice(line.indexOf("limitations.push("), line.indexOf("dayId")).replace(/===\s*"[^"]*"/g, "");
+      for (const match of code.matchAll(/"([^"]+)"/g)) found.limitation.add(match[1]);
+    }
+    for (const match of compiler.matchAll(/reductions\.push\(\{\s*step:\s*"([^"]+)"/g)) found.reduction.add(match[1]);
+    for (const text of [compiler, adapter]) {
+      for (const line of text.split("\n")) {
+        if (/limitations\.push\(/.test(line)) continue;
+        for (const match of line.matchAll(/\bcode:\s*"([^"]+)"/g)) found.failure.add(match[1]);
+      }
+    }
+    const readiness = entry.slice(entry.indexOf("function candidateActivationIssues"), entry.indexOf("const api = Object.freeze"));
+    for (const match of readiness.matchAll(/\bcode:\s*"([^"]+)"/g)) found.readiness.add(match[1]);
+    for (const match of readiness.matchAll(/issues\.push\(\s*(?:"([a-z_]+)"|`([a-z_]+):)/g)) found.readiness.add(match[1] || match[2]);
+    for (const match of readiness.matchAll(/return \["([a-z_]+)"\]/g)) found.readiness.add(match[1]);
+    const appSource = readFileSync(new URL("../app.js", import.meta.url), "latin1");
+    for (const match of appSource.matchAll(/entryCompileError=\{code:"([^"]+)"/g)) found.failure.add(match[1]);
+    for (const match of appSource.matchAll(/built\?\.code\|\|"([^"]+)"/g)) found.failure.add(match[1]);
+    const total = Object.values(found).reduce((sum, set) => sum + set.size, 0);
+    assert(found.limitation.size >= 5 && found.reduction.size === 3 && found.failure.size >= 14 && found.readiness.size >= 8,
+      "the scan finds the limitation, reduction, failure and readiness vocabularies", JSON.stringify(Object.fromEntries(Object.entries(found).map(([k, v]) => [k, [...v]]))));
+    const en = JSON.parse(read("i18n-en.json")), pt = JSON.parse(read("i18n-pt.json"));
+    const { context, page } = await openFresh(browser);
+    const logged = [];
+    page.on("console", (message) => { if (message.type() === "error") logged.push(message.text()); });
+    const resolved = await page.evaluate((all) => {
+      const copy = window.__repforgeEntryCodeCopy;
+      const out = [];
+      for (const [kind, codes] of Object.entries(all)) for (const code of codes) out.push({ kind, code, key: copy.key(kind, code) });
+      return out;
+    }, Object.fromEntries(Object.entries(found).map(([kind, set]) => [kind, [...set]])));
+    const missing = resolved.filter((item) => !item.key);
+    assert(missing.length === 0, `all ${total} emitted codes have a catalog key`, JSON.stringify(missing));
+    const absent = resolved.filter((item) => item.key && (!(item.key in en) || !(item.key in pt)));
+    assert(absent.length === 0, "every key a code maps to exists in English and Portuguese", JSON.stringify(absent));
+    const tableKeys = await page.evaluate(() => Object.values(window.__repforgeEntryCodeCopy.table).flatMap((group) => Object.values(group)));
+    assert(tableKeys.every((key) => key in en && key in pt), "no table entry points at a missing key");
+    const stale = await page.evaluate((all) => {
+      const table = window.__repforgeEntryCodeCopy.table;
+      return ["limitation", "reduction"].flatMap((kind) => Object.keys(table[kind]).filter((code) => !all[kind].includes(code)));
+    }, Object.fromEntries(Object.entries(found).map(([kind, set]) => [kind, [...set]])));
+    assert(stale.length === 0, "no limitation or reduction entry outlives the code it describes", JSON.stringify(stale));
+    const unknown = await page.evaluate(() => window.__repforgeEntryCodeCopy.text("limitation", "made_up_code"));
+    assert(unknown === en["entry.issue.generic"] && logged.some((text) => /made_up_code/.test(text)),
+      "an unknown code logs an error and shows the generic sentence, never the code", JSON.stringify({ unknown, logged }));
+    await context.close();
+  }
+
+  console.log("\nThe review: program first, chips and editors keep their promises (K-27 to K-32)");
+  {
+    const { context, page } = await openFresh(browser);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="recommend"][data-entry-goal="strength"]');
+    // The goal the hub asked is carried, with a Change control; Change opens the question where it stands.
+    const carried = await page.evaluate(() => ({ band: document.querySelector(".entry__carried-v")?.textContent || "", groups: document.querySelectorAll('[data-entry-pick="desiredResult"]').length }));
+    assert(/strength/i.test(carried.band) && carried.groups === 0, "the about screen carries the goal from the hub and does not ask it again", JSON.stringify(carried));
+    await page.click("#entryGoalChange");
+    assert(await page.locator('[data-entry-pick="desiredResult"]').count() === 3 && await page.evaluate(() => document.activeElement?.dataset?.entryVal) === "strength",
+      "Change opens the goal question with focus on the current choice");
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
+    assert(await page.evaluate(() => document.activeElement?.dataset?.entryVal) === "balanced" && await page.evaluate(() => window.__repforgeEntryState().answers.desiredResult) === "balanced",
+      "K-27: after choosing a goal, focus stays on the chosen option");
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    assert(await page.evaluate(() => document.activeElement?.dataset?.entryVal) === "6_to_24m", "K-27: after an answer by tap, focus stays on the chosen option");
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    // The optional section: Skip is offered only while it is empty (K-30), and the primary reads "Show my program".
+    assert(await page.locator("#entrySkip").isVisible() && /Show my program/.test(await page.locator("#onbNext").innerText()),
+      "Recommend's optional section offers Skip while empty and ends in Show my program");
+    await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]');
+    await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="back"]');
+    assert(await page.locator("#entrySkip").count() === 0 && await page.locator("#entryPrimaryLimit").count() === 1,
+      "K-30: once a muscle is chosen Skip is gone, and the two-muscle limit is said in text");
+    await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]');
+    await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="back"]');
+    assert(await page.locator("#entrySkip").isVisible(), "clearing the muscles brings Skip back");
+    await page.click("#entrySkip");
+    await page.waitForSelector("#entryActivate", { timeout: 15000 });
+    const skipped = await page.evaluate(() => window.__repforgeEntryState());
+    assert(skipped.step === "result" && (skipped.answers.primaryMuscles || []).length === 0 && (skipped.answers.exerciseConstraints || []).length === 0,
+      "Skip goes to the program with no constraint chosen");
+    // K-32: program first. The first day and its first exercise are above the pinned region at 390 px.
+    const first = await page.evaluate(() => {
+      const pinned = document.querySelector("#onbBody .entry__pinned").getBoundingClientRect().top;
+      const day = document.querySelector("#onbBody .onb__day summary").getBoundingClientRect();
+      const ex = document.querySelector("#onbBody .onb__day .onb__ex").getBoundingClientRect();
+      return { pinned: Math.round(pinned), dayBottom: Math.round(day.bottom), exBottom: Math.round(ex.bottom), h1: document.querySelector("#entryHeading").textContent };
+    });
+    assert(first.exBottom <= first.pinned && first.dayBottom <= first.pinned && first.h1.length > 0,
+      "K-32: the first day and its first exercise are in the first viewport above the pinned region", JSON.stringify(first));
+    // Chips: expanded state, Escape closes and returns focus to the chip (K-26 shape for inline layers).
+    await page.click('[data-entry-chip="minutes"]');
+    await page.waitForSelector("#entryEditor");
+    assert(await page.evaluate(() => document.activeElement?.id) === "entryEditorTitle" &&
+      await page.locator('[data-entry-chip="minutes"]').getAttribute("aria-controls") === "entryEditor",
+    "an opened editor takes focus on its title and is named by its chip");
+    // K-29: an inline editor keeps at least half the viewport.
+    const room = await page.evaluate(() => { const r = document.querySelector("#entryEditor").getBoundingClientRect(); return { visible: Math.round(Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)), half: innerHeight / 2 }; });
+    assert(room.visible >= room.half, "K-29: the inline editor keeps at least half the viewport", JSON.stringify(room));
+    await page.click('#entryEditor [data-entry-pick="sessionMinutes"][data-entry-val="45"]');
+    assert(await page.evaluate(() => document.activeElement?.dataset?.entryVal) === "45", "K-27: choosing inside an editor keeps focus on the chosen option");
+    await page.keyboard.press("Escape");
+    assert(await page.locator("#entryEditor").count() === 0 && await page.evaluate(() => document.activeElement?.dataset?.entryChip) === "minutes" &&
+      await page.evaluate(() => window.__repforgeEntryState().answers.sessionMinutes) === 60,
+    "Escape closes the editor without applying, and focus returns to its chip");
+    // Avoid an exercise the program contains: the statement, the new constraint, and Restore.
+    const target = await page.evaluate(() => window.__repforgeEntryState().result.preview.program[0].libraryId);
+    const targetName = await page.evaluate((id) => window.__repforgeLibraryEntry(id).name, target);
+    await page.click('[data-entry-chip="prio"]');
+    await page.fill("#entryAvoidSearch", targetName);
+    await page.locator(`[data-entry-avoid-add="${target}"]`).click();
+    assert(await page.locator("#entryChipApply").isDisabled(), "Update program waits for the reason of an avoided exercise");
+    await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${target}|dislike"]`);
+    await page.click("#entryChipApply");
+    await page.waitForSelector("#entryChange");
+    const avoided = await page.evaluate((id) => ({
+      state: window.__repforgeEntryState(),
+      text: document.querySelector("#entryChange").innerText,
+      inProgram: (window.__repforgeEntryState().result.preview.program || []).some((row) => row.libraryId === id),
+      restore: !!document.querySelector(`[data-entry-restore="${id}"]`),
+    }), target);
+    assert(avoided.state.step === "result" && !avoided.inProgram && avoided.restore && /Constraint|Answer changed/.test(avoided.text) && /exercises? changed/.test(avoided.text),
+      "avoiding an exercise removes it, states the change and offers Restore", JSON.stringify({ text: avoided.text, inProgram: avoided.inProgram, restore: avoided.restore }));
+    await page.click(`[data-entry-restore="${target}"]`);
+    await page.waitForFunction((id) => !document.querySelector(`[data-entry-restore="${id}"]`), target);
+    const restored = await page.evaluate((id) => ({
+      constraints: (window.__repforgeEntryState().answers.exerciseConstraints || []).length,
+      text: document.querySelector("#entryChange")?.innerText || "",
+      inProgram: (window.__repforgeEntryState().result.preview.program || []).some((row) => row.libraryId === id),
+    }), target);
+    assert(restored.constraints === 0 && restored.inProgram && /Constraint removed/.test(restored.text),
+      "Restore removes the constraint, brings the exercise back and says so", JSON.stringify(restored));
+    // "What Taurifer adjusted" lists only what the compiler reported; it is absent when nothing was adjusted.
+    const adjusted = await page.evaluate(() => ({ section: !!document.querySelector(".entry__adjusted"),
+      reported: (window.__repforgeEntryState().result.preview.limitations || []).length + (window.__repforgeEntryState().result.preview.reductions || []).length }));
+    assert(adjusted.section === (adjusted.reported > 0), "the adjusted section appears exactly when the compiler reported an adjustment", JSON.stringify(adjusted));
+    // Back from the review and forward again with changed answers says the answers changed.
     await context.close();
   }
 
@@ -1270,20 +1497,20 @@ try {
     const choices = page.locator('[data-entry-pick="splitPreference"]');
     const choiceCount = await choices.count();
     const resultCopy = await page.locator("#onbBody").innerText();
-    assert(choiceCount === 0 && /Your custom program/.test(resultCopy),
+    assert(choiceCount === 0 && /Your custom program/i.test(resultCopy),
       "Custom skips the one-choice structure screen", JSON.stringify({ choiceCount, resultCopy }));
-    await page.waitForSelector("[data-entry-select-candidate]");
-    assert(/Your custom program/.test(await page.locator("#onbBody").innerText()) &&
-      await page.locator('[data-entry-action="change-priorities"]').isVisible() &&
-      await page.locator('[data-entry-action="change-exercise-preferences"]').isVisible(),
-      "Custom result names the job and offers targeted change actions");
+    await page.waitForSelector("#entryActivate");
+    assert(/Your custom program/i.test(await page.locator("#onbBody").innerText()) &&
+      await page.locator('[data-entry-chip="emph"]').isVisible() &&
+      await page.locator('[data-entry-chip="prefs"]').isVisible(),
+      "Custom result names the job and offers its answers as chips: muscle emphasis and exercise preferences");
     const candidate = await page.evaluate(() => window.__repforgeEntryState().result?.preview?.program || []);
     assert(candidate.some((exercise) => exercise.libraryId === "pr_bb"),
       "the generated candidate contains the selected must-have exercise");
-    await page.locator("[data-entry-select-candidate]").click();
     const reviewCopy = await page.locator("#onbBody").innerText();
-    assert(/Barbell bench press/.test(reviewCopy) && /Include:/.test(reviewCopy) && /Avoid:/.test(reviewCopy),
-      "Custom review names the selected exercise preferences", reviewCopy);
+    assert(/Barbell bench press/.test(reviewCopy) && /Includes Barbell bench press/.test(reviewCopy) && /Avoids Barbell curl/.test(reviewCopy) &&
+      /Included: Barbell bench press/.test(reviewCopy) && /Avoided: Barbell curl/.test(reviewCopy),
+      "Custom review names the selected exercise preferences as answers and as constraints", reviewCopy);
     await context.close();
   }
 
@@ -1334,7 +1561,7 @@ try {
       "conditional structure choice contributes one meaningful section");
     await page.locator('[data-entry-pick="splitPreference"]').first().click();
     await page.click("#onbNext");
-    await page.waitForSelector("[data-entry-select-candidate]", { timeout: 10000 });
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
     assert(await page.locator('[data-entry-pick="splitPreference"]').count() === 0,
       "selected two-choice structure advances to the generated result");
     await context.close();

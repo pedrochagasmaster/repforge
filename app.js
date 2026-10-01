@@ -13030,6 +13030,11 @@ let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,ent
    "cancel" is `entryUiNotice` because other flows already ask for it), and the
    route-help panel on the hub. None of it is part of the draft. */
 let entryDialog=null,entryHelpOpen=false,entryHelp={q1:null,q2:null},entryChange=null,entryGoalFromHub=false;
+/* Review-time UI that is never part of the draft: whether the "about" screen's
+   goal question is open, the answer editor open under its chip (with a private
+   copy of the answers it edits), and the program the lifter just left, for the
+   change statement when the same walk comes back to a result. */
+let entryGoalOpen=false,entryEditor=null,entryEditorSwap=false,entryEditorRerender=false,entryLastPreview=null,entryReviewError=null;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
 let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
@@ -13397,6 +13402,8 @@ function entrySelectRoute(route,{goal=null}={}){
   entryGoalFromHub=route==="recommend"&&!!goal&&selected.step==="background"}
 function entryPatchAnswers(patch){
   if(!ProgramEntry||!entryState)return;
+  // An open answer editor edits its own copy: nothing is persisted or rendered until Update program.
+  if(entryEditorSwap){entryState=ProgramEntry.setAnswers(entryState,patch);entryEditorRerender=true;return}
   entryPinnedVersionsExecutable=false;
   entrySetState(ProgramEntry.setAnswers(entryState,patch))}
 /* The questionnaire's sections, as the lifter counts them. Goal and background
@@ -13525,32 +13532,50 @@ function renderEntryHub(){
     `</div>`}
 const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
 const ENTRY_ENV_ICONS={commercial_gym:"building",basic_gym:"house",limited_home:"kettlebell",full_home:"rack",other:"dumbbell"};
-function renderDesiredResultStep(){
-  return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.desired_result.title"))}">`+
+/* Each question's controls are a body of their own, so the step screen and the
+   review's answer editor draw the same thing from the same answers. */
+function entryGoalGroup(){
+  return `<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.desired_result.title"))}">`+
     ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`),{icon:ENTRY_DESIRED_ICONS[v]})).join("")+`</div>`}
-function renderBackgroundStep(){
-  return entryHeading(t("entry.background.title"))+`<p class="onb__explain">${esc(t("entry.background.lede"))}</p>${entryLegacyBanner()}`+
-    entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
+function renderDesiredResultStep(){
+  return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}`+entryGoalGroup()}
+function entryBackgroundGroups(){
+  return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
     ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
     entryGroupLab(t("entry.background.consistency.label"),"cal",` id="entryConLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryConLab">`+
     ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
-function renderScheduleStep(){
-  const browse=entryState.route==="browse";
+/* The "about" screen: the goal the hub already asked is carried as a band with
+   a Change control; with no goal yet, or after Change, the question is open. */
+function entryAboutGoal(){
+  const goal=entryState.answers.desiredResult;
+  if(goal&&!entryGoalOpen)
+    return `<div class="entry__carried"><div class="entry__carried-text"><span class="entry__carried-k">${esc(t("entry.about.goal"))}</span>`+
+      `<span class="entry__carried-v">${esc(t(`entry.desired_result.${goal}.label`))}</span></div>`+
+      `<button type="button" class="btn btn--steel entry__carried-change" id="entryGoalChange" aria-label="${esc(t("entry.about.goal_change"))}">${esc(t("entry.about.change"))}</button></div>`;
+  return entryGroupLab(t("entry.desired_result.lede"),"",` id="entryGoalLab"`)+entryGoalGroup()}
+function renderBackgroundStep(){
+  return entryHeading(t("entry.background.title"))+`<p class="onb__explain">${esc(t("entry.background.lede"))}</p>${entryLegacyBanner()}`+
+    entryAboutGoal()+entryBackgroundGroups()}
+/* Schedule values are numbers, so they are set as numbers: a Mono value over its
+   unit, in a grid of equal cards with no radio mark. Nothing is preselected. */
+function entryScheduleGroups({browse=false}={}){
   const minuteUnit=n=>t(`entry.schedule.minutes.${n}`).replace(/^[\d+]+\s*/,"").trim()||t(`entry.schedule.minutes.${n}`);
-  return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
-    entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__seg" role="radiogroup" aria-labelledby="entryDaysLab">`+
+  return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
-    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__seg" role="radiogroup" aria-labelledby="entryMinLab">`+
+    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
     [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`+
     (browse?"":entryGroupLab(t("entry.schedule.rest.label"),"timer",` id="entryRestLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryRestLab">`+
       entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
       [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
+function renderScheduleStep(){
+  return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
+    entryScheduleGroups({browse:entryState.route==="browse"})}
 function entryEnvironmentValue(){
   const env=entryState?.answers?.environment;
   if(!env?.kind)return null;
   if(Array.isArray(env.equipment)||Array.isArray(env.capabilities))return env;
   return ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||{kind:env.kind,equipment:[],capabilities:[]}}
-function renderEnvironmentStep(){
+function entryEnvironmentBody(){
   const env=entryEnvironmentValue();
   const equipment=new Set(env?.equipment||[]);
   const capabilities=new Set(env?.capabilities||[]);
@@ -13561,8 +13586,10 @@ function renderEnvironmentStep(){
     `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
     ENTRY_CAPABILITIES.map(token=>entryOpt("environmentCapabilities",token,t(`entry.cap.${token}`)||token,"",{multi:true,selected:capabilities.has(token),role:"checkbox"})).join("")+`</div>`+
     `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div></details>`:"";
-  return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
+  return `<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
     ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>${correction}`}
+function renderEnvironmentStep(){
+  return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}`+entryEnvironmentBody()}
 function entryMuscleBlocked(key,muscle){
   const a=entryState?.answers||{};
   const primary=new Set(a.primaryMuscles||[]);
@@ -13672,7 +13699,7 @@ function entryExerciseMatches(query){
   const pool=pickableExercises().filter(entry=>!included.has(entry.id)&&!avoided.has(entry.id)&&entry.id!==entryPendingAvoid);
   if(!q)return pool.slice(0,8);
   return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
-function renderExercisePreferencesStep(){
+function entryExercisePreferencesBody(){
   const included=entryState?.answers?.mustHaveExercises||[];
   const constraints=entryState?.answers?.exerciseConstraints||[];
   const matches=entryExerciseMatches(entryExerciseQuery);
@@ -13701,40 +13728,45 @@ function renderExercisePreferencesStep(){
       ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${item.exerciseId}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:item.reason===reason})).join("")+`</div></li>`}).join("")+`</ul>`:
     `<p class="entry__hint entry__exercise-empty">${esc(t("entry.exercise_preferences.avoid_none"))}</p>`;
   const hasPain=constraints.some(item=>item.reason==="pain");
-  return entryHeading(t("entry.exercise_preferences.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
-    `<p class="onb__explain">${esc(t("entry.exercise_preferences.lede"))}</p>`+
-    `<label class="entry__field entry__field--search"><span>${esc(t("entry.exercise_preferences.search"))}</span>`+
+  return `<label class="entry__field entry__field--search"><span>${esc(t("entry.exercise_preferences.search"))}</span>`+
     `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
     `<input id="entryExerciseSearch" type="search" autocomplete="off" value="${esc(entryExerciseQuery)}" placeholder="${esc(t("entry.exercise_preferences.search"))}"></label>`+
     `<div class="entry__exercise-results" role="list" aria-label="${esc(t("entry.exercise_preferences.results"))}">${resultRows}</div>`+
     `<section class="entry__exercise-selected-group" aria-labelledby="entryIncludeListLabel"><p class="entry__group-lab" id="entryIncludeListLabel">${esc(t("entry.exercise_preferences.include_list"))}</p>${includeList}</section>`+
     `<section class="entry__exercise-selected-group" aria-labelledby="entryAvoidListLabel"><p class="entry__group-lab" id="entryAvoidListLabel">${esc(t("entry.exercise_preferences.avoid_list"))}</p>${pending}${avoidList}</section>`+
     (hasPain?`<p class="entry__pain" role="note"><span class="entry__pain-ico icon-mask icon-mask--shield" aria-hidden="true"></span><span>${esc(t("entry.priorities.pain_note"))}</span></p>`:"")}
-function renderPrioritiesStep(){
+function renderExercisePreferencesStep(){
+  return entryHeading(t("entry.exercise_preferences.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t("entry.exercise_preferences.lede"))}</p>`+entryExercisePreferencesBody()}
+/* The optional section is empty while nothing in it has been chosen: no muscle,
+   no movement, no avoided exercise (and no half-made avoidance). */
+function entryPrioritiesEmpty(){
+  const a=entryState?.answers||{};
+  return !(a.primaryMuscles||[]).length&&!(a.priorityMovements||[]).length&&!(a.exerciseConstraints||[]).length&&!entryPendingAvoid}
+function entryPrioritiesBody(){
   const a=entryState.answers||{},custom=entryState.route==="custom";
   if(custom){
-    return entryHeading(t("entry.priorities.custom_title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
-      `<p class="onb__explain">${esc(t("entry.priorities.custom_lede"))}</p>`+
-      renderCustomMusclePriorities()+
+    return renderCustomMusclePriorities()+
       `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
       ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
   const primary=a.primaryMuscles||[];
-  return entryHeading(t("entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
-    `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+
-    `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
+  return `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
+    (primary.length>=2?`<p class="entry__hint entry__limit" id="entryPrimaryLimit">${esc(t("entry.priorities.limit"))}</p>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
     renderAvoidanceSection()}
-function renderCustomShapeStep(){
-  const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
-  if(!splits.choices.length)return entryHeading(t("entry.custom_shape.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.custom_shape.none_title"))}</strong><p>${esc(t("entry.custom_shape.none_body"))}</p>`+
-    `<button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
+function renderPrioritiesStep(){
+  const custom=entryState.route==="custom";
+  /* Recommend's optional section can be skipped while it is empty, so Skip never
+     discards a constraint the lifter chose. */
+  const skip=!custom&&entryPrioritiesEmpty()?`<button type="button" class="btn btn--steel entry__skip" id="entrySkip">${esc(t("entry.priorities.skip"))}</button>`:"";
+  return entryHeading(t(custom?"entry.priorities.custom_title":"entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t(custom?"entry.priorities.custom_lede":"entry.priorities.lede_optional"))}</p>`+skip+entryPrioritiesBody()}
+function entryCustomShapeBody(splits){
   const sole=splits.choices.length===1;
-  return entryHeading(t(sole?"entry.custom_shape.title_sole":"entry.custom_shape.title"))+
-    `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+
-    `<p class="entry__group-lab">${esc(t(sole?"entry.custom_shape.split_sole":"entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
+  return `<p class="entry__group-lab">${esc(t(sole?"entry.custom_shape.split_sole":"entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
     splits.choices.map(choice=>{
       const name=isPt()?choice.namePt||choice.name:choice.name;
       const label=t("entry.custom_shape.choice",{name,days:choice.frequency});
@@ -13743,11 +13775,18 @@ function renderCustomShapeStep(){
         days:choice.frequency,min:Math.min(...estimates),max:Math.max(...estimates)}):"";
       const reason=choice.default?t("entry.custom_shape.default_reason"):t("entry.custom_shape.compatible_reason");
       return entryOpt("splitPreference",choice.id,label,`${reason}${summary?` ${summary}`:""}`)}).join("")+`</div>`}
-function compileGeneratorCandidate(){
+function renderCustomShapeStep(){
+  const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
+  if(!splits.choices.length)return entryHeading(t("entry.custom_shape.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.custom_shape.none_title"))}</strong><p>${esc(t("entry.custom_shape.none_body"))}</p>`+
+    `<button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
+  const sole=splits.choices.length===1;
+  return entryHeading(t(sole?"entry.custom_shape.title_sole":"entry.custom_shape.title"))+
+    `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+entryCustomShapeBody(splits)}
+function compileGeneratorCandidate(from=entryState){
   const services=entryServices();
-  if(!services||!entryState)return null;
+  if(!services||!from)return null;
   let compiled;
-  try{compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()})}
+  try{compiled=services.compile({mode:from.route,answers:from.answers,versions:entryVersions()})}
   catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program candidate rebuild failed",error);return null}
   if(!compiled.ok){entryCompileError=compiled;return null}
   const candidate=compiled.candidate||{};
@@ -14035,9 +14074,305 @@ function entryPreviewProgressionCopy(preview, progressionIssue){
   return"entry.preview.progression_body"}
 function entryExerciseCountLabel(n){return t("entry.preview.exercises",{n,exercise:tp(n,"exercise")})}
 window.__repforgeEntryExerciseCountLabel=entryExerciseCountLabel;
+/* Copy for every code the compiler, the entry model and the app can hand the
+   interface. Each code maps to a catalog key; a code with no entry is a drift,
+   never a raw string on screen: it logs loudly and shows the generic sentence.
+   test/program-entry-browser.mjs reads the compiler and entry sources and fails
+   when one of them emits a code this table does not know. */
+const ENTRY_CODE_COPY=Object.freeze({
+  limitation:Object.freeze({
+    "home.pull_capability_unavailable":"entry.adjusted.limit.home_pull",
+    conditional_slot_unresolved:"entry.adjusted.limit.conditional_slot_unresolved",
+    optional_slot_unresolved:"entry.adjusted.limit.optional_slot_unresolved",
+    deemphasized_optional_omitted:"entry.adjusted.limit.deemphasized_optional_omitted",
+    ignored_direct_work_omitted:"entry.adjusted.limit.ignored_direct_work_omitted"}),
+  reduction:Object.freeze({
+    remove_optional:"entry.adjusted.reduce.remove_optional",
+    efficient_two_set:"entry.adjusted.reduce.efficient_two_set",
+    trim_reducible_assistance:"entry.adjusted.reduce.trim_reducible_assistance"}),
+  failure:Object.freeze({
+    family_unresolved:"entry.issue.compile",incomplete_answers:"entry.issue.compile",invalid_context:"entry.issue.compile",
+    compiler_conflict:"entry.issue.compile",unsupported_blueprint:"entry.issue.compile",invalid_instance:"entry.issue.compile",
+    invalid_customization:"entry.issue.compile",unknown_slot:"entry.issue.compile",substitution_unknown:"entry.issue.compile",
+    substitution_incompatible:"entry.issue.compile",substitution_prescription_incompatible:"entry.issue.compile",
+    rebuild_failed:"entry.issue.compile",build_failed:"entry.issue.compile",compile_threw:"entry.issue.compile",
+    build_setup_incomplete:"entry.issue.program_name",
+    time_ceiling_conflict:"entry.issue.time_ceiling",ignored_muscle_required:"entry.issue.ignored_required",
+    required_slot_unresolved:"entry.issue.required_slot",
+    exercise_preference_conflict:"entry.issue.include_avoid",must_have_avoided:"entry.issue.include_avoid",
+    must_have_unavailable:"entry.result.must_unavailable_title"}),
+  readiness:Object.freeze({
+    live_revision_required:"entry.issue.generic",active_program_changed:"entry.conflict.body",
+    preview_not_ready:"entry.issue.review_first",candidate_incomplete:"entry.editor.incomplete",
+    rules_changed_rebuild_required:"entry.rules_changed.body_rebuild",
+    progression_incompatible:"entry.preview.activation_blocked",program_exercises_required:"entry.editor.incomplete",
+    program_days_required:"entry.editor.incomplete",exercise_invalid:"entry.editor.exercise_invalid",day_empty:"entry.editor.incomplete"})});
+function entryCodeKey(kind,code){
+  const table=ENTRY_CODE_COPY[kind]||{},text=String(code??"");
+  return table[text]||table[text.split(":")[0]]||null}
+function entryCodeText(kind,code){
+  const key=entryCodeKey(kind,code);
+  if(!key){console.error(`program entry: no copy for ${kind} code "${code}"`);return t("entry.issue.generic")}
+  return t(key)}
+window.__repforgeEntryCodeCopy={table:ENTRY_CODE_COPY,key:entryCodeKey,text:entryCodeText};
+/* A compile failure as sentences: each conflict the compiler named, else the
+   failure's own code. Never the code itself. */
+function entryFailureText(failure){
+  const codes=[];
+  const conflicts=Array.isArray(failure?.conflicts)?failure.conflicts:[];
+  if(failure?.code==="must_have_unavailable"||failure?.code==="exercise_preference_conflict"||!conflicts.length)codes.push(failure?.code||failure);
+  else for(const conflict of conflicts)codes.push(conflict?.code);
+  return[...new Set(codes.map(code=>entryCodeText("failure",code)))].join(" ")}
+/* What the last edit did, as the review states it. `labels` renames the
+   Before / Now pair when the comparison is not before and after (for example
+   the program without and with an avoided exercise). */
+function entryChangeKey(state=entryState){
+  const result=state?.result;
+  return result?[state.draftId,state.route,result.answersFingerprint||"",result.fingerprint||""].join("|"):""}
+function entryFactsText(preview){
+  const facts=entryPreviewFacts(preview);
+  return t("entry.change.facts",{ex:entryExerciseCountLabel(facts.exercises),sets:t("entry.preview.sets",{n:facts.sets})})}
+/* The rows of `after` that `before` did not have, counted as a multiset so a
+   duplicated movement is added only as often as it was added. When every row is
+   new, none is marked: the whole program is not "new". */
+function entryAddedRowIds(before,after){
+  const identity=ProgramEntryAdapter?.exerciseIdentity;
+  if(!identity)return[];
+  const left=new Map();
+  for(const row of before?.program||[]){const key=identity(row);left.set(key,(left.get(key)||0)+1)}
+  const added=[];
+  for(const row of after?.program||[]){
+    const key=identity(row);
+    if(left.get(key)>0)left.set(key,left.get(key)-1);else added.push(row.id)}
+  const total=(after?.program||[]).length;
+  return added.length&&added.length<total?added:[]}
+function entryBuildChange(beforePreview,afterPreview,state,{lead,beforeLabel="",afterLabel=""}={}){
+  const diff=ProgramEntryAdapter?.identityDiff?.(beforePreview,afterPreview)||{n:0,total:(afterPreview?.program||[]).length};
+  return{key:entryChangeKey(state),lead,beforeLabel,afterLabel,before:entryFactsText(beforePreview),after:entryFactsText(afterPreview),
+    changed:diff.n,total:diff.total,added:entryAddedRowIds(beforePreview,afterPreview)}}
+function entryChangeNow(){return entryChange&&entryChange.key&&entryChange.key===entryChangeKey()?entryChange:null}
+/* After a change the statement is the first thing the lifter should see: the top
+   of the review when name, facts and statement fit above the pinned region,
+   otherwise the statement itself just below the top edge. */
+function entryShowChange(){
+  const statement=$("#entryChange");
+  if(!statement)return;
+  const scroller=$("#onboarding");
+  if(scroller){
+    const pinned=$("#onbBody .entry__pinned");
+    const top=statement.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop;
+    const limit=scroller.clientHeight-(pinned?pinned.offsetHeight:0);
+    const target=top+statement.offsetHeight<=limit-8?0:Math.max(0,top-16);
+    scroller.scrollTo?.({top:target,left:0,behavior:"auto"});
+    scroller.scrollTop=target}
+  try{statement.focus({preventScroll:true})}catch{}}
+/* The answers behind the review, each one a control that opens its own editor. */
+const ENTRY_CHIP_KIND={goal:"desired_result",exp:"background",cons:"background",days:"schedule",minutes:"schedule",rest:"schedule",
+  env:"environment",prio:"priorities",avoid:"priorities",emph:"priorities",prefs:"exercise_preferences",shape:"custom_shape"};
+const ENTRY_EDITOR_TITLE={desired_result:"goal",background:"background",schedule:"schedule",environment:"environment",
+  priorities:"priorities",exercise_preferences:"exercises",custom_shape:"shape"};
+function entryNames(ids){return ids.map(id=>{const entry=libraryEntry(id);return entry?libraryName(entry):id}).join(", ")}
+function entrySameSet(left,right){return JSON.stringify([...(left||[])].sort())===JSON.stringify([...(right||[])].sort())}
+function entryChipList(){
+  const a=entryState.answers||{},custom=entryState.route==="custom",out=[];
+  const add=(chip,text)=>out.push({chip,text,what:t(`entry.chip.what.${chip}`)});
+  if(a.desiredResult)add("goal",t(`entry.chip.goal.${a.desiredResult}`));
+  if(a.structuredExperience)add("exp",t(`entry.background.experience.${a.structuredExperience}`));
+  if(a.recentConsistency)add("cons",t(`entry.chip.cons.${a.recentConsistency}`));
+  if(a.daysPerWeek)add("days",t("entry.chip.days",{n:a.daysPerWeek}));
+  if(a.sessionMinutes)add("minutes",a.sessionMinutes>=90?t("entry.chip.minutes_90"):t("entry.chip.minutes",{n:a.sessionMinutes}));
+  if(Object.prototype.hasOwnProperty.call(a,"preferredRestSeconds"))add("rest",t(`entry.chip.rest.${a.preferredRestSeconds===null?"auto":a.preferredRestSeconds}`));
+  if(a.environment?.kind){
+    const base=ProgramEntryAdapter?.defaultEnvironment?.(a.environment.kind),env=entryEnvironmentValue();
+    const same=base&&env&&entrySameSet(base.equipment,env.equipment)&&entrySameSet(base.capabilities,env.capabilities);
+    const label=t(`entry.environment.${a.environment.kind}`);
+    add("env",same?label:t("entry.chip.env_adjusted",{env:label}))}
+  const avoided=(a.exerciseConstraints||[]).map(item=>item.exerciseId);
+  const priorities=entryPriorityLabel(a),none=t("entry.preview.priorities_none");
+  if(!custom){
+    add("prio",priorities!==none?t("entry.chip.prio",{list:priorities}):t("entry.chip.prio_none"));
+    if(avoided.length)add("avoid",t("entry.chip.avoid",{list:entryNames(avoided)}))}
+  else{
+    add("emph",priorities!==none?t("entry.chip.emph",{list:priorities}):t("entry.chip.emph_none"));
+    const included=a.mustHaveExercises||[];
+    add("prefs",[included.length?t("entry.chip.include",{list:entryNames(included)}):"",avoided.length?t("entry.chip.avoid",{list:entryNames(avoided)}):""]
+      .filter(Boolean).join(" · ")||t("entry.chip.prefs_none"));
+    const splits=entryCustomSplitChoices(a);
+    const choice=splits.choices.length>=2?splits.choices.find(item=>item.id===a.splitPreference):null;
+    if(choice)add("shape",t("entry.chip.shape",{name:t("entry.custom_shape.choice",{name:isPt()?choice.namePt||choice.name:choice.name,days:choice.frequency})}))}
+  return out}
+function entryEditorTitleText(kind){
+  const custom=entryState.route==="custom";
+  const which=kind==="priorities"&&custom?"emphasis":ENTRY_EDITOR_TITLE[kind];
+  return t(`entry.chip.fact.${which}`)}
+/* The editor draws the very controls the question screens do, from its own copy
+   of the answers; the committed answers are put back before anything else runs. */
+function entryEditorBody(kind){
+  switch(kind){
+    case "desired_result":return entryGoalGroup();
+    case "background":return entryBackgroundGroups();
+    case "schedule":return entryScheduleGroups();
+    case "environment":return entryEnvironmentBody();
+    case "priorities":return entryPrioritiesBody();
+    case "exercise_preferences":return entryExercisePreferencesBody();
+    case "custom_shape":{
+      const splits=entryCustomSplitChoices(entryState.answers);
+      return splits.choices.length?entryCustomShapeBody(splits):`<p class="entry__hint">${esc(t("entry.custom_shape.none_body"))}</p>`}
+    default:return""}}
+function renderEntryEditor(){
+  const editor=entryEditor,committed=entryState;
+  let body="";
+  entryState=editor.draft;
+  try{body=entryEditorBody(editor.kind)}finally{entryState=committed}
+  const pending=!!entryPendingAvoid;
+  return `<section class="entry-editor" id="entryEditor" aria-labelledby="entryEditorTitle">`+
+    `<h3 class="entry-editor__title" id="entryEditorTitle" tabindex="-1">${esc(entryEditorTitleText(editor.kind))}</h3>`+
+    (editor.error?`<div class="entry__notice entry__notice--error" id="entryEditorError" role="alert"><p>${esc(editor.error)}</p></div>`:"")+
+    `<div class="entry-editor__body">${body}</div>`+
+    `<div class="entry-editor__acts"><button type="button" class="btn btn--cta btn--noarrow" id="entryChipApply"${pending?` disabled aria-describedby="entryPendingAvoidNote"`:""}>${esc(t("entry.chip.apply"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryChipKeep">${esc(t("entry.chip.keep"))}</button></div></section>`}
+function renderEntryChips(){
+  const open=entryEditor?.chip||null;
+  return `<section class="entry__answers" aria-labelledby="entryChipsLabel"><h2 class="entry__section-head" id="entryChipsLabel">${esc(t("entry.chips.title"))}</h2>`+
+    `<p class="entry__hint">${esc(t("entry.chips.hint"))}</p><div class="entry-chips">`+
+    entryChipList().map(chip=>`<button type="button" class="entry-chip${open===chip.chip?" is-open":""}" data-entry-chip="${chip.chip}" aria-expanded="${open===chip.chip?"true":"false"}"`+
+      `${open===chip.chip?` aria-controls="entryEditor"`:""} aria-label="${esc(t("entry.chip.aria",{what:chip.what,value:chip.text}))}">`+
+      `<span class="entry-chip__text">${esc(chip.text)}</span><span class="entry-chip__edit icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span></button>`).join("")+
+    `</div>${entryEditor?renderEntryEditor():""}</section>`}
+function entryResetEditorFields(){entryPendingAvoid=null;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery=""}
+function openEntryEditor(chip){
+  if(!entryState?.result)return;
+  if(entryEditor?.chip===chip){closeEntryEditor();return}
+  entryResetEditorFields();
+  entryEditor={chip,kind:ENTRY_CHIP_KIND[chip],draftId:entryState.draftId,draft:{...entryState,answers:cloneSnapshot(entryState.answers)},error:null};
+  entryReviewError=null;
+  renderOnboarding();
+  const title=$("#entryEditorTitle"),editor=$("#entryEditor"),scroller=$("#onboarding");
+  try{title?.focus({preventScroll:true})}catch{}
+  /* The editor opens in flow, below its chip. Bring its top into view; if its
+     update control would still sit below the fold, bring that up instead. */
+  if(editor&&scroller){
+    const box=scroller.getBoundingClientRect(),top=editor.getBoundingClientRect().top-box.top+scroller.scrollTop;
+    const apply=$("#entryChipApply"),bottom=apply?apply.getBoundingClientRect().bottom-box.top+scroller.scrollTop:top;
+    const target=bottom-top+24<=scroller.clientHeight?Math.max(0,top-12):Math.max(0,bottom-scroller.clientHeight+16);
+    scroller.scrollTo?.({top:target,left:0,behavior:"auto"});scroller.scrollTop=target}}
+function closeEntryEditor({refocus=true}={}){
+  const chip=entryEditor?.chip;
+  entryEditor=null;entryResetEditorFields();
+  renderOnboarding();
+  if(refocus&&chip)try{$(`[data-entry-chip="${chip}"]`)?.focus({preventScroll:true})}catch{}}
+/* Run a handler the question screens already own against the editor's copy of
+   the answers. The committed state is back in place before anything renders. */
+function entryEditorRun(handler,context,args){
+  if(!entryEditor)return handler.apply(context,args);
+  const committed=entryState;
+  entryState=entryEditor.draft;entryEditorSwap=true;
+  try{return handler.apply(context,args)}
+  finally{
+    entryEditor.draft=entryState;entryState=committed;entryEditorSwap=false;
+    entryEditor.error=null;
+    if(entryEditorRerender){entryEditorRerender=false;renderOnboarding()}}}
+function entryCanon(value){
+  if(Array.isArray(value))return`[${value.map(entryCanon).join(",")}]`;
+  if(value&&typeof value==="object")return`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${entryCanon(value[key])}`).join(",")}}`;
+  return JSON.stringify(value===undefined?null:value)}
+/* ONE transition. The patched answers, the program they compile to and the
+   result stamped for those answers become the next state together, and the
+   draft is written once. The committed state is never left with answers that
+   have no result, so nothing between the two is ever persisted or resumed. */
+function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
+  if(!ProgramEntry||!entryState?.result?.preview)return{ok:false};
+  const route=entryState.route;
+  if(route!=="recommend"&&route!=="custom")return{ok:false};
+  const before=entryState.result;
+  let next=ProgramEntry.setAnswers(entryState,patch);
+  if(route==="custom"){
+    const choices=entryCustomSplitChoices(next.answers).choices;
+    if(choices.length&&!choices.some(choice=>choice.id===next.answers.splitPreference))
+      next=ProgramEntry.setAnswers(next,{splitPreference:(choices.find(choice=>choice.default)||choices[0]).id})}
+  const priorError=entryCompileError;
+  const compiled=compileGeneratorCandidate(next);
+  const failure=entryCompileError;
+  entryCompileError=priorError;
+  if(!compiled)return{ok:false,failure};
+  // The completion event belongs to the walk, not to each rebuild.
+  if(before.telemetry?.completed===true&&compiled.telemetry)compiled.telemetry={...compiled.telemetry,completed:true};
+  const final=ProgramEntry.setResult(next,compiled);
+  entryChange=entryBuildChange(before.preview,compiled.preview,final,{lead,beforeLabel,afterLabel});
+  entryEditor=null;entryResetEditorFields();entryReviewError=null;
+  entryPinnedVersionsExecutable=false;
+  entrySetState(final);
+  entryShowChange();
+  return{ok:true}}
+function applyEntryEditor(){
+  const editor=entryEditor;
+  if(!editor||entryPendingAvoid)return;
+  const base=entryState.answers,draft=editor.draft.answers,patch={};
+  for(const key of Object.keys(draft))if(entryCanon(base[key])!==entryCanon(draft[key]))patch[key]=draft[key];
+  if(!Object.keys(patch).length){closeEntryEditor();return}
+  const outcome=applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")});
+  if(outcome.ok)return;
+  editor.error=entryFailureText(outcome.failure)||t("entry.issue.compile");
+  renderOnboarding();
+  try{$("#entryEditorTitle")?.focus({preventScroll:true})}catch{}}
+function restoreEntryConstraint(exerciseId){
+  const kept=(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId);
+  const outcome=applyEntryAnswerEdit({exerciseConstraints:kept},{lead:t("entry.change.lead.restore")});
+  if(outcome.ok)return;
+  entryReviewError=entryFailureText(outcome.failure)||t("entry.issue.compile");
+  renderOnboarding();
+  try{$("#entryReviewError")?.focus({preventScroll:true})}catch{}}
+/* The first result of a walk says something only when it is true and meaningful:
+   the answers changed the program the lifter just left, or constraints reshaped
+   it (stated against the program without them). */
+function entryNoteFirstResult(result){
+  const left=entryLastPreview&&entryLastPreview.draftId===entryState.draftId?entryLastPreview.preview:null;
+  entryLastPreview=null;
+  const key=entryChangeKey();
+  if(left){
+    const change=entryBuildChange(left,result.preview,entryState,{lead:t("entry.change.lead.answers")});
+    if(change.changed>0){entryChange=change;return}}
+  const constraints=entryState.answers.exerciseConstraints||[];
+  if(constraints.length){
+    const priorError=entryCompileError;
+    const without=compileGeneratorCandidate({...entryState,answers:{...entryState.answers,exerciseConstraints:[]}});
+    entryCompileError=priorError;
+    if(without){
+      entryChange=entryBuildChange(without.preview,result.preview,entryState,{lead:t("entry.change.lead.constraints"),
+        beforeLabel:t("entry.change.without"),afterLabel:t("entry.change.with")});
+      return}}
+  if(entryChange&&entryChange.key!==key)entryChange=null}
+function renderEntryConstraints(){
+  const a=entryState.answers||{},rows=[];
+  for(const id of a.mustHaveExercises||[]){
+    const entry=libraryEntry(id);
+    if(entry)rows.push(`<li class="entry__row entry__constraint"><span class="entry__row-ico icon-mask icon-mask--check" aria-hidden="true"></span><span class="entry__row-body">${esc(t("entry.constraints.include",{exercise:libraryName(entry)}))}</span></li>`)}
+  for(const item of a.exerciseConstraints||[]){
+    const entry=libraryEntry(item.exerciseId);
+    if(!entry)continue;
+    const exercise=libraryName(entry);
+    rows.push(`<li class="entry__row entry__constraint"><span class="entry__row-ico icon-mask icon-mask--shield" aria-hidden="true"></span>`+
+      `<span class="entry__row-body">${esc(t("entry.constraints.avoid",{exercise,reason:t(`entry.priorities.reason.${item.reason}`).toLowerCase()}))}</span>`+
+      `<button type="button" class="btn btn--steel entry__restore" data-entry-restore="${esc(item.exerciseId)}" aria-label="${esc(t("entry.constraints.restore_aria",{exercise}))}">${esc(t("entry.constraints.restore"))}</button></li>`)}
+  if(!rows.length)return"";
+  return `<section class="entry__constraints" aria-labelledby="entryConstraintsLab"><h2 class="entry__section-head" id="entryConstraintsLab">${esc(t("entry.constraints.title"))}</h2>`+
+    (entryReviewError?`<div class="entry__notice entry__notice--error" id="entryReviewError" role="alert" tabindex="-1"><p>${esc(entryReviewError)}</p></div>`:"")+
+    `<ul class="entry__rows">${rows.join("")}</ul></section>`}
+function renderEntryAdjusted(preview){
+  const rows=[];
+  for(const item of preview.limitations||[])rows.push(entryCodeText("limitation",item.code));
+  for(const item of preview.reductions||[])rows.push(entryCodeText("reduction",item.step));
+  if(!rows.length)return"";
+  return `<section class="entry__adjusted" aria-labelledby="entryAdjustedLab"><h2 class="entry__section-head" id="entryAdjustedLab">${esc(t("entry.adjusted.title"))}</h2>`+
+    `<ul class="entry__rows">${rows.map(text=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--scale" aria-hidden="true"></span><span class="entry__row-body">${esc(text)}</span></li>`).join("")}</ul></section>`}
+/* A generated route's result is the review: the program first (name, four
+   facts, what just changed, the week), then the answers it was built from, why
+   it fits, what was adjusted and the constraints the lifter set. */
 function renderResultStep(){
   const custom=entryState?.route==="custom";
   const resultTitle=custom?t("entry.result.custom_title"):t("entry.result.title");
+  if(entryEditor&&entryEditor.draftId!==entryState.draftId)entryEditor=null;
+  const had=!!entryState.result?.preview;
   const result=ensureGeneratorResult();
   if(!result){
     const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
@@ -14045,10 +14380,9 @@ function renderResultStep(){
     if(unavailable.length)return entryHeading(resultTitle)+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.result.must_unavailable_title"))}</strong>`+
       `<p>${esc(t("entry.result.must_unavailable_body",{exercises:unavailable.map(libraryName).join(", ")}))}</p>`+
       `<button type="button" class="btn btn--cta" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_preferences"))}</button></div>`;
-    const code=failure?.code||entryCompileError;
-    return entryHeading(resultTitle)+`<p class="lede" role="alert">${esc(t("entry.error.summary"))}${code?` (${esc(code)})`:""}</p>`}
-  const primary=result.selected||(result.candidates||[])[0];
-  const explanation=result.explanation||{},preview=result.preview||{};
+    return entryHeading(t("entry.result.error_title"))+`<div class="entry__notice entry__notice--error" role="alert"><p>${esc(entryFailureText(failure||entryCompileError)||t("entry.issue.compile"))}</p></div>`}
+  if(!had)entryNoteFirstResult(result);
+  const preview=result.preview||{},explanation=result.explanation||{};
   const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
   const days=explanation.daysPerWeek||preview.frequency||"";
   const minutes=explanation.sessionMinutes||"";
@@ -14067,30 +14401,31 @@ function renderResultStep(){
     explanation.recentConsistency==="about_half"&&preview.programStructure?.weekPrescriptions?.length
       ?{icon:"clock",text:t("entry.result.why_interrupted")}:null,
   ].filter(Boolean);
-  const duration=entryDurationLabel(preview);
-  const daysBadge=primary?t("entry.catalogue.days_badge",{days:primary.daysPerWeek}):"";
-  const alternative=result.alternative?.fingerprint&&result.alternative?.preview&&result.alternative?.reason
-    ?result.alternative:null;
-  const action=!primary?"":`<div class="entry__confirm"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
-  const alternativeAction=!alternative?"":`<div class="entry__alternative"><p class="entry__group-lab">${esc(t("entry.result.alternative"))}</p>`+
+  const alternative=result.alternative?.fingerprint&&result.alternative?.preview&&result.alternative?.reason?result.alternative:null;
+  const alternativeBlock=!alternative?"":`<section class="entry__alternative" aria-labelledby="entryAlternativeLab"><h2 class="entry__section-head" id="entryAlternativeLab">${esc(t("entry.result.alternative"))}</h2>`+
     `<button type="button" class="btn btn--steel" data-entry-select-alternative>`+
     `${esc(isPt()?alternative.namePt||alternative.name:alternative.name)} · ${esc(t("entry.catalogue.days_badge",{days:alternative.daysPerWeek}))}</button>`+
-    `<p>${esc(t("entry.result.alternative_reason.compatible_split_variation"))}</p></div>`;
-  return entryHeading(resultTitle)+
-    `<div class="entry__payoff"><p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
-    `<span class="entry__payoff-badge" aria-hidden="true"><span class="icon-mask icon-mask--rosette"></span></span></div>`+
-    `<div class="entry__recommend"><div class="entry__ident"><h3>${esc(entryResultName(result))}</h3>`+
-    (primary?`<div class="entry__metrics">`+
-      (daysBadge?`<span class="entry__metric"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span>${esc(daysBadge)}</span>`:"")+
-      (duration?`<span class="entry__metric"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(duration)}</span>`:"")+
-      `</div>`:"")+`</div>`+
-    `<p class="entry__group-lab entry__group-lab--accent">${esc(t("entry.result.why"))}</p>`+
-    `<ul class="entry__rows entry__rows--reasons">`+whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")+`</ul>`+
-    action+
-    alternativeAction+
-    (custom?`<div class="entry__custom-actions"><button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_priorities"))}</button>`+
-      `<button type="button" class="btn btn--steel" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_exercise_preferences"))}</button></div>`:"")+`</div>`+
-    `<section id="entryCandidateReview" aria-labelledby="entryCandidateReviewTitle">`+renderPreviewStep({merged:true})+`</section>`}
+    `<p class="entry__hint">${esc(t("entry.result.alternative_reason.compatible_split_variation"))}</p></section>`;
+  const progressionIssue=entryPreviewHasProgressionIssue(preview);
+  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
+    `<p class="entry__eyebrow">${esc(resultTitle)}</p>`+
+    `<h2 class="onb__q entry__progname" id="entryHeading" tabindex="-1">${esc(entryResultName(result)||t("untitled_program"))}</h2>`+
+    `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
+    renderEntryFactsStrip(preview)+
+    renderEntryChangeStatement(entryChange)+
+    (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<h2 class="entry__section-head" id="entryWeekLab">${esc(t("entry.preview.days"))}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
+    renderEntryChips()+
+    `<section class="entry__why" aria-labelledby="entryWhyLab"><h2 class="entry__section-head" id="entryWhyLab">${esc(t("entry.result.why"))}</h2>`+
+    `<ul class="entry__rows entry__rows--reasons">${whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")}</ul>`+
+    `<p class="entry__hint">${esc(t("entry.result.lede"))}</p>`+
+    `<p class="entry__hint">${esc(t(entryPreviewProgressionCopy(preview,progressionIssue)))}</p></section>`+
+    renderEntryAdjusted(preview)+
+    renderEntryConstraints()+
+    alternativeBlock+
+    renderEntryMore()+
+    (entryEditor?"":renderEntryPinned({progressionIssue}))+
+    `</section>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
   const purposeLabels={
@@ -14138,7 +14473,8 @@ function renderCatalogueStep(){
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
     `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
-    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${esc(fact.text)}</span>`).join("")}</div>`+
+    `<div class="entry__context"><div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${esc(fact.text)}</span>`).join("")}</div>`+
+    `<button type="button" class="btn btn--steel entry__carried-change" data-entry-action="change-schedule" aria-label="${esc(t("entry.catalogue.change_aria"))}">${esc(t("entry.about.change"))}</button></div>`+
     /* Every family is released at every frequency, so a flat list is twenty
        near-identical rows. Split the ones that match the answered schedule from
        the rest, which is the comparison the reader is actually making. */
@@ -14157,8 +14493,8 @@ function renderBuildSetupStep(){
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<label class="entry__field"><span>${esc(t("entry.build_setup.name"))}</span>`+
     `<input id="entryProgramName" type="text" maxlength="80" value="${esc(name)}" placeholder="${esc(t("entry.build_setup.name_placeholder"))}"></label>`+
-    `<p class="entry__group-lab">${esc(t("entry.build_setup.days"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
-    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,t("entry.catalogue.days_badge",{days:n}),"")).join("")+`</div>`}
+    entryGroupLab(t("entry.build_setup.days"),"cal",` id="entryBuildDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryBuildDaysLab">`+
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`}
 /* One route, two doors. A Taurifer file is one shape of "I already have a
    program"; a coach's message pasted as text is the other, and the lifter
    arriving with the second should not have to recognise the first. */
@@ -14314,33 +14650,23 @@ function renderEntryFactsStrip(preview){
    Every review has the slot; the Recommend and Custom reviews fill it when an
    answer changes. `change` is `{lead, before, after, changed, total}`. */
 function renderEntryChangeStatement(change){
-  if(!change)return"";
+  if(!change||!change.key||change.key!==entryChangeKey())return"";
   const sentence=!change.changed?t("entry.change.none"):change.changed===1
     ?t("entry.change.one",{total:change.total}):t("entry.change.many",{n:change.changed,total:change.total});
   return `<div class="entry__change" id="entryChange" tabindex="-1" role="status" aria-live="polite" data-change-statement data-changed="${change.changed}" data-total="${change.total}">`+
     `<p class="entry__change-line">${esc([change.lead,sentence].filter(Boolean).join(" "))}</p>`+
     (change.before&&change.after&&(change.changed||change.before!==change.after)?
-      `<dl class="entry__change-grid"><dt>${esc(t("entry.change.before"))}</dt><dd>${esc(change.before)}</dd><dt>${esc(t("entry.change.after"))}</dt><dd>${esc(change.after)}</dd></dl>`:"")+
+      `<dl class="entry__change-grid"><dt>${esc(change.beforeLabel||t("entry.change.before"))}</dt><dd>${esc(change.before)}</dd><dt>${esc(change.afterLabel||t("entry.change.after"))}</dt><dd>${esc(change.after)}</dd></dl>`:"")+
     `</div>`}
 function renderPreviewStep({merged=false}={}){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
   const previewAnswers=entryPreviewAnswers(preview);
-  /* The week is a stack of hairline bands. The first day is open, so the first
-     exercise is on the first screen (K-32); the others fold away. */
-  const days=(preview.days||[]).map((day,index)=>{
-    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
-    const dayName=previewDayLabel(day,index,preview.programStructure);
-    return `<details class="onb__day"${index===0?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
-    `<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
-    (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
-    (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
-    `</details>`});
+  const days=renderEntryWeek(preview);
   const progressionIssue=entryPreviewHasProgressionIssue(preview);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
   const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
   const custom=entryState?.route==="custom";
-  const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
   const reviewRows=[
     {icon:"target",lab:t("entry.preview.priorities"),text:entryPriorityLabel(previewAnswers)},
     ...(custom?[{icon:"dumbbell",lab:t("entry.preview.exercise_preferences"),text:entryExercisePreferenceLabel(previewAnswers)}]:[]),
@@ -14360,12 +14686,31 @@ function renderPreviewStep({merged=false}={}){
        a screen-reader user jumps between Priorities, Equipment, Progression and
        Compromises, so the redesign restyles `h4` rather than demoting it. */
     `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
-    `<section class="entry__more" aria-labelledby="entryMoreLab"><p class="entry__group-lab entry__section-head" id="entryMoreLab">${esc(t("entry.preview.more"))}</p>`+
+    renderEntryMore()+renderEntryPinned({progressionIssue})}
+/* The week is a stack of hairline bands. The first day is open, so the first
+   exercise is on the first screen (K-32); the others fold away, except a day
+   that holds an exercise the last change added. */
+function renderEntryWeek(preview){
+  const added=new Set(entryChangeNow()?.added||[]);
+  return (preview.days||[]).map((day,index)=>{
+    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
+    const dayName=previewDayLabel(day,index,preview.programStructure);
+    const open=index===0||exercises.some(exercise=>added.has(exercise.id));
+    return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
+    `<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
+    exercises.map(ex=>{const isNew=added.has(ex.id);
+      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(ex.name||"")}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
+    (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
+    `</details>`})}
+function renderEntryMore(){
+  return `<section class="entry__more" aria-labelledby="entryMoreLab"><p class="entry__group-lab entry__section-head" id="entryMoreLab">${esc(t("entry.preview.more"))}</p>`+
     `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`+
-    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive" aria-haspopup="dialog"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></section>`+
-    /* The confirm action is the point of the screen, so it is pinned: a long
-       program cannot scroll it away, and a blocked one says why directly above. */
-    `<div class="entry__pinned">`+
+    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive" aria-haspopup="dialog"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></section>`}
+/* The confirm action is the point of the screen, so it is pinned: a long
+   program cannot scroll it away, and a blocked one says why directly above. */
+function renderEntryPinned({progressionIssue=false}={}){
+  const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+  return `<div class="entry__pinned">`+
     (progressionIssue?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
     `<button type="button" id="entryActivate" class="btn btn--cta${progressionIssue?" btn--noarrow":""}"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
 function renderEntryNotice(){
@@ -14560,7 +14905,8 @@ function entryHubMode(){
 /* Earlier answers, each one tap from being changed (G's answer rail). Question
    screens only: on a review a changed answer must recompile, which is not a
    jump, so the review has no rail. Browse's two questions need none. */
-const ENTRY_RAIL_STEPS=["desired_result","background","schedule","environment","priorities","exercise_preferences","custom_shape"];
+/* The about screen carries its goal as a band with Change, so it has no rail of its own. */
+const ENTRY_RAIL_STEPS=["desired_result","schedule","environment","priorities","exercise_preferences","custom_shape"];
 function renderEntryRail(){
   const route=entryState?.route,stepId=entryState?.step;
   if(!route||route==="browse"||!ENTRY_RAIL_STEPS.includes(stepId))return"";
@@ -14585,6 +14931,7 @@ function entryRailAfterTitle(stepHtml,rail){
   const head=stepHtml.match(/^<h[12][^>]*>[\s\S]*?<\/h[12]>(?:<p class="onb__explain">[\s\S]*?<\/p>)?/);
   return head?head[0]+rail+stepHtml.slice(head[0].length):rail+stepHtml}
 function renderOnboarding(){
+  if(entryEditorSwap){entryEditorRerender=true;return}
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
   collapseSingleCustomShape();
@@ -15029,7 +15376,41 @@ function wireEntryDom(){
     const recovered=await recoverEntryDurableConflict();
     entryDurableConflictNeedsReload=!recovered.ok;
     entryUiNotice=recovered.ok?"conflict":"durable_conflict";
-    renderOnboarding()}}
+    renderOnboarding()};
+  wireEntryAnswerControls()}
+/* Recommend, Custom and Browse answer controls: the answer chips and their
+   editors, Restore, Skip and the "about" screen's goal. Everything here is bound
+   after the shared handlers, so an editor's controls can be wrapped. */
+function wireEntryAnswerControls(){
+  if(!entryState)return;
+  if(entryState.step!=="background")entryGoalOpen=false;
+  if(entryEditor&&(entryState.step!=="result"||entryEditor.draftId!==entryState.draftId))entryEditor=null;
+  $$("[data-entry-chip]").forEach(btn=>btn.onclick=()=>openEntryEditor(btn.dataset.entryChip));
+  $$("[data-entry-restore]").forEach(btn=>btn.onclick=()=>restoreEntryConstraint(btn.dataset.entryRestore));
+  const apply=$("#entryChipApply");if(apply)apply.onclick=()=>applyEntryEditor();
+  const keep=$("#entryChipKeep");if(keep)keep.onclick=()=>closeEntryEditor();
+  const editor=$("#entryEditor");
+  if(editor&&entryEditor){
+    // The editor's controls are the question screens' own; they act on the editor's copy.
+    editor.querySelectorAll("*").forEach(el=>{
+      for(const prop of ["onclick","oninput","onchange"]){
+        const handler=el[prop];
+        if(typeof handler==="function")el[prop]=function(...args){return entryEditorRun(handler,this,args)}}});
+    editor.onkeydown=event=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();closeEntryEditor()}};
+    if(apply)apply.onclick=()=>applyEntryEditor();
+    if(keep)keep.onclick=()=>closeEntryEditor()}
+  const goalChange=$("#entryGoalChange");
+  if(goalChange)goalChange.onclick=()=>{
+    entryGoalOpen=true;renderOnboarding();
+    try{($('[data-entry-pick="desiredResult"][aria-checked="true"]')||$('[data-entry-pick="desiredResult"]'))?.focus({preventScroll:true})}catch{}};
+  const skip=$("#entrySkip");
+  if(skip)skip.onclick=()=>{
+    if(!entryPrioritiesEmpty())return;
+    entryState=ProgramEntry.setAnswers(entryState,{primaryMuscles:[],priorityMovements:[],exerciseConstraints:[]});
+    entryAdvance()};
+  // Recommend's last question hands over to the program itself.
+  const next=$("#onbNext");
+  if(next&&entryState.route==="recommend"&&entryState.step==="priorities")next.textContent=t("entry.priorities.show")}
 function entryStartOver(){
   const restarted=ProgramEntry.startOver({
     draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
@@ -15060,6 +15441,7 @@ async function surfaceEntryDurableConflict(){
 }
 function entryAdvance(){
   if(!ProgramEntry||!entryState)return;
+  entryGoalOpen=false;
   if(entryState.step==="build_setup"){
     const nameInput=$("#entryProgramName");
     if(nameInput)entryState=ProgramEntry.setAnswers(entryState,{programName:nameInput.value.trim()});
@@ -15100,6 +15482,10 @@ function entryBack(){
   if(entryDialog||entryUiNotice==="cancel"){dismissEntryDialog();return}
   if(setupEditorOpen){requestEntryCancel();return}
   if(entryUiNotice==="resume"||entryState.step==="entry"||!entryState.route){requestEntryCancel();return}
+  // An open answer editor closes first; Back then leaves the review as before.
+  if(entryEditor){closeEntryEditor();return}
+  entryGoalOpen=false;
+  if(entryState.step==="result"&&entryState.result?.preview)entryLastPreview={draftId:entryState.draftId,preview:entryState.result.preview};
   if(entryGoalFromHub&&entryState.route==="recommend"&&entryState.step==="background"){
     entryGoalFromHub=false;
     entrySetState(ProgramEntry.back(ProgramEntry.back(entryState)));
