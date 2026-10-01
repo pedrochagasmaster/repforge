@@ -2409,11 +2409,11 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 
 /* Build is a setup workspace, so its title and actions are part of the same
    scroll flow and the installed dock remains absent. */
-.program-editor-onboarding .onb__head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;margin-bottom:20px}
+.program-editor-onboarding .onb__head{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:10px;margin-bottom:20px}
 .program-editor-onboarding .onb{padding-top:28px}
-.program-editor-onboarding .onb__head #onbCancel{order:2;flex:0 0 auto;margin:0 0 0 auto}
+.program-editor-onboarding .onb__head .onb__bar{order:2;flex:0 0 auto;margin:0 0 0 auto}
 .program-editor-onboarding .onb__editor-title{display:block;order:1;flex:1 1 0;min-width:min-content;margin:0;font-size:var(--font-size-display);font-weight:var(--weight-semibold);line-height:1.05;letter-spacing:-.035em}
-.program-editor-onboarding .onb__head #onbEyebrow,.program-editor-onboarding .onb__head #onbStepLabel,.program-editor-onboarding .onb__head #onbSegbar{display:none}
+.program-editor-onboarding .onb__head .onb__where,.program-editor-onboarding .onb__head #onbSegbar{display:none}
 .program-editor-onboarding #onbTitle{display:none}
 .program-editor-onboarding .onb__body{margin-bottom:20px}
 .program-editor-onboarding .program-editor__program-name input{font-size:var(--font-size-control);padding:10px 16px}
@@ -6142,6 +6142,288 @@ body.is-entry-editor #entryProgramName,
   opacity:1;cursor:not-allowed;transform:none;
 }
 #shareSetupLink:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+
+/* ---- Plan 064 R4a: entry shell, hub, recovery, dialogs and the common review ----
+   Entry-scoped rules only. They sit after the Plan 058 entry sections they
+   refine and name existing tokens: ink is the quiet selection (the selected
+   option, the featured outline), the accent stays on the current progress
+   segment and the primary arrow, and every length snaps to the --space-* scale
+   or to a multiple of --control-target. */
+
+/* Shell: Back and Cancel on one row, then where the lifter is, then progress. */
+.onboarding{
+  --onb-pad-l:max(var(--gut),env(safe-area-inset-left));
+  --onb-pad-r:max(var(--gut),env(safe-area-inset-right));
+  padding-bottom:0
+}
+.onb__head{display:flex;flex-direction:column;gap:var(--space-8);margin-bottom:var(--space-18)}
+.onb__bar{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12)}
+.onb__bar .back-link{
+  min-width:var(--control-target);min-height:var(--control-target);padding:var(--space-8) var(--space-4);
+  gap:var(--space-4);color:var(--control-quiet-ink);font-weight:var(--weight-medium)
+}
+.onb__bar .back-link.hidden{display:none}
+#onbBack::before,.entry-hub-active #onbCancel::before{
+  content:"";flex:none;width:var(--control-icon-size);height:var(--control-icon-size);background:currentColor;
+  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='15 6 9 12 15 18'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='15 6 9 12 15 18'/%3E%3C/svg%3E")
+}
+.onb__where{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-4) var(--space-8)}
+.onb__where:not(:has(> :not(.hidden))){display:none}
+.onb__where .onb__title{
+  margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);
+  text-align:left;color:var(--ink)
+}
+.onb__where .onb__step{
+  margin:0;font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;
+  text-align:left;text-transform:uppercase;color:var(--ink-faint)
+}
+.onb__where .onb__title:not(.hidden)+.onb__step::before{content:"·";margin-right:var(--space-8)}
+.onb__head .segbar{margin:0}
+#onbSegbar .segbar__seg.is-done{background:var(--ink)}
+#onbSegbar .segbar__seg.is-current:not(.is-done){background:var(--accent)}
+.onb__body{margin-bottom:calc(var(--space-26) + env(safe-area-inset-bottom))}
+#onbBody.entry-body--preview,#onbBody.entry-body--result,#onbBody.entry-body--activation_conflict{margin-bottom:0}
+
+/* The pinned region: one primary action on solid ground under a hairline, kept
+   in reach while a long screen scrolls. A blocked primary drops its arrow and
+   says why directly above it. */
+.onb__nav,.entry__pinned{
+  position:sticky;bottom:0;z-index:2;display:flex;flex-direction:column;gap:var(--space-8);
+  margin:0 calc(-1 * var(--onb-pad-r)) 0 calc(-1 * var(--onb-pad-l));
+  padding:var(--space-12) var(--onb-pad-r) calc(var(--space-12) + env(safe-area-inset-bottom)) var(--onb-pad-l);
+  background:var(--bg);border-top:1px solid var(--boundary-persistent)
+}
+.entry__pinned{margin-top:var(--space-26)}
+.onb__nav .btn,.entry__pinned .btn{flex:0 0 auto;width:100%}
+.onb__nav.hidden{display:none}
+.onb__reason,.entry__reason{
+  margin:0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-disabled-reason)
+}
+.onb__reason[hidden]{display:none}
+.btn--cta.btn--noarrow:disabled{padding-inline:var(--space-18)}
+
+/* Questions are sentences in ink, not column heads. */
+#onbBody.entry-body .entry__group-lab.entry__question{
+  display:block;margin:var(--space-26) 0 var(--space-8);font-size:var(--font-size-body);font-weight:var(--weight-semibold);
+  letter-spacing:0;line-height:var(--line-standard);text-transform:none;color:var(--ink)
+}
+#onbBody.entry-body .entry__group-lab.entry__question:first-of-type{margin-top:var(--space-18)}
+
+/* The answer rail: earlier answers, each one tap from being changed. */
+.entry-rail{display:flex;flex-wrap:wrap;gap:var(--space-8);margin:0 0 var(--space-18)}
+.entry-rail__chip{
+  display:inline-flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);max-width:100%;
+  padding:var(--space-8) var(--space-14);border:1px solid var(--boundary-decorative);border-radius:var(--radius-pill);
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);font:inherit;font-size:var(--font-size-body-small);
+  font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;cursor:pointer
+}
+.entry-rail__chip:hover{background:var(--well)}
+.entry-rail__chip:active{background:var(--well);transform:var(--control-pressed-transform)}
+.entry-rail__chip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.entry-rail__text{min-width:0;overflow-wrap:anywhere}
+.entry-rail__edit{flex:none;width:var(--space-14);height:var(--space-14);color:var(--ink-soft)}
+
+/* Quiet selection (Q-E). A chosen option is ringed in ink, never in the accent. */
+#onbBody.entry-body .radio-card.is-selected{
+  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
+  background:var(--well);color:var(--control-selection-ink)
+}
+#onbBody.entry-body .radio-card.is-selected .radio-card__icon{color:var(--ink)}
+#onbBody.entry-body .radio-card[role="radio"].is-selected .radio-card__mark{border-color:var(--boundary-selected-quiet)}
+#onbBody.entry-body .radio-card[role="radio"].is-selected .radio-card__mark::after{background:var(--boundary-selected-quiet)}
+#onbBody.entry-body .onb__opts.onb__list .radio-card.is-selected{box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)}
+#onbBody.entry-body .onb__opts.onb__seg .radio-card.is-selected{
+  background:var(--cta);box-shadow:none;border-color:var(--cta)
+}
+
+/* Hub */
+.entry-body--entry .entry-hub__lede{margin-bottom:var(--space-18)}
+.entry-body--entry .entry__group-lab{margin:var(--space-26) 0 var(--space-8);color:var(--ink-faint)}
+.entry-body--entry .entry__group-lab:first-child{margin-top:var(--space-18)}
+.entry-hubgroup{display:block}
+.entry-card__line{
+  display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
+  color:var(--color-ink-secondary)
+}
+.entry-card__k{
+  margin-right:var(--space-4);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-faint)
+}
+.entry-body .entry-card--nested .entry-card__title{font-size:var(--font-size-body)}
+
+/* "Not sure which one?" asks two short questions and ends in a route. */
+.entry-helpblock{margin:0 0 var(--space-12)}
+.entry-help__toggle{
+  min-height:var(--control-target);padding:var(--space-8) 0;border:0;background:var(--control-disclosure-bg);
+  color:var(--control-disclosure-ink);font:inherit;font-size:var(--font-size-body-small);font-weight:var(--weight-medium);
+  text-decoration:underline;text-underline-offset:3px;cursor:pointer
+}
+.entry-help__toggle:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+.entry-help{
+  margin:var(--space-4) 0 0;padding:var(--space-12) var(--space-14) var(--space-14);background:var(--well);
+  border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)
+}
+.entry-help__q{margin:var(--space-12) 0 var(--space-8);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
+.entry-help__q:first-child{margin-top:0}
+.entry-help__opts{display:flex;flex-wrap:wrap;gap:var(--space-8)}
+.entry-help__opt{
+  min-height:var(--control-target);padding:var(--space-8) var(--space-14);border:1px solid var(--control-selection-boundary);
+  border-radius:var(--radius-pill);background:var(--control-selection-bg);color:var(--control-selection-ink);font:inherit;
+  font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;cursor:pointer
+}
+.entry-help__opt:hover{background:var(--well)}
+.entry-help__opt:active{transform:var(--control-pressed-transform)}
+.entry-help__opt:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.entry-help__opt.is-selected{
+  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
+  background:var(--well);font-weight:var(--weight-semibold)
+}
+.entry-help__go{margin-top:var(--space-14)}
+
+/* The featured block is Recommend's first question: the goal, asked on the hub. */
+.entry-feature{margin:0 0 var(--space-8)}
+.entry-feature__eyebrow{
+  margin:0;font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-faint)
+}
+.entry-feature__q{margin:var(--space-4) 0 var(--space-4);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight)}
+.entry-feature__facts{margin:0 0 var(--space-12);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.entry-feature__goals{display:flex;flex-direction:column;gap:var(--space-8)}
+.entry-body .entry-card.entry-goal,
+.entry-body .entry-card.entry-goal[data-entry-route="recommend"]{
+  min-height:calc(var(--control-target) + var(--space-12));margin:0;padding:var(--space-12) var(--space-14);
+  border:1px solid var(--boundary-selected-quiet);border-radius:var(--radius-surface);background:var(--surface);color:var(--color-ink)
+}
+.entry-body .entry-card.entry-goal[data-entry-route="recommend"]:hover,
+.entry-body .entry-card.entry-goal[data-entry-route="recommend"]:active:not(:disabled){background:var(--well)}
+.entry-body .entry-card.entry-goal[data-entry-route="recommend"] .entry-card__icon,
+.entry-body .entry-card.entry-goal[data-entry-route="recommend"] .entry-card__go{color:var(--ink-soft)}
+.entry-body .entry-goal .entry-card__title{font-size:var(--font-size-body)}
+
+/* Doors wait while a saved draft asks first: inert, and read as unavailable. */
+.entry__hub[inert] .entry-card,
+.entry__hub[inert] .entry-card__title,
+.entry__hub[inert] .entry-card__line,
+.entry__hub[inert] .entry-card__cap,
+.entry__hub[inert] .entry-feature__q,
+.entry__hub[inert] .entry-help__toggle{color:var(--color-disabled-reason)}
+.entry__hub[inert] .entry-card.entry-goal{border-color:var(--boundary-decorative)}
+
+/* Resume: a hairline band with a rail, on the hub above the doors. */
+.entry__resume{
+  margin:0 0 var(--space-18);padding:var(--space-14) 0 var(--space-14) var(--space-14);
+  border:0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
+  border-left:3px solid var(--boundary-selected-quiet);border-radius:var(--radius-none);background:transparent;overflow:visible
+}
+.entry__resume-head{padding:0}
+.entry__resume .entry__resume-ico,.entry__resume-loc .entry__resume-ico{color:var(--ink-soft)}
+.entry__resume-copy h3{
+  margin:0 0 var(--space-4);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)
+}
+.entry__resume-loc{padding:var(--space-12) 0 0;border-top:0}
+.entry__resume-note{margin:var(--space-12) 0 var(--space-14);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.entry__resume .btnrow{padding-right:var(--space-14)}
+
+/* The common review. Program first: name, four facts, the week as hairline
+   bands (first day open), then the facets, then the pinned action. */
+#onbBody.entry-body .entry__group-lab.entry__section-head{
+  display:block;margin:var(--space-26) 0 var(--space-12);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
+  letter-spacing:0;line-height:var(--line-tight);text-transform:none;color:var(--ink)
+}
+#onbBody.entry-body .entry__ident--boxed{margin:var(--space-12) 0 0;padding:0;border:0;border-radius:var(--radius-none);background:transparent}
+#onbBody.entry-body .entry__decision h3{
+  margin:0 0 var(--space-4);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);
+  letter-spacing:0;color:var(--ink)
+}
+#onbBody.entry-body .entry__source{margin:0;font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
+.entry__strip{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:var(--space-14) 0 0;
+  border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)
+}
+.entry__strip-cell{display:flex;flex-direction:column;gap:var(--space-4);min-width:0;padding:var(--space-12) var(--space-8) var(--space-12) 0}
+.entry__strip-value{
+  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);
+  font-variant-numeric:tabular-nums;line-height:var(--line-tight);color:var(--ink)
+}
+.entry__strip-unit{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+@media (max-width:360px){.entry__strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container (max-width:13em){.entry__strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#onbBody.entry-body .onb__review{gap:0;border-top:1px solid var(--boundary-decorative)}
+#onbBody.entry-body .onb__day{
+  padding:0;border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);background:transparent
+}
+#onbBody.entry-body .onb__dayname{
+  position:relative;min-height:calc(var(--control-target) + var(--space-12));padding:var(--space-12) var(--space-32) var(--space-12) 0;
+  list-style:none
+}
+#onbBody.entry-body .onb__dayname::-webkit-details-marker{display:none}
+#onbBody.entry-body .onb__dayname::after{
+  content:"";position:absolute;right:var(--space-4);top:50%;width:var(--space-16);height:var(--space-16);
+  background:currentColor;color:var(--ink-faint);transform:translateY(-50%) rotate(90deg);
+  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 6 15 12 9 18'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 6 15 12 9 18'/%3E%3C/svg%3E")
+}
+#onbBody.entry-body .onb__day[open] .onb__dayname::after{transform:translateY(-50%) rotate(270deg)}
+#onbBody.entry-body .onb__dayname span.onb__daynum{
+  width:var(--space-26);height:auto;border:0;border-radius:var(--radius-none);background:transparent;margin:0 var(--space-8) 0 0;
+  justify-content:flex-start;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--ink-soft)
+}
+#onbBody.entry-body .onb__day[open] .onb__dayname{margin-bottom:0}
+#onbBody.entry-body .onb__ex{padding:var(--space-8) 0 var(--space-8) var(--space-32);border-top:1px solid var(--boundary-decorative)}
+#onbBody.entry-body .onb__ex:first-of-type{border-top:0;padding-top:0}
+#onbBody.entry-body .onb__day .onb__ex:last-child{padding-bottom:var(--space-14)}
+#onbBody.entry-body .entry__rows{margin:var(--space-18) 0 0;border-top:0}
+#onbBody.entry-body .entry__row{padding:var(--space-14) 0;border-bottom:1px solid var(--boundary-decorative)}
+#onbBody.entry-body .entry__row-ico,#onbBody.entry-body .entry__rows--reasons .entry__row-ico{color:var(--ink-soft)}
+#onbBody.entry-body .entry__row-lab{
+  font-size:var(--font-size-body);font-weight:var(--weight-semibold);letter-spacing:0;text-transform:none;color:var(--ink)
+}
+.entry__more .entry__confirm-alt{flex-direction:column}
+.entry__more .entry__confirm-alt .btn{flex:0 0 auto}
+
+/* What a change did, and the row it added. The review fills both when an
+   answer changes; they have no other source. */
+.entry__change{
+  margin:var(--space-18) 0 0;padding:var(--space-12) var(--space-14);border-left:3px solid var(--accent);
+  border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
+  border-radius:var(--radius-none);background:var(--well)
+}
+.entry__change:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.entry__change-line{margin:0;font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
+.entry__change-grid{display:grid;grid-template-columns:auto 1fr;gap:var(--space-4) var(--space-14);margin:var(--space-8) 0 0}
+.entry__change-grid dt{
+  font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)
+}
+.entry__change-grid dd{margin:0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-variant-numeric:tabular-nums}
+.onb__ex.is-new{border-left:3px solid var(--accent);padding-left:calc(var(--space-32) - 3px)}
+.entry__new{
+  margin-left:var(--space-8);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--accent-deep)
+}
+
+/* Dialogs: cancel, replace and start over share one modal panel. */
+.entry-dialog{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;width:min(calc(100% - var(--space-32)),420px);
+  max-height:90vh;margin:0;padding:var(--space-18);overflow:auto;border:1px solid var(--boundary-modal);
+  border-radius:var(--radius-prominent);background:var(--surface);color:var(--ink);box-shadow:var(--elevation-dialog-shadow)
+}
+.entry-dialog::backdrop{background:var(--scrim)}
+.entry-dialog__title{
+  margin:0 0 var(--space-8);font-family:var(--font-language);font-size:var(--font-size-section-title);
+  font-weight:var(--weight-semibold);line-height:var(--line-tight)
+}
+.entry-dialog__title:focus-visible{outline:none}
+.entry-dialog__body{margin:0 0 var(--space-18);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.entry-dialog__actions{display:flex;flex-direction:column;gap:var(--space-8)}
+.entry-dialog__actions .btn{width:100%;flex:0 0 auto}
+.entry-dialog .btn--cta{background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
+.entry-dialog .btn--steel{background:var(--control-secondary-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+.entry-dialog .btn--steel.btn--destructive{background:var(--control-destructive-bg);color:var(--control-destructive-ink);border-color:var(--control-destructive-boundary)}
+.entry-dialog .btn:hover:not(:disabled):not(.btn--cta){background:var(--well)}
+.entry-dialog .btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 
 /* ---- Plan 064 shared components ----
    Every component block declared in this section must be named by a

@@ -120,9 +120,7 @@ async function driveRecommendOnboarding(page, {
   environment = "commercial_gym",
   activate = true,
 } = {}) {
-  await page.click('[data-entry-route="recommend"]');
-  await page.click(`[data-entry-pick="desiredResult"][data-entry-val="${desiredResult}"]`);
-  await page.click("#onbNext");
+  await page.click(`[data-entry-route="recommend"][data-entry-goal="${desiredResult}"]`);
   await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${experience}"]`);
   await page.click(`[data-entry-pick="recentConsistency"][data-entry-val="${consistency}"]`);
   await page.click("#onbNext");
@@ -1163,6 +1161,9 @@ async function reviewAndCommitImport(page) {
   await page.click("#importCommit");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   await page.click("#entryActivate");
+  // Replacing an active program asks first; the dialog stands where the native confirm did.
+  const replace = page.locator("#entryReplaceConfirm");
+  if (await replace.waitFor({ state: "visible", timeout: 1500 }).then(() => true, () => false)) await replace.click();
   await page.waitForTimeout(500);
 }
 
@@ -7743,9 +7744,7 @@ async function main() {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await startFromFirstRun(page);
-  await page.click('[data-entry-route="recommend"]');
-  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-  await page.click("#onbNext");
+  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
   await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
@@ -10768,7 +10767,12 @@ async function main() {
 
   await page.evaluate(() => window.startOnboarding("settings", { userInitiated: true, forceFresh: true }));
   await page.waitForSelector("#onboarding.active", { timeout: 5000 });
-  await page.click('[data-entry-route="recommend"]');
+  // "Not sure which one?" reaches Recommend without answering the goal, so the
+  // goal question is the screen this validation case needs.
+  await page.click("#entryHelpToggle");
+  await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
+  await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
+  await page.click("#entryHelpGo");
   await page.evaluate(() => {
     const draft = window.__repforgeOnboarding.entry();
     delete draft.answers.desiredResult;

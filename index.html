@@ -555,17 +555,21 @@
     <section id="onboarding" class="view onboarding hidden ph-no-capture" data-i18n-aria="onb.aria" aria-label="Create a program">
       <div class="onb">
         <div class="onb__head">
-          <button type="button" class="back-link onb__cancel" id="onbCancel" data-i18n="onb.cancel">Cancel</button>
+          <div class="onb__bar">
+            <button type="button" class="back-link onb__back" id="onbBack" data-i18n="onb.back">Back</button>
+            <button type="button" class="back-link onb__cancel" id="onbCancel" data-i18n="onb.cancel">Cancel</button>
+          </div>
           <h1 id="onbEditorTitle" class="onb__editor-title" hidden>Build a program</h1>
-          <div class="onb__title" id="onbEyebrow" data-i18n="entry.eyebrow">Create a program</div>
-          <div></div>
-          <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
-          <div id="onbSegbar" class="segbar" data-progress-dimension="task" data-progress-scope="entry-route-step" style="grid-column:1/-1"></div>
+          <div class="onb__where">
+            <div class="onb__title" id="onbEyebrow" data-i18n="entry.eyebrow">Create a program</div>
+            <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
+          </div>
+          <div id="onbSegbar" class="segbar" data-progress-dimension="task" data-progress-scope="entry-route-step"></div>
         </div>
         <h2 id="onbTitle" class="visually-hidden">Create a program</h2>
         <div id="onbBody" class="onb__body"></div>
         <div class="onb__nav">
-          <button type="button" id="onbBack" class="btn btn--steel" data-i18n="onb.back">Back</button>
+          <p class="onb__reason" id="onbNextReason" hidden></p>
           <button type="button" id="onbNext" class="btn btn--cta" data-i18n="onb.next">Continue</button>
         </div>
       </div>

@@ -419,16 +419,31 @@ try {
         return hook ? hook.entry() : null;
       });
 
-    // 1. Recommend route
-    await page.click('[data-entry-route="recommend"]');
-    await page.waitForSelector('[data-entry-pick="desiredResult"]', { timeout: 10000 });
+    // 1. Recommend route. Its first question is the hub's featured block (Q627):
+    // a goal tap chooses the route, answers the goal and opens the background step.
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+    await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
     let entry = await getEntryState();
     assert(entry?.route === "recommend", "Recommend route selected");
-    assert(entry?.step === "desired_result", "Recommend reaches semantic first step desired_result");
+    assert(entry?.step === "background" && entry?.answers?.desiredResult === "muscle_growth",
+      "Recommend reaches the background step with the goal answered on the hub");
     let heading = await page.textContent("#entryHeading");
     assert(heading && heading.length > 0, "Recommend displays step title", heading);
 
     // Return to entry hub
+    await page.click("#onbBack");
+    await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
+
+    // The helper reaches the same route without answering the goal, so the goal
+    // question is still a semantic first step of its own.
+    await page.click("#entryHelpToggle");
+    await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
+    await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
+    await page.click("#entryHelpGo");
+    await page.waitForSelector('[data-entry-pick="desiredResult"]', { timeout: 10000 });
+    entry = await getEntryState();
+    assert(entry?.route === "recommend" && entry?.step === "desired_result",
+      "the helper reaches Recommend's semantic first step desired_result");
     await page.click("#onbBack");
     await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
 
@@ -512,9 +527,7 @@ try {
     await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
 
     // Advance Recommend through steps
-    await page.click('[data-entry-route="recommend"]');
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-    await page.click("#onbNext");
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
     await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');

@@ -502,6 +502,13 @@
       "variants": "localized"
     },
     {
+      "id": "hub-help",
+      "flow": "onboarding-start",
+      "label": "Entry hub — route help open",
+      "scenario": "The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs.",
+      "variants": "localized"
+    },
+    {
       "id": "desired-result",
       "flow": "onboarding-recommend",
       "label": "Recommend 1 — desired result",
@@ -787,6 +794,20 @@
       "label": "Rules changed",
       "scenario": "A draft whose compiler rules are stale. Rebuild is required before activation.",
       "variants": "accessibility"
+    },
+    {
+      "id": "cancel-confirm",
+      "flow": "onboarding-recovery",
+      "label": "Cancel setup — keep or discard",
+      "scenario": "Cancel pressed mid-flow. A dialog over the current step asks whether to keep the draft or discard it; Escape or Continue setup returns to the step.",
+      "variants": "localized"
+    },
+    {
+      "id": "restart-confirm",
+      "flow": "onboarding-recovery",
+      "label": "Start over — confirm",
+      "scenario": "Start over pressed on a review. A dialog asks before the answers and the unused program are discarded; the active program does not change.",
+      "variants": "localized"
     },
     {
       "id": "no-program",

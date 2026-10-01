@@ -75,15 +75,32 @@ async function openHub(page, { existing = false } = {}) {
     page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 }));
 }
 
-async function route(page, name, { existing = false } = {}) {
+async function route(page, name, { existing = false, goal = "muscle_growth" } = {}) {
   await openHub(page, { existing });
   if (name === "build" || name === "import") await page.click("#entryOwnToggle");
+  // Recommend's first question is the hub's featured block: one tap chooses
+  // the route and answers the goal, so the next screen is the background step.
+  if (name === "recommend") {
+    await page.click(`[data-entry-route="recommend"][data-entry-goal="${goal}"]`);
+    return;
+  }
   await page.click(`[data-entry-route="${name}"]`);
 }
 
-/** The five generator questions shared by Recommend and Custom. */
-async function answerGenerator(page, { days = "3", desired = "muscle_growth", rest = "120" } = {}) {
-  await pick(page, "desiredResult", desired); await next(page);
+/** The helper's last step: "No, I need one" then "Let Taurifer decide" reaches
+ * Recommend without answering the goal, so the goal screen itself is shown. */
+async function recommendViaHelp(page) {
+  await openHub(page);
+  await page.click("#entryHelpToggle");
+  await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
+  await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
+  await page.click("#entryHelpGo");
+}
+
+/** The generator questions shared by Recommend and Custom. Recommend's goal is
+ * answered on the hub, so it starts at the background step; Custom asks it. */
+async function answerGenerator(page, { days = "3", desired = "muscle_growth", rest = "120", goalAsked = false } = {}) {
+  if (goalAsked) { await pick(page, "desiredResult", desired); await next(page); }
   await pick(page, "structuredExperience", "6_to_24m");
   await pick(page, "recentConsistency", "most"); await next(page);
   await pick(page, "daysPerWeek", days);
@@ -93,7 +110,7 @@ async function answerGenerator(page, { days = "3", desired = "muscle_growth", re
 }
 
 async function recommendTo(page, { result = false, existing = false, desired = "muscle_growth" } = {}) {
-  await route(page, "recommend", { existing });
+  await route(page, "recommend", { existing, goal: desired });
   await answerGenerator(page, { desired });
   if (result) {
     await next(page);
@@ -488,7 +505,8 @@ async function activationConflict(page) {
     await page.click("#entryResumeContinue");
   }
   await page.waitForSelector("#entryActivate", { timeout: 25000 });
-  page.once("dialog", (dialog) => dialog.dismiss());
+  // Readiness is checked before the replace dialog, so a stale setup meets the
+  // conflict notice first and never asks to replace anything.
   await page.click("#entryActivate");
   await page.waitForSelector(".entry__notice[role=alert]", { timeout: 25000 });
   const step = await page.evaluate(() => window.__repforgeEntryState?.()?.step);
@@ -541,22 +559,23 @@ export const ONBOARDING_SCENARIOS = {
     await page.waitForSelector('.entry__own [data-entry-route="build"]', { timeout: 20000 });
   },
   "onboarding-start/hub-existing": (page) => openHub(page, { existing: true }),
-
-  "onboarding-recommend/desired-result": (page) => route(page, "recommend"),
-  "onboarding-recommend/background": async (page) => {
-    await route(page, "recommend");
-    await pick(page, "desiredResult", "muscle_growth");
-    await next(page);
+  "onboarding-start/hub-help": async (page) => {
+    await openHub(page);
+    await page.click("#entryHelpToggle");
+    await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
+    await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
+    await page.waitForSelector("#entryHelpGo", { timeout: 20000 });
   },
+
+  "onboarding-recommend/desired-result": recommendViaHelp,
+  "onboarding-recommend/background": (page) => route(page, "recommend"),
   "onboarding-recommend/schedule": async (page) => {
     await route(page, "recommend");
-    await pick(page, "desiredResult", "muscle_growth"); await next(page);
     await pick(page, "structuredExperience", "6_to_24m");
     await pick(page, "recentConsistency", "most"); await next(page);
   },
   "onboarding-recommend/environment": async (page) => {
     await route(page, "recommend");
-    await pick(page, "desiredResult", "muscle_growth"); await next(page);
     await pick(page, "structuredExperience", "6_to_24m");
     await pick(page, "recentConsistency", "most"); await next(page);
     await pick(page, "daysPerWeek", "3");
@@ -586,6 +605,8 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-recommend/replacement-confirm": async (page) => {
     await recommendTo(page, { result: true, existing: true });
     await selectCandidate(page);
+    await page.click("#entryActivate");
+    await page.waitForSelector("#entryReplaceConfirm", { timeout: 20000 });
   },
   "onboarding-recommend/activation-conflict": activationConflict,
 
@@ -624,6 +645,20 @@ export const ONBOARDING_SCENARIOS = {
 
   "onboarding-recovery/resume": resume,
   "onboarding-recovery/rules-drift": rulesDrift,
+  "onboarding-recovery/cancel-confirm": async (page) => {
+    // Cancel is offered from every screen; the schedule step shows the dialog
+    // over a screen with answers in progress.
+    await ONBOARDING_SCENARIOS["onboarding-recommend/schedule"](page);
+    await pick(page, "daysPerWeek", "3");
+    await page.click("#onbCancel");
+    await page.waitForSelector("#entryCancelKeep", { timeout: 20000 });
+  },
+  "onboarding-recovery/restart-confirm": async (page) => {
+    await recommendTo(page, { result: true });
+    await selectCandidate(page);
+    await page.click("#entryRestart");
+    await page.waitForSelector("#entryRestartConfirm", { timeout: 20000 });
+  },
 };
 
 export async function focusOnboardingSubject(page, key) {

@@ -276,18 +276,16 @@ async function runOnboardingScrollRegression(browser, check) {
     const { context, page } = await openFreshEntryAt(browser, viewport, textScale);
     try {
       const routeEntry = await assertOnboardingTransition(page, check, `${label} route entry`,
-        () => page.click('[data-entry-route="recommend"]'));
+        () => page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]'));
       const routeMetrics = await onboardingTextMetrics(page);
       check(textMetricsMatchScale(routeMetrics, textScale),
         `${label} uses genuine rem-based onboarding text resizing`, JSON.stringify({ routeMetrics, textScale }));
       const routeControls = await onboardingControlGeometry(page);
       check(routeControls.overflow <= 0 && routeControls.clipped.length === 0,
         `${label} keeps onboarding controls within the viewport`, JSON.stringify(routeControls));
-      check(/1 of 5/i.test(routeEntry.step), `${label} route entry exposes progress context`, routeEntry.step);
+      check(/1 of 4/i.test(routeEntry.step), `${label} route entry exposes progress context`, routeEntry.step);
 
-      await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-      await assertOnboardingTransition(page, check, `${label} Next to background`,
-        () => page.click("#onbNext"));
+      // The goal was answered on the hub, so the route entry is the background step.
       await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
       await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
       await assertOnboardingTransition(page, check, `${label} Next to schedule`,
@@ -297,7 +295,7 @@ async function runOnboardingScrollRegression(browser, check) {
       await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
       await assertOnboardingTransition(page, check, `${label} Next to environment`,
         () => page.click("#onbNext"));
-      check(/4 of 5/i.test((await onboardingGeometry(page)).step),
+      check(/3 of 4/i.test((await onboardingGeometry(page)).step),
         `${label} environment keeps progress context`, await onboardingGeometry(page));
 
       await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
@@ -324,7 +322,7 @@ async function runOnboardingScrollRegression(browser, check) {
       await assertOnboardingTransition(page, check, `${label} Back to environment`,
         () => page.click("#onbBack"));
       const environmentGeometry = await onboardingGeometry(page);
-      check(/4 of 5/i.test(environmentGeometry.step) && environmentGeometry.headingTop < 220,
+      check(/3 of 4/i.test(environmentGeometry.step) && environmentGeometry.headingTop < 220,
         `${label} environment correction opens at title/progress region`,
         JSON.stringify(environmentGeometry));
       await page.evaluate(() => document.querySelector(".entry__correct > summary")?.click());
@@ -524,9 +522,7 @@ try {
     const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await page.click("#openSettings");
     await page.click("#createProgram");
-    await page.click('[data-entry-route="recommend"]');
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-    await page.click("#onbNext");
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
     const draftBeforeBack = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
@@ -542,13 +538,11 @@ try {
     }), { base: BASE, stateKey: KEY });
     assert(afterBrowserBack.sameApp && afterBrowserBack.onboarding,
       "browser Back remains inside program entry", JSON.stringify(afterBrowserBack));
-    assert(afterBrowserBack.step === "desired_result" && afterBrowserBack.desiredResult === "muscle_growth",
+    // The goal was asked on the hub, so Back from the first route step returns there.
+    assert(afterBrowserBack.step === "entry" && afterBrowserBack.desiredResult === "muscle_growth",
       "browser Back uses semantic entry Back and preserves answers", JSON.stringify(afterBrowserBack));
     assert(afterBrowserBack.active === activeBefore, "browser Back leaves active state byte-identical");
-
-    await page.goBack();
-    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "entry");
-    assert(await page.locator('[data-entry-route="recommend"]').isVisible(),
+    assert(await page.locator('[data-entry-route="recommend"]').first().isVisible(),
       "browser Back from the first route step returns to the entry hub");
     await page.goBack();
     await page.waitForSelector("#entryCancelKeep");
@@ -578,7 +572,38 @@ try {
     assert(await page.evaluate(() => document.activeElement?.id === "entryResumeTitle"),
       "resume notice receives focus when it opens");
     assert(await page.locator("#onboarding .onb__nav").isHidden(),
-      "resume notice owns the surface without a competing footer");
+      "resume card leaves no competing footer");
+
+    // The saved draft waits for Resume or Start over: the doors are inert, and
+    // a tap on any of them changes neither the stored draft nor the step.
+    const doorsBefore = await page.evaluate((key) => ({
+      draft: localStorage.getItem(key),
+      step: window.__repforgeEntryState?.()?.step,
+      inert: document.querySelector(".entry__hub")?.inert === true,
+      card: !!document.querySelector(".entry__resume #entryResumeContinue"),
+    }), DRAFT);
+    assert(doorsBefore.inert && doorsBefore.card && !!doorsBefore.draft,
+      "the saved draft shows a resume card above inert doors", JSON.stringify({ ...doorsBefore, draft: !!doorsBefore.draft }));
+    for (const selector of [
+      '[data-entry-route="recommend"]', '[data-entry-route="custom"]', '[data-entry-route="browse"]',
+      "#entryOwnToggle", "#entryHelpToggle",
+    ]) {
+      await page.locator(selector).first().evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const box = await page.locator(selector).first().boundingBox();
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await page.locator(selector).first().evaluate((el) => el.click());
+    }
+    await page.waitForTimeout(250);
+    const doorsAfter = await page.evaluate((key) => ({
+      draft: localStorage.getItem(key),
+      step: window.__repforgeEntryState?.()?.step,
+      route: window.__repforgeEntryState?.()?.route,
+      card: !!document.querySelector(".entry__resume #entryResumeContinue"),
+      own: document.querySelector("#entryOwnToggle")?.getAttribute("aria-expanded"),
+    }), DRAFT);
+    assert(doorsAfter.draft === doorsBefore.draft && doorsAfter.step === doorsBefore.step && doorsAfter.card && doorsAfter.own === "false",
+      "tapping a door while the resume card shows changes neither the stored draft nor the step",
+      JSON.stringify({ before: doorsBefore.step, after: doorsAfter.step, route: doorsAfter.route, card: doorsAfter.card, own: doorsAfter.own }));
 
     const resumeViewport = page.viewportSize();
     await page.setViewportSize({ width: 320, height: 568 });
@@ -736,7 +761,8 @@ try {
         visibleTitles: visible("#onbEyebrow, #entryHeading").map((el) => el.textContent.trim()),
         progressSegments: document.querySelectorAll("#onbSegbar .segbar__seg").length,
         progressLabel: document.querySelector("#onbStepLabel")?.textContent.trim() || "",
-        primary: routes.filter((el) => el.classList.contains("entry-card--primary")).map((el) => el.dataset.entryRoute),
+        primary: [...new Set(routes.filter((el) => el.classList.contains("entry-card--primary")).map((el) => el.dataset.entryRoute))],
+        goals: routes.filter((el) => el.classList.contains("entry-card--primary")).map((el) => el.dataset.entryGoal),
         secondary: routes.filter((el) => el.classList.contains("entry-card--secondary")).map((el) => el.dataset.entryRoute),
         routeChrome: routes.map((el) => ({ route: el.dataset.entryRoute, icon: !!el.querySelector(".entry-card__icon"), chevron: !!el.querySelector(".entry-card__go") })),
       };
@@ -747,6 +773,8 @@ try {
       "hub has no progress segments or progress label", JSON.stringify(hubComposition));
     assert(JSON.stringify(hubComposition.primary) === JSON.stringify(["recommend"]),
       "Recommend is the sole primary route", JSON.stringify(hubComposition.primary));
+    assert(JSON.stringify(hubComposition.goals) === JSON.stringify(["muscle_growth", "balanced", "strength"]),
+      "Recommend's primary route is its goal question", JSON.stringify(hubComposition.goals));
     assert(JSON.stringify(hubComposition.secondary) === JSON.stringify(["custom", "browse"]),
       "Custom is subordinate and Browse remains separate", JSON.stringify(hubComposition.secondary));
     assert(hubComposition.routeChrome.every((route) => route.icon && route.chevron),
@@ -760,18 +788,22 @@ try {
       "Build and Import remain secondary under the own path", JSON.stringify(ownComposition));
     assert(ownComposition.chrome, "Build and Import retain chevrons", JSON.stringify(ownComposition));
     await page.click("#entryOwnToggle");
-    assert(await page.locator('[data-entry-route="recommend"]').isVisible(), "hub shows recommend");
+    assert(await page.locator('[data-entry-route="recommend"]').first().isVisible(), "hub shows recommend");
     assert(await page.locator('[data-entry-route="custom"]').isVisible(), "hub shows custom");
     assert(await page.locator("#entryOwnToggle").isVisible(), "hub shows bring/build");
-    await page.click('[data-entry-route="recommend"]');
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
     const firstRouteHeader = {
       eyebrow: await page.locator("#onbEyebrow").innerText(),
       cancel: await page.locator("#onbCancel").innerText(),
       step: await page.locator("#onbStepLabel").innerText(),
     };
-    assert(firstRouteHeader.eyebrow === "Recommend" && firstRouteHeader.cancel === "Cancel" && /1 of 5/i.test(firstRouteHeader.step),
+    assert(firstRouteHeader.eyebrow === "Recommend" && firstRouteHeader.cancel === "Cancel" && /1 of 4/i.test(firstRouteHeader.step),
       "Recommend has a route-specific first-step header and Cancel", JSON.stringify(firstRouteHeader));
+    // The pinned region sits over the bottom of a long screen by design, so
+    // collisions are measured at the end of the scroll, where it takes its own row.
     const inspectEntryGeometry = () => page.evaluate(() => {
+      const onboarding = document.querySelector("#onboarding");
+      if (onboarding) onboarding.scrollTop = onboarding.scrollHeight;
       const visible = [...document.querySelectorAll("#onbBody > *, #onboarding .onb__nav")].filter((el) => {
         const style = getComputedStyle(el); return style.display !== "none" && style.visibility !== "hidden";
       });
@@ -797,11 +829,9 @@ try {
     await page.setViewportSize({ width: 390, height: 844 });
     const headingTab = await page.locator("#entryHeading").getAttribute("tabindex");
     assert(headingTab === "-1", "entry heading is focusable via tabindex", headingTab);
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-    const checked = await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').getAttribute("aria-checked");
-    assert(checked === "true", "selected desired-result card sets aria-checked", checked);
-    await page.click("#onbNext");
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    const checked = await page.locator('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]').getAttribute("aria-checked");
+    assert(checked === "true", "selected background card sets aria-checked", checked);
     await page.click('[data-entry-pick="recentConsistency"][data-entry-val="about_half"]');
     await page.click("#onbNext");
     await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
@@ -952,8 +982,28 @@ try {
       "common preview keeps factual copy for supported Taurifer strategies", reviewCopy);
     assert(await page.locator("#onbBody details").count() === 3,
       "review uses one collapsible summary per training day");
-    assert(await page.locator("#onboarding .onb__nav").evaluate((node) => getComputedStyle(node).position !== "sticky"),
-      "review navigation stays in document flow instead of obscuring day summaries");
+    // The review pins one region: the activation. It keeps day summaries
+    // reachable, because content ends above it once the screen is scrolled to
+    // the bottom, and the shell footer yields to it.
+    assert(await page.locator("#onboarding .onb__nav").isHidden(),
+      "review has one pinned region, not a second footer");
+    const pinnedGeometry = await page.evaluate(() => {
+      const onboarding = document.querySelector("#onboarding");
+      const pinned = document.querySelector("#onbBody .entry__pinned");
+      onboarding.scrollTop = onboarding.scrollHeight;
+      const summaries = [...document.querySelectorAll("#onbBody details > summary")];
+      const last = summaries.at(-1)?.getBoundingClientRect();
+      const bar = pinned?.getBoundingClientRect();
+      return {
+        position: pinned ? getComputedStyle(pinned).position : null,
+        activationInside: !!pinned?.querySelector("#entryActivate"),
+        lastSummaryBottom: last ? Math.round(last.bottom) : null,
+        pinnedTop: bar ? Math.round(bar.top) : null,
+      };
+    });
+    assert(pinnedGeometry.position === "sticky" && pinnedGeometry.activationInside &&
+      pinnedGeometry.lastSummaryBottom !== null && pinnedGeometry.lastSummaryBottom <= pinnedGeometry.pinnedTop,
+    "the pinned activation never obscures day summaries once scrolled to the end", JSON.stringify(pinnedGeometry));
     const activeBeforeEdit = await page.evaluate((key) => localStorage.getItem(key), KEY);
     const draftBeforeEdit = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
     await page.click("#entryEdit");
@@ -1057,9 +1107,7 @@ try {
   {
     const { context, page } = await openFresh(browser);
     await page.click("#firstRunCreate");
-    await page.click('[data-entry-route="recommend"]');
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
-    await page.click("#onbNext");
+    await page.click('[data-entry-route="recommend"][data-entry-goal="balanced"]');
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
     await page.click("#onbNext");
@@ -1102,9 +1150,7 @@ try {
     const { context, page } = await openFresh(browser);
     const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await page.click("#firstRunCreate");
-    await page.click('[data-entry-route="recommend"]');
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
-    await page.click("#onbNext");
+    await page.click('[data-entry-route="recommend"][data-entry-goal="balanced"]');
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
     await page.click("#onbNext");
@@ -1160,9 +1206,7 @@ try {
     await seedActiveProgram(page, { libraryId: "cd_mc", exerciseName: "Assisted chest dip (kneeling)" });
     const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await page.evaluate(() => window.startOnboarding("settings"));
-    await page.click('[data-entry-route="recommend"]');
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-    await page.click("#onbNext");
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
     await page.click("#onbNext");
@@ -1286,7 +1330,7 @@ try {
     await page.click("#onbNext");
     assert(await page.locator('[data-entry-pick="splitPreference"]').count() === 2,
       "two genuine structure choices render as two choices");
-    assert(/section 7 of 7/i.test(await page.locator("#onbStepLabel").innerText()),
+    assert(/section 6 of 6/i.test(await page.locator("#onbStepLabel").innerText()),
       "conditional structure choice contributes one meaningful section");
     await page.locator('[data-entry-pick="splitPreference"]').first().click();
     await page.click("#onbNext");

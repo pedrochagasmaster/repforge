@@ -13026,6 +13026,10 @@ const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
 let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
+/* Entry presentation state: the confirm dialog on screen ("restart", "replace";
+   "cancel" is `entryUiNotice` because other flows already ask for it), and the
+   route-help panel on the hub. None of it is part of the draft. */
+let entryDialog=null,entryHelpOpen=false,entryHelp={q1:null,q2:null},entryChange=null,entryGoalFromHub=false;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
 let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
@@ -13236,6 +13240,7 @@ function disarmEntryHistory(){
 function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
+  entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
   $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor","is-settings");
@@ -13252,7 +13257,7 @@ function reportEntryRoute(route){
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
+  entryEngaged=false;entryOwnOpen=false;entryDialog=null;entryHelpOpen=false;entryHelp={q1:null,q2:null};entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   if(opts.forceFresh||opts.resume===false){
@@ -13331,6 +13336,7 @@ function cancelOnboarding(){
   onboardingOrigin=null;closeOnboarding()}
 function requestEntryCancel(){
   if(!entryState)return cancelOnboarding();
+  entryDialogOpener=entryOpenerToken();
   entryUiNotice="cancel";
   persistSetupDraft(entryState);
   renderOnboarding()}
@@ -13345,6 +13351,7 @@ async function discardEntryDraftAndCancel(){
   cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
   entryState=next;
+  if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
   syncEntryHistory();
   if(persist)persistSetupDraft(entryState);
@@ -13364,7 +13371,7 @@ function collapseSingleCustomShape(){
   entryState=advanced.state;
   persistSetupDraft(entryState);
   return true}
-function entrySelectRoute(route){
+function entrySelectRoute(route,{goal=null}={}){
   if(!ProgramEntry||!entryState)return;
   reportEntryRoute(route);
   entryPinnedVersionsExecutable=false;
@@ -13375,24 +13382,41 @@ function entrySelectRoute(route){
     const splits=entryServices()?.splitChoices(selected.answers)||{choices:[]};
     if(splits.choices.length===1)selected=ProgramEntry.setAnswers(selected,{splitPreference:splits.choices[0].id});
   }
-  entryOwnOpen=false;
-  entrySetState(selected)}
+  /* The hub's featured block is Recommend's first question (Q627): one tap
+     chooses the route, answers the goal and moves on. It is the same three
+     commands the goal screen would have run, composed into one transition so
+     the draft is written once, after the goal exists. */
+  if(route==="recommend"&&goal){
+    const answered=ProgramEntry.setAnswers(selected,{desiredResult:goal});
+    const advanced=ProgramEntry.advance(answered);
+    selected=advanced.ok?advanced.state:answered}
+  entryOwnOpen=false;entryHelpOpen=false;entryHelp={q1:null,q2:null};
+  entrySetState(selected);
+  // Back from the first screen after a goal tap returns to the hub the goal was
+  // asked on, not to a second goal screen.
+  entryGoalFromHub=route==="recommend"&&!!goal&&selected.step==="background"}
 function entryPatchAnswers(patch){
   if(!ProgramEntry||!entryState)return;
   entryPinnedVersionsExecutable=false;
   entrySetState(ProgramEntry.setAnswers(entryState,patch))}
+/* The questionnaire's sections, as the lifter counts them. Goal and background
+   share one section (Q627): the semantic steps stay separate, and a UI adapter
+   may group closely related questions on one screen. Browse's list is the
+   result of its two questions, not a third. */
+function entrySections(route){
+  const sections={
+    recommend:[["desired_result","background"],["schedule"],["environment"],["priorities"]],
+    custom:[["desired_result","background"],["schedule"],["environment"],["priorities"],["exercise_preferences"],["custom_shape"]],
+    browse:[["schedule"],["environment"]]}[route]||[];
+  return route==="custom"&&!entryCustomShapeRequired()?sections.filter(group=>group[0]!=="custom_shape"):sections}
 function entryProgressSections(route){
   if(!route)return{n:0,total:1,show:false};
-  const steps=ProgramEntry.ROUTE_STEPS[route]||[];
-  const semantic=steps.filter(step=>!["result","preview","editor","activation_conflict"].includes(step)&&
-    !(route==="custom"&&step==="custom_shape"&&!entryCustomShapeRequired()));
-  const semanticIndex=semantic.indexOf(entryState.step);
-  const n=semanticIndex>=0?semanticIndex+1:semantic.length;
+  const sections=entrySections(route);
+  const index=sections.findIndex(group=>group.includes(entryState.step));
   /* A meter is only informative while the user is moving through questions and
      there is more than one of them. On a review, a result or a single-question
      route it either lies (pinned full) or says nothing ("1 of 1"). */
-  const show=semantic.length>1&&semanticIndex>=0;
-  return{n:Math.min(n,semantic.length||1),total:Math.max(semantic.length,1),show}}
+  return{n:index>=0?index+1:sections.length,total:Math.max(sections.length,1),show:sections.length>1&&index>=0}}
 function entryRouteLabel(route){
   const labels={recommend:t("entry.route.recommend"),custom:t("entry.route.custom"),browse:t("entry.route.browse"),
     build:t("entry.route.build"),import:t("entry.route.import"),shared:t("entry.route.shared")};
@@ -13407,39 +13431,97 @@ function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,ro
     (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
     `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
     `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
-/* Compact uppercase section metadata, optionally led by a copper glyph. */
-function entryGroupLab(text,icon,attrs=""){
-  return `<p class="entry__group-lab${icon?" entry__group-lab--ico":""}"${attrs}>`+
-    (icon?`<span class="entry__group-lab-ico icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
-    `<span>${esc(text)}</span></p>`}
+/* A question, set as a sentence in ink. The glyph argument is kept so callers
+   read the same, but a question is not a column head and carries no icon. */
+function entryGroupLab(text,_icon,attrs=""){
+  return `<p class="entry__group-lab entry__question"${attrs}><span>${esc(text)}</span></p>`}
 function entryHeading(title){
   return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
 function entryLegacyBanner(){
   if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
   return `<p class="entry__legacy" role="note">${esc(t("entry.legacy.hint"))}</p>`}
+/* A door is a flat row: what it asks of the lifter, then what they get. The
+   copy states the cost of each way in so the choice is made on facts. */
+function entryDoor(route,{icon,title,ask,get,id="",kind="secondary",nested=false}){
+  return `<button type="button" class="entry-card entry-card--${kind}${nested?" entry-card--nested":""}"${id?` id="${id}"`:""}${route?` data-entry-route="${route}"`:""}>`+
+    `<span class="entry-card__icon icon-mask icon-mask--${icon}" aria-hidden="true"></span>`+
+    `<span class="entry-card__body"><span class="entry-card__title">${esc(title)}</span>`+
+    `<span class="entry-card__line"><span class="entry-card__k">${esc(t("entry.hub.you_do"))}</span> ${esc(ask)}</span>`+
+    `<span class="entry-card__line"><span class="entry-card__k">${esc(t("entry.hub.you_get"))}</span> ${esc(get)}</span></span>`+
+    `<span class="entry-card__go chevron" aria-hidden="true"></span></button>`}
+/* The resume card sits on the hub (Q633), above doors that stay inert until the
+   lifter chooses Resume or Start over: any door tap would otherwise overwrite
+   the saved draft on its next persist. */
+function renderEntryResumeCard(){
+  const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
+  const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
+  const where=[entryState?.route?entryRouteLabel(entryState.route):"",
+    entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
+  const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
+  return `<section class="entry__resume" aria-labelledby="entryResumeTitle">`+
+    `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
+    `<div class="entry__resume-copy"><h3 id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</h3><p>${esc(t("entry.resume.body"))}</p></div></div>`+
+    (detail?`<div class="entry__resume-loc"><span class="entry__resume-ico icon-mask icon-mask--pin" aria-hidden="true"></span><p>${esc(detail)}</p></div>`:"")+
+    `<p class="entry__resume-note">${esc(t("entry.resume.doors_note"))}</p>`+
+    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
+    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart" aria-haspopup="dialog">${esc(t("entry.resume.restart"))}</button></div></section>`}
+/* "Not sure which one?" asks two short questions and ends in the same route
+   call the doors make, so it reaches all five jobs without a sixth route. */
+function renderEntryHelp(){
+  const opt=(q,val,label)=>{
+    const on=entryHelp[q]===val;
+    return `<button type="button" class="entry-help__opt${on?" is-selected":""}" role="radio" aria-checked="${on}" data-entry-help="${q}" data-entry-help-val="${val}">${esc(label)}</button>`};
+  const q2=entryHelp.q1==="no"?{label:t("entry.help.q2_no"),opts:["recommend","custom","browse"]}
+    :entryHelp.q1==="yes"?{label:t("entry.help.q2_yes"),opts:["import","build"]}:null;
+  const target=q2&&q2.opts.includes(entryHelp.q2)?entryHelp.q2:null;
+  const q2Labels={recommend:t("entry.help.q2.recommend"),custom:t("entry.help.q2.custom"),browse:t("entry.help.q2.browse"),import:t("entry.help.q2.import"),build:t("entry.help.q2.build")};
+  return `<div class="entry-help" id="entryHelp" role="group" aria-labelledby="entryHelpToggle">`+
+    `<p class="entry-help__q" id="entryHelpQ1">${esc(t("entry.help.q1"))}</p>`+
+    `<div class="entry-help__opts" role="radiogroup" aria-labelledby="entryHelpQ1">${opt("q1","no",t("entry.help.q1_no"))}${opt("q1","yes",t("entry.help.q1_yes"))}</div>`+
+    (q2?`<p class="entry-help__q" id="entryHelpQ2">${esc(q2.label)}</p>`+
+      `<div class="entry-help__opts" role="radiogroup" aria-labelledby="entryHelpQ2">${q2.opts.map(o=>opt("q2",o,q2Labels[o])).join("")}</div>`:"")+
+    (target?`<button type="button" class="btn btn--cta btn--noarrow entry-help__go" id="entryHelpGo" data-entry-help-go="${target}">${esc(t("entry.help.go",{route:entryRouteLabel(target)}))}</button>`:"")+
+    `</div>`}
 function renderEntryHub(){
   // Keep the semantic body heading for focus and assistive technology. The
   // shell title is visually suppressed on this hub so it is not repeated.
+  const resuming=entryUiNotice==="resume";
+  const active=hasActiveProgram();
+  const goals=["muscle_growth","balanced","strength"].map(goal=>
+    `<button type="button" class="entry-card entry-card--primary entry-goal" data-entry-route="recommend" data-entry-goal="${goal}">`+
+    `<span class="entry-card__icon icon-mask icon-mask--${ENTRY_DESIRED_ICONS[goal]}" aria-hidden="true"></span>`+
+    `<span class="entry-card__body"><span class="entry-card__title">${esc(t(`entry.desired_result.${goal}.label`))}</span>`+
+    `<span class="entry-card__cap">${esc(t(`entry.desired_result.${goal}.sub`))}</span></span>`+
+    `<span class="entry-card__go chevron" aria-hidden="true"></span></button>`).join("");
+  const group=(label,labelId,inner)=>`<div class="entry-hubgroup" role="group" aria-labelledby="${labelId}"><p class="entry__group-lab" id="${labelId}">${esc(label)}</p>${inner}</div>`;
   return entryHeading(t("entry.hub.title"))+
-    `<p class="onb__explain entry-hub__lede">${esc(t("entry.hub.lede"))}</p>`+
-    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<p class="onb__explain entry-hub__lede">${esc(t(active?"entry.hub.lede_existing":"entry.hub.lede"))}</p>`+
+    (active?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     entryLegacyBanner()+
-    `<div class="entry__hub entry__hub--routes">`+
-      `<p class="entry__group-lab">${esc(t("entry.hub.group.written"))}</p>`+
-      `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__icon icon-mask icon-mask--wand" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<button type="button" class="entry-card entry-card--secondary entry-card--subordinate" data-entry-route="custom"><span class="entry-card__icon icon-mask icon-mask--sliders" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<p class="entry__group-lab">${esc(t("entry.hub.group.browse"))}</p>`+
-      `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__icon icon-mask icon-mask--search" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<p class="entry__group-lab">${esc(t("entry.hub.group.own"))}</p>`+
+    (resuming?renderEntryResumeCard():"")+
+    `<div class="entry__hub entry__hub--routes"${resuming?" inert":""}>`+
+      `<div class="entry-helpblock"><button type="button" class="entry-help__toggle" id="entryHelpToggle" aria-expanded="${entryHelpOpen?"true":"false"}" aria-controls="entryHelp">${esc(t("entry.help.toggle"))}</button>${entryHelpOpen?renderEntryHelp():""}</div>`+
+      `<section class="entry-feature" aria-labelledby="entryGoalQ">`+
+        `<p class="entry-feature__eyebrow">${esc(t("entry.hub.recommend.title"))}</p>`+
+        `<h3 class="entry-feature__q" id="entryGoalQ">${esc(t("entry.desired_result.title"))}</h3>`+
+        `<p class="entry-feature__facts">${esc(t("entry.hub.recommend.facts",{n:entrySections("recommend").length}))}</p>`+
+        `<div class="entry-feature__goals" role="group" aria-labelledby="entryGoalQ">${goals}</div></section>`+
+      group(t("entry.hub.group.written"),"entryGroupCustom",
+        entryDoor("custom",{icon:"sliders",title:t("entry.hub.custom.title"),kind:"secondary entry-card--subordinate",
+          ask:t("entry.hub.cost.custom",{n:6}),get:t("entry.hub.get.custom")}))+
+      group(t("entry.hub.group.browse"),"entryGroupBrowse",
+        entryDoor("browse",{icon:"search",title:t("entry.hub.browse.title"),
+          ask:t("entry.hub.cost.browse",{n:entrySections("browse").length}),get:t("entry.hub.get.browse")}))+
+      `<div class="entry-hubgroup" role="group" aria-labelledby="entryGroupOwn"><p class="entry__group-lab" id="entryGroupOwn">${esc(t("entry.hub.group.own"))}</p>`+
       `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-expanded="${entryOwnOpen?"true":"false"}" aria-controls="entryOwnChoices"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
       (entryOwnOpen?`<div class="entry__own" id="entryOwnChoices">`+
-        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="build"><span class="entry-card__icon icon-mask icon-mask--pencil" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        entryDoor("build",{icon:"pencil",title:t("entry.hub.build.title"),nested:true,ask:t("entry.hub.cost.build"),get:t("entry.hub.get.build")})+
         /* The free-form door is the same import route by its other side, so it
            carries an id rather than a second `data-entry-route="import"`: one
            route, one selector, two ways in. */
-        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" id="entryFreeformStart"><span class="entry-card__icon icon-mask icon-mask--clipboard" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.freeform.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.freeform.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="import"><span class="entry-card__icon icon-mask icon-mask--download" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `</div>`:"")+
+        entryDoor("",{icon:"clipboard",title:t("entry.hub.freeform.title"),id:"entryFreeformStart",nested:true,ask:t("entry.hub.cost.paste"),get:t("entry.hub.get.import")})+
+        entryDoor("import",{icon:"download",title:t("entry.hub.import.title"),nested:true,ask:t("entry.hub.cost.file"),get:t("entry.hub.get.import")})+
+      `</div>`:"")+`</div>`+
     `</div>`}
 const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
 const ENTRY_ENV_ICONS={commercial_gym:"building",basic_gym:"house",limited_home:"kettlebell",full_home:"rack",other:"dumbbell"};
@@ -14214,19 +14296,46 @@ window.addEventListener("visibilitychange",()=>{
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
   return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
     (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
+/* The facts strip: four Mono values, each with its unit beneath (days, minutes
+   a session, exercises, working sets). The sentence the catalog always read is
+   kept as the strip's accessible text, so meaning is unchanged. */
+function renderEntryFactsStrip(preview){
+  const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
+  const days=(preview.days||[]).length;
+  const cells=[
+    [String(days),t(days===1?"entry.facts.day_one":"entry.facts.days")],
+    facts.minMinutes?[facts.minMinutes===facts.maxMinutes?String(facts.minMinutes):`${facts.minMinutes}–${facts.maxMinutes}`,t("entry.facts.minutes")]:null,
+    [String(facts.exercises),tp(facts.exercises,"exercise")],
+    [String(facts.sets),t("entry.facts.sets")]].filter(Boolean);
+  return `<p class="visually-hidden">${esc([entryExerciseCountLabel(facts.exercises),t("entry.preview.sets",{n:facts.sets}),duration].filter(Boolean).join(" · "))}</p>`+
+    `<div class="entry__strip" aria-hidden="true">${cells.map(([value,unit])=>
+      `<div class="entry__strip-cell"><span class="entry__strip-value">${esc(value)}</span><span class="entry__strip-unit">${esc(unit)}</span></div>`).join("")}</div>`}
+/* What a change did to the program, in one sentence and a Before / Now pair.
+   Every review has the slot; the Recommend and Custom reviews fill it when an
+   answer changes. `change` is `{lead, before, after, changed, total}`. */
+function renderEntryChangeStatement(change){
+  if(!change)return"";
+  const sentence=!change.changed?t("entry.change.none"):change.changed===1
+    ?t("entry.change.one",{total:change.total}):t("entry.change.many",{n:change.changed,total:change.total});
+  return `<div class="entry__change" id="entryChange" tabindex="-1" role="status" aria-live="polite" data-change-statement data-changed="${change.changed}" data-total="${change.total}">`+
+    `<p class="entry__change-line">${esc([change.lead,sentence].filter(Boolean).join(" "))}</p>`+
+    (change.before&&change.after&&(change.changed||change.before!==change.after)?
+      `<dl class="entry__change-grid"><dt>${esc(t("entry.change.before"))}</dt><dd>${esc(change.before)}</dd><dt>${esc(t("entry.change.after"))}</dt><dd>${esc(change.after)}</dd></dl>`:"")+
+    `</div>`}
 function renderPreviewStep({merged=false}={}){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
   const previewAnswers=entryPreviewAnswers(preview);
+  /* The week is a stack of hairline bands. The first day is open, so the first
+     exercise is on the first screen (K-32); the others fold away. */
   const days=(preview.days||[]).map((day,index)=>{
     const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
     const dayName=previewDayLabel(day,index,preview.programStructure);
-    return `<details class="onb__day"><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
+    return `<details class="onb__day"${index===0?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
     `<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
     (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
     (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`});
-  const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
   const progressionIssue=entryPreviewHasProgressionIssue(preview);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
   const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
@@ -14239,47 +14348,30 @@ function renderPreviewStep({merged=false}={}){
     {icon:"trend",lab:t("entry.preview.progression"),text:t(entryPreviewProgressionCopy(preview,progressionIssue))},
     {icon:"scale",lab:t("entry.preview.compromises"),text:compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none")},
   ];
-  return (merged?`<h2 id="entryCandidateReviewTitle" class="entry__group-lab">${esc(t("entry.preview.title"))}</h2>`:entryHeading(t("entry.preview.title")))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
+  return (merged?`<h2 id="entryCandidateReviewTitle" class="entry__group-lab entry__section-head">${esc(t("entry.preview.title"))}</h2>`:entryHeading(t("entry.preview.title")))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
     (hasActiveProgram()&&!entryUiNotice&&entryState?.step!=="activation_conflict"
       ?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<div class="entry__decision"><div class="entry__ident--boxed"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p></div>`+
-    `<div class="entry__metrics entry__metrics--boxed">`+
-    `<span class="entry__metric"><span class="icon-mask icon-mask--dumbbell" aria-hidden="true"></span>${esc(entryExerciseCountLabel(facts.exercises))}</span>`+
-    `<span class="entry__metric"><span class="icon-mask icon-mask--target" aria-hidden="true"></span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>`+
-    (duration?`<span class="entry__metric"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(duration)}</span>`:"")+
-    `</div>`+
+    renderEntryFactsStrip(preview)+
+    renderEntryChangeStatement(entryChange)+
+    `<p class="entry__group-lab entry__section-head">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`+
     /* Each facet keeps its heading element: the review's heading outline is how
        a screen-reader user jumps between Priorities, Equipment, Progression and
        Compromises, so the redesign restyles `h4` rather than demoting it. */
     `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
-    (progressionIssue?`<p id="entryActivationStatus" class="entry__notice" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
-    /* The confirm action used to sit after the whole weekly structure, off the
-       bottom of every phone. It is the point of the screen: keep it above the
-       detail, and pin it so a long program cannot scroll it away. */
-    `<div class="entry__confirm"><button type="button" id="entryActivate" class="btn btn--cta"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button>`+
+    `<section class="entry__more" aria-labelledby="entryMoreLab"><p class="entry__group-lab entry__section-head" id="entryMoreLab">${esc(t("entry.preview.more"))}</p>`+
     `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`+
-    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></div>`+
-    `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`}
+    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive" aria-haspopup="dialog"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></section>`+
+    /* The confirm action is the point of the screen, so it is pinned: a long
+       program cannot scroll it away, and a blocked one says why directly above. */
+    `<div class="entry__pinned">`+
+    (progressionIssue?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
+    `<button type="button" id="entryActivate" class="btn btn--cta${progressionIssue?" btn--noarrow":""}"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
-  if(entryUiNotice==="cancel")return `<div class="entry__notice" role="region" aria-labelledby="entryCancelTitle"><strong id="entryCancelTitle" tabindex="-1">${esc(t("entry.cancel_confirm.title"))}</strong><p>${esc(t("entry.cancel_confirm.body"))}</p>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryCancelKeep">${esc(t("entry.cancel_confirm.keep"))}</button>`+
-    `<button type="button" class="btn btn--steel" id="entryCancelDiscard">${esc(t("entry.cancel_confirm.discard"))}</button>`+
-    `<button type="button" class="btn btn--steel" id="entryCancelContinue">${esc(t("entry.cancel_confirm.continue"))}</button></div></div>`;
-  if(entryUiNotice==="resume"){
-    const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
-    const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
-    const where=[entryState?.route?entryRouteLabel(entryState.route):"",
-      entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
-    const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
-    return `<div class="entry__resume" role="status">`+
-    `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
-    `<div class="entry__resume-copy"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p></div></div>`+
-    (detail?`<div class="entry__resume-loc"><span class="entry__resume-ico icon-mask icon-mask--pin" aria-hidden="true"></span><p>${esc(detail)}</p></div>`:"")+
-    `</div>`+
-    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
-    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div>`}
+  // Cancel is a dialog and Resume is a card on the hub; neither is a notice.
+  if(entryUiNotice==="cancel"||entryUiNotice==="resume")return"";
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
   if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
@@ -14298,6 +14390,115 @@ function renderEntryNotice(){
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
   return""}
+/* Entry dialogs. Cancel, replace and start over each ask one question that the
+   lifter must answer before the screen behind them changes, so they share one
+   native <dialog>: Escape dismisses it, Tab stays inside it, and focus returns
+   to the control that opened it (K-26). It is built at body level on first use
+   because `openModal` makes every other body child inert. */
+let entryReplaceResolve=null,entryDialogOpener=null;
+function entryDialogKind(){return entryUiNotice==="cancel"?"cancel":entryDialog}
+function entryDialogElement(){
+  let el=$("#entryDialog");
+  if(el)return el;
+  el=document.createElement("dialog");
+  el.id="entryDialog";el.className="entry-dialog";el.setAttribute("aria-modal","true");
+  el.innerHTML=`<h2 class="entry-dialog__title" tabindex="-1"></h2><p class="entry-dialog__body"></p><div class="entry-dialog__actions"></div>`;
+  document.body.append(el);
+  // Some engines close a modal <dialog> on Escape before a capture listener
+  // runs; the cancel event routes that to the same dismissal.
+  el.addEventListener("cancel",event=>{event.preventDefault();dismissEntryDialog()});
+  return el}
+function entryDialogSpec(kind){
+  if(kind==="cancel")return{titleId:"entryCancelTitle",title:t("entry.cancel_confirm.title"),body:t("entry.cancel_confirm.body"),actions:[
+    {id:"entryCancelKeep",cls:"btn btn--cta btn--noarrow",label:t("entry.cancel_confirm.keep"),run:()=>keepEntryDraftAndCancel()},
+    {id:"entryCancelDiscard",cls:"btn btn--steel",label:t("entry.cancel_confirm.discard"),run:()=>discardEntryDraftAndCancel()},
+    {id:"entryCancelContinue",cls:"btn btn--steel",label:t("entry.cancel_confirm.continue"),run:()=>dismissEntryDialog()}]};
+  if(kind==="replace"){
+    const current=String(state?.programMeta?.name||"").trim()||t("untitled_program");
+    const next=String(entryResultName()||entryState?.answers?.programName||"").trim()||t("untitled_program");
+    return{titleId:"entryReplaceTitle",title:t("entry.replace_confirm.title"),
+      body:t("entry.replace_confirm.body",{current,next}),actions:[
+      {id:"entryReplaceConfirm",cls:"btn btn--cta btn--noarrow",label:t("entry.replace_confirm.confirm",{next}),run:()=>resolveEntryReplace(true)},
+      {id:"entryReplaceCancel",cls:"btn btn--steel",label:t("entry.replace_confirm.cancel",{current}),run:()=>resolveEntryReplace(false)}]}}
+  const resuming=entryUiNotice==="resume";
+  const shared=!resuming&&entryState?.route==="shared";
+  return{titleId:"entryRestartTitle",
+    title:t(resuming?"entry.resume.discard_title":"entry.restart_confirm.title"),
+    body:t(resuming?"entry.resume.discard_body":shared?"entry.restart_confirm.body_shared":"entry.restart_confirm.body"),actions:[
+    {id:"entryRestartConfirm",cls:"btn btn--steel btn--destructive",label:t(resuming?"entry.resume.discard_confirm":"entry.restart_confirm.confirm"),run:()=>confirmEntryStartOver()},
+    {id:"entryRestartCancel",cls:"btn btn--steel",label:t(resuming?"entry.resume.discard_cancel":"entry.restart_confirm.cancel"),run:()=>dismissEntryDialog()}]}}
+/* Where focus returns: the control that was focused when the dialog opened,
+   found again after any re-render, else the heading of whatever is showing. */
+function entryOpenerToken(){
+  const el=document.activeElement;
+  if(!el||el===document.body||el.closest?.("#entryDialog"))return null;
+  if(el.id)return{kind:"id",value:el.id};
+  return entryFocusToken()}
+function entryOpenerElement(){
+  const token=entryDialogOpener;
+  let el=null;
+  if(token?.kind==="id")el=$("#"+CSS.escape(token.value));
+  else if(token?.kind==="pick")el=$(`[data-entry-pick="${CSS.escape(token.key)}"][data-entry-val="${CSS.escape(token.val)}"]`);
+  else if(token?.kind==="goal")el=$(`[data-entry-goal="${CSS.escape(token.value)}"]`);
+  else if(token?.kind==="route")el=$(`[data-entry-route="${CSS.escape(token.value)}"]`);
+  else if(token?.kind==="help")el=$(`[data-entry-help="${CSS.escape(token.key)}"][data-entry-help-val="${CSS.escape(token.val)}"]`);
+  else if(token?.kind==="catalogue")el=$(`[data-entry-catalogue="${CSS.escape(token.value)}"]`);
+  return el&&!el.disabled?el:($("#entryHeading")||$("#onbCancel"))}
+/* Show, keep or remove the dialog for the current state. Called at the end of
+   every render so the markup behind it and the dialog never disagree. */
+function syncEntryDialog(){
+  const kind=entryDialogKind();
+  const el=$("#entryDialog");
+  if(!kind){if(el?.open)closeModal(el);return}
+  const dialog=el||entryDialogElement();
+  if(dialog.open&&dialog.dataset.kind===kind)return;
+  const spec=entryDialogSpec(kind);
+  dialog.dataset.kind=kind;
+  const title=dialog.querySelector(".entry-dialog__title");
+  title.id=spec.titleId;title.textContent=spec.title;
+  dialog.setAttribute("aria-labelledby",spec.titleId);
+  dialog.querySelector(".entry-dialog__body").textContent=spec.body;
+  const actions=dialog.querySelector(".entry-dialog__actions");
+  actions.innerHTML=spec.actions.map(action=>`<button type="button" id="${action.id}" class="${action.cls}">${esc(action.label)}</button>`).join("");
+  for(const action of spec.actions)actions.querySelector("#"+action.id).onclick=action.run;
+  // The opener was noted before the render that replaced it; a dialog reached
+  // some other way (browser Back) falls back to the heading.
+  const opened=openModal(dialog,{returnFocus:()=>entryOpenerElement(),initialFocus:title,onEscape:()=>dismissEntryDialog()});
+  if(!opened&&!dialog.open)try{dialog.showModal()}catch{}}
+function closeEntryDialog(){
+  const el=$("#entryDialog");
+  if(!el?.open)return;
+  closeModal(el);
+  if(el.open)try{el.close()}catch{}
+  entryDialogOpener=null}
+function dismissEntryDialog(){
+  const resolve=entryReplaceResolve;
+  entryReplaceResolve=null;
+  if(entryUiNotice==="cancel")entryUiNotice=null;
+  entryDialog=null;
+  closeEntryDialog();
+  if(resolve)resolve(false);
+  renderOnboarding()}
+function resolveEntryReplace(confirmed){
+  const resolve=entryReplaceResolve;
+  entryReplaceResolve=null;entryDialog=null;
+  closeEntryDialog();
+  // Confirming goes straight on to the activation, which renders its own outcome.
+  if(!confirmed)renderOnboarding();
+  resolve?.(confirmed)}
+/* Replacing the active program asks first and says what happens to it. */
+function entryConfirmReplaceIfNeeded(){
+  if(!hasActiveProgram())return Promise.resolve(true);
+  return new Promise(resolve=>{
+    entryReplaceResolve?.(false);
+    entryDialogOpener=entryOpenerToken();
+    entryReplaceResolve=resolve;entryDialog="replace";renderOnboarding()})}
+/* Start over discards the draft, so it is confirmed wherever it is offered. */
+function requestEntryStartOver(){entryDialogOpener=entryOpenerToken();entryDialog="restart";renderOnboarding()}
+function confirmEntryStartOver(){
+  entryDialog=null;
+  closeEntryDialog();
+  entryStartOver()}
 /* Rerendering a step must not strand keyboard users at the top of the page.
    Keep a small semantic token for the control that caused the update and restore
    that control after the HTML is replaced; a step transition intentionally moves
@@ -14307,12 +14508,15 @@ function entryFocusToken(){
   if(!el||!el.closest("#onbBody"))return null;
   if(el.id)return{kind:"id",value:el.id};
   if(el.dataset.entryPick)return{kind:"pick",key:el.dataset.entryPick,val:el.dataset.entryVal};
+  if(el.dataset.entryGoal)return{kind:"goal",value:el.dataset.entryGoal};
   if(el.dataset.entryRoute)return{kind:"route",value:el.dataset.entryRoute};
   if(el.dataset.entryCatalogue)return{kind:"catalogue",value:el.dataset.entryCatalogue};
+  if(el.dataset.entryHelp)return{kind:"help",key:el.dataset.entryHelp,val:el.dataset.entryHelpVal};
   return null;
 }
 function entryScreenKey(){
-  const notice=entryUiNotice||
+  // The cancel dialog sits over the screen it interrupts; it is not a screen.
+  const notice=(entryUiNotice==="cancel"?null:entryUiNotice)||
     (entryValidationNotice?"validation":entryCompileError?(entryCompileError.code||"compile-error"):"");
   return [notice,entryState?.route||"",entryState?.step||""].join("|")}
 function restoreEntryFocus(token){
@@ -14320,8 +14524,10 @@ function restoreEntryFocus(token){
   let el=null;
   if(token.kind==="id")el=$("#"+CSS.escape(token.value));
   else if(token.kind==="pick")el=$(`[data-entry-pick="${CSS.escape(token.key)}"][data-entry-val="${CSS.escape(token.val)}"]`);
+  else if(token.kind==="goal")el=$(`[data-entry-goal="${CSS.escape(token.value)}"]`);
   else if(token.kind==="route")el=$(`[data-entry-route="${CSS.escape(token.value)}"]`);
   else if(token.kind==="catalogue")el=$(`[data-entry-catalogue="${CSS.escape(token.value)}"]`);
+  else if(token.kind==="help")el=$(`[data-entry-help="${CSS.escape(token.key)}"][data-entry-help-val="${CSS.escape(token.val)}"]`);
   if(!el||el.disabled)return false;
   try{el.focus({preventScroll:true});return true}catch{try{el.focus();return true}catch{return false}}
 }
@@ -14346,23 +14552,59 @@ function setupEntryRovingFocus(){
     });
   }
 }
+/* The hub is also what a resumable draft opens on (Q633): the saved route and
+   step are named on a card there, and nothing behind it is chosen until the
+   lifter resumes or starts over. */
+function entryHubMode(){
+  return !entryState?.route||entryState.step==="entry"||entryUiNotice==="resume"}
+/* Earlier answers, each one tap from being changed (G's answer rail). Question
+   screens only: on a review a changed answer must recompile, which is not a
+   jump, so the review has no rail. Browse's two questions need none. */
+const ENTRY_RAIL_STEPS=["desired_result","background","schedule","environment","priorities","exercise_preferences","custom_shape"];
+function renderEntryRail(){
+  const route=entryState?.route,stepId=entryState?.step;
+  if(!route||route==="browse"||!ENTRY_RAIL_STEPS.includes(stepId))return"";
+  const steps=ProgramEntry.ROUTE_STEPS[route]||[];
+  const index=steps.indexOf(stepId);
+  const a=entryState.answers||{};
+  const chips=[];
+  const add=(target,what,text)=>{
+    if(!text||steps.indexOf(target)<0||steps.indexOf(target)>=index)return;
+    chips.push(`<button type="button" class="entry-rail__chip" data-entry-rail="${target}" aria-label="${esc(t("entry.rail.edit",{what}))}: ${esc(text)}">`+
+      `<span class="entry-rail__text">${esc(text)}</span><span class="entry-rail__edit icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span></button>`)};
+  if(a.desiredResult)add("desired_result",t("entry.rail.what.goal"),t(`entry.desired_result.${a.desiredResult}.label`));
+  if(a.structuredExperience)add("background",t("entry.rail.what.background"),t(`entry.background.experience.${a.structuredExperience}`));
+  if(a.daysPerWeek&&a.sessionMinutes)add("schedule",t("entry.rail.what.schedule"),
+    t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>=90?"90+":a.sessionMinutes}));
+  if(a.environment?.kind)add("environment",t("entry.rail.what.environment"),entryEnvironmentLabel());
+  return chips.length?`<div class="entry-rail" role="group" aria-label="${esc(t("entry.rail.label"))}">${chips.join("")}</div>`:""}
+/* The rail sits under the screen's title and lede, never above it: the title keeps its place at every
+   width and text size, and the rail is the answers-so-far line that leads into the question. */
+function entryRailAfterTitle(stepHtml,rail){
+  if(!rail)return stepHtml;
+  const head=stepHtml.match(/^<h[12][^>]*>[\s\S]*?<\/h[12]>(?:<p class="onb__explain">[\s\S]*?<\/p>)?/);
+  return head?head[0]+rail+stepHtml.slice(head[0].length):rail+stepHtml}
 function renderOnboarding(){
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
   collapseSingleCustomShape();
   const focusToken=entryFocusToken();
+  const headerFocus=document.activeElement?.closest?.(".onb__bar")?document.activeElement.id:"";
   const onboarding=$("#onboarding");
   const screenKey=entryScreenKey();
-  const environmentCorrectionOpen=screenKey===entryVisibleScreenKey&&body.querySelector(".entry__correct")?.open===true;
-  if(onboarding&&screenKey!==entryVisibleScreenKey){
+  const sameScreen=screenKey===entryVisibleScreenKey;
+  const environmentCorrectionOpen=sameScreen&&body.querySelector(".entry__correct")?.open===true;
+  if(onboarding&&!sameScreen){
     onboarding.scrollTo?.({top:0,left:0,behavior:"auto"});
     onboarding.scrollTop=0;onboarding.scrollLeft=0;
   }
   entryVisibleScreenKey=screenKey;
-  const route=entryState.route,stepId=entryState.step;
-  const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
-  const isEditor=setupEditorOpen&&!noticeOwnsSurface&&!!entryState?.result?.preview;
-  onboarding?.classList.toggle("entry-hub-active",!route||stepId==="entry");
+  const hub=entryHubMode();
+  const resuming=entryUiNotice==="resume";
+  const route=hub?null:entryState.route,stepId=hub?"entry":entryState.step;
+  const dialogOpen=!!entryDialogKind();
+  const isEditor=setupEditorOpen&&!hub&&!!entryState?.result?.preview;
+  onboarding?.classList.toggle("entry-hub-active",hub);
   onboarding?.classList.toggle("program-editor-onboarding",isEditor);
   document.body.classList.toggle("is-entry-editor",isEditor);
   /* On a single-step route the chrome eyebrow and the page heading are the
@@ -14377,7 +14619,7 @@ function renderOnboarding(){
   const editorTitle=$("#onbEditorTitle");
   if(editorTitle){editorTitle.textContent=isEditor?titleText:"";editorTitle.hidden=!isEditor}
   const progress=entryProgressSections(route);
-  const showProgress=Boolean(route)&&progress.show&&!noticeOwnsSurface;
+  const showProgress=Boolean(route)&&progress.show;
   if(step){step.textContent=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
     step.classList.toggle("hidden",!showProgress)}
   const seg=$("#onbSegbar");
@@ -14385,33 +14627,37 @@ function renderOnboarding(){
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
     seg.classList.toggle("hidden",!showProgress)}
   const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
-  const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface||isEditor);
-  const atTerminal=["preview","editor","result","catalogue"].includes(stepId);
-  if(back){back.classList.toggle("hidden",!route||stepId==="entry"||isEditor);back.setAttribute("aria-label",t("entry.back"))}
+  /* The pinned region holds the one primary action. It is out of the way while
+     the hub is up, an editor owns the screen, or a dialog is asking something. */
+  const hideNext=hub||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
+  const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",hideNext||isEditor||dialogOpen);
+  if(back){back.classList.toggle("hidden",hub||isEditor);back.textContent=t("entry.back");back.setAttribute("aria-label",t("entry.back"))}
+  const reason=$("#onbNextReason");
   if(next){
-    const hideNext=!route||stepId==="entry"||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
     next.classList.toggle("hidden",hideNext||isEditor);
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
     const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
-    next.disabled=!!pendingReason||(!hideNext&&!isEditor&&ProgramEntry.validationIssues(entryState).length>0);
+    const blocked=!hideNext&&!isEditor&&ProgramEntry.validationIssues(entryState).length>0;
+    next.disabled=!!pendingReason||blocked;
+    /* A blocked primary says why, in text above it, and drops its arrow. */
+    const showReason=blocked&&!pendingReason;
+    if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":"entry.pinned.reason"):""}
+    next.classList.toggle("btn--noarrow",next.disabled);
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
+    else if(showReason)next.setAttribute("aria-describedby","onbNextReason");
     else next.removeAttribute("aria-describedby")}
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
-  if(noticeOwnsSurface){
-    body.innerHTML=html;wireEntryDom();
-    const noticeTitle=$(entryUiNotice==="cancel"?"#entryCancelTitle":"#entryResumeTitle");
-    if(noticeTitle)try{noticeTitle.focus()}catch{}
-    return}
-  if(stepId==="entry"||!route)html+=renderEntryHub();
-  else if(stepId==="desired_result")html+=renderDesiredResultStep();
-  else if(stepId==="background")html+=renderBackgroundStep();
-  else if(stepId==="schedule")html+=renderScheduleStep();
-  else if(stepId==="environment")html+=renderEnvironmentStep();
-  else if(stepId==="priorities")html+=renderPrioritiesStep();
-  else if(stepId==="exercise_preferences")html+=renderExercisePreferencesStep();
-  else if(stepId==="custom_shape")html+=renderCustomShapeStep();
+  const rail=!hub&&!isEditor?renderEntryRail():"";
+  if(hub)html+=renderEntryHub();
+  else if(stepId==="desired_result")html+=entryRailAfterTitle(renderDesiredResultStep(),rail);
+  else if(stepId==="background")html+=entryRailAfterTitle(renderBackgroundStep(),rail);
+  else if(stepId==="schedule")html+=entryRailAfterTitle(renderScheduleStep(),rail);
+  else if(stepId==="environment")html+=entryRailAfterTitle(renderEnvironmentStep(),rail);
+  else if(stepId==="priorities")html+=entryRailAfterTitle(renderPrioritiesStep(),rail);
+  else if(stepId==="exercise_preferences")html+=entryRailAfterTitle(renderExercisePreferencesStep(),rail);
+  else if(stepId==="custom_shape")html+=entryRailAfterTitle(renderCustomShapeStep(),rail);
   else if(stepId==="result"&&!isEditor)html+=renderResultStep();
   else if(stepId==="catalogue")html+=renderCatalogueStep();
   else if(stepId==="build_setup")html+=renderBuildSetupStep();
@@ -14439,27 +14685,57 @@ function renderOnboarding(){
     updateOnboardingEditorActions();
   }
   setupEntryRovingFocus();
-  if(!restoreEntryFocus(focusToken)){
-    const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
-    const target=initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
-    if(target)try{target.focus({preventScroll:true})}catch{}}
-  if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}
+  if(!dialogOpen){
+    if(!restoreEntryFocus(focusToken)){
+      const header=headerFocus&&sameScreen?$("#"+CSS.escape(headerFocus)):null;
+      if(header&&!header.classList.contains("hidden")&&canTakeFocus(header))try{header.focus({preventScroll:true})}catch{}
+      else{
+        const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
+        const target=resuming?$("#entryResumeTitle"):initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
+        if(target)try{target.focus({preventScroll:true})}catch{}}}
+    if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
   // The "entry" guide explains the five-job chooser, so it shows here rather
-  // than on the landing that opens it.
-  if(!route||stepId==="entry")queueMicrotask(()=>maybeShowContextualGuides(["entry"]));}
+  // than on the landing that opens it. Not while a saved draft is asking first.
+  if(hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
+  syncEntryDialog()}
 function wireEntryDom(){
-  $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
-  const own=$("#entryOwnToggle");if(own)own.onclick=()=>{entryOwnOpen=!entryOwnOpen;renderOnboarding()};
+  /* While a saved draft is waiting on Resume or Start over, the doors are
+     inert. The markup already carries `inert`; this keeps a synthetic click
+     from reaching a handler that would overwrite the draft. */
+  const doorsWait=()=>entryUiNotice==="resume";
+  $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>{
+    if(doorsWait())return;
+    entrySelectRoute(btn.dataset.entryRoute,{goal:btn.dataset.entryGoal||null})});
+  const own=$("#entryOwnToggle");if(own)own.onclick=()=>{if(doorsWait())return;entryOwnOpen=!entryOwnOpen;renderOnboarding()};
+  const helpToggle=$("#entryHelpToggle");if(helpToggle)helpToggle.onclick=()=>{
+    if(doorsWait())return;
+    entryHelpOpen=!entryHelpOpen;if(!entryHelpOpen)entryHelp={q1:null,q2:null};
+    renderOnboarding()};
+  $$("[data-entry-help]").forEach(btn=>btn.onclick=()=>{
+    if(doorsWait())return;
+    const q=btn.dataset.entryHelp,val=btn.dataset.entryHelpVal;
+    entryHelp=q==="q1"?{q1:val,q2:null}:{...entryHelp,q2:val};
+    renderOnboarding()});
+  const helpGo=$("#entryHelpGo");if(helpGo)helpGo.onclick=()=>{
+    if(doorsWait())return;
+    const target=helpGo.dataset.entryHelpGo;
+    if(target==="import"){
+      setImportSourceMode("freeform",{render:false});
+      captureEvent("program_import_started",{source:"freeform"})}
+    entrySelectRoute(target)};
+  $$("[data-entry-rail]").forEach(btn=>btn.onclick=()=>entrySetState({...entryState,step:btn.dataset.entryRail}));
   /* Both hub cards enter the same route and each names its own door, so the
      card the lifter read is the screen they land on. The remembered mode is
      for a resumed draft, which arrives at the step without a card. */
   const freeformStart=$("#entryFreeformStart");
   if(freeformStart)freeformStart.onclick=()=>{
+    if(doorsWait())return;
     setImportSourceMode("freeform",{render:false});
     captureEvent("program_import_started",{source:"freeform"});
     entrySelectRoute("import")};
   const importCard=$('[data-entry-route="import"]');
   if(importCard)importCard.onclick=()=>{
+    if(doorsWait())return;
     setImportSourceMode("file",{render:false});
     captureEvent("program_import_started",{source:"file"});
     entrySelectRoute("import")};
@@ -14726,14 +15002,11 @@ function wireEntryDom(){
   };
   const editorActivate=$("#entryEditorActivate");if(editorActivate)editorActivate.onclick=()=>activateEntryPreview();
   const edit=$("#entryEdit");if(edit)edit.onclick=()=>openEntryDraftEditor();
-  const restart=$("#entryRestart");if(restart)restart.onclick=()=>entryStartOver();
+  const restart=$("#entryRestart");if(restart)restart.onclick=()=>requestEntryStartOver();
   const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{
     entryUiNotice=null;
     if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding()};
-  const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>entryStartOver();
-  const cancelContinue=$("#entryCancelContinue");if(cancelContinue)cancelContinue.onclick=()=>{entryUiNotice=null;renderOnboarding()};
-  const cancelKeep=$("#entryCancelKeep");if(cancelKeep)cancelKeep.onclick=()=>keepEntryDraftAndCancel();
-  const cancelDiscard=$("#entryCancelDiscard");if(cancelDiscard)cancelDiscard.onclick=()=>discardEntryDraftAndCancel();
+  const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>requestEntryStartOver();
   const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>rebuildEntryForCurrentRules();
   const keepPinned=$("#entryKeepPinned");if(keepPinned)keepPinned.onclick=()=>{
     if(!entryPinnedPreviewCanActivate())return;
@@ -14757,9 +15030,6 @@ function wireEntryDom(){
     entryDurableConflictNeedsReload=!recovered.ok;
     entryUiNotice=recovered.ok?"conflict":"durable_conflict";
     renderOnboarding()}}
-function entryConfirmReplaceIfNeeded(){
-  if(!hasActiveProgram())return true;
-  return confirm(t("entry.confirm.replace"))}
 function entryStartOver(){
   const restarted=ProgramEntry.startOver({
     draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
@@ -14827,9 +15097,13 @@ function entryAdvance(){
   if(nextState.step==="result")ensureGeneratorResult()}
 function entryBack(){
   if(!ProgramEntry||!entryState)return;
-  if(entryUiNotice==="cancel"){entryUiNotice=null;renderOnboarding();return}
+  if(entryDialog||entryUiNotice==="cancel"){dismissEntryDialog();return}
   if(setupEditorOpen){requestEntryCancel();return}
   if(entryUiNotice==="resume"||entryState.step==="entry"||!entryState.route){requestEntryCancel();return}
+  if(entryGoalFromHub&&entryState.route==="recommend"&&entryState.step==="background"){
+    entryGoalFromHub=false;
+    entrySetState(ProgramEntry.back(ProgramEntry.back(entryState)));
+    return}
   let previous=ProgramEntry.back(entryState);
   if(entryState.route==="custom"&&previous.step==="custom_shape"&&!entryCustomShapeRequired())
     previous={...previous,step:"exercise_preferences"};
@@ -14886,7 +15160,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
       else {renderOnboarding();$("#entryActivationStatus")?.focus?.()}
       return readiness}
     renderOnboarding();return}
-  if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};
+  if(!skipReplaceConfirm&&!(await entryConfirmReplaceIfNeeded()))return{cancelled:true};
   const preview=entryState.result?.preview;
   let exercises=manualBuild||entryState.route==="build"
     ?(entryState.result?.preview?.program||[])
@@ -16073,7 +16347,7 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   // sliver of one word per line. Focus's own controls likewise need the whole
   // owning surface as their insertion point so a cue never joins a fixed row.
   const placement=anchor.closest(".focus-well")||anchor.closest(".wo-head")||
-    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||
+    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry-feature")||
     anchor.closest("#statsSeg")||anchor;
   placement.insertAdjacentElement("afterend",cue);
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;

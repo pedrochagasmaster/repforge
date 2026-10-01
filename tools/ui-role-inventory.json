@@ -58,6 +58,11 @@
       "content": "flat",
       "scenario": "Opened from Settings while a program is active, so replacement consequences are in view."
     },
+    "onboarding-start/hub-help": {
+      "owner": "plan-064/r4a",
+      "content": "flat",
+      "scenario": "The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs."
+    },
     "onboarding-recommend/desired-result": {
       "owner": "plan-054",
       "content": "flat",
@@ -262,6 +267,16 @@
       "owner": "plan-054",
       "content": "flat",
       "scenario": "A draft whose compiler rules are stale. Rebuild is required before activation."
+    },
+    "onboarding-recovery/cancel-confirm": {
+      "owner": "plan-064/r4a",
+      "content": "flat",
+      "scenario": "Cancel pressed mid-flow. A dialog over the current step asks whether to keep the draft or discard it; Escape or Continue setup returns to the step."
+    },
+    "onboarding-recovery/restart-confirm": {
+      "owner": "plan-064/r4a",
+      "content": "flat",
+      "scenario": "Start over pressed on a review. A dialog asks before the answers and the unused program are discarded; the active program does not change."
     },
     "today/no-program": {
       "owner": "plan-057",
@@ -1631,8 +1646,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-start/hub-help"
       ]
     },
     {
@@ -3586,47 +3602,48 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/catalogue",
-        "onboarding-browse/environment",
-        "onboarding-browse/preview",
-        "onboarding-browse/schedule",
-        "onboarding-build/editor-empty",
-        "onboarding-build/editor-partial",
-        "onboarding-build/editor-ready",
-        "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/result",
-        "onboarding-custom/schedule",
-        "onboarding-import/freeform-empty",
-        "onboarding-import/freeform-filled",
-        "onboarding-import/freeform-gaps",
-        "onboarding-import/freeform-gaps-invalid",
-        "onboarding-import/freeform-stage2",
-        "onboarding-import/freeform-stage3",
-        "onboarding-import/freeform-unreadable",
-        "onboarding-import/preview",
-        "onboarding-import/source",
-        "onboarding-recommend/activation-conflict",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/background",
+        "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-help",
         "onboarding-recommend/desired-result",
+        "onboarding-recommend/background",
+        "onboarding-recommend/schedule",
         "onboarding-recommend/environment",
         "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
-        "onboarding-recommend/replacement-confirm",
+        "onboarding-recommend/avoidance-pain",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-recommend/schedule",
-        "onboarding-recovery/resume",
-        "onboarding-recovery/rules-drift",
+        "onboarding-recommend/replacement-confirm",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-custom/desired-result",
+        "onboarding-custom/background",
+        "onboarding-custom/schedule",
+        "onboarding-custom/environment",
+        "onboarding-custom/priorities",
+        "onboarding-custom/exercise-preferences",
+        "onboarding-custom/result",
+        "onboarding-browse/schedule",
+        "onboarding-browse/environment",
+        "onboarding-browse/catalogue",
+        "onboarding-browse/preview",
+        "onboarding-build/setup",
+        "onboarding-build/editor-empty",
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "onboarding-import/source",
+        "onboarding-import/freeform-empty",
+        "onboarding-import/freeform-filled",
+        "onboarding-import/freeform-stage2",
+        "onboarding-import/freeform-stage3",
+        "onboarding-import/freeform-gaps",
+        "onboarding-import/freeform-gaps-invalid",
+        "onboarding-import/freeform-unreadable",
+        "onboarding-import/preview",
         "onboarding-shared/preview",
-        "onboarding-start/hub",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-recovery/resume",
+        "onboarding-recovery/rules-drift"
       ]
     },
     {
@@ -6160,8 +6177,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-start/hub-help"
       ]
     },
     {
@@ -6183,8 +6201,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-start/hub-help"
       ]
     },
     {
@@ -6468,20 +6487,27 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
-        "onboarding-start/hub-existing",
         "onboarding-start/hub-own-open",
-        "progress/exercise-chart",
-        "progress/guided-repair",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-help",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/stale-draft",
+        "workout/persist-retry",
         "progress/overview",
-        "progress/overview-action",
         "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
         "progress/prs",
         "progress/prs-drill-in",
-        "progress/recovery-active",
-        "progress/recovery-ineligible",
-        "progress/recovery-preview",
-        "progress/recovery-questions",
-        "progress/recovery-reassessment",
         "progress/review",
         "progress/review-active",
         "progress/review-complete",
@@ -6489,25 +6515,19 @@
         "progress/schedule-diagnosis",
         "progress/sibling-lower-frequency",
         "progress/sibling-shorter-session",
-        "progress/strength",
-        "progress/strength-all-history",
-        "progress/strength-comparison",
-        "progress/strength-current-block",
-        "progress/strength-sparse",
-        "progress/volume",
-        "progress/volume-block",
-        "progress/volume-drill-in",
+        "progress/guided-repair",
         "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "settings/main",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
-        "settings/main",
         "settings/privacy",
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/correction"
       ]
     },
     {
@@ -7943,6 +7963,283 @@
       "sourceOnlyReason": "pending: unrendered shared component added by Plan 064 R1b; first rendered by R3c (Focus shelf). The slice that renders it updates this row's catalogStates and drops sourceOnly.",
       "catalogStates": [
         "workout/focus"
+      ]
+    },
+    {
+      "id": "entryhelptoggle",
+      "selector": "#entryHelpToggle",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Expands or collapses the route help; expanded state is separate from navigation.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-help"
+      ]
+    },
+    {
+      "id": "entry-help-opt-not-id",
+      "selector": ".entry-help__opt:not([id])",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Changes a chosen answer in the route help without leaving the hub.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-start/hub-help"
+      ]
+    },
+    {
+      "id": "entryhelpgo",
+      "selector": "#entryHelpGo",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Advances the current task with the strongest action weight.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-start/hub-help"
+      ]
+    },
+    {
+      "id": "entrydialog",
+      "selector": "#entryDialog",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "centered-dialog",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the entry screen behind it with dialog semantics until the lifter answers; Escape dismisses it and focus returns to its opener.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recommend/replacement-confirm",
+        "onboarding-recovery/cancel-confirm",
+        "onboarding-recovery/restart-confirm"
+      ]
+    },
+    {
+      "id": "entrycancelkeep",
+      "selector": "#entryCancelKeep",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Advances the current task with the strongest action weight: keeps the draft and leaves.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/cancel-confirm"
+      ]
+    },
+    {
+      "id": "entrycanceldiscard",
+      "selector": "#entryCancelDiscard",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/cancel-confirm"
+      ]
+    },
+    {
+      "id": "entrycancelcontinue",
+      "selector": "#entryCancelContinue",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: returns to the step.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/cancel-confirm"
+      ]
+    },
+    {
+      "id": "entryreplaceconfirm",
+      "selector": "#entryReplaceConfirm",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Advances the current task with the strongest action weight: archives the active program and uses the new one.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recommend/replacement-confirm"
+      ]
+    },
+    {
+      "id": "entryreplacecancel",
+      "selector": "#entryReplaceCancel",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: keeps the active program.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recommend/replacement-confirm"
+      ]
+    },
+    {
+      "id": "entryrestartconfirm",
+      "selector": "#entryRestartConfirm",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Discards the setup draft and starts the entry flow again.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/restart-confirm"
+      ]
+    },
+    {
+      "id": "entryrestartcancel",
+      "selector": "#entryRestartCancel",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: keeps the draft.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/restart-confirm"
+      ]
+    },
+    {
+      "id": "entry-rail-chip-not-id",
+      "selector": ".entry-rail__chip:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: it returns to an earlier answer.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recommend/background",
+        "onboarding-recommend/schedule",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/environment-correction",
+        "onboarding-recommend/priorities",
+        "onboarding-recommend/avoidance-pain",
+        "onboarding-custom/background",
+        "onboarding-custom/schedule",
+        "onboarding-custom/environment",
+        "onboarding-custom/priorities",
+        "onboarding-custom/exercise-preferences"
       ]
     }
   ],

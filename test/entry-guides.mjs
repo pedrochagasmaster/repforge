@@ -971,6 +971,42 @@ async function run() {
         JSON.stringify(cueA11y)
       );
 
+      // Recommend's goal buttons are the featured block, and every one of them
+      // carries the route the guide anchors on. The cue shows once, after the
+      // block rather than between two goals, and a goal tap completes it.
+      const hubGuide = await page.evaluate(() => {
+        const goals = [...document.querySelectorAll('[data-entry-route="recommend"]')];
+        const cues = [...document.querySelectorAll("[data-guide-cue='entry']")];
+        const feature = document.querySelector(".entry-feature");
+        const target = cues[0]?.dataset.anchorTarget;
+        return {
+          goals: goals.map((el) => el.dataset.entryGoal),
+          anchorIsAGoal: !!target && goals.includes(document.querySelector(target)),
+          cueCount: cues.length,
+          cueFollowsFeature: !!feature && feature.nextElementSibling === cues[0],
+          cueBetweenGoals: !!document.querySelector(".entry-feature__goals")?.contains(cues[0]),
+        };
+      });
+      assert(
+        JSON.stringify(hubGuide.goals) === JSON.stringify(["muscle_growth", "balanced", "strength"]) &&
+          hubGuide.anchorIsAGoal && hubGuide.cueCount === 1,
+        "browser projection: the entry cue anchors on Recommend's goal buttons and shows once",
+        JSON.stringify(hubGuide)
+      );
+      assert(
+        hubGuide.cueFollowsFeature && !hubGuide.cueBetweenGoals,
+        "browser projection: the entry cue sits after the featured goal block, not between two goals",
+        JSON.stringify(hubGuide)
+      );
+      await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+      await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
+      const completedAfterGoal = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.()?.guideState?.entry?.status);
+      assert(
+        completedAfterGoal === "completed",
+        "browser projection: tapping a goal completes the entry cue",
+        String(completedAfterGoal)
+      );
+
       await context.close();
     }
 

@@ -37,8 +37,9 @@ async function open(browser) {
 
 async function recommend(page, days) {
   await page.evaluate(() => window.startOnboarding("settings"));
-  await page.click('[data-entry-route="recommend"]');
-  for (const [key, value] of [["desiredResult", "muscle_growth"], ["structuredExperience", "6_to_24m"], ["recentConsistency", "most"]]) {
+  // The hub's goal tap answers Recommend's first question and opens the background step.
+  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  for (const [key, value] of [["structuredExperience", "6_to_24m"], ["recentConsistency", "most"]]) {
     await page.click(`[data-entry-pick="${key}"][data-entry-val="${value}"]`);
     if (key !== "structuredExperience") await page.click("#onbNext");
   }
@@ -99,6 +100,8 @@ try {
       const review = await page.evaluate((key) => localStorage.getItem(key), KEY);
       assert.equal(review, before, `${route}: review/edit changed active bytes before activation`);
       await page.click(route === "build" ? "#entryEditorActivate" : "#entryActivate");
+      // Replacing the active program asks first; the dialog names what is archived.
+      await page.click("#entryReplaceConfirm");
       await page.waitForTimeout(500);
       const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
       assert.notEqual(JSON.stringify(after), before, `${route}: explicit activation commits a durable replacement`);

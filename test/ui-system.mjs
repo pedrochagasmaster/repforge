@@ -939,8 +939,8 @@ try {
     try {
       await ONBOARDING_SCENARIOS["onboarding-shared/preview"](sharedPage.page);
       const geometry = await sharedPage.page.evaluate(() => {
-        const strip = document.querySelector(".entry__metrics--boxed");
-        const metrics = [...document.querySelectorAll(".entry__metrics--boxed .entry__metric")];
+        const strip = document.querySelector(".entry__strip");
+        const metrics = [...document.querySelectorAll(".entry__strip .entry__strip-cell")];
         const rects = metrics.map((node) => {
           const rect = node.getBoundingClientRect();
           return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
@@ -957,7 +957,7 @@ try {
           stripWidth: strip?.scrollWidth || 0, stripClientWidth: strip?.clientWidth || 0,
           metricCount: metrics.length, overlaps, overflowingMetrics: rects.filter((item) => item.scrollWidth > item.clientWidth + 1 || item.scrollHeight > item.clientHeight + 1) };
       });
-      assert.equal(geometry.metricCount, 3, `${sharedCapture.viewport}/${sharedCapture.text}: all three shared summary facts render`);
+      assert.equal(geometry.metricCount, 4, `${sharedCapture.viewport}/${sharedCapture.text}: all four shared summary facts render`);
       assert.ok(geometry.document <= geometry.viewport, `${sharedCapture.viewport}/${sharedCapture.text}: no document overflow: ${JSON.stringify(geometry)}`);
       assert.ok(geometry.stripWidth <= geometry.stripClientWidth + 1,
         `${sharedCapture.viewport}/${sharedCapture.text}: summary metrics fit their strip: ${JSON.stringify(geometry)}`);
