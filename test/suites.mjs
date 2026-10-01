@@ -73,6 +73,7 @@ export const SUITES = {
     s("test/privacy-offline.mjs", [], { domains: ["privacy", "offline"], tier: "packet" }),
     s("test/program-entry-conflict-runtime.mjs"),
     s("test/sw-upgrade.mjs"),
+    s("test/sw-error-responses.mjs"),
     s("test/install-transfer-sw-upgrade.mjs"),
     s("test/program-transition-sw-upgrade.mjs"),
     s("test/program-entry-rules-runtime.mjs"),
