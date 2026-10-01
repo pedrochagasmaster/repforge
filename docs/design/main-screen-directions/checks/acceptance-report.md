@@ -1,6 +1,6 @@
 ## Acceptance checks (§7), run on D, E, F, G
 
-176 screen renders (4 directions × 22 screens × PT and EN at 360 px) plus 90 interaction states (sheets open, disclosures open, the shelf field as a real input, chart toggles).
+194 screen renders (4 directions × 22 screens, plus the 9 OG-6 screens on D, × PT and EN at 360 px) plus 102 interaction states (sheets open, disclosures open, the shelf field as a real input, chart toggles, the OG-6 sheets closed and the discard confirmation).
 
 ### 1. Targets ≥ 44 × 44: pass
 
@@ -27,7 +27,7 @@ Orange elements found, by kind (every one is on the §3 allowlist):
 
 
 
-Outcome words checked: 240 (oracle: `buildSessionDelta` and its helpers evaluated from app.js source, plus the evidence rules of `strengthEvidenceRecords`). Engine targets checked: 370 (each recomputed in Node with `RepForgeProgression.evaluateProgression`).
+Outcome words checked: 250 (oracle: `buildSessionDelta` and its helpers evaluated from app.js source, plus the evidence rules of `strengthEvidenceRecords`). Engine targets checked: 390 (each recomputed in Node with `RepForgeProgression.evaluateProgression`).
 
 ### 5. Strings: pass
 

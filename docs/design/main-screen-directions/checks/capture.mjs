@@ -21,6 +21,8 @@ const OUT = process.argv[2] || "/tmp/main-screen-captures";
 const DIRS = (process.env.DIRS || "d,e,f,g").split(",");
 const SCREENS = ["today", "workout", "why", "rest", "why-set2", "summary", "summary2", "progress", "chart", "history", "history-freq-a", "history-freq-b", "history-freq-c", "history-freq-d", "history-freq-e", "session", "program",
   "today-mixed", "why-repgoal", "why-anchor", "why-manual", "summary-first"];
+// OG-6 rounds 1 and 2: drawn on D only.
+const OG6 = ["today-done", "today-draft-resume", "workout-exercise-note", "workout-session", "workout-early-finish", "workout-warmup-actions", "workout-reorder", "workout-skipped-actions", "workout-substituted-actions"];
 const LANDING = ["today", "workout", "why", "rest", "summary"];
 const attach = new URL("../captures/", here).pathname;
 mkdirSync(OUT, { recursive: true });
@@ -35,7 +37,7 @@ for (const w of [360, 390, 430]) for (const lang of ["pt", "en"]) for (const the
     localStorage.setItem("taurifer-directions:lang", lang); localStorage.setItem("taurifer-directions:theme", theme);
     localStorage.setItem("taurifer-directions:w", String(w)); localStorage.setItem("taurifer-directions:view", "one");
   }, [lang, theme, w]);
-  for (const dir of DIRS) for (const screen of SCREENS) {
+  for (const dir of DIRS) for (const screen of dir === "d" ? [...SCREENS, ...OG6] : SCREENS) {
     await page.goto(`${BASE}#${dir}-${screen}`);
     await page.reload();
     await page.waitForSelector('.ph[data-phone="main"]');

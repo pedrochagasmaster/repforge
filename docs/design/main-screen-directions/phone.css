@@ -1262,3 +1262,97 @@
 .dd .d-fb__b.is-future i{height:0!important}
 .dd .d-fb__plot{padding-bottom:20px}
 .dd .d-fb__plan{position:absolute;left:0;right:0;top:28px;border-top:1px dashed var(--rule-strong)}
+
+/* ================================================================
+   D · OG-6 rounds 1 and 2: Today done and draft resume, the note sheet, the
+   Session sheet with its early-finish foot, the exercise actions sheet and
+   the discard confirmation. Tokens only; orange stays on the budget.
+   ================================================================ */
+/* A sheet can pin actions under its scrolling body; a confirmation stacks above another sheet. */
+.dx .x-sheet__body{min-height:0;flex:1 1 auto}
+.dx .x-sheet__foot{flex:none;display:grid;gap:var(--space-8);padding:var(--space-12) var(--gut) var(--dock-b);border-top:1px solid var(--rule-on-surface);background:var(--surface)}
+.dx .scrim--over{z-index:46}
+.dx .x-sheet--over{z-index:47}
+.dx .x-sec--danger{color:var(--color-destructive)}
+/* The app's toast: the CTA ground and ink, 14 px. It sits at the top here so it never covers a sheet's actions or the shelf. */
+.dx .x-toast{position:absolute;z-index:55;top:52px;left:var(--gut);right:var(--gut);padding:var(--space-12) var(--space-16);border-radius:var(--radius-surface);background:var(--cta);color:var(--cta-ink);font-size:var(--font-size-body-small);line-height:var(--line-standard);box-shadow:var(--elevation-sheet-shadow);transition:opacity var(--motion-in),transform var(--motion-in)}
+@starting-style{.dx .x-toast{opacity:0;transform:translateY(-8px)}}
+
+/* Today, done */
+.dd .d-eyebrow--done{display:flex;align-items:center;gap:var(--space-8);color:var(--ink)}
+.dd .d-eyebrow--done .ic{width:18px;height:18px}
+.dd .d-pr--day{display:block;margin-top:var(--space-12)}
+.dd .d-donenote{margin-top:var(--space-12);font-size:var(--font-size-body);color:var(--ink-soft)}
+.dd .d-another{margin-top:var(--space-16)}
+.dd .d-grp--c .d-grp__next{margin-top:var(--space-4)}
+.dd .d-split--one{grid-template-columns:1fr}
+.dd .d-upnext{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:64px;margin-top:var(--space-12);padding:var(--space-8) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);text-align:left}
+.dd .d-upnext>span{display:grid}
+.dd .d-upnext b{font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
+.dd .d-upnext small{font-size:var(--font-size-body-small);color:var(--ink-soft)}
+.dd .d-upnext .ic{color:var(--ink-soft)}
+/* Today, draft resume */
+.dd .d-resume{display:grid;gap:var(--space-4);margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
+.dd .d-resume b{font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
+.dd .d-resume span{font-size:var(--font-size-body-small);color:var(--ink-soft)}
+.dd .d-confirm__t{padding:var(--space-4) 0 var(--space-8);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:1.35;text-wrap:pretty}
+
+/* Form fields on a sheet: a caption over a real input on the field ground and the required boundary. */
+.dd .d-flds{display:grid;gap:var(--space-12);margin-top:var(--space-18)}
+.dd .d-fld{display:flex;flex-direction:column;padding-top:var(--space-8);border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);background:var(--control-field-bg);color:var(--control-field-ink)}
+.dd .d-fld small{padding:0 var(--space-12);font-size:var(--font-size-caption);line-height:1.2;color:var(--ink-soft)}
+.dd .d-fld :is(input,textarea){width:100%;min-width:0;min-height:var(--control-target);margin:0;border:0;padding:0 var(--space-12) var(--space-4);background:none;color:var(--ink);font:var(--weight-medium) var(--font-size-control)/1.4 var(--font-training-data);outline:none;caret-color:var(--ink)}
+.dd .d-fld textarea{min-height:88px;padding-top:var(--space-4);font:var(--weight-regular) var(--font-size-control)/var(--line-reading) var(--font-language);resize:none}
+.dd .d-fld :is(input,textarea)::placeholder{color:var(--ink-soft);opacity:1}
+.dd .d-fld :is(input,textarea)::selection{background:rgba(var(--accent-rgb),.24)}
+/* Focus is the quiet selected state: a 2 px ink boundary, never orange. */
+.dd .d-fld:focus-within,.dd .d-fld--focus{border-color:var(--boundary-selected-quiet);box-shadow:inset 0 0 0 1px var(--boundary-selected-quiet);background:var(--surface)}
+.dd .d-fld--focus{margin-top:var(--space-16)}
+.dd .d-fld--focus textarea{min-height:168px;padding-top:var(--space-12)}
+.dd .d-hint{margin-top:var(--space-8);font-size:var(--font-size-body-small);color:var(--ink-soft)}
+.dd .d-notesheet .x-sheet__foot,.dd .d-confirm .x-sheet__foot{padding-top:var(--space-12)}
+.dd .d-notesheet .x-sheet__foot{grid-template-columns:1fr 1fr}
+
+/* Sheet sections: a sentence-case heading over a group of rows. */
+.dd .d-xs{margin-top:var(--space-14)}
+.dd .d-xs__h{font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:1.3;color:var(--ink-soft)}
+.dd .d-xs__h--first{margin-top:var(--space-18)}
+.dd .d-xs__t{margin-top:var(--space-4);font-size:var(--font-size-body);line-height:var(--line-standard)}
+.dd .d-xs__v{margin-top:var(--space-4);font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
+.dd .d-xs .d-acts{margin-top:var(--space-4)}
+.dd .d-act--s{min-height:48px;padding:var(--space-4) 0}
+.dd .d-act--s>span{display:grid;min-width:0}
+.dd .d-act small{font-size:var(--font-size-body-small);color:var(--ink-soft)}
+.dd .d-sheet__t--ex{margin-top:var(--space-4)}
+
+/* Warm-up sets: each set with its role and the one control that flips it. */
+.dd .d-wrows{margin-top:var(--space-4);border-top:1px solid var(--rule-on-surface)}
+.dd .d-wrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-12);align-items:center;min-height:56px;padding:var(--space-4) 0;border-bottom:1px solid var(--rule-on-surface)}
+.dd .d-wrow__i{display:grid;line-height:1.3}
+.dd .d-wrow__i b{font-weight:var(--weight-medium)}
+.dd .d-wrow__r{font-size:var(--font-size-body-small);color:var(--ink-soft)}
+.dd .d-wrow__r.is-warm{color:var(--ink);font-weight:var(--weight-medium)}
+.dd .d-wbtn{min-width:12rem;min-height:var(--control-target);padding:var(--space-4) var(--space-12);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);font:var(--weight-medium) var(--font-size-body-small)/1.2 var(--font-language);text-align:center}
+.dd .d-wbtn:active{background:var(--well)}
+
+/* The session map: one row per lift with its progress and the two reorder buttons. */
+.dd .d-map{margin-top:var(--space-4);border-top:1px solid var(--rule-on-surface)}
+.dd .d-map__row{display:grid;grid-template-columns:minmax(0,1fr) var(--control-target) var(--control-target);gap:var(--space-8);align-items:center;min-height:56px;padding:var(--space-4) 0;border-bottom:1px solid var(--rule-on-surface)}
+.dd .d-map__row.is-cur{box-shadow:inset 3px 0 0 var(--ink);padding-left:var(--space-8)}
+.dd .d-map__jump{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);min-height:48px;text-align:left}
+.dd .d-map__n{line-height:1.3}
+.dd .d-map__s{flex:none;display:inline-flex;align-items:center;gap:var(--space-4);font:var(--weight-medium) var(--font-size-body-small) var(--font-training-data);color:var(--ink-soft)}
+.dd .d-map__s .ic{width:16px;height:16px;color:var(--ink)}
+.dd .d-map__mv{display:grid;place-items:center;width:var(--control-target);height:var(--control-target);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink)}
+.dd .d-map__mv .ic{width:20px;height:20px}
+.dd .d-map__mv:disabled{border-color:var(--rule-on-surface);color:var(--ink-faint);cursor:default}
+.dd .d-map__mv:disabled:active{transform:none;background:var(--control-adjustment-bg)}
+/* Early finish: the foot becomes the confirmation. */
+.dd .d-early__msg{font-size:var(--font-size-body);line-height:var(--line-standard)}
+.dd .d-early__list{margin:0;padding:0;list-style:none;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
+.dd .d-early__list li{padding:var(--space-4) 0}
+.dd .d-early__list .x-mono{color:var(--ink)}
+
+/* 200 % text */
+.dd.is-text-scaled .d-wrow{grid-template-columns:1fr}
+.dd.is-text-scaled .d-notesheet .x-sheet__foot{grid-template-columns:1fr}

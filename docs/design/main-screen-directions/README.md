@@ -161,6 +161,33 @@ the engine in Node, then compares both with what each screen shows.
 `captures/` holds the PT 390 light shots of Today, focus, Why, rest and the
 summary for each of D to G (§7.6, the landing-page shots of §8).
 
+## OG-6 drawings, rounds 1 and 2 (D only)
+
+Plan 064 OG-6 asks for the D screens the first drawings left open. Rounds 1
+and 2 draw nine: Today and the workout sheets. They are D-only screens (the
+other directions fall back to their base screen), numbered in orange in the
+screen bar and labelled by flow:
+
+| Screen id | Real catalog state |
+| --- | --- |
+| `today-done` | `today/done` |
+| `today-draft-resume` | `today/draft-resume` |
+| `workout-exercise-note` | `workout/exercise-note` |
+| `workout-session` | `workout/session` (the table-view button) |
+| `workout-early-finish` | `workout/early-finish` |
+| `workout-warmup-actions` | `workout/warmup-actions` |
+| `workout-reorder` | `workout/reorder` |
+| `workout-skipped-actions` | `workout/skipped-actions` |
+| `workout-substituted-actions` | `workout/substituted-actions` |
+
+They are linked: the header's table-view button opens the Session sheet, its
+foot opens early finish, the reorder buttons draw the reorder state, and the
+exercise actions sheet closes onto the lift's page (the ⋯ button reopens it).
+`checks/acceptance.mjs` runs all nine on D at 360 PT and EN, with the closed
+sheets and the discard confirmation as extra states. The only new strings are
+`d.og6.*` below; every other word is a shipped key, read from this branch's
+`i18n.js`.
+
 ## New strings (D, E, F, G)
 
 Every string a D-family screen shows is either a shipped `i18n` key, read from
@@ -314,6 +341,8 @@ calls in `dir-e.js`, `dir-f.js` and `dir-g.js`.
 | `d.timer` | D, E, F, G | Timer de descanso | Rest timer |
 | `d.table_view` | D, E, F, G | Ver como tabela | Show as table |
 | `d.more` | D, E, F, G | Ações do exercício | Exercise actions |
+| `d.og6.resume.title` | D (OG-6) | Sessão em andamento | Session in progress |
+| `d.og6.set.warmup` | D (OG-6) | A | W |
 | `e.wk` | E | S{n} | W{n} |
 | `e.wk_long` | E | Semana {n} | Week {n} |
 | `e.col.week` | E | Semana | Week |

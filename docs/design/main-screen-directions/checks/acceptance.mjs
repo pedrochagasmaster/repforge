@@ -29,8 +29,16 @@ const BASE = process.env.REVIEW_URL || "http://localhost:8000/docs/design/main-s
 const DIRS = (process.env.DIRS || "d,e,f,g").split(",");
 const SCREENS = ["today", "workout", "why", "rest", "why-set2", "summary", "summary2", "progress", "chart", "history", "history-freq-a", "history-freq-b", "history-freq-c", "history-freq-d", "history-freq-e", "session", "program",
   "today-mixed", "why-repgoal", "why-anchor", "why-manual", "summary-first"];
-// Interaction states that reveal more controls: [screen, selector to click, label]
+// OG-6 rounds 1 and 2: the Today and workout-sheet states drawn on D only (the other directions fall back to their base screens).
+const OG6 = ["today-done", "today-draft-resume", "workout-exercise-note", "workout-session", "workout-early-finish", "workout-warmup-actions", "workout-reorder", "workout-skipped-actions", "workout-substituted-actions"];
+// Interaction states that reveal more controls: [screen, selector(s) to click in order, label, only]
 const STATES = [
+  ["today-draft-resume", ['[data-sheet="days"]'], "day picker over a draft", "d"],
+  ["today-draft-resume", ['[data-sheet="days"]', '.x-sheet .x-sec'], "discard confirmation over the day picker", "d"],
+  ["workout-warmup-actions", ['[data-toggle="warm"]'], "set 1 flipped back to a working set", "d"],
+  ["workout-warmup-actions", ['.x-close'], "sheet closed, focus page and shelf", "d"],
+  ["workout-skipped-actions", ['.x-close'], "skipped lift's page under a closed sheet", "d"],
+  ["workout-substituted-actions", ['.x-close'], "substituted lift's page under a closed sheet", "d"],
   ["today", '[data-sheet="days"]', "day picker sheet"],
   ["workout", '[data-sheet="timer"]', "timer presets sheet"],
   ["workout", '[data-sheet="actions"]', "exercise actions sheet"],
@@ -238,7 +246,7 @@ async function main() {
   for (const dir of DIRS) {
     orangeByDir[dir] = {};
     for (const lang of ["pt", "en"]) {
-      for (const screen of SCREENS) {
+      for (const screen of dir === "d" ? [...SCREENS, ...OG6] : SCREENS) {
         await open(dir, screen, lang);
         counts.screens++;
         const where = `${dir}-${screen} ${lang}`;
@@ -270,13 +278,18 @@ async function main() {
         if (/—/.test(text)) fail("strings", { where, what: "em dash" });
         if (lang === "en") for (const l of await pauseLabels()) if (/^Hold$/i.test(l)) fail("strings", { where, what: "EN pause labelled Hold" });
       }
-      for (const [screen, sel, label] of STATES) {
+      for (const [screen, sel, label, only] of STATES) {
+        if (only && only !== dir) continue;
         await open(dir, screen, lang);
-        const b = await page.$(`.ph[data-phone="main"] ${sel}`);
+        let b = null;
+        for (const one of [].concat(sel)) {
+          b = await page.$(`.ph[data-phone="main"] ${one}`);
+          if (!b) break;
+          await b.click();
+          await page.waitForTimeout(60);
+          await unscale();
+        }
         if (!b) continue;
-        await b.click();
-        await page.waitForTimeout(60);
-        await unscale();
         counts.states++;
         const where = `${dir}-${screen} ${lang}, ${label}`;
         for (const t of await measureTargets()) fail("targets", { where, ...t });
@@ -316,7 +329,7 @@ async function main() {
   const orangeTable = DIRS.map((d) => `| ${d.toUpperCase()} | ${[...new Set(Object.values(orangeByDir[d]).flat())].join(", ")} |`).join("\n");
   const report = `## Acceptance checks (§7), run on ${DIRS.map((d) => d.toUpperCase()).join(", ")}
 
-${counts.screens} screen renders (${DIRS.length} directions × ${SCREENS.length} screens × PT and EN at 360 px) plus ${counts.states} interaction states (sheets open, disclosures open, the shelf field as a real input, chart toggles).
+${counts.screens} screen renders (${DIRS.length} directions × ${SCREENS.length} screens${DIRS.includes("d") ? `, plus the ${OG6.length} OG-6 screens on D` : ""}, × PT and EN at 360 px) plus ${counts.states} interaction states (sheets open, disclosures open, the shelf field as a real input, chart toggles${DIRS.includes("d") ? ", the OG-6 sheets closed and the discard confirmation" : ""}).
 
 ${section("1. Targets ≥ 44 × 44", "targets", (x) => `- ${x.where}: \`${x.el}\` "${x.text}" ${x.w}×${x.h}`)}
 ${section("2. Overflow at 360 PT", "overflow", (x) => `- ${x.where}: \`${x.el || ""}\` ${x.what || `"${x.text}" ${x.outside ? "outside the phone" : `${x.scroll} > ${x.client}`}`}`)}

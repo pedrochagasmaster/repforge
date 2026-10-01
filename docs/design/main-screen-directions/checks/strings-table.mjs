@@ -22,7 +22,7 @@ for (const f of ["data.js", "data-d.js", "kit.js", "kit-d.js", "dir-d.js", "dir-
   vm.runInContext(readFileSync(new URL("../" + f, here), "utf8"), ctx, { filename: f });
 }
 const NEW = win.DX.NEW;
-const owner = (k) => ({ d: "D, E, F, G", e: "E", f: "F", g: "G" }[k[0]]);
+const owner = (k) => (k.startsWith("d.og6.") ? "D (OG-6)" : { d: "D, E, F, G", e: "E", f: "F", g: "G" }[k[0]]);
 const cell = (s) => s.replace(/\|/g, "\\|");
 const rows = Object.keys(NEW).map((k) => `| \`${k}\` | ${owner(k)} | ${cell(NEW[k][0])} | ${cell(NEW[k][1])} |`);
 const table = `| Key | Used by | PT | EN |\n| --- | --- | --- | --- |\n${rows.join("\n")}`;

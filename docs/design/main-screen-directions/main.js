@@ -14,9 +14,17 @@
     ["session", "History session"], ["program", "Program"],
     ["today-mixed", "Today, mixed day", true], ["why-repgoal", "Why, rep goal", true], ["why-anchor", "Why, anchor", true],
     ["why-manual", "Why, manual", true], ["summary-first", "Summary, first session", true],
+    // OG-6 rounds 1 and 2: the Today and workout-sheet states the first drawings left open. Labelled by flow.
+    ["today-done", "Today · done", true], ["today-draft-resume", "Today · draft resume", true],
+    ["workout-exercise-note", "Workout · exercise note", true], ["workout-session", "Workout · session sheet", true],
+    ["workout-early-finish", "Workout · early finish", true], ["workout-warmup-actions", "Workout · warm-up actions", true],
+    ["workout-reorder", "Workout · reorder", true], ["workout-skipped-actions", "Workout · skipped actions", true],
+    ["workout-substituted-actions", "Workout · substituted actions", true],
   ];
   // Screens A, B and C did not draw fall back to their base screen, labelled.
-  const FALLBACK = { "history-freq-a": "history", "history-freq-b": "history", "history-freq-c": "history", "history-freq-d": "history", "history-freq-e": "history", "why-set2": "rest", "today-mixed": "today", "why-repgoal": "why", "why-anchor": "why", "why-manual": "why", "summary-first": "summary" };
+  const FALLBACK = { "history-freq-a": "history", "history-freq-b": "history", "history-freq-c": "history", "history-freq-d": "history", "history-freq-e": "history", "why-set2": "rest", "today-mixed": "today", "why-repgoal": "why", "why-anchor": "why", "why-manual": "why", "summary-first": "summary",
+    "today-done": "today", "today-draft-resume": "today", "workout-exercise-note": "workout", "workout-session": "workout", "workout-early-finish": "rest",
+    "workout-warmup-actions": "workout", "workout-reorder": "workout", "workout-skipped-actions": "workout", "workout-substituted-actions": "workout" };
   // Screens reached only by tapping, named after the review screen they belong to.
   const PARENT = { workout2: "rest", "workout-mixed": "today-mixed" };
   const HEIGHT = { 360: 780, 390: 844, 430: 932 };
@@ -73,9 +81,9 @@
 
   function resetFor(screen) {
     U.field = "load"; U.load = 102.5; U.rir = 1; U.reps = 7;
-    if (screen === "rest" || screen === "why-set2") { U.rest = 84; U.running = true; }
+    if (screen === "rest" || screen === "why-set2" || screen === "workout-early-finish") { U.rest = 84; U.running = true; }
     if (screen !== "chart") U.pt = null;
-    Object.assign(UD, { field: "reps", editing: false, correct: null, shelfMode: null, calcOpen: false, sheet: null, musclesAll: false, open: null, touched: {} });
+    Object.assign(UD, { field: "reps", editing: false, correct: null, shelfMode: null, calcOpen: false, sheet: null, musclesAll: false, open: null, touched: {}, warm: false });
     if (screen !== "chart") { UD.pt = null; UD.lift = "sq"; UD.metric = "top"; UD.scope = "block"; }
     const fam = family();
     if (fam && fam.seed) Object.assign(UD, fam.seed(screen));
@@ -245,7 +253,7 @@
     if (t.dataset.go) return go(t.dataset.go, ph, t.dataset.lift ? () => { UD.lift = t.dataset.lift; } : null);
     if (t.dataset.sheet != null) { S.sheet = t.dataset.sheet || null; return refresh(ph); }
     if (t.dataset.open != null) { S.open = S.open === t.dataset.open ? "" : t.dataset.open; return refresh(ph); }
-    if (t.dataset.toggle) { if (t.dataset.toggle === "calc") S.calcOpen = !S.calcOpen; if (t.dataset.toggle === "muscles") S.musclesAll = !S.musclesAll; return refresh(ph); }
+    if (t.dataset.toggle) { if (t.dataset.toggle === "calc") S.calcOpen = !S.calcOpen; if (t.dataset.toggle === "muscles") S.musclesAll = !S.musclesAll; if (t.dataset.toggle === "warm") S.warm = !S.warm; return refresh(ph); }
     if (t.dataset.scope) { S.scope = t.dataset.scope; S.pt = null; return refresh(ph); }
     if (t.dataset.metric) { S.metric = t.dataset.metric; return refresh(ph); }
     // A logged set's values are the lifter's own, so they open touched (ink).

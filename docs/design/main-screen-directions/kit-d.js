@@ -24,12 +24,17 @@
     return `<span class="x-art ${cls}" style="--art-bg:${e.bg}" aria-hidden="true"><img src="${e.art}" alt="" loading="lazy"></span>`;
   }
 
-  function sheet({ title, body, close = "workout", cls = "", label }) {
-    return `<div class="scrim" data-go="${close}"></div>
-      <section class="x-sheet ${cls}" role="dialog" aria-modal="true" aria-label="${esc(label || title)}">
+  // A sheet. Optional: `foot` pins actions under the scrolling body, `noClose`
+  // drops the close button when the sheet carries its own Cancel, `closeAttr`
+  // replaces the default data-go, and `over` stacks it above another sheet.
+  function sheet({ title, body, close = "workout", cls = "", label, foot = "", noClose = false, closeAttr, over = false }) {
+    const dismiss = closeAttr || `data-go="${close}"`;
+    return `<div class="scrim${over ? " scrim--over" : ""}" ${dismiss}></div>
+      <section class="x-sheet${over ? " x-sheet--over" : ""} ${cls}" role="dialog" aria-modal="true" aria-label="${esc(label || title)}">
         <div class="grab" aria-hidden="true"></div>
-        <button class="x-close" data-go="${close}" aria-label="${n("d.why.close")}">${ic("close")}</button>
+        ${noClose ? "" : `<button class="x-close" ${dismiss} aria-label="${n("d.why.close")}">${ic("close")}</button>`}
         <div class="x-sheet__body">${body}</div>
+        ${foot ? `<div class="x-sheet__foot">${foot}</div>` : ""}
       </section>`;
   }
 

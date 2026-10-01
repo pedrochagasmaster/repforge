@@ -11,6 +11,13 @@
   const { mark } = X;
   const U_ = "kg";
 
+  // OG-6 rounds 1 and 2: the only strings these drawings add. Every other word is a shipped key.
+  D.register({
+    "d.og6.resume.title": ["Sessão em andamento", "Session in progress"],
+    // The ledger's index label for a warm-up set (spec section 4): short enough for the 36 px index column.
+    "d.og6.set.warmup": ["A", "W"],
+  });
+
   /* ---------- scenarios ---------- */
   const MAIN = { iso: T.TODAY, dayName: T.PROGRAM.days[0].name, lifts: T.PROGRAM.days[0].lifts, done: 0, next: T.PROGRAM.days[1].name, week: 4 };
   const MIXD = { iso: D.MIX.today, dayName: D.MIX.name, lifts: D.MIX.lifts, done: 1, next: T.PROGRAM.days[2].name, week: 4 };
@@ -32,7 +39,7 @@
   }
 
   /* ---------------- 5.1 Today ---------------- */
-  function today(U, ctx = MAIN) {
+  function today(U, ctx = MAIN, opts = {}) {
     const recs = ctx.lifts.map((k) => D.rec(k, ctx.iso));
     const sets = recs.reduce((t, r) => t + (r.manual ? r.manual.sets : r.sets.length), 0);
     const rows = recs.map((r) => {
@@ -54,6 +61,7 @@
         <h1 class="d-h1">${T.two(ctx.dayName)}</h1>
         <p class="d-lede">${n("d.lede_week", { program: T.two(T.PROGRAM.name), n: ctx.week, total: 6 })}</p>
         ${weekRule(ctx.week, 6)}
+        ${opts.resume ? resumeBand(ctx) : ""}
         <p class="d-tally">${tally}</p>
         <div class="d-sec"><h2 class="d-h2">${n("d.rx.title")}</h2><span class="d-meta">${n("d.rx.meta", { lifts: recs.length, sets })}</span></div>
         ${colHead(["", n("d.col.exercise"), U_, n("d.col.target")], "d-cols--rx")}
@@ -63,14 +71,16 @@
           <div><span class="d-k">${s("today.up_next")}</span><span class="d-v">${T.two(ctx.next)}</span></div>
         </div>
       </div>`;
-    const cta = `<div class="x-ctabar"><button class="x-cta x-cta--go" data-go="${ctx === MIXD ? "workout-mixed" : "workout"}">${s("today.start")}${ic("arrow", "x-cta__ar")}</button></div>`;
-    const days = U.sheet === "days" ? daySheet() : "";
-    return { body, over: cta + X.dock("today") + days, cls: "x-has-cta" };
+    const cta = `<div class="x-ctabar"><button class="x-cta x-cta--go" data-go="${ctx === MIXD ? "workout-mixed" : "workout"}">${s(opts.resume ? "today.continue" : "today.start")}${ic("arrow", "x-cta__ar")}</button></div>`;
+    // With a draft open, confirming another day asks before it discards the draft (confirm.discard_draft).
+    const days = U.sheet === "days" || U.sheet === "discard" ? daySheet(opts.resume) : "";
+    const discard = U.sheet === "discard" ? discardDialog() : "";
+    return { body, over: cta + X.dock("today") + days + discard, cls: "x-has-cta" };
   }
 
-  function daySheet() {
+  function daySheet(resume) {
     const rows = T.PROGRAM.days.map((d, i) => `<button class="d-dayopt${i === 0 ? " is-on" : ""}" data-sheet="" aria-pressed="${i === 0}"><span><b>${T.two(d.name)}</b><small>${T.muList(T.dayMuscles(i).slice(0, 3))}</small></span>${i === 0 ? `<em>${s("today.choose_day_current")}</em>` : ""}</button>`).join("");
-    return X.sheet({ title: s("today.choose_day_title"), close: "today", body: `<h2 class="d-sheet__t">${s("today.choose_day_title")}</h2><p class="d-sheet__sub">${s("today.choose_day_sub")}</p><div class="d-dayopts">${rows}</div><button class="x-sec" data-go="today">${s("today.choose_day_confirm")}</button>` });
+    return X.sheet({ title: s("today.choose_day_title"), close: resume ? "today-draft-resume" : "today", body: `<h2 class="d-sheet__t">${s("today.choose_day_title")}</h2><p class="d-sheet__sub">${s("today.choose_day_sub")}</p><div class="d-dayopts">${rows}</div><button class="x-sec" ${resume ? 'data-sheet="discard"' : 'data-go="today"'}>${s("today.choose_day_confirm")}</button>` });
   }
 
   /* ---------------- 5.2 Focus workout + 5.4 rest ---------------- */
@@ -90,7 +100,7 @@
       <button class="d-icb" data-go="${ctx === MIXD ? "today-mixed" : "today"}" aria-label="${n("d.back_today")}">${ic("chev", "rot-r")}</button>
       <p class="d-wtop__c">${n("d.head.day_ex", { day: T.two(ctx.dayName), n: idx + 1, m: ctx.lifts.length })}</p>
       <button class="d-icb d-timer${running ? " is-live" : ""}" data-sheet="timer" aria-label="${n("d.timer")}">${ic("timer")}${running ? `<span>${X.fmtTime(U.rest)}</span>` : ""}</button>
-      <button class="d-icb" aria-label="${n("d.table_view")}">${ic("sheet")}</button>
+      <button class="d-icb" data-go="workout-session" aria-label="${n("d.table_view")}">${ic("sheet")}</button>
       <button class="d-icb" data-sheet="actions" aria-label="${n("d.more")}">${ic("more")}</button>
     </div>
     <div class="d-seg" aria-hidden="true">${ctx.lifts.map((_, i) => `<i class="${i < idx ? "done" : i === idx ? "now" : ""}"></i>`).join("")}</div>`;
@@ -133,7 +143,7 @@
   }
 
   /* The focus body for any lift in any scenario. phase: "set1" | "rest". */
-  function focusBody(U, ctx, k, phase) {
+  function focusBody(U, ctx, k, phase, fopts = {}) {
     const idx = ctx.lifts.indexOf(k);
     const r = D.rec(k, ctx.iso);
     const pd = D.previousDate(k, ctx.iso), prev = pd ? setsOnly(k, pd) : [];
@@ -144,11 +154,14 @@
     const targets = r.glyph === "manual" ? Array.from({ length: r.manual.sets }, () => ({ load: r.load, reps: `${r.manual.lo}–${r.manual.hi}` })) : r.sets;
     const rirT = (t) => (t.targetRirMin != null ? `${t.targetRirMin}–${t.targetRirMax}` : `0–${t.targetRir != null ? t.targetRir : 2}`);
     const correcting = U.correct != null;
+    // A warm-up set keeps its place in the ledger under a label instead of a number (spec section 4).
+    const warmLab = fopts.warm ? { label: n("d.og6.set.warmup") } : {};
     targets.forEach((t, i) => {
+      const lab = i === 0 ? warmLab : {};
       // The corrected row holds the shelf's live values; the open row steps back.
-      if (resting && i === 0) ledger += correcting ? setRow(0, "done", [U.load, U.reps, U.rir], prev[0], { editing: true }) : setRow(0, "done", [102.5, 7, 1], prev[0]);
+      if (resting && i === 0) ledger += correcting ? setRow(0, "done", [U.load, U.reps, U.rir], prev[0], { editing: true, ...lab }) : setRow(0, "done", [102.5, 7, 1], prev[0], lab);
       else if (resting && i === 1) ledger += correcting ? setRow(1, "open", [s2.load, s2.reps, s2.rir], prev[1], { demoted: true }) : setRow(1, "open", [U.load, U.reps, U.rir], prev[1]);
-      else if (!resting && i === 0) ledger += setRow(i, "open", [U.load, U.reps, U.rir], prev[i]);
+      else if (!resting && i === 0) ledger += setRow(i, "open", [U.load, U.reps, U.rir], prev[i], lab);
       else ledger += setRow(i, "queued", [resting ? s2.load : t.load, resting ? s2.reps : t.reps, r.glyph === "manual" ? null : rirT(t)], prev[i]);
     });
     const nextK = ctx.lifts[idx + 1];
@@ -160,7 +173,7 @@
     } else cue = cueBlock(r, k, ctx, whyGo);
     return `${header(ctx, idx, U, resting)}
       <div class="d-pg d-pg--w">
-        <div class="d-exh">${X.art(k)}<div><h1 class="d-exname">${D.name(k)}</h1><p class="d-exmeta">${exMeta(k)}</p></div></div>
+        <div class="d-exh">${X.art(k)}<div><h1 class="d-exname">${D.name(k)}</h1><p class="d-exmeta">${exMeta(k)}</p>${fopts.instead ? `<p class="d-exmeta">${s("log.substitute_for", { name: D.name(fopts.instead) })}</p>` : ""}</div></div>
         ${cue}
         ${note}
         ${colHead([n("d.col.set"), U_, "reps", "RIR"], "d-cols--set")}
@@ -184,8 +197,9 @@
   }
 
   function actionsSheet(back) {
-    const item = (icn, key) => `<button class="d-act">${ic(icn)}<span>${s(key)}</span></button>`;
-    return X.sheet({ title: s("ex.actions.title"), close: back, body: `<h2 class="d-sheet__t">${s("ex.actions.title")}</h2><div class="d-acts">${item("note", "ex.actions.open_notes")}${item("reset", "ex.actions.substitute")}${item("skip", "ex.actions.skip")}${item("sheet", "program.editor.reorder")}${item("check", "log.finish")}</div>` });
+    // Each action opens the sheet or state it leads to (OG-6 drawings), so the review page can be walked end to end.
+    const item = (icn, key, go) => `<button class="d-act"${go ? ` data-go="${go}"` : ""}>${ic(icn)}<span>${s(key)}</span></button>`;
+    return X.sheet({ title: s("ex.actions.title"), close: back, body: `<h2 class="d-sheet__t">${s("ex.actions.title")}</h2><div class="d-acts">${item("note", "ex.actions.open_notes", "workout-exercise-note")}${item("reset", "ex.actions.substitute", "workout-substituted-actions")}${item("skip", "ex.actions.skip", "workout-skipped-actions")}${item("sheet", "program.editor.reorder", "workout-session")}${item("check", "log.finish")}</div>` });
   }
 
   const workout = (U) => focusScreen(U, MAIN, "sq", "set1");
@@ -488,6 +502,159 @@
     return { body, over: X.dock("program") };
   }
 
+  /* ---------------- OG-6 rounds 1 and 2 ----------------
+     The nine Today and workout-sheet states the first drawings left open.
+     Each carries every element and action of the real state (the catalog
+     frames at unified-convergence), restyled on D's components: the sheet
+     header band, ledger rows, the shelf, hairline-ruled groups. */
+
+  // Today, an unfinished session: a status band above the prescription, and a confirmation before another day replaces the draft.
+  const resumeBand = (ctx) => `<div class="d-resume" role="status"><b>${n("d.og6.resume.title")}</b><span>${n("d.head.day_ex", { day: T.two(ctx.dayName), n: 1, m: ctx.lifts.length })}</span></div>`;
+
+  function discardDialog() {
+    const foot = `<button class="x-cta" data-sheet="days">${s("dialog.cancel")}</button><button class="x-sec x-sec--danger" data-go="today">${s("draft.recovery.discard")}</button>`;
+    return X.sheet({ title: s("draft.recovery.discard"), label: s("confirm.discard_draft"), noClose: true, over: true, closeAttr: 'data-sheet="days"', cls: "d-confirm", body: `<p class="d-confirm__t">${s("confirm.discard_draft")}</p>`, foot });
+  }
+
+  // Today, the day is complete: the saved session's totals, records and outcomes, then the week and what comes next.
+  function todayDone() {
+    const iso = T.TODAY, sn = D.session(iso), prs = D.prsFor(iso);
+    const groups = sn.lifts.map((k) => {
+      const o = D.canonicalOutcome(k, iso), nx = D.rec(k, iso, "next");
+      return `<div class="d-grp d-grp--c">
+        <div class="d-grp__h"><span class="d-grp__n">${D.name(k)}</span><span class="d-out${o.state === "insufficient" ? " is-insuf" : ""}" data-outcome="${o.k}@${o.iso}">${o.word}</span></div>
+        <p class="d-grp__next"${X.tgt(nx)}>${mark(nx.glyph)}<span>${withMono(n("d.next_target", { target: "\u0000" }), ops(nx.next))}</span></p>
+      </div>`;
+    }).join("");
+    const body = `
+      <div class="d-pg">
+        <div class="d-top">
+          <span class="d-date">${date.long(iso)}</span>
+          <div class="d-top__r"><button class="d-icb" aria-label="${n("d.settings")}">${ic("gear")}</button></div>
+        </div>
+        <p class="d-eyebrow d-eyebrow--done">${ic("check")}<span>${s("today.done_label")}</span></p>
+        <h1 class="d-h1">${T.two(sn.dayName)}</h1>
+        <p class="d-lede">${n("d.lede_week", { program: T.two(T.PROGRAM.name), n: sn.week, total: 6 })}</p>
+        ${weekRule(sn.week, 6)}
+        <div class="d-totals">
+          <div><b>${sn.sets}</b><span>${n("d.totals.sets")}</span></div>
+          <div><b>${num(sn.vol, 0)}</b><span>${s("summary.stat.moved", { unit: U_ })}</span></div>
+          <div><b>${sn.lifts.length}</b><span>${n("d.totals.lifts")}</span></div>
+        </div>
+        ${prs.length ? `<p class="d-pr d-pr--day">${prs.length === 1 ? s("today.done_pr_one") : s("today.done_prs", { n: prs.length })}</p>` : ""}
+        <p class="d-donenote">${s("today.done_note")}</p>
+        <button class="x-sec d-another" data-go="workout">${s("today.done_another")}</button>
+        <div class="d-sec"><h2 class="d-h2">${n("d.outcome.head")}</h2></div>
+        ${groups}
+        <div class="d-split d-split--one">
+          <div><span class="d-k">${s("today.this_week")}</span><span class="d-v">${n("d.week_line", { done: 1, planned: 3 })}</span></div>
+        </div>
+        <button class="d-upnext" data-go="today"><span><span class="d-k">${s("today.up_next")}</span><b>${T.two(T.PROGRAM.days[1].name)}</b><small>${s("today.exercise_count", { n: T.PROGRAM.days[1].lifts.length })}</small></span>${ic("chev", "rot-l")}</button>
+      </div>`;
+    const cta = `<div class="x-ctabar"><button class="x-cta x-cta--go" data-go="session">${s("today.done_review")}${ic("arrow", "x-cta__ar")}</button></div>`;
+    return { body, over: cta + X.dock("today"), cls: "x-has-cta" };
+  }
+
+  // The focus page behind a sheet: the lift's own page with the shelf in place, as the lifter left it.
+  const SKIPCTX = { ...MAIN, lifts: MAIN.lifts.filter((k) => k !== "sq") };
+  const SUBCTX = { ...MAIN, lifts: ["hk", ...MAIN.lifts.slice(1)] };
+  function under(U, ctx, k, phase, sheetHtml, fopts = {}) {
+    const resting = phase === "rest";
+    return { body: focusBody(U, ctx, k, phase, { warm: !!U.warm, ...fopts }), over: X.shelf(U, { setNo: resting ? 2 : 1, correcting: false, resting }) + sheetHtml, cls: "no-dock x-has-shelf" };
+  }
+
+  // A form field on a sheet: a caption over a real input, 44 px at least, on the field ground and the required boundary.
+  const fld = (label, inner, cls = "") => `<label class="d-fld ${cls}"><small>${label}</small>${inner}</label>`;
+  const isoField = (iso) => { const [y, m, d] = iso.split("-"); return T.state.lang === "pt" ? `${d}/${m}/${y}` : `${m}/${d}/${y}`; };
+
+  // Exercise note (focus.note.*): Cancel and Save are the sheet's own, so there is no close button.
+  function noteSheet() {
+    const foot = `<button class="x-sec" data-go="workout">${s("dialog.cancel")}</button><button class="x-cta" data-go="workout">${s("dialog.save")}</button>`;
+    const body = `<h2 class="d-sheet__t">${s("focus.note.title")}</h2><p class="d-sheet__sub">${D.name("sq")}</p>
+      <div class="d-fld d-fld--area d-fld--focus"><textarea rows="6" aria-label="${esc(s("focus.note.title"))}" placeholder="${esc(s("log.note.placeholder"))}"></textarea></div>
+      <p class="d-hint">${s("focus.note.carry")}</p>`;
+    return X.sheet({ title: s("focus.note.title"), noClose: true, closeAttr: 'data-go="workout"', body, foot, cls: "d-notesheet" });
+  }
+
+  /* The Session sheet (the table-view button, implementation spec decision 11):
+     the session map with reorder first, then date, bodyweight and notes; early
+     finish waits in the foot and, once chosen, opens its confirmation there. */
+  function sessionSheet({ order, done = {}, early = false }) {
+    const total = (k) => T.EX[k].n;
+    const rows = order.map((k, i) => {
+      const complete = done[k] === total(k);
+      const name = D.name(k);
+      return `<div class="d-map__row${k === "sq" ? " is-cur" : ""}"${k === "sq" ? ' aria-current="true"' : ""}>
+        <button class="d-map__jump" data-go="workout"><span class="d-map__n">${name}</span><span class="d-map__s">${complete ? ic("check") : ""}${done[k] || 0}/${total(k)}</span></button>
+        <button class="d-map__mv" data-go="${early ? "workout-session" : "workout-reorder"}" aria-label="${esc(s("session.sheet.reorder_up_aria", { name }))}"${i === 0 ? " disabled" : ""}>${ic("chev", "rot-180")}</button>
+        <button class="d-map__mv" data-go="${early ? "workout-session" : "workout-reorder"}" aria-label="${esc(s("session.sheet.reorder_down_aria", { name }))}"${i === order.length - 1 ? " disabled" : ""}>${ic("chev")}</button>
+      </div>`;
+    }).join("");
+    const omitted = order.map((k) => {
+      const sets = [];
+      for (let i = (done[k] || 0) + 1; i <= total(k); i++) sets.push(i);
+      return sets.length ? `<li>${withMono(s("session.sheet.omitted", { name: D.name(k), sets: "\u0000" }), sets.join(", "))}</li>` : "";
+    }).join("");
+    const body = `<h2 class="d-sheet__t">${s("session.sheet.title")}</h2><p class="d-sheet__sub">${s("session.sheet.subtitle")}</p>
+      <h3 class="d-xs__h d-xs__h--first">${s("session.sheet.overview_label")}</h3>
+      <div class="d-map" role="group" aria-label="${esc(s("session.sheet.title"))}">${rows}</div>
+      <div class="d-flds">
+        ${fld(s("log.date"), `<input value="${isoField(T.TODAY)}" inputmode="numeric" autocomplete="off">`, "d-fld--date")}
+        ${fld(s("log.bodyweight_unit", { unit: U_ }), `<input inputmode="decimal" placeholder="${U_}" autocomplete="off">`)}
+        ${fld(s("log.notes"), `<textarea rows="3" placeholder="${esc(s("log.notes.placeholder"))}"></textarea>`, "d-fld--area")}
+      </div>`;
+    const foot = early
+      ? `<p class="d-early__msg" role="status">${s("session.sheet.early_prompt")}</p><ul class="d-early__list">${omitted}</ul>
+         <button class="x-cta" data-go="summary">${s("session.sheet.early_confirm")}</button><button class="x-sec" data-go="workout-session">${s("dialog.cancel")}</button>`
+      : `<button class="x-sec" data-go="workout-early-finish">${s("session.sheet.early_finish")}</button>`;
+    return X.sheet({ title: s("session.sheet.title"), close: "workout", body, foot, cls: "d-sessheet" });
+  }
+
+  // The exercise actions sheet as shipped: setup notes, previous values, substitution, warm-up sets, status, notes.
+  function exActionsSheet({ k, instead, warm, skipped }) {
+    const e = D.lift(k), setsN = T.EX[k].n;
+    const group = (head, inner, extra = "") => `<section class="d-xs"><h3 class="d-xs__h">${head}</h3>${extra}${inner}</section>`;
+    const act = (icn, label, go, sub, attrs = "") => `<button class="d-act d-act--s"${go ? ` data-go="${go}"` : ""}${attrs}>${ic(icn)}<span>${label}${sub ? `<small>${sub}</small>` : ""}</span></button>`;
+    const pd = D.previousDate(k, T.TODAY);
+    // Setup notes belong to the program's slot, so a substitute shows the notes of the lift it stands in for.
+    const slot = T.EX[instead || k];
+    const note = slot.note ? T.two(slot.note) : s("ex.actions.no_setup_notes");
+    const sub = instead
+      ? [group(s("ex.actions.subst_title"), `<div class="d-acts">${act("reset", s("ex.actions.change_substitution"), "workout-substituted-actions")}${act("reset", s("ex.actions.restore_original"), "workout")}</div>`)]
+      : [group(s("ex.actions.subst_title"), `<div class="d-acts">${act("reset", s("ex.actions.substitute"), "workout-substituted-actions")}</div>`)];
+    const wrows = Array.from({ length: setsN }, (_, i) => {
+      const isW = warm && i === 0;
+      return `<div class="d-wrow"><span class="d-wrow__i"><b>${s("log.set")} ${i + 1}</b><span class="d-wrow__r${isW ? " is-warm" : ""}">${s(isW ? "ex.actions.role_warmup" : "ex.actions.role_working")}</span></span><button class="d-wbtn"${i === 0 ? ' data-toggle="warm"' : ""}>${s(isW ? "ex.actions.mark_working" : "ex.actions.mark_warmup")}</button></div>`;
+    }).join("");
+    const status = group(s("ex.actions.skip_title"), `<div class="d-acts">${act("skip", s(skipped ? "ex.actions.restore" : "ex.actions.skip"), skipped ? "workout" : "workout-skipped-actions")}</div>`, skipped ? `<p class="d-xs__v">${s("log.skipped")}</p>` : "");
+    const body = `<p class="d-sheet__eyebrow">${s("ex.actions.title")}</p>
+      <h2 class="d-sheet__t d-sheet__t--ex">${D.name(k)}</h2>
+      <p class="d-sheet__sub">${instead ? `${s("log.substitute_for", { name: D.name(instead) })}<br>` : ""}${T.muList(e.pri)} · ${setsN} ${s("plural.set.other")}</p>
+      ${group(s("ex.actions.setup_notes"), `<p class="d-xs__t">${note}</p>`)}
+      ${group(s("ex.actions.history_title"), `<div class="d-acts">${act("history", s("ex.actions.repeat_last"), null, pd ? n("d.sub.before", { sets: D.setsLine(setsOnly(k, pd)) }) : s("ex.actions.no_history"))}</div>`)}
+      ${sub.join("")}
+      ${group(s("ex.actions.warmup_title"), `<div class="d-wrows" role="group">${wrows}</div>`)}
+      ${status}
+      ${group(s("ex.actions.notes_title"), `<div class="d-acts">${act("note", s("ex.actions.open_notes"), "workout-exercise-note")}</div>`)}`;
+    return X.sheet({ title: D.name(k), label: s("ex.actions.title"), closeAttr: 'data-sheet="closed"', body, cls: "d-actsheet" });
+  }
+
+  const todayResume = (U) => today(U, MAIN, { resume: true });
+  const exNote = (U) => under(U, MAIN, "sq", "set1", noteSheet());
+  const REORDERED = ["pr", "sq", "lc", "rw", "lr"];
+  const workoutSession = (U) => under(U, MAIN, "sq", "set1", sessionSheet({ order: MAIN.lifts }));
+  const workoutReorder = (U) => {
+    const ctx = { ...MAIN, lifts: REORDERED };
+    const toast = `<div class="x-toast" role="status">${s("session.sheet.reorder_announcement", { name: D.name("sq"), index: 2, count: REORDERED.length })}</div>`;
+    return under(U, ctx, "sq", "set1", sessionSheet({ order: REORDERED }) + toast);
+  };
+  const workoutEarly = (U) => under(U, MAIN, "sq", "rest", sessionSheet({ order: MAIN.lifts, done: { sq: 1 }, early: true }));
+  // The actions sheet opens with its screen. Closing it leaves the lift's page and shelf; the ⋯ button opens it again.
+  const actionsUnder = (U, ctx, k, sheetOpts, fopts) => under(U, ctx, k, "set1", U.sheet === "timer" ? timerSheet(U, "workout") : U.sheet === "closed" ? "" : exActionsSheet(sheetOpts), fopts);
+  const workoutWarm = (U) => actionsUnder(U, MAIN, "sq", { k: "sq", warm: !!U.warm });
+  const workoutSkipped = (U) => actionsUnder(U, SKIPCTX, "pr", { k: "sq", skipped: true });
+  const workoutSubstituted = (U) => actionsUnder(U, SUBCTX, "hk", { k: "hk", instead: "sq" }, { instead: "sq" });
+
   root.DIR_D = {
     key: "d", family: true, name: "Folha e polegar", en: "Sheet and thumb",
     idea: "A's record, B's hand: read everything as a ledger of aligned columns and hairlines, act on every set from one bottom shelf.",
@@ -500,14 +667,21 @@
       "today-mixed": (U) => today(U, MIXD), "why-repgoal": whyMix("ht"), "why-anchor": whyMix("dl"), "why-manual": whyMix("cp"),
       "summary-first": (U) => summary(U, D.MIX.first, true),
       "workout-mixed": workoutMixed,
+      // OG-6 rounds 1 and 2
+      "today-done": todayDone, "today-draft-resume": todayResume,
+      "workout-exercise-note": exNote, "workout-session": workoutSession, "workout-early-finish": workoutEarly,
+      "workout-warmup-actions": workoutWarm, "workout-reorder": workoutReorder,
+      "workout-skipped-actions": workoutSkipped, "workout-substituted-actions": workoutSubstituted,
     },
     // Shelf values when a screen opens: the engine's load and reps, the lifter's typical RIR.
     seed(screen) {
-      const k = { "why-repgoal": "ht", "why-anchor": "dl", "why-manual": "cp", "workout-mixed": "dl" }[screen] || "sq";
-      const iso = k === "sq" ? T.TODAY : D.MIX.today;
-      const r = screen === "rest" || screen === "why-set2" ? D.rec("sq", T.TODAY, "today", [{ load: 102.5, reps: 7, rir: 1 }]) : D.rec(k, iso);
+      const k = { "why-repgoal": "ht", "why-anchor": "dl", "why-manual": "cp", "workout-mixed": "dl", "workout-skipped-actions": "pr", "workout-substituted-actions": "hk" }[screen] || "sq";
+      const iso = D.isMix(k) ? D.MIX.today : T.TODAY;
+      const resting = screen === "rest" || screen === "why-set2" || screen === "workout-early-finish";
+      const r = resting ? D.rec("sq", T.TODAY, "today", [{ load: 102.5, reps: 7, rir: 1 }]) : D.rec(k, iso);
       const rir = r.facts && r.facts.typicalRir != null ? r.facts.typicalRir : 1;
-      return { load: r.load, reps: r.reps != null ? r.reps : r.manual ? r.manual.hi : 8, rir: Math.round(rir) };
+      // The warm-up drawing opens with set 1 already marked a warm-up set.
+      return { load: r.load, reps: r.reps != null ? r.reps : r.manual ? r.manual.hi : 8, rir: Math.round(rir), warm: screen === "workout-warmup-actions" };
     },
     notes: {
       today: "A's prescription table at B's figure scale: load, target and last session for all five lifts on the first screen. The tally replaces A's footer sentence.",
@@ -532,6 +706,15 @@
       "why-anchor": "Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets.",
       "why-manual": "Manual: one sentence. The program sets the load and the engine does not change it.",
       "summary-first": "Every lift is a first exposure: the shipped baseline sentence, no outcome words, and next targets from the engine.",
+      "today-done": "OG-6 round 1. The day is complete: eyebrow, totals, record count, the shipped note, the second-session action, each lift's outcome and next target, the week line and the next day as a button. The start button becomes Ver a sessão de hoje.",
+      "today-draft-resume": "OG-6 round 1. Today with an unfinished session: a status band above the prescription, Continuar sessão on the CTA, and the confirmation that appears when Escolher outro dia would replace the draft.",
+      "workout-exercise-note": "OG-6 round 2. The exercise note: a sheet with its own Cancelar and Salvar, the field in the quiet selected state, and the carry-over line under it.",
+      "workout-session": "OG-6 round 2. The Session sheet, opened from the table-view button: the session map with reorder first, then date, bodyweight and notes; early finish sits in the foot.",
+      "workout-early-finish": "OG-6 round 2. Early finish chosen after one logged set: the foot opens the confirmation with the unlogged sets listed per lift, a confirm button and Cancelar.",
+      "workout-warmup-actions": "OG-6 round 2. The exercise actions sheet with set 1 marked a warm-up set. The ledger behind it carries the warm-up label instead of a number.",
+      "workout-reorder": "OG-6 round 2. After moving the squat down one place: the map in its new order, the first and last buttons off, and the shipped announcement as a toast.",
+      "workout-skipped-actions": "OG-6 round 2. A skipped exercise reopened from the session map: its status reads Pulado and the action is Restaurar exercício. The lifter is on the next lift, exercise 1 of 4.",
+      "workout-substituted-actions": "OG-6 round 2. A substituted exercise: the sheet carries the substitute's name and No lugar de the original, with Alterar substituição and Restaurar exercício original.",
     },
   };
 })(window);
