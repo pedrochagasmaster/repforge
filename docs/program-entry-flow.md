@@ -13,8 +13,8 @@ on who writes the executable prescription.
 
 | Route | Who chooses the prescription? | First destination | Shipped production surface |
 |---|---|---|---|
-| Recommend | Taurifer chooses structure, exercises, sets, targets, and progression from factual context. | Desired result | Five questionnaire sections, recommendation, and common editable preview |
-| Custom | The user chooses bounded preferences. Taurifer still writes the prescription. | Desired result | Five questionnaire sections, split choice, generated result, and common editable preview |
+| Recommend | Taurifer chooses structure, exercises, sets, targets, and progression from factual context. | Desired result, asked on the hub | Four questionnaire sections, recommendation, and common editable preview |
+| Custom | The user chooses bounded preferences. Taurifer still writes the prescription. | Desired result | Up to six questionnaire sections, split choice, generated result, and common editable preview |
 | Browse | The user chooses a complete, executable Taurifer program. | Compatibility context | Reviewed catalogue and common editable preview |
 | Build | The user writes days, exercises, sets, targets, and a supported progression method. | Program name and day count | Empty-day editor and common editable preview |
 | Import | The user brings an external prescription. | Import source and review handoff | Import mapping, common editable preview, and explicit activation |
@@ -23,6 +23,27 @@ on who writes the executable prescription.
 Recommend is the default inside the primary **Create a program** group. Custom
 is its deliberate alternative. Browse is a lower-emphasis choice. Build and
 Import sit under **Bring or build my own**.
+
+### The entry hub
+
+The hub is presentation over the route graph; it adds no route and no step.
+
+- **The featured block is Recommend's first question.** Its three goal buttons
+  each carry `data-entry-route="recommend"` and a `data-entry-goal`. A tap
+  selects the route, answers `desiredResult` and advances as one transition, so
+  the draft is written once and the lifter lands on `background`. Back from
+  that screen returns to the hub the goal was asked on. The `desired_result`
+  screen stays reachable through the route help and for Custom.
+- **Route help.** "Not sure which one?" asks two short questions and ends in the
+  same `selectRoute` call (or the free-form door's source mode) a door makes. It
+  reaches all five jobs and makes no request.
+- **Resume.** A saved draft is a card on the hub that names the route, step and
+  date. The doors below it are inert until the lifter chooses Resume or Start
+  over, so a door tap can never overwrite the saved draft. Start over asks first.
+- **Dialogs.** Cancel (keep or discard the draft), replace (the active program
+  is archived) and start over (the draft is discarded) are modal dialogs that
+  return focus to the control that opened them. The hub's back control is
+  Cancel and opens the same keep or discard dialog.
 
 Research participants use these routes without a special entry path. Pro,
 payment, future-family teasers, and disabled controls do not belong here.
@@ -35,8 +56,8 @@ display indexes.
 
 | Step ID | Routes | Required before Continue | Notes |
 |---|---|---|---|
-| `entry` | all | Route selection | Back exits only through an explicit UI cancellation decision. |
-| `desired_result` | Recommend, Custom | `muscle_growth`, `balanced`, or `strength` | Consistency is never a desired result. |
+| `entry` | all | Route selection | Back exits only through an explicit UI cancellation decision (a dialog). |
+| `desired_result` | Recommend, Custom | `muscle_growth`, `balanced`, or `strength` | Consistency is never a desired result. Recommend answers it on the hub and moves on to `background`. |
 | `background` | Recommend, Custom | Structured-program experience and recent six-week consistency | Experience is factual time, not beginner/intermediate/advanced. |
 | `schedule` | Recommend, Custom, Browse | 2-6 days, 30/45/60/75/90+ minutes, and preferred rest for generated routes | Browse may reuse reviewed compatibility context and ask only missing facts. |
 | `environment` | Recommend, Custom, Browse | A reviewed environment shortcut | Equipment correction is compact and capability-based. |
@@ -51,9 +72,9 @@ display indexes.
 | `editor` | Build | Empty-day draft created | Activation stays blocked until the later production editor validates it. |
 | `activation_conflict` | Preview routes | Fresh review after a revision mismatch | A stale setup can never overwrite a newer active program. |
 
-Recommend groups `desired_result`, `background`, `schedule`, `environment`,
-and `priorities` into roughly five short sections. Custom reuses those facts,
-then adds `custom_shape`. It must not ask for Taurifer's set-volume logic,
+Recommend groups `desired_result` and `background` into one section, then
+`schedule`, `environment` and `priorities`: four short sections. Custom reuses
+those facts, then adds `exercise_preferences` and `custom_shape`. It must not ask for Taurifer's set-volume logic,
 RIR, rep ranges, progression formulas, or deload timing.
 
 Browse asks only the compatibility facts that the chosen catalogue version
