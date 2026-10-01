@@ -303,9 +303,430 @@ Arithmetic, as planned: 148 now, minus 3 retired (4 if `rest-timer-paused` retir
 
 ## Contract review for Direction D content jobs
 
-Pending (R0 packet: contract review). Resolves C-01 for the shelf, inline
-rest, prescription row, frequency counts and any landing surface pair, on the
-semantic contract's existing roles where one exists.
+Resolves C-01 for the shelf, inline rest, prescription row, frequency counts and
+the landing surface pair, on the semantic contract's existing roles where one
+exists. This is a record, not an amendment: nothing here is added to
+`docs/design/ui-system-semantic-contract.md` or `tools/ui-role-inventory.json`.
+R1 writes the amendment for whatever the owner accepts. No value, tier or
+radius below is decided; every PROPOSED line quotes the value the drawing used
+or an existing palette value, and carries one of two labels:
+
+- **owner gate OG-4**: one of the seven "proposed 058 content jobs" in the
+  2026-09-30 polish comment on #272.
+- **contract review proposal**: needed by a Direction D or landing job that the
+  comment does not list. The Plan 064 locked rows leave its acceptance route
+  open (open question 1 at the end of this section).
+
+Sources, all read-only at their pinned SHAs: `docs/design/ui-system-semantic-contract.md`,
+`tools/ui-role-inventory.json` and `styles.css` at `eeb885cf`; #272 at
+`2f2fc044` (`direction-d-implementation-spec.md` §3, §5, §7, §9;
+`DIRECTION-D-SPEC.md`; `POLISH-AUDIT.md`; `phone.css`, `review.css`, `kit-d.js`,
+`dir-d.js`); the #272 polish comment of 2026-09-30, read through the GitHub
+tool ([issuecomment-5902522837](https://github.com/pedrochagasmaster/repforge/pull/272#issuecomment-5902522837));
+#276 at `336b492d` (`docs/design/landing-candidates/final/index.html`).
+Contrast values are WCAG 2.x relative-luminance ratios computed from the hex
+values in `styles.css` `:root` and `:root[data-theme="dark"]` (opaque pairs, so
+no compositing); thresholds are the contract's: 4.5:1 text, 3:1 large text,
+required boundaries, icons and state marks.
+
+### Result in brief
+
+- The prototype uses 18 custom properties that `styles.css` lacks (section 1).
+  They fall into four groups: three tokens or scales to propose
+  (`--boundary-selected-quiet`; `--space-*` with `--gut`; `--rule-on-surface`,
+  conditionally), one conditional exception (`--art-bg`), review-frame
+  constants and local arithmetic that need no role (`--dock-b`, `--shelf-h`,
+  `--fld-label`, `--fld-value`), and motion durations that belong to the
+  interaction audit (`--motion-*`). The rest of the prototype's token names
+  match `main` by name.
+- Every type tier, radius step, control role, layer and elevation role the nine
+  jobs use already exists. No job needs a new type size, radius step, control
+  role, layer or elevation shadow. The additions this review proposes are
+  tokens, three selector extensions to existing variants and exceptions, one
+  new variant row, and inventory rows.
+- The one job that cannot be expressed on existing roles is the landing night
+  band (section 2.9): no existing token pair holds it in both themes, so under
+  §8.2 it is not built unless the pair below is approved.
+- The drawing's `--control-adjustment-bg` (`--bg`) and `--control-field-bg`
+  (`--well`) differ from `main` (`--surface` for both). The rest clock differs
+  too (C-02). Those three are the only same-name overrides with a different
+  resolved value; every other shared token name resolves to the same value.
+
+### 1. Token map (C-01)
+
+| Prototype property (value at `2f2fc044`) | Used by | Existing token or role on `main` | Result |
+| --- | --- | --- | --- |
+| `--boundary-selected-quiet` = `var(--ink)` | Selected shelf field, open and corrected ledger row, timer preset, tab indicator | Layer role `selected` is defined as an "inset high-contrast boundary or fill", so ink fits the role. The token `--boundary-selected` is `--accent-deep`, which §8.8 keeps off these surfaces. `--color-ink` holds the same value. | PROPOSED token alias. Shelf field and ledger row: owner gate OG-4 (jobs 1 and 2). Tab indicator: contract review proposal. |
+| `--rule-on-surface` = `--rule` in light, `--rule-strong` in dark | Separators inside sheets and the shelf, empty art-tile ring, live timer ring | No single token. `--boundary-decorative` (`--rule`) serves light. `--boundary-modal` and `--boundary-persistent` (both `--rule-strong`) serve dark. `styles.css` already splits this exact pair by theme for one consumer, `:root[data-theme="dark"] .exthumb--sm`. On `--surface`: `--rule` 1.31:1 light, 1.21:1 dark; `--rule-strong` 1.46:1 light, 1.79:1 dark. | Contract review proposal, conditional: no addition if sheet and shelf separators take `--boundary-modal` and `--boundary-persistent` in both themes (light separators become `--rule-strong`, a visible change for R1 and the owner to accept). A named pair is needed only to keep light at `--rule`. |
+| `--space-4`, `-8`, `-12`, `-14`, `-16`, `-18`, `-26` (`--space-32` is declared, unused) | Every D margin, padding and gap | The contract defines no spacing roles, and `node tools/check-ui-system.mjs --strict-css` scans only type, weight, radius, shadow and color. The only scale in the repository is `DESIGN.md` front matter `spacing` (xs 4, sm 8, md 12, card 14, gutter 16, section 18, band 26, run 32), whose values the prototype copied. | Contract review proposal: give that scale contract status as `--space-*` custom properties with `DESIGN.md`'s values. Plan 064 R1 already lists "the spacing scale"; §8.3 says "from the contract", which today holds none. |
+| `--gut` = 16px | Page gutter | `DESIGN.md` `gutter` 16; `--settings-inset` is Settings-only. | Covered by the spacing row. |
+| `--dock-b` = 24px | Bottom offset of the dock and shelf in the phone frame | `--dock-gap` (10px) and `--nav` plus the safe-area inset in the app. | Review-frame constant; no role. Not carried. |
+| `--shelf-h` (computed) | Scroll reserve under the shelf | Same job as `--nav` for the dock (§8.3 "CTA reservation"). | Layout reservation, not a role. R3c derives it from the built shelf. |
+| `--fld-label`, `--fld-value` | Row heights inside one shelf field | Calc of `--font-size-caption`, `--font-size-metric`, `--line-tight`. | Local layout arithmetic; no role. |
+| `--motion-in` (.2s), `--motion-out` (.15s), `--motion-cross` (.16s) | Sheet rise, row commit, disclosure, pad crossfade | No motion tokens in `styles.css`. `motion-layer.js` owns `revealIn` (0.2 s) and `revealOut` (0.15 s); §8.11 limits the shelf crossfade to 160 ms. | Governed by the interaction audit, not the contract. R1 records the additions there. |
+| `--art-bg` (inline, per movement) | 56px header art tile | `--exercise-art-bg`, the existing per-element property behind `.exdet-art`. The exception for sampled `mediaBg` paper is selector-exact (`.exdet-art`); `.exthumb` paints `--well`. | Contract review proposal only if the Focus tile paints the sampled paper (extend the selector-exact exception). No addition if it reuses `.exthumb`. |
+| `--sans`, `--mono` | Font stacks | `--font-language`, `--font-training-data`. The `--body`/`--mono` aliases were removed in P6 and the strict scan rejects them. | Existing role. |
+| `--shelf-shadow`, `--dock-shadow`, `--dock-pill-shadow`, `--sheet-lift` (unused after polish) | None | `--elevation-persistent-shadow`, `--elevation-nav-shadow`, `--elevation-nav-selected-shadow`, `--elevation-sheet-shadow`. | Existing roles. |
+| `--r-*`, `--i`, `--m`, `--end`, `--strip` | Review-page chrome and the A family | Not product tokens. | Ignore. |
+
+Same name, different resolved value (light and dark alike): `--font-size-rest-clock`
+(`clamp(2rem,10cqi,2.625rem)` against `main`'s `clamp(2rem,10vw,2.625rem)`;
+C-02, section 3), `--control-adjustment-bg` (`--bg` against `--surface`) and
+`--control-field-bg` (`--well` against `--surface`). The pad and field grounds
+belong to OG-4 jobs 5 and 1. Every other shared name resolves identically
+(`--control-focus-outline`, `--control-error-boundary` and the nav shadows differ
+only in how they are spelled).
+
+### 2. Content jobs
+
+Type tiers use the §8.1 names (label 11, caption 12, body-small 14, body and
+control 16, subtitle 18, metric 22, section-title 24, feature-title and
+focal-data 28, title 30); D §7 is the mapping source.
+
+#### 2.1 Workout shelf (`persistent-action`)
+
+- **Layer and elevation:** `persistent-action`, which the contract defines as
+  "actions kept reachable while content scrolls" with a "shallow edge and depth;
+  no second raised card inside". Today's inventory owners are `nav`,
+  `#restBar`, `#libBar` and `.sum-actions`; the shelf is a fifth row. Tokens it
+  uses exist: ground `--color-surface`, top edge `--boundary-persistent`, depth
+  `--elevation-persistent-shadow`. Fields and pads carry a boundary and no
+  shadow, so the nested-elevation rule holds.
+- **Radius:** the drawing puts `--radius-prominent` (16) on the top corners.
+  Existing `persistent-action` recipes use pill (dock), none (Program dock) and
+  surface (`.restbar`). The step exists; pairing it with this layer is the
+  question.
+- **Controls:** field button `selection` (`aria-pressed`, §8.12) and field input
+  `field`; pads `adjustment`; CTA `primary` (`Registrar série N`, 54px,
+  `subtitle` 18/600, radius `--radius-control`, as the shipped `.btn--cta`);
+  the Próximo row keeps `quiet-navigation` (`#woNext`).
+- **Type:** field caption `caption`, value `metric` 22 Mono (D §7), pad labels
+  `control` 16 Sans, CTA `subtitle`. The shipped current-set value is
+  `focal-data` 28 (`.curset__val`, `--font-size-focal-data-max`); D's `metric`
+  is a role-mapping change, not a new tier (OG-4 job 1).
+- **Verdict:** role exists; **no new role, tier or elevation**. PROPOSED, as
+  contract review proposals (the shell is spec §7 "the shelf", not one of the
+  comment's seven): a contextual variant row "Workout shelf" under
+  `persistent-action` in the contract's variants table (the table is closed, so
+  a new row is an amendment), full width and flush to the bottom, top-corner
+  radius as drawn (`--radius-prominent`; R1 or the owner may substitute
+  `--radius-none`, the Program dock's recipe); selector chosen by R1. AA method:
+  the rendered-role audit on `workout/focus` in both themes.
+- **Shelf field (owner gate OG-4, job 1):** two selector-exact inventory rows
+  rather than a new role, because the inventory models one control role per
+  selector and the field is `selection` as a button and `field` as an input.
+  PROPOSED: (a) `--boundary-selected-quiet` = `var(--ink)` (`#1B1A17` light,
+  `#F2EFE9` dark; existing palette values, no new value), 2px, used as the
+  selected boundary because §8.8 keeps orange off the shelf. Measured against
+  the surfaces it sits on: 17.40:1 and 14.82:1 on `--surface`, 16.42:1 and
+  15.60:1 on `--well` (3:1 required). (b) Ground: the drawing uses `--well`;
+  `--control-field-bg` is `--surface`. Keeping `--surface` needs no addition;
+  `--well` is a contextual ground on existing tokens. (c) Untouched value in
+  `--ink-soft`: 5.71:1 and 7.12:1 on `--surface`, 5.39:1 and 7.49:1 on `--well`
+  (4.5:1 required). (d) Invalid: `--control-error-boundary` (`--danger`,
+  5.09:1 and 5.98:1 on `--surface`), CTA disabled with
+  `--control-primary-disabled-*`. The invalid reason is proposal 4 in section 3.
+- **Pads (owner gate OG-4, job 5):** `adjustment`, boundary `--boundary-required`
+  (5.71:1 and 7.12:1 on `--surface`; 5.11:1 and 7.78:1 on `--bg`), pressed
+  `--well` and `--control-pressed-transform` (the shipped `.stepbtn:active`),
+  focus `--control-focus-outline`. In rest mode: −30 s and +30 s are
+  `adjustment` (as `#restMinus`, `#restPlus`), Pausar and Retomar `selection`
+  (as `#restPlayPause`, with a text label instead of an icon), Pular
+  `secondary` (as `#restStop`). PROPOSED: the "Rapid workout stepper" variant
+  (selector `.stepbtn`, 44px icon steppers) is selector-exact, so the 56px text
+  pads need their selector added to it; the role and boundary stay. The drawing
+  also overrides the ground to `--bg` (existing token) where
+  `--control-adjustment-bg` is `--surface`: keep `--surface` (no addition) or
+  accept the contextual `--bg` ground (OG-4 job 5).
+
+#### 2.2 Inline rest (owner gate OG-4, job 3)
+
+- **Layer:** `flat`; the block replaces the cue slot and is not a card. The
+  `rest-timer` sheet retires; the timer-presets sheet stays `modal`.
+- **Type:** "Descanso" and "de 2:00" `body` 16; clock the protected rest-clock
+  variant (Mono); next cue `subtitle` 18 with Mono values; "Descanso concluído
+  · +0:15" `subtitle` 18 in `--ink-soft` (5.11:1 and 7.78:1 on `--bg`); Why link
+  `control` 16/500, `quiet-navigation` (as `.text-link.focus-ex__why`). The cue
+  that returns after rest is the drawing's `section-title` 24 line (D §7). The
+  contract defines `section-title` as naming "a section or sheet", and the
+  shipped `.focus-cue` is `body-small`, so the cue line is a role-meaning
+  question: contract review proposal (same 24px step, no new tier).
+- **Controls:** as in 2.1 (rest pads).
+- **Progress and exceptions:** the drain bar is `--accent` on a `--rule` track,
+  4px, driven by a transform. It measures 3.05:1 and 4.80:1 against its track
+  and 3.57:1 and 6.33:1 against `--bg` (3:1 required; the contract marks the
+  rest arc `required`). It is temporal status like `#restSheet .restdial__arc`,
+  which has a selector-exact exception ("assigning block, week, exercise-set or
+  task would falsify its denominator"). PROPOSED (OG-4 job 3): the same
+  exception and rationale for the inline bar's selector, and the bar must not
+  match a progress candidate selector. The drawing's 2px bar radius is a
+  literal; use an existing step (`--radius-compact` 4 or `--radius-none`).
+- **Rest clock variant:** the "Responsive rest clock" variant is selector-exact
+  (`.restdial__clock`) and "no other surface inherits [it] by visual
+  resemblance", so the inline clock's selector must be added to it. PROPOSED
+  (OG-4 job 3): extend the variant's selector; role and value
+  `--font-size-rest-clock` unchanged (C-02 below).
+- **Overrun:** the shipped overtime facet uses `--color-warning` (`--accent-deep`)
+  with a danger arc and the `restover` pulse. The drawing counts up in
+  `--ink-soft`, consistent with the §8.8 orange budget, which lists only the
+  running drain bar. Both tokens exist. The choice belongs to R3 and proposal 5
+  in section 3; it needs no contract addition.
+- **Motion:** crossfade of at most 160 ms, drain bar as `scaleX`, reduced motion
+  removes both; recorded in `docs/design/interaction-runtime-audit.md` by R1,
+  not in the contract.
+- **Verdict:** no new role, tier or radius. The additions are two selector
+  extensions and one exception row (owner gate OG-4, job 3).
+
+#### 2.3 Prescription row, including rows on a first baseline (owner gate OG-4, jobs 4 and 7)
+
+- **Layer and control:** `flat` rows on `--boundary-decorative` hairlines, at
+  least 48px (§8.3). The whole row opens the exercise: `quiet-navigation`, which
+  the contract names for "drill-in rows" (a chevron there does not make it
+  `disclosure`). Manual rows have no mark.
+- **Type:** name `body` 16 Sans; sub-line `body-small` 14; load `metric` 22 Mono;
+  target `body-small` 14 Mono (`3 × 12–15`); column heads `label` 11 uppercase,
+  `--ink-faint` 4.60:1 light and 6.10:1 dark on `--bg` (4.5:1 required; the
+  shipped ledger head uses `--color-ink-secondary`, 5.11:1 and 7.78:1).
+  Operators and units in `--ink-soft` (5.11:1 and 7.78:1).
+- **Composition:** first-baseline alignment with the mark shifted `.15em`, and
+  a kg and target column sized from the widest forms (66px and 78px at the
+  default root size), reflowing at 200% text. These are layout recipes, not
+  roles.
+- **Verdict:** **no contract addition needed.** Every role, tier and boundary
+  exists. R1 adds an inventory component row; OG-4 acceptance confirms the
+  composition recipe and the first-baseline rule that Today, Program, attention
+  and strength rows share.
+
+#### 2.4 Frequency counts (contract review proposal)
+
+- **Layer and control:** `flat`; not interactive. The pair is one image for
+  assistive technology (`role="img"`, labelled with the block total), as D §4.8
+  and §9 require.
+- **Type:** the heading "Frequência no bloco" is `subtitle` 18/600 in the
+  drawing (proposal 2, section 3); counts and labels `caption` 12 Mono and
+  `body-small` 14 in `--ink-soft` (5.11:1 and 7.78:1 on `--bg`).
+- **Marks:** bars in `--ink` (15.57:1 and 16.19:1 on `--bg`, 3:1 required); the
+  baseline in `--boundary-decorative`. The planned-sessions line is drawn
+  dashed in `--rule-strong`, which measures 1.31:1 and 1.95:1 on `--bg` and
+  fails 3:1 if the line carries a value. Existing `--boundary-required`
+  measures 5.11:1 and 7.78:1; or the line stays decorative and the planned
+  count is stated in text. Either choice uses existing tokens.
+- **Radius and literals:** the drawing's `2px 2px 0 0` bar radius and 2px
+  segment radii are not on the scale and are caught by `--strict-css`; use an
+  existing step.
+- **Progress classification:** per-week bars compare a count with a planned
+  denominator. The progress rule requires a declared dimension and scope for
+  every candidate selector; a new class does not match `progressCandidateSelectors`
+  and so is not checked, but an unclassified denominator is the case the contract
+  warns about. The by-weekday bars have no denominator and resemble
+  `#completedVolume .vrow__bar` (a selector-exact exclusion).
+- **Verdict:** **no new role, tier, radius or palette value.** PROPOSED
+  (contract review proposal): an inventory row stating the layer, the labelled
+  image, the required-versus-decorative status of each mark above, and the
+  classification: per-week bars as dimension `week` with a new scope name; by-
+  weekday bars as a selector-exact exclusion with the `#completedVolume`
+  rationale. The exclusion is a contract change. R1 and the owner choose
+  between this and keeping the bars outside the progress checker.
+
+#### 2.5 Verdict mark (contract review proposal for new masks only)
+
+- **Role:** a glyph beside a `rec.*.label`, not a control and not a layer. The
+  label carries the meaning; the glyph is redundant.
+- **Colour:** up uses `--color-action` (`--accent`: 3.57:1 and 6.33:1 on `--bg`,
+  3.99:1 and 5.80:1 on `--surface`; 3:1 required); down, stalled and recover use
+  `--color-ink`; hold, new and manual use `--color-maintained` or no mark.
+  Records use `--color-improved` (`--positive`, 4.58:1 and 8.35:1 on `--bg`).
+  §8.8 permits verdict glyphs among the orange uses. D does not use
+  `--color-declined` for declines ("declines are ink"); that token stays for
+  other surfaces.
+- **Size:** the drawing uses 18, 20, 22, 24 and 26px boxes. Existing icon-mask
+  sizes are 16 (`.icon-mask--sm`), 20 and 24 (`--control-icon-size`). Any size
+  outside those is a contract question; R1 should choose from them.
+- **Glyphs:** the drawing's arrow (rotated up and down), equal, reset, pause and
+  plus. `styles.css` has masks for `reset`, `pause`, `plus` and `trend`, and the
+  CTA's `--arrow` mask (rotatable); the equal sign is a new mask. §8.7 allows
+  new masks through the same mechanism with inventory rows.
+- **Verdict:** **no contract addition needed.**
+
+#### 2.6 Ledger row (owner gate OG-4, job 2)
+
+- **Layer and control:** done and queued rows `flat` on `--boundary-decorative`;
+  a done row that reopens a set is the same action as the shipped
+  `.ledger__row.is-editing` (`secondary`). The open row and the row being
+  corrected are layer `selected`: well ground, inset boundary, no outward
+  shadow, `--radius-surface` 12.
+- **Type:** values `body` 16 Mono, right-aligned on a shared 12px inset; index
+  `body-small` 14 Mono (accepts a warm-up label); heads `label` 11; previous-set
+  line `body-small` 14 in `--ink-soft`. The shipped row is 52px and
+  left-aligned; D's is at least 48px.
+- **PROPOSED (owner gate OG-4, job 2):** the selected boundary reuses
+  `--boundary-selected-quiet` from 2.1 (16.42:1 and 15.60:1 on `--well`, 3:1
+  required); the shipped corrected row uses an accent rail and accent check, so
+  this is the orange-budget variant of an existing state. The drawing draws it
+  1.5px; the contract's only inset-selected recipe is 2px
+  (`--elevation-selected-shadow`), so 1.5px would be a new value. Use 2px unless
+  the owner accepts 1.5px. Values on the open row in `--ink-soft`: 5.39:1 and
+  7.49:1 on `--well`. The demoted open row returns to the queued look.
+
+#### 2.7 Tab row (contract review proposal; consumer of the 2.1 token)
+
+- **Roles:** the shipped `#stats button[role="tab"]` is `selection`, layers
+  `flat` and `selected`, boundary `required`. D's row of five has the same role.
+- **Differences from the shipped tab styles (`.tabs`, `.seg--stats`):** label
+  `control` 16/500 (selected 600) instead of `body-small` 14/500; selected
+  indicator 2px `--ink` instead of 2px `--accent`; horizontal scroll with a
+  paper fade drawn only while the row overflows. Each tab is at least 44 × 44
+  in both.
+- **PROPOSED:** the indicator uses `--boundary-selected-quiet` (15.57:1 and
+  16.19:1 on `--bg`; unselected label `--ink-soft` 5.11:1 and 7.78:1). The fade
+  is a gradient: text under it is `unsupported` in the rendered-role audit, not
+  a pass, so R1 keeps labels out of the fade or needs a checker-supported
+  treatment. Nothing else is new.
+
+#### 2.8 Sheet header band (owner gate OG-4, job 6)
+
+- **Layer and roles:** `modal`, as `#whySheet`, `#dayPickSheet`, `#sessionSheet`
+  and `#restSheet` today. Handle on `--boundary-floating` (the shipped Focus
+  sheets already do this); close button `quiet-navigation`, icon-only, 44px
+  reserve; title `section-title` 24/600, which the contract defines as naming a
+  section or sheet; optional `body-small` line. The Why sheet's eyebrow is
+  `body-small`, and its cue takes the title role with Mono load and reps.
+- **Today:** the shipped sheets already mix three title tiers (`subtitle` by
+  default, `section-title` on five, `feature-title` on `#exActionsSheet`), so
+  the single band is a convergence onto an existing tier.
+- **Literals not to carry:** the drawing's sheet title line height is 1.2; the
+  contract's line heights are 1.1, 1.4 and 1.55.
+- **Verdict:** **no contract addition needed.** The band is a composition recipe
+  (handle margins, close button centred on the title's first line, 16px to
+  content) for R1's component row. Title `--ink` is 17.40:1 and 14.82:1 on
+  `--surface`; sub-line `--ink-soft` 5.71:1 and 7.12:1. Separators inside the
+  sheet are the `--rule-on-surface` question in section 1.
+
+#### 2.9 Landing night band pair (contract review proposal; §8.2)
+
+The final page's `.night` class redeclares the dark palette on the hero, the
+proof band and the footer in both themes. Its values are the existing
+`:root[data-theme="dark"]` values, so the question is the mechanism, not a new
+colour.
+
+| Pair on the final page | Foreground | Field | Ratio | Needs |
+| --- | --- | --- | --- | --- |
+| Hero heading and body | `#F2EFE9` | `#141310` | 16.19:1 | 4.5:1 |
+| Hero subline, meta | `#ADA79D` | `#141310` | 7.78:1 | 4.5:1 |
+| Meta separators, footer text (13px) | `#99938A` | `#141310` | 6.10:1 | 4.5:1 |
+| Proof heading and body | `#F2EFE9` | `#1E1C18` | 14.82:1 | 4.5:1 |
+| Proof caption (16px) | `#ADA79D` | `#1E1C18` | 7.12:1 | 4.5:1 |
+| Proof result (26px Mono, large) | `#FF8A3D` | `#1E1C18` | 7.25:1 | 3:1 |
+| Rail current step | `#F2703B` | `#1E1C18` | 5.80:1 | 3:1 |
+| Rail inactive step, "Abrir o app" pill border | `#4A453D` | `#1E1C18`, `#141310` | 1.79:1, 1.95:1 | 3:1, if required |
+
+- **Does an existing pair pass?** No existing token pair holds this band in
+  both themes. In dark, `--bg` and `--ink` give the same colours but also make
+  the band indistinguishable from the page. In light there is no token with
+  these values: `--bg`, `--surface`, `--ink`, `--ink-soft` and `--ink-faint` are
+  all the light palette. The closest pair, `--cta` and `--cta-ink`, measures
+  18.25:1 in light (`#FFFFFF` on `#161513`) but is the `primary` control pair, so
+  borrowing it changes its role, and in dark it resolves to `#161513` on
+  `#DED7CC` (12.77:1), a parchment band. It also has no soft or faint ink.
+- **Consequence under §8.2:** unless a pair is approved, the night band is not
+  built. R2 then builds the hero and proof as bands on the live theme's paper
+  (§8.2's first sentence). Even with a pair approved, the two `#4A453D` marks
+  fail 3:1 as drawn (1.79:1 on the proof field, 1.95:1 on the hero), so the rail
+  inactive step and the pill border need a required-boundary treatment before
+  the band passes the rendered-role audit.
+- **PROPOSED (contract review proposal):** five surface and ink tokens declared
+  with identical values in both themes: `--surface-night` `#141310`,
+  `--surface-night-raised` `#1E1C18`, `--ink-night` `#F2EFE9`,
+  `--ink-night-soft` `#ADA79D`, `--ink-night-faint` `#99938A`. The names are
+  placeholders for R1. All five values already exist in the dark palette, so
+  the proposal adds a role (an always-dark band) and no palette value. AA
+  measurement: the table above, repeated in the rendered-role audit on every
+  landing state in both themes and EN and PT, plus `test/appearance.mjs` as the
+  palette guard. Alternative for the owner: scope the existing dark block to
+  the band, so every role (CTA, accent, rules) resolves inside it with no new
+  names, at the cost of audit support for a themed region inside the other
+  theme.
+- **Other fields on the final page** (outside §8.2's sentence, reported, not
+  proposed): the orange stripe and closing band use `--accent` as a field with
+  the literal `#141310` as ink (4.66:1 light, 6.33:1 dark); the ink band uses
+  `--ink` as the field and `--bg` as ink (15.57:1 and 16.19:1) with
+  alpha-derived secondary text (9.38:1 light, 7.98:1 dark at .76). These pass
+  AA but have no named surface pair, and a full-bleed orange field is a use
+  that §8.8's orange budget does not list. OG-3 should ask about them with the
+  night band.
+
+### 3. OG-4 and C-02
+
+**Five open polish proposals** (source: "Proposals" in the #272 polish comment;
+`POLISH-AUDIT.md` "Not fixed here" lists four, differs in two, see below):
+
+| # | Proposal | What accepting it would change |
+| --- | --- | --- |
+| 1 | Focal exercise name role (comment 1; audit 1) | The drawing keeps `.d-exname` on `subtitle` 18/600. The shipped `.focus-ex__name` is already `feature-title` 28, so keeping 18 changes a shipped role, and choosing `feature-title` makes the name larger than the 24px cue. |
+| 2 | Section heading role (comment 2; audit 2) | "Prescrição de hoje" and peers on `subtitle` 18/600 instead of `section-title` 24, which the contract defines as the tier that names a section. Accepting amends that definition or the mapping. |
+| 3 | Exercise-complete shelf drawing (comment 3; audit 3) | Spec §4.2 shows `focus.next_ex` or `log.finish` in place of the fields. Not drawn, so an OG-6 drawing. It needs no new role: the two actions reuse existing control roles, which the drawing assigns. |
+| 4 | Invalid-set reason string (comment 4; not in the audit) | A readable reason beside the disabled CTA: "Informe carga e reps para registrar." / "Enter a load and reps to log the set." Meets the contract's readable-reason rule, adds one i18n key (not in the strings appendix), `body-small` in `--color-disabled-reason` (5.71:1 and 7.12:1 on `--surface`). No contract addition. |
+| 5 | Overrun after Skip (comment 5; not in the audit) | The drawing counts up after Pular as after zero. Rejecting means a skipped rest ends with no overrun line; a state decision, no contract effect. |
+
+The audit lists four. Its fourth, the selected field's ink boundary, is folded
+into content job 1 in the comment (section 2.1 above); the comment's fourth and
+fifth are not in the audit.
+
+**Seven proposed 058 content jobs** (comment, "Proposed 058 content jobs"):
+
+| # | Comment's job | Section | Review outcome |
+| --- | --- | --- | --- |
+| 1 | Shelf field | 2.1 | PROPOSED token alias, two inventory rows, optional ground (OG-4) |
+| 2 | Ledger open row | 2.6 | PROPOSED, reuses the job 1 token; 1.5px against the contract's 2px (OG-4) |
+| 3 | Inline rest block | 2.2 | PROPOSED selector extension and exception row (OG-4) |
+| 4 | Prescription row | 2.3 | No contract addition needed (OG-4 confirms the recipe) |
+| 5 | Pads on the shelf | 2.1 | PROPOSED variant-selector extension, optional ground (OG-4) |
+| 6 | Sheet header band | 2.8 | No contract addition needed (OG-4 confirms the recipe) |
+| 7 | Rows on a first baseline | 2.3 | No contract addition needed (OG-4 confirms the rule) |
+
+Jobs outside the comment's seven that this review also touches, all labelled
+contract review proposal: the shelf shell variant (2.1), the frequency counts
+(2.4), the verdict-mark masks (2.5), the tab row (2.7), the night pair (2.9),
+the spacing scale, `--rule-on-surface` and the cue line (section 1, 2.2).
+
+**C-02, rest clock:** the protected `clamp(32px,10vw,42px)`
+(`--font-size-rest-clock`) stands unless the owner accepts the polish proposal
+under OG-4. Evidence for the owner: the proposal's stated reason is that the
+review page's phone frame, not the viewport, is the container. In the app,
+`:root` is already the size container (`container-type:inline-size` in
+`styles.css`), so `10cqi` and `10vw` resolve to the same length on a phone to
+within a scrollbar width.
+
+### 4. Prototype values that conflict with an existing contract rule
+
+Not contract additions; R1 and R3 must not carry them:
+
+- Future segments and the week rule on `--rule-strong` (1.31:1 light, 1.95:1
+  dark on `--bg`). The inventory marks `#todayProgram .segbar` and
+  `#woProgress .segbar--ex` `required`, which needs 3:1 (`--boundary-required`
+  is what the shipped exercise bar uses).
+- Line heights 1.15, 1.2, 1.25, 1.3 and 1.35 (contract: 1.1, 1.4, 1.55).
+- The 2px radius on bars and segments (contract steps: 0, 4, 8, 12, 16, pill,
+  round).
+- Disabled primary label `--ink-soft` on `--rule` measures 4.37:1 in light
+  (5.90:1 dark). This pair already ships on `.btn--cta:disabled`, so the shelf
+  adds nothing new; the rendered-role audit's treatment of disabled controls
+  governs.
+
+### 5. Open questions
+
+1. OG-4 names "the seven proposed 058 content jobs", and R1 consumes "OG-4
+   outcome for any token D proposed". No locked row or gate names who accepts
+   the "contract review proposal" items: the shelf shell variant, frequency
+   counts, tab row, spacing scale, `--rule-on-surface`, the art-tile exception
+   and the night pair. R1 says only "the landing surface pair if approved". The
+   orchestrator needs to decide whether they ride OG-4 (Direction D items) and
+   OG-3 (the night pair) or get their own question.
+2. The owner choices this review leaves open: the shelf's top radius
+   (2.1); `--rule-on-surface` or `--boundary-modal` in light (section 1);
+   `--well` or `--surface` field ground and `--bg` or `--surface` pad ground
+   (2.1); 1.5px or 2px selected outline (2.6); progress classification of the
+   frequency bars (2.4); the night pair or scoped dark block (2.9).
 
 ## Terminology inventory (input to OG-2)
 
