@@ -104,6 +104,231 @@ async function openProgramText(page) {
   await page.waitForTimeout(320);
 }
 
+/**
+ * The edge-swipe owner: the third gesture owner in the motion layer, beside the
+ * sheet and Focus owners. It is exercised with synthetic touch pointer events on
+ * a probe page, because a pushed page has no consumer yet; what is proved is the
+ * owner's lifecycle and guards, which every later consumer inherits.
+ */
+const EDGE_INIT = `
+window.__standalone = false;
+{
+  const real = window.matchMedia.bind(window);
+  window.matchMedia = (query) => /display-mode:\\s*standalone/.test(query)
+    ? { matches: window.__standalone, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }
+    : real(query);
+  // Record how the layer drives Motion, so "seeded with the release velocity" is
+  // read from the real calls rather than inferred from where the page ended up.
+  let runtime;
+  window.__animateCalls = [];
+  Object.defineProperty(window, "Motion", {
+    configurable: true,
+    get: () => runtime,
+    set(value) {
+      runtime = value && { ...value, animate: (...args) => {
+        window.__animateCalls.push({ to: args[1], options: { ...(args[2] || {}) } });
+        return value.animate(...args);
+      } };
+    },
+  });
+}
+window.__edge = {
+  commits: 0,
+  mount() {
+    const page = document.createElement("section");
+    page.id = "edgeProbe";
+    page.style.cssText = "position:fixed;inset:0;z-index:50;background:#fff";
+    page.innerHTML = "<p>Pushed page</p>";
+    document.body.append(page);
+    this.page = page;
+  },
+  register() {
+    this.registration = window.RepForgeMotion.registerEdgeSwipeBack({
+      page: this.page,
+      onCommit: () => { this.commits++; this.page.hidden = true; },
+    });
+    return !!this.registration;
+  },
+  state() {
+    const m = new DOMMatrixReadOnly(getComputedStyle(this.page).transform);
+    return { x: Math.round(m.m41), inline: this.page.style.transform, swiping: this.page.classList.contains("is-edge-swiping"),
+      hint: this.page.style.willChange, hidden: this.page.hidden, commits: this.commits };
+  },
+  fire(type, clientX, clientY = 400, pointerId = 7) {
+    this.page.dispatchEvent(new PointerEvent(type, { pointerId, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true, clientX, clientY }));
+  },
+  async drag(xs, { startX = 4, y = 400, wait = 16, end = "pointerup", hold = 0, ys = null } = {}) {
+    this.fire("pointerdown", startX, y);
+    const seen = [];
+    for (let i = 0; i < xs.length; i++) {
+      this.fire("pointermove", xs[i], ys ? ys[i] : y);
+      await new Promise((r) => setTimeout(r, wait));
+      seen.push(this.state());
+    }
+    if (hold) await new Promise((r) => setTimeout(r, hold));
+    if (end) this.fire(end, xs[xs.length - 1], y);
+    return seen;
+  },
+  reset() {
+    this.commits = 0;
+    this.page.hidden = false;
+    this.page.style.transform = "";
+    window.__animateCalls.length = 0;
+  },
+};
+`;
+
+async function edgeSwipe(browser, { reducedMotion = "no-preference" } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.addInitScript(EDGE_INIT);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate(() => { window.__edge.mount(); });
+  const edge = (fn, arg) => page.evaluate(fn, arg);
+  const still = (ms) => page.waitForTimeout(ms);
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+
+  phase(`the edge swipe is inert until a page opts in${tag}`);
+  await edge(() => { window.__standalone = true; });
+  const before = await edge(() => window.__edge.drag([30, 90, 160, 240], { wait: 16 }));
+  await still(120);
+  const beforeEnd = await edge(() => window.__edge.state());
+  assert(before.every((s) => !s.inline && s.x === 0) && beforeEnd.commits === 0 && !beforeEnd.inline,
+    "an unregistered page does not move", JSON.stringify({ before, beforeEnd }));
+  assert(await edge(() => window.__edge.register()), "a page can register once the layer is available");
+
+  phase(`it only runs where display-mode: standalone matches${tag}`);
+  await edge(() => { window.__standalone = false; });
+  const tab = await edge(() => window.__edge.drag([30, 90, 160, 240], { wait: 16 }));
+  await still(120);
+  assert(tab.every((s) => !s.inline && !s.swiping) && (await edge(() => window.__edge.state())).commits === 0,
+    "in a browser tab the left edge is left to the browser", JSON.stringify(tab));
+  await edge(() => { window.__standalone = true; });
+
+  phase(`a registered page follows the thumb from the left edge${tag}`);
+  const following = await edge(() => window.__edge.drag([6, 20, 60, 120], { wait: 24, hold: 160, end: null }));
+  assert(following[0].x === 0 && !following[0].swiping, "a movement under the lock does not start the gesture", JSON.stringify(following.slice(0, 1)));
+  assert(following[2].x > 0 && following[3].x > following[2].x && following.slice(1).every((s) => s.swiping),
+    "once past the lock it tracks the thumb", JSON.stringify(following.map((s) => s.x)));
+  assert(following[3].x - following[2].x === 60, "and moves exactly as far as the thumb does", JSON.stringify(following.map((s) => s.x)));
+  await edge(() => window.__edge.fire("pointerup", 120));
+  await still(reduced ? 80 : 520);
+  const rested = await edge(() => window.__edge.state());
+  assert(rested.x === 0 && !rested.inline && !rested.swiping && !rested.hint && rested.commits === 0,
+    "a short, slow pull settles home and leaves no inline state", JSON.stringify(rested));
+
+  phase(`a long pull commits through navPush, seeded with the release velocity${tag}`);
+  await edge(() => window.__edge.reset());
+  await edge(() => window.__edge.drag([40, 120, 220, 310], { wait: 16 }));
+  await still(reduced ? 80 : 700);
+  const committed = await edge(() => ({ ...window.__edge.state(), calls: window.__animateCalls }));
+  assert(committed.commits === 1 && committed.hidden, "the page's own back path runs exactly once", JSON.stringify(committed));
+  assert(!committed.inline && !committed.swiping && !committed.hint, "and the layer hands the page back with no inline state", JSON.stringify(committed));
+  if (reduced) {
+    assert(committed.calls.length === 0, "reduced motion commits with no spring at all", JSON.stringify(committed.calls));
+  } else {
+    const push = committed.calls.find((c) => c.options.stiffness === 700 && c.options.damping === 53);
+    assert(push && push.to === 390 && push.options.velocity > 300,
+      "the commit is the navPush spring to the screen edge, carrying the release velocity", JSON.stringify(committed.calls));
+  }
+
+  phase(`a flick commits on projected momentum even from a short pull${tag}`);
+  await edge(() => window.__edge.reset());
+  await edge(() => window.__edge.drag([30, 62, 100], { wait: 8 }));
+  await still(reduced ? 80 : 700);
+  const flicked = await edge(() => window.__edge.state());
+  assert(flicked.commits === 1, "a fast short pull is a back swipe", JSON.stringify(flicked));
+
+  phase(`pointercancel never commits${tag}`);
+  await edge(() => window.__edge.reset());
+  await edge(() => window.__edge.drag([40, 120, 220, 310], { wait: 16, end: "pointercancel" }));
+  await still(reduced ? 80 : 700);
+  const cancelled = await edge(() => ({ ...window.__edge.state(), calls: window.__animateCalls }));
+  assert(cancelled.commits === 0 && !cancelled.hidden && cancelled.x === 0 && !cancelled.inline && !cancelled.swiping,
+    "a pull the browser takes away returns home instead of committing", JSON.stringify(cancelled));
+  if (!reduced) {
+    assert(!cancelled.calls.some((c) => c.options.stiffness === 700) && cancelled.calls.every((c) => !c.options.velocity),
+      "and it settles from rest, not from a stale velocity", JSON.stringify(cancelled.calls));
+  }
+
+  phase(`it never starts in Focus, outside the edge zone or on a vertical drag${tag}`);
+  await edge(() => window.__edge.reset());
+  await edge(() => {
+    const workout = document.getElementById("workout");
+    window.__focusWas = { cls: workout.classList.contains("is-focus"), body: document.body.classList.contains("is-focus-wo") };
+    workout.classList.add("is-focus");
+    document.body.classList.add("is-focus-wo");
+  });
+  const inFocus = await edge(() => window.__edge.drag([30, 90, 160, 240], { wait: 16 }));
+  await still(120);
+  assert(inFocus.every((s) => !s.inline && !s.swiping) && (await edge(() => window.__edge.state())).commits === 0,
+    "Focus keeps its horizontal axis for the deck", JSON.stringify(inFocus));
+  await edge(() => {
+    document.getElementById("workout").classList.toggle("is-focus", window.__focusWas.cls);
+    document.body.classList.toggle("is-focus-wo", window.__focusWas.body);
+  });
+  const inside = await edge(() => window.__edge.drag([80, 140, 220, 300], { startX: 60, wait: 16 }));
+  assert(inside.every((s) => !s.inline && !s.swiping), "a touch that starts away from the edge is not a back swipe", JSON.stringify(inside));
+  const vertical = await edge(() => window.__edge.drag([6, 8, 10, 12], { wait: 16, ys: [440, 500, 560, 620] }));
+  assert(vertical.every((s) => !s.inline && !s.swiping), "a vertical drag from the edge is left to the page", JSON.stringify(vertical));
+  await still(80);
+  assert((await edge(() => window.__edge.state())).commits === 0, "none of them committed");
+
+  if (!reduced) {
+    phase("a pull can be re-grabbed while it settles");
+    await edge(() => window.__edge.reset());
+    await edge(() => window.__edge.drag([30, 80, 140], { wait: 30, hold: 200 }));
+    await still(40);
+    const midSettle = await edge(() => window.__edge.state());
+    // Held still for 150ms before the lift, so the release carries no velocity.
+    const regrab = await edge(() => window.__edge.drag([14, 26], { wait: 16, hold: 150 }));
+    const regrabbed = regrab[regrab.length - 1];
+    assert(midSettle.x > 0 && regrabbed.x >= midSettle.x - 20,
+      "the second grab picks the page up where it is, not at rest", JSON.stringify({ midSettle, regrab }));
+    await still(520);
+    assert((await edge(() => window.__edge.state())).commits === 0, "and letting it go slowly still does not navigate");
+  }
+
+  phase(`disposal cancels a live pull, and mounting is idempotent${tag}`);
+  await edge(() => window.__edge.reset());
+  const handle = await edge(() => ({ same: window.RepForgeMotion.mountGestureController() === window.__repforgeGestureHandle }));
+  assert(handle.same, "mounting twice returns the one controller");
+  await edge(async () => {
+    window.__edge.fire("pointerdown", 4);
+    window.__edge.fire("pointermove", 30);
+    window.__edge.fire("pointermove", 90);
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  const live = await edge(() => window.__edge.state());
+  assert(live.swiping && live.x > 0, "a pull is live before the controller is disposed", JSON.stringify(live));
+  await edge(() => window.__repforgeGestureHandle.dispose());
+  const torn = await edge(() => window.__edge.state());
+  assert(!torn.swiping && !torn.inline && !torn.hint && torn.x === 0, "disposal puts the page back and releases the layer hint", JSON.stringify(torn));
+  await edge(() => { window.__edge.fire("pointermove", 300); window.__edge.fire("pointerup", 300); });
+  await still(reduced ? 60 : 500);
+  assert((await edge(() => window.__edge.state())).commits === 0, "a release after disposal commits nothing");
+  const dead = await edge(() => window.__edge.drag([30, 90, 160, 240], { wait: 16 }));
+  assert(dead.every((s) => !s.inline), "a disposed controller leaves the page inert", JSON.stringify(dead));
+  await edge(() => { window.__repforgeGestureHandle = window.RepForgeMotion.mountGestureController(); window.__edge.reset(); });
+  await edge(() => window.__edge.drag([40, 120, 220, 310], { wait: 16 }));
+  await still(reduced ? 80 : 700);
+  assert((await edge(() => window.__edge.state())).commits === 1, "a fresh mount brings the owner back");
+
+  phase(`the registration can be withdrawn${tag}`);
+  await edge(() => { window.__edge.reset(); window.__edge.registration.dispose(); });
+  const withdrawn = await edge(() => window.__edge.drag([30, 90, 160, 240], { wait: 16 }));
+  await still(100);
+  assert(withdrawn.every((s) => !s.inline) && (await edge(() => window.__edge.state())).commits === 0, "a withdrawn page is inert again", JSON.stringify(withdrawn));
+  assert(!(await edge(() => window.RepForgeMotion.registerEdgeSwipeBack({ page: null, onCommit() {} }))), "a registration without a page is refused");
+
+  assert(!errors.length, `no uncaught page errors in the edge-swipe run${tag}`, errors.slice(0, 3).join(" | "));
+  await context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -317,6 +542,9 @@ async function run() {
   await page.evaluate(() => window.stopRest());
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
+
+  await edgeSwipe(browser);
+  await edgeSwipe(browser, { reducedMotion: "reduce" });
 
   await browser.close();
   console.log(`\nsheet swipe dismiss: ${results.passed} passed, ${results.failed} failed`);

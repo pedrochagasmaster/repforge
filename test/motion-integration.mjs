@@ -82,6 +82,202 @@ async function scenario(browser, { reducedMotion = "no-preference" } = {}) {
   return { context, page, errors };
 }
 
+/** Probe markup for the vocabulary helpers: a stage for the indicator and a slot for the height swap. */
+const VOCAB_STAGE = `
+window.__vocab = {
+  stage() {
+    document.querySelector("#vocabStage")?.remove();
+    const stage = document.createElement("div");
+    stage.id = "vocabStage";
+    stage.style.cssText = "position:fixed;left:0;top:0;width:390px;height:300px;z-index:9999;background:#fff";
+    stage.innerHTML = '<div id="vocabInd" style="position:absolute;top:40px;left:20px;width:60px;height:4px;background:#000"></div>' +
+      '<div id="vocabSlot" style="position:absolute;top:100px;left:0;width:300px"><div id="vocabBody" style="height:40px">a</div></div>';
+    document.body.append(stage);
+    return stage;
+  },
+  rect(sel) { const r = document.querySelector(sel).getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height }; },
+  frames(n = 2) { return new Promise((resolve) => { const step = (k) => (k ? requestAnimationFrame(() => step(k - 1)) : resolve()); step(n); }); },
+};
+`;
+
+async function vocabularyHelpers(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.addInitScript(VOCAB_STAGE);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate(() => window.__vocab.stage());
+
+  phase(`animateIndicator travels one element and retargets from its live transform${tag}`);
+  const travel = await page.evaluate(async () => {
+    const el = document.querySelector("#vocabInd");
+    const from = window.__vocab.rect("#vocabInd");
+    el.style.left = "220px"; el.style.width = "120px";
+    const done = window.RepForgeMotion.animateIndicator(el, from);
+    const first = window.__vocab.rect("#vocabInd");
+    const inline = el.style.transform;
+    await new Promise((r) => setTimeout(r, 45));
+    const mid = window.__vocab.rect("#vocabInd");
+    // Interrupt: the next job moves it back to 40px. The caller measures where it is now.
+    const live = window.__vocab.rect("#vocabInd");
+    el.style.left = "40px"; el.style.width = "60px";
+    const second = window.RepForgeMotion.animateIndicator(el, live);
+    const restart = window.__vocab.rect("#vocabInd");
+    const firstArrived = await done;
+    await second;
+    await window.__vocab.frames(2);
+    return { from, first, inline, mid, live, restart, firstArrived, end: window.__vocab.rect("#vocabInd"),
+      endInline: el.style.transform, hint: el.style.willChange, origin: el.style.transformOrigin };
+  });
+  if (reduced) {
+    assert(travel.inline === "" && Math.abs(travel.first.left - 220) < 1 && Math.abs(travel.first.width - 120) < 1,
+      "the indicator is at its end state on the very next frame", JSON.stringify(travel));
+  } else {
+    assert(Math.abs(travel.first.left - travel.from.left) < 1.5 && Math.abs(travel.first.width - travel.from.width) < 1.5,
+      "it starts exactly where it was", JSON.stringify({ from: travel.from, first: travel.first }));
+    assert(travel.mid.left > travel.from.left + 2 && travel.mid.left < 220 && travel.mid.width > 60 && travel.mid.width < 120,
+      "and is between the two places part-way through", JSON.stringify(travel.mid));
+    assert(Math.abs(travel.restart.left - travel.live.left) < 1.5 && Math.abs(travel.restart.width - travel.live.width) < 1.5,
+      "an interruption restarts from the live position instead of jumping", JSON.stringify({ live: travel.live, restart: travel.restart }));
+    assert(travel.firstArrived === false, "the interrupted run reports that it did not arrive");
+  }
+  assert(Math.abs(travel.end.left - 40) < 0.5 && Math.abs(travel.end.width - 60) < 0.5 && travel.endInline === "" && !travel.hint && !travel.origin,
+    "it lands on its final box with no inline transform, origin or layer hint", JSON.stringify(travel));
+
+  phase(`animateSlot swaps content in a measured slot and reverses from the live height${tag}`);
+  const slot = await page.evaluate(async () => {
+    const el = document.querySelector("#vocabSlot"), body = document.querySelector("#vocabBody");
+    let calls = 0;
+    const grown = window.RepForgeMotion.animateSlot(el, () => { calls++; body.style.height = "140px"; });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const mid = Math.round(el.getBoundingClientRect().height);
+    const inlineMid = { overflow: el.style.overflow, hint: el.style.willChange };
+    await new Promise((r) => setTimeout(r, 60));
+    const live = Math.round(el.getBoundingClientRect().height);
+    const back = window.RepForgeMotion.animateSlot(el, () => { calls++; body.style.height = "40px"; });
+    // The run's first frame is painted by the next animation frame, not by the call.
+    await new Promise((r) => requestAnimationFrame(r));
+    const restart = Math.round(el.getBoundingClientRect().height);
+    await grown; await back;
+    await new Promise((r) => setTimeout(r, 40));
+    return { mid, inlineMid, live, restart, calls, end: Math.round(el.getBoundingClientRect().height), inline: el.style.height,
+      overflow: el.style.overflow, hint: el.style.willChange };
+  });
+  assert(slot.calls === 2, "each swap ran exactly once", JSON.stringify(slot));
+  if (reduced) {
+    assert(slot.mid === 140 && !slot.inlineMid.overflow, "the slot is at the new height on the next frame", JSON.stringify(slot));
+  } else {
+    assert(slot.mid >= 40 && slot.mid < 140 && slot.inlineMid.overflow === "hidden" && slot.inlineMid.hint === "height",
+      "the slot grows through intermediate heights, clipped", JSON.stringify(slot));
+    assert(Math.abs(slot.restart - slot.live) <= 30 && slot.restart > 40 && slot.restart < 140,
+      "swapping back mid-run starts from the live height", JSON.stringify(slot));
+  }
+  assert(slot.end === 40 && !slot.inline && !slot.overflow && !slot.hint, "settled, the slot carries no inline geometry", JSON.stringify(slot));
+
+  phase(`navPush is a critically damped spring that carries a seeded velocity${tag}`);
+  const push = await page.evaluate(async () => {
+    const { navPush } = window.RepForgeMotion.vocabulary;
+    const run = (velocity, retargetAt) => new Promise((resolve) => {
+      const v = window.Motion.motionValue(0);
+      const start = performance.now();
+      let peak = 0, at = null, resumed = null;
+      v.on("change", (value) => { peak = Math.max(peak, value); if (at !== null && resumed === null) resumed = value; });
+      const anim = window.Motion.animate(v, 390, { ...navPush, velocity });
+      if (retargetAt) setTimeout(() => {
+        at = v.get();
+        v.stop();
+        window.Motion.animate(v, 0, { ...navPush }).then(() => resolve({ at, resumed, end: v.get(), ms: Math.round(performance.now() - start) }));
+      }, retargetAt);
+      else anim.then(() => resolve({ peak: Math.round(peak * 10) / 10, end: v.get(), ms: Math.round(performance.now() - start) }));
+    });
+    return { rest: await run(0), seeded: await run(1500), retarget: await run(0, 70) };
+  });
+  assert(push.rest.end === 390 && push.seeded.end === 390, "it lands exactly on the target", JSON.stringify(push));
+  assert(push.rest.peak <= 390.5, "released from rest it never overshoots", JSON.stringify(push.rest));
+  assert(push.rest.ms >= 120 && push.rest.ms <= 420 && push.seeded.ms <= 420, "and comes to rest inside the time a push may take", JSON.stringify(push));
+  assert(push.retarget.at > 20 && push.retarget.at < 380 && push.retarget.end === 0 && Math.abs(push.retarget.resumed - push.retarget.at) < 90,
+    "retargeted mid-flight it continues from where it is, without a jump", JSON.stringify(push.retarget));
+
+  phase(`the short fixed beats stay inside their budgets and have a reduced-motion path${tag}`);
+  const beats = await page.evaluate(() => {
+    const out = {};
+    const probe = (name, className, { parent = "", style = "" } = {}) => {
+      const host = document.createElement("div");
+      if (parent) host.className = parent;
+      const el = document.createElement("div");
+      el.className = className;
+      el.style.cssText = style;
+      el.textContent = "x";
+      host.append(el);
+      document.getElementById("vocabStage").append(host);
+      const cs = getComputedStyle(el);
+      const animations = el.getAnimations().map((a) => ({
+        frames: a.effect.getKeyframes().map((k) => ({ transform: k.transform, opacity: k.opacity, clipPath: k.clipPath })),
+      }));
+      out[name] = { animationName: cs.animationName, duration: cs.animationDuration, delay: cs.animationDelay, iteration: cs.animationIterationCount,
+        transition: cs.transitionDuration, opacity: cs.opacity, transform: cs.transform, animations };
+      host.remove();
+    };
+    probe("rise", "motion-rise");
+    probe("up", "motion-value-up");
+    probe("down", "motion-value-down");
+    probe("fade", "motion-value-fade");
+    probe("clip", "motion-clip-reveal");
+    probe("build3", "motion-build-item", { parent: "motion-build", style: "--build-i:3" });
+    probe("stepsPlain", "motion-step");
+    probe("stepsReady", "motion-step", { parent: "motion-steps-ready" });
+    const host = document.createElement("div");
+    host.className = "motion-hairline is-pending";
+    host.innerHTML = '<span class="motion-hairline__label">Saving</span>';
+    document.getElementById("vocabStage").append(host);
+    const after = getComputedStyle(host, "::after");
+    out.hairline = { after: after.animationName, iteration: after.animationIterationCount, duration: after.animationDuration,
+      label: getComputedStyle(host.querySelector(".motion-hairline__label")).display };
+    host.remove();
+    const idle = document.createElement("div");
+    idle.className = "motion-hairline";
+    document.getElementById("vocabStage").append(idle);
+    out.hairlineIdleAfter = getComputedStyle(idle, "::after").animationName;
+    idle.remove();
+    return out;
+  });
+  const ms = (value) => parseFloat(value) * (/ms$/.test(value) ? 1 : 1000);
+  if (reduced) {
+    assert(["rise", "up", "down", "fade", "clip", "build3"].every((k) => beats[k].animationName === "none"),
+      "under reduced motion every beat is switched off and the element sits at its end state", JSON.stringify(beats));
+    assert(beats.stepsReady.opacity === "1" && ms(beats.stepsReady.transition) === 0, "steps are shown at once", JSON.stringify(beats.stepsReady));
+    assert(beats.hairline.after === "none" && beats.hairline.label === "block" && beats.hairlineIdleAfter === "none",
+      "the hairline sweep is replaced by its text label", JSON.stringify(beats.hairline));
+  } else {
+    const rise = (beat) => {
+      const frame = beat.animations[0]?.frames[0]?.transform || "";
+      const m = /translateY\((-?[\d.]+)px\)/.exec(frame);
+      return m ? Number(m[1]) : NaN;
+    };
+    assert(beats.rise.animationName === "taurifer-rise" && ms(beats.rise.duration) <= 160 && Math.abs(rise(beats.rise)) <= 12 && Math.abs(rise(beats.rise)) > 0,
+      "the rise is at most 12px inside 160ms", JSON.stringify(beats.rise));
+    assert(ms(beats.up.duration) <= 120 && ms(beats.down.duration) <= 120 &&
+      Math.abs(rise(beats.up)) <= 6 && rise(beats.up) === -rise(beats.down) && rise(beats.up) !== 0,
+    "the directional value change is at most 6px inside 120ms, and the two directions are opposite", JSON.stringify([beats.up, beats.down]));
+    assert(ms(beats.fade.duration) === 80 && beats.fade.animations[0].frames.every((f) => !f.transform || f.transform === "none"),
+      "the crossfade fallback is 80ms and does not travel", JSON.stringify(beats.fade));
+    assert(ms(beats.clip.duration) === 360 && beats.clip.animations[0].frames.some((f) => /inset\(0px 100% 0px 0px\)/.test(f.clipPath || "")),
+      "the clip reveal is about 360ms", JSON.stringify(beats.clip));
+    assert(beats.build3.animationName === "taurifer-build-in" && Math.round(ms(beats.build3.delay)) === 165,
+      "the build staggers each item by 55ms", JSON.stringify(beats.build3));
+    assert(beats.stepsPlain.opacity === "1" && beats.stepsReady.opacity === "0" && ms(beats.stepsReady.transition.split(",")[0]) === 200,
+      "the step reveal is hidden only once a script has marked the group ready", JSON.stringify([beats.stepsPlain, beats.stepsReady]));
+    assert(beats.hairline.after === "taurifer-hairline" && beats.hairline.iteration === "infinite" && beats.hairlineIdleAfter === "none" && beats.hairline.label === "none",
+      "the hairline runs only while pending, and its label is hidden while it does", JSON.stringify([beats.hairline, beats.hairlineIdleAfter]));
+  }
+  assert(errors.length === 0, `no page errors in the vocabulary run${tag}`, errors.join(" | "));
+  await context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
 
@@ -97,7 +293,7 @@ async function run() {
   assert(boot.runtime, "the vendored Motion bundle exposes animate and motionValue");
   assert(boot.layer, "the integration layer reports the runtime available");
   assert(boot.reduced === false, "reduced motion is off in this context", String(boot.reduced));
-  assert(boot.vocabulary.length === 5, "the motion vocabulary is published for inspection", boot.vocabulary.join(", "));
+  assert(boot.vocabulary.length === 6 && boot.vocabulary.includes("navPush"), "the motion vocabulary is published for inspection", boot.vocabulary.join(", "));
 
   // A spring that ignored the velocity handed to it would be a fixed-duration
   // transition wearing a spring's name — this is the property the whole
@@ -447,6 +643,9 @@ async function run() {
   assert(timings.button.startsWith("0.1s"), "button press feedback is still 100ms", timings.button);
   assert(timings.sheet === "0.26s", "the sheet's own open/close transition is untouched", timings.sheet);
   await disc.context.close();
+
+  await vocabularyHelpers(browser);
+  await vocabularyHelpers(browser, { reducedMotion: "reduce" });
 
   await browser.close();
   console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);

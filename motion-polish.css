@@ -234,6 +234,105 @@ nav button:active{transform:scale(.975)}
   .entry__remove:hover{text-decoration:none}
 }
 
+/* ---- Short fixed beats (Plan 064 section 8, rule 11) ----
+   Vocabulary only: nothing selects these classes yet. Each consumer lands in
+   the slice named in the interaction runtime audit and adds the class from its
+   own render. Every beat is transform, opacity or clip, finishes inside the
+   budget named here, and has a reduced-motion entry below that leaves the end
+   state on the first frame. */
+
+/* The shelf changing job, and the completion actions arriving: a rise of at
+   most 12px while fading in, inside 160ms. */
+.motion-rise{
+  animation:taurifer-rise .16s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes taurifer-rise{
+  from{opacity:0;transform:translateY(12px)}
+  to{opacity:1;transform:none}
+}
+
+/* The selected field's value changing: the new value arrives 6px from the side
+   it moved toward, inside 120ms. Where that reads as busy at logging frequency
+   the crossfade class replaces it (80ms, no travel). */
+.motion-value-up{
+  animation:taurifer-value-up .12s cubic-bezier(.2,.7,.2,1) both;
+}
+.motion-value-down{
+  animation:taurifer-value-down .12s cubic-bezier(.2,.7,.2,1) both;
+}
+.motion-value-fade{
+  animation:taurifer-value-fade .08s linear both;
+}
+@keyframes taurifer-value-up{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:none}
+}
+@keyframes taurifer-value-down{
+  from{opacity:0;transform:translateY(-6px)}
+  to{opacity:1;transform:none}
+}
+@keyframes taurifer-value-fade{
+  from{opacity:0}
+  to{opacity:1}
+}
+
+/* A chart line drawing in from the left, or only the segment that was added. */
+.motion-clip-reveal{
+  animation:taurifer-clip-reveal .36s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes taurifer-clip-reveal{
+  from{clip-path:inset(0 100% 0 0)}
+  to{clip-path:inset(0 0 0 0)}
+}
+
+/* A stepped reveal on entry. The hidden state only exists once a script has
+   marked the group ready, so without JavaScript every step is simply shown. */
+.motion-steps-ready .motion-step{
+  opacity:0;
+  transform:translateY(8px);
+  transition:opacity .2s cubic-bezier(.2,.7,.2,1),
+             transform .2s cubic-bezier(.2,.7,.2,1);
+}
+.motion-steps-ready .motion-step.is-in{
+  opacity:1;
+  transform:none;
+}
+
+/* A generated list arriving in reading order, one item every 55ms. The caller
+   sets --build-i on each item, counting from zero, once per generation. */
+.motion-build > .motion-build-item{
+  animation:taurifer-build-in .2s cubic-bezier(.2,.7,.2,1) both;
+  animation-delay:calc(var(--build-i,0) * 55ms);
+}
+@keyframes taurifer-build-in{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:none}
+}
+
+/* An indeterminate hairline: a sweep along a 1px rule that runs only while
+   .is-pending is on the host, so it is never a loop at rest. Under reduced
+   motion the sweep is gone and the label states the same thing. */
+.motion-hairline{
+  position:relative;
+  overflow:hidden;
+}
+.motion-hairline__label{display:none}
+.motion-hairline.is-pending::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--ink-faint),transparent);
+  transform:translateX(-100%);
+  animation:taurifer-hairline 1.1s linear infinite;
+}
+@keyframes taurifer-hairline{
+  from{transform:translateX(-100%)}
+  to{transform:translateX(100%)}
+}
+
 /* Reduced motion is a semantic alternate state, not a slower animation. */
 @media (prefers-reduced-motion:reduce){
   .view,
@@ -250,6 +349,15 @@ nav button:active{transform:scale(.975)}
   .effortpop.is-open .effortpop__arrow,
   .effortpop.is-bump .effortpop__hint,
   .toast,.tour,.installbanner,.toggle::after{transition:none}
+  .motion-rise,
+  .motion-value-up,
+  .motion-value-down,
+  .motion-value-fade,
+  .motion-clip-reveal,
+  .motion-build > .motion-build-item{animation:none}
+  .motion-steps-ready .motion-step{opacity:1;transform:none;transition:none}
+  .motion-hairline.is-pending::after{animation:none;content:none}
+  .motion-hairline.is-pending .motion-hairline__label{display:block}
   .toggle:active::after{transform:none}
   .toggle[aria-checked="true"]:active::after,
   .toggle[aria-pressed="true"]:active::after,

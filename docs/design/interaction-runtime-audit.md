@@ -173,7 +173,7 @@ information is identical in every case; nothing depends on the motion to say it.
 
 ## The motion vocabulary
 
-Five named settings in `motion-layer.js`, and nothing else. A spring literal at a
+Six named settings in `motion-layer.js`, and nothing else. A spring literal at a
 call site is how a codebase ends up with four slightly different settles nobody
 chose, so the runtime contract test fails if one appears.
 
@@ -181,7 +181,8 @@ chose, so the runtime contract test fails if one appears.
 | --- | --- | --- |
 | `gestureSettle` | spring, k=600, c=40, ζ≈0.82 | A surface the thumb released, returning to rest |
 | `gestureExit` | spring, k=700, c=53, ζ≈1.0 | A surface leaving because the gesture asked it to |
-| `layoutShift` | spring, k=600, c=48, ζ≈0.98 | Rows trading places with no gesture behind them |
+| `layoutShift` | spring, k=600, c=48, ζ≈0.98 | Rows trading places with no gesture behind them, and one indicator travelling between two places |
+| `navPush` | spring, k=700, c=53, ζ≈1.0 | A page pushed in by a tap, or carried off by a committed back swipe. `gestureExit`'s constants under its own name, because no gesture drives a tapped push |
 | `revealIn` | 200ms `cubic-bezier(.2,.7,.2,1)` | Content measuring itself open |
 | `revealOut` | 150ms `cubic-bezier(.4,0,.8,.2)` | The same content closing — faster, because the system is responding rather than offering |
 
@@ -196,6 +197,38 @@ Two findings shaped these:
   kept a 350px spring running ~200ms after it had visually arrived, which
   delayed the state change waiting on it. Every spring here sets a pixel-scale
   `restDelta` and `restSpeed`.
+
+## Plan 064 rule 11 vocabulary (R1c)
+
+Plan 064 section 8 rule 11 was amended by the owner on 2026-10-01 (#295, comment
+5941747309; the decision record is
+[`motion-rule-11-amendment.md`](motion-rule-11-amendment.md)). R1c builds the
+shared vocabulary and nothing that uses it: every row below has an owner, a
+reduced-motion path and the slice where its first consumer lands, and none has
+a consumer yet. Everything is transform, opacity, clip or a measured height; no
+spring literal is written at a call site; `window.Motion` stays unreachable from
+application code and the vendored entry does not widen.
+
+| Addition | Owner | Trigger | Reduced-motion path | Consumer |
+| --- | --- | --- | --- | --- |
+| One indicator travelling between two places: `RepForgeMotion.animateIndicator(el, fromRect)`, a single-element FLIP on `layoutShift` | `motion-layer.js` | The caller moves the element to its new place, then passes the rect it measured before moving it. A second call mid-run starts from the element's live position, not from where the first began | Clears any run and leaves the element at its end state; no transform, origin or layer hint is set | consumer: lands in R3 (T1 field outline, L2 open-row outline, N3 Progress underline, D4 chart marker); N1 dock lens in R6 |
+| Page push: the `navPush` spring | `motion-layer.js` | Used by the edge-swipe commit now; a tapped push (N4 drill-downs, N5 Today to Focus) retargets it from the live transform | Jumps to the end state | consumer: lands in R5 (N4, N5 push) |
+| Edge-swipe back: `RepForgeMotion.registerEdgeSwipeBack({ page, onCommit })`, the third gesture owner in `mountGestureController()` beside the sheet and Focus owners | `motion-layer.js` | A touch or pen pointer that goes down within 24 px of the left edge on a registered page, then moves right past the 10 px lock. Inert until a page registers; never in Focus; only while `display-mode: standalone` matches, since in a browser tab the left edge belongs to the browser and the visible back control stays the primary route. Release picks home or off-screen from `projectMomentum` and `nearestSnap`; home settles on `gestureSettle`, off-screen commits on `navPush` seeded with the release velocity (zeroed if the thumb stopped for 100 ms), then calls `onCommit`. `pointercancel` never commits. Same lifecycle as the other owners: mounting is idempotent, disposal and Escape cancel any run and hand the page back. While it runs the page carries `is-edge-swiping` so its own CSS can stand down; the consuming page must carry `touch-action: pan-y` or the browser may claim the horizontal drag | Dragging still follows the thumb; a settle or a commit jumps to its end state, and `onCommit` runs on release | consumer: lands in R5 (N4 pages, as part of the transition glue) |
+| Measured slot height: `RepForgeMotion.animateSlot(slot, swap)`, the disclosure height run (`revealIn` growing, `revealOut` shrinking) generalised from open and close to swapping one content for another | `motion-layer.js` | `swap` runs exactly once, whichever path is taken; the slot measures its height before and after and animates between them, reversing from the live height if called again mid-run. The slot's minimum height and the content crossfade are the caller's CSS | `swap` runs and the slot is at its new height on the next frame | consumer: lands in R3 (L3 inline rest in the cue slot) |
+| Rise: `.motion-rise`, at most 12 px while fading in, 160 ms | `motion-polish.css` | The class is added when the shelf changes job or the completion actions arrive | `animation: none`; the element is at its end state | consumer: lands in R3 (L4 exercise-complete shelf; the shelf changing job) |
+| Directional value change: `.motion-value-up` and `.motion-value-down`, 6 px in the direction the value moved, 120 ms; `.motion-value-fade`, an 80 ms crossfade with no travel, is the fallback if the travel reads as busy | `motion-polish.css` | The class is set on the selected field's value when it changes. M1 is conditional on a physical phone check at logging frequency, to be recorded in the device matrix | `animation: none` on all three | consumer: lands in R3 (M1 shelf value on a pad tap) |
+| Clip reveal: `.motion-clip-reveal`, a left-to-right wipe, 360 ms | `motion-polish.css` | Added to the chart line on open, or to only the new segment when a session is added | `animation: none`; the line is fully shown | consumer: lands in R3 (C1 chart line) |
+| Step reveal: `.motion-steps-ready .motion-step` and `.is-in`, an 8 px rise with a fade, 200 ms on the `revealIn` curve | `motion-polish.css` | A script marks the group `motion-steps-ready` and adds `.is-in` per step. Without the parent class, which is how it renders without JavaScript, every step is simply visible | Steps are shown at once with no transition | consumer: lands in R2 (O1 landing proof) |
+| Build stagger: `.motion-build > .motion-build-item`, an 8 px rise with a fade, 200 ms, each item delayed by `--build-i` times 55 ms | `motion-polish.css` | Set once per generation by the caller; the summary's removed row stagger used the same arithmetic and stays removed | `animation: none` | consumer: lands in R4 (O3 generated program, after OG-1) |
+| Indeterminate hairline: `.motion-hairline.is-pending`, a 1 px sweep along the bottom of the host | `motion-polish.css` | Runs only while `.is-pending` is on the host, so it is never a loop at rest; the caller removes the class on settlement or failure. It is the only continuous loop outside the rest timer | The sweep is removed and `.motion-hairline__label` is shown in its place | consumer: lands in R3 (S1 persist-retry banner) |
+
+Two things in the run helpers are not obvious from the call sites. Motion's own
+`then` discards what its callbacks return, and a stopped or replaced run never
+settles on its own, so "did this run arrive" is resolved by the layer (`false`
+the moment a run is superseded) rather than read back from the animation. And
+`animateIndicator` scales as well as translates, so a bordered indicator changes
+thickness while it travels between different sizes; a consumer that cannot
+accept that draws its indicator as a fill or a hairline.
 
 ## Reduced motion
 

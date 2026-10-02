@@ -130,17 +130,18 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
 {
   const vocabulary = motion.api.vocabulary;
   assert(vocabulary && typeof vocabulary === "object", "one named motion vocabulary is exposed");
-  for (const name of ["gestureSettle", "gestureExit", "layoutShift", "revealIn", "revealOut"]) {
+  for (const name of ["gestureSettle", "gestureExit", "layoutShift", "navPush", "revealIn", "revealOut"]) {
     assert(Object.hasOwn(vocabulary, name), `the vocabulary names ${name}`);
   }
   const values = Object.values(vocabulary);
   const durations = values.filter((v) => Object.hasOwn(v, "duration")).map((v) => v.duration);
   assert(durations.length === 2 && durations.every((d) => Number.isFinite(d) && d <= 0.3), "both tweens stay within 300ms");
   const springs = values.filter((v) => v.type === "spring");
-  assert(springs.length === 3 && springs.every((s) => s.stiffness > 0 && s.damping > 0 && s.mass > 0) && values.every((v) => !Object.hasOwn(v, "visualDuration") && !Object.hasOwn(v, "bounce")), "all springs use physics parameters, not duration or bounce");
+  assert(springs.length === 4 && springs.every((s) => s.stiffness > 0 && s.damping > 0 && s.mass > 0) && values.every((v) => !Object.hasOwn(v, "visualDuration") && !Object.hasOwn(v, "bounce")), "all springs use physics parameters, not duration or bounce");
   const ratios = springs.map((s) => Math.round(s.damping / (2 * Math.sqrt(s.stiffness * s.mass)) * 100) / 100);
   assert(ratios.every((z) => z >= 0.75 && z <= 1.05), "springs are damped between 0.75 and critical", ratios.join(", "));
   assert(springs.every((s) => Number.isFinite(s.restDelta) && s.restDelta > 0), "each spring has a pixel-scale rest threshold");
+  assert(JSON.stringify(vocabulary.navPush) === JSON.stringify(vocabulary.gestureExit), "navPush starts from gestureExit's constants (k 700, c 53, critically damped)");
   const strayLiterals = [...layer.matchAll(/type\s*:\s*["']spring["']/g)].length - springs.length;
   assert(strayLiterals === 0, "no spring literals appear outside the vocabulary");
   assert(!/ease\s*:\s*"?ease-?in"?\s*[,}]/i.test(layer) && !/easeIn[,"']/.test(layer), "nothing enters or exits on ease-in");
@@ -163,7 +164,7 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   motion.query.matches = true;
   assert(motion.api.reducedMotion() === true, "a preference change takes effect live");
   motion.query.matches = false;
-  for (const entry of ["settle(", "dismiss(", "settleFocusDeck(", "animateExerciseReorder(", "animateDisclosure("]) {
+  for (const entry of ["settle(", "dismiss(", "settleFocusDeck(", "animateExerciseReorder(", "animateIndicator(", "animateDisclosure(", "animateSlot("]) {
     const body = layer.slice(layer.indexOf(`  ${entry}`) >= 0 ? layer.indexOf(`  ${entry}`) : layer.indexOf(entry));
     assert(/reducedMotion\s*\(\s*\)/.test(body.slice(0, 900)), `${entry} has a reduced-motion alternate`);
   }

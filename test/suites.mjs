@@ -62,6 +62,7 @@ export const SUITES = {
     s("test/progress-model-dst.mjs"),
     s("test/progression-strategies-simulation.mjs"),
     s("test/vendor-runtimes.mjs"),
+    s("test/motion-vocabulary.mjs"),
     s("test/telemetry-unit.mjs"),
     s("test/unsupported-workout-grammar.mjs"),
     s("test/posthog-adapter.mjs"),
