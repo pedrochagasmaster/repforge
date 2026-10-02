@@ -757,6 +757,10 @@ async function main() {
       };
     };
     const chip = document.querySelector("#woRest"), bar = document.querySelector("#restBar");
+    // The chip eases its colour (.2s); read the settled values, not a frame of the ease.
+    for (const node of [chip, bar, ...chip.querySelectorAll("*"), ...bar.querySelectorAll("*")]) {
+      for (const animation of node.getAnimations()) animation.finish();
+    }
     return {
       soft: probe("var(--ink-soft)"), danger: probe("var(--danger)"), warning: probe("var(--color-warning)"),
       chipText: chip.querySelector(".wo-rest__time").textContent.trim(),
