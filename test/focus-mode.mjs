@@ -320,6 +320,9 @@ async function main() {
   await boot(page);
   await setSetCount(page, 0, 5);
   await enterFocus(page, 0);
+  // The baseline is the shelf at rest: entering Focus plays transforms, and a
+  // bounding box read mid-transform is a fraction of a pixel short (218.7 vs 219).
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), undefined, { timeout: 3000 });
   const shelfBefore = (await cardState(page)).shelfHeight;
   await logSets(page, 2);
   // The second set armed a rest; its next-set line says the same hold the cue does once the rest is over.
