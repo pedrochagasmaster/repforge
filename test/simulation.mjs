@@ -6290,12 +6290,16 @@ async function main() {
     "Clear draft → Today → CTA says Start workout"
   );
   await page.evaluate(() => {
+    // A transition is the N5 page push (Focus rides over Today as `is-push-over`,
+    // in on Start and out on Back) or, where the push stands down, the panel animation.
     window.__animSeen = { enter: false, leave: false };
+    window.__animPhase = "enter";
     const obs = new MutationObserver((muts) => {
       for (const m of muts) {
-        const el = m.target;
-        if (el.id === "workoutShell" && el.classList.contains("wo-anim-enter")) window.__animSeen.enter = true;
-        if (el.id === "todayDash" && el.classList.contains("wo-anim-leave")) window.__animSeen.leave = true;
+        const el = m.target, phase = window.__animPhase;
+        const pushed = el.id === "workoutShell" && el.classList.contains("is-push-over");
+        if (phase === "enter" && (pushed || (el.id === "workoutShell" && el.classList.contains("wo-anim-enter")))) window.__animSeen.enter = true;
+        if (phase === "leave" && (pushed || (el.id === "todayDash" && el.classList.contains("wo-anim-leave")))) window.__animSeen.leave = true;
       }
     });
     obs.observe(document.querySelector("#workoutShell"), { attributes: true, attributeFilter: ["class"] });
@@ -6306,7 +6310,7 @@ async function main() {
   await page.waitForTimeout(120);
   const ctaMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, ctaMeta[0].id, 1, 80, 6, 1);
-  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.evaluate(() => { window.__animPhase = "leave"; window.__repforgeLeaveWorkout?.(); });
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
   await page.waitForTimeout(120);
   const ctaResume = (await page.locator("#startWorkout").textContent())?.trim();

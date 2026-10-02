@@ -751,7 +751,9 @@ export const APP_SCENARIOS = {
     await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 2 · mixed" }); });
     await sleep(page, 500);
     // Opening the day made an untouched draft; clear it so Today offers Start, not Continue.
-    await page.evaluate(async () => { window.__repforgeLeaveWorkout(); await window.__repforgeWorkoutDraft.clear(); });
+    // Leaving through the hook hands focus to Today's leading control (R5) with no
+    // pointer input behind it, so Chromium would ring it; this state is Today at rest.
+    await page.evaluate(async () => { window.__repforgeLeaveWorkout(); await window.__repforgeWorkoutDraft.clear(); await Promise.resolve(); document.activeElement?.blur(); });
     await page.evaluate(() => document.querySelector('nav [data-view="log"]')?.click());
     const rows = page.locator("#todayExList .rxrow");
     await rows.first().waitFor({ state: "visible", timeout: 20000 });
