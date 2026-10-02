@@ -171,6 +171,15 @@
     } catch { /* stored name is authoritative for the editor */ }
     return String(exercise?.name || "Exercise");
   }
+  /* The read-only label for an exercise (aria-labels, drag announcements): the host may
+     localise a stored library name for display. The editable name field keeps the stored text. */
+  function exerciseDisplayLabel(adapter, exercise) {
+    try {
+      const value = adapter?.exerciseDisplayLabel?.(exercise);
+      if (value) return value;
+    } catch { /* fall back to the stored name */ }
+    return exerciseName(adapter, exercise);
+  }
   function exerciseEntry(adapter, id) {
     try { return adapter?.exerciseEntry?.(id) || null; } catch { return null; }
   }
@@ -546,6 +555,7 @@
       const open = expandedExercises.has(exercise.id);
       const linked = exerciseEntry(adapter, exercise.libraryId);
       const name = exerciseName(adapter, exercise);
+      const shownName = exerciseDisplayLabel(adapter, exercise);
       const min = number(exercise.min), max = number(exercise.max);
       const details = open ? `<div class="program-editor__exercise-body pex__body">
           <div class="program-editor__sets" data-role="sets-control" aria-label="${esc(label("sets"))}">
@@ -578,8 +588,8 @@
         <header class="program-editor__exercise-head pex__head">
           <input class="program-editor__exercise-name pex__name" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" value="${esc(name)}" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">
           <span class="program-editor__summary" data-role="exercise-summary">${esc(summary(exercise))}</span>
-          <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${name}`))}" title="${esc(label("move"))}">≡</button>
-          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(name)}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${shownName}`))}" title="${esc(label("move"))}">≡</button>
+          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(shownName)}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
           <button type="button" class="program-editor__exercise-menu" data-role="exercise-menu" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
         </header>${details}
         <div class="program-editor__menu" data-role="move-menu" data-id="${esc(exercise.id)}" hidden role="menu">
@@ -772,7 +782,8 @@
         const source = operation?.source;
         const sortable = source?.sortable || source;
         const day = String(sortable?.group ?? "");
-        const name = document.program?.find(item => item.id === source?.id)?.name || "";
+        const item = document.program?.find(candidate => candidate.id === source?.id);
+        const name = item ? exerciseDisplayLabel(adapter, item) : "";
         return { name, day: titleForDay(day), index: (sortable?.index ?? 0) + 1, count: exercisesFor(document, day).length };
       };
       const say = (key, operation) => label(key, place(operation));

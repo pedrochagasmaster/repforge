@@ -1813,6 +1813,33 @@ function libraryEntry(id,snapshot=state){
 function pickableExercises(snapshot=state){
   return customExercises(snapshot).filter(e=>!e.archived).concat(EXERCISE_LIBRARY)}
 const libraryName=e=>!e?"":(isPt()&&e.namePt)||e.name;
+/* Display-only localisation of a stored exercise name (RF-10). In Portuguese, a
+   movement that resolves to a library entry through the id the app already keeps
+   for it, and whose stored name is still exactly that entry's English name, reads
+   as the entry's Portuguese name. A renamed exercise, a custom exercise, an
+   unlinked one and every other language keep the stored text. Nothing here is
+   ever written: storage, setup links, telemetry, lift keys, sort and match keys
+   all keep the stored name. */
+function localizedMovementName(name,libraryId){
+  const stored=String(name??"");
+  if(!isPt()||libraryId==null||libraryId==="")return stored;
+  const key=String(libraryId);
+  if(isCustomLibraryId(key))return stored;
+  const entry=libraryEntry(key);
+  return entry&&entry.namePt&&stored===entry.name?entry.namePt:stored}
+/* The item is a program slot or session exercise ({name, libraryId}), a draft
+   exercise or replacement snapshot ({displayName, libraryId}) or a log row
+   ({name, performedName, performedLibraryId}). */
+function exerciseDisplayName(item){
+  if(!item)return"";
+  if(item.performedLibraryId!==undefined||item.performedName!==undefined||item.session!==undefined)
+    return localizedMovementName(loggedMovementName(item),item.performedLibraryId);
+  return localizedMovementName(item.name??item.displayName,item.libraryId)}
+/* A projection that carries a lift key instead of the row: `library:<id>` names the
+   library entry the lift was performed as. Any other key keeps the stored name. */
+function liftDisplayName(name,key){
+  const k=String(key??"");
+  return k.startsWith("library:")?localizedMovementName(name,k.slice(8)):String(name??"")}
 function resolveSplit(daysPerWeek,splitType){
   const n=Math.max(1,Math.min(7,Math.round(+daysPerWeek)||3)),st=splitType||"full_body";
   if(st==="full_body"||st==="machine_only")return Array.from({length:n},()=>"full_body");
@@ -2585,7 +2612,7 @@ function openSubstitutePicker(id){
   const ex=prog.find(id);if(!ex)return;
   const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e]));
   const self=(ex.libraryId&&libraryEntry(ex.libraryId))||byName.get(foldSearch(ex.name))||null;
-  openExercisePicker({title:t("picker.title_substitute"),subtitle:ex.name,
+  openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
     onPick:entry=>{
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
       else applyCustomSub(id,libraryName(entry),entry.id)}})}
@@ -3222,7 +3249,7 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
   const outcomes=checkpoint.observedOutcomes;
   const outcomeLine=outcomes.length
-    ?outcomes.map(o=>`${esc(nameForLiftKey(o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
+    ?outcomes.map(o=>`${esc(liftDisplayName(nameForLiftKey(o.exerciseId),o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
     :`<span class="visually-hidden">${esc(t("review.outcomes.none_aria"))}</span>${esc(t("review.outcomes.none"))}`;
   const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
   const readOnlyNote=checkpoint.lifecycle==="active-block"
@@ -5931,7 +5958,7 @@ function restSlotMarkup(card,mode){
   const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
   const editing=!!(focusEdit&&focusEdit.exId===ex.id);
   const cue=focusCue(ex,n,r,draft,prev,editing);
-  return focusSlotInner(ex,n,r,cue,mode,{peek:false,name:substituted.get(ex.id)||ex.name,draft,editing})}
+  return focusSlotInner(ex,n,r,cue,mode,{peek:false,name:exerciseDisplayName(ex),draft,editing})}
 /** L3: trade the slot's content for `next` (the markup for `mode`). The slot measures its height before and after
  *  and grows or shrinks between them; the crossfade rides in the same beat. Without the runtime, or under reduced
  *  motion, the end state is drawn on the first frame. */
@@ -6103,7 +6130,7 @@ function openExNoteSheet(exId){
   const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim"),ta=$("#exNoteText");
   if(!sheet||!ta)return;
   exNoteFor=exId;exNoteReturn=document.activeElement;
-  $("#exNoteFor").textContent=substituted.get(exId)||ex.name;
+  $("#exNoteFor").textContent=exerciseDisplayName(sessionExercise(ex));
   ta.value=String(activeWorkoutDraft.exercises?.[exId]?.setupNotes??"");
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
@@ -6599,9 +6626,9 @@ function todayTallyHtml(model){
   return items.length?`<ul class="today-tally">${items.join("")}</ul>`:""}
 function todayRxRowHtml(row,index){
   const{ex,rec,glyph}=row,verdictId=`rxv${index}`,hasVerdict=!!rec.label&&glyph!=="manual";
-  return `<button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:ex.name}))}"${hasVerdict?` aria-describedby="${verdictId}"`:""}>`+
+  return `<button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${hasVerdict?` aria-describedby="${verdictId}"`:""}>`+
     `<span class="rxrow__mark">${verdictMarkHtml(glyph)}</span>`+
-    `<span class="rxrow__name">${esc(ex.name)}<span class="rxrow__sub">${esc(row.sub)}</span></span>`+
+    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub">${esc(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
     `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
     (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button>`}
@@ -6779,13 +6806,13 @@ function renderSessionSheet(){
       const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}`;
       return `<div class="session-map__row${isCurrent ? " is-current" : ""}" data-session-map-ex="${esc(exId)}"${isCurrent ? ' aria-current="true"' : ""}>` +
         `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
-        `<span class="session-map__name">${esc(ex.displayName)}</span>` +
+        `<span class="session-map__name">${esc(exerciseDisplayName(ex))}</span>` +
         `<span class="session-map__status ${isComplete ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
         `</button>` +
         `<div class="session-map__reorder">` +
-        `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: ex.displayName }))}"${idx === 0 ? " disabled" : ""}>` +
+        `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: exerciseDisplayName(ex) }))}"${idx === 0 ? " disabled" : ""}>` +
         `<span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>` +
-        `<button type="button" class="session-map__reorder-btn" data-session-reorder-down="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_down_aria", { name: ex.displayName }))}"${idx === order.length - 1 ? " disabled" : ""}>` +
+        `<button type="button" class="session-map__reorder-btn" data-session-reorder-down="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_down_aria", { name: exerciseDisplayName(ex) }))}"${idx === order.length - 1 ? " disabled" : ""}>` +
         `<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>` +
         `</div></div>`;
     }).filter(Boolean);
@@ -6817,7 +6844,7 @@ function renderSessionSheet(){
       const exercise = activeWorkoutDraft?.exercises?.[exerciseId];
       restoreReorderFocus(exerciseId, direction);
       if (index >= 0 && exercise) announce(t("session.sheet.reorder_announcement", {
-        name: exercise.displayName,
+        name: exerciseDisplayName(exercise),
         index: index + 1,
         count: order.length,
       }), { placement: "top" });
@@ -6883,7 +6910,7 @@ function renderEarlyFinishPreview(){
     const omitted=exercise.setOrder.filter(setId=>!included.has(`${id}_${exercise.sets[setId].ordinal}`));
     if(!omitted.length)return"";
     const sets=omitted.map(setId=>exercise.sets[setId].ordinal).join(", ");
-    return `<li>${esc(t("session.sheet.omitted",{name:exercise.displayName,sets:"\u0000"})).replace("\u0000",`<span class="session-early-sets">${esc(sets)}</span>`)}</li>`;
+    return `<li>${esc(t("session.sheet.omitted",{name:exerciseDisplayName(exercise),sets:"\u0000"})).replace("\u0000",`<span class="session-early-sets">${esc(sets)}</span>`)}</li>`;
   }).join("");
 }
 function openSessionSheet(){
@@ -6921,9 +6948,12 @@ function renderExActionsSheet(exId) {
   if (!draftEx) return;
 
   // A substituted exercise is named for what is being performed; the original rides in the line under it.
-  const displayName = draftEx.substitution?.replacement?.displayName || draftEx.displayName || (progEx ? (substituted.get(progEx.id) || progEx.name) : exId);
+  const shownName = draftEx.substitution?.replacement
+    ? exerciseDisplayName(draftEx.substitution.replacement)
+    : draftEx.displayName ? exerciseDisplayName(draftEx)
+      : progEx ? exerciseDisplayName(sessionExercise(progEx)) : exId;
   const nameEl = $("#exActionsName");
-  if (nameEl) nameEl.textContent = displayName;
+  if (nameEl) nameEl.textContent = shownName;
 
   // Under the name: what it stands in for when substituted, then the muscles and the set count.
   const subEl = $("#exActionsSub");
@@ -6931,7 +6961,7 @@ function renderExActionsSheet(exId) {
     const primary = draftEx.programmed?.primary || progEx?.primary || "";
     const setsTotal = draftEx.setOrder.length;
     const lines = [];
-    const original = draftEx.substitution?.original?.displayName;
+    const original = draftEx.substitution?.original ? exerciseDisplayName(draftEx.substitution.original) : "";
     if (original) lines.push(t("log.substitute_for", { name: original }));
     lines.push((primary ? muscleListLabel(primary) + " · " : "") + `${setsTotal} ${tp(setsTotal, "set")}`);
     subEl.replaceChildren(...lines.map(line => {
@@ -7479,8 +7509,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const{peek=false,hasNext=true,allDone=false,nextName=""}=opts;
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
-  const perf=substituted.get(ex.id);
-  const name=perf||ex.name;
+  const name=exerciseDisplayName(ex);
   const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
     `${peek?dead():` data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}"`}>${esc(name)}</button></h3>`;
   const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
@@ -7508,7 +7537,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
 function focusDeckHtml(ex,r,draft,prev,{fl,at}){
   const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
-  const nameAt=i=>fl[i]?(substituted.get(fl[i].id)||fl[i].name):"";
+  const nameAt=i=>fl[i]?exerciseDisplayName(sessionExercise(fl[i])):"";
   // A neighbour is rendered exactly as it will be once it lands: same ledger,
   // same shelf — the swipe is a move, not a rebuild.
   const peek=(i,side)=>fl[i]
@@ -8092,7 +8121,7 @@ function summaryWordHtml(lift,session,{mark=true}={}){
 /** `compact` is Today's finished day: the name and its word, then the next target, without the sets or the record line. */
 function summaryGroupHtml(lift,s,{compact=false}={}){
   const session=compact?lift.session??s.session:s.session;
-  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(lift.name)}</span>${s.showBaseline?"":summaryWordHtml(lift,session,{mark:!compact})}</div>`+
+  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>${s.showBaseline?"":summaryWordHtml(lift,session,{mark:!compact})}</div>`+
     (compact?"":`<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`)+
     (lift.pr&&!compact?sessionPRHtml(lift.pr):"")+
     (lift.next?`<p class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>${verdictMarkHtml(lift.next.glyph)}`+
@@ -8330,12 +8359,12 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
     // A slot with no history in this scope keeps its shipped row: nothing is drawn for it.
     if(series.presentation==="empty")
       return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
-        `<div class="listrow__main"><div class="listrow__title">${esc(nameOf(k))}</div>`+
+        `<div class="listrow__main"><div class="listrow__title">${esc(liftDisplayName(nameOf(k),k))}</div>`+
         `<div class="listrow__sub">${esc(t("stats.evidence.empty"))}${esc(` · ${t("stats.evidence.baseline")}`)}</div></div>`+
         `<span class="evrow__val">—</span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
     const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
     return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
-      `<b class="evrow__name">${esc(nameOf(k))}</b>`+
+      `<b class="evrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
       `<span class="evrow__fig"><span class="evrow__val">${esc(strengthFigure(series))}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
       `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
       `<span class="evrow__kind">${esc(strengthKindText(series))}</span>`+
@@ -8358,7 +8387,7 @@ function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
-  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
+  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:liftDisplayName(r.exercise,r.key),[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
     [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
 
 // The week reads as two totals and a line (Plan 064 R3i). Every number comes
@@ -8389,7 +8418,7 @@ function renderOverviewStrength(){const el=$("#overviewStrength");if(!el)return;
   el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.strength"))}</h3><span class="ovsec__meta">${esc(t("stats.metric.top_load"))}</span></div>`+
     keys.map(k=>{
       const series=projection.series.get(k),latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest);
-      const body=`<span class="strrow__main"><b class="strrow__name">${esc(nameOf(k))}</b>`+
+      const body=`<span class="strrow__main"><b class="strrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
         `<span class="strrow__sub${word.soft?" is-soft":""}">${word.html}${latest?esc(` · ${shortDate(latest.date)}`):""}</span></span>`+
         `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig">${esc(strengthFigure(series))}</span>`;
       return series.evidenceCount>1
@@ -9536,7 +9565,7 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   el.innerHTML=events.map((ev,i)=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
     const d=delta(ev);
     return `<button type="button" class="prtl__row" data-prrow="${i}" aria-expanded="false"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
-      `<span class="prtl__ex">${esc(ev.exerciseName)}</span>`+
+      `<span class="prtl__ex">${esc(liftDisplayName(ev.exerciseName,ev.liftKey))}</span>`+
       `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
       `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
       (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`<span class="chevron" aria-hidden="true"></span></button>`+
@@ -9598,7 +9627,7 @@ function renderAttention(){const el=$("#attention");if(!el)return;
       const verdict=rec&&rec.label?`<span class="attnrow__label">${esc(rec.label)}</span><span class="attnrow__reason">${esc(rec.text)}</span>`:`<span class="attnrow__reason">${esc(group.lead)}</span>`;
       return `<button type="button" class="attn__chip attnrow" data-action-lift="${esc(item.destinationId)}" data-attn="${esc(ex.id)}" data-attngo="${esc(group.key)}">`+
         `<span class="attnrow__mark">${attentionMarkHtml(attentionVerdict(rec))}</span>`+
-        `<b class="attnrow__name">${esc(ex.name)}</b>`+
+        `<b class="attnrow__name">${esc(exerciseDisplayName(ex))}</b>`+
         `<span class="attnrow__fig"><span${parity}>${esc(figure)}</span><span class="chevron" aria-hidden="true"></span></span>`+
         `<span class="attnrow__verdict">${verdict}</span>`+
         `<small class="attnrow__evidence">${esc(series?strengthKindText(series):"")}</small></button>`}).join("")
@@ -9765,7 +9794,7 @@ function volumeDetailTable(muscle,ev){
   for(const row of ev.completedRows||[]){
     const ms=rowMuscles(row);let weight=0;
     if(muscles(ms.primary).includes(muscle))weight=1;else if(muscles(ms.secondary).includes(muscle))weight=.5;
-    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{session:row.session,date:row.date,created:row.created,name:displayName(row)};mergeLogChronology(current,row);current.sets=(current.sets||0)+weight;groups.set(key,current)}
+    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{session:row.session,date:row.date,created:row.created,name:exerciseDisplayName(row)};mergeLogChronology(current,row);current.sets=(current.sets||0)+weight;groups.set(key,current)}
   const rows=[...groups.values()].sort((a,b)=>compareLogChronology(b,a));
   return rows.length?table(rows.map(row=>({[t("stats.table.date")]:shortDate(row.date),[t("stats.table.exercise")]:row.name,[t("stats.table.sets")]:fmt(row.sets)})))
     :`<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`}
@@ -9930,7 +9959,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
-  displayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
+  displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
   weekdayLetters, table, today, uid, readRevision,
@@ -9982,7 +10011,7 @@ function openSettingsView(){showSettings()}
 function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const key=exView.key,tmpl=currentExerciseForLiftKey(key)||exView.exercise||null,sessions=exerciseSessionsDetail(key);
   const latest=sessions.at(-1)?.rows.at(-1);
-  const name=latest?displayName(latest):(tmpl?.name||key);
+  const name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
   const exRef=tmpl||(latest?exerciseIdentityFromRow(latest):null);
   const backKey=exView.from==="stats"?"nav.stats":exView.from==="program"?"nav.program":exView.from==="history"?"nav.history":"nav.log";
   const back=$("#exBack");if(back)back.textContent=`‹ ${t(backKey)}`;
@@ -10147,7 +10176,7 @@ function chartRowHtml(model,i){
     `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span>`+
     `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
 function renderExerciseChart(el,key,sessions,tmpl){
-  const latest=sessions.at(-1)?.rows.at(-1),name=latest?displayName(latest):(tmpl?.name||key);
+  const latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
   const model=chartModel(key),{metric,scope}=chartView;
   const head=`<h2 class="exdet__name exchart__title">${esc(name)}</h2>`;
   const prev=chartLive&&chartLive.view===exView&&chartLive.key===key?chartLive:null;
@@ -10338,7 +10367,7 @@ function editorAdapterTranslate(key,vars,fallback){
 function editorChooseExercise(request){
   return new Promise(resolve=>{
     const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternates"?t("picker.title_alternates"):t("picker.add_to",{day:dayLabel(request?.day)}),
-      subtitle:request?.exercise?.name||"",exclude:request?.exclude||[],onPick:async entry=>{
+      subtitle:request?.exercise?exerciseDisplayName(request.exercise):"",exclude:request?.exclude||[],onPick:async entry=>{
         // Share repair applies as soon as the picker has handed back a valid
         // replacement. Wait for the picker's own close transition first: the
         // modal controller still owns it while choosePicked awaits onPick, and
@@ -10616,6 +10645,7 @@ function createInstalledProgramEditorAdapter(){
     dayAddPlacement:()=>"outside",
     exerciseEntry:(id)=>libraryEntry(id),
     exerciseLabel:(exercise)=>exercise?.name,
+    exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
     context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
     status:()=>"",
@@ -10643,6 +10673,7 @@ function createOnboardingProgramEditorAdapter(){
     dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
     exerciseEntry:(id)=>libraryEntry(id),
     exerciseLabel:(exercise)=>exercise?.name,
+    exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
     context:()=>"",
     status:()=>editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved"),
@@ -10940,7 +10971,7 @@ function programRowHtml(e){
   const mark=move?`<span class="rxrow__mark" aria-hidden="true"><span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph"></span></span></span>`:"";
   const word=move==="up"?t("rec.add.label"):move==="down"?t("rec.reduce.label"):"";
   return `<button type="button" class="rxrow" data-exopen="${esc(e.id)}" data-action-role="navigation">`+
-    `<span class="rxrow__name">${esc(e.name)}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
+    `<span class="rxrow__name">${esc(exerciseDisplayName(e))}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
     `<span class="rxrow__target">${e.sets} × ${e.min}–${e.max}</span>`+
     `<span class="rxrow__load"${showLoad?` data-parity-target="${esc(e.id)}"`:""}>${showLoad?mark+(word?`<span class="visually-hidden">${esc(word)} </span>`:"")+esc(fmtLoad(rec.load)):""}</span></button>`}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
@@ -11160,7 +11191,7 @@ function exCard(e,i,n){
   return `<div class="pex" data-id="${esc(e.id)}">`+
     `<div class="pex__head">`+
       `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="${esc(t("program.exercise.name_placeholder"))}" aria-label="${esc(t(linked?"program.exercise.alias_aria":"program.exercise.name_aria"))}">`+
-      `<button class="iconbtn pex__swap${linked?"":" is-unlinked"}" type="button" data-act="changeEx" data-id="${esc(e.id)}" title="${esc(t("program.exercise.change_title"))}" aria-label="${esc(t("program.exercise.change_aria",{name:e.name}))}"><span class="icon-mask icon-mask--sm icon-mask--search" aria-hidden="true"></span></button>`+
+      `<button class="iconbtn pex__swap${linked?"":" is-unlinked"}" type="button" data-act="changeEx" data-id="${esc(e.id)}" title="${esc(t("program.exercise.change_title"))}" aria-label="${esc(t("program.exercise.change_aria",{name:exerciseDisplayName(e)}))}"><span class="icon-mask icon-mask--sm icon-mask--search" aria-hidden="true"></span></button>`+
       `<div class="pex__move">`+
         `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="${esc(t("program.exercise.move_up"))}">▲</button>`+
         `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="${esc(t("program.exercise.move_down"))}">▼</button>`+
@@ -11375,7 +11406,7 @@ async function editorAction(act,ds){
         if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
   else if(act==="changeEx"){
     const ex=programEditorProgram().find(ds.id);if(!ex)return;
-    openExercisePicker({title:t("picker.title_change"),subtitle:ex.name,
+    openExercisePicker({title:t("picker.title_change"),subtitle:exerciseDisplayName(ex),
       exclude:programEditorProgram().forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
         const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
@@ -11385,7 +11416,7 @@ async function editorAction(act,ds){
         if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
   else if(act==="detachEx"){
     const ex=programEditorProgram().find(ds.id);if(!ex)return;
-    if(!confirm(t("confirm.detach_exercise",{name:ex.name})))return;
+    if(!confirm(t("confirm.detach_exercise",{name:exerciseDisplayName(ex)})))return;
     const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     if(!nextProgram.detachExercise(ds.id))return;
     proposal.program=nextProgram.toJSON();
@@ -11402,7 +11433,7 @@ async function editorAction(act,ds){
       const hit=byName.get(foldSearch(n));
       if(hit){preselected.push(hit);continue}
       const extra=nameOnlyEntry(n);extras.push(extra);preselected.push(extra.id)}
-    openExercisePicker({title:t("picker.title_alternates"),subtitle:ex.name,mode:"multi",
+    openExercisePicker({title:t("picker.title_alternates"),subtitle:exerciseDisplayName(ex),mode:"multi",
       selected:preselected,extras,exclude:[ex.libraryId].filter(Boolean),
       onPick:async entries=>{
         const result=await commitEditorField(ds.id,"alternates",entries.map(libraryName).join(", "));
@@ -11815,7 +11846,7 @@ function programText(){
   for(const d of ds){
     const mus=dayMuscles(d).map(muscleLabel);
     lines.push("",`${up(d)}${mus.length?`: ${mus.join(" · ")}`:""}`);
-    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name}: ${e.sets}× ${programTextReps(e)}`))}
+    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${exerciseDisplayName(e)}: ${e.sets}× ${programTextReps(e)}`))}
   const data=programTextData(meta,prog.toJSON());
   if(data)lines.push("",PROGRAM_TEXT_DATA_MARKER,JSON.stringify(data));
   return lines.join("\n")}
@@ -15940,7 +15971,7 @@ function renderEntryWeek(preview){
     return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
     `<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
     exercises.map(ex=>{const isNew=added.has(ex.id);
-      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(ex.name||"")}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
+      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
     (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`})}
 function renderEntryMore(){

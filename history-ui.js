@@ -77,6 +77,9 @@
       readDurableState, settleHistoryAlreadyCommitted, settlePendingJournal, getState,
       renderApp, captureEvent,
     } = deps;
+    /* What a row's lift reads as on screen: the host may show a library movement's name in the
+       lifter's language. Grouping, sorting and searching keep using displayName (the stored name). */
+    const shownName=typeof deps.exerciseDisplayName==="function"?deps.exerciseDisplayName:displayName;
     const state=new Proxy({}, {get(_target,key){return getState()?.[key]}});
     const render=()=>renderApp();
     const emptyHistorySelection=()=>({mode:"calendar",sessionId:null,originalFingerprint:"",
@@ -169,7 +172,9 @@ function historyIndexFor(log){
 function searchHistoryIndex(index,query){
   const q=String(query||"").trim().toLowerCase(),sessions=index?.sessions||[];
   if(!q)return sessions.slice();
-  return sessions.filter(s=>String(s.searchText||"").includes(q))}
+  // The stored name stays searchable; the name the lifter reads on screen widens it (RF-10).
+  return sessions.filter(s=>String(s.searchText||"").includes(q)||
+    (s.rows||[]).some(r=>String(shownName(r)||"").toLowerCase().includes(q)))}
 function renderHistoryWithSource(source){renderHistory(source)}
 function isHistorySearchOpen(){return!$("#historySearchWrap")?.classList.contains("hidden")}
 function setHistorySearchOpen(open){
@@ -510,7 +515,7 @@ function historyReadingView(s,rows){
       `<span class="ledgerline__vals"><span class="fx-col">${esc(fmtLoad(row.load))}</span>`+
       `<span class="fx-col">${esc(row.reps==null||row.reps===""?"–":row.reps)}</span>`+
       `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span></span></div>`).join("");
-    return`<section class="histlift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(displayName(g.rows[0]))}</h3>`+
+    return`<section class="histlift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>`+
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
       (before?`<p class="histlift__before">${esc(before)}</p>`:"")+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
   const total=(value,label)=>`<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
@@ -803,7 +808,7 @@ function renderHistory(source=state.log){
     const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();historyStartReading(b.dataset.edit)});
-  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
+  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:shownName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 
@@ -831,10 +836,10 @@ function sessionEditor(s,sets){
     const key=liftKey(r),last=groups[groups.length-1];
     if(last&&last.key===key)last.rows.push({r,i});else groups.push({key,rows:[{r,i}]})});
   const lifts=groups.map(g=>{
-    const name=displayName(g.rows[0].r);
+    const name=shownName(g.rows[0].r);
     const rows=g.rows.map(({r,i})=>{
       const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set"),
-        mark=r.warmup?"W"+r.set:r.set,aria=`${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
+        mark=r.warmup?"W"+r.set:r.set,aria=`${esc(shownName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
       return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
         `<span class="ledgerline__vals edrow__vals">`+
         `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
