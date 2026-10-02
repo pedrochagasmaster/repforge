@@ -161,6 +161,16 @@ try {
   }
 
   // ------------------------------------------------ the audit over real states
+  // ------------------------------------------------ the audit over real states
+  console.log("\nThe audit over rendered rules-only states");
+  const sample = ["settings/privacy-disclosure", "install/ios-sheet", "program/custom-exercise", "program/text-export"];
+  const run = await runRulesOnly({ states: sample, locales: ["pt", "en"], browser, manifest });
+  check(run.rendered.length === sample.length * 2, "every sampled state was rendered in PT and EN", JSON.stringify(run.rendered));
+  check(run.ok && run.findings.length === 0, "the sampled sheet states pass all four checks in PT and EN at 360",
+    show(run.findings.map((item) => `${item.key} [${item.locale}] ${item.message}`)));
+  check(sample.every((key) => run.rendered.filter((item) => item.key === key).every((item) => item.sheets > 0)),
+    "each sampled state was audited as an open sheet", JSON.stringify(run.rendered.map((item) => `${item.key}:${item.sheets}`)));
+
   console.log("\nThe audit refuses a bad list");
   const broken = await runRulesOnly({ states: ["today/not-a-state"], locales: ["en"], browser, manifest });
   check(!broken.ok && broken.config.length > 0, "a state missing from the manifest fails the audit before anything renders");

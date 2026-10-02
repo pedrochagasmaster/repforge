@@ -1468,6 +1468,107 @@ Recorded on [#295](https://github.com/pedrochagasmaster/repforge/pull/295#issuec
 - **RF-10, Portuguese exercise names: localized at display.** In PT, a library exercise whose stored name still equals the library's English name shows the library's PT name. Stored data, setup links, telemetry and exercises the lifter renamed are unchanged. R6 builds it.
 - **Icon set.** The Round 3 G icon set is optional under Plan 064 §7.1 item 7 and is not adopted, so the existing icon masks stay.
 
+## R6 rules-only sweep
+
+The 64 states the treatment table classes `rules only` (397 frames) keep their layouts and follow the shared rules of Plan 064 section 8 and nothing else. `tools/check-rules-only.mjs` (self-test `test/rules-only-gate.mjs`, `workout` lane) renders every one in PT and EN at 360 and checks four things, reusing the Direction D gate's `gatherEvidence`, `checkOrange`, `checkTargets` and `checkOverflow`:
+
+- **Orange budget:** the accent appears only in the five budget uses. The rules-only allowlist is the D list (`ORANGE_ALLOWLIST`) plus `RULES_ONLY_EXTRA_ALLOWLIST`, which is empty: no rules-only surface needed a new entry.
+- **Targets:** every control is at least 44 by 44.
+- **Overflow:** no element is wider than its box, and no `text-overflow: ellipsis` (section 8.13: names wrap, never ellipsized). Progress' tab row is the one exception, as in the D gate.
+- **Sheet band:** every open `.sheet` is headed by `.sheetband` with its handle and title, no legacy head is left beside it, and no open dialog is unclassified (`NON_SHEET_DIALOGS` documents the ones that are not sheets).
+
+The focused control's focus ring, halo and field border are painted from `--color-focus`, the contract's focus-visible role. They are not an accent use and moving them off the accent would change a token value, so the audit lists the one focused element's indicator separately (`evidence.accent.focusIndicators`) and does not count it. The same paint on an unfocused element is still a violation.
+
+**RED (BASE `cc0a58c`):** 466 findings in 48 of the 64 states (orange 168, overflow 246, sheet band 52, targets 0).
+
+**GREEN (this branch):** 10 findings in 3 states, in light and in dark (all overflow: the three filter rails below). A probe over the 64 states found every rendered text size on a 058 role (11, 12, 14, 16, 18, 22, 24, 28, 30, 40).
+
+| State | What was wrong at BASE | What changed |
+| --- | --- | --- |
+| `today/no-program` | Already conforming. | None. |
+| `workout/stale-draft` | Already conforming. The discard question already wears `.sheetband`. | None. |
+| `workout/persist-retry` | Already conforming. The discard question already wears `.sheetband`. | None. |
+| `workout/invalid-draft` | Already conforming. The discard question already wears `.sheetband`. | None. |
+| `progress/volume` | The window underline on `#volumeScopeSeg` and the status words were painted with the accent. | The underline takes `--boundary-selected-quiet`; the status is `--color-ink` (`--color-improved` when on target). |
+| `progress/volume-drill-in` | The window underline on `#volumeScopeSeg` and the status words were painted with the accent. | The underline takes `--boundary-selected-quiet`; the status is `--color-ink` (`--color-improved` when on target). |
+| `progress/volume-block` | The bar fill and the status words were painted with the accent. | The fill is `--color-ink` (`--color-improved` when on target) and the status is ink. |
+| `progress/prs` | The filter underline, and the load and e1RM record tags (text and wash) were painted with the accent; `.prtl__ex` truncated the exercise name with an ellipsis. | The underline takes `--boundary-selected-quiet`; the tags are `--color-improved` (a record) on `--well`; the name wraps. A record delta is `--color-improved` too. |
+| `progress/prs-drill-in` | The filter underline, and the load and e1RM record tags (text and wash) were painted with the accent; `.prtl__ex` truncated the exercise name with an ellipsis. | The underline takes `--boundary-selected-quiet`; the tags are `--color-improved` (a record) on `--well`; the name wraps. A record delta is `--color-improved` too. |
+| `progress/review` | The read-only notice used `--color-warning`, which is the accent. | The notice is `--color-ink`. |
+| `progress/review-active` | The read-only notice used `--color-warning`, which is the accent. | The notice is `--color-ink`. |
+| `progress/recovery-ineligible` | The read-only notice used `--color-warning`, which is the accent. | The notice is `--color-ink`. |
+| `progress/recovery-active` | The read-only notice used `--color-warning`, which is the accent. | The notice is `--color-ink`. |
+| `progress/recovery-reassessment` | The read-only notice used `--color-warning`, which is the accent. | The notice is `--color-ink`. |
+| `progress/schedule-diagnosis` | The chosen diagnosis card and its mark were ringed and filled with the accent. | The card takes the quiet selected ring (`--elevation-selected-quiet-shadow`) and the mark is an ink ring with an ink dot, as the entry radios are. |
+| `progress/review-complete` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `progress/review-insufficient` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `progress/sibling-lower-frequency` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `progress/sibling-shorter-session` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `progress/guided-repair` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `progress/volume-reduction-preview` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `progress/recovery-questions` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `progress/recovery-preview` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `history/delete-confirm` | Already conforming. The delete question is a native `confirm()` (rule 7) and the conflict banner paints no accent. | None. |
+| `history/conflict` | Already conforming. The delete question is a native `confirm()` (rule 7) and the conflict banner paints no accent. | None. |
+| `library/list` | Back, Close and "Create custom exercise" were accent text; the active tab underline and the active filter chip (wash, ring) were accent; the muscle and equipment filter rails scroll sideways inside a narrow box; `.librow__meta` truncated with an ellipsis. | Back, Close and the link are `--control-quiet-ink` (the link underlined); the tab underline is `--boundary-selected-quiet`; the chip is `--well` with the quiet ring; the meta line wraps. **The filter rails are not changed (see the STOP below).** |
+| `library/list-selected` | Back, Close and "Create custom exercise" were accent text; the active tab underline and the active filter chip (wash, ring) were accent; the muscle and equipment filter rails scroll sideways inside a narrow box; `.librow__meta` truncated with an ellipsis. The ticked row discs were accent. | Back, Close and the link are `--control-quiet-ink` (the link underlined); the tab underline is `--boundary-selected-quiet`; the chip is `--well` with the quiet ring; the meta line wraps. **The filter rails are not changed (see the STOP below).** The ticked disc is `--boundary-selected-quiet` with the tick cut out of it. |
+| `library/exercise-preview` | Back was accent text. | Back is `--control-quiet-ink`. |
+| `library/exercise-detail` | Back, "Understand RIR", "Why this weight" and the recommendation label and rail were accent; the illustration field bleeds past `#exercise` and `#exDetail`, which then overflow their boxes; `.listrow__sub` and `.statrow__cap` truncated with an ellipsis. | The links are `--control-quiet-ink` underlined, the label is `--color-ink-secondary` and the rail is `--boundary-selected-quiet`. `#exercise` and `#exDetail` carry the 16px gutter as padding and give it back as margin, so the bleed stays inside their boxes with no pixel moved; the lines wrap. |
+| `library/exercise-detail-glossary` | Back, "Understand RIR", "Why this weight" and the recommendation label and rail were accent; the illustration field bleeds past `#exercise` and `#exDetail`, which then overflow their boxes; `.listrow__sub` and `.statrow__cap` truncated with an ellipsis. | The links are `--control-quiet-ink` underlined, the label is `--color-ink-secondary` and the rail is `--boundary-selected-quiet`. `#exercise` and `#exDetail` carry the 16px gutter as padding and give it back as margin, so the bleed stays inside their boxes with no pixel moved; the lines wrap. |
+| `program/no-program` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `program/progression-editor` | The "Edit" toggle was accent text. | The toggle is `--control-quiet-ink`. The editor's Undo, Replace, Detach and unlinked-swap marks, which no catalog state renders, are ink for the same reason. |
+| `program/exercise-picker` | The head was the old grab and three-slot head with Cancel and an accent "Done"; the active chip was accent; `.pickrow__meta` truncated with an ellipsis; the filter rail scrolls sideways. | The sheet is headed by `.sheetband` (title, subtitle, close as Cancel); "Done" is the first action in the foot (`btn--cta`); the chip is `--well` with the quiet ring; the meta wraps. **The filter rail is not changed (see the STOP below).** |
+| `program/custom-exercise` | The head was the old grab and three-slot head with Cancel and an accent "Save". | The sheet is headed by `.sheetband` (title, close as Cancel); "Save" is the foot action (`btn--cta`); the "Reload" link is underlined ink. |
+| `program/custom-exercise-saving` | The head was the old grab and three-slot head with Cancel and an accent "Save". | The sheet is headed by `.sheetband` (title, close as Cancel); "Save" is the foot action (`btn--cta`); the "Reload" link is underlined ink. |
+| `program/custom-exercise-deleting` | The head was the old grab and three-slot head with Cancel and an accent "Save". | The sheet is headed by `.sheetband` (title, close as Cancel); "Save" is the foot action (`btn--cta`); the "Reload" link is underlined ink. |
+| `program/custom-exercise-archiving` | The head was the old grab and three-slot head with Cancel and an accent "Save". | The sheet is headed by `.sheetband` (title, close as Cancel); "Save" is the foot action (`btn--cta`); the "Reload" link is underlined ink. |
+| `program/custom-exercise-recovery` | The head was the old grab and three-slot head with Cancel and an accent "Save". "Reload" was accent text. | The sheet is headed by `.sheetband` (title, close as Cancel); "Save" is the foot action (`btn--cta`); the "Reload" link is underlined ink. |
+| `program/share-setup` | The head was the old grab and three-slot head with a text Close. | The sheet is headed by `.sheetband` (title, subtitle, icon close). |
+| `program/share-ready` | The head was the old grab and three-slot head with a text Close. | The sheet is headed by `.sheetband` (title, subtitle, icon close). |
+| `program/share-one-blocker` | The head was the old three-slot head, and the blocker summary used `--color-warning` (the accent). | The sheet is headed by `.sheetband`; the summary is `--color-ink` (semibold, as before). |
+| `program/share-repair-return` | The head was the old three-slot head, and the blocker summary used `--color-warning` (the accent). | The sheet is headed by `.sheetband`; the summary is `--color-ink` (semibold, as before). |
+| `program/text-export` | The head was the old three-slot head with an accent "Copy" and an ellipsised subtitle. | The sheet is headed by `.sheetband` (the subtitle wraps); "Copy" joins "Share or save" in the foot as a `btn--steel` pair. |
+| `settings/main` | Back was accent text, the guide cue sat on the accent wash, and the "on" track of the switches was the accent. | Back is `--control-quiet-ink`; the cue is `--well`; the on track is `--boundary-selected-quiet` (ink). The storage warning line is ink. |
+| `settings/appearance` | Back was accent text, the guide cue sat on the accent wash, and the "on" track of the switches was the accent. | Back is `--control-quiet-ink`; the cue is `--well`; the on track is `--boundary-selected-quiet` (ink). The storage warning line is ink. |
+| `settings/guides` | Back was accent text, the guide cue sat on the accent wash, and the "on" track of the switches was the accent. | Back is `--control-quiet-ink`; the cue is `--well`; the on track is `--boundary-selected-quiet` (ink). The storage warning line is ink. |
+| `settings/guides-replay` | Back was accent text, the guide cue sat on the accent wash, and the "on" track of the switches was the accent. | Back is `--control-quiet-ink`; the cue is `--well`; the on track is `--boundary-selected-quiet` (ink). The storage warning line is ink. |
+| `settings/privacy` | Back was accent text, the guide cue sat on the accent wash, and the "on" track of the switches was the accent. | Back is `--control-quiet-ink`; the cue is `--well`; the on track is `--boundary-selected-quiet` (ink). The storage warning line is ink. |
+| `settings/privacy-disclosure` | The sheet was headed by a wrapper, the old three-slot head and a typed "x" close. | The sheet is headed by `.sheetband` (title, the transfer-exception subtitle, icon close); the body keeps its scroller. |
+| `install/banner` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
+| `install/ios-sheet` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x"; the drawn Safari bar ringed its target in the accent, its step numbers were accent, the host line used an ellipsis and the PT "Toque" label overflowed its 38px target. | The sheet is headed by `.sheetband` (title, subtitle, icon close; the app-icon mark is dropped, see the open question); the ring is `--boundary-selected-quiet`, step numbers `--color-ink-secondary`, the host clips without an ellipsis and the label is right-aligned on its target. |
+| `install/transfer-ready` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x"; the drawn Safari bar ringed its target in the accent, its step numbers were accent, the host line used an ellipsis and the PT "Toque" label overflowed its 38px target. The status rail was accent. | The sheet is headed by `.sheetband` (title, subtitle, icon close; the app-icon mark is dropped, see the open question); the ring is `--boundary-selected-quiet`, step numbers `--color-ink-secondary`, the host clips without an ellipsis and the label is right-aligned on its target. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-eligible` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". | The sheet is headed by `.sheetband`. |
+| `install/transfer-creating` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-retryable` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-claiming` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-importing` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-success` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-cleanup` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-terminal` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-destination` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-interrupted` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-unknown` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+| `install/transfer-claimed-expired` | The sheet was headed by the old grab and a custom head with the app icon and a typed "x". The status rail was accent. | The sheet is headed by `.sheetband`. The status rail is `--boundary-selected-quiet`. |
+
+### Left for a decision
+
+The audit still reports the filter rails: `#libMuscleFilters` and `#libEquipmentFilters` on `library/list` and `library/list-selected`, and `#exPickFilters` on `program/exercise-picker` (10 findings in 3 states, in light and in dark). Each is a single-line row of chips that scrolls sideways by design, so its own `scrollWidth` exceeds its box. Wrapping the chips changes the layout (the rails exist so three lines of chips do not eat the list); excepting them is a second overflow exception beside Progress' tab row. Neither is a rule change a sweep can make, so both are left for the owner. Their wrappers (`#libBrowse`, `#libFilters`) no longer report, so an exception for the three rails is the only change the audit would then need.
+
+### Measured and not changed (RF-1)
+
+On the live head, light and dark: the future segments and the planned line the D surfaces draw are `--boundary-required`, which measures 5.11:1 and 7.78:1 on `--bg` (3:1 required); no D surface uses `--rule-strong` for them (1.31:1 and 1.95:1). The light disabled-CTA label (`--control-primary-disabled-ink` = `--ink-soft` on `--control-primary-disabled-bg` = `--rule`) still measures 4.37:1 (5.90:1 in dark), under 4.5:1. Raising it needs a token value change, so it is left for the owner.
+
+### Changed although no catalog state renders it
+
+`.settings-warn`, the program editor's `.program-editor__undo`, `.program-editor__replace`, `.pex__detach` and the unlinked `.pex__swap`, `.libstep__bar.is-done`, the PR timeline's `.prtl__delta`, and the install-transfer divergence dialog (a `.sheet` built in `app.js` with the old head) are painted or headed under the same rules.
+
+### Not changed
+
+- The focused control's focus indicator (the library search field, the custom exercise name, the focused Done button) is `--color-focus`, the accent; see the audit note above.
+- The delete confirmation on `history/delete-confirm` is a native `confirm()` (rule 7).
+- `#restSheet` (timer presets) keeps its own head: R3f owns it.
+- The "x" close glyph is replaced by the existing close mask on the sheets listed above; no new icon is added.
+
 ## Reconcilable rows
 
 Each Plan 064 §5.3 row is either resolved here, with its evidence, or assigned
