@@ -3625,10 +3625,9 @@ function installTransferUiMeaningful(uiRaw,ui){
       const defaultRecord=currentRecord&&record.status==="unseen"&&record.lastTransitionAt===null;
       // "install" (iOS Safari's always-present card) and "privacy" (the
       // landing's always-present Privacy link) can self-show from the
-      // ordinary automatic landing flow. "entry" now anchors at the
-      // chooser instead of the landing, but an abandoned setup draft can
-      // still resume straight into the chooser on a later automatic boot
-      // (no deliberate action), so it can reach "shown" the same way. None
+      // ordinary automatic landing flow, which now repeats on every boot
+      // until the device is onboarded. "entry" anchors at the chooser, one
+      // tap from that landing, without anything having been set up. None
       // of the three should make an otherwise-fresh destination read as
       // meaningful merely because one of them appeared.
       const automaticLandingGuide=currentRecord&&(id==="entry"||id==="install"||id==="privacy")&&ui.entryLandingSeen===true&&
@@ -13730,11 +13729,11 @@ function isGuidedRepairSetupDraft(envelope){
   }
   return false;
 }
+/** The chooser never opens by itself before onboarding: the landing is the boot
+ *  surface and leads to it. An onboarded device still resumes a guided repair
+ *  draft straight into the editor. */
 function maybeShowOnboarding(){
-  if(!state.programMeta?.onboarded&&state.log.length===0){
-    startOnboarding("first-run",{userInitiated:false});
-    return;
-  }
+  if(!state.programMeta?.onboarded&&state.log.length===0)return;
   const record=readSetupDraftRecord();
   if(record.ok&&record.envelope&&isGuidedRepairSetupDraft(record.envelope)){
     startOnboarding("settings",{userInitiated:false});
@@ -16912,6 +16911,13 @@ function openFirstRun(kind=currentEntryLanding()){
   firstRunActive=true;
   renderFirstRun();
   el.dataset.entryLanding=kind;
+  // The generic landing tells a first visit from a return, and names the setup
+  // the lifter left half done, so the returning landing can lead with it.
+  const returning=kind==="generic"&&uiPrefs.entryLandingSeen===true;
+  el.dataset.entryVisit=returning?"returning":"first";
+  const draft=returning?readSetupDraftRecord():null;
+  const draftRoute=draft?.ok&&draft.envelope&&!isGuidedRepairSetupDraft(draft.envelope)?String(draft.envelope.state?.route||""):"";
+  if(draftRoute)el.dataset.entryDraft=draftRoute;else delete el.dataset.entryDraft;
   el.classList.remove("hidden");
   document.body.classList.add("is-firstrun");
   window.scrollTo({top:0});
@@ -16957,15 +16963,14 @@ function closeFirstRun(){
   firstRunActive=false;installPresentedDecision=null;suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
 /** Resolve the landing before ordinary navigation. A valid or invalid shared
- *  handoff always gets its complete fail-closed surface. Otherwise an empty
- *  device sees the generic landing once, then returns to Today's no-program
- *  state on later launches. */
+ *  handoff always gets its complete fail-closed surface. Otherwise the landing
+ *  is the boot surface until the device is onboarded (owner decision on #295,
+ *  amending G-47/L-08 and Q633): the full landing on the first visit, the
+ *  returning landing on later ones; the chooser is reached from it. */
 function maybeShowFirstRun(){
   if(sharedSetupDraft.status==="existing")return false;
   if(!firstRunPending())return false;
-  const kind=currentEntryLanding();
-  if(kind==="generic"&&uiPrefs.entryLandingSeen===true)return false;
-  return openFirstRun(kind)}
+  return openFirstRun(currentEntryLanding())}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
 /* ---- "Why this weight?" sheet ----

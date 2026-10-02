@@ -1137,20 +1137,22 @@ try {
   }
 
   // ------------------------------------------------------------------------
-  // Packet 054-P3, requirement 2: a second empty/no-program visit does not
-  // show the landing again; it boots ordinary Today/Program no-program states.
+  // Packet 054-P3 requirement 2, as amended by the owner on #295 (landing
+  // until onboarding): a second empty/no-program visit shows the landing
+  // again, in its returning form, and the chooser does not open by itself.
   // ------------------------------------------------------------------------
-  phase("Phase 9: A second empty/no-program visit boots ordinary Today/Program, not the landing (054-P3)");
+  phase("Phase 9: A second empty/no-program visit shows the returning landing, not the chooser (054-P3, amended)");
   {
     const { context, page } = await openAppPage(browser);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     await waitForFirstRun(page);
+    const firstVisit = await page.evaluate(() => document.querySelector("#firstRun")?.dataset.entryVisit || null);
+    assert(firstVisit === "first", "the first empty visit is the full first-visit landing", JSON.stringify({ firstVisit }));
 
-    // Mark the landing as already seen directly, independent of whether
-    // Phase 8's write behavior is implemented yet, so this phase isolates
-    // requirement 2 on its own.
+    // Mark the landing as already seen directly, so this phase isolates the
+    // second visit on its own.
     await page.evaluate((k) => {
       localStorage.setItem(k, JSON.stringify({ entryLandingSeen: true }));
     }, UIKEY);
@@ -1160,6 +1162,7 @@ try {
     // program/log/history.
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
 
     const secondVisit = await page.evaluate(() => {
       const shown = (sel) => {
@@ -1168,24 +1171,29 @@ try {
       };
       return {
         firstRunShown: shown("#firstRun"),
-        todayNoProgram: shown("#todayNoProgram"),
-        todaySetupBtn: shown("#todaySetupProgram"),
+        visit: document.querySelector("#firstRun")?.dataset.entryVisit || null,
+        draft: document.querySelector("#firstRun")?.dataset.entryDraft || null,
+        chooserOpen: !!document.querySelector("#onboarding")?.classList.contains("active"),
       };
     });
 
-    assert(
-      !secondVisit.firstRunShown,
-      "a second no-program visit with entryLandingSeen already true does not reopen the generic landing",
-      JSON.stringify(secondVisit)
-    );
-    assert(secondVisit.todayNoProgram, "second visit boots directly into Today's no-program state");
-    assert(secondVisit.todaySetupBtn, "second visit's Today no-program state still offers its setup action");
+    assert(secondVisit.firstRunShown && secondVisit.visit === "returning",
+      "a second no-program visit reopens the landing in its returning form", JSON.stringify(secondVisit));
+    assert(secondVisit.draft === null, "without a setup draft the returning landing names no saved route", JSON.stringify(secondVisit));
+    assert(!secondVisit.chooserOpen, "the chooser does not open by itself on a no-program boot", JSON.stringify(secondVisit));
 
-    // The already-recorded assertion above is the proof; dismiss the
-    // (incorrectly reopened) landing so the nav bar is reachable to check
-    // Program's no-program state too, rather than hanging on production's
-    // current defect.
+    // Behind the landing, Today and Program keep their no-program states.
     await dismissGates(page);
+    const behind = await page.evaluate(() => {
+      const shown = (sel) => {
+        const el = document.querySelector(sel);
+        return !!el && !el.classList.contains("hidden");
+      };
+      return { todayNoProgram: shown("#todayNoProgram"), todaySetupBtn: shown("#todaySetupProgram") };
+    });
+    assert(behind.todayNoProgram, "behind the returning landing, Today keeps its no-program state");
+    assert(behind.todaySetupBtn, "behind the returning landing, Today's no-program state still offers its setup action");
+
     await page.click('nav [data-view="program"]');
     await page.waitForFunction(() => document.querySelector("#program")?.classList.contains("active"));
     const progNoProgram = await page.evaluate(() => {
