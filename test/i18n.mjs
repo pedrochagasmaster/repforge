@@ -205,6 +205,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("focus.cue.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.cue.")) },
   { test: (s) => s.includes("draft.recovery.${kind}.title"), keys: (en) => Object.keys(en).filter((k) => /^draft\.recovery\.[^.]+\.title$/.test(k)) },
   { test: (s) => s.includes("draft.recovery.${kind}.body"), keys: (en) => Object.keys(en).filter((k) => /^draft\.recovery\.[^.]+\.body$/.test(k)) },
+  { test: (s) => s.includes("landing.returning.resume.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("landing.returning.resume.")) },
   { test: (s) => s.includes('"settings.lang."'), keys: () => ["settings.lang.en", "settings.lang.pt"] },
   { test: (s) => s.includes('"settings.appearance."'), keys: () => ["settings.appearance.system", "settings.appearance.light", "settings.appearance.dark"] },
   { test: (s) => s.includes('"month_short."'), keys: () => range(0, 11).map((i) => `month_short.${i}`) },

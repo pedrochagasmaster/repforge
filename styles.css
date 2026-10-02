@@ -4591,6 +4591,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun.is-shared .firstrun-dock{display:none}
 
+/* ---- The returning landing ----
+   A return to an un-onboarded device is the same page, condensed: the welcome-back
+   headline and the entry actions lead, and the long demonstration (the chips, the
+   pinned proof and the outcomes) is left out; the ways, the data promise, the
+   questions and the closing action stay. Only the generic landing is ever marked
+   returning, so the first visit and the shared-link landings are untouched. */
+.firstrun[data-entry-visit="returning"] .firstrun-chips,
+.firstrun[data-entry-visit="returning"] .firstrun-proof,
+.firstrun[data-entry-visit="returning"] .firstrun-track{display:none}
+
 /* ---- The proof: seven steps over real screens ----
    Static first: seven cards, each with its own crop of the screen it reads. The
    controller adds .is-pinned only when motion is welcome, the screen is tall

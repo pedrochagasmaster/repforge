@@ -72,6 +72,66 @@ function assert(cond, name, detail) {
 
 const phase = (title) => console.log(`\n${title}`);
 
+const CATALOG = {
+  en: JSON.parse(readFileSync(new URL("../i18n-en.json", import.meta.url), "utf8")),
+  pt: JSON.parse(readFileSync(new URL("../i18n-pt.json", import.meta.url), "utf8")),
+};
+
+/** What the open landing shows, read through production IDs and selectors. */
+function landingSnapshot() {
+  const shown = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el || el.closest(".hidden,[hidden]")) return false;
+    const st = getComputedStyle(el);
+    return st.display !== "none" && st.visibility !== "hidden" && el.getClientRects().length > 0;
+  };
+  const root = document.querySelector("#firstRun");
+  const text = (sel) => (document.querySelector(sel)?.textContent || "").replace(/\s+/g, " ").trim();
+  return {
+    open: !!root && !root.classList.contains("hidden"),
+    lang: document.documentElement.lang.startsWith("pt") ? "pt" : "en",
+    kind: root?.dataset.entryLanding || null,
+    visit: root?.dataset.entryVisit || null,
+    draft: root?.dataset.entryDraft ?? null,
+    headline: text("#firstRunHeadline"),
+    lede: text("#firstRunLede"),
+    resumeShown: shown("#firstRunResume"),
+    resumeText: text("#firstRunResume"),
+    createShown: shown("#firstRunCreate"),
+    importShown: shown("#firstRunImport"),
+    dockLabel: text("#firstRunCreateDock"),
+    chipsShown: shown(".firstrun-chips"),
+    proofShown: shown('[data-landing-section="proof"]'),
+    trackShown: shown('[data-landing-section="track"]'),
+    waysShown: shown('[data-landing-section="ways"]'),
+    dataShown: shown('[data-landing-section="data"]'),
+    faqShown: shown('[data-landing-section="faq"]'),
+    closeShown: shown('[data-landing-section="close"]'),
+    pinned: window.__repforgeLandingProof?.().pinned ?? null,
+    chooserOpen: !!document.querySelector("#onboarding")?.classList.contains("active"),
+    resumeCard: shown("#entryResumeContinue"),
+  };
+}
+
+/** Walk the real chooser far enough to leave an owned setup draft behind. */
+async function leaveRecommendDraft(page) {
+  await page.click("#firstRunCreate");
+  await page.waitForSelector('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]', { timeout: 10000 });
+  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
+  await page.waitForFunction((key) => {
+    try { return JSON.parse(localStorage.getItem(key) || "{}").state?.route === "recommend"; } catch { return false; }
+  }, SETUP_DRAFT, { timeout: 10000 });
+}
+
+/** Come back as a returning visit: the full landing has been seen. */
+async function reloadToLanding(page) {
+  await page.evaluate((k) => localStorage.setItem(k, JSON.stringify({ entryLandingSeen: true })), UIKEY);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await waitForFirstRun(page);
+}
+
 async function clearSite(page) {
   await page.evaluate(
     async ({ cookieName }) => {
@@ -1201,6 +1261,214 @@ try {
       return !!el && !el.classList.contains("hidden");
     });
     assert(progNoProgram, "second visit's Program tab shows its own no-program setup state");
+
+    await context.close();
+  }
+
+  // ------------------------------------------------------------------------
+  // Owner decision on #295 (comment 5941692606): the landing is the boot
+  // surface on every launch until the device is onboarded. Its first visit is
+  // the full page; a return leads with a welcome-back line and the entry
+  // actions, and names a setup the lifter left half done.
+  // ------------------------------------------------------------------------
+  phase("Phase 9b: The first visit stays the full landing; the returning landing leads with a welcome back and the actions");
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    const first = await page.evaluate(landingSnapshot);
+    assert(first.visit === "first" && first.kind === "generic", "the first visit is the generic landing marked first", JSON.stringify(first));
+    assert(first.headline === CATALOG.en["landing.headline"] && first.lede === CATALOG.en["landing.hero.sub"],
+      "the first visit keeps its marketing headline and lede", JSON.stringify(first));
+    assert(first.createShown && first.importShown && !first.resumeShown && first.chipsShown,
+      "the first visit keeps Build, Track and the chips, and offers no resume action", JSON.stringify(first));
+    assert(first.proofShown && first.trackShown && first.waysShown && first.dataShown && first.faqShown && first.closeShown,
+      "the first visit keeps every band of the page", JSON.stringify(first));
+    assert(first.dockLabel === CATALOG.en["landing.build"], "the first visit's persistent control still says Build", first.dockLabel);
+
+    await reloadToLanding(page);
+    const back = await page.evaluate(landingSnapshot);
+    assert(back.open && back.visit === "returning" && back.kind === "generic", "a return opens the generic landing marked returning", JSON.stringify(back));
+    assert(back.headline === CATALOG.en["landing.returning.headline"], "the returning landing leads with a welcome-back line", back.headline);
+    assert(back.lede === CATALOG.en["landing.returning.sub"], "the returning landing's lede is the short returning copy", back.lede);
+    assert(back.headline !== first.headline && back.lede !== first.lede, "the returning copy differs from the first-visit copy");
+    assert(back.draft === null && !back.resumeShown, "without a setup draft the returning landing offers no resume action", JSON.stringify(back));
+    assert(back.createShown && back.importShown, "the returning landing leads with the entry actions: Build and Track", JSON.stringify(back));
+    assert(!back.chipsShown && !back.proofShown && !back.trackShown, "the returning landing condenses the marketing: no chips, no proof, no outcomes", JSON.stringify(back));
+    assert(back.waysShown && back.dataShown && back.faqShown && back.closeShown, "the returning landing keeps the ways, the data promise, the questions and the close", JSON.stringify(back));
+    assert(back.pinned === false, "the returning landing never pins the hidden proof", JSON.stringify(back));
+    assert(!back.chooserOpen, "the returning landing does not open the chooser by itself", JSON.stringify(back));
+
+    await page.click("#firstRunCreate");
+    await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+    const chooser = await page.evaluate(landingSnapshot);
+    assert(chooser.chooserOpen && !chooser.resumeCard, "Build opens the chooser without a resume card when nothing was saved", JSON.stringify(chooser));
+
+    await context.close();
+  }
+
+  phase("Phase 9c: A returning landing with a setup draft leads with a resume action that opens the chooser's resume card");
+  for (const lang of ["en", "pt"]) {
+    const { context, page } = await openAppPage(browser, { locale: lang === "pt" ? "pt-BR" : "en-US" });
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    await leaveRecommendDraft(page);
+    await reloadToLanding(page);
+
+    const snap = await page.evaluate(landingSnapshot);
+    const copy = CATALOG[lang];
+    assert(snap.open && snap.visit === "returning" && snap.draft === "recommend",
+      `[${lang}] the returning landing names the saved route`, JSON.stringify(snap));
+    assert(snap.resumeShown && snap.resumeText === copy["landing.returning.resume.recommend"],
+      `[${lang}] the resume action names the saved route`, JSON.stringify({ text: snap.resumeText }));
+    assert(!snap.createShown && snap.importShown,
+      `[${lang}] the resume action replaces Build in the hero and Track stays`, JSON.stringify(snap));
+    assert(snap.dockLabel === copy["landing.returning.resume.recommend"],
+      `[${lang}] the persistent control follows the resume action`, snap.dockLabel);
+    assert(snap.headline === copy["landing.returning.headline"], `[${lang}] the draft does not change the welcome-back line`, snap.headline);
+    assert(!snap.chooserOpen && !snap.resumeCard, `[${lang}] the chooser stays closed until the lifter taps`, JSON.stringify(snap));
+    const draftBefore = await page.evaluate((k) => localStorage.getItem(k), SETUP_DRAFT);
+
+    await page.click("#firstRunResume");
+    await page.waitForSelector("#onboarding.active #entryResumeContinue", { timeout: 15000 });
+    const after = await page.evaluate(landingSnapshot);
+    assert(!after.open && after.chooserOpen && after.resumeCard,
+      `[${lang}] tapping resume closes the landing and shows the chooser's resume card`, JSON.stringify(after));
+    const draftAfter = await page.evaluate((k) => localStorage.getItem(k), SETUP_DRAFT);
+    assert(draftAfter !== null && JSON.parse(draftAfter).state?.route === "recommend" && draftBefore !== null,
+      `[${lang}] resuming keeps the saved draft until the lifter chooses`, null);
+    const stepAfter = await page.evaluate(() => window.__repforgeOnboarding?.entry?.()?.step ?? null);
+    assert(stepAfter !== "priorities" && stepAfter !== "result",
+      `[${lang}] resume does not deep-link past the card`, String(stepAfter));
+
+    await context.close();
+  }
+
+  phase("Phase 9d: Every saved route has its own resume line, with a generic fallback");
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    await leaveRecommendDraft(page);
+    const labels = new Set();
+    for (const route of ["recommend", "custom", "browse", "build", "import", "shared"]) {
+      await page.evaluate(({ k, route }) => {
+        const draft = JSON.parse(localStorage.getItem(k));
+        draft.state.route = route;
+        draft.state.step = window.RepForgeProgramEntry.ROUTE_STEPS[route][0];
+        localStorage.setItem(k, JSON.stringify(draft));
+      }, { k: SETUP_DRAFT, route });
+      await reloadToLanding(page);
+      const snap = await page.evaluate(landingSnapshot);
+      assert(snap.draft === route && snap.resumeShown && snap.resumeText === CATALOG.en[`landing.returning.resume.${route}`],
+        `the ${route} draft reads its own resume line`, JSON.stringify({ draft: snap.draft, text: snap.resumeText }));
+      labels.add(snap.resumeText);
+    }
+    assert(labels.size === 6, "the six routes read six different lines", JSON.stringify([...labels]));
+
+    await page.evaluate((k) => {
+      const draft = JSON.parse(localStorage.getItem(k));
+      draft.state.route = "no-such-route";
+      localStorage.setItem(k, JSON.stringify(draft));
+    }, SETUP_DRAFT);
+    await reloadToLanding(page);
+    const unknown = await page.evaluate(landingSnapshot);
+    if (unknown.draft === "no-such-route") {
+      assert(unknown.resumeShown && unknown.resumeText === CATALOG.en["landing.returning.resume.generic"],
+        "an unknown saved route falls back to the generic resume line", JSON.stringify(unknown));
+    } else {
+      assert(!unknown.resumeShown && unknown.draft === null,
+        "a draft the app cannot read offers no resume action", JSON.stringify(unknown));
+    }
+
+    await context.close();
+  }
+
+  phase("Phase 9e: An onboarded device never boots into the landing, with or without a seen landing or a draft");
+  {
+    const program = {
+      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
+      programMeta: {
+        id: "returning-landing-program", name: "Returning Landing Program", started: "2026-01-01", onboarded: true,
+        created: "2026-01-01T00:00:00.000Z", updated: "2026-01-01T00:00:00.000Z", mesocycleStatus: "active",
+        mesocycleLengthWeeks: 6, goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3,
+        splitType: "full_body", equipment: ["machines"], priorityMuscles: [], sessionLength: "normal",
+      },
+      program: [{ id: "ex-1", name: "Bench Press", day: "Day 1", order: 1, sets: 3, min: 8, max: 12, libraryId: "pr_mc" }],
+      log: [], programHistory: [], customExercises: [], _storageRevision: 4,
+    };
+    const logged = {
+      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
+      programMeta: { id: "returning-landing-log", name: "Logged Device", onboarded: false,
+        created: "2026-01-01T00:00:00.000Z", updated: "2026-01-01T00:00:00.000Z" },
+      program: [],
+      log: [{ session: "s1", date: "2026-01-02", day: "Day 1", name: "Bench Press", exerciseId: "ex-1", set: 1, load: 50, reps: 8, rir: 1,
+        notes: "", created: "2026-01-02T00:00:00.000Z", primary: "Chest", secondary: "" }],
+      programHistory: [], customExercises: [], _storageRevision: 4,
+    };
+    for (const [label, device] of [["a program present", program], ["a log present", logged]]) {
+      for (const seen of [false, true]) {
+        const { context, page } = await openAppPage(browser);
+        await clearSite(page);
+        await persistState(page, device);
+        await page.evaluate(({ k, d, seen }) => {
+          if (seen) localStorage.setItem(k, JSON.stringify({ entryLandingSeen: true }));
+          localStorage.setItem(d, JSON.stringify({ schemaVersion: 1, draftId: "returning-landing", revision: 1, ownerId: "returning-landing",
+            state: { route: "recommend", step: "background", answers: {} } }));
+        }, { k: UIKEY, d: SETUP_DRAFT, seen });
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(page, { base: BASE });
+        await page.waitForTimeout(400);
+        const snap = await page.evaluate(landingSnapshot);
+        assert(!snap.open && snap.visit === null && snap.draft === null,
+          `${label}${seen ? ", landing seen, draft saved" : ""}: the landing is not the boot surface`, JSON.stringify(snap));
+        assert(!snap.chooserOpen, `${label}${seen ? ", landing seen, draft saved" : ""}: the chooser does not open by itself`, JSON.stringify(snap));
+        await context.close();
+      }
+    }
+  }
+
+  phase("Phase 9f: A shared-setup handoff keeps its own landing whatever the device has seen or saved");
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    await leaveRecommendDraft(page);
+    await reloadToLanding(page);
+    const returning = await page.evaluate(landingSnapshot);
+    assert(returning.visit === "returning" && returning.draft === "recommend" && returning.resumeShown,
+      "setup: the device is a returning visit with a saved draft", JSON.stringify(returning));
+
+    const encoded = await encodeSharedPayload(page, makeSentinelPayload());
+    assert(encoded?.ok, "sentinel payload encoded for the returning-device handoff", JSON.stringify(encoded));
+    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const shared = await page.evaluate(landingSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot);
+    assert(shared.open && shared.kind === "shared" && shared.visit === "first" && shared.draft === null,
+      "a valid handoff opens the shared landing, not the returning one", JSON.stringify(shared));
+    assert(shared.headline === CATALOG[shared.lang]["landing.shared.headline"] && !shared.resumeShown,
+      "the shared landing keeps its own headline and offers no resume action", JSON.stringify(shared));
+    assert(gate.startVisible && gate.startName.includes(SENTINELS.name) && !gate.createVisible && !gate.importVisible,
+      "the shared landing offers Start this program and neither Build nor Track", JSON.stringify(gate));
+    assert(shared.proofShown && shared.trackShown, "the shared landing keeps the full page below the confirmation", JSON.stringify(shared));
+
+    await page.goto(`${APP_INDEX}#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector('#firstRun[data-entry-landing="shared-invalid"]:not(.hidden)', { timeout: 15000 });
+    const invalid = await page.evaluate(landingSnapshot);
+    assert(invalid.open && invalid.kind === "shared-invalid" && invalid.visit === "first" && invalid.draft === null,
+      "an invalid handoff opens the fail-closed landing, not the returning one", JSON.stringify(invalid));
+    assert(invalid.headline === CATALOG[invalid.lang]["landing.shared.invalid_headline"] && !invalid.resumeShown,
+      "the fail-closed landing keeps its own headline and offers no resume action", JSON.stringify(invalid));
+    assert(invalid.createShown && invalid.importShown, "the fail-closed landing keeps Build and Track", JSON.stringify(invalid));
 
     await context.close();
   }

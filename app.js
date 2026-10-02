@@ -16522,12 +16522,42 @@ function renderFirstRunInstall(){
  *  screen is only the program question, and "Continue in browser" would be an
  *  answer to a question nobody asked. */
 function setFirstRunOffer(offer){
-  const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
-  const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
-  if(headline)headline.textContent=t(shared?"landing.shared.headline":invalid?"landing.shared.invalid_headline":"landing.headline");
-  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.hero.sub");
+  renderFirstRunHeroCopy();
   $("#firstRunContinue")?.classList.toggle("hidden",!offer);
 }
+/** The hero's headline and lede follow the landing in view: a shared link, a
+ *  link that cannot be used, a return to an un-onboarded device, or the first visit. */
+function renderFirstRunHeroCopy(){
+  const shared=sharedSetupReady(),invalid=sharedSetupInvalid(),back=landingReturning();
+  const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
+  if(headline)headline.textContent=t(shared?"landing.shared.headline":invalid?"landing.shared.invalid_headline":back?"landing.returning.headline":"landing.headline");
+  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":back?"landing.returning.sub":"landing.hero.sub");
+}
+/* ---- The returning landing (owner decision on #295, comment 5941692606) ----
+   The generic landing is marked data-entry-visit="returning" by openFirstRun when
+   the lifter has seen the full page before; a setup left half done also marks
+   data-entry-draft with its route. Both are read from the marks, never from
+   storage, so a re-render cannot turn a first visit into a return. */
+const LANDING_RESUME_ROUTES=["recommend","custom","browse","build","import","shared"];
+function landingReturning(){
+  const root=$("#firstRun");
+  return!!root&&root.dataset.entryVisit==="returning"&&!sharedSetupReady()&&!sharedSetupInvalid()}
+/** The saved route, when the returning landing has a setup to continue. */
+function landingResumeRoute(){
+  return landingReturning()?String($("#firstRun").dataset.entryDraft||""):""}
+function landingResumeLabel(route){
+  return LANDING_RESUME_ROUTES.includes(route)?t(`landing.returning.resume.${route}`):t("landing.returning.resume.generic")}
+/** With a saved setup the hero leads with one action that names it, and the
+ *  persistent control says the same; both open the chooser, whose resume card
+ *  takes it from there. Without one the hero keeps Build and Track. */
+function renderLandingResume(){
+  const route=landingResumeRoute(),label=route?landingResumeLabel(route):"";
+  const resume=$("#firstRunResume");
+  if(resume){
+    resume.classList.toggle("hidden",!route);
+    const text=$("#firstRunResumeLabel");if(text)text.textContent=label||t("landing.returning.resume.generic")}
+  $("#firstRunCreate")?.classList.toggle("hidden",!!route);
+  const dock=$("#firstRunCreateDockLabel");if(dock)dock.textContent=route?label:t("landing.build")}
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
 function closeFirstRunInstall(){
@@ -16729,7 +16759,7 @@ function createLandingController(root){
     reg.frames.add(id)};
   /* ---- pinned stage ---- */
   const shouldPin=()=>{
-    if(!track||!stage||!list||!steps.length||reduced())return false;
+    if(!track||!stage||!list||!steps.length||reduced()||landingReturning())return false;
     const font=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
     return root.clientHeight>=600&&font<=20};
   function unpin(){
@@ -16824,7 +16854,7 @@ function createLandingController(root){
     requestTick()}
   /* ---- the persistent Build control ---- */
   function mountDock(){
-    const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
+    const dock=root.querySelector("#firstRunDock"),hero=root.querySelector(landingResumeRoute()?"#firstRunResume":"#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
     if(!dock||!hero||!close||sharedSetupReady()||typeof IntersectionObserver==="undefined")return;
     let gone=false,closing=false;
     const paint=()=>dock.classList.toggle("is-on",gone&&!closing);
@@ -16876,6 +16906,9 @@ function createLandingController(root){
 function mountLandingController(){
   disposeLandingController();
   const root=$("#firstRun");if(!root)return;
+  // openFirstRun marks the landing first or returning after it renders, so the
+  // marks are applied to the hero here, before the controller reads it.
+  renderFirstRunHeroCopy();renderLandingResume();
   landingController=createLandingController(root);
   landingController.mount()}
 function disposeLandingController(){
@@ -17470,6 +17503,9 @@ function init(){
   $("#firstRunCreate").onclick=openFirstRunCreate;
   $("#firstRunCreateClose").onclick=openFirstRunCreate;
   $("#firstRunCreateDock").onclick=openFirstRunCreate;
+  // Resume opens the same chooser as Build: with a saved setup, its resume card
+  // is the first thing in it. It does not jump to the saved step.
+  $("#firstRunResume").onclick=openFirstRunCreate;
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
   // Copy and paste is the primary BYOP door, with the file door one tap away.
