@@ -2049,7 +2049,24 @@ function renderDraftRecovery(){
   configure("#draftRecoveryReload",kind==="stale","draft.recovery.reload",reloadLatestWorkoutDraft);
   configure("#draftRecoveryCopy",draftUiRecovery.copyValue!=null,
     draftUiRecovery.copyKind==="data"?"draft.recovery.copy_data":"draft.recovery.copy_value",copyDraftRecoveryValue);
-  configure("#draftRecoveryDiscard",!!draftUiRecovery.discard,"draft.recovery.discard",discardRecoveredWorkoutDraft)}
+  configure("#draftRecoveryDiscard",!!draftUiRecovery.discard,"draft.recovery.discard",discardRecoveredWorkoutDraft);
+  paintDraftRetryPending()}
+/* S1: while a retry's durable write is in flight the banner wears the
+   indeterminate hairline (`.motion-hairline.is-pending`), and under reduced
+   motion the same fact as a text label. This only reads the retry's own promise
+   (`retryDraftRecovery`): no persistence or journal logic changes, no control is
+   disabled, and the class comes off the moment that promise settles, whether the
+   write was applied or failed. */
+let draftRetryPending=0;
+function paintDraftRetryPending(){
+  const root=$("#draftRecovery");if(!root)return;
+  const on=draftRetryPending>0&&!!draftUiRecovery;
+  root.classList.toggle("motion-hairline",on);root.classList.toggle("is-pending",on);
+  let label=root.querySelector(".motion-hairline__label");
+  if(!on){label?.remove();return}
+  if(!label){label=document.createElement("p");label.className="motion-hairline__label draft-recovery__saving";
+    root.insertBefore(label,root.querySelector(".draft-recovery__actions"))}
+  label.textContent=t("custom.saving")}
 function focusDraftRecovery(){
   const root=$("#draftRecovery");if(!root)return;
   root.scrollIntoView({block:"start"});root.focus({preventScroll:true})}
@@ -2077,6 +2094,14 @@ async function applyDraftRetryResult(result,recovery){
   showDraftCommandRecovery(result.status,recovery.attempt,recovery);return result}
 function retryDraftRecovery(){
   const recovery=draftUiRecovery;if(!recovery)return Promise.resolve({status:"missing"});
+  // Re-reading a draft that could not be read is not a write; every other retry is one.
+  if(!recovery.retryAction&&!recovery.attempt&&recovery.retryMode!=="create")return runDraftRetry(recovery);
+  draftRetryPending++;paintDraftRetryPending();
+  const settled=()=>{draftRetryPending--;paintDraftRetryPending()};
+  let run;
+  try{run=Promise.resolve(runDraftRetry(recovery))}catch(error){settled();throw error}
+  run.then(settled,settled);return run}
+function runDraftRetry(recovery){
   if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
     if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
     else showDraftCommandRecovery(result?.status,null,recovery);return result});

@@ -1979,6 +1979,8 @@ textarea.sheetfield__input{
 .draft-recovery__title{font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 .draft-recovery__body,.draft-recovery__pending{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .draft-recovery__pending{border-color:var(--boundary-decorative);border-radius:var(--radius-control);color:var(--color-ink);overflow-wrap:anywhere}
+/* The retry's in-flight state as words: the hairline sweep (motion-polish.css) is gone under reduced motion, and this label, hidden otherwise, takes its place. */
+.draft-recovery__saving{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 
 /* ---- Rest presets sheet ---- */
 /* The running clock is inline in the Focus cue slot. The header timer and the

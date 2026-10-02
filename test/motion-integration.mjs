@@ -732,6 +732,100 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
   await context.close();
 }
 
+/* ---- System and first-run motion: S1, O1, O3 (Plan 064 R3, packet R3s) -------------------
+   S1 is the one continuous loop outside the rest timer, so its proofs are about the loop
+   stopping: the hairline exists only while a retry's durable write is in flight and is gone
+   the moment that write is applied, fails or is refused. The write is held in flight with
+   the storage lock the app itself takes, so the in-flight window is real and not a timer. */
+const STATE_LOCK = "repforge:state-write";
+
+/** The banner's whole motion state in one read. */
+const BANNER_STATE = `
+window.__banner = () => {
+  const root = document.querySelector("#draftRecovery");
+  const after = getComputedStyle(root, "::after");
+  const label = root.querySelector(".motion-hairline__label");
+  const loops = document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations === Infinity);
+  return {
+    hidden: root.classList.contains("hidden"),
+    pending: root.classList.contains("is-pending"), hairline: root.classList.contains("motion-hairline"),
+    animation: after.animationName, iterations: after.animationIterationCount, height: after.height,
+    label: label ? { text: label.textContent, display: getComputedStyle(label).display } : null,
+    loops: loops.length,
+    loopProps: [...new Set(loops.flatMap((a) => a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !["offset", "easing", "composite", "computedOffset"].includes(p)))))],
+    buttons: [...root.querySelectorAll("button:not(.hidden)")].map((b) => ({ id: b.id, disabled: b.disabled })),
+  };
+};
+`;
+
+async function retryBannerMotion(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const bannerPage = async () => {
+    const run = await focusPage(browser, { reducedMotion, sets: 4 });
+    await run.page.evaluate(BANNER_STATE);
+    await run.page.evaluate(() => { window.__repforgeDraftFault = "persist-failure"; });
+    await run.page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+    await run.page.waitForSelector("#draftRecovery:not(.hidden)", { timeout: 5000 });
+    return run;
+  };
+  /** Hold the lock every durable write takes, so the retry stays in flight until released. */
+  const holdWrites = (page) => page.evaluate(async (name) => {
+    await new Promise((resolve) => { navigator.locks.request(name, () => new Promise((release) => { window.__releaseWrites = release; resolve(); })); });
+    window.__repforgeDraftFault = null;
+  }, STATE_LOCK);
+
+  phase(`S1: the persist-retry banner sweeps a hairline only while its retry is in flight${tag}`);
+  const { context, page, errors } = await bannerPage();
+  const rest = await page.evaluate(() => window.__banner());
+  assert(!rest.pending && !rest.hairline && rest.animation === "none" && rest.loops === 0 && rest.label === null,
+    "the banner at rest has no hairline, no label and no loop", JSON.stringify(rest));
+
+  await holdWrites(page);
+  await page.click("#draftRecoveryRetry");
+  await page.waitForSelector("#draftRecovery.is-pending", { timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(250);
+  const flight = await page.evaluate(() => window.__banner());
+  assert(flight.pending && flight.hairline && !flight.hidden, "a retry in flight marks the banner pending", JSON.stringify(flight));
+  assert(flight.buttons.length > 0 && flight.buttons.every((b) => !b.disabled), "no control on the banner is disabled while it is pending", JSON.stringify(flight.buttons));
+  if (reduced) {
+    assert(flight.animation === "none" && flight.loops === 0, "under reduced motion nothing sweeps", JSON.stringify(flight));
+    assert(flight.label?.display === "block" && flight.label.text === "Saving…", "the text label says the write is in flight instead", JSON.stringify(flight.label));
+  } else {
+    assert(flight.animation === "taurifer-hairline" && flight.iterations === "infinite" && flight.height === "1px" && flight.loops === 1,
+      "the sweep is the one 1px hairline loop", JSON.stringify(flight));
+    assert(flight.loopProps.length === 1 && flight.loopProps[0] === "transform", "and it animates a transform and nothing else", JSON.stringify(flight.loopProps));
+    assert(flight.label?.display === "none", "the text label is not shown beside the sweep", JSON.stringify(flight.label));
+  }
+  await page.evaluate(() => window.__releaseWrites());
+  await page.waitForSelector("#draftRecovery", { state: "hidden", timeout: 5000 });
+  const applied = await page.evaluate(() => window.__banner());
+  assert(!applied.pending && !applied.hairline && applied.loops === 0 && applied.label === null,
+    "when the write is applied the class, the label and the loop are gone", JSON.stringify(applied));
+  assert((await page.evaluate(() => window.__repforgeWorkoutDraft.recovery())) === null, "and the retry cleared the recovery as it always did");
+  assert(errors.length === 0, `no page errors in the applied retry${tag}`, errors.join(" | "));
+  await context.close();
+
+  // A retry that is refused: the draft moved on while the write waited, so the banner stays and reads "stale".
+  const failed = await bannerPage();
+  await holdWrites(failed.page);
+  await failed.page.click("#draftRecoveryRetry");
+  await failed.page.waitForSelector("#draftRecovery.is-pending", { timeout: 3000 }).catch(() => {});
+  await failed.page.evaluate(() => {
+    const key = "repforge_draft_v1", draft = JSON.parse(localStorage.getItem(key));
+    draft.revision += 1;
+    localStorage.setItem(key, JSON.stringify(draft));
+    window.__releaseWrites();
+  });
+  await failed.page.waitForFunction(() => window.__repforgeWorkoutDraft.recovery()?.status === "stale", undefined, { timeout: 5000 });
+  const refused = await failed.page.evaluate(() => window.__banner());
+  assert(!refused.hidden && !refused.pending && !refused.hairline && refused.loops === 0 && refused.label === null,
+    "when the write is refused the banner stays and the hairline stops", JSON.stringify(refused));
+  assert(refused.buttons.every((b) => !b.disabled), "and its controls are enabled", JSON.stringify(refused.buttons));
+  assert(failed.errors.length === 0, `no page errors in the refused retry${tag}`, failed.errors.join(" | "));
+  await failed.context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
 
@@ -1105,6 +1199,9 @@ async function run() {
   await focusMotion(browser, { reducedMotion: "reduce" });
   await restMotion(browser);
   await restMotion(browser, { reducedMotion: "reduce" });
+
+  await retryBannerMotion(browser);
+  await retryBannerMotion(browser, { reducedMotion: "reduce" });
 
   await browser.close();
   console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);
