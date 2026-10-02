@@ -3616,7 +3616,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 }
 /* A chosen checkbox is an ink box with a tick cut out of it, not an orange one. */
 .entry-body .radio-card[role="checkbox"].is-selected .radio-card__mark{
-  background:var(--boundary-selected-quiet);border-color:var(--boundary-selected-quiet);background-image:none;position:relative
+  /* The ink fill is the boundary: the border stays transparent so the fill
+     paints under it (background-clip is border-box) and the edge reads as the
+     fill against the card, not as ink on ink. */
+  background:var(--boundary-selected-quiet);border-color:transparent;background-image:none;position:relative
 }
 .entry-body .radio-card[role="checkbox"].is-selected .radio-card__mark::after{
   content:"";position:absolute;inset:0;background:var(--surface);
@@ -5125,6 +5128,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card[role="radio"].is-selected .radio-card__mark::after{
   background:var(--boundary-selected-quiet)
+}
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card[role="checkbox"].is-selected .radio-card__mark{
+  border-color:transparent
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__opts.onb__list{
   border-color:var(--boundary-required);border-radius:var(--radius-surface)
