@@ -404,6 +404,14 @@ async function visitProgress(page, { pt, label }) {
     shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), CUSTOM.stored],
     gone: pt ? [...ptGone(), ...never(), CUSTOM.pt] : [],
   });
+  await page.locator('#statsSeg [data-seg="volume"]').click();
+  await page.locator('#volumeScopeSeg [data-vscope="block-to-date"]').click();
+  await page.waitForSelector("#volumeDash [data-volume-muscle]");
+  await page.locator("#volumeDash [data-volume-muscle]").first().click();
+  const drill = await page.$$eval("#volumeDash [data-volume-detail]:not([hidden]) td", (cells) => cells.map((c) => c.textContent.trim()).join(" | "));
+  const everyShown = (pt ? ptShown() : LINKED.map((id) => LIB[id].en));
+  assert(everyShown.some((n) => drill.includes(n)), `${label} Progress volume drill-down lists the lifts by name`, drill.slice(0, 300));
+  if (pt) expectNames(`${label} Progress volume drill-down`, drill, { gone: ptGone() });
   await page.locator('#statsSeg [data-seg="prs"]').click();
   await page.waitForSelector("#prTimeline .prtl__ex");
   const prs = await joined(page, "#prTimeline .prtl__ex");
