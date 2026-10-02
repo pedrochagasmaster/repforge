@@ -7003,6 +7003,8 @@ body.is-entry-editor #entryProgramName,
 #exPickSheet .sheet__foot--actions,#exCustomSheet .sheet__foot--actions,#programTextSheet .sheet__foot--actions{flex-wrap:wrap}
 #exPickSheet #exPickDone{flex:1 1 100%}
 #exCustomSheet .sheet__foot--actions .btn,#programTextSheet .sheet__foot--actions .btn{flex:1 1 8.75em}
+/* The band is the drag rail: a mouse push that starts on selected band text would begin a text drag and cancel the sheet gesture. */
+:is(#privacySheet,#iosInstallSheet,#programTextSheet,#shareSetupSheet,#exPickSheet,#exCustomSheet) .sheetband{-webkit-user-select:none;user-select:none}
 .privacy-sheet,.installsheet{padding-inline:var(--space-16)}
 .privacy-sheet__body{padding-inline:0}
 @media (max-height:700px){.installsheet{padding-inline:var(--space-16)}}
@@ -7035,6 +7037,8 @@ body.is-entry-editor #entryProgramName,
   margin-left:calc(-1 * max(16px,env(safe-area-inset-left)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right)));
   padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))
 }
+/* A page being pushed is pinned to the screen with its own gutter, so it takes no negative margin. */
+#exercise:is(.is-push-over,.is-push-under){margin-left:0;margin-right:0}
 #exDetail .recblock{border-left-color:var(--boundary-selected-quiet)}
 #exDetail .recblock__lab{color:var(--color-ink-secondary)}
 #exDetail :is(.link-accent,.recblock__why){color:var(--control-quiet-ink);text-decoration:underline;text-underline-offset:.2em}
