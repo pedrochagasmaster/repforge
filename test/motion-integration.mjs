@@ -901,6 +901,144 @@ async function landingProofMotion(browser, { reducedMotion = "no-preference" } =
   await tall.context.close();
 }
 
+/**
+ * O3, the generated program appears. A fresh generation draws the program in reading order, 55ms apart, once; a
+ * program that is only being shown again (back and forward, or the saved draft reopened after a reload) is drawn
+ * at rest, and nothing the lifter can press is held back.
+ */
+async function generatedProgramMotion(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  const walk = async () => {
+    await page.evaluate(() => window.startOnboarding("settings"));
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+  };
+  phase(`O3: a freshly generated program is drawn in reading order${tag}`);
+  await walk();
+  const built = await page.evaluate(async () => {
+    const out = { frames: [] };
+    const t0 = performance.now();
+    document.querySelector("#onbNext").click();
+    let busy = true;
+    while (performance.now() - t0 < 1800) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const review = document.querySelector("#entryCandidateReview");
+      if (!review) continue;
+      const items = [...document.querySelectorAll("#onbBody .motion-build-item")];
+      if (busy && items.length) {
+        busy = false;
+        out.first = {
+          names: items.map((el) => el.className.split(" ").filter((c) => !c.startsWith("motion-")).join(" ") + "|" + el.tagName),
+          animation: items.map((el) => getComputedStyle(el).animationName), duration: items.map((el) => getComputedStyle(el).animationDuration),
+          delay: items.map((el) => parseFloat(getComputedStyle(el).animationDelay) * 1000), index: items.map((el) => el.style.getPropertyValue("--build-i")),
+          order: items.every((el, i, all) => i === 0 || (all[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0),
+          activateInside: !!document.querySelector("#entryActivate")?.closest(".motion-build-item"),
+          controlsInside: items.some((el) => el.matches("button,input,select,a") || el.querySelector(":scope button:not(summary),:scope input")),
+        };
+        // A day in the build opens at once when pressed: nothing waits on the build.
+        const summary = document.querySelectorAll("#entryCandidateReview details.onb__day")[1]?.querySelector("summary");
+        const before = summary?.parentElement.open;
+        summary?.click();
+        out.toggled = summary ? summary.parentElement.open !== before : null;
+        summary?.click();
+        out.activateDisabled = document.querySelector("#entryActivate")?.disabled;
+        out.activatePointer = getComputedStyle(document.querySelector("#entryActivate")).pointerEvents;
+      }
+      out.frames.push({ t: Math.round(performance.now() - t0), hosts: document.querySelectorAll("#onbBody .motion-build").length, items: items.length });
+    }
+    out.opacity = [...document.querySelectorAll("#entryCandidateReview details.onb__day, #entryCandidateReview .entry__progname")].map((el) => Number(getComputedStyle(el).opacity));
+    return out;
+  });
+  if (reduced) {
+    assert(!built.first && built.frames.length > 0 && built.frames.every((f) => f.items === 0 && f.hosts === 0), "under reduced motion the whole program is drawn at once with no build", JSON.stringify(built.frames.slice(0, 3)));
+  } else {
+    const first = built.first;
+    assert(first && first.animation.every((n) => n === "taurifer-build-in") && first.duration.every((d) => d === "0.2s"),
+      "each block rises into place over 200ms", JSON.stringify(first));
+    assert(first?.index.every((v, i) => v === String(i)) && first?.delay.every((d, i) => Math.round(d) === i * 55),
+      "each block is 55ms after the one before it, counted in reading order", JSON.stringify(first));
+    assert(first?.order && first.names.length >= 5, "in document order, from the name through every day", JSON.stringify(first?.names));
+    assert(first && !first.activateInside && !first.controlsInside, "no button or field is part of the build", JSON.stringify(first));
+    assert(built.toggled === true && built.activateDisabled === false && built.activatePointer !== "none",
+      "a day opens on the first press and the activate action is enabled while the build runs", JSON.stringify(built));
+    assert(built.frames.at(-1).items === 0 && built.frames.at(-1).hosts === 0, "the build takes its classes off when the last block lands", JSON.stringify(built.frames.at(-1)));
+    assert(built.opacity.every((o) => o === 1), "and every block is at rest", JSON.stringify(built.opacity));
+  }
+
+  phase(`O3: showing the same program again does not build it again${tag}`);
+  await page.click("#onbBack");
+  await page.waitForFunction(() => !document.querySelector("#entryCandidateReview") && !!document.querySelector("#onbNext"), undefined, { timeout: 5000 });
+  const again = await page.evaluate(async () => {
+    document.querySelector("#onbNext").click();
+    let max = 0;
+    const t0 = performance.now();
+    while (performance.now() - t0 < 700) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      max = Math.max(max, document.querySelectorAll("#onbBody .motion-build-item").length);
+    }
+    return { max, review: !!document.querySelector("#entryCandidateReview") };
+  });
+  assert(again.review && again.max === 0, "going back and forward draws the program at rest", JSON.stringify(again));
+  // An answer chip re-renders the review, and applying a changed answer rebuilds the program in place: neither plays the build.
+  const edited = await page.evaluate(async () => {
+    let max = 0;
+    const watch = async (ms) => {
+      const t0 = performance.now();
+      while (performance.now() - t0 < ms) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        max = Math.max(max, document.querySelectorAll("#onbBody .motion-build-item").length);
+      }
+    };
+    document.querySelector('[data-entry-chip="days"]').click();
+    await watch(300);
+    const opened = !!document.querySelector("#entryEditor");
+    document.querySelector('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="3"]').click();
+    await watch(150);
+    document.querySelector("#entryChipApply").click();
+    await watch(900);
+    const days = document.querySelectorAll("#entryCandidateReview details.onb__day").length;
+    return { max, opened, days, editorClosed: !document.querySelector("#entryEditor") };
+  });
+  assert(edited.opened && edited.editorClosed && edited.days === 3 && edited.max === 0,
+    "opening an answer chip and applying a changed answer draw the program at rest", JSON.stringify(edited));
+
+  // The saved draft, reopened after a reload, is a saved preview.
+  await page.waitForFunction(() => !!localStorage.getItem("repforge_program_setup_draft_v1"), undefined, { timeout: 5000 });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
+  await page.evaluate(() => { window.closeFirstRun?.(); window.startOnboarding("settings"); });
+  await page.waitForSelector("#entryResumeContinue", { timeout: 8000 });
+  const reopened = await page.evaluate(async () => {
+    document.querySelector("#entryResumeContinue").click();
+    let max = 0, seen = false;
+    const t0 = performance.now();
+    while (performance.now() - t0 < 900) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      max = Math.max(max, document.querySelectorAll("#onbBody .motion-build-item").length);
+      seen = seen || !!document.querySelector("#entryCandidateReview");
+    }
+    return { max, seen };
+  });
+  assert(reopened.seen && reopened.max === 0, "reopening the saved preview draws it at rest", JSON.stringify(reopened));
+  assert(errors.length === 0, `no page errors in the generated program run${tag}`, errors.join(" | "));
+  await context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
 
@@ -1279,6 +1417,8 @@ async function run() {
   await retryBannerMotion(browser, { reducedMotion: "reduce" });
   await landingProofMotion(browser);
   await landingProofMotion(browser, { reducedMotion: "reduce" });
+  await generatedProgramMotion(browser);
+  await generatedProgramMotion(browser, { reducedMotion: "reduce" });
 
   await browser.close();
   console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);

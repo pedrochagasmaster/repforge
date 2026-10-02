@@ -14444,6 +14444,11 @@ function compileGeneratorCandidate(from=entryState){
     telemetry:compiled.telemetry,
     explanation:compiled.explanation};
 }
+/** O3: the generation whose program has not been drawn yet. Only a compile
+ *  arms it (a saved draft that is reopened, and every later render of a result
+ *  that already exists, never do), and the first render of that result takes it,
+ *  so the build plays once per generation. In memory only. */
+let entryBuildArmed=null;
 function ensureGeneratorResult({force=false}={}){
   const services=entryServices();
   if(!services||!entryState)return null;
@@ -14452,6 +14457,7 @@ function ensureGeneratorResult({force=false}={}){
   if(!result)return null;
   entryCompileError=null;
   entryState=ProgramEntry.setResult(entryState,result);
+  entryBuildArmed={draftId:entryState.draftId,fingerprint:result.fingerprint};
   persistSetupDraft(entryState);
   reportGeneratorCompleted(result);
   return result}
@@ -15680,6 +15686,7 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
+  if(stepId==="result"&&!isEditor)playEntryBuild(body);
   const environmentCorrection=body.querySelector(".entry__correct");
   if(environmentCorrectionOpen&&environmentCorrection)environmentCorrection.open=true;
   const validation=$("#entryValidation");
@@ -15707,6 +15714,31 @@ function renderOnboarding(){
   // than on the landing that opens it. Not while a saved draft is asking first.
   if(hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
   syncEntryDialog()}
+/** O3: draw the generated program in reading order, one block every 55ms
+ *  (`.motion-build > .motion-build-item`, `--build-i` counting from zero): the
+ *  name, where it came from, the four facts, what just changed, the week's
+ *  heading and then each day. The answers, the reasons and every control stay
+ *  out of it, so nothing a lifter can press is held back or disabled. The
+ *  classes come off when the last block lands, and a render that follows draws
+ *  the program at rest. Reduced motion draws it all at once with no classes. */
+function playEntryBuild(body){
+  const armed=entryBuildArmed;entryBuildArmed=null;
+  const result=entryState?.result;
+  if(!armed||!result?.fingerprint||armed.draftId!==entryState.draftId||armed.fingerprint!==result.fingerprint||!beatsOn())return;
+  const review=body.querySelector("#entryCandidateReview"),week=review?.querySelector(":scope > .onb__review");
+  if(!review||!week)return;
+  const lead=[...review.children].filter(el=>el.matches(".entry__progname,.entry__source,.entry__strip,#entryChange,#entryWeekLab"));
+  const items=[...lead,...week.children];
+  items.forEach((el,i)=>{el.classList.add("motion-build-item");el.style.setProperty("--build-i",String(i))});
+  const hosts=[review,week].filter(el=>el.querySelector(":scope > .motion-build-item"));
+  hosts.forEach(el=>el.classList.add("motion-build"));
+  let left=items.length;
+  const settle=()=>{if(--left>0)return;
+    hosts.forEach(el=>el.classList.remove("motion-build"));
+    items.forEach(el=>{el.classList.remove("motion-build-item");el.style.removeProperty("--build-i")})};
+  items.forEach(el=>{el.addEventListener("animationend",settle,{once:true});el.addEventListener("animationcancel",settle,{once:true})});
+  // A block the page never animates (hidden at this width) would never report back.
+  setTimeout(()=>{left=1;settle()},55*items.length+1000)}
 function wireEntryDom(){
   /* While a saved draft is waiting on Resume or Start over, the doors are
      inert. The markup already carries `inert`; this keeps a synthetic click
