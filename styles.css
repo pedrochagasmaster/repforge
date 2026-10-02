@@ -7051,3 +7051,20 @@ body.is-entry-editor #entryProgramName,
 #exCustomSheet .text-link,#exPickSheet .text-link{text-decoration:underline;text-underline-offset:.2em}
 .share-setup__blocker-summary{color:var(--color-ink)}
 .program-editor__undo,.program-editor__replace,.pex__detach,.pex__swap.is-unlinked{color:var(--control-quiet-ink)}
+
+/* Progress lifecycle: the selected window is the quiet ink underline, a record is --positive, volume bars are ink,
+   a read-only notice is ink, the chosen diagnosis is a quiet ink ring, and long exercise names wrap. */
+#stats :is(#prFilterSeg,.seg--window) > button.active{border-bottom-color:var(--boundary-selected-quiet)}
+#stats :is(.pr-kind--load,.pr-kind--e1rm){color:var(--color-improved);background:var(--well)}
+#stats .prtl__delta{color:var(--color-improved)}
+#stats .prtl__ex{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#stats #volumeDash .vrow__status{color:var(--color-ink)}
+#stats #volumeDash .vrow__status.is-on{color:var(--color-improved)}
+#stats #volumeDash .vrow__fill{background:var(--color-ink)}
+#stats #volumeDash .vrow__fill.is-high,#stats #volumeDash .vrow__fill.is-on{background:var(--color-improved)}
+#stats #reviewPanel .review__readonly{color:var(--color-ink)}
+#reviewPanel .radio-card.is-selected{border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)}
+#reviewPanel .radio-card.is-selected .radio-card__mark{
+  position:relative;background:var(--surface);background-image:none;border:2px solid var(--boundary-selected-quiet)
+}
+#reviewPanel .radio-card.is-selected .radio-card__mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--boundary-selected-quiet)}
