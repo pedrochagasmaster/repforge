@@ -170,12 +170,26 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
 }
 assert(!/animateSetCompletion|animateLedger|animate\(.*ledger/i.test(layer), "set completion remains a short CSS acknowledgement");
 assert(polish.includes(".ledger__row.is-fresh"), "CSS still owns frequent surfaces");
-// Direction D spec section 8: the session summary opens at rest. No staged class, no entry stagger, no count-up
-// ramp and no celebratory crest animation remain anywhere a stylesheet or the app could start one.
+// Motion amendment M2 (owner decision on #295): the session summary keeps its 600 ms count ramp and nothing else
+// moves. No staged class, no row stagger, no crest animation, no overshoot and no odometer digits remain anywhere
+// a stylesheet or the app could start one.
 assert(!/is-played|sum-settle|sum-crest|taurifer-sum-strike|sum-ring/.test(styles + polish),
   "the session summary has no staged-entry, stagger or crest animation in CSS");
-assert(!/is-played|rampSessionStats|data-ramp|data-kfmt/.test(app) && !/sumsheet[^{]*\{[^}]*animation/.test(styles + polish),
-  "the session summary has no count-up ramp or entry stagger in the app");
+assert(!/sumsheet[^{]*\{[^}]*animation/.test(styles + polish) && !/\.statrow[^{]*\{[^}]*(animation|transition)/.test(styles + polish),
+  "the summary's blocks and stat row have no CSS animation or transition");
+assert(!/is-played|style\.setProperty\("--i"/.test(app), "the summary sets no staged class and no per-block stagger index in the app");
+{
+  const ramp = app.slice(app.indexOf("function rampSessionStats("), app.indexOf("let sessionSummaryCurrent"));
+  assert(app.includes("const SUMMARY_RAMP_MS=600"), "the summary count ramp lasts 600 ms");
+  assert(/RepForgeMotion\?\.reducedMotion/.test(ramp) && /if\(reduced\|\|document\.hidden\)return/.test(ramp),
+    "the count ramp asks the motion layer for the reduced-motion decision and leaves the final figures untouched under it");
+  assert(/1-Math\.pow\(1-p,3\)/.test(ramp) && /Math\.min\(1,Math\.max\(0,/.test(ramp),
+    "the count ramp eases out to exactly 1 and is clamped, so it neither overshoots nor dips below zero");
+  assert(/setTimeout\(finish/.test(ramp), "a backgrounded tab still lands on the final figures");
+  assert(!/odometer|translateY|transform|toLocaleString|\.animate\(/.test(ramp), "the count ramp rewrites the figure's text only: no odometer digits or transforms");
+  assert(/data-ramp="\$\{esc\(n\)\}"/.test(app) && app.includes("rampSessionStats(el.querySelector(\".sum-stats\"))"),
+    "only the stat row's totals ramp, and only when the summary opens");
+}
 assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(layer), "navigation, toasts and effort explanations remain CSS-owned");
 {
   const sheet = { offsetHeight: 200, style: { removeProperty() {} } };

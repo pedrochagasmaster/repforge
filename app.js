@@ -7487,7 +7487,8 @@ function sessionSummaryHtml(s){
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   out.push(`<p class="sum-sub">${esc(s.meso.current!=null?t("summary.saved_week",{date:formatLongDate(s.date),n:s.meso.current}):formatLongDate(s.date))}</p>`);
   // What the work itself was: sets, load moved, lifts touched, plus the clock when it measured this session.
-  const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val">${esc(k?kfmt(n):fmt(n))}</div>`+
+  const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val" data-ramp="${esc(n)}"`+
+    `${k?' data-kfmt="1"':""}>${esc(k?kfmt(n):fmt(n))}</div>`+
     `<div class="statrow__cap">${esc(cap)}</div></div>`;
   const cells=[cell(s.sets,tp(s.sets,"logged set")),
     cell(toDisplay(s.volume),t("summary.stat.moved",{unit}),true),
@@ -7523,9 +7524,45 @@ function sessionSummaryHtml(s){
     `<button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
   return out.join("")}
 
+/** The summary's totals count up to their figures over 600 ms (motion amendment M2, owner decision on #295).
+ *  They are the reward, so they are the one thing on the screen that moves by itself, and nothing else on
+ *  the page does: no row stagger, no overshoot, no odometer digits. The ramp always lands on exactly the
+ *  figure the markup already rendered, so a reader who never sees the motion reads the same page. The
+ *  motion layer owns the reduced-motion decision: under it, or in a tab with no screen to animate onto,
+ *  the finished figures the markup carries stay put and nothing is repainted. */
+const SUMMARY_RAMP_MS=600;
+let summaryRamp=null;
+function stopSummaryRamp(){
+  if(!summaryRamp)return;
+  cancelAnimationFrame(summaryRamp.raf);clearTimeout(summaryRamp.land);summaryRamp=null}
+function rampSessionStats(root){
+  stopSummaryRamp();
+  const cells=[...(root?.querySelectorAll("[data-ramp]")||[])];
+  if(!cells.length)return;
+  const reduced=window.RepForgeMotion?.reducedMotion?.()??!!window.matchMedia?.("(prefers-reduced-motion:reduce)").matches;
+  if(reduced||document.hidden)return;
+  const targets=cells.map(el=>({el,to:+el.dataset.ramp||0,k:el.dataset.kfmt==="1"}));
+  const paint=e=>{for(const{el,to,k}of targets)el.textContent=k?kfmt(to*e):fmt(Math.round(to*e))};
+  const run={raf:0,land:0};summaryRamp=run;
+  const finish=()=>{if(summaryRamp!==run)return;cancelAnimationFrame(run.raf);clearTimeout(run.land);summaryRamp=null;paint(1)};
+  paint(0);
+  // rAF stops in a backgrounded tab. This timer is what guarantees the figures are never left short of
+  // their final value for a lifter who looks back at the screen.
+  run.land=setTimeout(finish,SUMMARY_RAMP_MS+400);
+  const start=performance.now();
+  const step=now=>{
+    if(summaryRamp!==run)return;
+    // A frame timestamp can predate the moment the ramp started; clamp so a figure never dips below zero.
+    const p=Math.min(1,Math.max(0,(now-start)/SUMMARY_RAMP_MS));
+    if(p>=1)return finish();
+    paint(1-Math.pow(1-p,3));
+    run.raf=requestAnimationFrame(step)};
+  run.raf=requestAnimationFrame(step)}
+
 let sessionSummaryCurrent=null;
 function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
+  stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const more=$("#sumMuscles");if(more)more.onclick=()=>{
@@ -7539,6 +7576,7 @@ function renderSessionSummary(s){
 
 function clearSessionSummaryView(){
   sessionSummaryCurrent=null;
+  stopSummaryRamp();
   const el=$("#sessionSummary");
   if(el&&activeModal?.el===el)closeModal(el);
   $("#sessionSummaryBody")?.replaceChildren();
@@ -7550,10 +7588,11 @@ function openSessionSummary(s){
   const el=$("#sessionSummary");if(!el)return false;
   sessionSummaryCurrent=s;
   renderSessionSummary(s);
-  // The summary opens at rest: every figure is already printed and nothing animates
-  // to celebrate the save (Direction D spec section 8).
   const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
   if(!ok){sessionSummaryCurrent=null;return false}
+  // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
+  // before the first paint, so the finished figures are never seen and then reset to zero.
+  rampSessionStats(el.querySelector(".sum-stats"));
   el.scrollTop=0;
   captureEvent("session_summary_viewed",{});
   return true}
@@ -7561,6 +7600,7 @@ function openSessionSummary(s){
 function closeSessionSummary(opts={}){
   const el=$("#sessionSummary");
   sessionSummaryCurrent=null;
+  stopSummaryRamp();
   if(el&&activeModal?.el===el)closeModal(el);
   // Finishing a session ends it: the shell steps back to Today either way.
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");

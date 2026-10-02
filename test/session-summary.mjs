@@ -161,36 +161,95 @@ async function enterLog(page) {
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 }
 
-async function finish(page) {
+/** Record every figure the stat row paints from before the summary opens, so the ramp is read, not guessed. */
+async function recordRamp(page) {
+  await page.evaluate(() => {
+    const read = () => [...document.querySelectorAll("#sessionSummary .sum-stats .statrow__val")].map((n) => n.textContent);
+    const series = [];
+    const body = document.querySelector("#sessionSummaryBody");
+    const observer = new MutationObserver(() => {
+      const figures = read();
+      if (figures.length) series.push({ t: performance.now(), figures });
+    });
+    observer.observe(body, { subtree: true, childList: true, characterData: true });
+    window.__sumRamp = { series, stop: () => observer.disconnect() };
+  });
+}
+
+async function finish(page, { reduced = false } = {}) {
+  await recordRamp(page);
   await finishEarly(page);
   await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
-  await assertOpensAtRest(page);
+  await assertCountRamp(page, { reduced });
 }
 
 /**
- * The summary opens at rest (Direction D spec section 8: nothing animates to celebrate the save).
- * The first read after it is up already holds the final figures; nothing is running, no staged class
- * is set, every block is fully opaque, and a second read a beat later is identical.
+ * The session summary keeps its count ramp (motion amendment M2): the totals count up over 600 ms through
+ * the motion layer and land on the figures the markup carries. Nothing else moves: no row stagger, no
+ * crest, no overshoot and no odometer digits. Reduced motion prints the final figures on the first read
+ * and never paints a lower one.
  */
-async function assertOpensAtRest(page) {
+async function assertCountRamp(page, { reduced }) {
   const probe = () =>
     page.evaluate(() => {
       const el = document.querySelector("#sessionSummary");
       return {
-        figures: [...el.querySelectorAll(".sum-stats .statrow__val")].map((n) => n.textContent).join("|"),
+        figures: [...el.querySelectorAll(".sum-stats .statrow__val")].map((n) => n.textContent),
+        final: [...el.querySelectorAll(".sum-stats .statrow__val")].map((n) => n.dataset.ramp),
         running: el.getAnimations({ subtree: true }).length,
         played: el.classList.contains("is-played"),
-        staged: !!el.querySelector("[style*='--i'], [data-ramp]"),
+        staged: !!el.querySelector("[style*='--i']"),
         opaque: [...el.querySelectorAll("#sessionSummaryBody > *")].every((n) => getComputedStyle(n).opacity === "1"),
+        digits: el.querySelectorAll(".sum-stats .odometer, .sum-stats [class*='digit']").length,
       };
     });
   const first = await probe();
-  await page.waitForTimeout(900);
+  assert(!first.played && !first.staged && first.opaque && first.digits === 0,
+    "no stagger or crest: no staged class, every block fully opaque from the first frame, no odometer digits", JSON.stringify(first));
+  assert(first.running === 0, "the ramp is script-driven: no CSS animation runs on the summary", String(first.running));
+  if (reduced) {
+    assert(first.figures.every((v) => /[1-9]/.test(v)), "reduced motion shows the final figures on the first read", JSON.stringify(first.figures));
+  }
+  // Wait out the ramp (600 ms) with margin, then read twice: the figures have landed and do not move.
+  await page.waitForTimeout(1300);
+  const landed = await probe();
+  await page.waitForTimeout(400);
   const later = await probe();
-  assert(first.figures === later.figures && first.figures.split("|").every((v) => /[1-9]/.test(v)),
-    "the summary opens with its final figures already printed (no count-up)", JSON.stringify({ first: first.figures, later: later.figures }));
-  assert(first.running === 0 && later.running === 0, "nothing on the summary is animating", JSON.stringify({ first: first.running, later: later.running }));
-  assert(!first.played && !first.staged && first.opaque, "no entry stagger: no staged class, every block fully opaque from the first frame", JSON.stringify(first));
+  assert(landed.figures.join("|") === later.figures.join("|") && landed.figures.every((v) => /[1-9]/.test(v)),
+    "the totals land on their final figures and stay put", JSON.stringify({ landed: landed.figures, later: later.figures }));
+  assert(landed.running === 0 && later.running === 0, "nothing on the summary is animating once the ramp has landed");
+  const numeric = (text) => {
+    const n = parseFloat(String(text).replace(/[^0-9.,]/g, "").replace(/,(?=\d{3}\b)/g, "").replace(",", "."));
+    return String(text).endsWith("k") ? n * 1000 : n;
+  };
+  const series = await page.evaluate(() => {
+    window.__sumRamp.stop();
+    return window.__sumRamp.series;
+  });
+  const painted = series.map((entry) => entry.figures);
+  const final = landed.figures;
+  assert(painted.length > 0 && painted.at(-1).join("|") === final.join("|"), "the last paint is the final figures", JSON.stringify({ last: painted.at(-1), final }));
+  // Never above the final figure (no overshoot), and never going back down once counting (no wobble).
+  let overshoot = false, wobble = false;
+  final.forEach((text, cell) => {
+    let previous = -Infinity;
+    for (const figures of painted) {
+      const value = numeric(figures[cell]);
+      if (!Number.isFinite(value)) continue;
+      if (value > numeric(text) + 1e-9) overshoot = true;
+      if (value + 1e-9 < previous) wobble = true;
+      previous = value;
+    }
+  });
+  assert(!overshoot && !wobble, "the ramp never overshoots a figure and never steps back", JSON.stringify(painted.slice(0, 12)));
+  const lowest = painted.some((figures) => figures.some((v, cell) => numeric(v) < numeric(final[cell])));
+  if (reduced) {
+    assert(!lowest, "reduced motion never paints a figure below its final value", JSON.stringify(painted.slice(0, 6)));
+  } else {
+    assert(lowest, "the totals count up: figures below the final value are painted on the way", JSON.stringify(painted.slice(0, 6)));
+    const span = series.at(-1).t - series[0].t;
+    assert(span >= 300 && span <= 1300, "the count-up takes about 600 ms", String(Math.round(span)));
+  }
 }
 
 const readSummary = (page) =>
@@ -412,6 +471,16 @@ async function run() {
     JSON.stringify(afterEsc)
   );
   assert(afterEsc.focused === "reviewTodaySession", "focus lands on what Today asks for next", afterEsc.focused);
+
+  // ---- 3b — reduced motion prints the final figures on the first read -----------
+  phase("Reduced motion shows the final figures immediately");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await enterLog(page);
+  await logSet(page, "ex2", 1, 12.5, 10, 1);
+  await finish(page, { reduced: true });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
 
   // ---- 4 — a first session has no records to claim -----------------------------
   phase("A first session is a baseline, not a record");
