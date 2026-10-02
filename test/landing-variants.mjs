@@ -378,11 +378,17 @@ async function characterize(browser) {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     await page.waitForTimeout(300);
+    // Owner decision on #295 (landing until onboarding): a second empty visit
+    // shows the landing again, in its returning form, with Today's no-program
+    // state behind it and no chooser opened by itself.
     const second = await page.evaluate(() => ({
       landing: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+      visit: document.querySelector("#firstRun")?.dataset.entryVisit || null,
       noProgram: !document.querySelector("#todayNoProgram")?.classList.contains("hidden"),
+      chooser: !!document.querySelector("#onboarding")?.classList.contains("active"),
     }));
-    assert(!second.landing && second.noProgram, "a second empty visit boots Today's no-program state, not the landing", JSON.stringify(second));
+    assert(second.landing && second.visit === "returning" && second.noProgram && !second.chooser,
+      "a second empty visit shows the returning landing over Today's no-program state, not the chooser", JSON.stringify(second));
     await context.close();
   }
 
