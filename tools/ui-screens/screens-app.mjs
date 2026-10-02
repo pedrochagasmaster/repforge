@@ -258,7 +258,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
-  "history/list", "history/session", "history/edit-dirty", // R3j, R3j2
+  "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
@@ -1129,13 +1129,8 @@ export const APP_SCENARIOS = {
     await page.locator('.session--edit input[data-ek^="load|"]').first().fill("x");
     await page.locator("[data-edsave]").click();
     await page.waitForSelector('.session--edit input[aria-invalid="true"]', { timeout: 20000 });
-    // Validation announces the failure through the transient toast as well as
-    // the field state. Wait for that announcement to finish so the catalog
-    // captures the stable editor rather than depending on toast timing.
-    await page.waitForFunction(() => {
-      const toast = document.querySelector("#toast");
-      return !toast || toast.classList.contains("hidden");
-    }, undefined, { timeout: 10000 });
+    // The reason stays under the row until the value is fixed, so the frame needs no toast timing.
+    await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 10000 });
     await sleep(page, 400);
   },
   "history/delete-confirm": async (page) => {

@@ -298,19 +298,40 @@ function historySessionFromWorkingCopy(card){
     const next=cloneSnapshot(src);next.load=loadP.value;next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
 }
+// An invalid value keeps its reason on the page (Plan 064 R3j2): the field takes the
+// error boundary and the reason sits under its row until the value is fixed or the row
+// is removed. It is announced once as an alert; a toast would fade before it was read.
+const HISTORY_ERROR_ID="histedit-error";
+function historyClearErrors(card){
+  clearFieldInvalid(card);
+  card.querySelectorAll("[data-histedit-error]").forEach(note=>note.remove());
+  card.querySelectorAll('[aria-describedby="'+HISTORY_ERROR_ID+'"]').forEach(el=>el.removeAttribute("aria-describedby"))}
 function historyMarkValidation(card,error){
-  clearFieldInvalid(card);if(error?.field){error.field.setAttribute("aria-invalid","true");try{error.field.focus()}catch{}}
-  if(error?.key)toast(t(error.key));return false}
+  historyClearErrors(card);
+  const field=error?.field;
+  if(field){
+    field.setAttribute("aria-invalid","true");
+    if(error.key){
+      const host=field.closest(".edrow")||field.closest(".histedit__date")||field,
+        note=document.createElement("p");
+      note.className="histedit__error";note.id=HISTORY_ERROR_ID;note.setAttribute("role","alert");
+      note.setAttribute("data-histedit-error","");note.textContent=t(error.key);
+      host.after(note);field.setAttribute("aria-describedby",HISTORY_ERROR_ID)}
+    try{field.focus()}catch{}}
+  return false}
 function historyApplyWorkingInput(event){
   const target=event.target,card=target.closest(".session--edit");if(!card||historySelection.mode!=="editing")return;
+  // The reason under a field goes when that field holds a usable value again.
+  const fixed=()=>{if(target.getAttribute("aria-invalid")==="true")historyClearErrors(card)};
   const row=target.closest(".edrow[data-edidx]");if(row){const i=Number(row.dataset.edidx),key=String(target.dataset.ek||"").split("|")[0];
     const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value):key==="rir"?parseRirValue(target.value):null;
+    if(parsed&&!parsed.field)fixed();
     if(historySelection.workingCopy?.[i]&&key&&parsed&&!parsed.field){historySelection.workingCopy[i][key]=parsed.value;
       // A valid RIR entry is the user's explicit correction, so it is measured evidence.
       if(key==="rir")historySelection.workingCopy[i].rirMeasured=true}}
   if(target.matches('[data-ed="date"]')){
     const parsed=parseCalendarDate(target.value);
-    if(!parsed.field)for(const row of historySelection.workingCopy||[])row.date=parsed.value}
+    if(!parsed.field){fixed();for(const row of historySelection.workingCopy||[])row.date=parsed.value}}
   historySelection.dirty=true}
 function historyResultMessage(result,successKey,operation,operationId){
   const action=operation==="edit"?"edit_save":"delete";
@@ -532,6 +553,8 @@ function bindHistoryEditRows(){
       if(left.length<=1){toast(t("history.edit.keep_one"));return}
       removed.add(index);historySelection.removedRowIndices=[...removed].sort((a,c)=>a-c);
       row.classList.add("is-removed");setEdrowRmState(b,true);
+      // A removed row is not saved, so a reason about its values goes with them.
+      if(row.querySelector('.edrow__in[aria-invalid="true"]'))historyClearErrors(card);
       row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")});
       historySelection.dirty=true}
     else{removed.delete(index);historySelection.removedRowIndices=[...removed].sort((a,c)=>a-c);

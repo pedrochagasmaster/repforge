@@ -51,7 +51,7 @@ console.log("\nD-owned state list");
   const built = ["workout/focus", "workout/focus-glossary", "workout/correction", "workout/rest-running", "workout/rest-done",
     "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
-    "history/edit-dirty",
+    "history/edit-dirty", "history/edit-invalid",
     "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies", "today/draft-resume",
     "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
     "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
@@ -65,8 +65,8 @@ console.log("\nD-owned state list");
   check(DIRECTION_D_STATES.every((item) => ["pending", "implemented"].includes(item.status)), "every D state is pending or implemented");
   check(["today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies", "today/draft-resume"].every((key) => status(key) === "implemented"),
     "R3b's Today states and R3b2's unfinished-session state are enforced");
-  check(["history/edit-dirty"].every((key) => status(key) === "implemented"),
-    "R3j2's unsaved History editor is enforced");
+  check(["history/edit-dirty", "history/edit-invalid"].every((key) => status(key) === "implemented"),
+    "R3j2's History edit states, the unsaved editor and an invalid value, are enforced");
   check(["workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"].every((key) => status(key) === "implemented"),
     "R3g's Why states are enforced");
   check(["session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first"].every((key) => status(key) === "implemented"),

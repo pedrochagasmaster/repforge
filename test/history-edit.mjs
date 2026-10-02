@@ -795,6 +795,86 @@ async function main() {
     "R3j2: Discard changes returns to the saved session and writes nothing");
     assert(nativeDialogs.length === 0, "R3j2: no native confirm opened anywhere in the History editor", JSON.stringify(nativeDialogs));
 
+    // Plan 064 R3j2: an invalid value keeps its reason under its row. The toast it replaced faded after
+    // 2.4 seconds, so a lifter who looked away lost the only statement of what was wrong.
+    await seedA02(a02Controls());
+    await openEdit("a02-old");
+    const beforeReason = await readReplicas(page);
+    await editor("a02-old").locator('input[data-ek="load|0"]').fill("x");
+    await page.locator('[data-edsave="a02-old"]').click();
+    await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 5000 });
+    const reason = await page.evaluate(() => {
+      document.getAnimations().forEach((animation) => animation.finish());
+      const input = document.querySelector('.session--edit input[data-ek="load|0"]');
+      const row = input.closest(".edrow"), note = document.querySelector("[data-histedit-error]");
+      const probe = document.createElement("i");
+      probe.style.color = "var(--control-error-boundary)";
+      document.body.append(probe);
+      const errorColor = getComputedStyle(probe).color;
+      probe.remove();
+      const toast = document.querySelector("#toast");
+      return {
+        underRow: row.nextElementSibling === note, text: note.textContent.trim(), role: note.getAttribute("role"),
+        invalid: input.getAttribute("aria-invalid"), describedBy: input.getAttribute("aria-describedby") === note.id && note.id.length > 0,
+        focused: document.activeElement === input,
+        border: getComputedStyle(input).borderTopColor === errorColor, noteInk: getComputedStyle(note).color === errorColor,
+        toastShowsReason: !!toast && !toast.classList.contains("hidden") && toast.textContent.trim() === note.textContent.trim(),
+      };
+    });
+    assert(reason.underRow && reason.text.length > 0 && reason.role === "alert" && reason.invalid === "true" && reason.describedBy && reason.focused,
+      "R3j2: an invalid value is flagged on its field and its reason sits under that row as an alert", JSON.stringify(reason));
+    assert(reason.border && reason.noteInk, "R3j2: the invalid field takes the error boundary and the reason reads in the same colour", JSON.stringify(reason));
+    assert(!reason.toastShowsReason, "R3j2: the reason is not left to a toast", JSON.stringify(reason));
+    await page.waitForTimeout(3200);
+    assert(await page.locator(".session--edit [data-histedit-error]").count() === 1 &&
+      await editor("a02-old").locator('input[data-ek="load|0"][aria-invalid="true"]').count() === 1,
+    "R3j2: the reason is still on the page after the time a toast would have lasted");
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const afterReason = await readReplicas(page);
+    assert(canonical(afterReason.local) === canonical(beforeReason.local) && canonical(afterReason.idb) === canonical(beforeReason.idb),
+      "R3j2: an invalid Save writes nothing");
+
+    await editor("a02-old").locator('input[data-ek="load|0"]').fill("55");
+    const fixed = await page.evaluate(() => {
+      const input = document.querySelector('.session--edit input[data-ek="load|0"]');
+      return { notes: document.querySelectorAll("[data-histedit-error]").length, invalid: input.hasAttribute("aria-invalid"), described: input.hasAttribute("aria-describedby") };
+    });
+    assert(fixed.notes === 0 && !fixed.invalid && !fixed.described,
+      "R3j2: fixing the value removes the reason and the error state", JSON.stringify(fixed));
+
+    // Still invalid after typing another bad value: the reason stays. Removing the row takes it away.
+    await editor("a02-old").locator('input[data-ek="load|0"]').fill("y");
+    await page.locator('[data-edsave="a02-old"]').click();
+    await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 5000 });
+    await editor("a02-old").locator('input[data-ek="load|0"]').fill("z");
+    assert(await page.locator(".session--edit [data-histedit-error]").count() === 1,
+      "R3j2: a value that is still invalid keeps its reason while the lifter types");
+    await editor("a02-old").locator('[data-edrm="0"]').click();
+    assert(await page.locator(".session--edit [data-histedit-error]").count() === 0 &&
+      await page.locator(".session--edit [aria-invalid='true']").count() === 0,
+    "R3j2: removing the row takes its reason with it");
+
+    // The date field keeps its reason under the field, in its own words.
+    await seedA02(a02Controls());
+    await openEdit("a02-old");
+    await page.evaluate(() => {
+      const el = document.querySelector('.session--edit [data-ed="date"]');
+      el.setAttribute("type", "text");
+      el.value = "2024-02-30";
+    });
+    await page.locator('[data-edsave="a02-old"]').click();
+    await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 5000 });
+    const dateReason = await page.evaluate(() => {
+      const field = document.querySelector('.session--edit [data-ed="date"]'), note = document.querySelector("[data-histedit-error]");
+      return { under: field.closest(".histedit__date").nextElementSibling === note, text: note.textContent.trim(), expected: t("validation.date"),
+        invalid: field.getAttribute("aria-invalid"), describedBy: field.getAttribute("aria-describedby") === note.id };
+    });
+    assert(dateReason.under && dateReason.text === dateReason.expected && dateReason.invalid === "true" && dateReason.describedBy,
+      "R3j2: an impossible date keeps its reason under the date field", JSON.stringify(dateReason));
+    await page.locator("[data-edcancel]").click();
+    await page.waitForSelector('.session--read[data-reading="a02-old"]', { timeout: 5000 });
+    assert(nativeDialogs.length === 0, "R3j2: no native confirm opened for an invalid edit either", JSON.stringify(nativeDialogs));
+
     await context.close();
   } finally {
     await browser.close();

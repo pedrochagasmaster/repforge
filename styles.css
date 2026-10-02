@@ -2927,6 +2927,8 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #history .edrow__rm-glyph{display:block;pointer-events:none}
 #history .edrow.is-removed .ledgerline__idx{text-decoration:line-through;color:var(--color-disabled-reason)}
 #history .edrow.is-removed .edrow__in{text-decoration:line-through}
+#history .histedit__error{margin:0 0 var(--space-8);padding-left:calc(2.5rem + var(--space-8));font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-destructive)}
+#history .histedit__date+.histedit__error{padding-left:0;margin-top:var(--space-8)}
 /* The pinned shelf: Cancel the smaller, Save the larger, the dock gone beneath it. */
 #history .histedit__bar{position:fixed;z-index:26;left:50%;transform:translateX(-50%);bottom:var(--kb,0px);width:min(100%,var(--maxw));grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));align-items:stretch;box-sizing:border-box}
 #history .histedit__bar .btn{width:100%;min-height:var(--control-target);margin:0;padding:var(--space-12) var(--space-16);white-space:normal;overflow-wrap:break-word}

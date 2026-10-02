@@ -944,6 +944,12 @@ async function readToast(page) {
   return page.evaluate(() => document.querySelector("#toast:not(.hidden)")?.textContent?.trim() || "");
 }
 
+/** The reason a History edit keeps under its row (Plan 064 R3j2); it replaced a toast that faded. */
+async function readHistoryReason(page) {
+  await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 2500 }).catch(() => {});
+  return page.evaluate(() => document.querySelector(".session--edit [data-histedit-error]")?.textContent?.trim() || "");
+}
+
 async function logJson(page) {
   return page.evaluate((k) => {
     try {
@@ -10353,12 +10359,13 @@ async function main() {
         await hideToast(page);
         const beforeEdit = await logJson(page);
         await page.locator("[data-edsave]").first().click();
-        const toastEdit = await readToast(page);
+        // R3j2: the reason stays under the row instead of a toast; it is the same sentence.
+        const reasonEdit = await readHistoryReason(page);
         const stillSeed = (await getState(page)).log.find((r) => r.session === "f7-edit-seed");
         assert(
-          toastEdit === expectToast && (await logJson(page)) === beforeEdit && stillSeed && +stillSeed.load === 80,
+          reasonEdit === expectToast && (await logJson(page)) === beforeEdit && stillSeed && +stillSeed.load === 80,
           `history-edit ${lang}/${unit} ${c.name} aborts`,
-          `toast="${toastEdit}" load=${stillSeed?.load}`,
+          `reason="${reasonEdit}" load=${stillSeed?.load}`,
           `History → Edit → type ${c.raw || "(empty)"} → Save`
         );
       }
