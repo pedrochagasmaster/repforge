@@ -1,4 +1,4 @@
-const CACHE = "repforge-v370";
+const CACHE = "repforge-v371";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
@@ -7,11 +7,16 @@ const ASSETS = [
   "./motion-layer.js", "./motion-layer.js?v=309",
   "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
   "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=308", "./program-compiler.js", "./program-compiler.js?v=307", "./program-entry.js", "./program-entry.js?v=307", "./program-entry-adapter.js", "./program-entry-adapter.js?v=308", "./program-editor.js", "./program-editor.js?v=307",
-  "./shared-setup.js", "./shared-setup.js?v=307", "./workout-draft.js", "./workout-draft.js?v=307", "./program-transition.js", "./program-transition.js?v=307", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=307", "./durable-state.js", "./durable-state.js?v=309", "./history-ui.js", "./history-ui.js?v=309", "./app.js", "./app.js?v=335",
+  "./shared-setup.js", "./shared-setup.js?v=307", "./workout-draft.js", "./workout-draft.js?v=307", "./program-transition.js", "./program-transition.js?v=307", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=307", "./durable-state.js", "./durable-state.js?v=309", "./history-ui.js", "./history-ui.js?v=309", "./app.js", "./app.js?v=336",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./assets/brand/mark.png", "./assets/brand/wt-focus-en-dark.webp", "./assets/brand/wt-focus-pt-dark.webp",
+  "./assets/brand/wt-rest-en-dark.webp", "./assets/brand/wt-actions-en-dark.webp", "./assets/brand/wt-note-en-dark.webp",
+  "./assets/brand/wt-rest-pt-dark.webp", "./assets/brand/wt-actions-pt-dark.webp", "./assets/brand/wt-note-pt-dark.webp",
+  "./assets/brand/paste-review-en-light.webp", "./assets/brand/paste-review-en-dark.webp", "./assets/brand/paste-review-pt-light.webp",
+  "./assets/brand/paste-review-pt-dark.webp", "./assets/brand/exercise-chart-en-light.webp", "./assets/brand/exercise-chart-en-dark.webp",
+  "./assets/brand/exercise-chart-pt-light.webp", "./assets/brand/exercise-chart-pt-dark.webp",
   "./assets/exercises/ab_cb.webp", "./assets/exercises/ab_mc.webp", "./assets/exercises/abc_mc.webp", "./assets/exercises/abdb_bw.webp",
   "./assets/exercises/ablr_bw.webp", "./assets/exercises/abr_bw.webp", "./assets/exercises/abrt_bw.webp", "./assets/exercises/ad_mc.webp",
   "./assets/exercises/arn_db.webp", "./assets/exercises/be_mc.webp", "./assets/exercises/cd_bw.webp", "./assets/exercises/cf_db.webp",
