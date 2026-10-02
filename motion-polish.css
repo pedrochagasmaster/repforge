@@ -216,7 +216,8 @@ nav button:active{transform:scale(.975)}
 /* ---- Short fixed beats (Plan 064 section 8, rule 11) ----
    Each consumer adds the class from its own render and is named in the
    interaction runtime audit. The Focus shelf's rise and value beats are
-   consumed by app.js (L4, M1); the rest wait for their slice. Every beat is
+   consumed by app.js (L4, M1) and the slot crossfade by the inline rest (L3);
+   the rest wait for their slice. Every beat is
    transform, opacity or clip, finishes inside the budget named here, and has a
    reduced-motion entry below that leaves the end state on the first frame. */
 
@@ -253,6 +254,30 @@ nav button:active{transform:scale(.975)}
 @keyframes taurifer-value-fade{
   from{opacity:0}
   to{opacity:1}
+}
+
+/* The Focus cue slot and the shelf's pad row trading one job for another (L3,
+   inline rest): the incoming content fades in while the outgoing copy, held
+   over it as an inert layer, fades out, inside 160ms. The slot's own height run
+   is `animateSlot`; this is only the crossfade. */
+.motion-fade-in{
+  animation:taurifer-fade-in .16s linear both;
+}
+.motion-fade-out{
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  pointer-events:none;
+  animation:taurifer-fade-out .16s linear both;
+}
+@keyframes taurifer-fade-in{
+  from{opacity:0}
+  to{opacity:1}
+}
+@keyframes taurifer-fade-out{
+  from{opacity:1}
+  to{opacity:0}
 }
 
 /* A chart line drawing in from the left, or only the segment that was added. */
@@ -328,6 +353,8 @@ nav button:active{transform:scale(.975)}
   .motion-value-up,
   .motion-value-down,
   .motion-value-fade,
+  .motion-fade-in,
+  .motion-fade-out,
   .motion-clip-reveal,
   .motion-build > .motion-build-item{animation:none}
   .motion-steps-ready .motion-step{opacity:1;transform:none;transition:none}

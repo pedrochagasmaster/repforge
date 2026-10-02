@@ -1121,6 +1121,10 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .fx-slot{position:relative}
 .fx-slot:not([data-rest="none"]){display:flow-root;margin-bottom:var(--space-12)}
 .fx-slot:not([data-rest="none"]) > :last-child{margin-bottom:0}
+/* While the clock is up the slot keeps the height of the cue it replaced, so the ledger under it settles once when the
+   rest arrives and once when the cue returns. The floor stands down while `animateSlot` holds an inline height on the
+   slot: a floor above the height the run starts from would make the push a jump. */
+.fx-slot[data-rest="running"]:not([style*="height"]){min-height:calc(var(--font-size-section-title) * var(--line-tight) + var(--font-size-subtitle) * var(--line-standard) + var(--control-target) + var(--space-4) * 2)}
 .restinline{margin:0 0 var(--space-12)}
 .restinline__row{display:flex;align-items:baseline;gap:var(--space-12)}
 .restinline__label{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
@@ -1130,7 +1134,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 }
 .restinline__of{font-family:var(--font-training-data);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .restinline__bar{height:4px;margin-top:var(--space-12);border-radius:var(--radius-compact);background:var(--rule);overflow:hidden}
-.restinline__fill{display:block;width:100%;height:100%;background:var(--accent);transform-origin:left center}
+.restinline__fill{display:block;width:100%;height:100%;background:var(--accent);transform-origin:left center;transition:transform .25s linear}
 /* Past the bell: one quiet line that counts up. It is not a warning. */
 .restinline--done{margin:0 0 var(--space-8)}
 .restinline__done{
@@ -1164,6 +1168,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .restpad--toggle{background:var(--control-selection-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
 .restpad--toggle:hover:not(:disabled),.restpad--toggle:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
 .restpad--toggle:disabled{background:var(--control-selection-bg)}
+@media (prefers-reduced-motion:reduce){
+  .restinline__fill{transition:none}
+}
 .focus-shelf .btn--cta{margin:0}
 .focus-shelf .btn--cta.saveset{
   border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);

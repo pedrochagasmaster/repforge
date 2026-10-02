@@ -1739,6 +1739,9 @@ let restPaused=null,restLength=0;
 // A tap on a shelf field brings the field pads back for the rest of this rest;
 // the next rest starts with the rest controls again. Transient, never stored.
 let restPadsBack=false;
+// True from the set commit that starts a rest until the render that draws it: that render owns the swap
+// into the cue slot, so the clock's own repaint leaves the slot's structure alone in between.
+let restRenderPending=false;
 function announceRestDone(){
   if(restAnnounced)return;
   restAnnounced=true;
@@ -5611,7 +5614,8 @@ function skipRest(){
    The card is drawn from the timer (see "Inline rest" above); between renders
    the clock's repaint keeps it in step. Figures change in place, and when the
    timer changes what the cue slot or the pad row should show (time runs out,
-   Pular, a nudge past zero, a rest ending) the slot trades its content. */
+   Pular, a nudge past zero, a rest ending) the slot trades its content in the
+   measured height run `animateSlot` (L3). */
 /** Bound to every rest control in the pad row. */
 function restAct(act){
   if(act==="minus")nudgeRest(-REST_NUDGE);
@@ -5622,6 +5626,32 @@ function restAct(act){
 function bindRestControls(root){
   root.querySelectorAll("[data-rest-act]").forEach(b=>{b.onclick=()=>restAct(b.dataset.restAct)});
   root.querySelectorAll("[data-why]").forEach(b=>{b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)}})}
+/** What a host shows right now, without a crossfade layer that is still leaving it (a second swap during the first
+ *  fades out what the lifter sees, not the layer on top of it). */
+function liveHtml(host){
+  if(!host.querySelector(".motion-fade-out"))return host.innerHTML;
+  const copy=host.cloneNode(true);
+  copy.querySelectorAll(".motion-fade-out").forEach(el=>el.remove());
+  copy.querySelectorAll(".motion-fade-in").forEach(el=>el.classList.remove("motion-fade-in"));
+  return copy.innerHTML}
+/** L3, the crossfade: the outgoing content stays over the incoming for one 160ms beat and is gone. The layer is
+ *  inert and hidden from assistive technology, and nothing under it waits on it. */
+function crossfadeIn(host,outHtml,outClass){
+  if(!outHtml||!focusMotion())return;
+  host.querySelectorAll(":scope > .motion-fade-out").forEach(el=>el.remove());
+  const out=document.createElement("div");
+  out.className=`${outClass} motion-fade-out`;out.setAttribute("aria-hidden","true");out.inert=true;out.innerHTML=outHtml;
+  // The copy is scenery: it carries none of the card's hooks, so nothing that looks for a control finds it twice.
+  out.querySelectorAll("*").forEach(el=>{for(const name of el.getAttributeNames())if(name.startsWith("data-"))el.removeAttribute(name)});
+  const kids=[...host.children];
+  kids.forEach(k=>k.classList.add("motion-fade-in"));
+  // First in the markup, last in the paint order (it is positioned): the real last child stays the last child.
+  host.prepend(out);
+  let over=false;
+  const end=()=>{if(over)return;over=true;out.remove();kids.forEach(k=>k.classList.remove("motion-fade-in"))};
+  out.addEventListener("animationend",end,{once:true});
+  out.addEventListener("animationcancel",end,{once:true});
+  setTimeout(end,320)}
 /** The rest markup for a card's cue slot, built from the same pieces the card is: the engine's cue for the set
  *  the shelf is working on. */
 function restSlotMarkup(card,mode){
@@ -5631,11 +5661,24 @@ function restSlotMarkup(card,mode){
   const editing=!!(focusEdit&&focusEdit.exId===ex.id);
   const cue=focusCue(ex,n,r,draft,prev,editing);
   return focusSlotInner(ex,n,r,cue,mode,{peek:false,name:substituted.get(ex.id)||ex.name,draft,editing})}
-/** Trade the slot's content for `next`, the markup for `mode`. */
+/** L3: trade the slot's content for `next` (the markup for `mode`). The slot measures its height before and after
+ *  and grows or shrinks between them; the crossfade rides in the same beat. Without the runtime, or under reduced
+ *  motion, the end state is drawn on the first frame. */
 function swapRestSlot(slot,mode,next){
-  slot.innerHTML=next;slot.dataset.rest=mode;
-  bindRestControls(slot)}
-/** The pad row trades the field pads for the rest controls and back. */
+  const fromHtml=liveHtml(slot),m=focusMotion();
+  const apply=()=>{
+    slot.innerHTML=next;slot.dataset.rest=mode;
+    bindRestControls(slot);
+    if(m)crossfadeIn(slot,fromHtml,"fx-slot__out")};
+  if(window.RepForgeMotion?.animateSlot)window.RepForgeMotion.animateSlot(slot,apply);
+  else apply()}
+/** L3 after a render: the card was drawn with the slot's new content (and every handler bound), so the new content
+ *  stays where it is. The slot is held at the height it had, the old content is laid over it, and `animateSlot` carries
+ *  the height from there to the new content's own while the two cross over. */
+function arriveRestSlot(slot,before){
+  slot.style.height=`${before.height}px`;
+  window.RepForgeMotion.animateSlot(slot,()=>crossfadeIn(slot,before.html,"fx-slot__out"))}
+/** The pad row trades the field pads for the rest controls and back, in the same crossfade. */
 function swapRestPads(card,pads){
   const base=prog.find(card.dataset.ex);if(!base||!activeWorkoutDraft)return;
   const ex=sessionExercise(base),n=focusActiveSet(ex);if(!n)return;
@@ -5643,11 +5686,13 @@ function swapRestPads(card,pads){
   const editing=!!(focusEdit&&focusEdit.exId===ex.id);
   const key=`${ex.id}_${n}`,vals=setFieldVals(ex,n,r,draft,prev);
   const hadFocus=pads.contains(document.activeElement);
+  const fromHtml=liveHtml(pads),fromClass=pads.className;
   const holder=document.createElement("div");
   holder.innerHTML=focusPadsHtml(ex,n,shelfFor(key),vals,{effortMode:isEffortMode(),peek:false,editing});
   const next=holder.firstElementChild;
   pads.replaceWith(next);
   bindWorkout();
+  crossfadeIn(next,fromHtml,fromClass);
   // A control that left the row must not take the lifter's place with it.
   if(hadFocus)card.querySelector(".focus-shelf .shelf__field.is-sel .shelf__fieldbtn")?.focus({preventScroll:true})}
 /** Called with every repaint of the clock. */
@@ -5655,12 +5700,13 @@ function restInlineSync(){
   const card=focusCard();if(!card||!activeWorkoutDraft)return;
   const slot=card.querySelector(".fx-slot"),pads=card.querySelector(".shelf__pads");
   const editing=!!(focusEdit&&focusEdit.exId===card.dataset.ex);
-  if(slot&&slot.dataset.rest!==restSlotMode(editing)){
-    const mode=restSlotMode(editing),next=restSlotMarkup(card,mode);
-    if(next!=null)swapRestSlot(slot,mode,next);
-    // The slot was swapped for its new job, which drew the clock at this repaint.
-  }
-  if(pads&&pads.dataset.pads!==(restPadsOn(editing)?"rest":"field"))swapRestPads(card,pads)
+  if(!restRenderPending){
+    if(slot&&slot.dataset.rest!==restSlotMode(editing)){
+      const mode=restSlotMode(editing),next=restSlotMarkup(card,mode);
+      if(next!=null)swapRestSlot(slot,mode,next);
+      // The slot was swapped for its new job, which drew the clock at this repaint.
+    }
+    if(pads&&pads.dataset.pads!==(restPadsOn(editing)?"rest":"field"))swapRestPads(card,pads)}
   const clock=card.querySelector("[data-rest-clock]");
   if(clock){
     const left=fmtClock(Math.max(0,restTimeLeftSec()));
@@ -5673,6 +5719,21 @@ function restInlineSync(){
   if(done){const text=restDoneText(restOverSec());if(done.textContent!==text)done.textContent=text}
   const pause=card.querySelector('[data-rest-act="pause"]');
   if(pause){const label=t(restPaused!=null?"rest.inline.resume":"rest.inline.pause");if(pause.textContent!==label)pause.textContent=label}}
+/** What a render is about to replace: the live cue slot and pad row, so the render can carry them to what it drew. */
+function captureRestSlot(){
+  const card=focusCard();if(!card)return null;
+  const slot=card.querySelector(".fx-slot"),pads=card.querySelector(".shelf__pads");
+  return{exId:card.dataset.ex,
+    slot:slot?{mode:slot.dataset.rest,html:liveHtml(slot),height:slot.getBoundingClientRect().height}:null,
+    pads:pads?{mode:pads.dataset.pads,html:liveHtml(pads),cls:pads.className}:null}}
+/** After a render: if the same exercise's slot or pad row now shows another job, it arrives from the old one. */
+function restSlotArrive(before){
+  const card=focusCard();
+  if(!before||!card||card.dataset.ex!==before.exId||!focusMotion())return;
+  const slot=card.querySelector(".fx-slot");
+  if(slot&&before.slot&&slot.dataset.rest!==before.slot.mode)arriveRestSlot(slot,before.slot);
+  const pads=card.querySelector(".focus-shelf .shelf__pads");
+  if(pads&&before.pads&&pads.dataset.pads!==before.pads.mode)crossfadeIn(pads,before.pads.html,before.pads.cls)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
@@ -6996,6 +7057,8 @@ function refreshShelf({focus=null}={}){
   const at=Math.max(0,fl.findIndex(e=>e.id===ex.id));
   const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const old=card.querySelector(".focus-shelf");if(!old)return false;
+  const padsBefore=old.querySelector(".shelf__pads");
+  const padsFrom=padsBefore?{mode:padsBefore.dataset.pads,html:liveHtml(padsBefore),cls:padsBefore.className}:null;
   // T1: where the selection outline is drawn now — or, if one is still in
   // flight, where it is on screen — so the next travel starts from there.
   const prevSel=old.querySelector(".shelf__field.is-sel"),liveRing=old.querySelector(".shelf__ring");
@@ -7003,6 +7066,8 @@ function refreshShelf({focus=null}={}){
   const fromRect=(liveRing||prevSel)?.getBoundingClientRect();
   old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
   bindWorkout();
+  {const padsNow=card.querySelector(".focus-shelf .shelf__pads");
+    if(padsFrom&&padsNow&&padsNow.dataset.pads!==padsFrom.mode)crossfadeIn(padsNow,padsFrom.html,padsFrom.cls)}
   const nowSel=card.querySelector(".focus-shelf .shelf__field.is-sel");
   if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||nowSel.dataset.field!==prevField))
     travelOutline(nowSel,fromRect,"shelf");
@@ -7109,6 +7174,9 @@ function renderWorkout(){
   const current=fl[at] ? sessionExercise(fl[at]) : null;
   // L2: where the ledger's open-row outline is drawn before this render moves it.
   const openRow=focusMotion()?focusOpenRow():null;
+  // L3: the cue slot and pad row as they stand, so a change of job arrives from them.
+  const restBefore=focusMotion()?captureRestSlot():null;
+  restRenderPending=false;
   wk.innerHTML=banner+(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
   // The landing animation belongs to this render alone: the markup that plays
   // it has been written, so the next render draws the same card at rest.
@@ -7124,6 +7192,7 @@ function renderWorkout(){
   if(openRow){
     const card=focusCard(),open=card?.querySelector(".fcard__ledger .ledgerline--open");
     if(open&&card.dataset.ex===openRow.exId&&+open.dataset.lrow!==openRow.n)travelOutline(open,openRow.rect,"ledgerline")}
+  restSlotArrive(restBefore);
   // These two guides own concrete Focus controls. Queue them only after the
   // current Log action/header projection exists; the guide layer will defer a
   // hidden anchor rather than navigating to another surface.
@@ -7249,12 +7318,12 @@ function bindWorkout(){
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
       if(editing&&nowDone){focusEdit=null;toast(t("toast.set_updated"))}
-      if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;startRest();armUnfinishedWatch()}
+      if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;restRenderPending=true;startRest();armUnfinishedWatch()}
       if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
         if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}
       renderWorkout()
-    }finally{if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
+    }finally{restRenderPending=false;if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
   $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
     const result=await WorkoutSession.dispatch(warmups.has(key)?"markWorking":"markWarmup",
