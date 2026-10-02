@@ -448,6 +448,31 @@ phase("an in-progress session is protected by the discard question");
   assert(!(await asking()).open && (await page.evaluate((d) => localStorage.getItem(d), DRAFT)) === draftBefore,
     "Escape on the question keeps the draft and returns to the picker", "");
   await page.waitForTimeout(420);
+  // The scrim is Keep as well.
+  await page.click("#dayPickConfirm");
+  await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+  await page.waitForTimeout(420);
+  await page.locator("#draftDiscardScrim").click({ position: { x: 8, y: 8 } });
+  await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
+  assert(!(await asking()).open && (await page.evaluate((d) => localStorage.getItem(d), DRAFT)) === draftBefore,
+    "a tap on the scrim keeps the draft and returns to the picker", "");
+  await page.waitForTimeout(420);
+  // And so is a downward swipe on the sheet.
+  await page.click("#dayPickConfirm");
+  await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+  await page.waitForTimeout(420);
+  const grip = await page.locator("#draftDiscardTitle").boundingBox();
+  await page.mouse.move(grip.x + 20, grip.y + grip.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(grip.x + 20, grip.y + grip.height / 2 + i * 30);
+    await page.waitForTimeout(16);
+  }
+  await page.mouse.up();
+  await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
+  assert(!(await asking()).open && (await page.evaluate((d) => localStorage.getItem(d), DRAFT)) === draftBefore,
+    "a downward swipe on the question keeps the draft and returns to the picker", "");
+  await page.waitForTimeout(420);
   await page.click("#dayPickConfirm");
   await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(420);
