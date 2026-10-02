@@ -390,6 +390,9 @@ nav button:active{transform:scale(.975)}
 .is-push-over{top:0;bottom:0;z-index:2;background:var(--bg)}
 /* Focus sits in a main with no side padding and the same top inset, so it rides in the same box it will rest in. */
 #workoutShell.is-push-over{top:calc(12px + env(safe-area-inset-top));bottom:env(safe-area-inset-bottom);padding:0}
+/* The pages a push can leave by an edge swipe take the horizontal drag themselves
+   (RepForgeMotion.registerEdgeSwipeBack); the browser keeps the vertical pan. */
+#exercise,#library,#exercisePreview,#importReview,#history.is-session-page{touch-action:pan-y}
 /* Focus lays itself out from the body classes `is-workout is-focus-wo`, which are
    gone by the time Back carries it off. While it rides out it keeps its own layout. */
 #workoutShell.is-push-over,

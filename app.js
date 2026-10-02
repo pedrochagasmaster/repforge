@@ -921,7 +921,7 @@ function routeInvokerControl(){
    motion, before boot, with no runtime, or while Focus is the page underneath
    (its layout belongs to body classes the route has just changed), the route
    simply changes. The top-level dock fade stays as it is. */
-let routePushState=null;
+let routePushState=null,routeUnderView=null,routeSwipeCommitting=false;
 function routePushOn(){
   const motion=window.RepForgeMotion;
   return window.__repforgeBooted===true&&!!motion?.animatePush&&motion.available?.()===true&&!motion.reducedMotion?.()}
@@ -942,7 +942,8 @@ function routePushEnd(){
  *  (History's list and session page): the copy is the page under a push in, and
  *  the page that moves on a push out. Null when the route should simply change. */
 function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.round(window.scrollY)}){
-  if(!routePushOn()||!(pushed instanceof Element)||under===pushed)return null;
+  if(direction==="in"&&under)routeUnderView=under.id;
+  if(routeSwipeCommitting||!routePushOn()||!(pushed instanceof Element)||under===pushed)return null;
   if(direction==="in"&&!under&&!ghost)return null;
   if(workoutActive&&under?.id==="log")return null;
   return()=>{
@@ -959,6 +960,51 @@ function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.rou
     document.body.classList.add("is-pushing");
     window.RepForgeMotion.animatePush(mover,{direction}).then(arrived=>{
       if(arrived&&routePushState===state)routePushEnd()})}}
+/* ---- Edge swipe back on pushed pages (amendment: the third gesture owner) ----
+   The pages a push can leave register with `RepForgeMotion.registerEdgeSwipeBack`
+   while they are the page on screen, and nothing else does: Focus keeps its
+   horizontal axis for the deck, and the layer itself only runs in standalone.
+   Committing runs the visible back control's own handler, so the route, focus and
+   telemetry are exactly the tap's; the page is already off screen by then, so the
+   route does not push it a second time. While a pull is live the page it returns
+   to is mounted beneath it (History has none to mount: its list is rendered
+   over the session page, so the pull shows the paper beneath). */
+const EDGE_BACK={exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
+let routeEdge=null,routeEdgeFrame=0;
+function edgeBackPage(){
+  if(document.body.classList.contains("is-focus-wo"))return null;
+  const view=$(".view.active");
+  if(!view||!EDGE_BACK[view.id])return null;
+  if(view.id==="history"&&!view.classList.contains("is-session-page"))return null;
+  return view}
+function syncEdgeSwipe(){
+  routeEdgeFrame=0;
+  const page=edgeBackPage();
+  if(routeEdge?.page===page)return;
+  routeEdge?.dispose();routeEdge=null;
+  const motion=window.RepForgeMotion;
+  if(!page||!motion?.registerEdgeSwipeBack)return;
+  const registration=motion.registerEdgeSwipeBack({page,onCommit:()=>{
+    routeSwipeCommitting=true;
+    try{releaseSwallowedClick();$(EDGE_BACK[page.id])?.click()}finally{routeSwipeCommitting=false}}});
+  if(!registration)return;
+  let beneath=null;
+  const unmount=()=>{
+    if(!beneath)return;
+    beneath.classList.remove("is-push-under");beneath.style.removeProperty("--push-top");
+    beneath.inert=false;beneath.removeAttribute("aria-hidden");beneath=null};
+  const watch=new MutationObserver(()=>{
+    const pulling=page.classList.contains("is-edge-swiping");
+    if(pulling&&!beneath){
+      const under=page.id==="history"?null:routeViewEl(routeUnderView||"log");
+      if(under&&under!==page&&!under.classList.contains("active")){
+        beneath=under;under.style.setProperty("--push-top","0px");
+        under.classList.add("is-push-under");under.inert=true;under.setAttribute("aria-hidden","true")}}
+    else if(!pulling)unmount()});
+  watch.observe(page,{attributes:true,attributeFilter:["class"]});
+  routeEdge={page,dispose(){registration.dispose();watch.disconnect();unmount()}}}
+function scheduleEdgeSwipeSync(){
+  if(!routeEdgeFrame)routeEdgeFrame=requestAnimationFrame(syncEdgeSwipe)}
 /* History swaps its list for a session page inside one view, so there is no second
    page to keep mounted. A still copy of the surface as it was, taken as the lifter
    presses the control that changes it, stands in: under the session page as it
@@ -974,6 +1020,7 @@ document.addEventListener("click",event=>{
   historySnap={copy,at:performance.now(),scroll:window.scrollY,session:view.classList.contains("is-session-page")}},true);
 function watchRouteSurfaces(){
   const main=$("main"),history=$("#history");
+  if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
   if(history){
     historySessionOpen=history.classList.contains("is-session-page");
     new MutationObserver(()=>{
@@ -984,7 +1031,7 @@ function watchRouteSurfaces(){
       if(!snap||snap.session===open||performance.now()-snap.at>1500)return;
       routePushBegin(open?"in":"out",{pushed:history,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
     }).observe(history,{attributes:true,attributeFilter:["class"]})}
-}
+  scheduleEdgeSwipeSync()}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",watchRouteSurfaces,{once:true});
 else watchRouteSurfaces();
 /** A push around a route change given as a function. */
@@ -6378,10 +6425,18 @@ function focusDragMove(e){
   // The whole track moves as one, the way a paged view does — card and the
   // stack it sits on together.
   focusSetTrack(focusDrag.track,focusDrag.dx)}
+const swallowedClickStops=new Set();
 function swallowNextClick(){
   const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
+  swallowedClickStops.add(stop);
   document.addEventListener("click",stop,{capture:true,once:true});
-  setTimeout(()=>document.removeEventListener("click",stop,{capture:true}),350)}
+  setTimeout(()=>{document.removeEventListener("click",stop,{capture:true});swallowedClickStops.delete(stop)},350)}
+/** A drag that commits a route (the edge swipe) runs the visible control's own
+ *  handler, which is a click; the swallow the drag, or one just before it, set for
+ *  the browser's stray click would eat it. */
+function releaseSwallowedClick(){
+  for(const stop of swallowedClickStops)document.removeEventListener("click",stop,{capture:true});
+  swallowedClickStops.clear()}
 function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   card?.classList.remove("is-dragging");
   const done=()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")};

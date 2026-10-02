@@ -1829,6 +1829,116 @@ async function pageMotion(browser, { reducedMotion = "no-preference" } = {}) {
   await context.close();
 }
 
+/** Synthetic touch pointer events at the page's left edge, the way sheet-swipe-dismiss drives the owner. */
+const EDGE_PROBE = `
+window.__edge2 = {
+  fire(sel, type, x, y = 400, id = 11) {
+    document.querySelector(sel).dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true, clientX: x, clientY: y }));
+  },
+  async drag(sel, xs, { start = 4, wait = 16, end = "pointerup", hold = 0 } = {}) {
+    this.fire(sel, "pointerdown", start);
+    const seen = [];
+    for (const x of xs) {
+      this.fire(sel, "pointermove", x);
+      await new Promise((r) => setTimeout(r, wait));
+      const el = document.querySelector(sel);
+      seen.push({ x: window.__push.x(sel), swiping: el.classList.contains("is-edge-swiping"), inline: el.style.transform,
+        under: [...document.querySelectorAll(".is-push-under")].map((e) => e.id), underShown: [...document.querySelectorAll(".is-push-under")].every((e) => getComputedStyle(e).display !== "none"),
+        underInert: [...document.querySelectorAll(".is-push-under")].every((e) => e.inert) });
+    }
+    if (hold) await new Promise((r) => setTimeout(r, hold));
+    if (end) this.fire(sel, end, xs[xs.length - 1]);
+    return seen;
+  },
+};
+`;
+
+async function edgeBack(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion, hasTouch: true });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.addInitScript(PUSH_PROBE + EDGE_PROBE);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate((rows) => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    state.log = rows;
+    localStorage.setItem("repforge_v1", JSON.stringify(state));
+  }, seedLogRows());
+  await installSeedProgram(page, { waitFor: settle });
+  await page.waitForSelector("#todayExList [data-exopen]", { timeout: 10000 });
+  const openExercise = async () => {
+    await page.evaluate(() => document.querySelector("#todayExList [data-exopen]").click());
+    await page.waitForFunction(() => document.querySelector("#exercise").classList.contains("active") && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
+  };
+  const state = () => page.evaluate(() => ({ views: [...document.querySelectorAll(".view.active")].map((v) => v.id),
+    inline: document.querySelector("#exercise").style.transform, swiping: !!document.querySelector(".is-edge-swiping"),
+    layers: document.querySelectorAll(".is-push-over,.is-push-under").length, hint: document.querySelector("#exercise").style.willChange }));
+
+  phase(`edge swipe: a pushed page opts in and takes the horizontal drag${tag}`);
+  await openExercise();
+  const touchAction = await page.evaluate(() => getComputedStyle(document.querySelector("#exercise")).touchAction);
+  assert(touchAction === "pan-y", "the pushed page carries touch-action: pan-y", touchAction);
+
+  phase(`edge swipe: in a browser tab the left edge is left to the browser${tag}`);
+  const tab = await page.evaluate(() => window.__edge2.drag("#exercise", [30, 90, 160, 240]));
+  await page.waitForTimeout(120);
+  assert(tab.every((s) => !s.inline && !s.swiping) && (await state()).views.join() === "exercise", "nothing follows the thumb and the page stays", JSON.stringify(tab));
+
+  await page.evaluate(() => { window.__standalone = true; });
+  phase(`edge swipe: standalone, the page follows the thumb with Today mounted beneath it${tag}`);
+  const pull = await page.evaluate(() => window.__edge2.drag("#exercise", [6, 20, 60, 120], { wait: 24, hold: 120, end: null }));
+  assert(pull[0].x === 0 && !pull[0].swiping, "a movement under the lock does not start it", JSON.stringify(pull[0]));
+  assert(pull[2].x > 0 && pull[3].x - pull[2].x === 60 && pull.slice(1).every((s) => s.swiping), "once past the lock it moves exactly as far as the thumb", JSON.stringify(pull.map((s) => s.x)));
+  assert(pull.slice(1).every((s) => s.under.includes("log") && s.underShown && s.underInert),
+    "and the page it will return to is mounted, shown and inert beneath it", JSON.stringify(pull.slice(1).map((s) => [s.under, s.underShown, s.underInert])));
+  await page.evaluate(() => window.__edge2.fire("#exercise", "pointerup", 120));
+  await page.waitForTimeout(reduced ? 80 : 560);
+  const homed = await state();
+  assert(homed.views.join() === "exercise" && !homed.inline && !homed.swiping && homed.layers === 0 && !homed.hint,
+    "a short, slow pull settles home and leaves no layer, transform or hint", JSON.stringify(homed));
+
+  phase(`edge swipe: a long pull runs the visible Back control's path once, with no second push${tag}`);
+  const samples = await page.evaluate(() => window.__push.run("#exercise", () => { window.__edge2.drag("#exercise", [40, 120, 220, 310], { wait: 16 }); }, 1100));
+  const done = await state();
+  assert(done.views.join() === "log" && !done.inline && done.layers === 0 && !done.swiping, "Today is back, with nothing transformed or layered", JSON.stringify(done));
+  const afterCommit = samples.slice(samples.findIndex((s) => s.views.join() === "log"));
+  assert(afterCommit.length > 0 && afterCommit.every((s) => !s.over.length && !s.under.length),
+    "the route did not push the page out a second time", JSON.stringify(afterCommit.slice(0, 3)));
+  const focus = await page.evaluate(() => document.activeElement?.dataset?.exopen || document.activeElement?.id || "");
+  assert(/^seed-ex-|^todayDash|^$/.test(focus) || focus.length > 0, "and focus is where the Back control would have put it", focus);
+
+  phase(`edge swipe: History's session page is a pushed page too${tag}`);
+  await page.click('nav button[data-view="history"]');
+  await page.waitForSelector("#sessions [data-edit]", { timeout: 5000 });
+  await page.evaluate(() => document.querySelector("#sessions [data-edit]").click());
+  await page.waitForFunction(() => document.querySelector("#history").classList.contains("is-session-page") && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => window.__edge2.drag("#history", [40, 120, 220, 310], { wait: 16 }));
+  await page.waitForTimeout(reduced ? 120 : 900);
+  const listBack = await page.evaluate(() => ({ session: document.querySelector("#history").classList.contains("is-session-page"),
+    inline: document.querySelector("#history").style.transform, swiping: !!document.querySelector(".is-edge-swiping") }));
+  assert(!listBack.session && !listBack.inline && !listBack.swiping, "a long pull returns to the History list", JSON.stringify(listBack));
+
+  phase(`edge swipe: never in Focus${tag}`);
+  await page.click('nav button[data-view="log"]');
+  await page.waitForSelector("#startWorkout", { state: "visible", timeout: 5000 });
+  await page.evaluate(() => document.querySelector("#startWorkout").click());
+  await page.waitForFunction(() => !document.querySelector("#workoutShell").classList.contains("hidden") && !document.body.classList.contains("is-pushing"), undefined, { timeout: 8000 });
+  await page.waitForTimeout(150);
+  const inFocus = await page.evaluate(() => window.__edge2.drag("#workoutShell", [30, 90, 160, 240], { wait: 16 }));
+  await page.waitForTimeout(120);
+  assert(inFocus.every((s) => !s.swiping && !s.inline) && !(await page.evaluate(() => !!document.querySelector(".is-edge-swiping"))),
+    "Focus keeps its horizontal axis for the deck: no edge pull starts", JSON.stringify(inFocus));
+  assert(await page.evaluate(() => !document.querySelector("#workoutShell").classList.contains("hidden")), "and Focus is still open");
+
+  assert(errors.length === 0, `no page errors in the edge-swipe run${tag}`, errors.join(" | "));
+  await context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
 
@@ -1836,6 +1946,8 @@ async function run() {
   if (process.env.REPFORGE_MOTION_ONLY === "pages") {
     await pageMotion(browser);
     await pageMotion(browser, { reducedMotion: "reduce" });
+    await edgeBack(browser);
+    await edgeBack(browser, { reducedMotion: "reduce" });
     await browser.close();
     console.log(`\nmotion integration (pages): ${results.passed} passed, ${results.failed} failed`);
     process.exit(results.failed ? 1 : 0);
@@ -2228,6 +2340,8 @@ async function run() {
 
   await pageMotion(browser);
   await pageMotion(browser, { reducedMotion: "reduce" });
+  await edgeBack(browser);
+  await edgeBack(browser, { reducedMotion: "reduce" });
 
   await browser.close();
   console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);
