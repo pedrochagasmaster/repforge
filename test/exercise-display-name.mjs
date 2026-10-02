@@ -16,7 +16,21 @@
  *
  * Production-backed in the browser: the fixture is a real program with English
  * stored names and a log written in English. The suite walks every surface that
- * renders a stored exercise name and reads what the lifter reads.
+ * renders a stored exercise name and reads what the lifter reads:
+ *   Today rows and aria-labels; Focus card, neighbours, next row and Why label;
+ *   session map, reorder labels, exercise actions, note sheet and swap picker;
+ *   session summary and Today's finished day; History session page, editor,
+ *   table and search; Progress overview, Strength, Volume drill-down, records,
+ *   block review and the exercise chart; the exercise page; the Program
+ *   overview, text export and editor labels; the entry previews (recommend,
+ *   custom, browse, import review and import preview) and the shared-link preview.
+ * What it must never touch is held to the byte: the stored program and log, the
+ * setup link, telemetry properties, and the name field of the program editor.
+ *
+ * The app re-derives a linked slot's name from the library whenever it normalises
+ * state, so a Portuguese session normally already holds Portuguese program text.
+ * The names the rule is for are the ones that stay English: log rows, the compiled
+ * entry previews and a program held in memory at its English text (phase two).
  *
  * Run: node test/exercise-display-name.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
