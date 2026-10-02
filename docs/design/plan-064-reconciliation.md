@@ -1461,6 +1461,13 @@ Build decisions recorded on [#295](https://github.com/pedrochagasmaster/repforge
 - The session summary keeps its count ramp (owner, motion amendment M2, comment 5941747309); its row stagger stays removed.
 - The PT outcome labels read "Manteve" and "Regressou".
 
+### Owner decisions before R6
+
+Recorded on [#295](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5961176728), 2026-10-02:
+- **RF-4, manual slot load: kept as built.** Direction D spec §4.9 and §5 draw a manual slot's program-authored load. The program has no such field, and adding one would change the program schema, the editor, import and the setup-link format. Manual rows therefore show sets × range and "manual" with no load and no mark. This is a recorded deviation from the D spec, and the authored-load field is a backlog item (Product and UX debt, "Manual-slot authored load").
+- **RF-10, Portuguese exercise names: localized at display.** In PT, a library exercise whose stored name still equals the library's English name shows the library's PT name. Stored data, setup links, telemetry and exercises the lifter renamed are unchanged. R6 builds it.
+- **Icon set.** The Round 3 G icon set is optional under Plan 064 §7.1 item 7 and is not adopted, so the existing icon masks stay.
+
 ## Reconcilable rows
 
 Each Plan 064 §5.3 row is either resolved here, with its evidence, or assigned
