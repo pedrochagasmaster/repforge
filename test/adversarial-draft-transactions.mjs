@@ -307,7 +307,11 @@ async function openOldPopup(context, owner, name) {
   };
   await context.route(/\/app\.js(?:\?|$)/, handler);
   const shellHandler = (route) => {
-    if (route.request().resourceType() !== "document" || route.request().frame().page() === owner) return route.continue();
+    if (route.request().resourceType() !== "document") return route.continue();
+    // A popup's first navigation has no frame yet; only the old popup navigates while this route is installed.
+    let fromCurrent = false;
+    try { fromCurrent = route.request().frame().page() === owner; } catch { fromCurrent = false; }
+    if (fromCurrent) return route.continue();
     return route.fulfill({ status: 200, contentType: "text/html", body: OLD_INDEX });
   };
   await context.route(OLD_DOCUMENT, shellHandler);
