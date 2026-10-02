@@ -5563,8 +5563,10 @@ window.__repforgeRest={
 /* ---- Rest presets sheet ---- */
 /* The running clock lives inline in the Focus cue slot (see "Inline rest"
    below). The header timer opens this sheet instead: it keeps the lengths a
-   lifter can pick, the 30s nudges, a restart and an explicit end. Pause and
-   resume are the inline Pausar/Retomar pad, so the sheet has no dial. */
+   lifter can pick, the 30s nudges, Pause or Resume, a restart and an explicit
+   end. Every operation of the clock is reachable from here, because the inline
+   pad row that also holds them gives way to the field pads once a field is
+   tapped, while a set is corrected, and at large text. */
 const REST_PRESETS=[60,90,180,300];
 const REST_NUDGE=30;
 const REST_MIN_SEC=15,REST_MAX_SEC=60*60;
@@ -5580,6 +5582,17 @@ function restPresetSecs(){
   const dflt=normalizeRestSec(state?.settings?.restSec);
   if(dflt>0)secs.add(dflt);
   return [...secs].sort((a,b)=>a-b)}
+/** Pause or Resume in the sheet: the same hold as the inline pad (`toggleRestHold`), drawn here so a clock that
+ *  was held can always be let go, whatever the pad row of the card is showing. Built once, as the first control. */
+function ensureRestHold(){
+  const row=$("#restSheet .restsheet__controls");if(!row)return null;
+  let hold=$("#restHold");
+  if(!hold){
+    hold=document.createElement("button");hold.type="button";hold.id="restHold";hold.className="restctl";
+    const label=document.createElement("span");label.className="restctl__label";
+    hold.append(label);hold.onclick=toggleRestHold;
+    row.prepend(hold)}
+  return hold}
 function renderRestPresets(){
   const host=$("#restPresets");if(!host)return;
   host.innerHTML=restPresetSecs().map(s=>
@@ -5595,12 +5608,19 @@ function paintRestSheet(){
     const on=+b.dataset.restpreset===armed;
     b.classList.toggle("is-active",on);
     b.setAttribute("aria-pressed",on?"true":"false")});
+  const hold=ensureRestHold();
+  if(hold){
+    // Pause and Resume wait for a rest to hold, like Restart and End; they never start one.
+    hold.disabled=!restEnd;
+    const label=hold.querySelector(".restctl__label"),text=t(restPaused!=null?"rest.inline.resume":"rest.inline.pause");
+    if(label&&label.textContent!==text)label.textContent=text}
   const reset=$("#restReset");if(reset)reset.disabled=!restEnd;
   const stop=$("#restStop");if(stop)stop.disabled=!restEnd}
 function openRestSheet(){
   const sheet=$("#restSheet"),scrim=$("#restSheetScrim");
   if(!sheet)return;
   restSheetReturn=document.activeElement;
+  ensureRestHold();
   renderRestPresets();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{

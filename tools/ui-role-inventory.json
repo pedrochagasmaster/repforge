@@ -4316,6 +4316,29 @@
       ]
     },
     {
+      "id": "resthold",
+      "selector": "#restHold",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Holds or releases the running rest clock from the presets sheet, a reversible supporting action with a text label (Pausar, Retomar); the inline pad row offers the same hold while it is on screen.",
+      "owner": "plan-064/fix-a",
+      "catalogStates": [
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
+    },
+    {
       "id": "restminus",
       "selector": "#restMinus",
       "roles": {

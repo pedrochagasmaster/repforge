@@ -663,7 +663,7 @@ async function main() {
     "a tap on a field brings the field pads back while the clock stays in the cue slot", JSON.stringify(fieldsBack));
   await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='reps']").click();
 
-  // The presets sheet is the header timer's: lengths, nudges, restart and end. It has no dial and no clock of its own.
+  // The presets sheet is the header timer's: lengths, Pause or Resume, nudges, restart and end. It has no dial and no clock of its own.
   await page.click("#woRest");
   await page.waitForSelector("#restSheet:not([hidden]).is-open");
   const restSheet = await page.evaluate(() => {
@@ -679,8 +679,8 @@ async function main() {
   });
   assert(restSheet.open && restSheet.stillRunning && !restSheet.dial,
     "tapping the running chip opens the presets with the rest still running and no dial", JSON.stringify(restSheet));
-  assert(restSheet.presets >= 4 && restSheet.armed === 1 && restSheet.controls.join() === "restMinus,restPlus,restReset,restStop",
-    "the sheet offers rest lengths, the nudges, restart and end, and marks the length this rest is armed at", JSON.stringify(restSheet));
+  assert(restSheet.presets >= 4 && restSheet.armed === 1 && restSheet.controls.join() === "restHold,restMinus,restPlus,restReset,restStop",
+    "the sheet offers rest lengths, Pause or Resume, the nudges, restart and end, and marks the length this rest is armed at (RT-04: Pause/Resume is reachable here)", JSON.stringify(restSheet));
   await page.click("#restSheetClose");
   await page.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
 
