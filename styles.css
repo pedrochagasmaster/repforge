@@ -7045,3 +7045,9 @@ body.is-entry-editor #entryProgramName,
 .safaribar__host{text-overflow:clip}
 .installsteps__n{color:var(--color-ink-secondary)}
 .install-transfer__status:not(:empty){border-left-color:var(--boundary-selected-quiet)}
+
+/* Program management: links and warnings are ink. */
+#exCustomSheet .text-link,#exPickSheet .text-link,#programEditToggle{color:var(--control-quiet-ink)}
+#exCustomSheet .text-link,#exPickSheet .text-link{text-decoration:underline;text-underline-offset:.2em}
+.share-setup__blocker-summary{color:var(--color-ink)}
+.program-editor__undo,.program-editor__replace,.pex__detach,.pex__swap.is-unlinked{color:var(--control-quiet-ink)}
