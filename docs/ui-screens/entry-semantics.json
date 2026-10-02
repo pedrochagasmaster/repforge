@@ -79673,6 +79673,5130 @@
       ]
     },
     {
+      "key": "onboarding-start/first-run-returning__phone-320-light-en",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning",
+      "label": "Returning landing",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning__phone-390-dark-en",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning",
+      "label": "Returning landing",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning__phone-390-light-en",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning",
+      "label": "Returning landing",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning__phone-390-light-en-reduced",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning",
+      "label": "Returning landing",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning__phone-390-light-en-text200",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning",
+      "label": "Returning landing",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning__phone-390-light-pt",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning",
+      "label": "Returning landing",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Configurar o Taurifer",
+          "label": "Configurar o Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Que bom ter você de volta."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacidade",
+          "name": "Privacidade",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Que bom ter você de volta."
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino ainda não está montado. Monte um ou traga o que você já segue."
+        },
+        {
+          "tag": "button",
+          "name": "Montar meu treino",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Montar meu treino"
+        },
+        {
+          "tag": "button",
+          "text": "Acompanhar meu treino atual",
+          "name": "Acompanhar meu treino atual",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Três jeitos de começar seu treino."
+        },
+        {
+          "tag": "h2",
+          "text": "Três jeitos de começar seu treino."
+        },
+        {
+          "tag": "h3",
+          "text": "O Taurifer monta seu treino"
+        },
+        {
+          "tag": "p",
+          "text": "Responda algumas perguntas ou escolha os músculos que quer priorizar. O Taurifer monta um treino de 6 semanas para os dias em que você pode treinar."
+        },
+        {
+          "tag": "h3",
+          "text": "Escolha um treino pronto"
+        },
+        {
+          "tag": "p",
+          "text": "Treinos Taurifer completos, organizados por objetivo e por quantos dias você treina na semana."
+        },
+        {
+          "tag": "h3",
+          "text": "Traga ou monte o seu"
+        },
+        {
+          "tag": "p",
+          "text": "Comece com dias vazios, cole seu treino atual ou importe um arquivo do Taurifer."
+        },
+        {
+          "tag": "button",
+          "name": "Ver como colar um treino",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ver como colar um treino"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Seu histórico fica no seu celular.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Seu histórico fica no seu celular."
+        },
+        {
+          "tag": "h3",
+          "text": "Você não precisa criar uma conta."
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino, suas sessões e seus ajustes ficam salvos no seu celular."
+        },
+        {
+          "tag": "h3",
+          "text": "Uma cópia é sua quando quiser."
+        },
+        {
+          "tag": "p",
+          "text": "Para guardar uma cópia, ou levar seu treino e seu histórico para outro lugar, exporte em JSON, CSV (abre em apps de planilha) ou texto."
+        },
+        {
+          "tag": "h3",
+          "text": "Funciona sem internet."
+        },
+        {
+          "tag": "p",
+          "text": "Depois de aberto uma vez, registrar séries e ver a próxima meta não dependem de sinal."
+        },
+        {
+          "tag": "p",
+          "text": "No app, abra e toque em para ler tudo."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Detalhes de privacidade"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Perguntas"
+        },
+        {
+          "tag": "h2",
+          "text": "Perguntas"
+        },
+        {
+          "tag": "summary",
+          "name": "É grátis?"
+        },
+        {
+          "tag": "span",
+          "text": "É grátis?"
+        },
+        {
+          "tag": "p",
+          "text": "Montar seu treino, registrar as sessões e receber a próxima meta é gratuito, sem conta e sem cadastro."
+        },
+        {
+          "tag": "summary",
+          "name": "Preciso de loja de apps?"
+        },
+        {
+          "tag": "span",
+          "text": "Preciso de loja de apps?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. O Taurifer abre no navegador. Para ter o ícone na tela de início:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, no Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Toque em ••• à direita da barra de endereço e escolha ."
+        },
+        {
+          "tag": "b",
+          "text": "Compartilhar"
+        },
+        {
+          "tag": "li",
+          "text": "No menu de compartilhamento, toque em , no fim da linha de ações."
+        },
+        {
+          "tag": "b",
+          "text": "Ver Mais"
+        },
+        {
+          "tag": "li",
+          "text": "Escolha ."
+        },
+        {
+          "tag": "b",
+          "text": "Adicionar à Tela de Início"
+        },
+        {
+          "tag": "li",
+          "text": "Deixe ativado e toque em ."
+        },
+        {
+          "tag": "b",
+          "text": "Abrir como Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Adicionar"
+        },
+        {
+          "tag": "b",
+          "text": "Android, no Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Abra o menu do navegador e escolha ou ."
+        },
+        {
+          "tag": "b",
+          "text": "Instalar app"
+        },
+        {
+          "tag": "b",
+          "text": "Adicionar à tela inicial"
+        },
+        {
+          "tag": "p",
+          "text": "Se você já registrou sessões no navegador, pode passar esses dados para o app instalado. A transferência só acontece se você pedir e expira em até uma hora."
+        },
+        {
+          "tag": "summary",
+          "name": "O que é RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR é o número de reps que você ainda conseguiria fazer antes da falha. RIR 2 significa duas reps sobrando. Se você é novo no RIR, estime se conseguiria fazer mais uma ou duas reps."
+        },
+        {
+          "tag": "summary",
+          "name": "Meu treinador pode me mandar um treino?"
+        },
+        {
+          "tag": "span",
+          "text": "Meu treinador pode me mandar um treino?"
+        },
+        {
+          "tag": "p",
+          "text": "Pode. O treinador monta seu treino no Taurifer e toca em . Você abre o link, confere seu treino e começa no seu celular."
+        },
+        {
+          "tag": "b",
+          "text": "Compartilhar link de configuração"
+        },
+        {
+          "tag": "span",
+          "text": "Compartilhar link de configuração"
+        },
+        {
+          "tag": "span",
+          "text": "Vai no link"
+        },
+        {
+          "tag": "li",
+          "text": "Treino"
+        },
+        {
+          "tag": "li",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "li",
+          "text": "Idioma"
+        },
+        {
+          "tag": "span",
+          "text": "Não vai"
+        },
+        {
+          "tag": "li",
+          "text": "Sessões registradas"
+        },
+        {
+          "tag": "li",
+          "text": "Cargas e repetições feitas"
+        },
+        {
+          "tag": "p",
+          "text": "O link não é criptografado: quem o receber pode ler seu treino."
+        },
+        {
+          "tag": "summary",
+          "name": "O Taurifer coleta algum dado?"
+        },
+        {
+          "tag": "span",
+          "text": "O Taurifer coleta algum dado?"
+        },
+        {
+          "tag": "p",
+          "text": "Coleta dados de uso, e essa opção já vem ligada: eventos de uso pseudônimos e gravações da tela com todo o conteúdo mascarado. Cargas e repetições registradas, nomes de exercícios, anotações, texto livre, links de configuração e backups ficam de fora."
+        },
+        {
+          "tag": "p",
+          "text": "Para desligar, abra e desative ."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Comece de onde você está."
+        },
+        {
+          "tag": "h2",
+          "text": "Comece de onde você está."
+        },
+        {
+          "tag": "p",
+          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+        },
+        {
+          "tag": "button",
+          "name": "Montar meu treino",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Montar meu treino"
+        },
+        {
+          "tag": "button",
+          "text": "Acompanhar meu treino atual",
+          "name": "Acompanhar meu treino atual",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Rodapé",
+          "label": "Rodapé"
+        },
+        {
+          "tag": "a",
+          "text": "Privacidade",
+          "name": "Privacidade"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning__phone-430-light-en",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning",
+      "label": "Returning landing",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning-resume__phone-320-light-en",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning-resume",
+      "label": "Returning landing — setup saved",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning-resume__phone-390-dark-en",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning-resume",
+      "label": "Returning landing — setup saved",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning-resume__phone-390-light-en",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning-resume",
+      "label": "Returning landing — setup saved",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning-resume__phone-390-light-en-reduced",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning-resume",
+      "label": "Returning landing — setup saved",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning-resume__phone-390-light-en-text200",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning-resume",
+      "label": "Returning landing — setup saved",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning-resume__phone-390-light-pt",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning-resume",
+      "label": "Returning landing — setup saved",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Configurar o Taurifer",
+          "label": "Configurar o Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Que bom ter você de volta."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacidade",
+          "name": "Privacidade",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Que bom ter você de volta."
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino ainda não está montado. Monte um ou traga o que você já segue."
+        },
+        {
+          "tag": "button",
+          "name": "Continuar a escolher seu treino",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continuar a escolher seu treino"
+        },
+        {
+          "tag": "button",
+          "text": "Acompanhar meu treino atual",
+          "name": "Acompanhar meu treino atual",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Três jeitos de começar seu treino."
+        },
+        {
+          "tag": "h2",
+          "text": "Três jeitos de começar seu treino."
+        },
+        {
+          "tag": "h3",
+          "text": "O Taurifer monta seu treino"
+        },
+        {
+          "tag": "p",
+          "text": "Responda algumas perguntas ou escolha os músculos que quer priorizar. O Taurifer monta um treino de 6 semanas para os dias em que você pode treinar."
+        },
+        {
+          "tag": "h3",
+          "text": "Escolha um treino pronto"
+        },
+        {
+          "tag": "p",
+          "text": "Treinos Taurifer completos, organizados por objetivo e por quantos dias você treina na semana."
+        },
+        {
+          "tag": "h3",
+          "text": "Traga ou monte o seu"
+        },
+        {
+          "tag": "p",
+          "text": "Comece com dias vazios, cole seu treino atual ou importe um arquivo do Taurifer."
+        },
+        {
+          "tag": "button",
+          "name": "Ver como colar um treino",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ver como colar um treino"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Seu histórico fica no seu celular.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Seu histórico fica no seu celular."
+        },
+        {
+          "tag": "h3",
+          "text": "Você não precisa criar uma conta."
+        },
+        {
+          "tag": "p",
+          "text": "Seu treino, suas sessões e seus ajustes ficam salvos no seu celular."
+        },
+        {
+          "tag": "h3",
+          "text": "Uma cópia é sua quando quiser."
+        },
+        {
+          "tag": "p",
+          "text": "Para guardar uma cópia, ou levar seu treino e seu histórico para outro lugar, exporte em JSON, CSV (abre em apps de planilha) ou texto."
+        },
+        {
+          "tag": "h3",
+          "text": "Funciona sem internet."
+        },
+        {
+          "tag": "p",
+          "text": "Depois de aberto uma vez, registrar séries e ver a próxima meta não dependem de sinal."
+        },
+        {
+          "tag": "p",
+          "text": "No app, abra e toque em para ler tudo."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Detalhes de privacidade"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Perguntas"
+        },
+        {
+          "tag": "h2",
+          "text": "Perguntas"
+        },
+        {
+          "tag": "summary",
+          "name": "É grátis?"
+        },
+        {
+          "tag": "span",
+          "text": "É grátis?"
+        },
+        {
+          "tag": "p",
+          "text": "Montar seu treino, registrar as sessões e receber a próxima meta é gratuito, sem conta e sem cadastro."
+        },
+        {
+          "tag": "summary",
+          "name": "Preciso de loja de apps?"
+        },
+        {
+          "tag": "span",
+          "text": "Preciso de loja de apps?"
+        },
+        {
+          "tag": "p",
+          "text": "Não. O Taurifer abre no navegador. Para ter o ícone na tela de início:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, no Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Toque em ••• à direita da barra de endereço e escolha ."
+        },
+        {
+          "tag": "b",
+          "text": "Compartilhar"
+        },
+        {
+          "tag": "li",
+          "text": "No menu de compartilhamento, toque em , no fim da linha de ações."
+        },
+        {
+          "tag": "b",
+          "text": "Ver Mais"
+        },
+        {
+          "tag": "li",
+          "text": "Escolha ."
+        },
+        {
+          "tag": "b",
+          "text": "Adicionar à Tela de Início"
+        },
+        {
+          "tag": "li",
+          "text": "Deixe ativado e toque em ."
+        },
+        {
+          "tag": "b",
+          "text": "Abrir como Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Adicionar"
+        },
+        {
+          "tag": "b",
+          "text": "Android, no Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Abra o menu do navegador e escolha ou ."
+        },
+        {
+          "tag": "b",
+          "text": "Instalar app"
+        },
+        {
+          "tag": "b",
+          "text": "Adicionar à tela inicial"
+        },
+        {
+          "tag": "p",
+          "text": "Se você já registrou sessões no navegador, pode passar esses dados para o app instalado. A transferência só acontece se você pedir e expira em até uma hora."
+        },
+        {
+          "tag": "summary",
+          "name": "O que é RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "O que é RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR é o número de reps que você ainda conseguiria fazer antes da falha. RIR 2 significa duas reps sobrando. Se você é novo no RIR, estime se conseguiria fazer mais uma ou duas reps."
+        },
+        {
+          "tag": "summary",
+          "name": "Meu treinador pode me mandar um treino?"
+        },
+        {
+          "tag": "span",
+          "text": "Meu treinador pode me mandar um treino?"
+        },
+        {
+          "tag": "p",
+          "text": "Pode. O treinador monta seu treino no Taurifer e toca em . Você abre o link, confere seu treino e começa no seu celular."
+        },
+        {
+          "tag": "b",
+          "text": "Compartilhar link de configuração"
+        },
+        {
+          "tag": "span",
+          "text": "Compartilhar link de configuração"
+        },
+        {
+          "tag": "span",
+          "text": "Vai no link"
+        },
+        {
+          "tag": "li",
+          "text": "Treino"
+        },
+        {
+          "tag": "li",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "li",
+          "text": "Idioma"
+        },
+        {
+          "tag": "span",
+          "text": "Não vai"
+        },
+        {
+          "tag": "li",
+          "text": "Sessões registradas"
+        },
+        {
+          "tag": "li",
+          "text": "Cargas e repetições feitas"
+        },
+        {
+          "tag": "p",
+          "text": "O link não é criptografado: quem o receber pode ler seu treino."
+        },
+        {
+          "tag": "summary",
+          "name": "O Taurifer coleta algum dado?"
+        },
+        {
+          "tag": "span",
+          "text": "O Taurifer coleta algum dado?"
+        },
+        {
+          "tag": "p",
+          "text": "Coleta dados de uso, e essa opção já vem ligada: eventos de uso pseudônimos e gravações da tela com todo o conteúdo mascarado. Cargas e repetições registradas, nomes de exercícios, anotações, texto livre, links de configuração e backups ficam de fora."
+        },
+        {
+          "tag": "p",
+          "text": "Para desligar, abra e desative ."
+        },
+        {
+          "tag": "b",
+          "text": "Ajustes"
+        },
+        {
+          "tag": "b",
+          "text": "Ajude a melhorar o Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Comece de onde você está."
+        },
+        {
+          "tag": "h2",
+          "text": "Comece de onde você está."
+        },
+        {
+          "tag": "p",
+          "text": "Um toque por série. O Taurifer faz a conta da próxima."
+        },
+        {
+          "tag": "button",
+          "name": "Continuar a escolher seu treino",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continuar a escolher seu treino"
+        },
+        {
+          "tag": "button",
+          "text": "Acompanhar meu treino atual",
+          "name": "Acompanhar meu treino atual",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Rodapé",
+          "label": "Rodapé"
+        },
+        {
+          "tag": "a",
+          "text": "Privacidade",
+          "name": "Privacidade"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/first-run-returning-resume__phone-430-light-en",
+      "flow": "onboarding-start",
+      "screen": "first-run-returning-resume",
+      "label": "Returning landing — setup saved",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Welcome back."
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Welcome back."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is not set up yet. Build one, or bring the one you already follow."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Three ways to start your program."
+        },
+        {
+          "tag": "h2",
+          "text": "Three ways to start your program."
+        },
+        {
+          "tag": "h3",
+          "text": "Taurifer builds your program"
+        },
+        {
+          "tag": "p",
+          "text": "Answer a few questions or pick the muscles you want to prioritize. Taurifer builds a 6-week program around the days you can train."
+        },
+        {
+          "tag": "h3",
+          "text": "Choose a ready-made program"
+        },
+        {
+          "tag": "p",
+          "text": "Complete Taurifer programs, sorted by goal and by how many days a week you train."
+        },
+        {
+          "tag": "h3",
+          "text": "Bring or build your own"
+        },
+        {
+          "tag": "p",
+          "text": "Start with empty days, paste your current program, or import a Taurifer file."
+        },
+        {
+          "tag": "button",
+          "name": "See how pasting a program works",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "See how pasting a program works"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your history stays on your phone.",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "h2",
+          "text": "Your history stays on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "You don't need to create an account."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, sessions and settings are saved on your phone."
+        },
+        {
+          "tag": "h3",
+          "text": "A copy is yours whenever you want."
+        },
+        {
+          "tag": "p",
+          "text": "To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text."
+        },
+        {
+          "tag": "h3",
+          "text": "Works without a connection."
+        },
+        {
+          "tag": "p",
+          "text": "Once it has been opened, logging sets and seeing the next target don't need a signal."
+        },
+        {
+          "tag": "p",
+          "text": "In the app, open and tap for the full details."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Privacy details"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Questions"
+        },
+        {
+          "tag": "h2",
+          "text": "Questions"
+        },
+        {
+          "tag": "summary",
+          "name": "Is it free?"
+        },
+        {
+          "tag": "span",
+          "text": "Is it free?"
+        },
+        {
+          "tag": "p",
+          "text": "Building your program, logging sessions and getting the next target are free, with no account and no sign-up."
+        },
+        {
+          "tag": "summary",
+          "name": "Do I need an app store?"
+        },
+        {
+          "tag": "span",
+          "text": "Do I need an app store?"
+        },
+        {
+          "tag": "p",
+          "text": "No. Taurifer opens in the browser. To put its icon on your home screen:"
+        },
+        {
+          "tag": "b",
+          "text": "iPhone, in Safari"
+        },
+        {
+          "tag": "li",
+          "text": "Tap ••• at the right of the address bar, then choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Share"
+        },
+        {
+          "tag": "li",
+          "text": "In the share sheet, tap at the end of the actions row."
+        },
+        {
+          "tag": "b",
+          "text": "View More"
+        },
+        {
+          "tag": "li",
+          "text": "Choose ."
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "li",
+          "text": "Leave on and tap ."
+        },
+        {
+          "tag": "b",
+          "text": "Open as Web App"
+        },
+        {
+          "tag": "b",
+          "text": "Add"
+        },
+        {
+          "tag": "b",
+          "text": "Android, in Chrome"
+        },
+        {
+          "tag": "p",
+          "text": "Open your browser menu and choose or ."
+        },
+        {
+          "tag": "b",
+          "text": "Install app"
+        },
+        {
+          "tag": "b",
+          "text": "Add to Home Screen"
+        },
+        {
+          "tag": "p",
+          "text": "If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour."
+        },
+        {
+          "tag": "summary",
+          "name": "What is RIR?"
+        },
+        {
+          "tag": "span",
+          "text": "What is RIR?"
+        },
+        {
+          "tag": "p",
+          "text": "RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more."
+        },
+        {
+          "tag": "summary",
+          "name": "Can my coach send me a program?"
+        },
+        {
+          "tag": "span",
+          "text": "Can my coach send me a program?"
+        },
+        {
+          "tag": "p",
+          "text": "Yes. They build your program in Taurifer and tap . You open the link, review your program and start on your own phone."
+        },
+        {
+          "tag": "b",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "Share setup link"
+        },
+        {
+          "tag": "span",
+          "text": "In the link"
+        },
+        {
+          "tag": "li",
+          "text": "Program"
+        },
+        {
+          "tag": "li",
+          "text": "Settings"
+        },
+        {
+          "tag": "li",
+          "text": "Language"
+        },
+        {
+          "tag": "span",
+          "text": "Not in the link"
+        },
+        {
+          "tag": "li",
+          "text": "Logged sessions"
+        },
+        {
+          "tag": "li",
+          "text": "Loads and reps you did"
+        },
+        {
+          "tag": "p",
+          "text": "The link isn't encrypted: anyone who gets it can read your program."
+        },
+        {
+          "tag": "summary",
+          "name": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "span",
+          "text": "Does Taurifer collect any data?"
+        },
+        {
+          "tag": "p",
+          "text": "It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out."
+        },
+        {
+          "tag": "p",
+          "text": "To turn it off, open and switch off ."
+        },
+        {
+          "tag": "b",
+          "text": "Settings"
+        },
+        {
+          "tag": "b",
+          "text": "Help improve Taurifer"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Start where you are."
+        },
+        {
+          "tag": "h2",
+          "text": "Start where you are."
+        },
+        {
+          "tag": "p",
+          "text": "One tap per set. Taurifer works out the next one."
+        },
+        {
+          "tag": "button",
+          "name": "Continue choosing your program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Continue choosing your program"
+        },
+        {
+          "tag": "button",
+          "text": "Track my current program",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "div",
+          "role": "navigation",
+          "name": "Footer",
+          "label": "Footer"
+        },
+        {
+          "tag": "a",
+          "text": "Privacy",
+          "name": "Privacy"
+        }
+      ]
+    },
+    {
       "key": "onboarding-start/first-run-track__phone-390-dark-en",
       "flow": "onboarding-start",
       "screen": "first-run-track",
