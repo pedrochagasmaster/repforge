@@ -17301,10 +17301,9 @@ function showInstallTransferDivergenceDialog(onConfirm){
     dialog.setAttribute("aria-modal","true");
     dialog.setAttribute("aria-labelledby","divergenceTitle");
     dialog.innerHTML=`
-      <div class="sheet__head">
-        <div class="sheet__titles">
-          <p class="sheet__title" id="divergenceTitle">${esc(t("install.transfer.divergence_title")||"Permanent Divergence Warning")}</p>
-        </div>
+      <div class="sheetband">
+        <span class="sheetband__handle" aria-hidden="true"></span>
+        <h2 class="sheetband__title" id="divergenceTitle">${esc(t("install.transfer.divergence_title")||"Permanent Divergence Warning")}</h2>
       </div>
       <div style="padding:16px;">
         <p id="divergenceBody">${esc(t("install.transfer.divergence_body")||"If you resume in browser, future changes here and in the installed app will not merge and will develop separate workout histories.")}</p>
@@ -18268,7 +18267,7 @@ function installTransferRenderState(stateName,detail={}){
   const def=definitions[stateName]||definitions.interrupted;
   installTransferVisibleState=stateName;
   sheet.dataset.transferState=stateName;
-  const title=$("#iosInstallTitle"),sub=sheet.querySelector(".installsheet__sub"),body=$("#installTransferBody"),status=$("#installTransferStatus");
+  const title=$("#iosInstallTitle"),sub=sheet.querySelector(".sheetband__sub"),body=$("#installTransferBody"),status=$("#installTransferStatus");
   if(title){title.textContent=t(def[0]);title.tabIndex=-1}
   if(sub)sub.textContent=t(def[1]);
   if(body)body.textContent=stateName==="eligible"&&def[2]?t(def[2]):"";

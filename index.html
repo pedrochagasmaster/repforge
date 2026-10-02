@@ -878,14 +878,13 @@ Triceps pushdown 3x12-15</pre>
        drawn here — it is Chrome's, and we only ask for it. -->
   <div id="privacyScrim" class="sheet-scrim hidden"></div>
   <div id="privacySheet" class="sheet sheet--privacy hidden" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="privacyTitle" data-i18n="privacy.title">Privacy</h2>
+      <button type="button" class="sheetband__close" id="privacyClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" data-i18n="privacy.local_first">Your training data stays on this device except when you explicitly create an install transfer.</p>
+    </div>
     <div class="privacy-sheet">
-      <div class="sheet__head">
-        <div class="sheet__titles">
-          <h2 class="sheet__title" id="privacyTitle" data-i18n="privacy.title">Privacy</h2>
-          <p class="sheet__sub" data-i18n="privacy.local_first">Your training data stays on this device except when you explicitly create an install transfer.</p>
-        </div>
-        <button type="button" class="whysheet__close" id="privacyClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
-      </div>
       <div class="privacy-sheet__body">
         <section aria-labelledby="privacySetupTitle">
           <h3 id="privacySetupTitle" data-i18n="privacy.setup.title">Program setup links</h3>
@@ -919,16 +918,13 @@ Triceps pushdown 3x12-15</pre>
   </div>
   <div id="iosInstallScrim" class="sheet-scrim hidden"></div>
   <div id="iosInstallSheet" class="sheet sheet--install hidden" role="dialog" aria-modal="true" aria-labelledby="iosInstallTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="iosInstallTitle" data-catalog-layout data-i18n="install.ios.title">Install on iPhone</h2>
+      <button type="button" class="sheetband__close" id="iosInstallClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" data-i18n="install.ios.sub">Add Taurifer to your Home Screen.</p>
+    </div>
     <div class="installsheet">
-      <div class="installsheet__head">
-        <span class="installsheet__mark" aria-hidden="true"></span>
-        <div class="installsheet__titles">
-          <p class="installsheet__title" id="iosInstallTitle" data-catalog-layout data-i18n="install.ios.title">Install on iPhone</p>
-          <p class="installsheet__sub" data-i18n="install.ios.sub">Add Taurifer to your Home Screen.</p>
-        </div>
-        <button type="button" class="whysheet__close installsheet__close" id="iosInstallClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
-      </div>
       <div id="installTransferIntro" class="install-transfer__intro hidden">
         <p class="install-transfer__body" id="installTransferBody"></p>
         <div class="install-transfer__disclosure" id="installTransferDisclosure">
@@ -1109,32 +1105,27 @@ Triceps pushdown 3x12-15</pre>
   </div>
   <div id="programTextScrim" class="sheet-scrim hidden"></div>
   <div id="programTextSheet" class="sheet hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="programTextTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="programTextClose" data-i18n="dialog.close">Close</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="programTextTitle" data-i18n="program.export_text.title">Program as text</p>
-        <p class="sheet__sub" id="programTextFor"></p>
-      </div>
-      <button type="button" class="sheet__act sheet__act--accent" id="programTextCopy" data-i18n="program.export_text.copy">Copy</button>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="programTextTitle" data-i18n="program.export_text.title">Program as text</h2>
+      <button type="button" class="sheetband__close" id="programTextClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="programTextFor"></p>
     </div>
     <div class="sheet__body">
       <pre id="programTextOut" class="sheet__pre" tabindex="0" data-i18n-aria="program.export_text.title" aria-label="Program as text"></pre>
     </div>
     <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--steel" id="programTextCopy" data-i18n="program.export_text.copy">Copy</button>
       <button type="button" class="btn btn--steel" id="programTextShare" data-i18n="program.export_text.share">Share or save</button>
     </div>
   </div>
   <div id="shareSetupScrim" class="sheet-scrim hidden"></div>
   <div id="shareSetupSheet" class="sheet sheet--setup hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="shareSetupTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="shareSetupClose" data-i18n="dialog.close">Close</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="shareSetupTitle" data-i18n="program.share_setup_title">Share program setup</p>
-        <p class="sheet__sub" id="shareSetupFor"></p>
-      </div>
-      <span class="sheet__spacer" aria-hidden="true"></span>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="shareSetupTitle" data-i18n="program.share_setup_title">Share program setup</h2>
+      <button type="button" class="sheetband__close" id="shareSetupClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="shareSetupFor"></p>
     </div>
     <div class="sheet__body share-setup">
       <p id="shareSetupBody" data-i18n="program.share_setup_body">Create a setup link for this program. Copy the link or open the system Share sheet.</p>
@@ -1150,14 +1141,11 @@ Triceps pushdown 3x12-15</pre>
   </div>
   <div id="exPickScrim" class="sheet-scrim hidden"></div>
   <div id="exPickSheet" class="sheet sheet--pick hidden" role="dialog" aria-modal="true" aria-labelledby="exPickTitle" tabindex="-1" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="exPickCancel" data-i18n="dialog.cancel">Cancel</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="exPickTitle" data-i18n="picker.title">Choose exercise</p>
-        <p class="sheet__sub" id="exPickFor"></p>
-      </div>
-      <button type="button" class="sheet__act sheet__act--accent hidden" id="exPickDone" data-i18n="dialog.done">Done</button>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="exPickTitle" data-i18n="picker.title">Choose exercise</h2>
+      <button type="button" class="sheetband__close" id="exPickCancel" data-i18n-aria="dialog.cancel" aria-label="Cancel"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="exPickFor"></p>
     </div>
     <div class="pick__tools">
       <input id="exPickSearch" type="search" class="pick__search" data-i18n-placeholder="picker.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search exercises…" aria-label="Search exercises" autocomplete="off" enterkeyhint="search">
@@ -1168,19 +1156,17 @@ Triceps pushdown 3x12-15</pre>
       <div id="exPickList" class="pick__list"></div>
     </div>
     <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--cta btn--noarrow hidden" id="exPickDone" data-i18n="dialog.done">Done</button>
       <button type="button" class="text-link" id="exPickFull" data-i18n="picker.open_library">Open full library ›</button>
       <button type="button" class="btn btn--steel" id="exPickCustom" data-i18n="picker.create_custom">+ Create custom exercise</button>
     </div>
   </div>
   <div id="exCustomScrim" class="sheet-scrim hidden"></div>
   <div id="exCustomSheet" class="sheet sheet--custom hidden" role="dialog" aria-modal="true" aria-labelledby="exCustomTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="exCustomCancel" data-i18n="dialog.cancel">Cancel</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="exCustomTitle" data-i18n="custom.title">Custom exercise</p>
-      </div>
-      <button type="button" class="sheet__act sheet__act--accent" id="exCustomSave" data-i18n="dialog.save">Save</button>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="exCustomTitle" data-i18n="custom.title">Custom exercise</h2>
+      <button type="button" class="sheetband__close" id="exCustomCancel" data-i18n-aria="dialog.cancel" aria-label="Cancel"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
     </div>
     <div class="sheet__body pick__body">
       <div class="custom__form">
@@ -1204,6 +1190,9 @@ Triceps pushdown 3x12-15</pre>
         <button type="button" class="btn btn--steel" id="exCustomRecoveryRetry" data-i18n="custom.recovery.retry">Retry recovery</button>
         <button type="button" class="text-link" id="exCustomRecoveryReload" data-i18n="custom.recovery.reload">Reload</button>
       </div>
+    </div>
+    <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--cta btn--noarrow" id="exCustomSave" data-i18n="dialog.save">Save</button>
     </div>
   </div>
   <div id="restSheetScrim" class="sheet-scrim hidden"></div>

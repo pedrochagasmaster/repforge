@@ -2331,7 +2331,7 @@ async function run() {
   await page.click("#exportProgramText");
   await page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);
-  const rail = await page.locator("#programTextSheet .sheet__head").boundingBox();
+  const rail = await page.locator("#programTextSheet .sheetband").boundingBox();
   const gx = Math.round(rail.x + rail.width / 2), gy = Math.round(rail.y + rail.height / 2);
   await page.mouse.move(gx, gy);
   await page.mouse.down();
@@ -2357,7 +2357,7 @@ async function run() {
   await page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(340);
   {
-    const rail2 = await page.locator("#programTextSheet .sheet__head").boundingBox();
+    const rail2 = await page.locator("#programTextSheet .sheetband").boundingBox();
     const x2 = Math.round(rail2.x + rail2.width / 2), y2 = Math.round(rail2.y + rail2.height / 2);
     // A short push, released — the sheet starts springing home.
     await page.mouse.move(x2, y2);
@@ -2423,7 +2423,7 @@ async function run() {
   await page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(340);
   {
-    const rail3 = await page.locator("#programTextSheet .sheet__head").boundingBox();
+    const rail3 = await page.locator("#programTextSheet .sheetband").boundingBox();
     const x3 = Math.round(rail3.x + rail3.width / 2), y3 = Math.round(rail3.y + rail3.height / 2);
     // A push, pulled back and held still before release: the last samples are a
     // zero and an upward delta, so the release velocity cannot read as a flick
@@ -2464,7 +2464,7 @@ async function run() {
   await page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(340);
   {
-    const rail4 = await page.locator("#programTextSheet .sheet__head").boundingBox();
+    const rail4 = await page.locator("#programTextSheet .sheetband").boundingBox();
     const x4 = Math.round(rail4.x + rail4.width / 2), y4 = Math.round(rail4.y + rail4.height / 2);
     // The cancel has to carry the live gesture's own pointerId, the way the
     // browser's would, or the handler is right to ignore it.
@@ -2521,7 +2521,7 @@ async function run() {
   await reduced.page.click("#exportProgramText");
   await reduced.page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });
   await reduced.page.waitForTimeout(120);
-  const rrail = await reduced.page.locator("#programTextSheet .sheet__head").boundingBox();
+  const rrail = await reduced.page.locator("#programTextSheet .sheetband").boundingBox();
   const rx = Math.round(rrail.x + rrail.width / 2), ry = Math.round(rrail.y + rrail.height / 2);
   await reduced.page.mouse.move(rx, ry);
   await reduced.page.mouse.down();

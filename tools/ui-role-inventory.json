@@ -2072,7 +2072,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -2353,7 +2355,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -3225,7 +3229,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -3925,7 +3931,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -4155,7 +4163,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -4986,7 +4996,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -7402,6 +7414,32 @@
       "rationale": "The one header band for every sheet: handle, section-title title, optional body-small line and a 44px close reserve, inside the sheet's modal layer. First rendered by the workout sheets (Plan 064 R3d); the note sheet has no close button because its Cancel is the dismiss.",
       "owner": "plan-064/r1a",
       "catalogStates": [
+        "install/ios-sheet",
+        "install/transfer-claimed-expired",
+        "install/transfer-claiming",
+        "install/transfer-cleanup",
+        "install/transfer-creating",
+        "install/transfer-destination",
+        "install/transfer-eligible",
+        "install/transfer-importing",
+        "install/transfer-interrupted",
+        "install/transfer-ready",
+        "install/transfer-retryable",
+        "install/transfer-success",
+        "install/transfer-terminal",
+        "install/transfer-unknown",
+        "program/custom-exercise",
+        "program/custom-exercise-archiving",
+        "program/custom-exercise-deleting",
+        "program/custom-exercise-recovery",
+        "program/custom-exercise-saving",
+        "program/exercise-picker",
+        "program/share-one-blocker",
+        "program/share-ready",
+        "program/share-repair-return",
+        "program/share-setup",
+        "program/text-export",
+        "settings/privacy-disclosure",
         "today/day-picker",
         "workout/early-finish",
         "workout/exercise-actions",
