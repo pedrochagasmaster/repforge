@@ -625,11 +625,14 @@ is added; every value below is an existing token.
   font is above 16px, and a second row would push the shelf's action below the
   safe area at 320px with double-size text (`test/focus-geometry.mjs`), so at
   large text the field pads stay while a rest runs and the rest controls are the
-  presets sheet's. Pending an owner call: the clock and the next cue stay inline.
+  presets sheet's; the clock and the next cue stay inline (owner decision, #295
+  comment 5948281184).
 - **Overrun.** Past the bell, and after Pular, the line reads "Descanso
   concluído · +0:15" on `subtitle` in `--ink-soft` (5.11:1 and 7.78:1 on `--bg`),
-  not the warning colour (decision 14). The header timer keeps the existing
-  overtime treatment.
+  not the warning colour (decision 14). The header timer chip follows it: it
+  counts up as "+0:15" in `--ink-soft` with no warning or danger treatment, and
+  the `restover` pulse and its shadow tokens are retired (owner decision, #295
+  comment 5948281184).
 - **Retired with the sheet.** `#restPlayPause`, `#restSheetClock`,
   `#restDialArc`, `.restdial`, `.restdial__arc`, `.restdial__clock`, their rows,
   the `#restSheet .restdial__arc` exception, the `.restdial__arc` progress

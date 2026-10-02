@@ -470,7 +470,10 @@ focal-data 28, title 30); D §7 is the mapping source.
   with a danger arc and the `restover` pulse. The drawing counts up in
   `--ink-soft`, consistent with the §8.8 orange budget, which lists only the
   running drain bar. Both tokens exist. The choice belongs to R3 and proposal 5
-  in section 3; it needs no contract addition.
+  in section 3; it needs no contract addition. Settled in R3f: the inline line
+  and the header timer chip both count up in `--ink-soft`; the chip's warning
+  facet and `restover` pulse are retired (owner decision, #295 comment
+  5948281184).
 - **Motion:** crossfade of at most 160 ms, drain bar as `scaleX`, reduced motion
   removes both; recorded in `docs/design/interaction-runtime-audit.md` by R1,
   not in the contract.
