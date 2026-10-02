@@ -1455,7 +1455,7 @@ Undrawn states keep today's design: the shelf for "last exercise done while earl
 Build decisions recorded on [#295](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5937182678):
 - The §8.8 "active dock icon" covers the shipped active dock item: its icon, label and highlight.
 - `.verdictmark` gains "=" (hold) and "↻" (recover).
-- The session summary opens at rest, with no count-up or stagger.
+- The session summary keeps its count ramp (owner, motion amendment M2, comment 5941747309); its row stagger stays removed.
 - The PT outcome labels read "Manteve" and "Regressou".
 
 ## Reconcilable rows
