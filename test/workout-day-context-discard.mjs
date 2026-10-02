@@ -163,12 +163,11 @@ async function main() {
     serviceWorkers: "block",
   });
   const page = await context.newPage();
-  let dialogAction = "accept";
+  // The day-change question is a sheet (OG-6 `today/draft-resume`): a native dialog is a failure.
   const dialogs = [];
   page.on("dialog", async (dialog) => {
-    dialogs.push({ message: dialog.message(), action: dialogAction });
-    if (dialogAction === "dismiss") await dialog.dismiss();
-    else await dialog.accept();
+    dialogs.push({ message: dialog.message() });
+    await dialog.dismiss();
   });
 
   try {
@@ -204,9 +203,10 @@ async function main() {
     await page.locator("#leaveWorkout").click();
     await page.locator("#chooseAnotherDay").click();
     await page.locator('[data-daypick="Day 2"]').click();
-    dialogAction = "dismiss";
     await page.locator("#dayPickConfirm").click();
-    dialogAction = "accept";
+    await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+    await page.locator("#draftDiscardKeep").click();
+    await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
     const afterCancel = await contextSnapshot(page);
     check(
       afterCancel.activeDay === "Day 1" &&
@@ -217,8 +217,11 @@ async function main() {
       "Cancel preserves the exact raw draft, active day, and DOM context",
       { beforeSwitch, afterCancel }
     );
+    check(dialogs.length === 0, "The day-change question never opens the browser's confirm", { dialogs });
 
     await page.locator("#dayPickConfirm").click();
+    await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+    await page.locator("#draftDiscardDrop").click();
     await page.waitForFunction(
       () => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 2",
       { timeout: 5000 }

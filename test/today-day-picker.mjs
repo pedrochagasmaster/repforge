@@ -364,16 +364,29 @@ phase("dismissing the picker changes nothing");
 // ---------------------------------------------------------------------------
 // 3. A session in progress is not discarded behind the lifter's back
 // ---------------------------------------------------------------------------
-phase("an in-progress session is protected by the discard prompt");
+phase("an in-progress session is protected by the discard question");
 {
   const { context, page } = await freshPage(browser);
   page.on("pageerror", (e) => errors.push(String(e.message)));
+  // The question is a sheet (OG-6 `today/draft-resume`), never the browser's confirm: any native dialog is a failure.
   let dialogs = 0;
-  let answer = "dismiss";
   page.on("dialog", (d) => {
     dialogs++;
-    if (answer === "accept") d.accept();
-    else d.dismiss();
+    d.dismiss();
+  });
+  const asking = () => page.evaluate(() => {
+    const sheet = document.querySelector("#draftDiscardSheet");
+    const picker = document.querySelector("#dayPickSheet");
+    return {
+      open: !!sheet && !sheet.hidden && sheet.classList.contains("is-open"),
+      focus: document.activeElement?.id || "",
+      title: document.querySelector("#draftDiscardTitle")?.textContent.trim() || "",
+      body: document.querySelector("#draftDiscardBody")?.textContent.trim() || "",
+      keep: document.querySelector("#draftDiscardKeep")?.textContent.trim() || "",
+      drop: document.querySelector("#draftDiscardDrop")?.textContent.trim() || "",
+      pickerGivenWay: !!picker && (picker.hidden || !picker.classList.contains("is-open")),
+      i18n: { title: window.RepForgeI18n.t("draft.recovery.discard"), body: window.RepForgeI18n.t("confirm.discard_draft"), keep: window.RepForgeI18n.t("dialog.cancel") },
+    };
   });
 
   const days = await page.evaluate((k) => [
@@ -402,10 +415,18 @@ phase("an in-progress session is protected by the discard prompt");
   assert(armedOnly.rows[1].armed, "the other day is armed", JSON.stringify(armedOnly.rows.map((r) => r.armed)));
 
   await page.click("#dayPickConfirm");
+  await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+  await page.waitForTimeout(420);
+  const question = await asking();
+  assert(question.open && dialogs === 0, "confirming another day with sets logged asks in a sheet before discarding", JSON.stringify({ ...question, dialogs }));
+  assert(question.title === question.i18n.title && question.body === question.i18n.body && question.keep === question.i18n.keep && question.drop === question.i18n.title,
+    "the question reads from the catalog: the discard title and sentence over Cancel and the discard action", JSON.stringify(question));
+  assert(question.focus === "draftDiscardKeep" && question.pickerGivenWay, "focus starts on Cancel and the picker gives way to the question", JSON.stringify(question));
+  await page.click("#draftDiscardKeep");
+  await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(420);
   const declined = await view(page);
   const draftAfter = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
-  assert(dialogs === 1, "confirming another day with sets logged asks before discarding", String(dialogs));
   assert(declined.sheetOpen, "declining leaves the picker open", JSON.stringify(declined));
   assert(
     !declined.workoutOpen && declined.day === days[0],
@@ -419,15 +440,25 @@ phase("an in-progress session is protected by the discard prompt");
   );
   assert(draftAfter === draftBefore, "declining keeps the draft byte for byte", `${draftBefore} → ${draftAfter}`);
 
-  answer = "accept";
+  // Escape is Keep too, and the picker comes back each time.
   await page.click("#dayPickConfirm");
+  await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
+  assert(!(await asking()).open && (await page.evaluate((d) => localStorage.getItem(d), DRAFT)) === draftBefore,
+    "Escape on the question keeps the draft and returns to the picker", "");
+  await page.waitForTimeout(420);
+  await page.click("#dayPickConfirm");
+  await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+  await page.waitForTimeout(420);
+  await page.click("#draftDiscardDrop");
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   await page.waitForTimeout(320);
   const accepted = await view(page);
   const logged = await page.evaluate(() =>
     [...document.querySelectorAll("#workout input[data-k$='_load']")].map((el) => el.value).filter(Boolean)
   );
-  assert(dialogs === 2, "accepting is the second answer to the same prompt", String(dialogs));
+  assert(dialogs === 0, "no native dialog appeared at any answer", String(dialogs));
   assert(
     accepted.workoutOpen && accepted.day === days[1] && !accepted.sheetOpen,
     "accepting starts the picked day",

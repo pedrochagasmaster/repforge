@@ -2312,11 +2312,52 @@ function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
     const key=`${exerciseId}_${n}`;
     if(marked.has(key)||parseDec(d[`${key}_load`])>0)return true}
   return false}
+/* ---- The day-change question (OG-6 `today/draft-resume`) ----
+   Changing the day with sets logged would replace the draft, so it asks first, in a sheet and not the native confirm:
+   "Cancel" keeps the draft and is where focus starts; Escape, the scrim and a downward swipe all mean it. "Discard
+   unfinished session" is the existing discard path, unchanged. Asked from the day picker, the question takes the
+   picker's place and Keep gives it back on the day that was armed, so a declined change leaves the picker open as it
+   always did. Built here, like the History discard question, so the shell markup stays as it was. */
+let draftDiscardAsk=null;
+function draftDiscardParts(){
+  let sheet=$("#draftDiscardSheet"),scrim=$("#draftDiscardScrim");
+  if(sheet&&scrim)return{sheet,scrim};
+  scrim=document.createElement("div");scrim.id="draftDiscardScrim";scrim.className="sheet-scrim hidden";
+  sheet=document.createElement("div");sheet.id="draftDiscardSheet";sheet.className="sheet sheet--discard hidden";
+  sheet.setAttribute("role","dialog");sheet.setAttribute("aria-modal","true");
+  sheet.setAttribute("aria-labelledby","draftDiscardTitle");sheet.setAttribute("aria-describedby","draftDiscardBody");sheet.hidden=true;
+  sheet.innerHTML='<div class="sheetband"><span class="sheetband__handle" aria-hidden="true"></span><h2 class="sheetband__title" id="draftDiscardTitle"></h2></div>'+
+    '<div class="sheetbody"><p class="draftdiscard__body" id="draftDiscardBody"></p></div>'+
+    '<div class="sheetfoot"><button type="button" id="draftDiscardKeep"></button><button type="button" id="draftDiscardDrop"></button></div>';
+  document.body.append(scrim,sheet);
+  return{sheet,scrim}}
+/** Resolves true to discard the unfinished session, false to keep it. One question at a time. */
+function confirmDiscardDraft(){
+  if(draftDiscardAsk)return draftDiscardAsk;
+  const{sheet,scrim}=draftDiscardParts();
+  $("#draftDiscardTitle").textContent=t("draft.recovery.discard");
+  $("#draftDiscardBody").textContent=t("confirm.discard_draft");
+  const keep=$("#draftDiscardKeep"),drop=$("#draftDiscardDrop");
+  keep.textContent=t("dialog.cancel");drop.textContent=t("draft.recovery.discard");
+  const fromPicker=activeModal?.el?.id==="dayPickSheet";
+  draftDiscardAsk=new Promise(resolve=>{
+    let settled=false;
+    const finish=async discard=>{
+      if(settled)return;settled=true;
+      if(fromPicker&&!discard)openDayPickSheet({resume:true});
+      else await closeModal(sheet);
+      draftDiscardAsk=null;resolve(discard)};
+    keep.onclick=()=>finish(false);drop.onclick=()=>finish(true);scrim.onclick=()=>finish(false);
+    const opened=openModal(sheet,{onEscape:()=>finish(false),scrim,initialFocus:keep,handoff:fromPicker,delayHide:reducedMotion()?0:280});
+    if(opened===false){settled=true;draftDiscardAsk=null;resolve(false);return}
+    document.body.classList.add("is-sheet-open");
+    requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
+  return draftDiscardAsk}
 async function requestWorkoutDay(nextDay){
   if(!nextDay||nextDay===day) return true;
   const hasProgress=draftHasProgress();
   if(hasProgress){
-    if(!confirm(t("confirm.discard_draft"))){
+    if(!await confirmDiscardDraft()){
       return false}
     if(!await clearDraft())return false;
     resetSessionContextFields()}
@@ -5963,10 +6004,11 @@ function armPickerDay(d){
   if(!d||!days().includes(d))return;
   dayPickSelected=d;
   paintDayPickList()}
-function openDayPickSheet(){
+/** `resume` gives the picker back from the day-change question on the day that was armed, taking the question's place. */
+function openDayPickSheet({resume=false}={}){
   const sheet=$("#dayPickSheet"),scrim=$("#dayPickScrim");
   if(!sheet)return;
-  dayPickSelected=day;
+  if(!resume)dayPickSelected=day;
   renderDayPickList();
   const bandClose=sheet.querySelector("[data-daypick-close]");if(bandClose)bandClose.onclick=()=>closeDayPickSheet();
   document.body.classList.add("is-sheet-open");
@@ -5974,8 +6016,11 @@ function openDayPickSheet(){
     initialFocus:$("#dayPickList .daypick__row.is-selected")||$("#dayPickList .daypick__row"),
     onEscape:closeDayPickSheet,
     scrim,
-    delayHide:reducedMotion()?0:280
+    delayHide:reducedMotion()?0:280,
+    handoff:resume
   });
+  // A handoff hides the sheet it replaces, which also lowers the page-behind marker.
+  document.body.classList.add("is-sheet-open");
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 function closeDayPickSheet(){
   const sheet=$("#dayPickSheet");

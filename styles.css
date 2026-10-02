@@ -1742,7 +1742,7 @@ body.is-sheet-open{overflow:hidden}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
    The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d),
    and so does the Why sheet (R3g); the rest sheet keeps its own head until its slice lands. */
-#sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet,#historyDiscardSheet{
+#sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet,#historyDiscardSheet,#draftDiscardSheet{
   background:var(--color-surface);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;
   box-shadow:var(--elevation-modal-shadow);
 }
@@ -1906,14 +1906,14 @@ textarea.sheetfield__input{
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep){
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep){
   min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
   background:var(--control-primary-bg);color:var(--control-primary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
-:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep):hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
-:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep):active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
-:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep):disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
 :is(#sessionEarlyCancel,#exNoteCancel){
   min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
@@ -1923,15 +1923,17 @@ textarea.sheetfield__input{
 :is(#sessionEarlyCancel,#exNoteCancel):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyCancel,#exNoteCancel):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The History discard question (Plan 064 R3j2): Keep editing is the primary choice above, Discard
-   changes the destructive one below it. */
-#historyDiscardDrop{
+   changes the destructive one below it. The day-change question (OG-6 `today/draft-resume`) wears the same recipe:
+   Cancel keeps the unfinished session, Discard unfinished session is the destructive choice, and its sentence is the body. */
+.draftdiscard__body{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink)}
+:is(#historyDiscardDrop,#draftDiscardDrop){
   min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
-#historyDiscardDrop:hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
-#historyDiscardDrop:active:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
-#historyDiscardDrop:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#historyDiscardDrop:disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+:is(#historyDiscardDrop,#draftDiscardDrop):hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
+:is(#historyDiscardDrop,#draftDiscardDrop):active:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
+:is(#historyDiscardDrop,#draftDiscardDrop):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#historyDiscardDrop,#draftDiscardDrop):disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #restSheetClose,#whyClose{
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);

@@ -8572,6 +8572,91 @@
       "catalogStates": [
         "history/edit-dirty"
       ]
+    },
+    {
+      "id": "draftdiscardsheet",
+      "selector": "#draftDiscardSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the underlying route with dialog semantics while the day-change question is open.",
+      "owner": "plan-064/r3x",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "draftdiscardscrim",
+      "selector": "#draftDiscardScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind the day-change question; a tap on it keeps the unfinished session.",
+      "owner": "plan-064/r3x",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "draftdiscardkeep",
+      "selector": "#draftDiscardKeep",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Keeps the unfinished session and the day it belongs to: the strongest action on the sheet and the one focus starts on.",
+      "owner": "plan-064/r3x",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "draftdiscarddrop",
+      "selector": "#draftDiscardDrop",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Discards the unfinished session so the chosen day can start; the confirmation stays explicit.",
+      "owner": "plan-064/r3x",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "today/draft-resume"
+      ]
     }
   ],
   "contextualVariants": [

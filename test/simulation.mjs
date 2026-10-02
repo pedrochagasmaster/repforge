@@ -516,7 +516,18 @@ async function selectDay(page,dayName){
   await page.waitForFunction(day=>window.__repforgeWorkoutDraft.current()?.program.dayLabel===day,dayName,{timeout:5000});
 }
 
+/** The day-change question is a sheet (OG-6 `today/draft-resume`): "keep" is Cancel, "discard" is Discard unfinished session.
+ *  A step that wants to see the question marks the page manual first; this answers it and hands the page back. */
+async function answerDiscardQuestion(page,answer){
+  try{
+    await page.waitForSelector("#draftDiscardSheet.is-open",{timeout:5000});
+    await page.locator(answer==="keep"?"#draftDiscardKeep":"#draftDiscardDrop").click();
+    if(answer==="keep")await page.waitForTimeout(350);
+  }finally{page.__manualDiscard=false}
+}
+
 async function requestVisibleDay(page,day){
+  page.__manualDiscard=true;
   if(await page.locator("#workoutShell").isVisible())await page.locator("#leaveWorkout").click();
   if(!await page.locator("#dayPickSheet").isVisible())await page.locator("#chooseAnotherDay").click();
   await page.locator(`[data-daypick="${day}"]`).click();
@@ -1253,6 +1264,19 @@ async function main() {
       /* already handled */
     }
   });
+  // The day-change question is a sheet now (OG-6 `today/draft-resume`), not a native confirm. The same mode answers it:
+  // "accept" is Discard unfinished session, "dismiss" is Cancel. Where a step needs to look at the question, it answers
+  // it itself with answerDiscardQuestion, which holds this watcher off (page.__manualDiscard) until it has answered.
+  const discardWatcher = setInterval(async () => {
+    if (page.__manualDiscard) return;
+    try {
+      if (await page.locator("#draftDiscardSheet.is-open").count())
+        await page.locator(dialogMode === "dismiss" ? "#draftDiscardKeep" : "#draftDiscardDrop").click({ timeout: 1500 });
+    } catch {
+      /* the page moved on, or the sheet was already answered */
+    }
+  }, 60);
+  discardWatcher.unref();
 
   const consoleErrors = [];
   page.on("console", (msg) => {
@@ -8573,9 +8597,8 @@ async function main() {
   await selectDay(page, "Day 1");
   await selectDay(page, otherDay);
   const dayOnlyRaw = await readDraftRaw(page);
-  dialogMode = "dismiss";
   await requestVisibleDay(page,"Day 1");
-  dialogMode = "accept";
+  await answerDiscardQuestion(page,"keep");
   const dayAfterCancel = await page.evaluate(() => ({
     raw: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
     active: document.querySelector("#dayTabs button.active")?.dataset.day,
@@ -8587,6 +8610,7 @@ async function main() {
     `${otherDay} day-only draft → Day 1 → Cancel`
   );
   await requestVisibleDay(page,"Day 1");
+  await answerDiscardQuestion(page,"discard");
   await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
   const dayAfterConfirm = await readDraft(page);
   assert(
@@ -8641,10 +8665,8 @@ async function main() {
     await fillExerciseSets(page, draftExA.id, 1, 55, 5, 1);
     const rawDay = await readDraftRaw(page);
     const currentDay = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
-    dialogMode = "dismiss";
     await requestVisibleDay(page,otherDay);
-    await page.waitForTimeout(80);
-    dialogMode = "accept";
+    await answerDiscardQuestion(page,"keep");
     await flushDraftWork(page);
     const cancelled = await page.evaluate(() => ({
       draft: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
@@ -8656,8 +8678,8 @@ async function main() {
       JSON.stringify(cancelled),
       "Fill Day 1 → other day tab → Cancel"
     );
-    dialogMode = "accept";
     await requestVisibleDay(page,otherDay);
+    await answerDiscardQuestion(page,"discard");
     await page.waitForFunction((d) => document.querySelector("#dayTabs button.active")?.dataset.day === d, otherDay, { timeout: 5000 });
     const confirmed = await readDraft(page);
     await reloadApp(page);
@@ -8678,12 +8700,14 @@ async function main() {
     await fillExerciseSets(page, draftExA.id, 1, 56, 5, 1);
     const rawUp = await readDraftRaw(page);
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
-    dialogMode = "dismiss";
+    page.__manualDiscard = true;
     await page.click("#upNextBtn");
+    await answerDiscardQuestion(page,"keep");
     const upCancel = await readDraftRaw(page);
     assert(upCancel === rawUp, "Up next Cancel preserves the raw draft", "draft changed", "Up next → Cancel");
-    dialogMode = "accept";
+    page.__manualDiscard = true;
     await page.click("#upNextBtn");
+    await answerDiscardQuestion(page,"discard");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     assert(
       (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
@@ -8698,16 +8722,20 @@ async function main() {
     await selectDay(page, "Day 1");
     await fillExerciseSets(page, draftExA.id, 1, 57, 5, 1);
     const rawEnter = await readDraftRaw(page);
-    dialogMode = "dismiss";
-    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
+    page.__manualDiscard = true;
+    const enterCancelled = page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
+    await answerDiscardQuestion(page,"keep");
+    await enterCancelled;
     assert(
       (await readDraftRaw(page)) === rawEnter,
       "enterWorkout({day}) Cancel preserves the raw draft",
       "draft changed",
       "enterWorkout other day → Cancel"
     );
-    dialogMode = "accept";
-    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
+    page.__manualDiscard = true;
+    const enterConfirmed = page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
+    await answerDiscardQuestion(page,"discard");
+    await enterConfirmed;
     assert(
       (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
       "enterWorkout({day}) Confirm selects the new day",
@@ -8723,16 +8751,20 @@ async function main() {
       await selectDay(page, "Day 1");
       await fillExerciseSets(page, draftExA.id, 1, 58, 5, 1);
       const rawGo = await readDraftRaw(page);
-      dialogMode = "dismiss";
-      await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      page.__manualDiscard = true;
+      const goCancelled = page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      await answerDiscardQuestion(page,"keep");
+      await goCancelled;
       assert(
         (await readDraftRaw(page)) === rawGo,
         "Deep-link Cancel preserves the raw draft",
         "draft changed",
         "goToLogExercise → Cancel"
       );
-      dialogMode = "accept";
-      await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      page.__manualDiscard = true;
+      const goConfirmed = page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      await answerDiscardQuestion(page,"discard");
+      await goConfirmed;
       assert(
         (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
         "Deep-link Confirm selects the destination day",

@@ -1418,12 +1418,17 @@ async function runDirectDraftOwnerRace(browser) {
     const stagedRaw = latestDraftPendingRaw(staged);
     const dialogs = [];
     stale.on("dialog", async (dialog) => {
-      dialogs.push({ type: dialog.type(), message: dialog.message() });
+      dialogs.push({ type: `native ${dialog.type()}`, message: dialog.message() });
       await dialog.dismiss();
     });
-    const dayChangeAccepted = await stale.evaluate(() =>
+    // The question is the drawn sheet now (OG-6 `today/draft-resume`); Cancel is the refusal under test.
+    const dayChange = stale.evaluate(() =>
       window.__repforgeEnterWorkout({ day: "Day 2"})
     );
+    await stale.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+    dialogs.push({ type: "sheet", message: await stale.locator("#draftDiscardBody").textContent() });
+    await stale.locator("#draftDiscardKeep").click();
+    const dayChangeAccepted = await dayChange;
     const afterRefusal = await readRuntime(stale);
     const afterRefusalRaw = latestDraftPendingRaw(afterRefusal);
 
@@ -1440,7 +1445,7 @@ async function runDirectDraftOwnerRace(browser) {
     );
     check(
       dayChangeAccepted === false &&
-        dialogs.length === 1 &&
+        dialogs.length === 1 && dialogs[0].type === "sheet" &&
         afterRefusal.draftRaw === canonicalDraftRaw &&
         afterRefusalRaw === stagedRaw,
       "day-change refusal leaves transaction-owned staged bytes untouched",
