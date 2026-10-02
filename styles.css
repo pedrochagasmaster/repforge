@@ -7028,6 +7028,8 @@ body.is-entry-editor #entryProgramName,
 #library .librow__edit{color:var(--control-quiet-ink)}
 #library .libstep__bar.is-done{background:var(--color-ink)}
 #library .librow__meta,.pickrow__meta{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+/* The filter rails bleed to the screen edge too, so their two wrappers carry the gutter the same way. */
+#libBrowse,#libFilters{margin-inline:calc(-1 * var(--gut));padding-inline:var(--gut)}
 /* The illustration field bleeds to the screen edge. Its box carries the gutter, so the bleed stays inside it. */
 #exercise,#exDetail{
   margin-left:calc(-1 * max(16px,env(safe-area-inset-left)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right)));
