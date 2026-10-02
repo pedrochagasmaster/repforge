@@ -53,14 +53,14 @@ console.log("\nD-owned state list");
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
     "history/edit-dirty", "history/edit-invalid",
     "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies", "today/draft-resume",
-    "today/done",
+    "today/done", "workout/exercise-actions",
     "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
     "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
     "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/strength", "progress/strength-current-block",
     "progress/strength-all-history", "progress/strength-comparison", "progress/strength-sparse", "progress/exercise-chart"];
   check(DIRECTION_D_STATES.every((item) => (item.status === "implemented") === built.includes(item.key)) &&
     DIRECTION_D_STATES.filter((item) => item.status === "implemented").length === built.length,
-  "only the states an R3 sub-slice has built are implemented; every other D state is pending",
+  "only the states an R3 sub-slice has built are implemented, and with R3x that is every listed D state",
   JSON.stringify(DIRECTION_D_STATES.filter((item) => item.status === "implemented").map((item) => item.key)));
   const status = (key) => DIRECTION_D_STATES.find((item) => item.key === key)?.status;
   check(DIRECTION_D_STATES.every((item) => ["pending", "implemented"].includes(item.status)), "every D state is pending or implemented");
@@ -75,10 +75,10 @@ console.log("\nD-owned state list");
   check(["workout/rest-running", "workout/rest-done"].every((key) => status(key) === "implemented") &&
     !DIRECTION_D_STATES.some((item) => /^workout\/rest-timer/.test(item.key)),
   "R3f's inline rest states are enforced and the retired rest-timer sheet states are in no gate list");
-  check(["today/done"].every((key) => status(key) === "implemented"),
-    "R3x's finished day is enforced");
-  check(["workout/exercise-actions"].every((key) => status(key) === "pending"),
-    "the redrawn exercise actions stay pending until they are built");
+  check(["today/done", "workout/exercise-actions"].every((key) => status(key) === "implemented"),
+    "R3x's last two approved states, the finished day and the redrawn exercise actions, are enforced");
+  check(DIRECTION_D_STATES.every((item) => item.status === "implemented"),
+    "no D state is pending: every state the drawing rounds approved is built and enforced");
   // The parity oracle accepts a status's word in either vocabulary; in PT they must be the same words
   // (CONTEXT.md "Session outcome": Melhorou, Manteve, Regressou).
   const ptCatalog = JSON.parse(readFileSync(join(ROOT, "i18n-pt.json"), "utf8"));

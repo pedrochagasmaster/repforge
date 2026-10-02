@@ -77,8 +77,9 @@ const IMPLEMENTED_D_STATES = new Set([
   "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
   // R3b2: Today with an unfinished session, the status band drawn in OG-6 round 1.
   "today/draft-resume",
-  // R3x: the finished day drawn in OG-6 round 1.
-  "today/done",
+  // R3x: the last two owner-approved states. today/done is the finished day drawn in OG-6 round 1; workout/exercise-actions
+  // is the round 2 redraw (reorder and finish early live on the session sheet only).
+  "today/done", "workout/exercise-actions",
   // R3g: Why this weight, the five states, enforced on the sheet (STATE_SCOPES).
   "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
   // R3h: the session summary, the five states, enforced on #sessionSummary (STATE_SCOPES).

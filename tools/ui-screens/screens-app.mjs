@@ -258,6 +258,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
+  "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log

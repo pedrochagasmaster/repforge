@@ -117,6 +117,36 @@ async function main() {
     assert(await page.locator("#exActionsSheet").isVisible(), "tapping the trigger opens the Exercise actions sheet");
 
     /* ======================================================================
+     * 1b. The redraw (OG-6 round 2): sentence-case groups, the setup notes, previous values and
+     *     warm-up groups restored, reorder and finish early only on the session sheet, Close as the X.
+     * ====================================================================== */
+    console.log("\nThe redrawn sheet: groups, no session actions, Close is the X");
+    const redraw = await page.evaluate(() => {
+      const t = (key) => window.RepForgeI18n.t(key);
+      const sheet = document.querySelector("#exActionsSheet");
+      const heads = [...sheet.querySelectorAll(".sheetgroup__head")].filter((el) => el.offsetParent !== null);
+      const close = sheet.querySelector("#exActionsClose");
+      const sessionOnly = [...sheet.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down], #sessionEarlyFinish")];
+      const earlyLabel = t("session.sheet.early_finish");
+      const labelled = [...sheet.querySelectorAll("button")].filter((el) => el.textContent.includes(earlyLabel));
+      return {
+        heads: heads.map((el) => el.textContent.trim()),
+        expected: ["ex.actions.setup_notes", "ex.actions.history_title", "ex.actions.subst_title", "ex.actions.warmup_title",
+          "ex.actions.skip_title", "ex.actions.notes_title"].map(t),
+        transforms: heads.map((el) => getComputedStyle(el).textTransform),
+        sessionOnly: sessionOnly.length + labelled.length,
+        closeInBand: !!close?.closest(".sheetband"),
+        closeIsIcon: !!close?.querySelector(".icon-mask--close") && close.textContent.trim() === "",
+        closeName: close?.getAttribute("aria-label") || "",
+      };
+    });
+    assert(redraw.heads.join("|") === redraw.expected.join("|"),
+      "the sheet shows its six groups in order: setup notes, previous values, substitution, warm-up sets, status, notes", JSON.stringify(redraw));
+    assert(redraw.transforms.every((value) => value === "none"), "the group heads are sentence case, not upper case", JSON.stringify(redraw.transforms));
+    assert(redraw.sessionOnly === 0, "reorder and finish early are on the session sheet only, not on the exercise actions", JSON.stringify(redraw));
+    assert(redraw.closeInBand && redraw.closeIsIcon && redraw.closeName.length > 0, "Close is the X in the sheet band, with a name for assistive technology", JSON.stringify(redraw));
+
+    /* ======================================================================
      * 2. Programmed setup notes
      * ====================================================================== */
     console.log("\nSetup notes: visible and read-only without session notes conflation");
