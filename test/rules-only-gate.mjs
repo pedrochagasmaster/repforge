@@ -123,7 +123,8 @@ try {
     check(has(overflow, "overflow", "#seedWide"), "an element wider than its box is rejected", show(overflow));
     check(!has(overflow, "#seedFits"), "an element that fits its box is accepted", show(overflow));
     check(!has(overflow, "#seedTabRow"), "Progress' tab row, the one scrolling row, is excepted", show(overflow));
-    check(!has(overflow, "ellipsis"), "text-overflow: ellipsis is a D-surface rule and is not applied to rules-only surfaces", show(overflow));
+    check(has(overflow, "ellipsis", "#seedEllipsis"), "text-overflow: ellipsis is rejected (section 8.13: names wrap, never ellipsized)", show(overflow));
+    check(!has(overflow, "ellipsis", "#seedFits"), "an element with no ellipsis is not reported for one", show(overflow));
 
     // ------------------------------------------------------------ 4. sheet band
     console.log("\n4. Sheet band");

@@ -9,14 +9,15 @@
  *
  *   1. orange     every element painted with the accent is on the orange budget.
  *   2. targets    every `button, a, input, [role=button]` is at least 44 x 44.
- *   3. overflow   no element is wider than its box (the Progress tab row aside).
+ *   3. overflow   no element is wider than its box (the Progress tab row aside), and no
+ *                 `text-overflow: ellipsis` (section 8.13: names wrap, never ellipsized).
  *   4. sheetband  every open sheet is headed by `.sheetband`; no open dialog is
  *                 unclassified (a sheet, or one of the documented non-sheets).
  *
  * Checks 1 to 3 are the Direction D gate's own machinery (`gatherEvidence`,
  * `checkOrange`, `checkTargets`, `checkOverflow` in tools/check-direction-d.mjs),
- * not a fork. The D gate's ellipsis ban is a D-surface rule (spec section 10)
- * and is not a shared rule, so it is not applied here.
+ * not a fork. The ellipsis ban rides with the overflow check: Plan 064 section 8.13
+ * says names wrap and are never ellipsized, on every surface.
  *
  * Usage:
  *   node tools/check-rules-only.mjs                        all 64 states, PT and EN
@@ -165,12 +166,7 @@ export function checkSheetBand(evidence) {
   return failures;
 }
 
-/** Horizontal overflow only: the D gate's ellipsis ban is a D-surface rule and is not a shared rule. */
-export function checkRulesOverflow(evidence) {
-  return checkOverflow({ ...evidence, ellipsis: [] });
-}
-
-export const CHECKS = Object.freeze({ orange: checkOrange, targets: checkTargets, overflow: checkRulesOverflow, sheetband: checkSheetBand });
+export const CHECKS = Object.freeze({ orange: checkOrange, targets: checkTargets, overflow: checkOverflow, sheetband: checkSheetBand });
 
 export function validateRulesOnlyConfig({ allowlist = RULES_ONLY_ORANGE_ALLOWLIST, exceptions = RULES_ONLY_OVERFLOW_EXCEPTIONS } = {}) {
   return validateGateConfig({ allowlist, exceptions });
@@ -183,7 +179,7 @@ export async function gatherRulesOnlyEvidence(page, options = {}) {
 
 export function checkRulesOnly(evidence) {
   return [
-    ...checkOrange(evidence), ...checkTargets(evidence), ...checkRulesOverflow(evidence), ...checkSheetBand(evidence.sheetEvidence),
+    ...checkOrange(evidence), ...checkTargets(evidence), ...checkOverflow(evidence), ...checkSheetBand(evidence.sheetEvidence),
   ];
 }
 
