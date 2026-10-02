@@ -19,7 +19,8 @@ nav button:active{transform:scale(.975)}
 /* ---- Set completion: acknowledgement, not ceremony ----
    A lifter can trigger this dozens of times in one session. Keep the state
    change legible, but finish the whole beat inside ~160ms and never grow an
-   element from a tiny scale. Exercise completion remains the larger beat. */
+   element from a tiny scale. Exercise completion is the shelf's actions rising
+   in (.motion-rise below), not a larger celebration. */
 .ledger__row.is-fresh{
   animation:taurifer-setland-row .16s cubic-bezier(.2,.8,.2,1) both;
 }
@@ -213,11 +214,11 @@ nav button:active{transform:scale(.975)}
 }
 
 /* ---- Short fixed beats (Plan 064 section 8, rule 11) ----
-   Vocabulary only: nothing selects these classes yet. Each consumer lands in
-   the slice named in the interaction runtime audit and adds the class from its
-   own render. Every beat is transform, opacity or clip, finishes inside the
-   budget named here, and has a reduced-motion entry below that leaves the end
-   state on the first frame. */
+   Each consumer adds the class from its own render and is named in the
+   interaction runtime audit. The Focus shelf's rise and value beats are
+   consumed by app.js (L4, M1); the rest wait for their slice. Every beat is
+   transform, opacity or clip, finishes inside the budget named here, and has a
+   reduced-motion entry below that leaves the end state on the first frame. */
 
 /* The shelf changing job, and the completion actions arriving: a rise of at
    most 12px while fading in, inside 160ms. */

@@ -1127,6 +1127,21 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The effort word's explainer opens over its field, as it did over the old cell. */
 .shelf__field .effortpop{bottom:calc(100% + 4px)}
 
+/* ---- The travelling outline ----
+   Drawn by app.js only while an outline is in flight: T1 between the shelf's
+   fields, L2 between the ledger's rows. It is a separate element that tolerates
+   the scaling `animateIndicator` applies, a 2px inset ring and nothing else, so
+   no field's own 2px border is ever animated. The destination keeps its own
+   outline for the rest state and sets it aside while the ring is in the air. */
+.shelf__ring,.ledgerline__ring{
+  position:absolute;z-index:1;pointer-events:none;box-sizing:border-box;box-shadow:var(--elevation-selected-quiet-shadow);
+}
+.shelf__ring{inset:0;border-radius:var(--radius-control)}
+.ledgerline__ring{inset:-2px;border-radius:var(--radius-surface)}
+.shelf__field.is-ring-travel .shelf__fieldbtn[aria-pressed="true"],.shelf__field.is-ring-travel .shelf__input{box-shadow:none}
+.fcard__ledger .ledgerline{position:relative}
+.fcard__ledger .ledgerline--open.is-ring-travel{border-color:transparent}
+
 /* ---- A set lands ----
    Logging a set re-renders the whole card, so the motion is written into the
    markup of that one render (`is-fresh`) rather than driven from a handler:

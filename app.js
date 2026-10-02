@@ -1097,11 +1097,69 @@ const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fm
 const targetText=ex=>isEffortMode()
   ?t("today.target_rest_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
   :t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)});
-function setEffortPick(key,eff){
+/* ---- Focus motion (Plan 064 rule 11: owner picks T1, L2, L4 and M1) ----
+   Everything animated here goes through `RepForgeMotion`: the travelling
+   outlines through `animateIndicator`, the short beats through the classes in
+   `motion-polish.css`. Nothing waits on any of it. The shelf action stays
+   enabled and takes a tap on the first frame, a set logged during a travel
+   commits at once, and under reduced motion (or without the runtime) the end
+   state is drawn on the first frame with the same information. */
+/** The layer when it can animate, else null: the travelling outlines need the runtime. */
+function focusMotion(){
+  const m=window.RepForgeMotion;
+  return m&&m.available()&&!m.reducedMotion()?m:null}
+/** One outline travelling to the element that now wears it (T1 the shelf field,
+ *  L2 the ledger open row). The destination keeps its own outline for the rest
+ *  state; while this one is in flight the destination's is set aside, so there
+ *  is one outline on screen, not two. `fromRect` is where the outline was drawn
+ *  before the render moved it. */
+function travelOutline(host,fromRect,kind){
+  const m=focusMotion();
+  if(!m||!host||!fromRect)return false;
+  const ring=document.createElement("span");
+  ring.className=`${kind}__ring`;ring.setAttribute("aria-hidden","true");
+  host.classList.add("is-ring-travel");host.append(ring);
+  const done=()=>{ring.remove();host.classList.remove("is-ring-travel")};
+  m.animateIndicator(ring,fromRect).then(done,done);
+  return true}
+const BEAT_CLASSES=["motion-rise","motion-value-up","motion-value-down","motion-value-fade"];
+/** The CSS beats are stylesheet-only, so they play without the runtime; the
+ *  layer's single reduced-motion decision keeps them off when it is on. */
+const beatsOn=()=>!window.RepForgeMotion?.reducedMotion?.();
+/** Run one CSS beat once and leave the element at rest. A beat holds its end
+ *  keyframe while it is on, which would pin the element's transform, so the
+ *  class comes off the moment it finishes. */
+function playBeat(el,cls){
+  if(!el||!beatsOn())return;
+  el.classList.remove(...BEAT_CLASSES);void el.offsetWidth;
+  el.classList.add(cls);
+  const end=()=>el.classList.remove(cls);
+  el.addEventListener("animationend",end,{once:true});
+  el.addEventListener("animationcancel",end,{once:true})}
+/** A beat written into a render's markup: take it off when it ends. */
+function settleBeats(root){
+  root.querySelectorAll(".motion-rise").forEach(el=>{
+    const end=()=>el.classList.remove("motion-rise");
+    el.addEventListener("animationend",end,{once:true});
+    el.addEventListener("animationcancel",end,{once:true})})}
+/** M1, the shelf value on a pad tap, is conditional on a physical phone check
+ *  at logging frequency (motion-rule-11-amendment.md section 5). This is the one
+ *  switch: "directional" is the owner's pick (6px, 120ms, the way the value
+ *  moved), "fade" is the 80ms crossfade it falls back to, "off" plays nothing. */
+let shelfValueBeat="directional";
+window.__repforgeShelfValueBeat=mode=>{if(mode==="directional"||mode==="fade"||mode==="off")shelfValueBeat=mode;return shelfValueBeat};
+/** The pad's direction for the value it is about to change, read by that input's handler. */
+const padTap=new WeakMap();
+function shelfValueMove(val,dir){
+  if(!val||!dir||shelfValueBeat==="off")return;
+  playBeat(val,shelfValueBeat==="fade"?"motion-value-fade":dir>0?"motion-value-up":"motion-value-down")}
+function setEffortPick(key,eff,dir=0){
   $$(`[data-effspin="${key}"]`).forEach(el=>{
     el.dataset.e=eff;
     // The shelf's field keeps its caption; the word is only the value inside it.
-    (el.querySelector(".shelf__val")||el).textContent=effortLabel(eff);
+    const word=el.querySelector(".shelf__val"),moved=!!word&&word.textContent!==effortLabel(eff);
+    (word||el).textContent=effortLabel(eff);
+    if(moved)shelfValueMove(word,dir);
     const rowCell=el.closest(".exercise")?.querySelector('.ledgerline--open [data-lv="rir"]');
     if(rowCell){rowCell.textContent=effortLabel(eff);rowCell.classList.remove("is-soft")}
     el.closest(".shelf__field")?.classList.remove("is-untouched");
@@ -6744,11 +6802,14 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     const sub=allDone
       ?t("focus.wo_done_sub",{n:focusList().length,lifts:tp(focusList().length,"lift")})
       :t("focus.ex_done_sets",{n:done,sets:tp(done,"logged set")});
+    // L4: the render that completes the exercise lets its actions rise in.
+    // The class is on for that render alone; the button is live throughout.
+    const rise=focusIsFresh(ex,peek)&&beatsOn()?" motion-rise":"";
     const cta=allDone||!hasNext
-      ?`<button type="button" class="btn btn--cta btn--noarrow"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
-      :`<button type="button" class="btn btn--cta"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
+      ?`<button type="button" class="btn btn--cta btn--noarrow${rise}"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
+      :`<button type="button" class="btn btn--cta${rise}"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
     return `<div class="focus-shelf workshelf is-done" role="region" aria-label="${esc(title)}">`+
-      `<div class="focus-done"><p class="focus-done__title">${esc(title)}</p><p class="focus-done__sub">${esc(sub)}</p></div>`+cta+`</div>`}
+      `<div class="focus-done${rise}"><p class="focus-done__title">${esc(title)}</p><p class="focus-done__sub">${esc(sub)}</p></div>`+cta+`</div>`}
   const effortMode=isEffortMode();
   const key=`${ex.id}_${n}`,ui=shelfFor(key);
   const editing=!!(focusEdit&&focusEdit.exId===ex.id);
@@ -6771,8 +6832,16 @@ function refreshShelf({focus=null}={}){
   const at=Math.max(0,fl.findIndex(e=>e.id===ex.id));
   const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const old=card.querySelector(".focus-shelf");if(!old)return false;
+  // T1: where the selection outline is drawn now — or, if one is still in
+  // flight, where it is on screen — so the next travel starts from there.
+  const prevSel=old.querySelector(".shelf__field.is-sel"),liveRing=old.querySelector(".shelf__ring");
+  const prevField=prevSel?.dataset.field,prevSet=prevSel?.dataset.set;
+  const fromRect=(liveRing||prevSel)?.getBoundingClientRect();
   old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
   bindWorkout();
+  const nowSel=card.querySelector(".focus-shelf .shelf__field.is-sel");
+  if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||nowSel.dataset.field!==prevField))
+    travelOutline(nowSel,fromRect,"shelf");
   // The first-set cue points at the shelf's action; the rebuilt action is the same control.
   if(activeGuideId&&activeGuideAnchor&&!activeGuideAnchor.isConnected){
     const anchor=guideAnchor(guideDefinition(activeGuideId));if(anchor)activeGuideAnchor=anchor}
@@ -6784,11 +6853,12 @@ function refreshShelf({focus=null}={}){
   return true}
 
 /** Keep the shelf and the open ledger row reading what a field now holds. */
-function syncShelfField(input){
+function syncShelfField(input,padDir=0){
   const field=input.closest(".shelf__field");if(!field)return;
   const id=field.dataset.field;
   const text=id==="reps"?String(input.value||""):shelfText(input.value);
-  const val=field.querySelector(".shelf__val");if(val)val.textContent=text||"—";
+  const val=field.querySelector(".shelf__val");
+  if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
   field.classList.remove("is-untouched");
   const cell=input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`);
   if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
@@ -6863,6 +6933,12 @@ function focusDeckHtml(ex,r,draft,prev,{fl,at}){
     slot(focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,nextName:nameAt(at+1)}))+
     peek(at+1,"next")+
     `</div></div>`}
+/** The ledger's open row in the live card — or the outline already travelling to
+ *  it, so an advance during a travel starts from where the outline is on screen. */
+function focusOpenRow(){
+  const card=focusCard(),ledger=card?.querySelector(".fcard__ledger");
+  const open=ledger?.querySelector(".ledgerline--open");if(!open)return null;
+  return{exId:card.dataset.ex,n:+open.dataset.lrow,rect:(ledger.querySelector(".ledgerline__ring")||open).getBoundingClientRect()}}
 function renderWorkout(){
   if(!workoutActive){focusLogged=null;updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
@@ -6875,6 +6951,8 @@ function renderWorkout(){
   const at=fl.length?Math.min(focusIndex,fl.length-1):0;
   const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.add("is-focus");
   const current=fl[at] ? sessionExercise(fl[at]) : null;
+  // L2: where the ledger's open-row outline is drawn before this render moves it.
+  const openRow=focusMotion()?focusOpenRow():null;
   wk.innerHTML=banner+(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
   // The landing animation belongs to this render alone: the markup that plays
   // it has been written, so the next render draws the same card at rest.
@@ -6886,6 +6964,10 @@ function renderWorkout(){
   updateSessionBanner();
   updateFocusChrome();
   sizeFocusDeck();
+  settleBeats(wk);
+  if(openRow){
+    const card=focusCard(),open=card?.querySelector(".fcard__ledger .ledgerline--open");
+    if(open&&card.dataset.ex===openRow.exId&&+open.dataset.lrow!==openRow.n)travelOutline(open,openRow.rect,"ledgerline")}
   // These two guides own concrete Focus controls. Queue them only after the
   // current Log action/header projection exists; the guide layer will defer a
   // hidden anchor rather than navigating to another surface.
@@ -6986,12 +7068,13 @@ function applyDraftIssue(issues){
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
   $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".shelf__field"),target=draftTargetFromKey(i.dataset.k);
+    const padDir=padTap.get(i)||0;padTap.delete(i);
     if(!activeWorkoutDraft||!target?.field)return;
     row?.classList.remove("is-suggested");
     const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
     if(result.status!=="applied")return;
-    syncShelfField(i);
+    syncShelfField(i,padDir);
     updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);await refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
@@ -7030,6 +7113,7 @@ function bindWorkout(){
         nextKg=Math.max(0,Math.round((curKg+incKg*dir)/incKg)*incKg);
       inp.value=fmtPlain(toDisplay(nextKg));
     }
+    padTap.set(inp,dir);
     await inp.oninput?.()});
   const stepEffort=async(key,dir)=>{
     const el=$(`[data-effspin="${key}"]`);if(!el)return;
@@ -7037,7 +7121,7 @@ function bindWorkout(){
     const next=EFFORT_STEPS[Math.min(EFFORT_STEPS.length-1,Math.max(0,i+dir))];
     if(next===el.dataset.e)return;
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
-    setEffortPick(key,next);
+    setEffortPick(key,next,dir);
     const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
     updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);refreshAfterCommittedEdit(el.closest(".shelf__field"))};

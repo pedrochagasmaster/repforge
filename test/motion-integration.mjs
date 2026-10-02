@@ -25,7 +25,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
-import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { installSeedProgram, seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 
@@ -276,6 +276,318 @@ async function vocabularyHelpers(browser, { reducedMotion = "no-preference" } = 
   }
   assert(errors.length === 0, `no page errors in the vocabulary run${tag}`, errors.join(" | "));
   await context.close();
+}
+
+/* ---- Focus: the owner-approved picks T1, L2, L4 and M1 (Plan 064 R3e) ------------------
+   These run against the real Motion runtime in the real Focus workout. Each pick
+   is a travelling outline or a short beat, and none of them may delay or disable
+   the shelf's action: the proofs log a set while an outline is still in flight. */
+const FOCUS_KEY = "repforge_v1";
+const FOCUS_DRAFT = "repforge_draft_v1";
+
+async function persistFocusState(page, mutate) {
+  await page.evaluate(async ({ k, src }) => {
+    const blob = JSON.parse(localStorage.getItem(k) || "{}");
+    // eslint-disable-next-line no-new-func
+    new Function("s", "w", src)(blob, window);
+    localStorage.setItem(k, JSON.stringify(blob));
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open("repforge", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    await new Promise((res, rej) => {
+      const tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(blob, k);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+    db.close();
+  }, { k: FOCUS_KEY, src: mutate });
+}
+
+/** A fresh Focus workout on the seed program, with the first exercise at `sets` sets. */
+async function focusPage(browser, { reducedMotion = "no-preference", sets = 4 } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate((d) => {
+    for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
+  }, FOCUS_DRAFT);
+  await persistFocusState(page, `
+    s.settings = { ...(s.settings || {}), lang: "en", rirMode: "numeric" };
+    s.program = ${JSON.stringify(seedProgram().map((e, i) => (i === 0 ? { ...e, sets } : e)))};
+    s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.log = [];`);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate(async () => {
+    await window.__repforgeEnterWorkout({});
+    window.__repforgeFocus.to(0);
+  });
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf", { state: "attached", timeout: 5000 });
+  await page.waitForTimeout(160);
+  await page.evaluate(SAMPLER);
+  return { context, page, errors };
+}
+
+/** Per-frame samples of one selector, taken in the page so they share the animation's clock. */
+const SAMPLER = `
+window.__fm = {
+  rect(el) { if (!el) return null; const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height }; },
+  sample(sel, ms, after) {
+    return new Promise((resolve) => {
+      const out = [], t0 = performance.now();
+      const frame = () => {
+        const el = document.querySelector(sel);
+        out.push({ t: performance.now() - t0, rect: window.__fm.rect(el) });
+        if (performance.now() - t0 < ms) requestAnimationFrame(frame); else resolve(out);
+      };
+      if (after) after();
+      frame();
+    });
+  },
+};
+`;
+
+const CARD = "#workout .exercise.is-current";
+
+async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const { context, page, errors } = await focusPage(browser, { reducedMotion, sets: 4 });
+
+  // ---- T1: the shelf's field outline travels ---------------------------------
+  phase(`T1: one outline travels between Carga, Reps and RIR${tag}`);
+  const fieldRects = await page.evaluate((card) => {
+    const r = (id) => window.__fm.rect(document.querySelector(`${card} .shelf__field[data-field="${id}"]`));
+    return { load: r("load"), reps: r("reps"), rir: r("rir") };
+  }, CARD);
+  const t1 = await page.evaluate(async (card) => {
+    const select = (id) => document.querySelector(`${card} [data-shelf-field="${id}"]`).click();
+    const before = document.querySelector(`${card} .shelf__field.is-sel`)?.dataset.field;
+    const samples = await window.__fm.sample(`${card} .shelf__ring`, 420, () => select("load"));
+    const first = samples.find((s) => s.rect);
+    const dest = document.querySelector(`${card} .shelf__field.is-sel`);
+    return { before, samples, first, selected: dest?.dataset.field, pressed: dest?.querySelector("[data-shelf-field]")?.getAttribute("aria-pressed"),
+      afterRing: document.querySelectorAll(`${card} .shelf__ring`).length, afterTravel: document.querySelectorAll(`${card} .is-ring-travel`).length,
+      shadow: getComputedStyle(dest.querySelector("[data-shelf-field]")).boxShadow };
+  }, CARD);
+  assert(t1.before === "reps" && t1.selected === "load" && t1.pressed === "true",
+    "selecting Carga moves the selection to it", JSON.stringify({ before: t1.before, selected: t1.selected, pressed: t1.pressed }));
+  if (reduced) {
+    assert(!t1.first && t1.afterRing === 0 && /inset/.test(t1.shadow),
+      "the outline is at the selected field on the first frame and nothing travels", JSON.stringify({ first: t1.first, ring: t1.afterRing, shadow: t1.shadow }));
+  } else {
+    const lefts = t1.samples.filter((s) => s.rect).map((s) => s.rect.left);
+    assert(t1.first && Math.abs(t1.first.rect.left - fieldRects.reps.left) < 12 && lefts.some((l) => l > fieldRects.load.left + 4 && l < fieldRects.reps.left - 4),
+      "the outline starts on the field it left and passes between the two fields", JSON.stringify({ lefts: lefts.slice(0, 8), reps: fieldRects.reps.left, load: fieldRects.load.left }));
+    assert(lefts.length > 0 && Math.abs(lefts.at(-1) - fieldRects.load.left) < 24,
+      "it arrives on the selected field", JSON.stringify({ last: lefts.at(-1), load: fieldRects.load.left }));
+    assert(t1.afterRing === 0 && t1.afterTravel === 0 && /inset/.test(t1.shadow),
+      "afterwards the travelling element is gone and the field wears its own outline again", JSON.stringify({ ring: t1.afterRing, travel: t1.afterTravel, shadow: t1.shadow }));
+    const seen = t1.samples.filter((s) => s.rect);
+    const travelMs = seen.length ? seen.at(-1).t : 0;
+    assert(travelMs > 40 && travelMs < 400, "the travel is a short spring, not a slow glide", String(travelMs));
+
+    const mid = await page.evaluate(async (card) => {
+      const select = (id) => document.querySelector(`${card} [data-shelf-field="${id}"]`).click();
+      select("reps");
+      await new Promise((r) => setTimeout(r, 450));
+      select("rir");
+      await new Promise((r) => setTimeout(r, 45));
+      const live = window.__fm.rect(document.querySelector(`${card} .shelf__ring`));
+      select("load");
+      const restart = window.__fm.rect(document.querySelector(`${card} .shelf__ring`));
+      const action = document.querySelector(`${card} .saveset`);
+      const c = action.getBoundingClientRect();
+      const hit = document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2);
+      const state = { live, restart, actionDisabled: action.disabled, actionHit: action.contains(hit) };
+      await new Promise((r) => setTimeout(r, 450));
+      return state;
+    }, CARD);
+    assert(mid.live && mid.restart && Math.abs(mid.restart.left - mid.live.left) < 3,
+      "retargeting mid-flight starts the next travel from where the outline is on screen", JSON.stringify(mid));
+    assert(!mid.actionDisabled && mid.actionHit, "the shelf action stays enabled and reachable while the outline travels", JSON.stringify(mid));
+  }
+
+  // ---- L2: the open-row outline travels on advance and on correction ------------
+  phase(`L2: the ledger's open-row outline travels on advance and on correction${tag}`);
+  const logOne = async ({ load = "100" } = {}) => {
+    const loadInput = page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first();
+    if (await loadInput.count()) await loadInput.fill(load);
+    return page.evaluate(async (card) => {
+      const openBefore = document.querySelector(`${card} .ledgerline--open`)?.getBoundingClientRect().top ?? null;
+      const committedBefore = document.querySelectorAll(`${card} [data-editn]`).length;
+      const samples = await window.__fm.sample(`${card} .ledgerline__ring`, 520, () => document.querySelector(`${card} .saveset`).click());
+      const openAfter = document.querySelector(`${card} .ledgerline--open`);
+      return { openBefore, committedBefore, committedAfter: document.querySelectorAll(`${card} [data-editn]`).length,
+        samples, openAfterTop: openAfter?.getBoundingClientRect().top ?? null,
+        ringAfter: document.querySelectorAll(`${card} .ledgerline__ring`).length, travelAfter: document.querySelectorAll(`${card} .is-ring-travel`).length,
+        border: openAfter ? getComputedStyle(openAfter).borderTopColor : "", borderWidth: openAfter ? getComputedStyle(openAfter).borderTopWidth : "" };
+    }, CARD);
+  };
+  // The first set of an install brings up its own guide and re-flows the card, which would move
+  // the rows under the measurement; log it first so the travels below are the only thing moving.
+  await logOne();
+  await page.waitForTimeout(700);
+  const adv = await logOne();
+  assert(adv.committedAfter === adv.committedBefore + 1, "logging a set commits it", JSON.stringify({ before: adv.committedBefore, after: adv.committedAfter }));
+  if (reduced) {
+    assert(!adv.samples.some((s) => s.rect) && adv.ringAfter === 0, "no outline travels: the open row simply wears its ring", JSON.stringify(adv.samples.filter((s) => s.rect).slice(0, 3)));
+  } else {
+    const tops = adv.samples.filter((s) => s.rect).map((s) => s.rect.top);
+    assert(tops.length > 1 && Math.abs(tops[0] - adv.openBefore) < 14 && tops.some((v) => v > adv.openBefore + 3 && v < adv.openAfterTop - 3),
+      "on advance the outline leaves the row just logged and passes between the rows", JSON.stringify({ tops: tops.slice(0, 10), from: adv.openBefore, to: adv.openAfterTop }));
+    assert(adv.ringAfter === 0 && adv.travelAfter === 0 && adv.borderWidth === "2px" && adv.border !== "rgba(0, 0, 0, 0)",
+      "afterwards the open row wears its own 2px ring and nothing is left over", JSON.stringify({ ring: adv.ringAfter, travel: adv.travelAfter, border: adv.border, width: adv.borderWidth }));
+  }
+
+  // Logging does not wait for the outline: the next set goes in while the last one is still moving.
+  const queued = await page.evaluate(async (card) => {
+    const count = () => document.querySelectorAll(`${card} [data-editn]`).length;
+    const start = count();
+    const t0 = performance.now();
+    document.querySelector(`${card} .saveset`).click();
+    let landed = null;
+    while (performance.now() - t0 < 700) {
+      await new Promise((r) => requestAnimationFrame(r));
+      if (count() === start + 1) { landed = performance.now() - t0; break; }
+    }
+    await new Promise((r) => setTimeout(r, 520));
+    return { start, now: count(), landed, ringLeft: document.querySelectorAll(`${card} .ledgerline__ring`).length };
+  }, CARD);
+  assert(queued.now === queued.start + 1 && queued.landed != null && queued.landed < 500,
+    "a set logged straight after another commits at once: nothing queues behind the outline", JSON.stringify(queued));
+  assert(queued.ringLeft === 0, "and no outline is left behind", JSON.stringify(queued));
+
+  // Correction: tap a logged row; the outline goes to it, and back when the edit is cancelled.
+  const corr = await page.evaluate(async (card) => {
+    const row1 = document.querySelector(`${card} [data-editn="1"]`);
+    const openBefore = document.querySelector(`${card} .ledgerline--open`)?.getBoundingClientRect().top ?? null;
+    const row1Top = row1.getBoundingClientRect().top;
+    const samples = await window.__fm.sample(`${card} .ledgerline__ring`, 520, () => row1.click());
+    const open = document.querySelector(`${card} .ledgerline--open`);
+    return { openBefore, row1Top, samples, openN: open?.dataset.lrow, current: open?.getAttribute("aria-current"),
+      ringAfter: document.querySelectorAll(`${card} .ledgerline__ring`).length };
+  }, CARD);
+  assert(corr.openN === "1" && corr.current === "true", "tapping a logged row reopens it as the open row", JSON.stringify({ openN: corr.openN, current: corr.current }));
+  if (!reduced) {
+    const tops = corr.samples.filter((s) => s.rect).map((s) => s.rect.top);
+    assert(tops.length > 1 && Math.abs(tops[0] - corr.openBefore) < 14 && tops.some((v) => v < corr.openBefore - 3 && v > corr.row1Top + 3) && corr.ringAfter === 0,
+      "on correction the outline travels from the open row to the corrected one", JSON.stringify({ tops: tops.slice(0, 10), from: corr.openBefore, to: corr.row1Top }));
+  } else {
+    assert(!corr.samples.some((s) => s.rect) && corr.ringAfter === 0, "under reduced motion the correction row is open with no travel", JSON.stringify(corr.samples.filter((s) => s.rect).slice(0, 2)));
+  }
+  await page.evaluate(() => document.querySelector("#workout .exercise.is-current [data-fcancel]")?.click());
+  await page.waitForTimeout(600);
+
+  // ---- M1: the shelf value on a pad tap ------------------------------------------
+  phase(`M1: the shelf value moves with the pad tap${tag}`);
+  await page.evaluate(() => window.__repforgeFocus.to(1));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => window.__repforgeFocus.to(0));
+  await page.waitForTimeout(300);
+  const pad = async (dir) => page.evaluate(async ({ card, dir }) => {
+    const val0 = document.querySelector(`${card} .shelf__field.is-sel .shelf__val`);
+    const before = val0.textContent;
+    document.querySelector(`${card} .shelf__pad[data-dir="${dir}"]`).click();
+    const frames = [];
+    const t0 = performance.now();
+    while (performance.now() - t0 < 260) {
+      await new Promise((r) => requestAnimationFrame(r));
+      const v = document.querySelector(`${card} .shelf__field.is-sel .shelf__val`);
+      const cs = getComputedStyle(v);
+      frames.push({ t: performance.now() - t0, text: v.textContent, cls: [...v.classList].filter((c) => c.startsWith("motion-")), name: cs.animationName, dur: cs.animationDuration, matrix: cs.transform });
+    }
+    return { before, frames, end: document.querySelector(`${card} .shelf__field.is-sel .shelf__val`).className };
+  }, { card: CARD, dir });
+  const up = await pad(1);
+  assert(up.frames.some((f) => f.text !== up.before), "a pad tap changes the value at once", JSON.stringify({ before: up.before, last: up.frames.at(-1) }));
+  const down = await pad(-1);
+  if (reduced) {
+    assert([...up.frames, ...down.frames].every((f) => f.cls.length === 0 || f.name === "none"),
+      "under reduced motion the value changes with no animation", JSON.stringify([up.frames[0], down.frames[0]]));
+  } else {
+    const dy = (m) => (m && m !== "none" ? Number(m.replace(/^matrix\((.*)\)$/, "$1").split(",")[5]) : 0);
+    const upBeat = up.frames.find((f) => f.cls.includes("motion-value-up"));
+    const downBeat = down.frames.find((f) => f.cls.includes("motion-value-down"));
+    assert(upBeat && downBeat && upBeat.name === "taurifer-value-up" && downBeat.name === "taurifer-value-down",
+      "+ arrives from below and - from above", JSON.stringify({ up: upBeat, down: downBeat }));
+    assert(upBeat && downBeat && upBeat.dur === "0.12s" && Math.abs(dy(upBeat.matrix)) <= 6 && Math.abs(dy(downBeat.matrix)) <= 6,
+      "the beat is at most 6px over 120ms", JSON.stringify({ up: upBeat, down: downBeat }));
+    assert(!/motion-value/.test(up.end), "the beat leaves no class behind", up.end);
+    // The one switch: the 80ms crossfade replaces the travel.
+    await page.evaluate(() => window.__repforgeShelfValueBeat?.("fade"));
+    const fade = await pad(1);
+    const fadeBeat = fade.frames.find((f) => f.cls.includes("motion-value-fade"));
+    assert(fadeBeat && fadeBeat.name === "taurifer-value-fade" && fadeBeat.dur === "0.08s" && !fade.frames.some((f) => f.cls.includes("motion-value-up")),
+      "the switch selects the 80ms crossfade instead", JSON.stringify(fadeBeat));
+    await page.evaluate(() => window.__repforgeShelfValueBeat?.("directional"));
+  }
+  const chain = await page.evaluate(async (card) => {
+    // Thirty taps in a row: every one lands, none is lost behind a beat.
+    const val = () => document.querySelector(`${card} .shelf__field.is-sel .shelf__val`);
+    const start = Number(val().textContent) || 0;
+    for (let i = 0; i < 30; i++) {
+      document.querySelector(`${card} .shelf__pad[data-dir="1"]`).click();
+      await new Promise((r) => setTimeout(r, 16));
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    return { start, end: Number(val().textContent) };
+  }, CARD);
+  assert(chain.end === chain.start + 30, "thirty quick taps land thirty steps", JSON.stringify(chain));
+
+  assert(errors.length === 0, `no page errors in the Focus run${tag}`, errors.join(" | "));
+  await context.close();
+
+  // ---- L4: exercise complete: the completion actions rise ---------------------------
+  phase(`L4: the completion actions rise while fading in${tag}`);
+  const done = await focusPage(browser, { reducedMotion, sets: 2 });
+  await done.page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+  await done.page.locator(`${CARD} .focus-shelf .saveset`).first().click();
+  await done.page.waitForTimeout(260);
+  await done.page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+  const fin = await done.page.evaluate(async (card) => {
+    document.querySelector(`${card} .saveset`).click();
+    const t0 = performance.now();
+    while (performance.now() - t0 < 900) {
+      await new Promise((r) => requestAnimationFrame(r));
+      if (document.querySelector(`${card} .focus-shelf.is-done`)) break;
+    }
+    const shelf = document.querySelector(`${card} .focus-shelf.is-done`);
+    const out = { landed: !!shelf };
+    if (!shelf) return out;
+    const rise = [...shelf.querySelectorAll(".motion-rise")];
+    const cta = shelf.querySelector("[data-fnext]");
+    const c = cta.getBoundingClientRect();
+    const hit = document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2);
+    Object.assign(out, { rise: rise.length, names: rise.map((el) => getComputedStyle(el).animationName), dur: rise.map((el) => getComputedStyle(el).animationDuration),
+      ctaDisabled: cta.disabled, ctaHit: cta.contains(hit), ctaPointer: getComputedStyle(cta).pointerEvents });
+    cta.click();
+    await new Promise((r) => setTimeout(r, 700));
+    out.moved = document.querySelector("#workout .exercise.is-current")?.dataset.ex;
+    return out;
+  }, CARD);
+  assert(fin.landed && !fin.ctaDisabled && fin.ctaHit && fin.ctaPointer !== "none",
+    "the completion action is enabled and takes a tap from the first frame", JSON.stringify(fin));
+  if (reduced) {
+    assert((fin.names || []).every((n) => n === "none"), "under reduced motion the completion actions are simply there", JSON.stringify(fin));
+  } else {
+    assert(fin.rise >= 1 && fin.names.every((n) => n === "taurifer-rise") && fin.dur.every((d) => d === "0.16s"),
+      "the completion actions rise 12px or less over 160ms", JSON.stringify(fin));
+  }
+  assert(fin.moved && fin.moved !== "seed-ex-1", "a tap during the rise goes to the next exercise", JSON.stringify(fin));
+  await done.page.evaluate(() => window.__repforgeFocus.to(0));
+  await done.page.waitForTimeout(200);
+  const rest = await done.page.evaluate((card) => document.querySelectorAll(`${card} .focus-shelf.is-done .motion-rise`).length, CARD);
+  assert(rest === 0, "a later render draws the finished exercise at rest", String(rest));
+  assert(done.errors.length === 0, `no page errors in the exercise-complete run${tag}`, done.errors.join(" | "));
+  await done.context.close();
 }
 
 async function run() {
@@ -646,6 +958,9 @@ async function run() {
 
   await vocabularyHelpers(browser);
   await vocabularyHelpers(browser, { reducedMotion: "reduce" });
+
+  await focusMotion(browser);
+  await focusMotion(browser, { reducedMotion: "reduce" });
 
   await browser.close();
   console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);
