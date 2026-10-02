@@ -249,6 +249,93 @@ console.log("\nToday — completed session state");
 }
 
 // ---------------------------------------------------------------------------
+// 1c. The finished day as drawn (OG-6 round 1, `today/done`): totals, each lift's outcome and next target
+// ---------------------------------------------------------------------------
+{
+  const { context, page } = await freshPage(browser);
+  const state = await readState(page);
+  // Day 1 a week ago, Day 1 and then Day 2 today: the day holds two sessions.
+  const past = sessionRows(state.program, "Day 1", ymd(-7), 50);
+  const one = sessionRows(state.program, "Day 1", ymd(0), 60);
+  const two = sessionRows(state.program, "Day 2", ymd(0), 40).map((row) => ({ ...row, session: `${ymd(0)}_Day 2_seed2`, created: `${ymd(0)}T13:00:00.000Z` }));
+  // The first lift of Day 1 again, later in the day and heavier: its word must read this latest session.
+  const firstId = one[0].exerciseId;
+  const three = one.filter((row) => row.exerciseId === firstId).map((row) => ({ ...row, load: 70, session: `${ymd(0)}_Day 1_seed3`, created: `${ymd(0)}T14:00:00.000Z` }));
+  await persistState(page, { ...state, log: [...past, ...one, ...two, ...three] });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+
+  const done = await page.evaluate(() => {
+    const t = (key) => window.RepForgeI18n.t(key);
+    const durable = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const today = document.querySelector(".today-done");
+    const cells = [...document.querySelectorAll(".today-done .statrow__cell")].map((cell) => ({
+      value: cell.querySelector(".statrow__val")?.textContent.trim(), caption: cell.querySelector(".statrow__cap")?.textContent.trim() }));
+    const groups = [...document.querySelectorAll(".today-done__lifts .sum-grp")].map((group) => {
+      const word = group.querySelector(".sum-outcome, .sum-word"), next = group.querySelector("[data-parity-target]");
+      // A lift with a canonical outcome carries the parity markup; a first observation says so in words and carries none.
+      const canonical = !!word?.hasAttribute("data-outcome");
+      const id = (canonical ? word.getAttribute("data-parity-outcome") : next?.getAttribute("data-parity-target")) || null;
+      const slot = id ? window.__repforgeProgression.programSlot(id) : null;
+      const sessionId = word?.getAttribute("data-parity-session") || null;
+      const compared = slot && canonical ? window.__repforgeCompareExercise(slot, (durable.log || []).filter((row) => row.exerciseId === id && row.session === sessionId)) : null;
+      const wordKeys = { improved: "stats.outcome.improved", flat: "stats.outcome.maintained", regressed: "stats.outcome.declined" };
+      const load = slot ? window.__repforgeProgression.recommendation(slot).load : null;
+      const figure = next ? (next.textContent.match(/(\d+(?:[.,]\d+)?)\s*(kg|lbs?)/i) || [])[1] : null;
+      const parsed = figure ? window.__repforgeParseLoad(figure) : null;
+      return {
+        id, sessionId, canonical, text: word?.textContent.trim() || "",
+        expected: canonical ? (compared && wordKeys[compared.status] ? t(wordKeys[compared.status]) : compared?.label) : t("stats.outcome_short.single_observation"),
+        glyphOnWord: !!word?.querySelector(".verdictmark__glyph") || word?.classList.contains("verdictmark"),
+        glyphOnNext: !!next?.querySelector(".verdictmark"),
+        targetMatches: parsed?.kind === "valid" && load != null && Math.abs(parsed.kg - load) < 0.06,
+        hasSets: !!group.querySelector(".sum-grp__sets"), hasPr: !!group.querySelector(".sum-pr"),
+      };
+    });
+    const check = document.querySelector(".today-done__check"), name = document.querySelector(".today-done__name");
+    const review = document.querySelector("#reviewTodaySession"), another = document.querySelector("#logAnotherSession");
+    const after = review && getComputedStyle(review, "::after");
+    return {
+      cells, groups,
+      lastSessions: Object.fromEntries([...new Set((durable.log || []).map((row) => row.exerciseId))].map((id) => [id,
+        (durable.log || []).filter((row) => row.exerciseId === id).sort((a, b) => (`${a.date}|${a.created}` < `${b.date}|${b.created}` ? -1 : 1)).at(-1)?.session])),
+      weekStrip: !!document.querySelector("#todayWeek .week-letters"), weekLine: document.querySelector("#todayWeek .ov-week-line")?.textContent.trim() || "",
+      checkInk: !!check && getComputedStyle(check).backgroundColor === getComputedStyle(name).color,
+      muscles: !!today?.querySelector(".today-session__muscles"),
+      reviewPrimary: review?.classList.contains("btn--cta") && !review.classList.contains("btn--steel"),
+      reviewArrow: !!after && after.content !== "none" && after.display !== "none",
+      reviewChevron: review ? getComputedStyle(review.querySelector(".chevron")).display : "",
+      anotherBelowReview: !!review && !!another && another.getBoundingClientRect().top >= review.getBoundingClientRect().bottom - 1,
+      anotherFull: !!review && !!another && Math.abs(another.getBoundingClientRect().width - review.getBoundingClientRect().width) < 2,
+    };
+  });
+  const lifts = new Set([...one, ...two].map((row) => row.exerciseId)).size;
+  const setsToday = one.length + two.length + three.length;
+  assert(done.cells.length === 3 && done.cells[0].value === String(setsToday) && done.cells[2].value === String(lifts),
+    "The recap totals the whole day: sets, kg moved and exercises across both sessions", JSON.stringify(done.cells));
+  assert(done.groups.length === lifts, "One outcome and next target per lift trained today", `${done.groups.length} groups for ${lifts} lifts`);
+  assert(done.groups.some((group) => group.canonical) && done.groups.some((group) => !group.canonical),
+    "The day mixes lifts with an outcome and first observations", JSON.stringify(done.groups.map((g) => [g.id, g.canonical])));
+  assert(done.groups.every((group) => group.id && group.text === group.expected),
+    "Every outcome word equals what compareExerciseSession says for the session the lift was last logged in; a first observation says so",
+    JSON.stringify(done.groups.map((g) => [g.id, g.text, g.expected])));
+  assert(done.groups.filter((group) => group.canonical).every((group) => group.sessionId === done.lastSessions[group.id]) &&
+    done.groups.find((group) => group.id === firstId)?.sessionId.endsWith("seed3"),
+    "An outcome word is read at the session its lift was last logged in, even when the day held two", JSON.stringify(done.groups.map((g) => [g.id, g.sessionId])));
+  assert(done.groups.every((group) => group.targetMatches),
+    "Every next target shows recommendation().load", JSON.stringify(done.groups.map((g) => [g.id, g.targetMatches])));
+  assert(done.groups.every((group) => !group.glyphOnWord && group.glyphOnNext && !group.hasSets && !group.hasPr),
+    "The word stands alone; the verdict mark rides the next target; the sets and record lines stay on the summary",
+    JSON.stringify(done.groups.map((g) => [g.glyphOnWord, g.glyphOnNext, g.hasSets, g.hasPr])));
+  assert(!done.weekStrip && /\d/.test(done.weekLine), "The weekday strip gives way to the week line", JSON.stringify({ strip: done.weekStrip, line: done.weekLine }));
+  assert(done.checkInk, "The day's check mark is ink, not orange");
+  assert(done.reviewPrimary && done.reviewArrow && done.reviewChevron === "none",
+    "View today's session is the primary control with the CTA arrow", JSON.stringify(done));
+  assert(done.anotherBelowReview && done.anotherFull, "Log another session sits under it at the same width", JSON.stringify(done));
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
 // 2. A reload of a day already trained never returns to the start state
 // ---------------------------------------------------------------------------
 {

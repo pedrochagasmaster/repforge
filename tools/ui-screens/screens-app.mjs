@@ -260,6 +260,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
+  "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history", // R3i
@@ -806,14 +807,10 @@ export const APP_SCENARIOS = {
     }
   },
   "today/done": async (page) => {
-    await saveWholeSession(page);
-    await page.click("#sumDone");
-    await sleep(page, 500);
-    await page.evaluate(() => {
-      document.querySelector('nav [data-view="log"]')?.click();
-      if (document.body.classList.contains("is-settings")) document.querySelector("#settingsBack")?.click();
-    });
-    await sleep(page, 600);
+    // The Direction D lifter's Monday session is already in the log (the drawing's finished day): Today recaps it.
+    await dismissChrome(page);
+    await page.locator("#todayDash .today-done__lifts .sum-grp").first().waitFor({ state: "visible", timeout: 20000 });
+    await sleep(page, 300);
     if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
       const clearance = await page.evaluate(() => {
         const dock = document.querySelector("nav");

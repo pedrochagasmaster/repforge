@@ -6290,7 +6290,8 @@ function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)ret
     .map(ev=>ev.liftKey));
   return{sessions,days:doneDays,lastDay:sessions.at(-1).day||day,
     muscles:[...new Set(work.map(r=>String(rowMuscles(r).primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3),
-    sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size}}
+    sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size,
+    lifts:new Set(work.map(liftKey)).size,rows:sessions.flatMap(s=>s.rows),session:sessions.at(-1).session}}
 /** The program day that follows `from`, or null when the split has only one. */
 function nextDayAfter(from){const ds=days();if(!ds.length)return null;
   const i=ds.indexOf(from);if(i<0)return ds[0];
@@ -6298,14 +6299,21 @@ function nextDayAfter(from){const ds=days();if(!ds.length)return null;
 /** The program day that follows the last one trained today. */
 function dayAfterTrainedToday(){const done=sessionsToday();
   return nextDayAfter(done.length?done.at(-1).day:day)}
+/* Today's finished day (OG-6 `today/done`, Direction D 4.1): the day's name, its totals, the record line and the shipped
+   note, then each lift's outcome word and the engine's next target. The words and targets come from the same lift groups the
+   session summary reads (`sessionOutcomeGroups`), so Today can never disagree with the screen it sends you to. */
 function todayDoneHtml(recap){
+  const{liftGroups,showBaseline}=sessionOutcomeGroups(recap.rows),s={showBaseline,session:recap.session};
+  const cell=(n,cap)=>`<div class="statrow__cell"><div class="statrow__val">${esc(n)}</div><div class="statrow__cap">${esc(cap)}</div></div>`;
   return `<div class="today-done">`+
-    `<div class="today-session__name today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
-    `${esc(recap.days.join(" · ")||t("today.done_title"))}</div>`+
-    (recap.muscles.length?`<div class="today-session__muscles">${esc(recap.muscles.map(muscleLabel).join(" · "))}</div>`:"")+
-    `<div class="today-session__meta">${esc(t("today.done_meta",{sets:recap.sets,setword:tp(recap.sets,"set"),vol:kfmt(toDisplay(recap.volume)),unit:unitLabel()}))}</div>`+
+    `<div class="today-session__name today-session__name--day today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
+    `${esc(recap.days.join(" \u00b7 ")||t("today.done_title"))}</div>`+
+    `<div class="statrow sum-stats">${cell(fmt(recap.sets),tp(recap.sets,"set"))}${cell(kfmt(toDisplay(recap.volume)),t("summary.stat.moved",{unit:unitLabel()}))}`+
+    `${cell(fmt(recap.lifts),tp(recap.lifts,"lift"))}</div>`+
     (recap.prs?`<p class="today-done__pr">${esc(recap.prs===1?t("today.done_pr_one"):t("today.done_prs",{n:recap.prs}))}</p>`:"")+
-    `<p class="today-done__note">${esc(t("today.done_note"))}</p></div>`}
+    `<p class="today-done__note">${esc(t("today.done_note"))}</p>`+
+    (liftGroups.length?`<h3 class="sum-sec today-done__head">${esc(t("summary.outcome_head"))}</h3><div class="sum-grps today-done__lifts">`+
+      liftGroups.map(lift=>summaryGroupHtml(lift,s,{compact:true})).join("")+`</div>`:"")+`</div>`}
 /** Whichever action Today is currently leading with — the start CTA, or the
  *  recap's review action once the day's session is saved. */
 function todayPrimaryControl(){
@@ -6468,6 +6476,9 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const canPickDay=!recap&&days().length>1;
     for(const[sel,shown]of[["#startWorkout",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
+    // The finished day's way on is the screen's one commitment: View today's session takes the primary control and its
+    // arrow, and Log another session sits under it as the quieter choice, as Choose another day does under Start.
+    const review=$("#reviewTodaySession");if(review){review.classList.toggle("btn--cta",!!recap);review.classList.toggle("btn--steel",!recap)}
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   // A draft with logged or filled sets means the session is still open.
   const cta=$("#startWorkout")?.querySelector("span");
@@ -6483,7 +6494,9 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       const isToday=iso===today(),done=trained.has(iso);
       const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
       return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
-    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters" data-progress-dimension="week" data-progress-scope="current-week-trained-days">${cells}</div>`}
+    // A finished day says where the week stands in words alone (OG-6 `today/done`); the weekday strip stays for the days still to train.
+    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div>`+
+      (recap?"":`<div class="week-letters" data-progress-dimension="week" data-progress-scope="current-week-trained-days">${cells}</div>`)}
   const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(dayLabel(next))}</div>`+
@@ -7626,16 +7639,11 @@ function sessionMuscleWork(rows){
   return[...m].map(([name,v])=>({name,sets:v.d+v.p,direct:v.d})).filter(x=>x.sets>0)
     .sort((a,b)=>b.sets-a.sets||b.direct-a.direct||a.name.localeCompare(b.name))}
 
-/** Everything the finished session earns the right to say about itself. */
-function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
-  // Test-only fault seam for the post-commit boundary. The completion owner
-  // has already returned a settled durable result before this derivation runs.
-  if(window.__repforgeSummaryFault==="canonical"){
-    delete window.__repforgeSummaryFault;
-    throw new Error("summary canonical derivation fault")}
+/** What a set of saved rows says about each lift it touched: the canonical outcome state (read from the evidence
+ *  projection, never derived here), the sets performed, the record it set when `prs` carries one, and the engine's
+ *  next target. The session summary and Today's finished day both read their lift groups from here. */
+function sessionOutcomeGroups(rows,prs=[]){
   const work=workingRows(rows);
-  const meso=mesocycleWeek(),week=weeklySnapshot(date);
-  const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
   // The session is already durable when this runs. Read the single canonical
   // evidence projection and keep only the lifts this completion actually
   // touched; summary presentation never derives a second outcome heuristic.
@@ -7652,28 +7660,44 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
         kind:sufficient?"outcome":baseline?"baseline":"insufficient",
         evidenceState:record.evidenceState,evidenceCount:record.evidenceCount,
         reason:record.reason??null,...(sufficient?{outcome:record.outcome}:{})}});
-  const outcomes=evidence.filter(item=>item.kind==="outcome")
-    .map(({exerciseId,outcome,name})=>({exerciseId,outcome,name}));
   // The first-session sentence is valid only when every lift in this completion
   // is genuinely a first observation. A prior-but-insufficient record must not
   // disappear into the old \"no outcome\" fallback.
   const showBaseline=evidence.length>0&&evidence.every(item=>item.kind==="baseline");
-  // A clock only earns a slot when it plausibly measured this session: a draft
-  // resumed the next morning would otherwise report a nine-hour workout.
-  const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
   // One group per lift: its outcome state, the sets it performed, the record it set and the engine's
   // next target. The state reads the canonical evidence above; the target is recommendation() on the log
   // that now holds this session. Nothing is derived here.
-  const prs=sessionPRs(rows,prevLog),byLift=new Map();
+  const byLift=new Map();
   for(const row of work){const key=liftKey(row);if(!byLift.has(key))byLift.set(key,{liftKey:key,name:displayName(row),rows:[]});byLift.get(key).rows.push(row)}
   const liftGroups=[...byLift.values()].map(group=>{
     const item=evidence.find(entry=>entry.exerciseId===group.liftKey),slot=currentExerciseForLiftKey(group.liftKey);
     const rec=slot?recommendation(slot):null,line=slot&&rec&&rec.status!=="manual"?setsTargetLine(slot,rec):"";
-    return{liftKey:group.liftKey,exerciseId:slot?.id??null,name:group.name,
+    // The session the lift was last logged in: the one its outcome word describes when a day holds two.
+    const latest=group.rows.reduce((a,b)=>compareLogChronology(a,b)<=0?b:a);
+    return{liftKey:group.liftKey,exerciseId:slot?.id??null,name:group.name,session:latest.session??null,
       sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
       state:item?.kind==="outcome"?{kind:"outcome",outcome:item.outcome}:item?.kind==="baseline"?{kind:"baseline"}:{kind:"insufficient",reason:item?.reason??null},
       pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,
       next:line?{glyph:rxVerdict(rec),line}:null}});
+  return{evidence,showBaseline,liftGroups}}
+
+/** Everything the finished session earns the right to say about itself. */
+function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
+  // Test-only fault seam for the post-commit boundary. The completion owner
+  // has already returned a settled durable result before this derivation runs.
+  if(window.__repforgeSummaryFault==="canonical"){
+    delete window.__repforgeSummaryFault;
+    throw new Error("summary canonical derivation fault")}
+  const work=workingRows(rows);
+  const meso=mesocycleWeek(),week=weeklySnapshot(date);
+  const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  const prs=sessionPRs(rows,prevLog);
+  const{evidence,showBaseline,liftGroups}=sessionOutcomeGroups(rows,prs);
+  const outcomes=evidence.filter(item=>item.kind==="outcome")
+    .map(({exerciseId,outcome,name})=>({exerciseId,outcome,name}));
+  // A clock only earns a slot when it plausibly measured this session: a draft
+  // resumed the next morning would otherwise report a nine-hour workout.
+  const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
   return{session,date,day:sessDay,
     sets:rows.length,
     volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),
@@ -7831,20 +7855,24 @@ function sessionPRHtml(p){
   return `<p class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("summary.pr.label"))}</span>`+
     `<span class="sum-pr__over">${esc(over)}</span></p>`}
 /** The lift's outcome word. Only a canonical outcome carries the .sum-outcome role. */
-function summaryWordHtml(lift,session){
+function summaryWordHtml(lift,session,{mark=true}={}){
   const st=lift.state,parity=lift.exerciseId?` data-parity-outcome="${esc(lift.exerciseId)}" data-parity-session="${esc(session)}"`:"";
   if(st.kind==="outcome"){
     const variant={improved:"up",maintained:"maintained",declined:"down"}[st.outcome];
+    // Today's finished day says the word alone: its glyph rides the next target below (OG-6 `today/done`).
+    if(!mark)return `<span class="sum-outcome" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`;
     return `<span class="sum-outcome verdictmark verdictmark--${variant}" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>`+
       `<span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`}
   if(st.kind==="baseline")return `<span class="sum-word">${esc(t("stats.outcome_short.single_observation"))}</span>`;
   if(st.reason==="missing-effort")return `<span class="sum-word">${esc(t("stats.outcome_short.missing_effort"))}</span>`;
   const key=st.reason==="changed-load"?"delta.changed_load.label":"delta.not_comparable.label";
   return `<span class="sum-word"${parity}>${esc(t(key))}</span>`}
-function summaryGroupHtml(lift,s){
-  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(lift.name)}</span>${s.showBaseline?"":summaryWordHtml(lift,s.session)}</div>`+
-    `<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`+
-    (lift.pr?sessionPRHtml(lift.pr):"")+
+/** `compact` is Today's finished day: the name and its word, then the next target, without the sets or the record line. */
+function summaryGroupHtml(lift,s,{compact=false}={}){
+  const session=compact?lift.session??s.session:s.session;
+  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(lift.name)}</span>${s.showBaseline?"":summaryWordHtml(lift,session,{mark:!compact})}</div>`+
+    (compact?"":`<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`)+
+    (lift.pr&&!compact?sessionPRHtml(lift.pr):"")+
     (lift.next?`<p class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>${verdictMarkHtml(lift.next.glyph)}`+
       `<span>${esc(t("summary.next_target",{target:lift.next.line}))}</span></p>`:"")+`</div>`}
 

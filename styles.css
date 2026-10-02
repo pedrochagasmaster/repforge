@@ -2662,13 +2662,13 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-hero:focus,.sum-hero:focus-visible{outline:none}
 .sum-sub{margin-top:var(--space-8);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-stats{margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
-#sessionSummary .sum-stats{grid-template-columns:repeat(auto-fit,minmax(5rem,1fr))}
-#sessionSummary .sum-stats .statrow__cell{padding-inline:var(--space-4) var(--space-8)}
-#sessionSummary .sum-stats .statrow__cell:first-child{padding-left:0}
-#sessionSummary .sum-stats .statrow__cell:not(:first-child){padding-left:var(--space-12)}
-#sessionSummary .sum-stats .statrow__val{font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink);text-align:left}
-#sessionSummary .sum-stats.statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
-#sessionSummary .sum-stats .statrow__cap{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);text-align:left;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
+:is(#sessionSummary,#todayDash) .sum-stats{grid-template-columns:repeat(auto-fit,minmax(5rem,1fr))}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__cell{padding-inline:var(--space-4) var(--space-8)}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__cell:first-child{padding-left:0}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__cell:not(:first-child){padding-left:var(--space-12)}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__val{font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink);text-align:left}
+:is(#sessionSummary,#todayDash) .sum-stats.statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__cap{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);text-align:left;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
 .sum-sec{margin:var(--space-26) 0 0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 
 /* One group per lift: its name and outcome, the sets, a record line, the next target. */
@@ -3119,18 +3119,16 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .today-done{padding:4px 0 8px}
 .today-done__name{display:flex;align-items:center;gap:10px}
 .today-done__check{
-  width:22px;height:22px;flex:none;background:var(--color-action);
+  width:22px;height:22px;flex:none;background:var(--color-ink);
   -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
 }
 .today-done__pr{margin:10px 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-improved)}
 .today-done__note{margin:10px 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#reviewTodaySession{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;margin-top:16px;padding:12px 0;border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:0;background:var(--control-quiet-bg);color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left}
-#reviewTodaySession .chevron{color:var(--color-ink-secondary)}
-#reviewTodaySession:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-bottom-color:var(--boundary-decorative)}
-#reviewTodaySession:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-bottom-color:var(--boundary-decorative);transform:var(--control-pressed-transform)}
-#reviewTodaySession:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#reviewTodaySession:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-#logAnotherSession{display:flex;align-items:center;justify-content:center;width:fit-content;max-width:100%;min-height:var(--control-target);margin:8px auto 0;padding:8px 16px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center}
+/* View today's session is the finished day's primary control (OG-6 `today/done`): the shared Today CTA, with its arrow. The
+   shell still carries the quiet row's chevron, which the arrow replaces. */
+#reviewTodaySession{margin-top:32px}
+#reviewTodaySession .chevron{display:none}
+#logAnotherSession{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin:10px 0 0;padding:8px 16px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center}
 #logAnotherSession:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
 #logAnotherSession:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 #logAnotherSession:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}

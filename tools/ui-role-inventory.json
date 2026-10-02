@@ -314,9 +314,9 @@
       "scenario": "The day picker sheet open."
     },
     "today/done": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3x",
       "content": "flat",
-      "scenario": "The state after the day's session is logged."
+      "scenario": "The Direction D lifter's finished Monday: totals, the record line, each lift's outcome and next target, View today's session as the primary control."
     },
     "workout/focus": {
       "owner": "plan-055",
@@ -4546,7 +4546,7 @@
       "id": "reviewtodaysession",
       "selector": "#reviewTodaySession",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "primary"
       },
       "variant": null,
       "facets": [],
@@ -4555,10 +4555,11 @@
         "hover",
         "pressed",
         "focus-visible",
-        "disabled"
+        "disabled",
+        "loading"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
+      "rationale": "Advances the current task with the strongest action weight.",
+      "owner": "plan-064/r3x",
       "catalogStates": [
         "today/done"
       ]
@@ -5361,7 +5362,6 @@
       "catalogStates": [
         "install/banner",
         "today/day-picker",
-        "today/done",
         "today/draft-resume",
         "today/no-program",
         "today/ready",
@@ -7322,7 +7322,8 @@
         "workout/exercise-note",
         "workout/substituted-actions",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "today/done"
       ]
     },
     {

@@ -64,7 +64,7 @@ const IMPLEMENTED_D_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction",
   // R3f: the inline rest in the Focus cue slot and pad row, running and run out.
   "workout/rest-running", "workout/rest-done",
-  // R3d: the workout sheets drawn in OG-6 round 1 (workout/exercise-actions stays pending: its round 2 redraw is not approved).
+  // R3d: the workout sheets drawn in OG-6 round 1.
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions",
   // R3j: History's week list with the frequency counts and the calendar sheet, and the session page.
@@ -75,8 +75,10 @@ const IMPLEMENTED_D_STATES = new Set([
   "program/overview",
   // R3b: Today, the prescription table, the day picker and the mixed-strategies day.
   "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
-  // R3b2: Today with an unfinished session, the status band drawn in OG-6 round 1 (today/done stays pending until it is built).
+  // R3b2: Today with an unfinished session, the status band drawn in OG-6 round 1.
   "today/draft-resume",
+  // R3x: the finished day drawn in OG-6 round 1.
+  "today/done",
   // R3g: Why this weight, the five states, enforced on the sheet (STATE_SCOPES).
   "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
   // R3h: the session summary, the five states, enforced on #sessionSummary (STATE_SCOPES).

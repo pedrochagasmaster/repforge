@@ -53,6 +53,7 @@ console.log("\nD-owned state list");
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
     "history/edit-dirty", "history/edit-invalid",
     "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies", "today/draft-resume",
+    "today/done",
     "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
     "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
     "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/strength", "progress/strength-current-block",
@@ -74,8 +75,10 @@ console.log("\nD-owned state list");
   check(["workout/rest-running", "workout/rest-done"].every((key) => status(key) === "implemented") &&
     !DIRECTION_D_STATES.some((item) => /^workout\/rest-timer/.test(item.key)),
   "R3f's inline rest states are enforced and the retired rest-timer sheet states are in no gate list");
-  check(["today/done"].every((key) => status(key) === "pending"),
-    "states that still need a drawing, or whose slice has not landed, stay pending");
+  check(["today/done"].every((key) => status(key) === "implemented"),
+    "R3x's finished day is enforced");
+  check(["workout/exercise-actions"].every((key) => status(key) === "pending"),
+    "the redrawn exercise actions stay pending until they are built");
   // The parity oracle accepts a status's word in either vocabulary; in PT they must be the same words
   // (CONTEXT.md "Session outcome": Melhorou, Manteve, Regressou).
   const ptCatalog = JSON.parse(readFileSync(join(ROOT, "i18n-pt.json"), "utf8"));

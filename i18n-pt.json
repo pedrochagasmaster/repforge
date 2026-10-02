@@ -1316,7 +1316,6 @@
   "today.choose_day_current": "Hoje",
   "today.done_label": "Concluído hoje",
   "today.done_title": "Sessão concluída",
-  "today.done_meta": "{sets} {setword} · {vol} {unit}",
   "today.done_pr_one": "1 recorde pessoal hoje",
   "today.done_prs": "{n} recordes pessoais hoje",
   "today.done_note": "Nada mais planejado para hoje.",
