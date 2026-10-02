@@ -6,6 +6,7 @@
  *   --proof <dir>      Capture the landing's real-app proof images into <dir>:
  *                        wt-{focus,rest,actions,note}-{en,pt}-dark.webp   (8; 390x844 @2x, dark only)
  *                        paste-review-{en,pt}-{light,dark}.webp            (4; the import-review screen)
+ *                      (exercise-chart-{en,pt}-{light,dark}.webp is not made here: see assets/brand/README.md)
  *                        landing-proof-spots.json                          (lens hotspots + paste counts)
  *                        proof-report.json                                 (sizes, counts, review rows)
  *                      Prints the linked / to-review counts read off each captured paste-review
@@ -17,12 +18,16 @@
  *                      cannot ship a lens over the wrong pixels.
  *     --spots <file>     the stored JSON (default assets/brand/landing-proof-spots.json)
  *     --scenes a,b       limit the re-measure
- *   --source <dir>     (historical) 430x932 @3x PNG source captures of the "add" Focus state.
+ *   --source <dir>     430x932 @3x PNG source captures of the "add" Focus state, then the upcoming sets of
+ *                      the same day in the session list (both read from the live Focus and session screens).
  *   --matrix <dir>     (historical) landing layout matrix. Its composition assertions belonged to the
  *                      retired landing; only generic geometry / reachability / image checks remain, so it
  *                      depends on no landing composition markup. --fault-overflow still proves the
  *                      overflow check bites; the --fault-narrow / --fault-wrap switches went with the
  *                      composition they targeted.
+ *
+ * Every proof scene fails when a retired selector (RETIRED_SELECTORS: the rest sheet, the import review's old head)
+ * is on screen; --fault-retired puts one there so a test can prove that check bites.
  *
  * Every mode reads REPFORGE_URL (default http://localhost:8000/) and, when the pinned Chromium is not on
  * the default path, REPFORGE_CHROME. The Focus state is rebuilt from test/fixtures/landing-proof.json
@@ -62,28 +67,45 @@ const NOTE = {
 
 /**
  * The one selector table. Every lens hotspot is a box read from these elements.
- * `card` is the Focus card in play; the rest live in the sheets the scenes open.
- * When R3 reshapes a surface, edit here and re-run --proof.
+ * `card` is the Focus card in play; `rest` lives in that card's cue slot (R3f: the rest is inline, there is no
+ * rest sheet); the rest are the exercise-actions and exercise-note sheets the scenes open.
+ * When a surface is reshaped, edit here and re-run --proof.
  */
 export const SPOT_TARGETS = {
-  card: '#workout .is-current',
-  cue: '.fx-cue',
+  card: '#workout .exercise.is-current',
+  cueLines: '.fx-cue__mark, .fx-cue__l1, .fx-cue__l2',
   ledgerHead: '.ledgerline__head',
   ledgerRow: '.ledgerline',
   log: '.focus-shelf .saveset',
   more: '#woOverflowBtn',
   noteRow: '#exActionNotesBtn',
-  dial: '#restSheet .restdial',
+  rest: '.fx-slot[data-rest="running"] .restinline',
   swap: '#exActionSubstBtn',
   note: '#exNoteText',
 };
 
+/**
+ * Selectors of retired UI. No regenerated scene may contain one (Plan 064 C-03: never ship a screenshot of a
+ * retired UI), and neither may the selector table above. `#restSheet` was the rest scene before R3f;
+ * `#importReview .exview-head` was the import review's head before R4c.
+ */
+export const RETIRED_SELECTORS = ['#restSheet', '#restSheetScrim', '#importReview .exview-head'];
+
+/** Runs in the page: the retired selectors that match something on screen (the hidden shell nodes do not count). */
+export function visibleRetired(selectors) {
+  return selectors.filter(selector => [...document.querySelectorAll(selector)]
+    .some(node => node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden'));
+}
+
+/** The import review's crop: from its head (R4c: `.onb__head`, the shared onboarding bar) through the first row. */
+export const PASTE_TARGETS = {head: '#importReview .onb__head', firstRow: '#importRows .improw'};
+
 /** Scene table: the runner name, the spots it owns, and what the frame must show. */
 export const PROOF_SCENES = [
   {name: 'focus', spots: ['cue', 'log', 'last'], shows: 'Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, cue 62.5 x 8'},
-  {name: 'rest', spots: ['dial'], shows: 'the rest sheet after Log set (retires with the sheet in R3)'},
-  {name: 'actions', spots: ['swap'], shows: 'the exercise-actions sheet'},
-  {name: 'note', spots: ['text'], shows: 'the exercise-note sheet with a typed note'},
+  {name: 'rest', spots: ['dial'], shows: 'Focus after Log set: the inline rest clock and drain bar in the cue slot, the next set cued'},
+  {name: 'actions', spots: ['swap'], shows: 'the redrawn exercise-actions sheet'},
+  {name: 'note', spots: ['text'], shows: 'the exercise-note sheet over Focus with a typed note'},
 ];
 export const sceneFile = (scene, lang) => `wt-${scene}-${lang}-dark.webp`;
 export const pasteFile = (lang, theme) => `paste-review-${lang}-${theme}.webp`;
@@ -246,19 +268,18 @@ async function captureSource(browser, output, report) {
     try {
       const rows = await assertFocus(page, state, name);
       await page.screenshot({path: `${output}/${name}.png`});
-      await page.evaluate(day => window.__repforgeEnterWorkout({focus: false, day}), state.program[0].day);
-      await settle(page);
-      const upcomingLoads = page.locator('#workout input[data-k^="ex-bench_"][data-k$="_load"]');
-      assert.equal(await upcomingLoads.count(), 3, `${name}: actual upcoming set count`);
+      // The ledger under the cue lists every set of the exercise with its target; each upcoming row shows the same
+      // engine answer, read off the live rows (the session list has no per-set inputs since R3c).
+      const ledgerRows = page.locator('#workout .exercise.is-current #ledger_ex-bench [data-lrow]');
+      assert.equal(await ledgerRows.count(), 3, `${name}: actual upcoming set count`);
       if (values['fault-next']) {
-        await page.locator('#workout input[data-k="ex-bench_3_load"]').evaluate(input => {input.value = '99';});
+        await ledgerRows.nth(2).locator('[data-lv="load"]').evaluate(cell => {cell.textContent = '99';});
       }
       const upcomingSets = [];
       for (const set of [1, 2, 3]) {
-        const loadValue = await page.locator(`#workout input[data-k="ex-bench_${set}_load"]`).inputValue();
-        const repsValue = await page.locator(`#workout input[data-k="ex-bench_${set}_reps"]`).inputValue();
-        const load = Number(loadValue.replace(',', '.'));
-        const reps = Number(repsValue);
+        const row = ledgerRows.nth(set - 1);
+        const load = Number((await row.locator('[data-lv="load"]').textContent()).replace(',', '.'));
+        const reps = Number(await row.locator('[data-lv="reps"]').textContent());
         assert.equal(load, 62.5, `${name}: actual upcoming set ${set} load`);
         assert.equal(reps, 8, `${name}: actual upcoming set ${set} reps`);
         upcomingSets.push({set, load, reps});
@@ -304,14 +325,19 @@ function measureInPage({scene, targets, logLabel}) {
     const row = need(card.querySelector(`#workout .exercise.is-current ${targets.ledgerRow}:not(.ledgerline__head)`), targets.ledgerRow);
     const rowBox = row.getBoundingClientRect();
     const log = need(card.querySelector(targets.log), targets.log);
+    // The cue is its verdict mark, its headline and the "aim for N reps" line under it; the Why link under them is not part of the read.
+    const lines = [...card.querySelectorAll(targets.cueLines)].map(line => line.getBoundingClientRect());
+    need(lines.length === 3 ? lines : null, `${targets.card} ${targets.cueLines}`);
+    const cueBox = {left: Math.min(...lines.map(r => r.left)), top: Math.min(...lines.map(r => r.top)),
+      right: Math.max(...lines.map(r => r.right)), bottom: Math.max(...lines.map(r => r.bottom))};
     return {
-      cue: boxOf(card.querySelector(targets.cue), `${targets.card} ${targets.cue}`),
+      cue: pct(...clipped(card.querySelector('.fx-cue__l1'), cueBox)),
       log: boxOf(log, `${targets.log} (${logLabel})`),
       // From the ledger head through the first row and its last-session line, as far as it is on screen.
       last: pct(...clipped(row, {left: head.left, top: head.top, right: rowBox.right, bottom: rowBox.bottom})),
     };
   }
-  if (scene === 'rest') return {dial: boxOf(visible(document, targets.dial), targets.dial)};
+  if (scene === 'rest') return {dial: boxOf(visible(document, targets.rest), targets.rest)};
   if (scene === 'actions') return {swap: boxOf(visible(document, targets.swap), targets.swap)};
   if (scene === 'note') {
     // The first line of the textarea: its full text column, one line tall.
@@ -326,11 +352,10 @@ function measureInPage({scene, targets, logLabel}) {
 
 const RUNNERS = {
   focus: async () => {},
-  rest: async (page, {logLabel}) => {
+  // Log set starts the rest; the clock runs inline in the card's cue slot (R3f), so there is nothing to open.
+  rest: async page => {
     await page.locator(`${SPOT_TARGETS.card} ${SPOT_TARGETS.log}`).first().click();
-    await page.waitForFunction(() => document.querySelector('#woRest')?.classList.contains('is-running'), undefined, {timeout: 20000});
-    await page.click('#woRest');
-    await page.waitForSelector('#restSheet.is-open', {timeout: 20000});
+    await page.waitForSelector(`${SPOT_TARGETS.card} ${SPOT_TARGETS.rest}`, {timeout: 20000});
   },
   actions: async page => {
     await page.locator(SPOT_TARGETS.more).click();
@@ -345,6 +370,19 @@ const RUNNERS = {
     await page.evaluate(() => document.activeElement?.blur());
   },
 };
+
+/**
+ * --fault-retired: put a retired element on screen so a test can prove the retired-UI check bites. The rest scene
+ * gets the open rest sheet; the paste-review scene gets the import review's old head.
+ */
+async function injectRetiredFault(page) {
+  await page.evaluate(() => {
+    const sheet = document.querySelector('#restSheet');
+    if (sheet) { sheet.hidden = false; sheet.classList.remove('hidden'); sheet.style.cssText = 'display:block;width:8px;height:8px'; }
+    const review = document.querySelector('#importReview');
+    if (review) { const head = document.createElement('div'); head.className = 'exview-head'; head.textContent = 'retired'; review.prepend(head); }
+  });
+}
 
 /** Encode a PNG as WebP in the page's own Chromium; no image tool is needed. */
 async function encodeWebp(page, png) {
@@ -371,6 +409,9 @@ async function captureScene(browser, scene, lang, {images}) {
     await RUNNERS[scene](page, {lang, logLabel});
     await settle(page);
     const spots = await page.evaluate(measureInPage, {scene, targets: SPOT_TARGETS, logLabel});
+    if (values['fault-retired']) await injectRetiredFault(page);
+    const retired = await page.evaluate(visibleRetired, RETIRED_SELECTORS);
+    assert.deepEqual(retired, [], `${name}: the frame shows retired UI`);
     const webp = images ? await encodeWebp(page, await page.screenshot({type: 'png'})) : null;
     return {spots, webp};
   } finally {await context.close();}
@@ -414,14 +455,17 @@ async function capturePasteReview(browser, lang, theme, {images}) {
     assert.equal(found.rows.length, sample.exercises.length, `${name}: one review row per exercise in the sample message`);
     // The review lists rows that still need a decision first, so compare as sets.
     assert.deepEqual(found.rows.map(row => row.typed).sort(), sample.exercises.map(item => item.name).sort(), `${name}: the typed names are the sample message's`);
+    if (values['fault-retired']) await injectRetiredFault(page);
+    const retired = await page.evaluate(visibleRetired, RETIRED_SELECTORS);
+    assert.deepEqual(retired, [], `${name}: the frame shows retired UI`);
     let webp = null;
     if (images) {
-      const clip = await page.evaluate(() => {
-        const top = document.querySelector('#importReview .exview-head').getBoundingClientRect().top;
+      const clip = await page.evaluate(selectors => {
+        const top = document.querySelector(selectors.head).getBoundingClientRect().top;
         // Header, heading, the linked / to-review counts and the first review row: what the landing's alt describes.
-        const bottom = document.querySelector('#importRows .improw').getBoundingClientRect().bottom;
+        const bottom = document.querySelector(selectors.firstRow).getBoundingClientRect().bottom;
         return {x: 0, y: Math.max(0, Math.floor(top)), width: innerWidth, height: Math.ceil(bottom - top) + 12};
-      });
+      }, PASTE_TARGETS);
       webp = await encodeWebp(page, await page.screenshot({type: 'png', clip}));
     }
     return {counts: {linked, review, custom}, rows: found.rows, webp};
@@ -612,7 +656,7 @@ async function main() {
   ({values} = parseArgs({options: {
     cases: {type: 'string'}, source: {type: 'string'}, matrix: {type: 'string'}, proof: {type: 'string'}, check: {type: 'boolean'},
     spots: {type: 'string'}, scenes: {type: 'string'}, 'spots-only': {type: 'boolean'},
-    'fault-next': {type: 'boolean'}, 'fault-overflow': {type: 'boolean'},
+    'fault-next': {type: 'boolean'}, 'fault-overflow': {type: 'boolean'}, 'fault-retired': {type: 'boolean'},
   }}));
   assert([values.source, values.matrix, values.proof, values.check].filter(Boolean).length === 1,
     'Choose exactly one of --proof <dir>, --check, --source <dir>, --matrix <dir>');

@@ -9,12 +9,18 @@
  *     a stale count, and the empty placeholder.
  *   - the paste sample is derived from landing.ways.paste.message in both catalogs.
  *   - the committed assets/brand/landing-proof-spots.json is well formed.
+ *   - no scene targets retired UI (Plan 064 C-03, RF-8): the rest scene is the inline rest on Focus, never
+ *     the rest sheet, and the import review is cropped from its current head, never `.exview-head`.
  * Part 2 (browser, via the tool itself): the tool runs against the live app.
  *   - --proof writes real 780x1688 WebP files and a spots JSON for the focus scene;
  *   - --check against that JSON passes, and against a JSON with one hotspot moved fails
  *     naming the spot (the stale-lens gate bites);
  *   - the paste-review runner reaches the real import-review screen in both languages and
- *     reports integer counts that cover all four exercises.
+ *     reports integer counts that cover all four exercises;
+ *   - the rest, actions and note scenes render through production code (inline rest in the Focus card,
+ *     the exercise-actions sheet, the exercise-note sheet) and measure their hotspots;
+ *   - --fault-retired puts a retired element on screen and the capture refuses it, in the rest scene and the
+ *     paste-review scene (the retired-UI check bites).
  * Files are written to a temporary directory, never to assets/brand/.
  *
  * Run: node test/landing-proof-capture.mjs   (with REPFORGE_URL set, or a server on :8000)
@@ -26,8 +32,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  DEFAULT_SPOTS_FILE, LANGS, PASTE_THEMES, PROOF_FRAME, PROOF_SCENES, SPOT_SCHEMA, SPOT_TOLERANCE,
-  compareSpots, outputFiles, pasteFile, pasteSample, sceneFile, webpSize,
+  DEFAULT_SPOTS_FILE, LANGS, PASTE_TARGETS, PASTE_THEMES, PROOF_FRAME, PROOF_SCENES, RETIRED_SELECTORS, SPOT_SCHEMA,
+  SPOT_TARGETS, SPOT_TOLERANCE, compareSpots, outputFiles, pasteFile, pasteSample, sceneFile, webpSize,
 } from "../tools/capture-landing-proof.mjs";
 
 const TOOL = fileURLToPath(new URL("../tools/capture-landing-proof.mjs", import.meta.url));
@@ -54,6 +60,22 @@ check("scene table: 8 dark wt-* images and 4 paste-review images", () => {
   assert.equal(pasteFile("en", "light"), "paste-review-en-light.webp");
   assert.deepEqual(PROOF_FRAME, { width: 390, height: 844, scale: 2 });
   assert(PROOF_SCENES.every((scene) => scene.spots.length > 0));
+});
+
+check("no scene or crop targets retired UI: the rest scene is the inline rest, the import review has its current head", () => {
+  assert(RETIRED_SELECTORS.includes("#restSheet"), "the rest sheet is a retired selector");
+  assert(RETIRED_SELECTORS.includes("#importReview .exview-head"), "the old import-review head is a retired selector");
+  const targets = [...Object.values(SPOT_TARGETS), ...Object.values(PASTE_TARGETS)];
+  for (const retired of RETIRED_SELECTORS) {
+    assert(!targets.some((selector) => selector.includes(retired)), `no capture target uses ${retired}`);
+  }
+  assert(!targets.some((selector) => /restSheet|restdial|exview-head/.test(selector)), "no capture target names a retired part");
+  assert.match(SPOT_TARGETS.rest, /\.fx-slot\[data-rest="running"\] \.restinline/, "the rest scene reads the inline rest in the Focus card's cue slot");
+  assert.match(PROOF_SCENES.find((scene) => scene.name === "rest").shows, /inline rest/);
+  assert.equal(PASTE_TARGETS.head, "#importReview .onb__head");
+  const source = readFileSync(TOOL, "utf8");
+  assert(!/querySelector\(['"]#importReview \.exview-head/.test(source), "the tool never queries the old head");
+  assert(!/waitForSelector\(['"`]#restSheet/.test(source), "the tool never waits for the rest sheet");
 });
 
 const measured = {
@@ -177,6 +199,50 @@ try {
       assert.match(paste.stdout, new RegExp(`paste-review ${lang}: ${counts.linked} linked, ${counts.review} to review`));
     }
     assert(!existsSync(join(dir, "paste", pasteFile("en", "light"))), "--spots-only writes no images");
+  });
+
+  const scenes = tool(["--proof", join(dir, "scenes"), "--scenes", "rest,actions,note"]);
+  check("--proof rest,actions,note writes real 780x1688 frames and measures the live hotspots", () => {
+    assert.equal(scenes.status, 0, `${scenes.stdout}\n${scenes.stderr}`);
+    for (const scene of ["rest", "actions", "note"]) for (const lang of LANGS) {
+      const file = join(dir, "scenes", sceneFile(scene, lang));
+      assert(existsSync(file), `${file} missing`);
+      assert.deepEqual(webpSize(readFileSync(file)), { width: 780, height: 1688 });
+    }
+    const spots = JSON.parse(readFileSync(join(dir, "scenes", "landing-proof-spots.json"), "utf8"));
+    assert.deepEqual(Object.keys(spots.scenes), ["rest", "actions", "note"]);
+    assert.deepEqual(Object.keys(spots.scenes.rest), ["dial"]);
+    assert.deepEqual(Object.keys(spots.scenes.actions), ["swap"]);
+    assert.deepEqual(Object.keys(spots.scenes.note), ["text"]);
+    // The inline rest sits in the Focus card's cue slot, near the top of the frame; the retired sheet's dial sat at 54% of it.
+    assert(spots.scenes.rest.dial[1] < 45, `the rest hotspot is the inline clock, not the retired sheet's dial (${spots.scenes.rest.dial})`);
+    for (const box of Object.values(spots.scenes).flatMap((spot) => Object.values(spot))) {
+      assert(box.length === 4 && box.every((value) => value >= 0 && value <= 100));
+    }
+  });
+  const faultRest = tool(["--proof", join(dir, "fault-rest"), "--scenes", "rest", "--fault-retired", "--spots-only"]);
+  check("--fault-retired in the rest scene FAILS: the rest sheet on screen is refused", () => {
+    assert.notEqual(faultRest.status, 0, "a retired element in the frame must fail the capture");
+    assert.match(faultRest.stderr, /rest-en: the frame shows retired UI/);
+    assert.match(faultRest.stderr, /#restSheet/);
+  });
+  const faultPaste = tool(["--proof", join(dir, "fault-paste"), "--scenes", "paste-review", "--fault-retired", "--spots-only"]);
+  check("--fault-retired in the paste-review scene FAILS: the old import-review head is refused", () => {
+    assert.notEqual(faultPaste.status, 0, "a retired element in the frame must fail the capture");
+    assert.match(faultPaste.stderr, /paste-review-en-light: the frame shows retired UI/);
+    assert.match(faultPaste.stderr, /exview-head/);
+  });
+  const pasteImages = tool(["--proof", join(dir, "paste-images"), "--scenes", "paste-review"]);
+  check("paste-review images are 390 CSS px wide at 2x, cropped from the current head through the first row", () => {
+    assert.equal(pasteImages.status, 0, `${pasteImages.stdout}\n${pasteImages.stderr}`);
+    for (const lang of LANGS) {
+      const sizes = PASTE_THEMES.map((theme) => webpSize(readFileSync(join(dir, "paste-images", pasteFile(lang, theme)))));
+      assert(sizes.every((size) => size.width === 780), `${lang}: 780 px wide`);
+      assert.equal(sizes[0].height, sizes[1].height, `${lang}: light and dark are the same crop`);
+      assert(sizes[0].height > 800 && sizes[0].height < 1688, `${lang}: a crop, not the whole frame (${sizes[0].height})`);
+    }
+    const report = JSON.parse(readFileSync(join(dir, "paste-images", "proof-report.json"), "utf8"));
+    assert(Object.keys(report.sizes).every((file) => /^paste-review-(en|pt)-(light|dark)\.webp$/.test(file)));
   });
 } finally {
   rmSync(dir, { recursive: true, force: true });

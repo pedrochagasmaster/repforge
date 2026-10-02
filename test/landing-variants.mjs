@@ -27,7 +27,7 @@
  * cases the final page shows are evaluated here with progression-engine.js and
  * the app's own default settings, and the chart figures (92.5 -> 100 kg over 4
  * sessions, owner decision L-2) are derived with progress-model.js from the exact
- * history the chart image is captured from (tools/landing-prototype/fixture.mjs).
+ * history the chart image was captured from (tools/landing-prototype/fixture.mjs).
  *
  * PART 2 - the final page (always on since the page packet landed). It asserts
  * that each section exists, that the proof has seven steps, that the three
@@ -64,6 +64,7 @@ import {
   waitForFirstRun,
 } from "./shared-setup-flow.mjs";
 import { realisticState } from "../tools/landing-prototype/fixture.mjs";
+import { webpSize } from "../tools/capture-landing-proof.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const FAULT = process.env.REPFORGE_LANDING_VARIANTS_FAULT;
@@ -785,7 +786,9 @@ async function finalPage(browser) {
     const pasteRe = new RegExp(`^${escapeRe(pasteTemplate).replace(/\\\{\w+\\\}/g, ".+")}$`);
     assert(pasteRe.test(pasteAlt), `[${lang}] the import-review alt states this language's own counts (${PASTE_COUNTS[lang].linked} linked, ${PASTE_COUNTS[lang].review} to review)`, pasteAlt);
     const pasteSize = await page.evaluate(() => { const img = document.querySelector('[data-shot="paste-review"]'); return `${img.getAttribute("width")}x${img.getAttribute("height")}`; });
-    assert(pasteSize === (lang === "pt" ? "780x1140" : "780x1162"), `[${lang}] the import-review capture reserves its own ${lang} box`, pasteSize);
+    // The reserved box is the committed capture's own size, read from the file, so a regenerated capture cannot drift from it.
+    const pasteFile = webpSize(readFileSync(new URL(`../assets/brand/paste-review-${lang}-light.webp`, import.meta.url)));
+    assert(pasteSize === `${pasteFile.width}x${pasteFile.height}`, `[${lang}] the import-review capture reserves its own ${lang} box (the committed file's ${pasteFile.width}x${pasteFile.height})`, pasteSize);
 
     // Every capture is referenced with its box so a missing file cannot shift the layout.
     const images = await page.evaluate(() => [...document.querySelectorAll("#firstRun img")].map((img) => ({
