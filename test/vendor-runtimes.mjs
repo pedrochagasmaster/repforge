@@ -164,7 +164,7 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   motion.query.matches = true;
   assert(motion.api.reducedMotion() === true, "a preference change takes effect live");
   motion.query.matches = false;
-  for (const entry of ["settle(", "dismiss(", "settleFocusDeck(", "animateExerciseReorder(", "animateIndicator(", "animateDisclosure(", "animateSlot("]) {
+  for (const entry of ["settle(", "dismiss(", "settleFocusDeck(", "animateExerciseReorder(", "animateIndicator(", "animateCoordinates(", "animateDisclosure(", "animateSlot("]) {
     const body = layer.slice(layer.indexOf(`  ${entry}`) >= 0 ? layer.indexOf(`  ${entry}`) : layer.indexOf(entry));
     assert(/reducedMotion\s*\(\s*\)/.test(body.slice(0, 900)), `${entry} has a reduced-motion alternate`);
   }

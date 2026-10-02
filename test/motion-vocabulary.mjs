@@ -4,7 +4,8 @@
  * `motion-layer.js` is evaluated in a sandbox over a runtime whose clock the
  * test owns, so an interruption can be placed exactly mid-flight. Covered here:
  * `animateIndicator` (travel, retarget from the live transform, reduced motion,
- * no runtime), `animateSlot` (the swap runs once on every path, grow and shrink
+ * no runtime), `animateCoordinates` (the chart's coordinate travel: painted from
+ * the start layout, supersession, reduced motion), `animateSlot` (the swap runs once on every path, grow and shrink
  * pick the right tween, an interrupted run reverses from the live height),
  * `navPush` (critically damped, no overshoot, seedable) and the rule that no
  * spring literal exists at a call site. The browser-side proofs of the same
@@ -174,6 +175,70 @@ await section(async () => {
   assert(result === false && el.style.transform === "", "without the runtime the element simply sits in its new place");
 });
 
+console.log("\nanimateCoordinates");
+/* The Progress chart's scope change (C2): the caller paints, the layer owns the clock. */
+await section(async () => {
+  const t = load();
+  assert(typeof t.api.animateCoordinates === "function", "the layer publishes animateCoordinates");
+  const host = {}, frames = [];
+  const done = t.api.animateCoordinates(host, [0, 100, 40, 60], [100, 100, 40, 20], (values, progress) => frames.push({ values, progress }));
+  const run = t.runs[0];
+  assert(t.runs.length === 1 && run.to === 0 && near(run.target.get(), 100), "one run counts the largest displacement (100) down to zero", String(run.target.get()));
+  assert(JSON.stringify(run.options) === JSON.stringify(t.api.vocabulary.layoutShift), "it travels on the layoutShift entry, not a literal");
+  assert(frames.length === 1 && frames[0].progress === 0 && frames[0].values.join() === "0,100,40,60",
+    "the start layout is painted before it returns, so the end state is never seen first", JSON.stringify(frames[0]));
+  run.target.set(50);
+  const half = frames.at(-1);
+  assert(near(half.progress, 0.5) && half.values.join() === "50,100,40,40", "halfway through the distance every coordinate is halfway", JSON.stringify(half));
+  assert(half.values[1] === 100 && half.values[2] === 40, "a coordinate that does not move stays put");
+  t.arrive(run);
+  assert(await done === true, "it resolves true when it arrives");
+  const last = frames.at(-1);
+  assert(last.progress === 1 && last.values.join() === "100,100,40,20", "the end layout is painted exactly on arrival", JSON.stringify(last));
+});
+await section(async () => {
+  // A second run on the same host supersedes the first, which is never painted again.
+  const t = load();
+  const host = {}, first = [], second = [];
+  const one = t.api.animateCoordinates(host, [0, 0], [100, 0], (v) => first.push(v.slice()));
+  const run1 = t.runs[0];
+  run1.target.set(40);
+  const seen = first.length;
+  const two = t.api.animateCoordinates(host, [60, 0], [0, 0], (v) => second.push(v.slice()));
+  const run2 = t.runs[1];
+  assert(await one === false, "the superseded run reports that it did not arrive");
+  run1.target.set(10);
+  assert(first.length === seen, "and is not painted after it is superseded", `${first.length} vs ${seen}`);
+  assert(second[0].join() === "60,0" && near(run2.target.get(), 60), "the next run starts from the layout the caller hands it", JSON.stringify(second[0]));
+  t.arrive(run2);
+  assert(await two === true && second.at(-1).join() === "0,0", "and arrives on its own end layout");
+});
+await section(async () => {
+  const t = load();
+  const host = {}, paint = () => { throw new Error("painted"); };
+  assert(await t.api.animateCoordinates(host, [0, 0], [0.4, 0], paint) === false && t.runs.length === 0, "a move under one pixel is not animated");
+  assert(await t.api.animateCoordinates(host, [0, 0], [10], paint) === false && t.runs.length === 0, "mismatched layouts are ignored");
+  assert(await t.api.animateCoordinates(host, [NaN], [10], paint) === false && t.runs.length === 0, "an unmeasurable layout is ignored rather than animated from NaN");
+  assert(await t.api.animateCoordinates(null, [0], [10], paint) === false && t.runs.length === 0, "a missing host is ignored");
+  assert(await t.api.animateCoordinates(host, [], [], paint) === false && t.runs.length === 0, "an empty layout is ignored");
+});
+await section(async () => {
+  const t = load();
+  const host = {}, painted = [];
+  t.api.animateCoordinates(host, [0], [100], (v) => painted.push(v.slice()));
+  const run = t.runs[0];
+  t.query.matches = true;
+  const result = await t.api.animateCoordinates(host, [0], [100], (v) => painted.push(v.slice()));
+  assert(result === false && t.runs.length === 1 && painted.length === 1, "under reduced motion no run starts and nothing is painted");
+  assert(run.target.pending === null, "a run already in flight is stopped: the caller's end state stands");
+  t.query.matches = false;
+});
+await section(async () => {
+  const t = load({ withRuntime: false });
+  let painted = 0;
+  assert(await t.api.animateCoordinates({}, [0], [100], () => painted++) === false && painted === 0, "without the runtime nothing is painted and the end state stands");
+});
+
 console.log("\nanimateSlot");
 function slot(natural) {
   const el = {
@@ -271,7 +336,7 @@ await section(async () => {
   for (const file of ["app.js", "program-editor.js", "history-ui.js"]) {
     assert(!/\bstiffness\b|type\s*:\s*["']spring["']/.test(read(file)), `${file} declares no spring`);
   }
-  for (const name of ["animateIndicator", "animateSlot", "trackEdgeSwipe"]) {
+  for (const name of ["animateIndicator", "animateCoordinates", "animateSlot", "trackEdgeSwipe"]) {
     const start = layer.indexOf(`function ${name}(`);
     const body = layer.slice(start, layer.indexOf("\n  }\n", start));
     assert(start > 0 && /VOCABULARY\.\w+/.test(body), `${name} takes its timing from the named vocabulary`);

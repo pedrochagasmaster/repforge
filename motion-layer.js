@@ -318,6 +318,46 @@
     });
   }
 
+  /* Chart coordinate travel (C2): a set of coordinates moving from one layout to
+     another, painted by the caller. The caller owns the drawing (the Progress
+     chart rebuilds its step path from the interpolated points on every frame),
+     this owns the clock. One motion value counts the largest displacement down in
+     pixels, so `layoutShift`'s pixel-scale rest threshold applies, and every
+     coordinate moves by the same eased fraction of its own distance. `host` is
+     the persistent element the run belongs to: a second call while one is in
+     flight supersedes it, and the caller starts the new run from the coordinates
+     it last painted. `paint(values, progress)` is called with the start layout
+     before this returns, on every frame, and with the end layout on arrival; a
+     run that is superseded is never painted again. Without the runtime, or under
+     reduced motion, nothing is painted and the caller's end state stands. */
+  const coordinateRuns = new WeakMap();
+  function animateCoordinates(host, from, to, paint) {
+    const live = host ? coordinateRuns.get(host) : null;
+    if (live) { coordinateRuns.delete(host); live.y.stop(); live.stopPaint(); live.arrived?.abandon(); }
+    if (!available || !host || reducedMotion()) return settled;
+    const numbers = list => Array.isArray(list) && list.every(Number.isFinite);
+    if (!numbers(from) || !numbers(to) || !from.length || from.length !== to.length || typeof paint !== "function") return settled;
+    const distance = from.reduce((far, value, index) => Math.max(far, Math.abs(to[index] - value)), 0);
+    if (!(distance >= 1)) return settled;
+
+    const y = motionValue(distance);
+    const run = { y };
+    coordinateRuns.set(host, run);
+    const frame = value => {
+      const progress = Math.min(1, Math.max(0, 1 - value / distance));
+      paint(from.map((start, index) => start + (to[index] - start) * progress), progress);
+    };
+    run.stopPaint = y.on("change", frame);
+    frame(distance);
+    run.arrived = arrival(animate(y, 0, VOCABULARY.layoutShift), () => coordinateRuns.get(host) === run);
+    return run.arrived.finally(() => {
+      run.stopPaint();
+      if (coordinateRuns.get(host) !== run) return;
+      coordinateRuns.delete(host);
+      paint(to.slice(), 1);
+    });
+  }
+
   const disclosureRuns = new WeakMap();
   const COLLAPSING = "is-collapsing";
   /* The measured-height run shared by a disclosure opening or closing and a slot
@@ -1031,6 +1071,7 @@
     settleFocusDeck,
     animateExerciseReorder,
     animateIndicator,
+    animateCoordinates,
     animateDisclosure,
     animateSlot,
     registerEdgeSwipeBack,

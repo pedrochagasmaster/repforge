@@ -216,8 +216,9 @@ nav button:active{transform:scale(.975)}
 /* ---- Short fixed beats (Plan 064 section 8, rule 11) ----
    Each consumer adds the class from its own render and is named in the
    interaction runtime audit. The Focus shelf's rise and value beats are
-   consumed by app.js (L4, M1) and the slot crossfade by the inline rest (L3);
-   the rest wait for their slice. Every beat is
+   consumed by app.js (L4, M1), the slot crossfade by the inline rest (L3) and
+   the Progress chart (the clip wipe for C1, the same crossfade for a metric
+   change and for the axes of a scope change); the rest wait for their slice. Every beat is
    transform, opacity or clip, finishes inside the budget named here, and has a
    reduced-motion entry below that leaves the end state on the first frame. */
 
@@ -280,7 +281,10 @@ nav button:active{transform:scale(.975)}
   to{opacity:0}
 }
 
-/* A chart line drawing in from the left, or only the segment that was added. */
+/* A chart line drawing in from the left, or only the segment that was added (C1, the Progress
+   exercise chart: `.ch-trace` in `app.js`, which takes the class off when the beat ends). It is
+   a clip on the trace's own stroke box and nothing else; the axes, the cursor and the table are
+   never covered by it. */
 .motion-clip-reveal{
   animation:taurifer-clip-reveal .36s cubic-bezier(.2,.7,.2,1) both;
 }

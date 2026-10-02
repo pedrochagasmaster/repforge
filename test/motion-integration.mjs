@@ -1039,6 +1039,323 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
   await context.close();
 }
 
+/**
+ * Progress motion (Plan 064 R3, owner picks C1, C2 and D4), against the real Motion runtime in the real
+ * Progress tab and exercise chart. The table, the readout and the figures are the accessible alternative
+ * and must be written at once; the plot is what moves. Reduced motion draws every end state on the first frame.
+ */
+const PROGRESS_KEY = "repforge_v1";
+const progressRows = (() => {
+  const mk = (session, date, load) => ({ session, date, day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load, reps: 8, rir: 2, set: 1, work: true });
+  return [mk("h0", "2026-09-05", 50), mk("h1", "2026-09-07", 52.5), mk("b1", "2026-09-14", 55), mk("b2", "2026-09-15", 57.5), mk("b3", "2026-09-16", 60)];
+})();
+
+async function progressPage(browser, { reducedMotion = "no-preference" } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC", reducedMotion });
+  await context.addInitScript(() => {
+    globalThis.__repforgeTestNow = "2026-09-17T12:00:00.000Z";
+    const Native = Date;
+    class Fixed extends Native {
+      constructor(...args) { super(...(args.length ? args : [globalThis.__repforgeTestNow])); }
+      static now() { return new Native(globalThis.__repforgeTestNow).getTime(); }
+    }
+    globalThis.Date = Fixed;
+  });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  const program = [{ id: "pev-1", day: "Day 1", order: 1, name: "Incline chest press", sets: 2, min: 4, max: 8, primary: "Chest", secondary: "Triceps" }];
+  await persistFocusState(page, `
+    s.settings = { ...(s.settings || {}), lang: "en", unit: "kg" };
+    s.program = ${JSON.stringify(program)};
+    s.programMeta = ${JSON.stringify(seedProgramMeta({ id: "progress-motion", started: "2026-09-14" }))};
+    s.programHistory = [];
+    s.log = ${JSON.stringify(progressRows)};`);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate(() => document.querySelector('nav button[data-view="stats"]')?.click());
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+  await page.waitForTimeout(250);
+  return { context, page, errors };
+}
+
+/** Open the lift's chart the way Progress does, and let the opening wipe finish. */
+async function openProgressChart(page, { wait = true } = {}) {
+  await page.evaluate(() => openExerciseView(window.__repforgeProgressEvidence.keyForExerciseId("pev-1"), "stats"));
+  await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 5000 });
+  if (wait) await page.waitForTimeout(550);
+}
+
+/** In-page per-frame samples of whatever `read()` returns, starting from the frame `after` runs in. */
+const PROGRESS_SAMPLER = `
+window.__pm = {
+  rect(el) { if (!el) return null; const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height }; },
+  frames(read, ms, after) {
+    return new Promise((resolve) => {
+      const out = [], t0 = performance.now();
+      const frame = () => {
+        out.push({ t: performance.now() - t0, v: read() });
+        if (performance.now() - t0 < ms) requestAnimationFrame(frame); else resolve(out);
+      };
+      if (after) after();
+      frame();
+    });
+  },
+};
+`;
+
+async function progressMotion(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const { context, page, errors } = await progressPage(browser, { reducedMotion });
+  await page.evaluate(PROGRESS_SAMPLER);
+
+  // ---- C1: the line wipes in on open, and only the new stretch on extension -------
+  phase(`C1: the chart line wipes in on open${tag}`);
+  const c1 = await page.evaluate(async () => {
+    const lineClip = () => { const g = document.querySelector(".exchart__svg .ch-trace"); return g ? { cls: g.getAttribute("class"), clip: getComputedStyle(g).clipPath } : null; };
+    window.openExerciseView(window.__repforgeProgressEvidence.keyForExerciseId("pev-1"), "stats");
+    const first = lineClip();
+    const frames = await window.__pm.frames(lineClip, 520);
+    const svg = document.querySelector(".exchart__svg");
+    return { first, frames, rows: document.querySelectorAll(".exrow").length, readout: !!document.querySelector(".exchart__readout").textContent,
+      axesClipped: !!svg.querySelector(".ch-axes")?.getAttribute("class")?.includes("clip"), cursorClipped: getComputedStyle(svg.querySelector(".ex-cursor")).clipPath };
+  });
+  assert(c1.rows === 3 && c1.readout, "the table and the readout are written at once, whatever the line is doing", JSON.stringify({ rows: c1.rows }));
+  if (reduced) {
+    assert(c1.first && !/motion-clip-reveal/.test(c1.first.cls) && c1.first.clip === "none" && c1.frames.every((f) => f.v && f.v.clip === "none"),
+      "the line is fully drawn on the first frame and nothing wipes", JSON.stringify(c1.first));
+  } else {
+    const right = (clip) => parseFloat((/inset\([^)]*?\s([\d.]+)%/.exec(clip) || [])[1]);
+    const clips = c1.frames.filter((f) => f.v && /motion-clip-reveal/.test(f.v.cls)).map((f) => right(f.v.clip));
+    assert(c1.first && /motion-clip-reveal/.test(c1.first.cls) && right(c1.first.clip) > 90,
+      "on open the line starts fully clipped from the right", JSON.stringify(c1.first));
+    assert(clips.length > 4 && clips.every((v, i) => i === 0 || v <= clips[i - 1] + 0.01) && clips.at(-1) < 5,
+      "the clip opens left to right and nothing else moves", JSON.stringify(clips.filter((_, i) => i % 3 === 0)));
+    const last = c1.frames.at(-1).v || { cls: "", clip: "(no trace)" };
+    assert(!/motion-clip-reveal/.test(last.cls) && last.clip === "none", "afterwards the line is at rest with the beat's class gone", JSON.stringify(last));
+    assert(c1.cursorClipped === "none" && !c1.axesClipped, "the axes and the cursor are never covered by the wipe", JSON.stringify({ cursor: c1.cursorClipped }));
+  }
+  const again = await page.evaluate(async () => {
+    window.render();
+    await new Promise((r) => setTimeout(r, 40));
+    return { reveal: document.querySelectorAll(".motion-clip-reveal").length, ghost: document.querySelectorAll(".exchart__ghost").length };
+  });
+  assert(again.reveal === 0 && again.ghost === 0, "a re-render of the unchanged chart plays nothing", JSON.stringify(again));
+  const pick = await page.evaluate(async () => {
+    document.querySelector('.exrow[data-pt="0"]').click();
+    await new Promise((r) => setTimeout(r, 30));
+    return document.querySelectorAll(".motion-clip-reveal").length;
+  });
+  assert(pick === 0, "choosing a session does not replay the line", String(pick));
+  await page.evaluate(() => document.querySelector('.exrow[data-pt="2"]').click());
+
+  phase(`C1: a session added while the chart is open wipes in only its own stretch${tag}`);
+  const ext = await page.evaluate(async () => {
+    const before = document.querySelectorAll(".exchart__svg .ex-pt").length;
+    const probe = () => [...document.querySelectorAll(".exchart__svg .ch-trace")].map((g) => ({ reveal: g.classList.contains("motion-clip-reveal"), pts: g.querySelectorAll(".ex-pt").length,
+      clip: g.classList.contains("motion-clip-reveal") ? getComputedStyle(g).clipPath : "none" }));
+    state.log.push({ ...state.log.find((r) => r.session === "b3"), session: "b4", date: "2026-09-17", load: 62.5 });
+    window.render();
+    const first = probe();
+    const frames = await window.__pm.frames(probe, 520);
+    return { before, first, frames, rows: document.querySelectorAll(".exrow").length, after: document.querySelectorAll(".exchart__svg .ex-pt").length };
+  });
+  assert(ext.rows === 4 && ext.after === ext.before + 1, "the new session is in the table and on the plot at once", JSON.stringify({ rows: ext.rows, before: ext.before, after: ext.after }));
+  if (reduced) {
+    assert(ext.first.length === 1 && !ext.first[0].reveal, "under reduced motion the extended line is drawn whole on the first frame", JSON.stringify(ext.first));
+  } else {
+    assert(ext.first.length === 2 && !ext.first[0].reveal && ext.first[1].reveal && ext.first[0].pts === ext.before && ext.first[1].pts === 1,
+      "the line up to the last session is at rest and only the new stretch and its point wipe", JSON.stringify(ext.first));
+    const clips = ext.frames.map((f) => f.v.find((g) => g.reveal)?.clip).filter(Boolean);
+    assert(clips.length > 3 && /inset\([^)]*100%/.test(clips[0]), "the new stretch opens from the left", JSON.stringify(clips.filter((_, i) => i % 3 === 0)));
+    assert(ext.frames.at(-1).v.every((g) => !g.reveal), "and is at rest afterwards", JSON.stringify(ext.frames.at(-1).v));
+  }
+  // A comparison control: the same repaint with nothing added plays nothing.
+  const quiet = await page.evaluate(async () => { window.render(); await new Promise((r) => setTimeout(r, 40)); return document.querySelectorAll(".motion-clip-reveal").length; });
+  assert(quiet === 0, "a repaint after the extension plays nothing", String(quiet));
+
+  // ---- C2: a scope change carries the shared sessions; a metric change crossfades --
+  phase(`C2: a scope change carries the sessions both scopes have${tag}`);
+  const geometry = await page.evaluate(() => {
+    const out = {};
+    // The plot's own list of where each session rests, written with the render.
+    for (const scope of ["all-history", "current-block"]) {
+      document.querySelector(`#exDetail [data-scope="${scope}"]`).click();
+      out[scope] = document.querySelector(".exchart__plot").dataset.xs.split(",").map(Number);
+    }
+    return out;
+  });
+  await page.waitForTimeout(500);
+  const shared = geometry["current-block"].length;
+  const offset = geometry["all-history"].length - shared;
+  const toAll = await page.evaluate(async () => {
+    const read = () => ({
+      pts: [...document.querySelectorAll(".exchart__svg .ex-pt")].map((c) => ({ i: c.dataset.i, x: +c.getAttribute("cx"), y: +c.getAttribute("cy"), op: c.getAttribute("opacity") })),
+      lines: [...document.querySelectorAll(".exchart__svg .ch-line")].map((p) => p.getAttribute("d")),
+      ghost: document.querySelectorAll(".exchart__ghost").length,
+    });
+    const tableNow = () => ({ rows: document.querySelectorAll(".exrow").length, fig: document.querySelector(".exchart__figs div:last-child b").textContent, scope: document.querySelector('#exDetail [data-scope="all-history"]').getAttribute("aria-pressed") });
+    let table = null;
+    const frames = await window.__pm.frames(read, 520, () => { document.querySelector('#exDetail [data-scope="all-history"]').click(); table = tableNow(); });
+    return { frames, table, blockRule: !!document.querySelector(".exchart__svg .ch-block"), sel: document.querySelectorAll(".exchart__svg .ex-pt--sel").length };
+  });
+  assert(toAll.table.rows === offset + shared && toAll.table.scope === "true", "the table and the figures change at once", JSON.stringify(toAll.table));
+  if (reduced) {
+    const f0 = toAll.frames[0].v;
+    assert(f0.pts.length === offset + shared && f0.pts.every((p) => !p.op) && f0.ghost === 0 && f0.pts.every((p, i) => Math.abs(p.x - geometry["all-history"][i]) < 0.06),
+      "every session is at its new place on the first frame, nothing fades and nothing is left behind", JSON.stringify(f0.pts));
+  } else {
+    const at = (f, i) => f.v.pts.find((p) => +p.i === i);
+    const track = toAll.frames.map((f) => at(f, offset)?.x).filter((v) => v != null);
+    assert(Math.abs(track[0] - geometry["current-block"][0]) < 12 && Math.abs(track.at(-1) - geometry["all-history"][offset]) < 0.06 && track.some((x) => x > track[0] + 20 && x < track.at(-1) - 20),
+      "a session in both scopes travels from where it was to where it now sits", JSON.stringify(track.filter((_, i) => i % 4 === 0)));
+    const ys = toAll.frames.map((f) => at(f, offset)?.y).filter((v) => v != null);
+    assert(track.length > 3 && ys.every((y) => y <= Math.max(ys[0], ys.at(-1)) + 0.5 && y >= Math.min(ys[0], ys.at(-1)) - 0.5) && track.every((x) => x >= track[0] - 0.5 && x <= track.at(-1) + 0.5),
+      "it moves straight between the two places and does not overshoot", JSON.stringify({ x: track.slice(-5), y: ys.slice(-5) }));
+    const fadeIn = toAll.frames.map((f) => at(f, 0)?.op).filter((v) => v != null).map(Number);
+    assert(fadeIn.length > 3 && fadeIn[0] < 0.2 && fadeIn.every((v, i) => i === 0 || v >= fadeIn[i - 1] - 0.001) && toAll.frames.at(-1).v.pts.every((p) => !p.op),
+      "a session only the new scope has fades in and is at full strength afterwards", JSON.stringify(fadeIn.filter((_, i) => i % 3 === 0)));
+    assert(toAll.frames.every((f) => f.v.lines.every((d) => /^[MHV0-9. -]+$/.test(d))),
+      "the line is rebuilt as a step on every frame, never a slanted run between the sessions", JSON.stringify(toAll.frames[4].v.lines));
+    const end = toAll.frames.at(-1).v;
+    assert(end.lines.length === 1 && end.ghost === 0 && toAll.sel === 1 && toAll.blockRule,
+      "afterwards one line, no copy of the old axes, one selected point and the block rule", JSON.stringify({ lines: end.lines.length, ghost: end.ghost, sel: toAll.sel }));
+    const cross = toAll.frames.some((f) => f.v.ghost === 1);
+    assert(cross, "the axes crossfade while the sessions travel");
+
+    phase("C2: sessions only the old scope has fade out as the rest travel back");
+    const toBlock = await page.evaluate(async () => {
+      const read = () => ({
+        pts: [...document.querySelectorAll(".exchart__svg .ex-pt")].map((c) => ({ i: c.dataset.i ?? null, x: +c.getAttribute("cx"), op: c.getAttribute("opacity") })),
+        lines: document.querySelectorAll(".exchart__svg .ch-line").length,
+      });
+      const frames = await window.__pm.frames(read, 520, () => document.querySelector('#exDetail [data-scope="current-block"]').click());
+      return { frames, end: read() };
+    });
+    const leaving = toBlock.frames.map((f) => f.v.pts.filter((p) => p.i == null).map((p) => (p.op == null ? 1 : Number(p.op)))).filter((o) => o.length);
+    assert(leaving.length > 3 && leaving[0].every((v) => v > 0.8) && leaving.at(-1).every((v) => v < 0.2),
+      "the sessions that leave fade out in place", JSON.stringify(leaving.filter((_, i) => i % 4 === 0)));
+    assert(toBlock.end.pts.length === shared && toBlock.end.pts.every((p) => p.i != null && !p.op) && toBlock.end.lines === 1,
+      "and only the block's sessions are left, drawn at rest", JSON.stringify(toBlock.end));
+    const mid = await page.evaluate(async () => {
+      const x = () => +document.querySelector('.exchart__svg .ex-pt[data-i="0"]')?.getAttribute("cx");
+      document.querySelector('#exDetail [data-scope="all-history"]').click();
+      await new Promise((r) => setTimeout(r, 60));
+      document.querySelector('#exDetail [data-scope="current-block"]').click();
+      // The block's first session is drawn where it was in the air, not snapped to where it will rest.
+      const restart = x();
+      await new Promise((r) => setTimeout(r, 560));
+      return { restart, end: x() };
+    });
+    assert(mid.restart > geometry["current-block"][0] + 5 && Math.abs(mid.end - geometry["current-block"][0]) < 0.06,
+      "a second change mid-flight carries on from where the sessions are drawn and ends at rest", JSON.stringify(mid));
+  }
+
+  phase(`C2: a metric change crossfades and never travels${tag}`);
+  await page.evaluate(() => document.querySelector('#exDetail [data-scope="current-block"]').click());
+  await page.waitForTimeout(560);
+  const metric = await page.evaluate(async () => {
+    const read = () => {
+      const svg = document.querySelector(".exchart__svg"), ghost = document.querySelector(".exchart__ghost");
+      const sel = svg.querySelector(".ex-pt--sel");
+      return { ghost: !!ghost, ghostOp: ghost ? +getComputedStyle(ghost).opacity : null, newOp: +getComputedStyle(svg).opacity, y: +sel.getAttribute("cy"), x: +sel.getAttribute("cx"),
+        n: svg.querySelectorAll(".ex-pt").length };
+    };
+    const before = { ...read(), fig: document.querySelector(".exchart__figs div b").textContent };
+    let table = null;
+    const frames = await window.__pm.frames(read, 400, () => { document.querySelector('#exDetail [data-metric="e1rm"]').click(); table = document.querySelector(".exchart__figs div b").textContent; });
+    return { before, frames, table, liveGhosts: document.querySelectorAll(".exchart__ghost").length, ticksInGhost: document.querySelectorAll(".exchart__svg .ex-tick").length };
+  });
+  assert(metric.table && metric.table !== metric.before.fig, "the figures change at once", JSON.stringify({ now: metric.table, before: metric.before.fig }));
+  const ys = metric.frames.map((f) => f.v.y);
+  assert(ys.every((y) => Math.abs(y - ys[0]) < 0.06) && metric.frames.every((f) => Math.abs(f.v.x - metric.before.x) < 0.06),
+    "no point travels: the new metric is drawn where it belongs from the first frame", JSON.stringify(ys.filter((_, i) => i % 5 === 0)));
+  if (reduced) {
+    assert(metric.frames.every((f) => !f.v.ghost && f.v.newOp === 1), "under reduced motion the new metric replaces the old on the first frame");
+  } else {
+    const both = metric.frames.filter((f) => f.v.ghost);
+    assert(both.length > 3 && both[0].v.newOp < 0.5 && both[0].v.ghostOp > 0.5 && both.at(-1).v.newOp > 0.5 && both.at(-1).v.ghostOp < 0.5,
+      "the old drawing fades out as the new one fades in", JSON.stringify(both.filter((_, i) => i % 3 === 0).map((f) => [f.v.newOp, f.v.ghostOp])));
+    const last = metric.frames.at(-1).v;
+    assert(!last.ghost && last.newOp === 1 && metric.liveGhosts === 0, "afterwards only the new drawing is left, at full strength", JSON.stringify(last));
+  }
+
+  // ---- D4: the marker snaps to the nearest session and travels --------------------
+  phase(`D4: the chart marker snaps to a session and travels there${tag}`);
+  await page.evaluate(() => document.querySelector('#exDetail [data-metric="top"]').click());
+  await page.waitForTimeout(560);
+  const d4 = await page.evaluate(async () => {
+    const selRect = () => window.__pm.rect(document.querySelector(".exchart__svg .ex-pt--sel"));
+    const start = selRect();
+    let now = null;
+    const frames = await window.__pm.frames(() => ({ dot: window.__pm.rect(document.querySelector(".exchart__marker")), line: window.__pm.rect(document.querySelector(".exchart__scrub")) }), 480, () => {
+      document.querySelector('.exrow[data-pt="0"]').click();
+      now = { readout: document.querySelector(".exchart__readout").textContent, pressed: document.querySelector('.exrow[data-pt="0"]').getAttribute("aria-pressed"),
+        sel: document.querySelector(".exchart__svg .ex-pt--sel")?.dataset.i, cursor: document.querySelector(".exchart__svg .ex-cursor")?.getAttribute("x1"),
+        pt0: document.querySelector('.exchart__svg .ex-pt[data-i="0"]')?.getAttribute("cx"), r: document.querySelector(".exchart__svg .ex-pt--sel").getAttribute("r"),
+        hidden: getComputedStyle(document.querySelector(".exchart__svg .ex-pt--sel")).visibility };
+    });
+    return { start, now, frames, dest: selRect(), left: document.querySelectorAll(".exchart__marker,.exchart__scrub").length,
+      visible: getComputedStyle(document.querySelector(".exchart__svg .ex-pt--sel")).visibility, plotCls: document.querySelector(".exchart__plot").className };
+  });
+  assert(/Sep 14/.test(d4.now.readout) && d4.now.pressed === "true" && d4.now.sel === "0" && d4.now.cursor === d4.now.pt0 && d4.now.r === "5",
+    "the readout, the table row, the selected point and the cursor are the new session's in the same tick", JSON.stringify(d4.now));
+  if (reduced) {
+    assert(d4.frames.every((f) => !f.v.dot && !f.v.line) && d4.now.hidden === "visible",
+      "under reduced motion the marker is on the new session on the first frame and nothing travels", JSON.stringify(d4.now));
+  } else {
+    const seen = d4.frames.filter((f) => f.v.dot);
+    const lefts = seen.map((f) => f.v.dot.left);
+    assert(d4.now.hidden === "hidden" && seen.length > 3 && Math.abs(lefts[0] - d4.start.left) < 14,
+      "the marker starts on the session it left, with the destination's own point set aside", JSON.stringify({ first: lefts[0], start: d4.start.left, hidden: d4.now.hidden }));
+    assert(lefts.some((l) => l < d4.start.left - 40 && l > d4.dest.left + 40) && Math.abs(lefts.at(-1) - d4.dest.left) < 12,
+      "it passes between the two sessions and arrives on the chosen one", JSON.stringify(lefts.filter((_, i) => i % 3 === 0)));
+    assert(lefts.length > 3 && lefts.every((l, i) => i === 0 || l <= lefts[i - 1] + 0.01) && lefts.every((l) => l >= d4.dest.left - 1.5),
+      "it only ever moves toward the session: no overshoot and no inertia carrying it past", JSON.stringify(lefts.slice(-6)));
+    const dur = seen.at(-1)?.t ?? 0;
+    assert(dur > 40 && dur < 420, "the travel is a short spring", String(dur));
+    assert(seen.length > 3 && seen.every((f) => f.v.line && Math.abs(f.v.line.left + 0.5 - (f.v.dot.left + f.v.dot.width / 2)) < 1.6),
+      "the cursor line travels with the marker", JSON.stringify(seen.slice(0, 3)));
+    assert(d4.left === 0 && d4.visible === "visible" && !/is-marker-travel/.test(d4.plotCls),
+      "afterwards the travelling marker is gone and the selected point is drawn by the plot", JSON.stringify({ left: d4.left, visible: d4.visible, cls: d4.plotCls }));
+
+    const scrub = await page.evaluate(async () => {
+      const read = (el) => (el ? +el.getBoundingClientRect().left.toFixed(1) : null);
+      document.querySelector('.exrow[data-pt="2"]').click();
+      await new Promise((r) => setTimeout(r, 50));
+      const live = read(document.querySelector(".exchart__marker"));
+      document.querySelector('.exrow[data-pt="1"]').click();
+      const restart = read(document.querySelector(".exchart__marker"));
+      const one = document.querySelectorAll(".exchart__marker").length;
+      await new Promise((r) => setTimeout(r, 520));
+      return { live, restart, one, left: document.querySelectorAll(".exchart__marker").length, sel: document.querySelector(".exchart__svg .ex-pt--sel").dataset.i };
+    });
+    assert(scrub.live != null && Math.abs(scrub.restart - scrub.live) < 3 && scrub.one === 1 && scrub.left === 0 && scrub.sel === "1",
+      "a second snap mid-flight carries on from where the marker is drawn", JSON.stringify(scrub));
+
+    const drag = await page.evaluate(() => { const p = document.querySelector(".exchart__plot").getBoundingClientRect(); return { l: p.left, t: p.top, w: p.width, h: p.height }; });
+    await page.mouse.move(drag.l + 20, drag.t + drag.h / 2);
+    await page.mouse.down();
+    const picked = new Set();
+    for (let x = 20; x < drag.w - 10; x += 14) {
+      await page.mouse.move(drag.l + x, drag.t + drag.h / 2);
+      picked.add(await page.evaluate(() => document.querySelector(".exchart__svg .ex-pt--sel").dataset.i));
+      await page.waitForTimeout(14);
+    }
+    const during = await page.evaluate(() => ({ marker: document.querySelectorAll(".exchart__marker").length, readout: document.querySelector(".exchart__readout").textContent,
+      sel: document.querySelector(".exchart__svg .ex-pt--sel").dataset.i, row: document.querySelector('.exrow[aria-pressed="true"]').dataset.pt }));
+    await page.mouse.up();
+    await page.waitForTimeout(520);
+    assert(picked.size >= 3 && during.sel === during.row, "dragging across the plot snaps to each session in turn, the table agreeing at every step", JSON.stringify({ picked: [...picked], during }));
+    assert((await page.evaluate(() => document.querySelectorAll(".exchart__marker,.exchart__scrub").length)) === 0, "and leaves no marker behind");
+  }
+  assert(errors.length === 0, `no page errors in the Progress run${tag}`, errors.join(" | "));
+  await context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
 
@@ -1412,6 +1729,8 @@ async function run() {
   await focusMotion(browser, { reducedMotion: "reduce" });
   await restMotion(browser);
   await restMotion(browser, { reducedMotion: "reduce" });
+  await progressMotion(browser);
+  await progressMotion(browser, { reducedMotion: "reduce" });
 
   await retryBannerMotion(browser);
   await retryBannerMotion(browser, { reducedMotion: "reduce" });

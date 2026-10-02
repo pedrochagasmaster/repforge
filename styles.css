@@ -4076,18 +4076,26 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
-.exchart__plot{margin-top:var(--space-18);touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none}
-.exchart__svg{display:block;width:100%;height:auto}
-.exchart__svg .ch-grid{stroke:var(--boundary-decorative);stroke-width:1}
-.exchart__svg .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-regular)}
-.exchart__svg .ch-ax--l{font-family:var(--font-language)}
-.exchart__svg .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
-.exchart__svg .ch-line{fill:none;stroke:var(--color-ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
-.exchart__svg .ex-cursor{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:2 3}
-.exchart__svg .ex-pt{fill:var(--bg);stroke:var(--color-ink);stroke-width:1.5}
-.exchart__svg .ex-pt--old{stroke:var(--color-ink-secondary)}
-.exchart__svg .ex-pt--sel{fill:var(--color-ink)}
-.exchart__svg .ex-tick{fill:var(--color-ink)}
+.exchart__plot{position:relative;margin-top:var(--space-18);touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none}
+.exchart__svg,.exchart__ghost{display:block;width:100%;height:auto}
+.exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1}
+.exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-regular)}
+.exchart__svg .ch-ax--l,.exchart__ghost .ch-ax--l{font-family:var(--font-language)}
+.exchart__svg .ch-block,.exchart__ghost .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
+.exchart__svg .ch-line,.exchart__ghost .ch-line{fill:none;stroke:var(--color-ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.exchart__svg .ex-cursor,.exchart__ghost .ex-cursor{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:2 3}
+.exchart__svg .ex-pt,.exchart__ghost .ex-pt{fill:var(--bg);stroke:var(--color-ink);stroke-width:1.5}
+.exchart__svg .ex-pt--old,.exchart__ghost .ex-pt--old{stroke:var(--color-ink-secondary)}
+.exchart__svg .ex-pt--sel,.exchart__ghost .ex-pt--sel{fill:var(--color-ink)}
+.exchart__svg .ex-tick,.exchart__ghost .ex-tick{fill:var(--color-ink)}
+/* D4: the selected-session marker in flight. Drawn by app.js only while `animateIndicator` carries
+   it: a dot the size of the selected point and a dashed line the height of the cursor, over the plot.
+   Both are inert; the destination's own point and cursor are set aside until the marker arrives, so
+   there is one marker on screen. */
+.exchart__marker,.exchart__scrub{position:absolute;z-index:1;pointer-events:none;box-sizing:border-box}
+.exchart__marker{border-radius:var(--radius-round);background:var(--color-ink)}
+.exchart__scrub{background:repeating-linear-gradient(to bottom,var(--boundary-required) 0 2px,transparent 2px 5px)}
+.exchart__plot.is-marker-travel .ex-pt--sel,.exchart__plot.is-marker-travel .ex-cursor{visibility:hidden}
 .exchart__readout{
   min-height:22px;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-standard);color:var(--color-ink);
