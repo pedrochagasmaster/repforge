@@ -17,6 +17,9 @@ async function freshPage() {
   const page = await context.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto(base, { waitUntil: "domcontentloaded" });
+  // The empty first boot persists its own first-run state; seeding before it
+  // finishes lets that write land over the seeded program.
+  await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
   await page.evaluate(async () => {
     const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
     for (const reg of regs) await reg.unregister();
