@@ -90,7 +90,7 @@ they do not create new roles.
 | First-run headline | `.firstrun .firstrun-hero__title` | landing headline type |
 | First-run climax data | `.firstrun-pull--climax .firstrun-pull__value` | landing Mono data type |
 | Saved-session hero | `.sum-hero` | summary hero type |
-| Responsive rest clock | `.restdial__clock` | rest clock type |
+| Responsive rest clock | `.restinline__clock` | rest clock type |
 
 The two creation buttons share one `landing-accent-primary` recipe. Both open
 the same main creation route without saving a program. `#firstRunSharedStart`
@@ -217,7 +217,7 @@ must not masquerade as a selected exercise.
 (`block-to-date`) with the selected scope. Every listed indicator carries
 `data-progress-dimension` and `data-progress-scope` on the rendered element.
 The adjacent copy supplies the accessible value. A rest countdown is temporal
-status. The completed-volume comparison bar is a relative data visualization
+status (the inline rest's drain bar, `.restinline__fill`). The completed-volume comparison bar is a relative data visualization
 with no goal denominator. These two have selector-exact exclusions from the
 four-dimensional checker. The old `#volume` Program distribution bar has no
 reachable catalog state: its host is hidden outside installed edit mode, and
@@ -251,8 +251,9 @@ Line heights are tight 1.1, standard 1.4, reading 1.55; weights are 400, 500,
 contextual variants protect established hierarchy: the Plan 054 first-run
 headline (38px, 52px wide), its Mono climax data (`min(68px,16vw)`, then
 `min(88px,7.5vw)` wide), the Plan 057 summary hero (34px), and the responsive
-Mono rest clock (`clamp(32px,10vw,42px)`). Their selectors and catalog owners
-are in the inventory; no other surface inherits them by visual resemblance.
+Mono rest clock (`clamp(2rem,10cqi,2.625rem)` since the Plan 064 R3f amendment
+below). Their selectors and catalog owners are in the inventory; no other surface
+inherits them by visual resemblance.
 Text glyphs used as control icons use `--control-icon-size` within the common
 44px target; their glyph size is independent of the action label's type role.
 P4 maps old sizes to the roles above by the named content job and checks 200%
@@ -360,7 +361,7 @@ non-text boundaries, icons, state marks, and focus at 3:1. An unresolved image,
 gradient, opacity, or glass background is `unsupported`, not a pass.
 
 The inventory marks choice outlines/fills, field extents, selected tabs/nav,
-progress segments, and the rest arc as `required`. Their visual state must
+progress segments, and the rest drain bar as `required`. Their visual state must
 reach the non-text threshold where it supplies the affordance or value.
 Read-only row separators, the block-review prose container, relative comparison
 tracks with explicit values, and Safari teaching artwork are `decorative`.
@@ -378,7 +379,7 @@ selectors. None is a subtree waiver.
 | `.settings-identity__mark` | Brand artwork's paper and small shadow, not elevated Settings content | `settings/main`, `settings/appearance`, `settings/guides`, `settings/guides-replay`, `settings/privacy` |
 | `.firstrun__logo` | Ground-free mark's dark paper plate | `onboarding-start/first-run`, `onboarding-shared/preview`, `onboarding-shared/gate`, `onboarding-shared/invalid` |
 | `.exdet-art` | Licensed illustration's sampled `mediaBg` and reviewed fallback paper | `library/exercise-preview`, `library/exercise-detail` |
-| `#restSheet .restdial__arc` | Rest countdown status, not workflow progress | `workout/rest-timer` |
+| `.restinline__fill` | Rest countdown status (the inline drain bar), not workflow progress | `workout/rest-running` |
 | `#completedVolume .vrow__bar` | Relative completed-muscle comparison, no target | `progress/volume`, `progress/overview`, `progress/overview-action`, `progress/overview-baseline`, `progress/exercise-chart` |
 | `.safaribar__side` | Decorative Safari teaching artwork, not a live control | `install/ios-sheet`, `install/transfer-ready` |
 
@@ -564,12 +565,11 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   without "focal exercise". Pending: the shipped `.focus-ex__name` moves in
   R3c.
 - **Rest clock (OG-4, C-02).** The responsive rest clock variant adopts
-  `clamp(2rem,10cqi,2.625rem)`. **Pending implementation in R3f.** R1b does not
-  change `--font-size-rest-clock` or any existing rule: the shipped value is
-  still `clamp(2rem,10vw,2.625rem)`, and changing it would change rest frames
-  at 200% text. In the app `:root` is already the size container, so `10cqi`
-  and `10vw` resolve to the same length on a phone to within a scrollbar width.
-  The inline rest clock joins this variant when R3f gives it a selector.
+  `clamp(2rem,10cqi,2.625rem)`. **Implemented in R3f (2026-10-02)**, see "Inline
+  rest (R3f, 2026-10-02)" below. R1b did not change `--font-size-rest-clock` or
+  any existing rule; R3f changes the token once, where it is defined. In the app
+  `:root` is already the size container, so `10cqi` and `10vw` resolve to the
+  same length on a phone to within a scrollbar width.
 
 ### Approved without an addition
 
@@ -577,10 +577,10 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   first baseline) need no contract addition; R1a's components stand.
 - Inline rest (job 3) follows from Direction D's ratified inline rest: the
   inline clock joins the rest-clock variant, and the inline drain bar gets a
-  selector-exact temporal-status exception like `#restSheet .restdial__arc`
-  (it measures 3.05:1 in light and 4.80:1 in dark against its `--rule` track).
-  **Pending in R3f**, which chooses the selectors; the drain bar must not match
-  a progress candidate selector.
+  selector-exact temporal-status exception like the retired
+  `#restSheet .restdial__arc` (it measures 3.05:1 in light and 4.80:1 in dark
+  against its `--rule` track). **Implemented in R3f (2026-10-02)**; the drain
+  bar does not match a progress candidate selector.
 - Proposals 3, 4 and 5 (exercise-complete shelf, invalid-set reason string,
   overrun after Skip) change no role, tier or radius. Proposal 3 goes to an
   OG-6 drawing round before R3c builds it. The `body-small` reason beside the
@@ -590,6 +590,54 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   selector-exact exception (only if it paints the sampled paper), the frequency
   bars' progress classification (R3j), and the role of the cue line that
   returns after rest, which these owner records do not decide.
+
+### Inline rest (R3f, 2026-10-02)
+
+Plan 064 R3f builds Direction D's inline rest (D spec section 4.2, owner gate
+OG-4 job 3) and retires the `rest-timer` sheet (C-07). The authority is the OG-4
+record on PR #295 (the rest clock proposal C-02 and overrun after Skip,
+proposal 5, both accepted) and the approved L3 motion amendment
+(`docs/design/motion-rule-11-amendment.md`). No role, tier, radius or elevation
+is added; every value below is an existing token.
+
+- **C-02, the rest clock.** `--font-size-rest-clock` changes from
+  `clamp(2rem,10vw,2.625rem)` to `clamp(2rem,10cqi,2.625rem)`, Direction D's
+  value, in the one place it is defined. The "Responsive rest clock" variant
+  stays selector-exact and its selector is now `.restinline__clock` alone: the
+  dial's `.restdial__clock` retires with the sheet, and nothing else inherits the
+  variant by visual resemblance. The role (rest clock type, Mono, `line-height`
+  tight) is unchanged; at 360 px the clock is 36px.
+- **The drain bar.** `.restinline__fill` (`--accent` on the `--rule` track of
+  `.restinline__bar`, 4px, `--radius-compact`, driven by `transform: scaleX`) is
+  a selector-exact countdown exception with the arc's rationale: it measures time
+  left in this rest, so assigning block, week, exercise-set or task would falsify
+  its denominator. Boundary `required`: it measures 3.05:1 (light) and 4.80:1
+  (dark) against its track and 3.57:1 and 6.33:1 against `--bg`. It is not a
+  progress candidate selector and declares no `data-progress-*`. It is the one
+  orange mark a running timer is allowed (D spec section 8.8).
+- **The rest pads.** The shelf's pad row is `-30s`, `Pausar`/`Retomar`, `+30s`,
+  `Pular` while a rest runs. `.restpad--adjust` (the two nudges) is
+  `adjustment`, `.restpad--toggle` is `selection` on the shelf's field ground and
+  `.restpad--skip` is `secondary`, as `#restMinus`/`#restPlus`, the retired
+  `#restPlayPause` and `#restStop` were in the sheet. They are 56px text pads, not
+  the 44px icon steppers, so they do not take the "Rapid workout stepper" variant
+  and carry no variant of their own. Four labels do not fit one row once the root
+  font is above 16px, and a second row would push the shelf's action below the
+  safe area at 320px with double-size text (`test/focus-geometry.mjs`), so at
+  large text the field pads stay while a rest runs and the rest controls are the
+  presets sheet's. Pending an owner call: the clock and the next cue stay inline.
+- **Overrun.** Past the bell, and after Pular, the line reads "Descanso
+  concluído · +0:15" on `subtitle` in `--ink-soft` (5.11:1 and 7.78:1 on `--bg`),
+  not the warning colour (decision 14). The header timer keeps the existing
+  overtime treatment.
+- **Retired with the sheet.** `#restPlayPause`, `#restSheetClock`,
+  `#restDialArc`, `.restdial`, `.restdial__arc`, `.restdial__clock`, their rows,
+  the `#restSheet .restdial__arc` exception, the `.restdial__arc` progress
+  candidate selector and the `workout/rest-timer` and `workout/rest-timer-paused`
+  catalog states. The presets sheet (`#restSheet`, `modal`) stays with its
+  presets, `-30s`, `+30s`, Restart and End; no catalog state captures it open, so
+  its rows are source-only (the calendar sheet's precedent), pending an OG-6
+  drawing round for an open-sheet frame.
 
 ### Landing bands (OG-3)
 

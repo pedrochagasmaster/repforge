@@ -22,7 +22,7 @@ import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
-const REST_ARC_BOUNDARY = requiredBoundaryExceptionRequests(loadRoleInventory().exceptions, "workout/rest-timer");
+const REST_BAR_BOUNDARY = requiredBoundaryExceptionRequests(loadRoleInventory().exceptions, "workout/rest-running");
 
 const results = { passed: 0, failed: 0 };
 function assert(cond, name, detail) {
@@ -158,6 +158,15 @@ async function logSets(page, n, { load = 100, reps = 4 } = {}) {
     done++;
   }
   return done;
+}
+
+/** The cue slot and the pad row cross over for one 160ms beat; measure them once it has passed. */
+const fadesDone = (page) => page.waitForFunction(() => !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 3000 });
+
+/** A logged set arms a rest, and the rest takes the cue slot. Read the cue itself once the lifter has ended it. */
+async function endRest(page) {
+  await page.evaluate(() => window.stopRest());
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest !== "running");
 }
 
 const cardState = (page) =>
@@ -313,6 +322,10 @@ async function main() {
   await enterFocus(page, 0);
   const shelfBefore = (await cardState(page)).shelfHeight;
   await logSets(page, 2);
+  // The second set armed a rest; its next-set line says the same hold the cue does once the rest is over.
+  const restLine = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restinline__next")?.textContent?.replace(/\s+/g, " ").trim());
+  assert(/^Set 3: hold 100 kg, aim for \d+ reps$/.test(restLine || ""), "the rest's next-set line repeats the load just logged as a hold", restLine);
+  await endRest(page);
   st = await cardState(page);
   assert(st.logged === 2 && st.rows === 5, "two logged sets read back in the ledger and every set keeps its row", JSON.stringify(st));
   // Two sets at the same load: the next set holds that load, so the cue draws the ink "=".
@@ -428,31 +441,219 @@ async function main() {
   assert(sh.pressed.join() === "false,true,false" && sh.editing.length === 0,
     "choosing another field closes the input and returns to its button", JSON.stringify(sh));
 
-  // ---- 07 — rest lives in the workout chrome ---------------------------------
-  phase("State 07: active rest timer in the workout chrome");
-  // Logging a set arms rest on its own; the header chip is where it reads.
-  const rest = await page.evaluate(() => {
+  // ---- 07 — rest runs inline, in the cue slot -------------------------------
+  phase("State 07: the rest runs inline in the cue slot");
+  // Arm a rest of a known length so the start, the clock and the bar are read from the beginning.
+  await page.evaluate(() => window.startRest());
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest === "running" &&
+    document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "rest");
+  await fadesDone(page);
+  // The start is announced two frames after the rest begins.
+  await page.waitForFunction(() => /^Rest started: /.test(document.querySelector("#restAnnounce")?.textContent || ""), undefined, { timeout: 3000 });
+  // Logging a set arms rest on its own. The clock takes the cue slot, the next set's cue sits under it, the rest
+  // controls take the shelf's pad row, and the header chip counts too.
+  const inlineProbe = () => page.evaluate(() => {
     const chip = document.querySelector("#woRest");
     const card = document.querySelector("#workout .exercise.is-current");
-    const cta = card.querySelector(".focus-shelf .btn--cta").getBoundingClientRect();
-    const chipBox = chip.getBoundingClientRect();
+    const slot = card.querySelector(".fx-slot");
+    const cta = card.querySelector(".focus-shelf .btn--cta");
+    const box = (el) => el.getBoundingClientRect();
+    const px = (el, prop) => (el ? Number.parseFloat(getComputedStyle(el)[prop]) : null);
+    const clock = card.querySelector("[data-rest-clock]");
+    const fill = card.querySelector("[data-rest-fill]");
+    const pads = [...card.querySelectorAll(".shelf__pads .restpad")];
     return {
-      running: chip.classList.contains("is-running"),
-      time: chip.querySelector(".wo-rest__time")?.textContent?.trim() || "",
-      label: chip.getAttribute("aria-label") || "",
-      coversCta: chipBox.bottom > cta.top && chipBox.top < cta.bottom,
-      inCard: card.querySelectorAll("[data-rest]").length,
+      chipRunning: chip.classList.contains("is-running"),
+      chipTime: chip.querySelector(".wo-rest__time")?.textContent?.trim() || "",
+      chipLabel: chip.getAttribute("aria-label") || "",
+      chipTap: Math.round(Math.min(box(chip).width, box(chip).height)),
+      mode: slot?.dataset.rest,
+      role: slot?.querySelector(".restinline")?.getAttribute("role"),
+      label: slot?.querySelector(".restinline__label")?.textContent?.trim() || "",
+      clock: clock?.textContent?.trim() || "",
+      of: card.querySelector("[data-rest-of]")?.textContent?.trim() || "",
+      next: card.querySelector(".restinline__next")?.textContent?.replace(/\s+/g, " ").trim() || "",
+      nextSize: px(card.querySelector(".restinline__next"), "fontSize"),
+      nextVals: [...card.querySelectorAll(".restinline__next .restinline__val")].map((el) => getComputedStyle(el).fontFamily.includes("Mono")),
+      why: card.querySelector(".restinline__why")?.textContent?.trim() || "",
+      whyOpens: card.querySelector(".restinline__why")?.getAttribute("data-why") || "",
+      clockSize: px(clock, "fontSize"),
+      barHeight: fill ? Math.round(box(fill.parentElement).height) : null,
+      barRadius: fill ? getComputedStyle(fill.parentElement).borderTopLeftRadius : null,
+      barScale: fill ? new DOMMatrix(getComputedStyle(fill).transform).a : null,
+      cueGone: !card.querySelector(".fx-slot .fx-cue"),
+      padsMode: card.querySelector(".shelf__pads")?.dataset.pads,
+      padLabels: pads.map((b) => b.textContent.trim()),
+      padSizes: pads.map((b) => [Math.round(box(b).width), Math.round(box(b).height)]),
+      padFits: pads.every((b) => b.scrollWidth <= b.clientWidth + 1),
+      fieldPads: card.querySelectorAll(".shelf__pad").length,
+      ctaEnabled: !cta.disabled,
+      slotAboveShelf: box(slot).bottom <= box(cta).top,
       floating: getComputedStyle(document.querySelector("#restBar")).display,
-      tap: Math.round(Math.min(chipBox.width, chipBox.height)),
+      live: document.querySelector("#restAnnounce")?.textContent || "",
     };
   });
-  assert(rest.running && /^\d+:\d\d$/.test(rest.time), "the chip counts down", JSON.stringify(rest));
-  assert(!rest.coversCta && rest.inCard === 0 && rest.floating === "none",
-    "rest never covers the card's controls and leaves the card alone", JSON.stringify(rest));
-  assert(/\d+:\d\d/.test(rest.label) && rest.tap >= 44,
-    "the chip is named and at least 44px", JSON.stringify(rest));
-  // Tapping a running clock opens the timer sheet; ending the rest is a
-  // deliberate choice inside it, never the side effect of a stray tap.
+  const rest = await inlineProbe();
+  assert(rest.chipRunning && /^\d+:\d\d$/.test(rest.chipTime), "the header chip counts down", JSON.stringify(rest));
+  assert(rest.mode === "running" && rest.role === "timer" && rest.label === "Rest" && /^\d+:\d\d$/.test(rest.clock) && /^of \d+:\d\d$/.test(rest.of),
+    "the clock takes the cue slot as a timer: Rest, the time left and \"of\" its length", JSON.stringify(rest));
+  assert(rest.cueGone && /^Set \d+: (hold|go up to|drop to) [\d.,]+ kg, aim for \d+ reps$/.test(rest.next) && rest.nextSize === 18 &&
+    rest.nextVals.length === 2 && rest.nextVals.every(Boolean) && rest.why === "Why?" && rest.whyOpens.length > 0,
+  "the next set's cue replaces the 24px line at 18px with Mono figures and a Why? link", JSON.stringify(rest));
+  assert(rest.barHeight === 4 && rest.barRadius === "4px" && rest.barScale > 0.9 && rest.barScale <= 1,
+    "the drain bar is a 4px track filled by a scaleX transform", JSON.stringify(rest));
+  assert(rest.clockSize >= 32 && rest.clockSize <= 42,
+    "the clock is on the responsive rest-clock role", JSON.stringify(rest));
+  assert(rest.padsMode === "rest" && rest.padLabels.join("|") === "-30s|Pause|+30s|Skip" && rest.fieldPads === 0 &&
+    rest.padSizes.every(([w, h]) => w >= 44 && h >= 44) && rest.padFits,
+  "the pad row becomes -30s, Pause, +30s, Skip while the rest runs, each pad at least 44px and in its box", JSON.stringify(rest));
+  assert(rest.ctaEnabled && rest.slotAboveShelf && rest.floating === "none",
+    "logging stays enabled and the clock never covers the shelf's action", JSON.stringify(rest));
+  assert(/\d+:\d\d/.test(rest.chipLabel) && rest.chipTap >= 44, "the chip is named and at least 44px", JSON.stringify(rest));
+  assert(/^Rest started: \d+:\d\d\.$/.test(rest.live), "the live region announced the start of the rest", rest.live);
+  // The live region says the start and the end, never every second.
+  const liveChanges = await page.evaluate(() => new Promise((resolve) => {
+    let changes = 0;
+    const observer = new MutationObserver(() => { changes++; });
+    observer.observe(document.querySelector("#restAnnounce"), { childList: true, characterData: true, subtree: true });
+    setTimeout(() => { observer.disconnect(); resolve(changes); }, 2300);
+  }));
+  assert(liveChanges === 0, "the live region stays silent while the clock runs", String(liveChanges));
+  const clockMoved = await page.evaluate(() => document.querySelector("#workout .exercise.is-current [data-rest-clock]").textContent.trim());
+  assert(clockMoved !== rest.clock, "the inline clock follows the one timer second by second", `${rest.clock} -> ${clockMoved}`);
+  // The next-cue Why link opens the in-session Why.
+  await page.click("#workout .exercise.is-current .restinline__why");
+  await page.waitForSelector("#whySheet.is-open");
+  assert(await page.evaluate(() => !!document.querySelector("#whyBody .whysheet__block")), "the Why? link opens the Why sheet from the rest line");
+  await page.click("#whyClose");
+  await page.waitForFunction(() => document.querySelector("#whySheet")?.hidden === true, undefined, { timeout: 4000 });
+
+  const inlineAppearance = () => page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const resolve = (value, host = document.body) => {
+      const probe = document.createElement("span");
+      probe.style.color = value.trim();
+      host.append(probe);
+      const resolved = getComputedStyle(probe).color;
+      probe.remove();
+      return resolved;
+    };
+    const card = document.querySelector("#workout .exercise.is-current");
+    const shelf = card.querySelector(".focus-shelf");
+    const style = (selector, property) => {
+      const node = card.querySelector(selector);
+      return node ? getComputedStyle(node)[property] : "";
+    };
+    const token = (name, host) => resolve(`var(${name})`, host);
+    return {
+      fill: style(".restinline__fill", "backgroundColor"),
+      track: style(".restinline__bar", "backgroundColor"),
+      clock: style(".restinline__clock", "color"),
+      chipDot: getComputedStyle(document.querySelector("#woRest .wo-rest__dot")).backgroundColor,
+      toggle: { background: style(".restpad--toggle", "backgroundColor"), foreground: style(".restpad--toggle", "color"), border: style(".restpad--toggle", "borderTopColor") },
+      pads: [".restpad--adjust", ".restpad--toggle", ".restpad--skip"].map((selector) => ({
+        selector, foreground: style(selector, "color"), background: style(selector, "backgroundColor"), border: style(selector, "borderTopColor"),
+      })),
+      neutral: { accent: token("--accent"), rule: token("--rule"), ink: token("--ink"), soft: token("--ink-soft") },
+      selection: {
+        background: token("--control-selection-bg", shelf), ink: token("--control-selection-ink", shelf),
+        boundary: token("--control-selection-boundary", shelf), hover: token("--well", shelf),
+      },
+      icons: ["#restMinus .icon-mask", "#restPlus .icon-mask", "#restReset .icon-mask", "#woRest .icon-mask"]
+        .map((selector) => getComputedStyle(document.querySelector(selector)).webkitMaskImage || ""),
+    };
+  });
+  const runningAppearance = await inlineAppearance();
+  assert(runningAppearance.fill === runningAppearance.neutral.accent && runningAppearance.track === runningAppearance.neutral.rule &&
+    runningAppearance.clock === runningAppearance.neutral.ink &&
+    runningAppearance.pads.every((pad) => pad.foreground !== runningAppearance.neutral.accent && pad.background !== runningAppearance.neutral.accent &&
+      pad.border !== runningAppearance.neutral.accent) &&
+    runningAppearance.chipDot !== runningAppearance.neutral.accent &&
+    [runningAppearance.selection.background, runningAppearance.selection.hover].includes(runningAppearance.toggle.background) &&
+    runningAppearance.toggle.foreground === runningAppearance.selection.ink && runningAppearance.toggle.border === runningAppearance.selection.boundary,
+  "a running timer reserves accent for the drain bar's fill and Pause uses the selection recipe", JSON.stringify(runningAppearance));
+  assert(runningAppearance.icons.every((mask) => /stroke-width(?:%3D|=)['"]1\.75/.test(mask)),
+    "timer outline masks share the 1.75 glyph weight", JSON.stringify(runningAppearance.icons));
+
+  // Pause holds the inline clock; the chip says so. The one wall-clock wait in the timer proof: the invariant
+  // is that the visible clock stays equal after real elapsed time while held, and the predicate also requires
+  // the held label, so it cannot pass merely because the browser polled twice quickly.
+  await page.click("#workout .exercise.is-current .restpad--toggle");
+  const heldOnce = await page.evaluate(() => ({
+    clock: document.querySelector("#workout .exercise.is-current [data-rest-clock]").textContent.trim(),
+    startedAt: performance.now(),
+  }));
+  await page.waitForFunction(({ clock, startedAt }) => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    return card.querySelector(".restpad--toggle")?.textContent.trim() === "Resume" &&
+      performance.now() - startedAt >= 700 && card.querySelector("[data-rest-clock]")?.textContent.trim() === clock;
+  }, heldOnce, { timeout: 2000 });
+  const heldTwice = await page.evaluate(() => ({
+    clock: document.querySelector("#workout .exercise.is-current [data-rest-clock]").textContent.trim(),
+    chip: document.querySelector("#woRest").getAttribute("aria-label") || "",
+  }));
+  assert(heldOnce.clock === heldTwice.clock && /held/i.test(heldTwice.chip),
+    "Pause freezes the inline clock, the pad reads Resume and the chip says held", `${heldOnce.clock} -> ${JSON.stringify(heldTwice)}`);
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((next) => document.documentElement.setAttribute("data-theme", next), theme);
+    await page.waitForFunction(() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--accent)";
+      document.body.append(probe);
+      const accent = getComputedStyle(probe).color;
+      probe.remove();
+      return getComputedStyle(document.querySelector("#workout .exercise.is-current .restinline__fill")).backgroundColor === accent;
+    }, undefined, { timeout: 1000 });
+    const appearance = await inlineAppearance();
+    assert(appearance.fill === appearance.neutral.accent && appearance.track === appearance.neutral.rule,
+      `${theme} held drain bar keeps the accent fill on the rule track`, JSON.stringify(appearance));
+    await page.evaluate((requests) => {
+      const fill = document.querySelector(requests[0].selector);
+      fill.style.setProperty("transition", "none", "important");
+      fill.style.setProperty("background-color", getComputedStyle(fill.parentElement).backgroundColor, "important");
+    }, REST_BAR_BOUNDARY);
+    const rejectedBar = await page.evaluate(measureRenderedRoles, { requests: REST_BAR_BOUNDARY });
+    assert(rejectedBar[0]?.status === "fail", `${theme} drain bar rejects a fill that matches its track`, JSON.stringify(rejectedBar));
+    await page.evaluate((requests) => {
+      const fill = document.querySelector(requests[0].selector);
+      fill.style.removeProperty("background-color");
+      fill.style.removeProperty("transition");
+    }, REST_BAR_BOUNDARY);
+    const measuredBar = await page.evaluate(measureRenderedRoles, { requests: REST_BAR_BOUNDARY });
+    assert(measuredBar[0]?.status === "pass" && measuredBar[0].ratio >= 3,
+      `${theme} production drain bar passes 3:1 against its rendered track`, JSON.stringify(measuredBar));
+  }
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  await page.click("#workout .exercise.is-current .restpad--toggle");
+  await page.waitForFunction((clock) => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    return card.querySelector(".restpad--toggle")?.textContent.trim() === "Pause" &&
+      card.querySelector("[data-rest-clock]")?.textContent.trim() !== clock;
+  }, heldOnce.clock, { timeout: 3000 });
+  assert(true, "Resume puts the inline clock back on the move");
+  // -30s first, then +30s back: a nudge past the length the rest is armed at would make that the new full length.
+  const nudged = await page.evaluate(() => {
+    const read = () => {
+      const [m, s] = document.querySelector("#workout .exercise.is-current [data-rest-clock]").textContent.trim().split(":");
+      return +m * 60 + +s;
+    };
+    const before = read();
+    document.querySelector("#workout .exercise.is-current .restpad--adjust").click();
+    const minus = read();
+    document.querySelector("#workout .exercise.is-current .restpad--adjust:nth-of-type(3)").click();
+    return { before, minus, plus: read() };
+  });
+  assert(nudged.before - nudged.minus >= 29 && nudged.plus - nudged.minus >= 29,
+    "-30s takes half a minute off the inline clock and +30s adds it back", JSON.stringify(nudged));
+
+  // A tap on any field brings the field pads back, and logging never left.
+  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='load']").click();
+  const fieldsBack = await inlineProbe();
+  assert(fieldsBack.padsMode === "field" && fieldsBack.fieldPads === 2 && fieldsBack.mode === "running" && fieldsBack.ctaEnabled,
+    "a tap on a field brings the field pads back while the clock stays in the cue slot", JSON.stringify(fieldsBack));
+  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='reps']").click();
+
+  // The presets sheet is the header timer's: lengths, nudges, restart and end. It has no dial and no clock of its own.
   await page.click("#woRest");
   await page.waitForSelector("#restSheet:not([hidden]).is-open");
   const restSheet = await page.evaluate(() => {
@@ -460,168 +661,94 @@ async function main() {
     return {
       open: !el.hidden && el.classList.contains("is-open"),
       stillRunning: document.querySelector("#woRest").classList.contains("is-running"),
-      clock: document.querySelector("#restSheetClock").textContent.trim(),
       presets: document.querySelectorAll("#restPresets [data-restpreset]").length,
       armed: document.querySelectorAll("#restPresets .is-active").length,
+      controls: [...el.querySelectorAll(".restsheet__controls button")].map((b) => b.id),
+      dial: !!el.querySelector(".restdial, #restSheetClock, #restDialArc, #restPlayPause"),
     };
   });
-  assert(restSheet.open && restSheet.stillRunning && /^\d+:\d\d$/.test(restSheet.clock),
-    "tapping the running chip opens the timer with the rest still running", JSON.stringify(restSheet));
-  assert(restSheet.presets >= 4 && restSheet.armed === 1,
-    "the sheet offers rest lengths and marks the one this rest is armed at", JSON.stringify(restSheet));
-  const timerAppearance = () => page.evaluate(() => {
-    const root = getComputedStyle(document.documentElement);
-    const resolve = (value) => {
-      const probe = document.createElement("span");
-      probe.style.color = value.trim();
-      document.body.append(probe);
-      const resolved = getComputedStyle(probe).color;
-      probe.remove();
+  assert(restSheet.open && restSheet.stillRunning && !restSheet.dial,
+    "tapping the running chip opens the presets with the rest still running and no dial", JSON.stringify(restSheet));
+  assert(restSheet.presets >= 4 && restSheet.armed === 1 && restSheet.controls.join() === "restMinus,restPlus,restReset,restStop",
+    "the sheet offers rest lengths, the nudges, restart and end, and marks the length this rest is armed at", JSON.stringify(restSheet));
+  await page.click("#restSheetClose");
+  await page.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
+
+  // Pular ends the rest the way the bell does: zero, then the overrun counting up. A new rest brings the rest pads back.
+  await page.evaluate(() => window.startRest());
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "rest");
+  await fadesDone(page);
+  await page.click("#workout .exercise.is-current .restpad--skip");
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest === "done");
+  await fadesDone(page);
+  const skipped = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const done = card.querySelector("[data-rest-done]");
+    return {
+      text: done?.textContent.trim(), mode: card.querySelector(".fx-slot").dataset.rest, padsMode: card.querySelector(".shelf__pads").dataset.pads,
+      fieldPads: card.querySelectorAll(".shelf__pad").length, cue: !!card.querySelector(".fx-slot .fx-cue__l1"),
+      focus: document.activeElement?.className || "", chipRunning: document.querySelector("#woRest").classList.contains("is-running"),
+    };
+  });
+  assert(/^Rest done( · \+0:0\d)?$/.test(skipped.text) && skipped.padsMode === "field" && skipped.fieldPads === 2 && skipped.cue,
+    "Skip collapses the clock to the done line, brings the cue and the field pads back", JSON.stringify(skipped));
+  assert(/shelf__fieldbtn/.test(skipped.focus), "the pad that left the row does not take the lifter's place with it", skipped.focus);
+  await page.waitForFunction(() => /^Rest done · \+0:0[1-9]$/.test(document.querySelector("#workout .exercise.is-current [data-rest-done]")?.textContent.trim() || ""), undefined, { timeout: 4000 });
+  assert(true, "the overrun after Skip counts up exactly as it does after zero");
+  await page.waitForFunction(() => document.querySelector("#restAnnounce")?.textContent === "Rest done.", undefined, { timeout: 4000 });
+  assert(true, "the live region says the rest is over once Skip has ended it");
+
+  // Past the bell the line is ink-soft, not the warning colour, and keeps counting.
+  await page.evaluate(() => { window.startRest(30); });
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest === "running");
+  await page.evaluate(() => {
+    window.__repforgeRest.expire(15);
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction(() => /^Rest done · \+0:1\d$/.test(document.querySelector("#workout .exercise.is-current [data-rest-done]")?.textContent.trim() || ""));
+  await fadesDone(page);
+  const overtime = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const line = card.querySelector(".restinline__done");
+    const probe = (value) => {
+      const el = document.createElement("span");
+      el.style.color = value;
+      document.body.append(el);
+      const resolved = getComputedStyle(el).color;
+      el.remove();
       return resolved;
     };
-    const color = (selector, property) => {
-      const node = document.querySelector(selector);
-      return node ? getComputedStyle(node)[property] : "";
-    };
-    const neutral = {
-      accent: resolve(root.getPropertyValue("--accent")),
-      cta: resolve(root.getPropertyValue("--cta")),
-      ink: resolve(root.getPropertyValue("--ink")),
-      soft: resolve(root.getPropertyValue("--ink-soft")),
-      requiredBoundary: resolve(root.getPropertyValue("--boundary-required")),
-    };
-    const selection = {
-      background: resolve(root.getPropertyValue("--control-selection-bg")),
-      ink: resolve(root.getPropertyValue("--control-selection-ink")),
-      boundary: resolve(root.getPropertyValue("--control-selection-boundary")),
-      hoverBackground: resolve(root.getPropertyValue("--well")),
-      activeBackground: resolve(root.getPropertyValue("--control-selection-active-bg")),
-      selectedBoundary: resolve(root.getPropertyValue("--control-selected-boundary")),
-    };
     return {
-      state: [...document.querySelector("#restSheet").classList].filter((name) => name.startsWith("is-")).sort(),
-      clock: document.querySelector("#restSheetClock").textContent.trim(),
-      arc: color("#restDialArc", "stroke"),
-      chipDot: color("#woRest .wo-rest__dot", "backgroundColor"),
-      primary: {
-        background: color("#restPlayPause", "backgroundColor"),
-        foreground: color("#restPlayPause", "color"),
-        border: color("#restPlayPause", "borderTopColor"),
-      },
-      secondary: ["#restMinus", "#restPlus", "#restReset", "#restStop"].map((selector) => ({
-        selector,
-        foreground: color(selector, "color"),
-        background: color(selector, "backgroundColor"),
-      })),
-      selectedPreset: {
-        foreground: color("#restPresets .is-active", "color"),
-        background: color("#restPresets .is-active", "backgroundColor"),
-        border: color("#restPresets .is-active", "borderTopColor"),
-      },
-      icons: ["#restMinus .icon-mask", "#restPlus .icon-mask", "#restReset .icon-mask", "#woRest .icon-mask"]
-        .map((selector) => getComputedStyle(document.querySelector(selector)).webkitMaskImage || ""),
-      neutral,
-      selection,
+      color: getComputedStyle(line).color, soft: probe("var(--ink-soft)"), warning: probe("var(--color-warning)"),
+      size: Number.parseFloat(getComputedStyle(line).fontSize), cueBack: Number.parseFloat(getComputedStyle(card.querySelector(".fx-cue__l1")).fontSize),
+      padsMode: card.querySelector(".shelf__pads").dataset.pads, chipOver: document.querySelector("#woRest").classList.contains("is-over"),
     };
   });
-  const runningAppearance = await timerAppearance();
-  assert(runningAppearance.arc === runningAppearance.neutral.accent &&
-    runningAppearance.primary.background === runningAppearance.selection.activeBackground &&
-    runningAppearance.primary.foreground === runningAppearance.selection.ink &&
-    runningAppearance.primary.background !== runningAppearance.neutral.accent &&
-    runningAppearance.primary.foreground !== runningAppearance.neutral.accent &&
-    runningAppearance.secondary.every((control) => control.foreground !== runningAppearance.neutral.accent) &&
-    runningAppearance.chipDot !== runningAppearance.neutral.accent &&
-    runningAppearance.selectedPreset.foreground === runningAppearance.neutral.ink &&
-    runningAppearance.selectedPreset.border !== runningAppearance.neutral.accent,
-  "running timer reserves accent for the live arc and uses the selected selection recipe", JSON.stringify(runningAppearance));
-  assert(runningAppearance.icons.every((mask) => /stroke-width(?:%3D|=)['"]1\.75/.test(mask)),
-    "timer outline masks share the 1.75 glyph weight", JSON.stringify(runningAppearance.icons));
-  await page.click("#restPlayPause");
-  const heldOnce = await page.evaluate(() => ({
-    clock: document.querySelector("#restSheetClock").textContent.trim(),
-    startedAt: performance.now(),
-  }));
-  // This is the one wall-clock wait in the timer proof: the invariant is that
-  // the visible clock stays equal after real elapsed time while paused. The
-  // predicate also requires the owned paused state, so it cannot pass merely
-  // because the browser happened to poll twice quickly.
-  await page.waitForFunction(({ clock, startedAt }) => {
-    const sheet = document.querySelector("#restSheet");
-    return sheet?.classList.contains("is-paused") &&
-      performance.now() - startedAt >= 700 &&
-      document.querySelector("#restSheetClock")?.textContent.trim() === clock;
-  }, heldOnce, { timeout: 2000 });
-  const heldTwice = await page.evaluate(() => ({
-    clock: document.querySelector("#restSheetClock").textContent.trim(),
-    chip: document.querySelector("#woRest").getAttribute("aria-label") || "",
-  }));
-  assert(heldOnce.clock === heldTwice.clock && /held/i.test(heldTwice.chip),
-    "the hold freezes the clock and the chip says so", `${heldOnce.clock} → ${JSON.stringify(heldTwice)}`);
-  const pausedAppearance = await timerAppearance();
-  assert(pausedAppearance.state.includes("is-paused") &&
-    [pausedAppearance.selection.background, pausedAppearance.selection.hoverBackground].includes(pausedAppearance.primary.background) &&
-    pausedAppearance.primary.foreground === pausedAppearance.selection.ink &&
-    pausedAppearance.primary.border === pausedAppearance.selection.boundary &&
-    pausedAppearance.secondary.every((control) => control.foreground !== pausedAppearance.neutral.accent) &&
-    pausedAppearance.chipDot !== pausedAppearance.neutral.accent,
-  "paused timer uses the default selection recipe while the deadline is frozen", JSON.stringify(pausedAppearance));
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate((next) => document.documentElement.setAttribute("data-theme", next), theme);
-    const expectedBoundary = await page.evaluate(() => {
-      const probe = document.createElement("span");
-      probe.style.color = "var(--boundary-required)";
-      document.body.append(probe);
-      const color = getComputedStyle(probe).color;
-      probe.remove();
-      return color;
-    });
-    await page.waitForFunction(({ selector, expected }) =>
-      getComputedStyle(document.querySelector(selector)).stroke === expected,
-    { selector: REST_ARC_BOUNDARY[0].selector, expected: expectedBoundary }, { timeout: 1000 });
-    const appearance = await timerAppearance();
-    assert(appearance.arc === appearance.neutral.requiredBoundary,
-      `${theme} paused rest arc uses the required-boundary recipe`, JSON.stringify(appearance));
-    await page.evaluate((requests) => {
-      const arc = document.querySelector(requests[0].selector);
-      const sheet = document.querySelector("#restSheet");
-      arc.style.setProperty("transition", "none", "important");
-      arc.style.setProperty("stroke", getComputedStyle(sheet).backgroundColor, "important");
-    }, REST_ARC_BOUNDARY);
-    const rejectedArc = await page.evaluate(measureRenderedRoles, { requests: REST_ARC_BOUNDARY });
-    assert(rejectedArc[0]?.status === "fail",
-      `${theme} paused arc rejects a low-contrast boundary stroke`, JSON.stringify(rejectedArc));
-    await page.evaluate((requests) => {
-      const arc = document.querySelector(requests[0].selector);
-      arc.style.removeProperty("stroke");
-      arc.style.removeProperty("transition");
-    }, REST_ARC_BOUNDARY);
-    await page.waitForFunction(({ selector, expected }) =>
-      getComputedStyle(document.querySelector(selector)).stroke === expected,
-    { selector: REST_ARC_BOUNDARY[0].selector, expected: appearance.neutral.requiredBoundary }, { timeout: 1000 });
-    const measuredArc = await page.evaluate(measureRenderedRoles, { requests: REST_ARC_BOUNDARY });
-    assert(measuredArc[0]?.status === "pass" && measuredArc[0].ratio >= 3,
-      `${theme} production paused arc passes 3:1 against its rendered sheet`, JSON.stringify(measuredArc));
-  }
-  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
-  await page.click("#restPlayPause");
-  await page.waitForFunction((clock) => {
-    const sheet = document.querySelector("#restSheet");
-    return !sheet?.classList.contains("is-paused") &&
-      document.querySelector("#restSheetClock")?.textContent.trim() !== clock;
-  }, heldOnce.clock, { timeout: 3000 });
-  assert(await page.evaluate(() => document.querySelector("#restSheetClock").textContent.trim()) !== heldOnce.clock,
-    "releasing the hold puts the clock back on the move");
-  const nudged = await page.evaluate(async () => {
-    const read = () => {
-      const [m, s] = document.querySelector("#restSheetClock").textContent.trim().split(":");
-      return +m * 60 + +s;
-    };
-    const before = read();
-    document.querySelector("#restPlus").click();
-    return { before, after: read() };
+  assert(overtime.color === overtime.soft && overtime.color !== overtime.warning && overtime.size === 18 && overtime.cueBack === 24 && overtime.padsMode === "field",
+    "at zero the clock collapses to an 18px ink-soft line, the 24px cue returns and the field pads come back", JSON.stringify(overtime));
+
+  // At large text four pads no longer fit one row, and a second row would push the action off the shortest screens:
+  // the field pads stay, the clock stays inline, and the rest controls are the presets sheet's.
+  await page.evaluate(() => { window.startRest(); });
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "rest");
+  await fadesDone(page);
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; window.startRest(); });
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "field");
+  await fadesDone(page);
+  const scaled = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    return { slot: card.querySelector(".fx-slot").dataset.rest, restPads: card.querySelectorAll(".restpad").length,
+      fieldPads: card.querySelectorAll(".shelf__pad").length, clock: !!card.querySelector("[data-rest-clock]") };
   });
-  assert(nudged.after - nudged.before >= 29, "+30s adds half a minute to the clock", JSON.stringify(nudged));
+  assert(scaled.slot === "running" && scaled.clock && scaled.restPads === 0 && scaled.fieldPads === 2,
+    "at double-size text the clock stays inline and the field pads stay, since four pads no longer fit a row", JSON.stringify(scaled));
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; window.startRest(); });
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "rest");
+  await fadesDone(page);
+
+  // The sheet's End is the explicit end: it closes the sheet and hands focus back to the chip.
+  await page.click("#woRest");
+  await page.waitForSelector("#restSheet:not([hidden]).is-open");
   await page.click("#restStop");
   await page.waitForFunction(() => {
     const sheet = document.querySelector("#restSheet");
@@ -632,42 +759,26 @@ async function main() {
     hidden: document.querySelector("#restSheet").hidden,
     running: document.querySelector("#woRest").classList.contains("is-running"),
     focused: document.activeElement?.id || "",
+    slot: document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest,
+    cue: !!document.querySelector("#workout .exercise.is-current .fx-slot .fx-cue__l1"),
   }));
-  assert(ended.hidden && !ended.running && ended.focused === "woRest",
-    "Stop ends the rest, closes the sheet and hands focus back to the chip", JSON.stringify(ended));
+  assert(ended.hidden && !ended.running && ended.focused === "woRest" && ended.slot === "none" && ended.cue,
+    "End ends the rest, closes the sheet, hands focus back to the chip and returns the cue", JSON.stringify(ended));
   await page.evaluate(() => document.querySelector("#restBar").click());
   await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-idle"));
-  const idleAppearance = await timerAppearance();
-  assert(idleAppearance.state.includes("is-idle") &&
-    [idleAppearance.selection.background, idleAppearance.selection.hoverBackground].includes(idleAppearance.primary.background) &&
-    idleAppearance.primary.foreground === idleAppearance.selection.ink &&
-    idleAppearance.primary.border === idleAppearance.selection.boundary &&
-    idleAppearance.secondary.every((control) => control.foreground !== idleAppearance.neutral.accent) &&
-    idleAppearance.chipDot !== idleAppearance.neutral.accent,
-  "idle timer uses the default selection recipe", JSON.stringify(idleAppearance));
+  const idleSheet = await page.evaluate(() => ({
+    restart: document.querySelector("#restReset").disabled, end: document.querySelector("#restStop").disabled,
+    presets: document.querySelectorAll("#restPresets [data-restpreset]").length,
+  }));
+  assert(idleSheet.restart && idleSheet.end && idleSheet.presets >= 4,
+    "idle, the presets sheet still offers the lengths and waits on a rest for restart and end", JSON.stringify(idleSheet));
   await page.click("#restSheetClose");
   await page.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
   await page.click("#woRest");
   await page.waitForFunction(() => document.querySelector("#woRest")?.classList.contains("is-running"));
   assert(await page.evaluate(() => document.querySelector("#woRest").classList.contains("is-running")),
     "tapping the idle chip starts rest again");
-  await page.click("#woRest");
-  await page.waitForSelector("#restSheet:not([hidden]).is-open");
-  await page.evaluate(() => {
-    window.__repforgeRest.expire();
-    document.dispatchEvent(new Event("visibilitychange"));
-  });
-  await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-over") &&
-    /^-\d+:\d\d$/.test(document.querySelector("#restSheetClock")?.textContent.trim() || ""));
-  const overtimeAppearance = await timerAppearance();
-  assert(overtimeAppearance.state.includes("is-over") && /^-\d+:\d\d$/.test(overtimeAppearance.clock) &&
-    overtimeAppearance.primary.background === overtimeAppearance.selection.activeBackground &&
-    overtimeAppearance.primary.foreground === overtimeAppearance.selection.ink &&
-    overtimeAppearance.secondary.every((control) => control.foreground !== overtimeAppearance.neutral.accent) &&
-    overtimeAppearance.chipDot !== overtimeAppearance.neutral.accent,
-  "overtime keeps the selected selection recipe while changing timer state", JSON.stringify(overtimeAppearance));
-  await page.click("#restStop");
-  await page.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest === "running");
   await page.evaluate(() => window.stopRest());
   await page.waitForFunction(() => !document.querySelector("#woRest")?.classList.contains("is-running"));
 
@@ -1088,7 +1199,8 @@ async function main() {
     return {
       name: card.querySelector(".focus-ex__name")?.textContent?.trim() || "",
       fields: card.querySelectorAll(".shelf__field").length,
-      pads: card.querySelectorAll(".shelf__pad").length,
+      pads: card.querySelectorAll(".shelf__pads > button").length,
+      restBlock: card.querySelectorAll(".fx-slot .restinline").length,
       cta: card.querySelector(".focus-shelf .btn--cta")?.textContent?.trim() || "",
       rows: card.querySelectorAll(".ledgerline").length,
       next: card.querySelectorAll(".fx-next").length,
@@ -1120,7 +1232,9 @@ async function main() {
   });
   assert(midState.trackMoved && midState.peekVisible && midSwipe.name && midState.peekHasShelf,
     "the neighbouring card rides in fully composed", JSON.stringify({ ...midState, ...midSwipe }));
-  assert(midSwipe.fields === 3 && midSwipe.pads === 2 && !!midSwipe.cta && midSwipe.next === 1,
+  // The two sets just logged armed a rest, and a rest belongs to the session: the card riding in already shows the
+  // clock and the rest controls it will show when it lands.
+  assert(midSwipe.fields === 3 && midSwipe.pads === 4 && midSwipe.restBlock === 1 && !!midSwipe.cta && midSwipe.next === 1,
     "the card riding in already carries its fields, pads, action and next row",
     JSON.stringify(midSwipe));
   assert(midState.cardUpright && midState.stacked === 0,

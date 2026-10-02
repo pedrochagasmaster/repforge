@@ -14,9 +14,11 @@ import { onboardingState, ONBOARDING_SCENARIOS } from "../tools/ui-screens/scree
 
 const manifest = loadManifest(), inventory = loadRoleInventory();
 assert.deepEqual(validateRoleInventory(inventory, manifest), [], "current manifest and semantic inventory agree");
-assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-timer"), [
-  { selector: "#restSheet .restdial__arc", kind: "boundary" },
+assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-running"), [
+  { selector: ".restinline__fill", kind: "boundary" },
 ], "required boundary exceptions enter rendered-role measurement for their owned catalog state");
+assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-done"), [],
+  "the run-out state has no drain bar to measure");
 assert.equal(Object.keys(inventory.catalogStates).length, manifest.screens.length, "every live catalog state has an explicit owner");
 assert.ok(inventory.components.some((item) => item.roles.elevation === "flat"), "flat content has an explicit role");
 for (const role of ["selected", "floating", "modal", "persistent-action"]) {
@@ -260,8 +262,30 @@ for (const selector of focusAdjustmentSelectors) {
   assert.ok(focusAdjustmentContractErrors(selectedFocusAdjustment).some((error) => error.includes(selector)),
     `${selector} cannot claim a selected state after changing a number`);
 }
-assert.ok(inventory.components.find((item) => item.selector === "#restPlayPause").states.includes("selected"),
-  "rest play/pause retains its timer-running state");
+// The retired rest-timer sheet's dial and play/pause are gone with it; the inline rest controls replace them (R3f).
+assert.ok(!inventory.components.some((item) => item.selector === "#restPlayPause") &&
+  !inventory.exceptions.some((item) => item.selector.includes("restdial")) &&
+  !inventory.progressCandidateSelectors.some((selector) => selector.includes("restdial")) &&
+  !Object.keys(inventory.catalogStates).some((key) => key.startsWith("workout/rest-timer")),
+"the retired rest-timer sheet leaves no inventory row, exception or catalog owner behind");
+{
+  const inlineRest = (selector) => inventory.components.filter((item) => item.selector === selector);
+  const roles = { ".restpad--adjust:not([id])": "adjustment", ".restpad--toggle:not([id])": "selection", ".restpad--skip:not([id])": "secondary" };
+  for (const [selector, control] of Object.entries(roles)) {
+    const [row, ...rest] = inlineRest(selector);
+    assert.ok(row && !rest.length && row.roles.control === control && row.catalogStates.includes("workout/rest-running"),
+      `${selector} is one selector-exact ${control} row rendered by workout/rest-running`);
+  }
+  const bar = inventory.exceptions.find((item) => item.selector === ".restinline__fill");
+  assert.ok(bar && bar.boundary === "required" && /falsify its denominator/.test(bar.rationale) &&
+    JSON.stringify(bar.catalogStates) === JSON.stringify(["workout/rest-running"]),
+  "the drain bar's fill is a selector-exact countdown exception with the arc's rationale");
+  assert.ok(!inventory.progressCandidateSelectors.some((selector) => /restinline/.test(selector)),
+    "the drain bar is not a progress candidate selector");
+  const clock = inventory.contextualVariants.find((item) => item.id === "rest-clock-scale");
+  assert.ok(clock && clock.selector === ".restinline__clock" && JSON.stringify(clock.catalogStates) === JSON.stringify(["workout/rest-running"]),
+    "the responsive rest clock variant is selector-exact to the inline clock");
+}
 
 const whyCloseStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
 function whyCloseContractErrors(candidate) {
@@ -510,7 +534,7 @@ try {
       "--font-size-title": "1.875rem", "--font-size-display": "2.5rem",
       "--font-size-summary-hero": "2.125rem", "--font-size-landing-headline": "2.375rem",
       "--font-size-landing-headline-wide": "3.25rem", "--font-size-landing-climax": "min(4.25rem,16vw)",
-      "--font-size-landing-climax-wide": "min(5.5rem,7.5vw)", "--font-size-rest-clock": "clamp(2rem,10vw,2.625rem)",
+      "--font-size-landing-climax-wide": "min(5.5rem,7.5vw)", "--font-size-rest-clock": "clamp(2rem,10cqi,2.625rem)",
       "--line-tight": "1.1", "--line-standard": "1.4", "--line-reading": "1.55",
       "--weight-regular": "400", "--weight-medium": "500", "--weight-semibold": "600",
       "--radius-none": "0", "--radius-compact": "4px", "--radius-control": "8px",

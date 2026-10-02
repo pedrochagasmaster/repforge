@@ -343,15 +343,15 @@
       "content": "flat",
       "scenario": "An unreadable local draft remains untouched and offers a non-destructive copy action."
     },
-    "workout/rest-timer": {
-      "owner": "plan-055",
+    "workout/rest-running": {
+      "owner": "plan-064/r3f",
       "content": "flat",
-      "scenario": "The rest timer sheet."
+      "scenario": "A logged set has started the rest: the clock on the rest-clock role, the orange drain bar and the next set's cue take the cue slot, and the rest controls take the shelf's pad row."
     },
-    "workout/rest-timer-paused": {
-      "owner": "plan-058",
+    "workout/rest-done": {
+      "owner": "plan-064/r3f",
       "content": "flat",
-      "scenario": "The rest timer sheet with its countdown held."
+      "scenario": "The rest has run out: the clock collapses to one line that counts the overrun up in soft ink, the cue returns and the field pads come back."
     },
     "workout/exercise-note": {
       "owner": "plan-055",
@@ -3379,7 +3379,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -4331,34 +4333,10 @@
       "rationale": "Changes a numeric training or timer value through repeatable increments; it does not choose an option.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
-    },
-    {
-      "id": "restplaypause",
-      "selector": "#restPlayPause",
-      "roles": {
-        "control": "selection"
-      },
-      "variant": null,
-      "facets": [
-        "icon-only"
+        "workout/rest-running"
       ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "selected"
-      ],
-      "rationale": "Switches the ephemeral countdown between running and paused.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restplus",
@@ -4378,9 +4356,10 @@
       "rationale": "Changes a numeric training or timer value through repeatable increments; it does not choose an option.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restreset",
@@ -4401,9 +4380,10 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restsecrow",
@@ -4445,9 +4425,10 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restsheetclose",
@@ -4469,9 +4450,10 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restsheetscrim",
@@ -4487,9 +4469,10 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "reststop",
@@ -4510,9 +4493,10 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "reviewblocklink",
@@ -4806,7 +4790,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -5568,7 +5554,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -5597,8 +5585,6 @@
         "workout/invalid-draft",
         "workout/persist-retry",
         "workout/reorder",
-        "workout/rest-timer",
-        "workout/rest-timer-paused",
         "workout/session",
         "workout/skipped-actions",
         "workout/stale-draft",
@@ -5608,7 +5594,9 @@
         "workout/why-in-session",
         "workout/why-rep-goal",
         "workout/why-anchor",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/rest-running",
+        "workout/rest-done"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -5639,7 +5627,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -5753,7 +5743,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -6114,7 +6106,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -6135,7 +6129,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -6197,7 +6193,9 @@
         "settings/guides",
         "settings/guides-replay",
         "settings/privacy",
-        "workout/correction"
+        "workout/correction",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -6708,9 +6706,10 @@
       "rationale": "Chooses the countdown duration; the chosen preset stays selected.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "session-map-jump-not-id",
@@ -6849,7 +6848,8 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-done"
       ]
     },
     {
@@ -6895,7 +6895,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -6920,7 +6922,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7292,10 +7296,10 @@
         "workout/reorder",
         "workout/stale-draft",
         "workout/persist-retry",
-        "workout/rest-timer",
-        "workout/rest-timer-paused",
         "workout/exercise-note",
-        "workout/substituted-actions"
+        "workout/substituted-actions",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7377,7 +7381,9 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
-        "history/session"
+        "history/session",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7427,7 +7433,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7566,7 +7574,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7597,7 +7607,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7650,7 +7662,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7675,7 +7689,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7702,7 +7718,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -8354,6 +8372,70 @@
       "catalogStates": [
         "progress/exercise-chart"
       ]
+    },
+    {
+      "id": "restpad-adjust-not-id",
+      "selector": ".restpad--adjust:not([id])",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Changes the running rest clock by 30 seconds through a repeatable step; it does not choose an option. The text pad of the shelf's rest row, as #restMinus and #restPlus are in the presets sheet.",
+      "owner": "plan-064/r3f",
+      "catalogStates": [
+        "workout/rest-running"
+      ]
+    },
+    {
+      "id": "restpad-toggle-not-id",
+      "selector": ".restpad--toggle:not([id])",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Switches the ephemeral countdown between running and held, with a text label (Pausar, Retomar) in place of the presets sheet's icon.",
+      "owner": "plan-064/r3f",
+      "catalogStates": [
+        "workout/rest-running"
+      ]
+    },
+    {
+      "id": "restpad-skip-not-id",
+      "selector": ".restpad--skip:not([id])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Ends the rest and counts its overrun up, a reversible supporting action that is not the screen commitment (Pular).",
+      "owner": "plan-064/r3f",
+      "catalogStates": [
+        "workout/rest-running"
+      ]
     }
   ],
   "contextualVariants": [
@@ -8458,8 +8540,6 @@
         "workout/stale-draft",
         "workout/persist-retry",
         "workout/invalid-draft",
-        "workout/rest-timer",
-        "workout/rest-timer-paused",
         "workout/exercise-note",
         "workout/why-this-weight",
         "workout/session",
@@ -8473,7 +8553,9 @@
         "workout/why-in-session",
         "workout/why-rep-goal",
         "workout/why-anchor",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -8648,13 +8730,12 @@
     },
     {
       "id": "rest-clock-scale",
-      "selector": ".restdial__clock",
+      "selector": ".restinline__clock",
       "role": "typography:rest-clock",
-      "rationale": "The active rest countdown needs responsive Mono numerals inside a fixed circular dial.",
-      "owner": "plan-057/058",
+      "rationale": "The running rest countdown needs responsive Mono numerals in the Focus cue slot: clamp(2rem,10cqi,2.625rem) through --font-size-rest-clock (OG-4, C-02). Selector-exact: no other surface inherits it by visual resemblance.",
+      "owner": "plan-064/r3f",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
+        "workout/rest-running"
       ]
     },
     {
@@ -8723,13 +8804,12 @@
       ]
     },
     {
-      "selector": "#restSheet .restdial__arc",
+      "selector": ".restinline__fill",
       "role": "countdown status, not workflow progress",
-      "rationale": "Elapsed rest time has seconds remaining; assigning block, week, exercise-set or task would falsify its denominator.",
-      "owner": "plan-055/058",
+      "rationale": "The drain bar is the running rest clock drawn as a transform on a 4px track: it measures time left in this rest, so assigning block, week, exercise-set or task would falsify its denominator. Orange on --rule measures 3.05:1 light and 4.80:1 dark, and against --bg 3.57:1 and 6.33:1 (3:1 required). The bar is not a progress candidate selector.",
+      "owner": "plan-064/r3f",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
+        "workout/rest-running"
       ],
       "boundary": "required"
     },
@@ -8845,8 +8925,6 @@
         "workout/exercise-actions",
         "workout/exercise-note",
         "workout/reorder",
-        "workout/rest-timer",
-        "workout/rest-timer-paused",
         "workout/session",
         "workout/skipped-actions",
         "workout/substituted-actions",
@@ -9159,11 +9237,10 @@
       "rationale": "The zero-shadow animation endpoints make overtime pulse from and return to the stable warning state without leaving an unintended glow.",
       "owner": "plan-055/058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
+        "workout/rest-done"
       ],
       "sourceOnly": true,
-      "sourceOnlyReason": "The canonical timer frame captures a running countdown; overtime occurs only after it passes zero."
+      "sourceOnlyReason": "The keyframe is stylesheet source; workout/rest-done draws the header timer past the bell with the ring at rest."
     },
     {
       "id": "rest-overtime-alert-shadow",
@@ -9177,11 +9254,10 @@
       "rationale": "The alert ring is a motion-only overtime cue paired with the danger color and timer text; reduced motion keeps the same status through non-motion signals.",
       "owner": "plan-055/058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
+        "workout/rest-done"
       ],
       "sourceOnly": true,
-      "sourceOnlyReason": "The canonical timer frame captures a running countdown; overtime occurs only after it passes zero."
+      "sourceOnlyReason": "The keyframe is stylesheet source; workout/rest-done draws the header timer past the bell with the ring at rest."
     }
   ],
   "progressCandidateSelectors": [
@@ -9190,7 +9266,6 @@
     ".week-letters",
     ".libstep",
     ".blockprogress",
-    ".vrow__bar",
-    ".restdial__arc"
+    ".vrow__bar"
   ]
 }

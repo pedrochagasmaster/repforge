@@ -424,7 +424,7 @@ async function main() {
       "restore returns the exercise with its set identities and order intact", JSON.stringify(restored));
 
     /* ---- Rest timer through the header chip ---- */
-    phase("Rest timer: chip start, sheet hold, stop; commit independent of timer");
+    phase("Rest timer: chip start, inline hold, sheet stop; commit independent of timer");
     await page.locator("#woRest").click();
     await page.waitForFunction(() => !!document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
     const running = await page.evaluate(() => ({
@@ -432,12 +432,17 @@ async function main() {
       hidden: document.querySelector("#woRest")?.classList.contains("hidden"),
     }));
     assert(running.chip && running.chip !== "—" && !running.hidden, "the chip starts the clock and reads the countdown", JSON.stringify(running));
+    // The clock is inline in the cue slot and its Pause pad holds it while the lifter stays on the set.
+    await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='running'] [data-rest-clock]", { timeout: 5000 });
+    const labels = await page.evaluate(() => ({ pause: window.RepForgeI18n.t("rest.inline.pause"), resume: window.RepForgeI18n.t("rest.inline.resume") }));
+    await page.locator("#workout .exercise.is-current .restpad--toggle").click();
+    const paused = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restpad--toggle")?.textContent.trim());
+    assert(paused === labels.resume, "the inline pad holds the clock while the lifter stays on the set", paused);
+    await page.locator("#workout .exercise.is-current .restpad--toggle").click();
+    assert(await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restpad--toggle")?.textContent.trim()) === labels.pause,
+      "the same pad lets the clock go again");
     await page.locator("#woRest").click();
     await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
-    await page.locator("#restPlayPause").click();
-    const paused = await page.evaluate(() => document.querySelector("#restSheet")?.classList.contains("is-paused"));
-    assert(paused === true, "the sheet holds the clock while the lifter stays on the set");
-    await page.locator("#restPlayPause").click();
     await page.locator("#restStop").click();
     await page.waitForFunction(() => !document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
     assert(true, "stopping from the sheet clears the chip");

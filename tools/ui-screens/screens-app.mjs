@@ -272,6 +272,7 @@ const D_FIXTURE_STATES = new Set([
 const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/ready", "today/day-picker", "today/rest-bar", "today/mixed-strategies",
   "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
+  "workout/rest-running", "workout/rest-done",
 ]);
 function directionDBeforeSession() {
   const state = directionDState();
@@ -663,20 +664,14 @@ async function createInUseCustomExercise(page) {
   return result;
 }
 
-async function showRestTimer(page, paused = false) {
-  await focusMode(page);
-  await logCurrentSet(page);
-  await page.waitForFunction(
-    () => document.querySelector("#woRest")?.classList.contains("is-running"),
-    undefined, { timeout: 20000 }
-  );
-  await page.click("#woRest");
-  await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
-  if (paused) {
-    await page.click("#restPlayPause");
-    await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-paused"));
-  }
-  await sleep(page, 400);
+/**
+ * Set 1 of the squat logged at 102.5 x 8 with RIR 1, which starts the rest. The catalog pins `Date`, so the
+ * clock stands where the rest started: 2:00 of 2:00 until the scenario moves it through the rest controls.
+ */
+async function startInlineRest(page) {
+  await enterWorkout(page);
+  await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
+  await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='running']", { timeout: 20000 });
 }
 
 /** The sheet's blocks are the spec 4.3 contract: each carries the lead it opens with. */
@@ -981,11 +976,26 @@ export const APP_SCENARIOS = {
     });
     await sleep(page, 400);
   },
-  "workout/rest-timer": async (page) => {
-    await showRestTimer(page);
+  // One -30s moves the pinned clock to 1:30 of 2:00: the pad's own action, taken from the pad. At large text four pads
+  // no longer fit a row, the field pads stay, and the same nudge is the presets sheet's.
+  "workout/rest-running": async (page) => {
+    await startInlineRest(page);
+    const pad = page.locator("#workout .exercise.is-current .restpad[data-rest-act='minus']");
+    if (await pad.count()) await pad.click();
+    else await page.evaluate(() => window.nudgeRest(-30));
+    await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current [data-rest-clock]")?.textContent === "1:30");
+    await sleep(page, 400);
   },
-  "workout/rest-timer-paused": async (page) => {
-    await showRestTimer(page, true);
+  // The bell, fifteen seconds ago: the same seam the accessibility suite uses to run the clock out.
+  "workout/rest-done": async (page) => {
+    await startInlineRest(page);
+    await page.evaluate(() => {
+      window.__repforgeRest.expire(15);
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='done']", { timeout: 20000 });
+    await page.waitForSelector("#workout .exercise.is-current .shelf__pads[data-pads='field']", { timeout: 20000 });
+    await sleep(page, 400);
   },
   "today/rest-bar": async (page) => {
     await focusMode(page);

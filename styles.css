@@ -75,7 +75,7 @@
   --font-size-landing-headline-wide:3.25rem;
   --font-size-landing-climax:min(4.25rem,16vw);
   --font-size-landing-climax-wide:min(5.5rem,7.5vw);
-  --font-size-rest-clock:clamp(2rem,10vw,2.625rem);
+  --font-size-rest-clock:clamp(2rem,10cqi,2.625rem);
   --line-tight:1.1;
   --line-standard:1.4;
   --line-reading:1.55;
@@ -1110,6 +1110,60 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   flex:1 1 0;width:auto;min-width:0;height:56px;min-height:56px;padding:0 var(--space-12);border-radius:var(--radius-control);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);white-space:nowrap;
 }
+/* ---- Inline rest ----
+   The cue slot trades the cue for the running clock, and the shelf's pad row
+   trades the field pads for the rest controls (L3). The clock is the protected
+   rest clock; the drain bar is a transform on a 4px track, the one orange mark
+   a running timer is allowed. */
+/* The slot is plain flow while it holds the cue, so the cue lays out exactly as it did before the slot existed. A rest
+   makes it a block formatting context with the cue's 12px gap on the slot itself, so the height the swap measures is
+   the content's and the gap under it does not change when the content does. */
+.fx-slot{position:relative}
+.fx-slot:not([data-rest="none"]){display:flow-root;margin-bottom:var(--space-12)}
+.fx-slot:not([data-rest="none"]) > :last-child{margin-bottom:0}
+.restinline{margin:0 0 var(--space-12)}
+.restinline__row{display:flex;align-items:baseline;gap:var(--space-12)}
+.restinline__label{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.restinline__clock{
+  font-family:var(--font-training-data);font-weight:var(--weight-medium);font-size:var(--font-size-rest-clock);line-height:var(--line-tight);
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--color-ink);
+}
+.restinline__of{font-family:var(--font-training-data);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.restinline__bar{height:4px;margin-top:var(--space-12);border-radius:var(--radius-compact);background:var(--rule);overflow:hidden}
+.restinline__fill{display:block;width:100%;height:100%;background:var(--accent);transform-origin:left center}
+/* Past the bell: one quiet line that counts up. It is not a warning. */
+.restinline--done{margin:0 0 var(--space-8)}
+.restinline__done{
+  display:flex;align-items:center;gap:var(--space-8);margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums;
+}
+.restinline__mk{
+  flex:none;width:var(--space-18);height:var(--space-18);background:var(--color-ink-secondary);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+}
+.restinline__nextrow{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--space-8);margin-top:var(--space-12)}
+.restinline__next{margin:0;min-width:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);line-height:var(--line-standard);color:var(--color-ink)}
+.restinline__val{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
+.exercise--focus .restinline__nextrow .text-link.restinline__why{margin:0}
+/* The rest controls: -30s and +30s step the clock, Pausar holds it, Pular ends it. */
+.shelf__pads{position:relative}
+.restpad{
+  flex:1 1 0;min-width:0;height:56px;min-height:56px;margin:0;padding:0 var(--space-4);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;text-align:center;white-space:nowrap;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.restpad--toggle{flex-grow:1.4}
+.restpad:hover:not(:disabled){background:var(--well)}
+.restpad:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.restpad:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.restpad:disabled{color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+.restpad--adjust{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+.restpad--adjust:hover:not(:disabled),.restpad--adjust:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+.restpad--adjust:disabled{background:var(--control-adjustment-bg)}
+.restpad--toggle{background:var(--control-selection-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
+.restpad--toggle:hover:not(:disabled),.restpad--toggle:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
+.restpad--toggle:disabled{background:var(--control-selection-bg)}
 .focus-shelf .btn--cta{margin:0}
 .focus-shelf .btn--cta.saveset{
   border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);
@@ -1943,30 +1997,12 @@ textarea.sheetfield__input{
 .draft-recovery__body,.draft-recovery__pending{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .draft-recovery__pending{border-color:var(--boundary-decorative);border-radius:var(--radius-control);color:var(--color-ink);overflow-wrap:anywhere}
 
-/* ---- Rest timer sheet ---- */
-/* Tapping a running clock used to end the rest, which is the one thing a lifter
-   mid-set never means. The clock opens this instead: hold it, nudge it, restart
-   it at another length, or end it deliberately. */
+/* ---- Rest presets sheet ---- */
+/* The running clock is inline in the Focus cue slot. The header timer and the
+   Today bar open this instead: pick a length, nudge the clock, restart it, or
+   end it deliberately. Pause and resume are the inline Pausar/Retomar pad. */
 .sheet--rest{height:auto}
 .restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom))}
-.restdial{position:relative;width:min(56vw,210px);flex:none;aspect-ratio:1}
-.restdial__svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
-.restdial__track{fill:none;stroke:var(--boundary-decorative);stroke-width:7}
-.restdial__arc{
-  fill:none;stroke:var(--color-action);stroke-width:7;stroke-linecap:round;
-  transition:stroke-dashoffset .25s linear,stroke .2s ease;
-}
-.restdial__clock{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-training-data);font-weight:var(--weight-semibold);font-size:var(--font-size-rest-clock);line-height:var(--line-tight);
-  font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--color-ink);
-}
-/* Held: the ring goes quiet so a frozen clock never reads as a running one. */
-.sheet--rest.is-paused .restdial__arc{stroke:var(--boundary-required)}
-.sheet--rest.is-paused .restdial__clock{color:var(--color-maintained)}
-/* Past the bell, the same red the chip and the bar use for overtime. */
-.sheet--rest.is-over .restdial__arc{stroke:var(--danger)}
-.sheet--rest.is-over .restdial__clock{color:var(--color-warning)}
 .restsheet__presets{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
 .restpreset{
   min-width:0;min-height:var(--control-target);padding:0 12px;border-radius:var(--radius-pill);cursor:pointer;
@@ -1979,7 +2015,7 @@ textarea.sheetfield__input{
 .restpreset.is-active{border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg);box-shadow:var(--elevation-selected-shadow)}
 .restpreset.is-active:hover:not(:disabled),.restpreset.is-active:active:not(:disabled){border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg)}
 .restpreset:disabled{border-color:var(--boundary-decorative);color:var(--color-disabled-reason);background:var(--control-selection-bg);opacity:1;cursor:not-allowed;transform:none;box-shadow:none}
-.restsheet__controls{display:flex;align-items:center;justify-content:center;gap:4px;width:100%}
+.restsheet__controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:4px;width:100%}
 .restctl{
   display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
   flex:1 1 0;min-width:0;min-height:var(--control-target);padding:6px 2px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
@@ -1996,43 +2032,12 @@ textarea.sheetfield__input{
 #restMinus:disabled,#restPlus:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .restctl .icon-mask{width:var(--control-icon-size);height:var(--control-icon-size)}
 .restctl__label{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:var(--line-tight)}
-.restctl--primary{
-  flex:none;width:68px;height:68px;min-width:68px;min-height:68px;border-radius:var(--radius-round);
-  border-color:var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--control-selection-ink);
-}
-.restctl--primary .icon-mask{width:var(--control-icon-size);height:var(--control-icon-size)}
-.restctl--primary:hover:not(:disabled),.restctl--primary:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
-.restctl--primary:active:not(:disabled){transform:var(--control-pressed-transform)}
-.restctl--primary:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.restctl--primary:disabled{background:var(--control-selection-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-/* Idle or held, the button offers to start; running, it offers to hold. */
-.restctl--primary .restctl__pause{display:none}
-.sheet--rest:not(.is-idle):not(.is-paused) .restctl--primary .restctl__play{display:none}
-.sheet--rest:not(.is-idle):not(.is-paused) .restctl--primary .restctl__pause{display:inline-block}
-.sheet--rest:not(.is-idle):not(.is-paused) #restPlayPause{background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);box-shadow:var(--elevation-selected-shadow)}
-.sheet--rest:not(.is-idle):not(.is-paused) #restPlayPause:hover:not(:disabled),
-.sheet--rest:not(.is-idle):not(.is-paused) #restPlayPause:active:not(:disabled){background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary)}
-/* Short screens: the dial gives up the room the presets and controls need. */
-@media (max-height:640px){
-  .restsheet{gap:14px;padding-top:14px}
-  .restdial{width:min(44vw,152px)}
-}
-@media (prefers-reduced-motion:reduce){
-  .restdial__arc{transition:none}
-}
 @media (max-width:430px){
   #restSheet .sheet__head{grid-template-columns:minmax(0,1fr) var(--control-target)}
   #restSheet .sheet__spacer{display:none}
   #restSheet .sheet__titles{grid-column:1;grid-row:1}
   #restSheet #restSheetClose{grid-column:2;grid-row:1}
   .restsheet{gap:14px;padding-top:14px}
-  .restdial{width:min(50vw,190px)}
-  .restsheet__controls{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
-  #restMinus{grid-column:1/span 2;grid-row:1}
-  #restPlus{grid-column:3/span 2;grid-row:1}
-  #restPlayPause{grid-column:5/span 2;grid-row:1;justify-self:center}
-  #restReset{grid-column:1/span 3;grid-row:2}
-  #restStop{grid-column:4/span 3;grid-row:2}
   .restctl__label{white-space:nowrap;overflow-wrap:normal;word-break:normal}
 }
 
@@ -2044,7 +2049,7 @@ textarea.sheetfield__input{
 }
 @media (max-height:600px){
   .shelf__fieldbtn,.shelf__input{min-height:56px}
-  .shelf__pads .shelf__pad{height:48px;min-height:48px}
+  .shelf__pads .shelf__pad,.shelf__pads .restpad{height:48px;min-height:48px}
   .focus-shelf .btn--cta.saveset{min-height:48px}
 }
 /* On the narrowest phones a three-digit load needs the room its padding took, or it wraps onto a second line. */
@@ -3049,8 +3054,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .icon-mask--sm{width:16px;height:16px}
 .icon-mask--minus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E")}
 .icon-mask--plus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E")}
-.icon-mask--play{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.4a1 1 0 0 1 1.53-.85l9 6.6a1 1 0 0 1 0 1.7l-9 6.6A1 1 0 0 1 8 18.6z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.4a1 1 0 0 1 1.53-.85l9 6.6a1 1 0 0 1 0 1.7l-9 6.6A1 1 0 0 1 8 18.6z'/%3E%3C/svg%3E")}
-.icon-mask--pause{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='7' y='5' width='3.6' height='14' rx='1.2'/%3E%3Crect x='13.4' y='5' width='3.6' height='14' rx='1.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='7' y='5' width='3.6' height='14' rx='1.2'/%3E%3Crect x='13.4' y='5' width='3.6' height='14' rx='1.2'/%3E%3C/svg%3E")}
 .icon-mask--stop{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E")}
 .icon-mask--reset{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E")}
 .icon-mask--history{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.5-6'/%3E%3Cpolyline points='3 3.5 3 8.5 8 8.5'/%3E%3Cpolyline points='12 7.5 12 12 15.5 14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.5-6'/%3E%3Cpolyline points='3 3.5 3 8.5 8 8.5'/%3E%3Cpolyline points='12 7.5 12 12 15.5 14'/%3E%3C/svg%3E")}

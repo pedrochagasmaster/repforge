@@ -929,17 +929,17 @@
       "variants": "demandingText"
     },
     {
-      "id": "rest-timer",
+      "id": "rest-running",
       "flow": "workout",
-      "label": "Workout — rest timer",
-      "scenario": "The rest timer sheet.",
+      "label": "Workout — rest running",
+      "scenario": "A logged set has started the rest: the clock, the drain bar and the next set's cue take the cue slot, and the rest controls take the shelf's pad row.",
       "variants": "demandingText"
     },
     {
-      "id": "rest-timer-paused",
+      "id": "rest-done",
       "flow": "workout",
-      "label": "Workout — paused rest timer",
-      "scenario": "The rest timer sheet with its countdown held.",
+      "label": "Workout — rest done",
+      "scenario": "The rest has run out: the clock collapses to one line that counts the overrun up, the cue returns and the field pads come back.",
       "variants": "demandingText"
     },
     {

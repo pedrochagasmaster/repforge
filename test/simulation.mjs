@@ -4735,7 +4735,7 @@ async function main() {
     "restBar still hidden after tapping ⏱",
     "Log → tap ⏱ on an exercise → rest timer appears"
   );
-  // The floating clock opens the timer sheet; it never ends the rest on its own.
+  // The floating clock opens the rest presets; it never ends the rest on its own. The clock itself is inline in the card.
   await page.click("#woRest");
   await page.waitForTimeout(350);
   const restSheet = await page.evaluate(() => {
@@ -4743,14 +4743,15 @@ async function main() {
     return {
       open: !el.hidden && el.classList.contains("is-open"),
       running: !document.querySelector("#restBar").classList.contains("hidden"),
-      clock: document.querySelector("#restSheetClock").textContent.trim(),
+      clock: document.querySelector("#workout .exercise.is-current [data-rest-clock]")?.textContent.trim() || "",
+      presets: el.querySelectorAll("#restPresets [data-restpreset]").length,
     };
   });
   assert(
-    restSheet.open && restSheet.running && /^\d+:\d\d$/.test(restSheet.clock),
-    "Tapping the floating clock opens the rest timer instead of ending it",
+    restSheet.open && restSheet.running && /^\d+:\d\d$/.test(restSheet.clock) && restSheet.presets >= 4,
+    "Tapping the floating clock opens the rest presets instead of ending the rest",
     JSON.stringify(restSheet),
-    "Log → tap the floating clock → the rest timer sheet opens with the rest still running"
+    "Log → tap the floating clock → the rest presets open with the rest still running in the card"
   );
   await page.click("#restStop");
   await page.waitForTimeout(350);
@@ -5721,7 +5722,14 @@ async function main() {
       counting: /^\d+:\d\d$/.test(chip.querySelector(".wo-rest__time")?.textContent?.trim() || ""),
       labelled: /\d+:\d\d/.test(chip.getAttribute("aria-label") || ""),
       floatingHidden: getComputedStyle(bar).display === "none",
-      inCard: card.querySelectorAll("[data-rest], .ex__rest").length,
+      // The clock is inline in the cue slot, a part of the card's flow above the shelf, and nothing else of the old rest chrome is in it.
+      inCard: card.querySelectorAll(".ex__rest").length,
+      inline: card.querySelectorAll(".fx-slot[data-rest='running'] .restinline").length,
+      aboveShelf: (() => {
+        const slot = card.querySelector(".fx-slot")?.getBoundingClientRect();
+        const cta = card.querySelector(".focus-shelf .btn--cta")?.getBoundingClientRect();
+        return !!slot && !!cta && slot.bottom <= cta.top;
+      })(),
       overlapsCard: chipBox.bottom > cardBox.top,
       tapTarget: Math.round(Math.min(chipBox.width, chipBox.height)),
     };
@@ -5729,8 +5737,9 @@ async function main() {
   assert(
     restSurfaces.chipVisible && restSurfaces.running && restSurfaces.counting &&
       restSurfaces.labelled && restSurfaces.floatingHidden && restSurfaces.inCard === 0 &&
+      restSurfaces.inline === 1 && restSurfaces.aboveShelf &&
       !restSurfaces.overlapsCard && restSurfaces.tapTarget >= 44,
-    "Focus rest counts down in the workout header, clear of the card's controls",
+    "Focus rest counts down in the workout header and inline in the cue slot, clear of the shelf's controls",
     JSON.stringify(restSurfaces),
     "Log → Focus → tap the header timer → it becomes a counting pill above the card"
   );
@@ -5742,7 +5751,7 @@ async function main() {
   }));
   assert(
     restChipTap.sheet && restChipTap.running,
-    "tapping the running rest chip opens the timer rather than ending the rest",
+    "tapping the running rest chip opens the presets rather than ending the rest",
     JSON.stringify(restChipTap),
     "Focus → tap the counting pill → the rest timer opens with the clock still running"
   );
@@ -6103,6 +6112,8 @@ async function main() {
   // Focus carries the per-exercise controls: last session's numbers and skip.
   // A fresh card for an exercise with history: last session is what it leads on.
   await clearDraftFixture(page);
+  // An earlier phase left a rest running; the fresh card is read with none, so the clock is not in it yet.
+  await page.evaluate(() => window.stopRest?.());
   await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await page.waitForTimeout(300);
   const lastSession = await page.evaluate(() => {
@@ -6115,7 +6126,7 @@ async function main() {
       head: [...card.querySelectorAll(".ledgerline__head .fx-col")].map((s) => s.textContent.replace(/\s+/g, " ").trim()),
       more: !!document.querySelector("#woOverflowBtn"),
       tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
-      restInCard: card.querySelectorAll("[data-rest]").length,
+      restInCard: card.querySelectorAll(".restinline, .ex__rest").length,
     };
   });
   assert(
@@ -6127,9 +6138,9 @@ async function main() {
   );
   assert(
     lastSession.tools === 0 && lastSession.more && lastSession.restInCard === 0,
-    "the focus card leaves note, actions, and skip to the header's three-dot button; rest stays in the workout chrome",
+    "the focus card leaves note, actions, and skip to the header's three-dot button; no rest block is in the card until a rest runs",
     JSON.stringify(lastSession),
-    "Focus → the workout header holds one three-dot button and the card holds no tools or timer of its own"
+    "Focus → the workout header holds one three-dot button and the card holds no tools or timer of its own before a set is logged"
   );
   const beforeSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
@@ -6193,7 +6204,8 @@ async function main() {
         const logged = card?.querySelectorAll(".ledgerline[data-editn]").length || 0;
         return logged
           ? { logged, rec: card.querySelectorAll(".recblock").length,
-              cue: card.querySelector(".fx-cue")?.textContent?.trim() || "" }
+              // The set just logged armed a rest: until it ends, the cue's place holds the next set's line.
+              cue: card.querySelector(".fx-cue, .restinline__next")?.textContent?.trim() || "" }
           : null;
       });
     }

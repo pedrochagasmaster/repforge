@@ -1736,6 +1736,9 @@ let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
 // runs); restLength is the length the current or next rest is armed at.
 let restPaused=null,restLength=0;
+// A tap on a shelf field brings the field pads back for the rest of this rest;
+// the next rest starts with the rest controls again. Transient, never stored.
+let restPadsBack=false;
 function announceRestDone(){
   if(restAnnounced)return;
   restAnnounced=true;
@@ -5406,6 +5409,7 @@ function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math
  *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
 function paintRest(text,done,over=0){
   paintRestSheet();
+  restInlineSync();
   const b=$("#restBar");
   if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
     b.classList.toggle("is-done",!!done);
@@ -5452,6 +5456,8 @@ function restLeftMs(){
   if(restPaused!=null)return restPaused;
   return restEnd?restEnd-Date.now():restPlanSec()*1000}
 function restOvertimeSec(){return restEnd?Math.round(-restLeftMs()/1000):0}
+/** Whole seconds left, as the clock reads them: zero or negative once the bell has gone. */
+const restTimeLeftSec=()=>Math.round(restLeftMs()/1000);
 /** One-shot side effects at zero: the live-region line, buzz, or OS notice. */
 function ringRest(){
   announceRestDone();
@@ -5477,23 +5483,31 @@ function syncRest(){
   else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over)}
   updateRestChrome()}
 function startRest(sec){const s=sec||restPlanSec();if(s<=0)return;
-  restLength=s;restPaused=null;
+  restLength=s;restPaused=null;restPadsBack=false;
   restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
+  announceRestStart(s);
   armRestTick()}
+/** The start of a rest is one line in the live region, like its end; the clock
+ *  itself is never announced second by second. */
+function announceRestStart(sec){
+  const el=$("#restAnnounce");if(!el)return;
+  el.textContent="";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(restEnd&&!restAnnounced)el.textContent=t("rest.inline.started",{time:fmtClock(sec)})}))}
 window.__repforgeRest={
-  expire(){
+  /** Test seam: run the clock out, `over` seconds past the bell. */
+  expire(over=0){
     if(!restEnd)return false;
-    restEnd=Date.now()-1;restPaused=null;
+    restEnd=Date.now()-1-Math.max(0,Math.round(+over||0))*1000;restPaused=null;
     if(restTick){clearInterval(restTick);restTick=null}
     return true}};
 
-/* ---- Rest timer sheet ---- */
-/* Tapping a running clock used to end the rest — the one thing a lifter with a
-   bar still in hand never means by it. The clock opens this sheet instead, and
-   every edit to the rest lives here: hold it, nudge it 30s either way, restart
-   it at another length, or end it deliberately. */
+/* ---- Rest presets sheet ---- */
+/* The running clock lives inline in the Focus cue slot (see "Inline rest"
+   below). The header timer opens this sheet instead: it keeps the lengths a
+   lifter can pick, the 30s nudges, a restart and an explicit end. Pause and
+   resume are the inline Pausar/Retomar pad, so the sheet has no dial. */
 const REST_PRESETS=[60,90,180,300];
 const REST_NUDGE=30;
 const REST_MIN_SEC=15,REST_MAX_SEC=60*60;
@@ -5514,26 +5528,11 @@ function renderRestPresets(){
   host.innerHTML=restPresetSecs().map(s=>
     `<button type="button" class="restpreset" data-restpreset="${s}" aria-pressed="false" aria-label="${esc(t("rest.sheet.preset_aria",{time:fmtClock(s)}))}">${esc(fmtClock(s))}</button>`).join("");
   $$("#restPresets [data-restpreset]").forEach(b=>{b.onclick=()=>setRestLength(+b.dataset.restpreset)})}
-/** The dial reads remaining-over-armed, so a rest nudged longer keeps a ring
- *  that still means something. */
+/** The sheet reads the same clock the inline block does: the length the rest is
+ *  armed at is the active preset, and Restart and End wait for a rest to act on. */
 function paintRestSheet(){
   const sheet=$("#restSheet");if(!sheet||sheet.hidden)return;
-  const left=Math.round(restLeftMs()/1000);
-  const over=left<0?Math.min(-left,REST_OVERTIME_MAX):0;
-  const clock=$("#restSheetClock");
-  if(clock)clock.textContent=over>0?`-${fmtClock(over)}`:fmtClock(Math.max(0,left));
-  const arc=$("#restDialArc");
-  if(arc){
-    const c=2*Math.PI*(Number(arc.getAttribute("r"))||0);
-    const frac=Math.max(0,Math.min(1,left/Math.max(1,restPlanSec())));
-    arc.style.strokeDasharray=String(c);
-    arc.style.strokeDashoffset=String(c*(1-frac))}
-  const running=!!restEnd&&restPaused==null;
   sheet.classList.toggle("is-idle",!restEnd);
-  sheet.classList.toggle("is-paused",restPaused!=null);
-  sheet.classList.toggle("is-over",over>0);
-  const play=$("#restPlayPause");
-  if(play)play.setAttribute("aria-label",t(running?"rest.sheet.pause_aria":restEnd?"rest.sheet.resume_aria":"rest.sheet.start_aria"));
   const armed=restPlanSec();
   $$("#restPresets [data-restpreset]").forEach(b=>{
     const on=+b.dataset.restpreset===armed;
@@ -5548,7 +5547,7 @@ function openRestSheet(){
   renderRestPresets();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
-    initialFocus:$("#restPlayPause"),
+    initialFocus:$$("#restPresets .restpreset").find(b=>+b.dataset.restpreset===restPlanSec())||$("#restMinus"),
     returnFocus:restSheetReturn,
     onEscape:closeRestSheet,
     scrim,
@@ -5571,7 +5570,7 @@ function setRestLength(sec){
   else syncRest();
   paintRestSheet()}
 /** ±30s moves the clock, not the plan — except when the nudge pushes past the
- *  length it was armed at, which becomes the new full turn of the ring. */
+ *  length it was armed at, which becomes the new full length of the drain bar. */
 function nudgeRest(delta){
   if(!restEnd){setRestLength(restPlanSec()+delta);return}
   const next=Math.min(REST_MAX_SEC*1000,Math.max(-REST_OVERTIME_MAX*1000,restLeftMs()+delta*1000));
@@ -5597,6 +5596,83 @@ function toggleRestHold(){
   syncRest()}
 function resetRest(){if(!restEnd)return;startRest(restPlanSec())}
 function endRestFromSheet(){stopRest();closeRestSheet()}
+/** Pular on the inline pad. It ends the rest the way the bell does: the clock
+ *  stands at zero and its overrun counts up from there (owner decision on
+ *  OG-4, proposal 5). The lifter ended it, so there is no buzz or OS notice;
+ *  the live region still says it is over. */
+function skipRest(){
+  if(!restEnd||restTimeLeftSec()<=0)return;
+  restEnd=Date.now();restPaused=null;restNotified=true;
+  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  armRestTick();
+  tickRest()}
+
+/* ---- Inline rest: the live card follows the clock ----
+   The card is drawn from the timer (see "Inline rest" above); between renders
+   the clock's repaint keeps it in step. Figures change in place, and when the
+   timer changes what the cue slot or the pad row should show (time runs out,
+   Pular, a nudge past zero, a rest ending) the slot trades its content. */
+/** Bound to every rest control in the pad row. */
+function restAct(act){
+  if(act==="minus")nudgeRest(-REST_NUDGE);
+  else if(act==="plus")nudgeRest(REST_NUDGE);
+  else if(act==="pause")toggleRestHold();
+  else if(act==="skip")skipRest()}
+/** Handlers for content swapped into the live card after bindWorkout ran. */
+function bindRestControls(root){
+  root.querySelectorAll("[data-rest-act]").forEach(b=>{b.onclick=()=>restAct(b.dataset.restAct)});
+  root.querySelectorAll("[data-why]").forEach(b=>{b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)}})}
+/** The rest markup for a card's cue slot, built from the same pieces the card is: the engine's cue for the set
+ *  the shelf is working on. */
+function restSlotMarkup(card,mode){
+  const base=prog.find(card.dataset.ex);if(!base||!activeWorkoutDraft)return null;
+  const ex=sessionExercise(base),n=focusActiveSet(ex);if(!n)return null;
+  const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id);
+  const cue=focusCue(ex,n,r,draft,prev,editing);
+  return focusSlotInner(ex,n,r,cue,mode,{peek:false,name:substituted.get(ex.id)||ex.name,draft,editing})}
+/** Trade the slot's content for `next`, the markup for `mode`. */
+function swapRestSlot(slot,mode,next){
+  slot.innerHTML=next;slot.dataset.rest=mode;
+  bindRestControls(slot)}
+/** The pad row trades the field pads for the rest controls and back. */
+function swapRestPads(card,pads){
+  const base=prog.find(card.dataset.ex);if(!base||!activeWorkoutDraft)return;
+  const ex=sessionExercise(base),n=focusActiveSet(ex);if(!n)return;
+  const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id);
+  const key=`${ex.id}_${n}`,vals=setFieldVals(ex,n,r,draft,prev);
+  const hadFocus=pads.contains(document.activeElement);
+  const holder=document.createElement("div");
+  holder.innerHTML=focusPadsHtml(ex,n,shelfFor(key),vals,{effortMode:isEffortMode(),peek:false,editing});
+  const next=holder.firstElementChild;
+  pads.replaceWith(next);
+  bindWorkout();
+  // A control that left the row must not take the lifter's place with it.
+  if(hadFocus)card.querySelector(".focus-shelf .shelf__field.is-sel .shelf__fieldbtn")?.focus({preventScroll:true})}
+/** Called with every repaint of the clock. */
+function restInlineSync(){
+  const card=focusCard();if(!card||!activeWorkoutDraft)return;
+  const slot=card.querySelector(".fx-slot"),pads=card.querySelector(".shelf__pads");
+  const editing=!!(focusEdit&&focusEdit.exId===card.dataset.ex);
+  if(slot&&slot.dataset.rest!==restSlotMode(editing)){
+    const mode=restSlotMode(editing),next=restSlotMarkup(card,mode);
+    if(next!=null)swapRestSlot(slot,mode,next);
+    // The slot was swapped for its new job, which drew the clock at this repaint.
+  }
+  if(pads&&pads.dataset.pads!==(restPadsOn(editing)?"rest":"field"))swapRestPads(card,pads)
+  const clock=card.querySelector("[data-rest-clock]");
+  if(clock){
+    const left=fmtClock(Math.max(0,restTimeLeftSec()));
+    if(clock.textContent!==left)clock.textContent=left;
+    const of=card.querySelector("[data-rest-of]"),ofText=t("rest.inline.of",{t:fmtClock(restPlanSec())});
+    if(of&&of.textContent!==ofText)of.textContent=ofText;
+    const fill=card.querySelector("[data-rest-fill]");
+    if(fill)fill.style.transform=`scaleX(${restFraction().toFixed(4)})`}
+  const done=card.querySelector("[data-rest-done]");
+  if(done){const text=restDoneText(restOverSec());if(done.textContent!==text)done.textContent=text}
+  const pause=card.querySelector('[data-rest-act="pause"]');
+  if(pause){const label=t(restPaused!=null?"rest.inline.resume":"rest.inline.pause");if(pause.textContent!==label)pause.textContent=label}}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
@@ -6642,9 +6718,91 @@ function focusCue(ex,n,r,draft,prev,editing){
   // The first target of the day is `recommendation()`'s own load; a later set's
   // is the engine's in-session answer, which the parity check does not compare.
   const parity=sg.src==="base"&&!sg.tempered?` data-parity-target="${esc(ex.id)}"`:"";
-  return{kind:"now",move,
+  return{kind:"now",move,loadText,reps,parity,
     headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${esc(loadText)}</b>`),
     sub:t("focus.cue.reps",{reps})}}
+
+/* ---- Inline rest (Direction D 4.2, owner gate OG-4 job 3) ----
+   The rest clock reads the one timer (`restEnd`, `restPaused`, `restLength`):
+   there is no second clock and nothing stored. While time remains it takes the
+   cue slot, with the next set's cue under it and the rest controls in the
+   shelf's pad row. At zero, or after Pular, it collapses to one line that counts
+   the overrun up in soft ink and the cue returns. Logging never waits on it. */
+/** What the timer is doing, said once for every consumer: no rest, time left, or past the bell. */
+function restInlineMode(){
+  if(!restEnd)return"none";
+  return restTimeLeftSec()>0?"running":"done"}
+/** Time left on the drain bar, as the share of the length this rest is armed at. */
+function restFraction(){return Math.max(0,Math.min(1,restLeftMs()/1000/Math.max(1,restPlanSec())))}
+/** The clock's seconds past the bell, capped where the count stops meaning anything. */
+const restOverSec=()=>Math.min(REST_OVERTIME_MAX,Math.max(0,-restTimeLeftSec()));
+/** The slot shows the rest unless the lifter is correcting a set: the correction's cue owns it then. */
+const restSlotMode=editing=>editing?"none":restInlineMode();
+/** Four text pads need a row of their own: at large text (the root above 16px, the same test that sizes the card)
+ *  they no longer fit one row, and a second row would push the shelf's action off the shortest screens. The field
+ *  pads stay then, and the rest controls are the header timer's presets sheet. */
+const restPadsFit=()=>!(Number.parseFloat(getComputedStyle(document.documentElement).fontSize)>16.1);
+/** The rest controls take the pad row while time remains, until a tap on a field brings the field pads back. */
+const restPadsOn=editing=>!editing&&!restPadsBack&&restPadsFit()&&restInlineMode()==="running";
+
+/** The Por quê? link of a cue: the same control in the cue and in the rest line. */
+function focusWhyHtml(ex,r,{peek,name,draft,label,cls}){
+  if(!(r.status!=="new"||inSessionNote(ex,draft)))return"";
+  return `<button type="button" class="text-link focus-ex__why ${cls}"${peek?dead()
+    :` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(label)}</button>`}
+/** The 24px cue: the verb and the load, the reps under it, and the Why link. The mark is the shared verdict mark,
+ *  so hold draws the ink "=" and up the orange arrow exactly as the Why headline does. The column stays when the
+ *  cue has no mark, so the lines never shift. */
+function focusCueBlockHtml(ex,r,cue,{peek,name,draft}){
+  const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml(cue.move)}</span>`;
+  const why=focusWhyHtml(ex,r,{peek,name,draft,label:t("why.open"),cls:"fx-cue__why"});
+  const cancel=cue.kind==="edit"
+    ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
+  return `<div class="fx-cue is-${cue.kind}">${mark}<p class="fx-cue__l1">${cue.headHtml}</p>`+
+    (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+why+cancel+`</div>`}
+/** The running clock: "Descanso 1:30 de 2:00" over the drain bar. */
+function restClockHtml(){
+  return `<div class="restinline" role="timer"><div class="restinline__row">`+
+    `<span class="restinline__label">${esc(t("rest.inline.label"))}</span>`+
+    `<b class="restinline__clock" data-rest-clock>${esc(fmtClock(Math.max(0,restTimeLeftSec())))}</b>`+
+    `<span class="restinline__of" data-rest-of>${esc(t("rest.inline.of",{t:fmtClock(restPlanSec())}))}</span></div>`+
+    `<div class="restinline__bar" aria-hidden="true"><i class="restinline__fill" data-rest-fill style="transform:scaleX(${restFraction().toFixed(4)})"></i></div></div>`}
+const restDoneText=over=>over>0?t("rest.inline.done_over",{time:fmtClock(over)}):t("rest.inline.done");
+/** The collapsed clock: "Descanso concluído · +0:15", counting up. */
+function restDoneHtml(){
+  const over=restOverSec();
+  return `<div class="restinline restinline--done" role="timer"><p class="restinline__done"><span class="restinline__mk" aria-hidden="true"></span>`+
+    `<span data-rest-done>${esc(restDoneText(over))}</span></p></div>`}
+/** The next set's cue on one 18px line, its figures in Mono: the engine's own load and reps for that set. */
+function restNextHtml(ex,n,r,cue,{peek,name,draft}){
+  let line;
+  if(cue.kind==="now"){
+    const vars={n,load:"\u0000",reps:"\u0001",unit:unitLabel()};
+    const sentence=cue.move==="up"?t("rest.inline.next_up",vars):cue.move==="down"?t("rest.inline.next_down",vars):t("rest.inline.next",vars);
+    line=esc(sentence).replace("\u0000",`<b class="restinline__val"${cue.parity}>${esc(cue.loadText)}</b>`)
+      .replace("\u0001",`<b class="restinline__val">${esc(String(cue.reps))}</b>`)}
+  // A manual slot or a first set with no load has no sentence of its own: its cue lines, as they read.
+  else line=cue.headHtml+(cue.sub?` · ${esc(cue.sub)}`:"");
+  return `<div class="restinline__nextrow"><p class="restinline__next">${line}</p>`+
+    focusWhyHtml(ex,r,{peek,name,draft,label:t("why.short"),cls:"restinline__why"})+`</div>`}
+/** The cue slot's content for one mode of the timer: the cue, the running clock with the next cue, or the
+ *  collapsed clock above the returned cue. */
+function focusSlotInner(ex,n,r,cue,mode,opts){
+  if(mode==="running")return restClockHtml()+restNextHtml(ex,n,r,cue,opts);
+  if(mode==="done")return restDoneHtml()+focusCueBlockHtml(ex,r,cue,opts);
+  return focusCueBlockHtml(ex,r,cue,opts)}
+function focusSlotHtml(ex,n,r,cue,opts){
+  const mode=restSlotMode(opts.editing);
+  return `<div class="fx-slot" data-rest="${mode}">${focusSlotInner(ex,n,r,cue,mode,opts)}</div>`}
+/** The rest controls in the shelf's pad row: -30s, Pausar or Retomar, +30s, Pular. They act on the timer
+ *  the header chip and the presets sheet act on. */
+function restPadsHtml(peek){
+  const held=restPaused!=null;
+  const pad=(act,cls,label,aria)=>`<button type="button" class="restpad ${cls}"${peek?dead():` data-rest-act="${act}"`}${aria?` aria-label="${esc(aria)}"`:""}>${esc(label)}</button>`;
+  return pad("minus","restpad--adjust",t("rest.sheet.minus"),t("rest.sheet.minus_aria"))+
+    pad("pause","restpad--toggle",t(held?"rest.inline.resume":"rest.inline.pause"))+
+    pad("plus","restpad--adjust",t("rest.sheet.plus"),t("rest.sheet.plus_aria"))+
+    pad("skip","restpad--skip",t("log.skip"))}
 
 /** How a logged set reads back in the ledger. */
 function focusRowVals(ex,n,r,draft,prev,effortMode){
@@ -6791,6 +6949,12 @@ function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
   return [-1,1].map(dir=>pad(dir,id==="load"?t("focus.shelf.pad_load",{sign:sign(dir),step:shelfLoadStep(),unit:unitLabel()})
     :id==="reps"?t("focus.shelf.pad_reps",{sign:sign(dir)}):t("focus.shelf.pad_rir",{sign:sign(dir)}),{attrs})).join("")}
 
+/** The pad row: the rest controls while a rest runs and no field has been tapped, else the pads for the selected field. */
+function focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing}){
+  const rest=restPadsOn(editing);
+  return `<div class="shelf__pads${rest?" shelf__pads--rest":""}" data-pads="${rest?"rest":"field"}"${rest?` role="group" aria-label="${esc(t("rest.inline.label"))}"`:""}>`+
+    (rest?restPadsHtml(peek):shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}))+`</div>`}
+
 /** The shelf: the fields of the active set, the pads for the selected one and
  *  the single action that commits it — or, once the exercise is complete, the
  *  step the lifter takes next. */
@@ -6819,7 +6983,7 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const fields=["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${fields}</div>`+
-    `<div class="shelf__pads">${shelfPadsHtml(ex,n,ui,vals,{effortMode,peek})}</div>`+
+    focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing})+
     `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`}
 
 /** Rebuild the live card's shelf after the selection, an edit or an effort step
@@ -6891,16 +7055,8 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const note=noteVal?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(noteVal)}</span></p>`:"";
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
   const cue=n?focusCue(ex,n,r,draft,prev,editing):null;
-  // The cue's mark is the shared verdict mark, so hold draws the ink "=" and up the orange arrow exactly as
-  // the Why headline does. The column stays when the cue has no mark, so the lines never shift.
-  const mark=`<span class="fx-cue__mark" aria-hidden="true">${cue?verdictMarkHtml(cue.move):""}</span>`;
-  const why=r.status!=="new"||inSessionNote(ex,draft)
-    ?`<button type="button" class="text-link focus-ex__why fx-cue__why"${peek?dead()
-      :` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"";
-  const cancel=cue?.kind==="edit"
-    ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
-  const cueHtml=cue?`<div class="fx-cue is-${cue.kind}">${mark}<p class="fx-cue__l1">${cue.headHtml}</p>`+
-    (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+why+cancel+`</div>`:"";
+  // The cue slot holds the cue, or while a rest runs the inline rest in its place (L3 swaps the one for the other).
+  const slotHtml=cue?focusSlotHtml(ex,n,r,cue,{peek,name,draft,editing}):"";
   const nextRow=hasNext&&nextName
     ?`<button type="button" class="fx-next"${peek?dead():" data-fnextrow"}><span>${esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(nextName)}</b>`)}</span>`+
       `<span class="icon-mask icon-mask--sm icon-mask--chev-down fx-next__chev" aria-hidden="true"></span></button>`:"";
@@ -6909,7 +7065,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}">`+
     `<div class="fx-head">${exerciseThumb(exerciseRefEntry(ex),{size:"sm"})}<div class="fx-head__text">${nameHtml}`+
     `<p class="focus-ex__meta">${esc(focusExMeta(ex))}</p></div></div>`+
-    cueHtml+note+
+    slotHtml+note+
     `<div class="fcard__ledger"><p class="delta-prev${deltaText?"":" hidden"}" aria-live="polite">${esc(deltaText)}</p>`+
     `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+nextRow+`</div>`+
     focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
@@ -7079,6 +7235,7 @@ function bindWorkout(){
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
+  $w("[data-rest-act]").forEach(b=>b.onclick=()=>restAct(b.dataset.restAct));
   $w(".saveset").forEach(b=>b.onclick=async()=>{const key=b.dataset.save,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
     const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
@@ -7138,8 +7295,11 @@ function bindWorkout(){
   $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
     const key=b.dataset.set,id=b.dataset.shelfField,ui=shelfFor(key);
     const effortField=id==="rir"&&isEffortMode();
+    // A tap on any field brings the field pads back for the rest of this rest.
+    const fromRest=restPadsOn(false);
+    if(fromRest)restPadsBack=true;
     // A second tap on the selected field opens it: a typed value, or the word's explainer.
-    if(ui.field===id&&effortField){toggleEffortPop(key);return}
+    if(ui.field===id&&effortField){toggleEffortPop(key);if(fromRest)restInlineSync();return}
     if(ui.field===id&&!ui.editing){shelfSelect(key,id,true);refreshShelf({focus:id});return}
     closeEffortPop();shelfSelect(key,id,false);refreshShelf({focus:id})});
   $w(".ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
@@ -17542,7 +17702,6 @@ function init(){
   const restScrim=$("#restSheetScrim");if(restScrim)restScrim.onclick=closeRestSheet;
   const restMinus=$("#restMinus");if(restMinus)restMinus.onclick=()=>nudgeRest(-REST_NUDGE);
   const restPlus=$("#restPlus");if(restPlus)restPlus.onclick=()=>nudgeRest(REST_NUDGE);
-  const restPlay=$("#restPlayPause");if(restPlay)restPlay.onclick=toggleRestHold;
   const restReset=$("#restReset");if(restReset)restReset.onclick=resetRest;
   const restStop=$("#restStop");if(restStop)restStop.onclick=endRestFromSheet;
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;

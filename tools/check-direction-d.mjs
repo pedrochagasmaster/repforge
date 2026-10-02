@@ -62,6 +62,8 @@ const D_STATE_KEYS = [
 const IMPLEMENTED_D_STATES = new Set([
   // R3c: the Focus surface (shelf, ledger, cue, header routes) over DraftV2.
   "workout/focus", "workout/focus-glossary", "workout/correction",
+  // R3f: the inline rest in the Focus cue slot and pad row, running and run out.
+  "workout/rest-running", "workout/rest-done",
   // R3d: the workout sheets drawn in OG-6 round 1 (workout/exercise-actions stays pending: its round 2 redraw is not approved).
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions",
@@ -88,6 +90,7 @@ const D_ADDED_STATE_KEYS = [
   "today/mixed-strategies",
   "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
   "session/summary-first",
+  "workout/rest-running", "workout/rest-done",
 ];
 /**
  * A sheet state is enforced on the sheet: the page behind it belongs to another
@@ -118,6 +121,8 @@ export const ORANGE_ALLOWLIST = [
   { category: "verdict-glyph", selector: ".verdictmark--up .verdictmark__glyph" },
   // R3b: Today's Start workout CTA keeps its arrow.
   { category: "cta-arrow", selector: ".btn--cta", pseudo: "::after" },
+  // R3f: the running rest's drain bar (the bar's fill, a transform on a 4px track).
+  { category: "timer-drain-bar", selector: ".restinline__fill" },
   // R3j: the dock's active item. Direction D leaves the dock as shipped (spec section 7), so the
   // active tab keeps painting its icon, its label and its selection edge in the accent.
   { category: "active-dock-icon", selector: "nav button.active .nav__icon" },
@@ -129,14 +134,14 @@ export const OVERFLOW_EXCEPTIONS = [
   // R3i: Direction D's single Progress tab row scrolls sideways when five tabs do not fit (spec section 4.6).
   { id: "progress-tab-row", selector: ".tabrow" },
 ];
-/** Where "Hold" as a label is banned: the shipped rest surfaces. Inline rest adds its selector with R3. */
-export const TIMER_SCOPES = ["#restSheet", ".restdial"];
+/** Where "Hold" as a label is banned: the rest surfaces. R3f: the inline block, its pad row and the presets sheet. */
+export const TIMER_SCOPES = ["#restSheet", ".restinline", ".shelf__pads--rest"];
 
 /** Data attributes a D surface emits so parity can tie a rendered word or figure to an exercise (see GAPS). */
 export const PARITY_ATTRIBUTES = Object.freeze({ outcome: "data-parity-outcome", session: "data-parity-session", target: "data-parity-target" });
 
 export const GAPS = Object.freeze([
-  "Orange allowlist: Plan 064 section 8.8 and the D spec section 7 name five permitted uses (verdict glyph, current exercise segment, running timer's drain bar, CTA arrow, active dock icon) but no governing document binds any of them to a selector or pseudo-element, and two of them do not exist in the app yet. ORANGE_ALLOWLIST therefore holds only what each R3 sub-slice adds for the states it enforces (R3b: the up verdict glyph, the CTA arrow, and the active dock item's ring, icon and label); every entry is the sub-slice's reading of the budget and is listed in its handoff for the owner to approve. Two budget uses still have no element: the current-exercise segment and a running timer's drain bar.",
+  "Orange allowlist: Plan 064 section 8.8 and the D spec section 7 name five permitted uses (verdict glyph, current exercise segment, running timer's drain bar, CTA arrow, active dock icon) but no governing document binds any of them to a selector or pseudo-element. ORANGE_ALLOWLIST therefore holds only what each R3 sub-slice adds for the states it enforces (R3b: the up verdict glyph, the CTA arrow, and the active dock item's ring, icon and label); every entry is the sub-slice's reading of the budget and is listed in its handoff for the owner to approve. Every budget use now has an element (R3f added the running timer's drain bar, the inline rest's fill).",
   "Overflow exception: the spec excepts 'the tab row' but D's single tab row has no selector until R3 builds it (spec section 4.6). OVERFLOW_EXCEPTIONS is empty, so a scrolling tab row fails until the Progress sub-slice adds its entry. 'D surfaces' for the ellipsis rule is read as the whole rendered page of a D-owned state.",
   "Parity markup: no governing document says how a rendered outcome word or target is tied to an exercise. The gate defines the minimum: data-parity-outcome=<exerciseId> (optional data-parity-session=<sessionId>, default the latest logged session) on the element whose text is the outcome word, and data-parity-target=<exerciseId> on the element that shows the target; an unmarked element whose own text equals a delta.*.label is an orphan outcome word. The contract needs orchestrator approval before R3 sub-slices emit it. Targets compare the load only: recommendation() carries no reps, and the per-set reps come from setSuggestion, which the spec's section 10 does not name.",
   "Banned words: the governing documents name only 'Regrediu', 'Hold' as a timer label and em dashes (D spec section 6, strings appendix), plus the brand guide's curly-quote and Portuguese-English-word rules that test/i18n.mjs enforces. There is no single banned-word list. The gate duplicates the patterns from test/i18n.mjs (it runs its assertions on import and cannot be imported), so they can drift. 'Timer label' is scoped to TIMER_SCOPES.",

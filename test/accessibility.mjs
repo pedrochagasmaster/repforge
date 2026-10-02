@@ -1034,7 +1034,10 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
       state.settings.notify = { ...(state.settings.notify || {}), enabled: on, timer: true };
     }, enabled);
     await page.evaluate(() => startRest(1));
-    await page.waitForFunction(() => (document.querySelector("#restAnnounce")?.textContent || "").trim().length > 0, { timeout: 4000 });
+    // The start of a rest is announced once, in its own words; the end is announced once after it.
+    await page.waitForFunction(() => /^Rest started: 0:01\.$/.test(document.querySelector("#restAnnounce")?.textContent || ""), { timeout: 4000 });
+    assert(true, `rest start announces once (notify ${enabled ? "on" : "off"})`);
+    await page.waitForFunction(() => document.querySelector("#restAnnounce")?.textContent === window.RepForgeI18n.t("rest.complete"), { timeout: 4000 });
     const first = await page.evaluate(() => document.querySelector("#restAnnounce")?.textContent);
     await page.evaluate(() => {
       document.dispatchEvent(new Event("visibilitychange"));
@@ -1048,7 +1051,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
       window.__repforgeRest.expire();
       document.dispatchEvent(new Event("visibilitychange"));
     });
-    await page.waitForFunction(() => (document.querySelector("#restAnnounce")?.textContent || "").trim().length > 0, { timeout: 4000 });
+    await page.waitForFunction(() => document.querySelector("#restAnnounce")?.textContent === window.RepForgeI18n.t("rest.complete"), { timeout: 4000 });
     const catchup = await page.evaluate(() => document.querySelector("#restAnnounce")?.textContent);
     assert(!!(catchup || "").trim(), `visibilitychange catch-up announces completion (notify ${enabled ? "on" : "off"})`, catchup);
     const again = await page.evaluate(() => {
