@@ -7037,3 +7037,11 @@ body.is-entry-editor #entryProgramName,
 #exDetail .recblock__lab{color:var(--color-ink-secondary)}
 #exDetail :is(.link-accent,.recblock__why){color:var(--control-quiet-ink);text-decoration:underline;text-underline-offset:.2em}
 #exDetail :is(.listrow__sub,.statrow__cap){white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+
+/* Install: the drawn Safari bar points with ink, step numbers are secondary ink and the status rail is the quiet boundary. */
+.safaribar__target::before{border-color:var(--boundary-selected-quiet)}
+.safaribar__tool--more{letter-spacing:0;white-space:nowrap}
+.safaribar__tap{left:auto;right:0;transform:none;white-space:nowrap}
+.safaribar__host{text-overflow:clip}
+.installsteps__n{color:var(--color-ink-secondary)}
+.install-transfer__status:not(:empty){border-left-color:var(--boundary-selected-quiet)}
