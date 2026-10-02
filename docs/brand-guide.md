@@ -152,15 +152,17 @@ proposal.
 Plan 054 P3 owns only the landing and routing above. Later packets still own
 install timing, contextual guidance, and the cached Privacy page.
 
-**What a setup link shares.** The in-app share sheet states the exact
-claim before the coach acts; do not strengthen or soften it in other
-copy, and do not paste it into the outbound system share or the
-clipboard:
+**What a setup link shares.** The in-app share sheet states the claim in
+one line before the coach acts, and the sheet's body stays task-only. The full
+disclosure, including the iOS cookie, is the cached in-app Privacy page's
+setup section. Do not strengthen or soften either text in other copy, and do
+not paste it into the outbound system share or the clipboard:
 
-| Key | English | Portuguese |
-| --- | --- | --- |
-| `program.share_setup_sub` | Program, settings and app language · no workout history | Treino, ajustes e idioma do app · sem histórico de sessões |
-| `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta. |
+| Key | Surface | English | Portuguese |
+| --- | --- | --- | --- |
+| `program.share_setup_sub` | Share row and sheet | Program, settings and app language · no workout history | Treino, ajustes e idioma do app · sem histórico de sessões |
+| `program.share_setup_body` | Share sheet | Create a setup link for this program. Copy the link or open the system Share sheet. | Crie um link de configuração para este treino. Copie o link ou abra o menu de compartilhamento do sistema. |
+| `privacy.setup.body` | Privacy page | A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history. | Um link de configuração leva uma proposta de treino no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de sessão nem histórico de treinos anteriores. |
 
 Outbound Share link is title plus URL only. Copy link is the URL only. The
 Share sheet stays task-only: privacy and transport explanations live on the
