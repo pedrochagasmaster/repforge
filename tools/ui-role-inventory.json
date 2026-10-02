@@ -9132,97 +9132,16 @@
       "id": "accent-keyline-required-boundary",
       "token": "--control-accent-keyline-shadow",
       "selectors": [
-        ".entry-card--primary",
-        ".entry-body .radio-card.is-selected"
+        ".entry-card--primary"
       ],
       "role": "required boundary",
       "boundary": "required",
-      "rationale": "One inset keyline reinforces the existing accent boundary on the featured primary card and selected radio choice. Both consumers keep their distinct primary or selection role; the shared token expresses only their common required boundary and does not alter dimensions or add elevation.",
+      "rationale": "One inset keyline reinforces the existing accent boundary on the featured primary card. Entry selections no longer use it: a chosen option takes the quiet ink ring (Q-E, OG-4, --boundary-selected-quiet), so the keyline expresses only the primary role's required boundary and does not alter dimensions or add elevation.",
       "owner": "plan-054/058",
       "catalogStates": [
-        "onboarding-browse/environment",
-        "onboarding-browse/schedule",
-        "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/background",
-        "onboarding-recommend/desired-result",
-        "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift",
         "onboarding-start/hub",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open",
-        "progress/schedule-diagnosis"
-      ]
-    },
-    {
-      "id": "grouped-selection-rail",
-      "token": "--control-selection-rail-shadow",
-      "selectors": [
-        ".entry-body .onb__opts.onb__list .radio-card.is-selected"
-      ],
-      "role": "selection",
-      "boundary": "required",
-      "rationale": "A leading inset rail marks the chosen row inside grouped option lists where every row shares one outer surface.",
-      "owner": "plan-054/058",
-      "catalogStates": [
-        "onboarding-browse/environment",
-        "onboarding-browse/schedule",
-        "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/background",
-        "onboarding-recommend/desired-result",
-        "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift",
-        "progress/schedule-diagnosis"
-      ]
-    },
-    {
-      "id": "segmented-selection-underline",
-      "token": "--control-selection-underline-shadow",
-      "selectors": [
-        ".entry-body .onb__opts.onb__seg .radio-card.is-selected"
-      ],
-      "role": "selection",
-      "boundary": "required",
-      "rationale": "A bottom inset underline preserves the selected segment cue inside the bounded numeric choice band.",
-      "owner": "plan-054/058",
-      "catalogStates": [
-        "onboarding-browse/environment",
-        "onboarding-browse/schedule",
-        "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/background",
-        "onboarding-recommend/desired-result",
-        "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift",
-        "progress/schedule-diagnosis"
+        "onboarding-start/hub-own-open"
       ]
     }
   ],

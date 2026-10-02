@@ -201,7 +201,7 @@ nav button:active{transform:scale(.975)}
   .entry-body .entry-card:hover{background:transparent}
   .entry-body .entry-card[data-entry-route="recommend"]:hover{background:var(--entry-tint)}
   .entry-body .radio-card:not(.is-selected):hover{border-color:var(--rule)}
-  .entry-body .radio-card.is-selected:hover{border-color:var(--accent)}
+  .entry-body .radio-card.is-selected:hover{border-color:var(--boundary-selected-quiet)}
   .entry__muscle-state:not(.is-selected):hover{border-color:var(--rule);color:var(--ink-soft)}
   .entry__muscle-state.is-selected:hover{border-color:var(--accent);color:var(--accent-deep)}
   .entry__exercise-action:hover{background:var(--entry-tint);color:var(--accent-deep)}

@@ -1515,6 +1515,96 @@ async function resumeBandMotion(browser, { reducedMotion = "no-preference" } = {
   await context.close();
 }
 
+/* ---- O2, the onboarding choice cards take the quiet ink selection (Plan 064 R3, packet R3b2) ---------------
+   Owner decision Q-E: a chosen entry option is ringed in ink (the 2px inset `--boundary-selected-quiet`) and the orange budget
+   holds, so no selected card, mark or icon may paint the accent, and a selection does not lift or resize the card. The ring
+   arrives on the card's own box-shadow transition (150ms) and is simply there under reduced motion. There is no check growth on
+   a choice card at this base, so none is invented: outline only. */
+const ENTRY_READ = `
+window.__entrySel = () => {
+  const root = getComputedStyle(document.documentElement), probe = document.createElement("i");
+  document.body.append(probe);
+  const rgb = (v) => { probe.style.color = v; return getComputedStyle(probe).color; };
+  const trip = (c) => (String(c).match(/\\d+/g) || []).slice(0, 3).join(",");
+  const ink = rgb(root.getPropertyValue("--ink").trim());
+  const accents = ["--accent", "--accent-deep", "--entry-tint"].map((n) => trip(rgb(root.getPropertyValue(n).trim())));
+  probe.remove();
+  const paints = (el) => {
+    const cs = getComputedStyle(el), out = [];
+    for (const p of ["borderTopColor", "borderLeftColor", "backgroundColor", "color", "boxShadow", "outlineColor"]) {
+      const style = p.replace("Color", "Style"), width = p.replace("Color", "Width");
+      if (p.startsWith("border") && (cs[style] === "none" || cs[width] === "0px")) continue;
+      if (p === "outlineColor" && (cs.outlineStyle === "none" || cs.outlineWidth === "0px")) continue;
+      const found = (String(cs[p]).match(/rgba?\\([^)]*\\)/g) || []).some((c) => accents.includes(trip(c)));
+      if (found) out.push(p);
+    }
+    return out;
+  };
+  const cards = [...document.querySelectorAll("#onbBody .radio-card.is-selected")].map((card) => {
+    const cs = getComputedStyle(card), mark = card.querySelector(".radio-card__mark"), icon = card.querySelector(".radio-card__icon");
+    const dur = cs.transitionDuration.split(",").map((d) => parseFloat(d));
+    return {
+      role: card.getAttribute("role"), shadow: cs.boxShadow, transform: cs.transform,
+      transition: cs.transitionProperty, maxDuration: Math.max(...dur),
+      cardPaints: paints(card), markPaints: mark ? paints(mark) : [], iconPaints: icon ? paints(icon) : [],
+    };
+  });
+  return { ink, cards };
+};
+window.__entryRects = () => [...document.querySelectorAll("#onbBody .radio-card")].map((c) => { const r = c.getBoundingClientRect(); return [Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; });
+`;
+
+async function entrySelectionInk(browser, { reducedMotion = "no-preference", colorScheme = "light" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = `${reduced ? " under reduced motion" : ""}${colorScheme === "dark" ? " in the dark theme" : ""}`;
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion, colorScheme });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.addInitScript(ENTRY_READ);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate(() => window.startOnboarding("settings"));
+  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+
+  phase(`O2: a chosen option is ringed in ink and nothing about the card moves${tag}`);
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+  const list = await page.evaluate(() => window.__entrySel());
+  const ring = (c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(list.ink);
+  assert(list.cards.length === 2, "the two chosen rows are selected cards", String(list.cards.length));
+  assert(list.cards.every(ring), "each selected row draws the 2px inset ink ring", JSON.stringify(list.cards.map((c) => c.shadow)));
+  assert(list.cards.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
+    "and paints no accent on the card, its mark or its icon", JSON.stringify(list.cards.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
+  assert(list.cards.every((c) => c.transform === "none"), "a selected card does not lift", JSON.stringify(list.cards.map((c) => c.transform)));
+  const sizes = await page.evaluate(() => window.__entryRects());
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="under_6m"]');
+  const resized = await page.evaluate(() => window.__entryRects());
+  assert(sizes.length > 0 && sizes.length === resized.length && sizes.every((r, i) => r[0] === resized[i][0] && r[1] === resized[i][1]),
+    "choosing a different row leaves every card the same size", JSON.stringify({ sizes, resized }));
+  if (reduced) assert(list.cards.every((c) => c.maxDuration === 0), "under reduced motion the card has no transition", JSON.stringify(list.cards.map((c) => c.maxDuration)));
+  else assert(list.cards.every((c) => /box-shadow/.test(c.transition) && c.maxDuration > 0 && c.maxDuration <= 0.16),
+    "the ring arrives on the card's own box-shadow transition, 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
+
+  phase(`O2: a chosen checkbox has an ink mark, not an orange one${tag}`);
+  await page.click("#onbNext");
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+  await page.click("#onbNext");
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+  await page.locator(".entry__correct > summary").click();
+  const boxes = await page.evaluate(() => window.__entrySel());
+  const checks = boxes.cards.filter((c) => c.role === "checkbox");
+  assert(checks.length >= 3, "the commercial gym presets some equipment boxes", String(checks.length));
+  assert(checks.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
+    "no selected checkbox card, mark or icon paints the accent", JSON.stringify(checks.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
+  assert(boxes.cards.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.ink)),
+    "and every selected card on the step draws the same ink ring", JSON.stringify(boxes.cards.map((c) => c.shadow)));
+  assert(errors.length === 0, `no page errors in the choice card run${tag}`, errors.join(" | "));
+  await context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
 
@@ -1899,6 +1989,9 @@ async function run() {
   await generatedProgramMotion(browser, { reducedMotion: "reduce" });
   await resumeBandMotion(browser);
   await resumeBandMotion(browser, { reducedMotion: "reduce" });
+  await entrySelectionInk(browser);
+  await entrySelectionInk(browser, { reducedMotion: "reduce" });
+  await entrySelectionInk(browser, { colorScheme: "dark" });
 
   await browser.close();
   console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);
