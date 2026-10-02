@@ -1150,6 +1150,16 @@ let shelfValueBeat="directional";
 window.__repforgeShelfValueBeat=mode=>{if(mode==="directional"||mode==="fade"||mode==="off")shelfValueBeat=mode;return shelfValueBeat};
 /** The pad's direction for the value it is about to change, read by that input's handler. */
 const padTap=new WeakMap();
+/** Edits the lifter has made that DraftV2 has not yet acknowledged (a write waits for the cross-tab lock and the
+ *  ordered queue). Keyed like the draft's own flat keys (`<exerciseId>_<set>_<field>`), holding the value as the
+ *  lifter sees it. The shelf and the ledger read it through `setFieldVals`, so a rebuild while a write is in flight
+ *  draws the value the lifter set, not the older acknowledged one; the entry is released the moment its write
+ *  settles, whichever way it ends, and the draft is the only record of what is saved. */
+const pendingFields=new Map();
+let pendingFieldSeq=0;
+function holdPendingField(key,value){
+  const token=++pendingFieldSeq;pendingFields.set(key,{value:String(value??""),token});return token}
+function releasePendingField(key,token){if(pendingFields.get(key)?.token===token)pendingFields.delete(key)}
 function shelfValueMove(val,dir){
   if(!val||!dir||shelfValueBeat==="off")return;
   playBeat(val,shelfValueBeat==="fade"?"motion-value-fade":dir>0?"motion-value-up":"motion-value-down")}
@@ -6803,12 +6813,14 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
 function setFieldVals(ex,n,r,draft,prev){
-  const old=prev.find(x=>x.set===n),draftKg=draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
+  // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
+  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value;
+  const old=prev.find(x=>x.set===n),draftKg=pending("load")??draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
   const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(r.status==="manual"?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
-  const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
+  const repsVal=pending("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
-  const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
-  const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
+  const effortVal=pending("effort")||draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
+  const rirVal=pending("rir")??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
   return{key,isW,kgVal,repsVal,rirVal,effortVal}}
 /* ============================================================
    Focus mode
@@ -6982,7 +6994,13 @@ function focusPrevLine(x,effortMode){
 function shelfTouched(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
   const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
-  return draft.sets[setId]?.touched||{}}
+  // An edit the draft has not yet acknowledged is already the lifter's own value.
+  const held=field=>pendingFields.has(`${exId}_${n}_${field}`);
+  const touched={...(draft.sets[setId]?.touched||{})};
+  if(held("load"))touched.load=true;
+  if(held("reps"))touched.reps=true;
+  if(held("rir")||held("effort"))touched.effort=true;
+  return touched}
 /** A warm-up set keeps its place in the ledger under a short label instead of its number. */
 function ledgerSetIsWarmup(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return false;
@@ -7152,6 +7170,10 @@ function refreshShelf({focus=null}={}){
   const fromRect=(liveRing||prevSel)?.getBoundingClientRect();
   old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
   bindWorkout();
+  // The ledger's open row was not rebuilt: bring it to the values still waiting for their acknowledgement.
+  for(const [k,held] of pendingFields){
+    if(k.endsWith("_effort")){const setKey=k.slice(0,-7);if(liveEffortField(setKey))setEffortPick(setKey,held.value)}
+    else{const input=liveShelfInput(k);if(input)syncShelfField(input)}}
   {const padsNow=card.querySelector(".focus-shelf .shelf__pads");
     if(padsFrom&&padsNow&&padsNow.dataset.pads!==padsFrom.mode)crossfadeIn(padsNow,padsFrom.html,padsFrom.cls)}
   const nowSel=card.querySelector(".focus-shelf .shelf__field.is-sel");
@@ -7166,6 +7188,11 @@ function refreshShelf({focus=null}={}){
       :shelf?.querySelector(`.shelf__field.is-editing .shelf__input[data-k$="_${focus}"]`)||shelf?.querySelector(`[data-shelf-field="${focus}"]`);
     if(el){try{el.focus({preventScroll:true})}catch{}if(el.matches("input"))el.select()}}
   return true}
+
+/** The control standing for a draft field in the live card now. A rebuild replaces the node an edit began on, so
+ *  anything that outlives an await asks for the control again by its stable key instead of keeping the old node. */
+function liveShelfInput(key){return $w(".shelf__input").find(el=>el.dataset.k===key)||null}
+function liveEffortField(setKey){return $w("[data-effspin]").find(el=>el.dataset.effspin===setKey)?.closest(".shelf__field")||null}
 
 /** Keep the shelf and the open ledger row reading what a field now holds. */
 function syncShelfField(input,padDir=0){
@@ -7374,11 +7401,18 @@ function bindWorkout(){
     const padDir=padTap.get(i)||0;padTap.delete(i);
     if(!activeWorkoutDraft||!target?.field)return;
     row?.classList.remove("is-suggested");
-    const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
+    // The write may wait on the lock while the lifter moves on and the shelf is rebuilt: the value is held for
+    // those rebuilds, and the acknowledgement is applied to the control that is on screen then, not to this node.
+    const key=i.dataset.k,token=holdPendingField(key,i.value);
+    let result;
+    try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+      setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
+    finally{releasePendingField(key,token)}
     if(result.status!=="applied")return;
-    syncShelfField(i,padDir);
-    updateSaveMeta();await refreshAfterCommittedEdit(row)};
+    const live=liveShelfInput(key);
+    if(!live)return;
+    syncShelfField(live,padDir);
+    updateSaveMeta();await refreshAfterCommittedEdit(live.closest(".shelf__field"))};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
@@ -7426,9 +7460,15 @@ function bindWorkout(){
     if(next===el.dataset.e)return;
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
     setEffortPick(key,next,dir);
-    const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
-    updateSaveMeta();refreshAfterCommittedEdit(el.closest(".shelf__field"))};
+    const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next);
+    let result;
+    try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+      setId:target.setId,field:"effort",value:next})}
+    finally{releasePendingField(pendingKey,token)}
+    if(result.status!=="applied")return;
+    updateSaveMeta();
+    const live=liveEffortField(key);
+    if(live)refreshAfterCommittedEdit(live)};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
   $w("[data-effspin]").forEach(el=>{
     // The tap belongs to the field handler (select, then explain); the arrow

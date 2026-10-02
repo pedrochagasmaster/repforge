@@ -173,6 +173,7 @@ export const SUITES = {
     s("test/today-week-line.mjs"),
     s("test/today-no-draft.mjs"),
     s("test/focus-mode.mjs", [], { seconds: 31 }),
+    s("test/focus-pending-field.mjs", [], { seconds: 40 }),
     s("test/workout-draft-parity.mjs", [], { seconds: 17 }),
     s("test/focus-only-parity.mjs", [], { seconds: 23 }),
     s("test/focus-session-sheet.mjs"),
