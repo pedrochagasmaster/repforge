@@ -17525,7 +17525,12 @@ const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
 function maybeShowFirstRun(){
   if(sharedSetupDraft.status==="existing")return false;
   if(!firstRunPending())return false;
-  return openFirstRun(currentEntryLanding())}
+  const kind=currentEntryLanding();
+  // A restored or migrated program with the flag unset is real content
+  // (hasProgramContent, as Today and Program read it): the generic landing never
+  // covers it. A shared link's own gate still decides for itself.
+  if(kind==="generic"&&hasProgramContent())return false;
+  return openFirstRun(kind)}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
 /* ---- "Why this weight?" sheet ----

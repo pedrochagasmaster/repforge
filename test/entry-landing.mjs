@@ -1477,6 +1477,34 @@ try {
     await context.close();
   }
 
+  phase("Phase 9h: SPEC-03 — a restored program with the onboarded flag unset is real content, not a returning landing");
+  {
+    const restored = {
+      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
+      programMeta: { id: "restored-program", name: "Restored Program", started: "2026-01-01", onboarded: false,
+        created: "2026-01-01T00:00:00.000Z", updated: "2026-01-01T00:00:00.000Z", mesocycleStatus: "active", mesocycleLengthWeeks: 6 },
+      program: [{ id: "ex-1", name: "Bench Press", day: "Day 1", order: 1, sets: 3, min: 8, max: 12, libraryId: "pr_mc" }],
+      log: [], programHistory: [], customExercises: [], _storageRevision: 4,
+    };
+    for (const seen of [false, true]) {
+      const { context, page } = await openAppPage(browser);
+      await clearSite(page);
+      await persistState(page, restored);
+      if (seen) await page.evaluate((k) => localStorage.setItem(k, JSON.stringify({ entryLandingSeen: true })), UIKEY);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { base: BASE });
+      await page.waitForTimeout(400);
+      const snap = await page.evaluate(landingSnapshot);
+      const today = await page.evaluate(() => ({
+        active: document.querySelector("#log")?.classList.contains("active") ?? false,
+        noProgram: !!document.querySelector("#todayNoProgram") && !document.querySelector("#todayNoProgram").classList.contains("hidden"),
+      }));
+      assert(!snap.open && !snap.chooserOpen, `SPEC-03${seen ? " (landing seen)" : ""}: the landing does not cover a restored program`, JSON.stringify(snap));
+      assert(today.active && !today.noProgram, `SPEC-03${seen ? " (landing seen)" : ""}: Today shows the restored program`, JSON.stringify(today));
+      await context.close();
+    }
+  }
+
   phase("Phase 9f: A shared-setup handoff keeps its own landing whatever the device has seen or saved");
   {
     const { context, page } = await openAppPage(browser);
