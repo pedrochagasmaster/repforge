@@ -4872,13 +4872,38 @@ function renderEvidenceView(){
 /** One row of five tabs (Plan 064 R3i): the selected tab is the Evidence view when
  *  one is open, otherwise the primary task. Selection is exclusive. */
 function paintStatsTabs(){
-  const on=evidenceView||statsSeg;
+  const on=evidenceView||statsSeg,row=$("#statsSeg");
+  // N3: where the 2px indicator is drawn now (or, if one is still travelling, where it is on screen).
+  const was=row?.querySelector('.tabrow__tab[aria-selected="true"]'),liveRing=row?.querySelector(".tabrow__ring");
+  const fromRect=tabIndicatorRect(liveRing||was,!!liveRing),scrolled=row?row.scrollLeft:0;
   $$("#statsSeg button").forEach(b=>{const sel=b.dataset.seg===on;
     b.classList.toggle("active",sel);b.setAttribute("aria-selected",sel?"true":"false");
     // A row that scrolls keeps its selected tab in view.
     if(sel&&b.parentElement&&b.parentElement.scrollWidth>b.parentElement.clientWidth){
       const row=b.parentElement,left=b.offsetLeft-row.offsetLeft;
-      if(left<row.scrollLeft||left+b.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=Math.max(0,left-16)}})}
+      if(left<row.scrollLeft||left+b.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=Math.max(0,left-16)}});
+  const now=row?.querySelector('.tabrow__tab[aria-selected="true"]');
+  if(fromRect&&was&&now&&now!==was){fromRect.left-=row.scrollLeft-scrolled;travelTabIndicator(now,fromRect)}}
+/** The rect of a tab's indicator: the 2px border along its foot, or a travelling indicator as drawn. */
+function tabIndicatorRect(el,isRing){
+  if(!el)return null;
+  const r=el.getBoundingClientRect();
+  if(!r.width)return null;
+  return isRing?{left:r.left,top:r.top,width:r.width,height:r.height}:{left:r.left,top:r.bottom-2,width:r.width,height:2}}
+/** N3: the indicator travels from the tab it left to the one that now carries it. The tab keeps its own
+ *  2px border for the rest state and sets it aside while this one is in the air, so there is one
+ *  indicator on screen. Selecting, the panel switch, focus and ARIA are already done and wait on nothing. */
+function travelTabIndicator(tab,fromRect){
+  const m=focusMotion(),row=tab.parentElement;
+  if(!m||!row)return false;
+  row.querySelectorAll(".tabrow__ring").forEach(r=>r.remove());
+  row.querySelectorAll(".is-ring-travel").forEach(x=>x.classList.remove("is-ring-travel"));
+  const ring=document.createElement("span");
+  ring.className="tabrow__ring";ring.setAttribute("aria-hidden","true");
+  tab.classList.add("is-ring-travel");tab.append(ring);
+  const done=()=>{ring.remove();if(!row.querySelector(".tabrow__ring"))tab.classList.remove("is-ring-travel")};
+  m.animateIndicator(ring,fromRect).then(done,done);
+  return true}
 function setEvidenceView(view){
   if(!EVIDENCE_SEG[view]){evidenceView=null;
     paintStatsTabs();

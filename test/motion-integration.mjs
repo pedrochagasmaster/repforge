@@ -1040,7 +1040,7 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
 }
 
 /**
- * Progress motion (Plan 064 R3, owner picks C1, C2 and D4), against the real Motion runtime in the real
+ * Progress motion (Plan 064 R3, owner picks N3, C1, C2 and D4), against the real Motion runtime in the real
  * Progress tab and exercise chart. The table, the readout and the figures are the accessible alternative
  * and must be written at once; the plot is what moves. Reduced motion draws every end state on the first frame.
  */
@@ -1111,6 +1111,59 @@ async function progressMotion(browser, { reducedMotion = "no-preference" } = {})
   const tag = reduced ? " under reduced motion" : "";
   const { context, page, errors } = await progressPage(browser, { reducedMotion });
   await page.evaluate(PROGRESS_SAMPLER);
+
+  // ---- N3: the tab row's indicator travels ---------------------------------------
+  phase(`N3: the Progress tab indicator travels between tabs${tag}`);
+  const tabRects = await page.evaluate(() => {
+    const r = (seg) => window.__pm.rect(document.querySelector(`#statsSeg [data-seg="${seg}"]`));
+    return { overview: r("overview"), volume: r("volume"), prs: r("prs") };
+  });
+  const n3 = await page.evaluate(async () => {
+    const tab = (seg) => document.querySelector(`#statsSeg [data-seg="${seg}"]`);
+    const frames = await window.__pm.frames(() => window.__pm.rect(document.querySelector("#statsSeg .tabrow__ring")), 480, () => tab("volume").click());
+    // The click has finished its work by the first frame: the tab, the panel and ARIA are already the end state.
+    return {
+      frames, selected: tab("volume").getAttribute("aria-selected"), overview: tab("overview").getAttribute("aria-selected"),
+      panel: document.querySelector("#segVolume").classList.contains("active"), prev: document.querySelector("#segOverview").classList.contains("active"),
+      rings: document.querySelectorAll("#statsSeg .tabrow__ring").length, travel: document.querySelectorAll("#statsSeg .is-ring-travel").length,
+      border: getComputedStyle(tab("volume")).borderBottomColor,
+    };
+  });
+  assert(n3.selected === "true" && n3.overview === "false" && n3.panel && !n3.prev,
+    "choosing a tab switches the tab, its panel and its ARIA state at once", JSON.stringify({ s: n3.selected, o: n3.overview, p: n3.panel, prev: n3.prev }));
+  if (reduced) {
+    assert(!n3.frames.some((f) => f.v) && n3.rings === 0 && n3.border !== "rgba(0, 0, 0, 0)",
+      "the indicator is on the selected tab on the first frame and nothing travels", JSON.stringify({ rings: n3.rings, border: n3.border }));
+  } else {
+    const seen = n3.frames.filter((f) => f.v);
+    const lefts = seen.map((f) => f.v.left);
+    assert(seen.length > 3 && Math.abs(seen[0].v.left - tabRects.overview.left) < 14 && Math.abs(seen[0].v.top - (tabRects.overview.top + tabRects.overview.height - 2)) < 1.5,
+      "the indicator starts at the foot of the tab it left", JSON.stringify({ first: seen[0]?.v, from: tabRects.overview }));
+    assert(lefts.some((l) => l > tabRects.overview.left + 20 && l < tabRects.volume.left - 20) && Math.abs(lefts.at(-1) - tabRects.volume.left) < 24,
+      "it passes between the two tabs and arrives on the selected one", JSON.stringify(lefts.filter((_, i) => i % 3 === 0)));
+    assert(Math.max(...seen.map((f) => f.v.height)) < 3.2 && Math.min(...seen.map((f) => f.v.height)) > 1.5,
+      "it stays a 2px line the whole way", JSON.stringify([...new Set(seen.map((f) => Math.round(f.v.height * 10) / 10))]));
+    const overshoot = lefts.some((l) => l > tabRects.volume.left + 1.5);
+    assert(!overshoot, "it does not overshoot the tab it is going to", JSON.stringify(lefts.slice(-6)));
+    assert(n3.rings === 0 && n3.travel === 0 && n3.border !== "rgba(0, 0, 0, 0)",
+      "afterwards the travelling element is gone and the tab wears its own 2px indicator again", JSON.stringify({ rings: n3.rings, travel: n3.travel, border: n3.border }));
+    const mid = await page.evaluate(async () => {
+      const tab = (seg) => document.querySelector(`#statsSeg [data-seg="${seg}"]`);
+      tab("prs").click();
+      await new Promise((r) => setTimeout(r, 45));
+      const live = window.__pm.rect(document.querySelector("#statsSeg .tabrow__ring"));
+      const borderMid = getComputedStyle(tab("prs")).borderBottomColor;
+      tab("overview").click();
+      const restart = window.__pm.rect(document.querySelector("#statsSeg .tabrow__ring"));
+      const oneRing = document.querySelectorAll("#statsSeg .tabrow__ring").length;
+      await new Promise((r) => setTimeout(r, 520));
+      return { live, restart, oneRing, borderMid, panel: document.querySelector("#segOverview").classList.contains("active"), rings: document.querySelectorAll("#statsSeg .tabrow__ring").length };
+    });
+    assert(mid.live && mid.restart && Math.abs(mid.restart.left - mid.live.left) < 3 && mid.oneRing === 1,
+      "a tab chosen while the indicator is in the air sends it on from where it is on screen", JSON.stringify(mid));
+    assert(mid.borderMid === "rgba(0, 0, 0, 0)", "while it is in the air the destination tab's own border is set aside, so there is one indicator", mid.borderMid);
+    assert(mid.panel && mid.rings === 0, "and the panel was already the chosen one", JSON.stringify(mid));
+  }
 
   // ---- C1: the line wipes in on open, and only the new stretch on extension -------
   phase(`C1: the chart line wipes in on open${tag}`);

@@ -3895,9 +3895,17 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 /* ---- Progress: one tab row, the overview and the Strength tab (Plan 064 R3i) ----
    Direction D on the shared roles: the tab row is the R1b .tabrow, rows are
    flat hairline-separated bands (never cards), figures are Mono, and the accent
-   appears only on an up verdict glyph. Nothing here animates. Every length is
+   appears only on an up verdict glyph. Nothing here animates but the tab indicator below. Every length is
    a --space-* step or a multiple of --control-target. */
 #stats .tabrow{margin:var(--space-14) 0 0}
+/* N3: the indicator in flight between tabs. Drawn by app.js only while `animateIndicator` carries it,
+   over the foot border of the tab it is going to (the shared `.tabrow` is left as drawn);
+   that tab sets its own border aside until it arrives. */
+#stats .tabrow__tab{position:relative}
+#stats .tabrow__ring{
+  position:absolute;left:0;right:0;bottom:-2px;height:2px;pointer-events:none;background:var(--boundary-selected-quiet);
+}
+#stats .tabrow__tab.is-ring-travel[aria-selected="true"]{border-bottom-color:transparent}
 #stats .guide-cue{
   margin:var(--space-14) 0 0;padding:var(--space-12) 0 var(--space-8);background:transparent;
   border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
