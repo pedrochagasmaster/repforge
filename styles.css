@@ -7008,3 +7008,14 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-body .entry__context .entry__facts{margin:0;padding:0;border:0;background:transparent;min-width:0}
 #onbBody.entry-body .entry__muscle-name{flex-wrap:wrap;min-width:0}
 #onbBody.entry-body .entry__muscle-current{flex:0 1 auto;max-width:100%;min-width:0;overflow-wrap:anywhere}
+
+/* ---- Plan 064 R6a: the rules-only sweep ----
+   Settings, Library, install, Progress lifecycle, Program management and import review keep their layouts and
+   follow the shared rules (plan 064 section 8). Orange is spent only on the five budget uses, so selection and
+   links on these pages take ink: the quiet selected boundary, the well, and the quiet ink with an underline. */
+
+/* Settings: Back, the guide cue, the warning line and the switches' on state. */
+#settings #settingsBack{color:var(--control-quiet-ink)}
+#settings .guide-cue{background:var(--well)}
+#settings .settings-warn{color:var(--color-ink)}
+#settings .toggle[aria-checked="true"]::before,#settings .toggle[aria-pressed="true"]::before,#settings .toggle.is-on::before{background:var(--boundary-selected-quiet)}
