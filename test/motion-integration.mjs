@@ -826,6 +826,81 @@ async function retryBannerMotion(browser, { reducedMotion = "no-preference" } = 
   await failed.context.close();
 }
 
+/**
+ * O1, the landing proof's stepped reveal. The proof is the static cards when the stage cannot or should not pin (a short
+ * screen, enlarged text), so those are the cards that arrive as they scroll into view; the pinned stage and reduced
+ * motion never carry it, and closing the landing leaves nothing behind.
+ */
+async function landingProofMotion(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const open = async (height) => {
+    const context = await browser.newContext({ viewport: { width: 390, height }, reducedMotion });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e.message)));
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
+    await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 8000 });
+    await page.waitForTimeout(300);
+    return { context, page, errors };
+  };
+  const steps = () => {
+    const list = document.querySelector("#firstRunProofSteps");
+    return {
+      ready: list.classList.contains("motion-steps-ready"),
+      steps: [...document.querySelectorAll("[data-landing-step]")].map((el) => ({ step: el.classList.contains("motion-step"), in: el.classList.contains("is-in"),
+        opacity: Number(getComputedStyle(el).opacity), transform: getComputedStyle(el).transform, text: el.textContent.trim().length })),
+      transition: getComputedStyle(document.querySelector("[data-landing-step]")).transitionDuration,
+      observers: window.__repforgeLandingProof().observers,
+    };
+  };
+
+  phase(`O1: the landing proof's cards arrive as they scroll in${tag}`);
+  const short = await open(560);
+  const top = await short.page.evaluate(steps);
+  if (reduced) {
+    assert(!top.ready && top.steps.every((s) => !s.step && s.opacity === 1), "under reduced motion no step is hidden and none is marked", JSON.stringify(top));
+  } else {
+    assert(top.ready && top.steps.length === 7 && top.steps.every((s) => s.step && !s.in && s.opacity === 0),
+      "on a screen too short to pin, the cards below the fold wait for their turn", JSON.stringify(top));
+    assert(top.steps.every((s) => s.text > 0), "every card still carries its text", JSON.stringify(top.steps.map((s) => s.text)));
+    await short.page.evaluate(() => { const root = document.querySelector("#firstRun"); root.scrollTop = document.querySelector("#firstRunProofSteps").offsetTop + 80; });
+    await short.page.waitForFunction(() => document.querySelector("[data-landing-step].is-in"), undefined, { timeout: 3000 }).catch(() => {});
+    await short.page.waitForTimeout(400);
+    const first = await short.page.evaluate(steps);
+    assert(first.steps[0].in && first.steps[0].opacity === 1 && first.steps[0].transform === "none", "a card that scrolls in rises to rest", JSON.stringify(first.steps[0]));
+    assert(first.transition.split(",")[0].trim() === "0.2s", "over 200ms", first.transition);
+    assert(first.steps.slice(-1)[0].opacity === 0, "while one still below the fold has not", JSON.stringify(first.steps.slice(-1)));
+    for (let i = 0; i < 7; i++) {
+      await short.page.evaluate((index) => document.querySelectorAll("[data-landing-step]")[index].scrollIntoView({ block: "center" }), i);
+      await short.page.waitForTimeout(120);
+    }
+    await short.page.waitForTimeout(400);
+    const all = await short.page.evaluate(steps);
+    assert(all.steps.every((s) => s.in && s.opacity === 1 && s.transform === "none"), "scrolled through, every card is at rest", JSON.stringify(all.steps));
+    await short.page.setViewportSize({ width: 390, height: 844 });
+    await short.page.waitForFunction(() => window.__repforgeLandingProof().pinned, undefined, { timeout: 3000 });
+    const pinned = await short.page.evaluate(steps);
+    assert(!pinned.ready && pinned.steps.every((s) => !s.step && !s.in), "when the stage pins the reveal comes off and leaves the steps to the stage", JSON.stringify(pinned));
+    await short.page.setViewportSize({ width: 390, height: 560 });
+    await short.page.waitForFunction(() => !window.__repforgeLandingProof().pinned, undefined, { timeout: 3000 });
+    await short.page.waitForTimeout(300);
+    assert((await short.page.evaluate(steps)).ready, "and comes back when it unpins");
+  }
+  await short.page.evaluate(() => window.closeFirstRun());
+  const gone = await short.page.evaluate(steps);
+  assert(!gone.ready && gone.steps.every((s) => !s.step && !s.in) && gone.observers === 0, "closing the landing takes the reveal and its observer away", JSON.stringify(gone));
+  assert(short.errors.length === 0, `no page errors in the short landing${tag}`, short.errors.join(" | "));
+  await short.context.close();
+
+  const tall = await open(844);
+  const pin = { ...(await tall.page.evaluate(steps)), proof: await tall.page.evaluate(() => window.__repforgeLandingProof()) };
+  assert(pin.proof.pinned === !reduced && !pin.ready && pin.steps.every((s) => !s.step),
+    reduced ? "reduced motion does not pin and does not reveal either" : "the pinned stage keeps its own crossfade and gets no reveal", JSON.stringify(pin));
+  await tall.context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
 
@@ -1202,6 +1277,8 @@ async function run() {
 
   await retryBannerMotion(browser);
   await retryBannerMotion(browser, { reducedMotion: "reduce" });
+  await landingProofMotion(browser);
+  await landingProofMotion(browser, { reducedMotion: "reduce" });
 
   await browser.close();
   console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);

@@ -17087,8 +17087,35 @@ function createLandingController(root){
     /* the steps fade only once the first state is painted, so none flashes on entry */
     const id=requestAnimationFrame(()=>{reg.frames.delete(id);if(pin)track.classList.add("is-ready")});
     reg.frames.add(id)}
+  /* ---- the stepped reveal (O1) ----
+     When the proof is the static cards (motion is welcome but the stage cannot
+     pin), each card arrives with `.motion-step` > `.is-in` as it scrolls into
+     view. The class that hides a step is `.motion-steps-ready` on the list and
+     is added here, after the first observation, so without JavaScript every step
+     is simply shown, a card already in view is never hidden and shown again, and
+     the pinned stage (which has its own crossfade) and reduced motion never get
+     it. Nothing about the stage or its steps changes: this only adds and removes
+     classes, and dispose() takes them all off. */
+  let reveal=null;
+  function stopReveal(){
+    if(!reveal)return;
+    reveal.io.disconnect();const k=reg.obs.indexOf(reveal.io);if(k>=0)reg.obs.splice(k,1);
+    list.classList.remove("motion-steps-ready");
+    steps.forEach(step=>step.classList.remove("motion-step","is-in"));reveal=null}
+  function syncReveal(){
+    const want=!!list&&steps.length>0&&!pin&&!reduced()&&!landingReturning()&&typeof IntersectionObserver!=="undefined";
+    if(!want){stopReveal();return}
+    if(reveal)return;
+    const state={io:null,armed:false};
+    state.io=new IntersectionObserver(entries=>{
+      if(reveal!==state)return;
+      for(const entry of entries)if(entry.isIntersecting){entry.target.classList.add("is-in");state.io.unobserve(entry.target)}
+      if(!state.armed){state.armed=true;list.classList.add("motion-steps-ready")}},{root,threshold:.15});
+    reveal=state;reg.obs.push(state.io);
+    steps.forEach(step=>{step.classList.add("motion-step");state.io.observe(step)})}
   function layout(){
     if(shouldPin()){if(pin)setStep(pin.current,true);else pinStage()}else unpin();
+    syncReveal();
     requestTick()}
   /* ---- the persistent Build control ---- */
   function mountDock(){
@@ -17131,7 +17158,7 @@ function createLandingController(root){
     if(motionQuery?.addEventListener)on(motionQuery,"change",layout);
     layout()}
   function dispose(){
-    unpin();
+    unpin();stopReveal();
     reg.offs.forEach(off=>off());reg.offs.length=0;
     reg.obs.forEach(io=>io.disconnect());reg.obs.length=0;
     reg.timers.forEach(clearTimeout);reg.timers.clear();
