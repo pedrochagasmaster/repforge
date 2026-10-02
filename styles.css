@@ -4561,8 +4561,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   bottom:calc(var(--space-14) + env(safe-area-inset-bottom));max-width:calc(var(--maxw) - var(--space-32));margin-inline:auto;
   transform:translateY(calc(100% + var(--space-32)));visibility:hidden;
   transition:transform .2s cubic-bezier(.2,.7,.2,1),visibility 0s .2s;
-  /* Over any band the ring is the app's own focus accent: it reads against both grounds the control floats over. */
-  --firstrun-focus:var(--color-focus);
+  /* The ring sits on the band, not on the control, so it takes the ink the band's own ring takes: the accent
+     measured 2.56:1 against the ink band in the dark theme. `data-ground` is the same reading that picks the fill. */
+  --firstrun-focus:var(--band-night-ink);
 }
 .firstrun-dock.is-on{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,.7,.2,1),visibility 0s}
 .firstrun-dock .firstrun__cta{box-shadow:var(--elevation-floating-shadow)}
@@ -4570,6 +4571,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-cta-bg:var(--band-orange-ink);
   --firstrun-cta-ink:var(--band-orange-cta-ink);
   --firstrun-cta-mark:var(--band-orange-cta-mark);
+  --firstrun-focus:var(--band-orange-ink);
 }
 .firstrun.is-shared .firstrun-dock{display:none}
 

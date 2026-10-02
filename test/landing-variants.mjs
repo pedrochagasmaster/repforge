@@ -1015,6 +1015,90 @@ async function finalPage(browser) {
 }
 
 // ---------------------------------------------------------------------------
+// RF-7: the persistent Build control's focus ring against the band it floats over.
+// A focus indicator needs 3:1 against what it sits next to (WCAG 1.4.11). The ring
+// is drawn outside the control, so its neighbour is the band beneath the dock, not
+// the control. The dock takes its ground from that band (`data-ground`), and the
+// ring must follow the same ground in both themes.
+// ---------------------------------------------------------------------------
+const RING_MIN = 3;
+const RING_BANDS = [
+  ['[data-landing-section="proof"]', "proof band"],
+  ['[data-landing-section="ways"] .firstrun-way--field', "ways: orange"],
+  ['[data-landing-section="ways"] .firstrun-way--surface', "ways: surface"],
+  ['[data-landing-section="ways"] .firstrun-way--ink', "ways: ink"],
+  ['[data-landing-section="track"]', "track band"],
+  ['[data-landing-section="data"]', "data band (ink)"],
+  ['[data-landing-section="faq"]', "faq band"],
+];
+
+/** Runs in the page: scroll `selector` under the dock, focus the dock by keyboard, read the ring and what is behind it. */
+const readDockRing = async (selector) => {
+  const root = document.querySelector("#firstRun");
+  const dock = document.querySelector("#firstRunDock");
+  const cta = document.querySelector("#firstRunCreateDock");
+  const band = document.querySelector(selector);
+  if (!root || !dock || !cta || !band) return { skipped: "missing", selector };
+  // Put the band's top 48px above the dock so the ring's whole neighbourhood is on this band.
+  root.scrollTop += band.getBoundingClientRect().top - (dock.getBoundingClientRect().top - 48);
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  const bandBox = band.getBoundingClientRect(), box = cta.getBoundingClientRect();
+  if (!dock.classList.contains("is-on")) return { skipped: "dock hidden", selector };
+  if (bandBox.top > box.top - 8 || bandBox.bottom < box.bottom + 8) return { skipped: "band does not cover the dock", selector };
+  cta.focus({ focusVisible: true });
+  const style = getComputedStyle(cta);
+  if (!cta.matches(":focus-visible")) return { skipped: "not focus-visible", selector };
+  // The first painted background beneath the ring, as the dock itself reads its ground.
+  const x = box.left + box.width / 2, y = box.bottom + 4;
+  let behind = null;
+  for (const hit of document.elementsFromPoint(x, y)) {
+    if (dock.contains(hit)) continue;
+    for (let node = hit; node && node !== document.documentElement; node = node.parentElement) {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(getComputedStyle(node).backgroundColor);
+      if (m && (m[4] === undefined || +m[4] > 0.5)) { behind = [+m[1], +m[2], +m[3]]; break; }
+    }
+    if (behind) break;
+  }
+  const ring = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(style.outlineColor);
+  return {
+    selector, ground: dock.dataset.ground || null,
+    ring: ring ? [+ring[1], +ring[2], +ring[3]] : null, behind,
+    width: parseFloat(style.outlineWidth), style: style.outlineStyle,
+  };
+};
+const relativeLuminance = ([r, g, b]) => {
+  const lin = (value) => { const c = value / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+};
+const contrastRatio = (a, b) => {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+async function dockFocusRing(browser) {
+  phase("Persistent Build control: the focus ring reads 3:1 against every band beneath it, in both themes");
+  for (const theme of ["light", "dark"]) {
+    const { context, page } = await landingPage(browser, { lang: "en", theme, reducedMotion: true });
+    // The hero action must be behind the reader for the dock to show.
+    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    const measured = [];
+    for (const [selector, label] of RING_BANDS) {
+      const reading = await page.evaluate(readDockRing, selector);
+      measured.push({ label, ...reading });
+    }
+    const read = measured.filter((entry) => !entry.skipped);
+    for (const entry of read) {
+      const ok = entry.ring && entry.behind && entry.style !== "none" && entry.width >= 2;
+      const ratio = ok ? contrastRatio(entry.ring, entry.behind) : 0;
+      assert(ok && ratio >= RING_MIN, `[${theme}] ring over ${entry.label} (${entry.ground} ground) is ${ratio.toFixed(2)}:1, needs ${RING_MIN}:1`, JSON.stringify(entry));
+    }
+    assert(read.some((entry) => entry.label.includes("ink")) && read.length >= 4,
+      `[${theme}] the check read the ink band and at least four bands`, JSON.stringify(measured.map((entry) => [entry.label, entry.skipped || "read"])));
+    await context.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
 async function main() {
   console.log(`Landing variants\nTarget: ${BASE}${FAULT ? `\nFault: ${FAULT}` : ""}`);
   engineTruth();
@@ -1023,6 +1107,7 @@ async function main() {
   try {
     await characterize(browser);
     await finalPage(browser);
+    await dockFocusRing(browser);
   } finally {
     await browser.close();
   }
