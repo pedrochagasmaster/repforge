@@ -75,7 +75,10 @@ Boot mounts one sheet/Focus gesture controller through
 `RepForgeMotion.mountGestureController()` and keeps its disposal handle in
 `window.__repforgeGestureHandle`. The layer selects Motion or delegates to
 `mountFallbackGestures()`; if the layer itself is absent, boot mounts that
-fallback directly. Each owner binds and removes its own listeners. Mounting is
+fallback directly. The controller has three gesture owners: sheets, the Focus
+deck, and edge-swipe back on pushed pages (`RepForgeMotion.registerEdgeSwipeBack`),
+which stays inert until a page registers, never runs in Focus, and runs only in
+standalone display mode. Each owner binds and removes its own listeners. Mounting is
 idempotent, and disposal cancels navigation, releases drag state, and permits a
 fresh mount. Route deck navigation through the handle rather than replacing a
 global callback. `test/focus-geometry.mjs` proves cancellation/disposal with
