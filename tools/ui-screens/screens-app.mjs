@@ -819,10 +819,13 @@ export const APP_SCENARIOS = {
         const review = document.querySelector("#reviewTodaySession");
         const another = document.querySelector("#logAnotherSession");
         if (!dock || !label || !review || !another) return { error: "Today recap heading, actions, or dock are missing" };
-        const labelTop = label.getBoundingClientRect().top;
-        window.scrollBy({ top: Math.max(0, labelTop - 24), behavior: "instant" });
+        // The finished day lists every lift's outcome and target, so at 200% the actions sit far below the heading:
+        // scroll to where they end and check that they, not the heading, clear the floating dock.
+        const dockTop = dock.getBoundingClientRect().top;
+        window.scrollBy({ top: Math.max(0, another.getBoundingClientRect().bottom - (dockTop - 16)), behavior: "instant" });
         const dockRect = dock.getBoundingClientRect();
-        const labelRect = label.getBoundingClientRect();
+        const lifts = [...document.querySelectorAll("#todayDash .today-done__lifts .sum-grp")];
+        const clippedLifts = lifts.filter((group) => [...group.querySelectorAll("*")].some((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible")).length;
         const reviewRect = review.getBoundingClientRect();
         const anotherRect = another.getBoundingClientRect();
         const labelFits = (button) => {
@@ -835,7 +838,9 @@ export const APP_SCENARIOS = {
             && rect.bottom <= button.getBoundingClientRect().bottom + 1);
         };
         return {
-          labelTop: labelRect.top,
+          reviewTop: reviewRect.top,
+          clippedLifts,
+          lifts: lifts.length,
           dockTop: dockRect.top,
           reviewBottom: reviewRect.bottom,
           anotherBottom: anotherRect.bottom,
@@ -843,7 +848,7 @@ export const APP_SCENARIOS = {
           anotherLabelFits: labelFits(another),
         };
       });
-      if (clearance.error || clearance.labelTop < 0 || clearance.reviewBottom > clearance.dockTop - 8
+      if (clearance.error || clearance.reviewTop < 0 || clearance.lifts < 1 || clearance.clippedLifts > 0 || clearance.reviewBottom > clearance.dockTop - 8
         || clearance.anotherBottom > clearance.dockTop - 8
         || !clearance.reviewLabelFits || !clearance.anotherLabelFits) {
         throw new Error(`200% Today recap actions do not clear the floating dock: ${JSON.stringify(clearance)}`);
