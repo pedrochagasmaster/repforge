@@ -236,6 +236,66 @@ try {
       `RT-01: ${lang} effort: identical loads read as one sentence`, effortSame);
     await closeWhy(page);
   }
+
+  // ------------------------------------------------------------------ RT-02
+  console.log("RT-02: the worked arithmetic says what the engine did");
+  const calcCase = async (name, sessions, check, extra = {}) => {
+    await boot(page, { program: extra.program || bench, log: rows(sessions) });
+    const truth = await page.evaluate(() => {
+      const P = window.__repforgeProgression;
+      const ex = P.programSlot("ex0");
+      const rec = P.recommendation(ex);
+      return { load: rec.load, last: rec.lastLoad, reason: rec.reason, status: rec.status,
+        reps: P.setSuggestion(ex, 1, rec, {}, null).reps, min: ex.min, max: ex.max };
+    });
+    const why = await openWhy(page);
+    check(why, truth, name);
+    await closeWhy(page);
+  };
+  await calcCase("explicit-step reduction", [[7, [[100, 2, 1], [100, 2, 1]]]], (why, truth, name) => {
+    const text = row(why, "newLoad")?.v || "";
+    assert(truth.load === 97.5 && truth.last === 100, `RT-02: ${name}: the engine takes 100 kg to 97.5 kg`, JSON.stringify(truth));
+    assert(text === "100 − 2.5 → 97.5", `RT-02: ${name}: the working subtracts, not adds`, text);
+  });
+  await calcCase("floor-clamped rep target", [[7, [[100, 2, 1], [100, 2, 1]]]], (why, truth, name) => {
+    const text = row(why, "repTarget")?.v || "";
+    assert(truth.reps === truth.min, `RT-02: ${name}: the engine target sits on the range floor`, JSON.stringify(truth));
+    assert(/range floor/.test(text) && !/^about 4 − 1 = 4$/.test(text) && /3/.test(text),
+      `RT-02: ${name}: the working shows the subtraction and the range floor`, text);
+  });
+  await calcCase("percentage reduction", [[7, [[200, 2, 1], [200, 2, 1]]]], (why, truth, name) => {
+    const text = row(why, "newLoad")?.v || "";
+    assert(truth.load < truth.last, `RT-02: ${name}: the engine lowers the load`, JSON.stringify(truth));
+    assert(/^200 − 2\.5% → 195$/.test(text), `RT-02: ${name}: the working subtracts the percentage`, text);
+  });
+  await calcCase("explicit-step increase", [[7, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]]], (why, truth, name) => {
+    const text = row(why, "newLoad")?.v || "";
+    assert(truth.load === 102.5, `RT-02: ${name}: the engine adds one step`, JSON.stringify(truth));
+    assert(text === "100 + 2.5 → 102.5", `RT-02: ${name}: the working still adds`, text);
+  });
+  await calcCase("percentage increase", [[7, [[200, 8, 2], [200, 8, 2], [200, 8, 2]]]], (why, truth, name) => {
+    const text = row(why, "newLoad")?.v || "";
+    assert(truth.load === 205, `RT-02: ${name}: the engine adds the percentage`, JSON.stringify(truth));
+    assert(text === "200 + 2.5% → 205", `RT-02: ${name}: the working adds the percentage`, text);
+  });
+  await calcCase("rounded percentage", [[7, [[130, 8, 2], [130, 8, 2], [130, 8, 2]]]], (why, truth, name) => {
+    const text = row(why, "newLoad")?.v || "";
+    assert(truth.load === 132.5, `RT-02: ${name}: the engine rounds 133.25 to the nearest step`, JSON.stringify(truth));
+    assert(/^130 \+ 2\.5% ≈ 133\.25 → 132\.5$/.test(text), `RT-02: ${name}: the working shows the rounding`, text);
+  });
+  await calcCase("unclamped rep target", [[7, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]]], (why, truth, name) => {
+    const text = row(why, "repTarget")?.v || "";
+    assert(/^about \d+(\.\d)? − \d+(\.\d)? = \d+(\.\d)?(, rounded to \d+)?$/.test(text) && !/range/.test(text),
+      `RT-02: ${name}: a target the range did not move prints no clamp (${truth.reps} reps)`, text);
+  });
+  // The same working in Portuguese: the sign and the clamp wording come from the catalog.
+  await boot(page, { lang: "pt", program: bench, log: rows([[7, [[100, 2, 1], [100, 2, 1]]]]) });
+  {
+    const why = await openWhy(page);
+    assert(row(why, "newLoad")?.v === "100 − 2,5 → 97,5", "RT-02: pt: the reduction subtracts with the decimal comma", row(why, "newLoad")?.v);
+    assert(/piso da faixa/.test(row(why, "repTarget")?.v || ""), "RT-02: pt: the floor clamp is named in Portuguese", row(why, "repTarget")?.v);
+    await closeWhy(page);
+  }
 } finally {
   await browser.close();
 }

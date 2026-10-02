@@ -5288,7 +5288,7 @@ function setSuggestion(ex,n,rec,draft,old){
   // reported so the Why sheet can say them without recomputing. They are not enumerable, so the
   // suggestion that serialises (and that the parity proofs compare) is exactly what it was.
   return Object.defineProperties({load:L,reps,src:"session-hold",drop:setDrop>0&&reps<lastSet.reps},
-    {pred:{value:Math.round(repsAtLoad(predCap,L)*2)/2},typ:{value:typRir}})}
+    {pred:{value:Math.round(repsAtLoad(predCap,L)*2)/2},typ:{value:typRir},capacity:{value:repsAtLoad(predCap,L)}})}
 // One-line summary of how the current session is steering the next unlogged set.
 /** A row of the explanation carries its kind (and the facts it printed) without changing what serialises:
  *  the rows stay {label?,text}, so the parity proofs that compare them see the same list. */
@@ -5375,13 +5375,15 @@ function explainRecommendation(ex){
     move={prev:fmtLoad(rec.lastLoad),pct:fmt(pct),step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u};
   // A small percentage on a light load is dominated by the minJump step; say which one moved it.
   // The numbers the load line printed, kept on the row for the working behind "See the working".
-  const loadFacts={prev:fmtLoad(rec.lastLoad),pct:fmt(pct),step:fmtLoad(minJ),load:fmtLoad(rec.load),raw:raw>minJ};
+  const loadFacts={prev:fmtLoad(rec.lastLoad),pct:fmt(pct),step:fmtLoad(minJ),load:fmtLoad(rec.load),raw:raw>minJ,
+    from:rec.lastLoad,to:rec.load,pctValue:pct,stepValue:minJ};
   if(rec.reason==="top"||rec.reason==="cap_top"||rec.reason==="cap_top2")
     rows.push(whyRow("load",{text:t(raw>minJ?"why.load_up":"why.load_up_step",move)},loadFacts));
   else if(rec.reason==="below_range")rows.push(whyRow("load",{text:t(raw>minJ?"why.load_down":"why.load_down_step",move)},loadFacts));
   else if(sameLoad(rec.load,rec.lastLoad))rows.push(whyRow("load",{text:t("why.load_hold",{load:fmtLoad(rec.load),unit:u})}));
   else rows.push(whyRow("load",{text:t("why.load_snap",{step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u})}));
-  if(rec.reenterReps){const repsFacts={pred:Math.round(repsAtLoad(rec.cap,rec.load)),typrir:fmt(rec.typRir),reps:reentryReps(ex,rec.cap,rec.load,rec.typRir)};
+  if(rec.reenterReps){const repsFacts={pred:Math.round(repsAtLoad(rec.cap,rec.load)),typrir:fmt(rec.typRir),reps:reentryReps(ex,rec.cap,rec.load,rec.typRir),
+      capacity:repsAtLoad(rec.cap,rec.load),rirValue:+rec.typRir||0,min:ex.min,max:ex.max};
     rows.push(whyRow("reps",{text:t(isEffortMode()?"why.reps_effort":"why.reps",{load:fmtLoad(rec.load),unit:u,...repsFacts})},repsFacts))}
   else if(rec.pushReps)rows.push(whyRow("reps",{text:t("why.reps_chase",{min:ex.min,max:ex.max})}));
   else rows.push(whyRow("reps",{text:t("why.reps_hold")}));
@@ -17584,6 +17586,24 @@ function setsTargetLine(ex,rec){
   const groups=[];
   for(const s of sets){const g=groups.at(-1);if(g&&sameLoad(+g.load,+s.load))g.reps.push(s.reps);else groups.push({load:s.load,reps:[s.reps]})}
   return groups.map(g=>`${fmtLoad(g.load)} ${u} × ${g.reps.join(", ")}`).join(" + ")}
+/** "100 − 2.5 → 97.5": the load arithmetic in the direction the engine took. The engine's target is the nearest
+ *  step, so when rounding moved the exact result that figure is shown first ("130 + 2.5% ≈ 133.25 → 132.5"). */
+function whyLoadMove(from,to,{pct=null,step=null}){
+  const sign=to<from?-1:1,size=pct!=null?from*pct/100:step,exact=from+sign*size;
+  return `${fmtLoad(from)} ${sign<0?"\u2212":"+"} ${pct!=null?`${fmt(pct)}%`:fmtLoad(step)}`+
+    `${Math.abs(exact-to)>1e-6?` \u2248 ${fmtLoad(exact)}`:""} \u2192 ${fmtLoad(to)}`}
+/** The rep target's arithmetic as the engine did it: the capacity at the load, minus the usual RIR, rounded and then
+ *  held inside the range. A target the range moved says which end moved it, so "about 4 − 1 = 3" never reads "= 4". */
+function whyRepTarget({capacity,pred,rir,reps,min,max}){
+  const r=+rir||0,rounded=Math.round(capacity-r);
+  let shown=pred,raw=pred-r;
+  const vars=()=>({pred:fmt(shown),rir:fmt(r),raw:fmt(raw),reps,min,max});
+  if(rounded<reps)return t("why.calc.rep_target_floor",vars());
+  if(rounded>reps)return t("why.calc.rep_target_top",vars());
+  if(Math.abs(raw-reps)>1e-9){
+    shown=Math.round(capacity*10)/10;raw=Math.round((capacity-r)*10)/10;
+    if(Math.abs(raw-reps)>1e-9)return t("why.calc.rep_target_rounded",vars())}
+  return t("why.calc.rep_target_v",vars())}
 function whySheetModel(ex){
   const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
   const glyph=rxVerdict(rec);
@@ -17618,7 +17638,7 @@ function whySheetModel(ex){
     calc.push({group:t("why.session")});
     session.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
     calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:observed,load:fmtLoad(seen.load),unit:u})});
-    if(predicted)calc.push({k:t("why.calc.rep_target"),v:t("why.calc.rep_target_v",{pred:fmt(sg.pred),rir:fmt(sg.typ),reps:sg.reps})});
+    if(predicted)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:sg.capacity,pred:sg.pred,rir:sg.typ,reps:sg.reps,min:ex.min,max:ex.max})});
     calc.push({sum:true,k:t("why.calc.set",{n:nextSet}),v:`${fmtLoad(sg.load)} ${u} × ${sg.reps}`});
     model.evidence=t("why.evidence",{n:1,date:shortDate(today())});
   }
@@ -17637,8 +17657,8 @@ function whySheetModel(ex){
     const params=progressionForExercise(ex)?.strategy?.params||{},max=params.repMax??ex.max,min=params.repMin??ex.min;
     if(["top","cap_top","cap_top2"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_top",{max})});
     else if(["hold","push_reps"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_hold",{min,max})});
-    if(!sameLoad(rec.load,rec.lastLoad)&&load?.facts)calc.push({k:t("why.calc.new_load"),v:load.facts.raw?`${load.facts.prev} + ${load.facts.pct}% \u2192 ${load.facts.load}`:`${load.facts.prev} + ${load.facts.step} \u2192 ${load.facts.load}`});
-    if(rec.reenterReps&&reps?.facts)calc.push({k:t("why.calc.rep_target"),v:t("why.calc.rep_target_v",{pred:reps.facts.pred,rir:reps.facts.typrir,reps:reps.facts.reps})});
+    if(!sameLoad(rec.load,rec.lastLoad)&&load?.facts)calc.push({k:t("why.calc.new_load"),v:whyLoadMove(load.facts.from,load.facts.to,load.facts.raw?{pct:load.facts.pctValue}:{step:load.facts.stepValue})});
+    if(rec.reenterReps&&reps?.facts)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:reps.facts.capacity,pred:reps.facts.pred,rir:reps.facts.rirValue,reps:reps.facts.reps,min:reps.facts.min,max:reps.facts.max})});
     const blockRow=take("block");if(blockRow)calc.push({k:t("why.calc.block"),v:blockRow.text,text:true});
     todayRow();
   }
@@ -17665,7 +17685,7 @@ function whySheetModel(ex){
     lastGroup();
     calc.push({group:t("why.calc.working")});
     if(f.capacityReps!=null&&f.anchorLoad!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(f.capacityReps),load:fmtLoad(f.anchorLoad),unit:u})});
-    if(f.targetLoad!=null&&f.anchorLoad!=null&&!sameLoad(f.targetLoad,f.anchorLoad))calc.push({k:t("why.calc.new_load"),v:`${fmtLoad(f.anchorLoad)} + ${fmt(params.jumpPercent)}% → ${fmtLoad(f.targetLoad)}`});
+    if(f.targetLoad!=null&&f.anchorLoad!=null&&!sameLoad(f.targetLoad,f.anchorLoad))calc.push({k:t("why.calc.new_load"),v:whyLoadMove(f.anchorLoad,f.targetLoad,{pct:+params.jumpPercent})});
     if(f.backoffLoad!=null&&params.backoffPercent!=null)calc.push({k:t("rec.anchor.session.label"),v:`${fmtLoad(f.targetLoad??f.anchorLoad)} × ${fmt(Math.round(params.backoffPercent*100))}% → ${fmtLoad(f.backoffLoad)}`});
     todayRow();
   }
