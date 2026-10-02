@@ -210,6 +210,8 @@ export function checkRulesOnly(evidence) {
   ];
 }
 
+const RENDER_ATTEMPTS = Number(process.env.RULES_ONLY_ATTEMPTS || 3);
+
 /**
  * Render each state in each locale at 360 and run the four checks. Returns every finding with the state it came from.
  */
@@ -230,24 +232,32 @@ export async function runRulesOnly({
     for (const key of states) {
       for (const locale of locales) {
         const label = `${key} [${locale}]`;
-        let context;
-        try {
-          if (!APP_SCENARIOS[key]) throw new Error("missing production catalog scenario");
-          const capture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-360", theme, locale, text: "normal", motion: "normal" };
-          const opened = await openPage(browser, gate, capture, appState(key, gate.locales[locale].lang), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
-          context = opened.context;
-          await dismissChrome(opened.page);
-          await APP_SCENARIOS[key](opened.page);
-          await settle(opened.page);
-          const evidence = await gatherRulesOnlyEvidence(opened.page);
-          const found = [...new Set(checkRulesOnly(evidence))];
-          result.rendered.push({ key, locale, findings: found.length, sheets: evidence.sheetEvidence.sheets.length });
-          result.findings.push(...found.map((message) => ({ key, locale, check: message.split(":")[0], message })));
-        } catch (error) {
-          result.findings.push({ key, locale, check: "render", message: `render: could not be rendered: ${error.stack || error.message}` });
+        // A scenario that times out under load is rendered again, as the capture tool does, before it is a finding.
+        let outcome = null;
+        for (let attempt = 1; attempt <= RENDER_ATTEMPTS && !outcome; attempt++) {
+          let context;
+          try {
+            if (!APP_SCENARIOS[key]) throw new Error("missing production catalog scenario");
+            const capture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-360", theme, locale, text: "normal", motion: "normal" };
+            const opened = await openPage(browser, gate, capture, appState(key, gate.locales[locale].lang), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
+            context = opened.context;
+            await dismissChrome(opened.page);
+            await APP_SCENARIOS[key](opened.page);
+            await settle(opened.page);
+            const evidence = await gatherRulesOnlyEvidence(opened.page);
+            outcome = { evidence, found: [...new Set(checkRulesOnly(evidence))] };
+          } catch (error) {
+            if (attempt === RENDER_ATTEMPTS || !APP_SCENARIOS[key]) outcome = { error };
+          } finally {
+            await context?.close();
+          }
+        }
+        if (outcome.error) {
+          result.findings.push({ key, locale, check: "render", message: `render: could not be rendered: ${outcome.error.stack || outcome.error.message}` });
           result.rendered.push({ key, locale, findings: 1, sheets: 0 });
-        } finally {
-          await context?.close();
+        } else {
+          result.rendered.push({ key, locale, findings: outcome.found.length, sheets: outcome.evidence.sheetEvidence.sheets.length });
+          result.findings.push(...outcome.found.map((message) => ({ key, locale, check: message.split(":")[0], message })));
         }
         onProgress(label);
       }
