@@ -355,12 +355,15 @@ try {
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
   "the landed Today, Why and summary states were rendered and enforced in both languages", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
 
-  // A control that no R3 sub-slice rebuilds: Settings is rules-only, so flipping it must always fail.
-  const flipped = await runGate({ states: [{ key: "settings/main", status: "implemented" }], locales: ["en"], browser, manifest });
-  check(!flipped.ok && flipped.enforced.includes("settings/main"),
+  // Controls that no R3 sub-slice rebuilds: Settings and Library are rules-only, so flipping them must fail. After the
+  // R6a sweep Settings paints no accent, so it reports the strings check; Library's sideways filter rails still overflow.
+  const flipped = await runGate({
+    states: [{ key: "settings/main", status: "implemented" }, { key: "library/list", status: "implemented" }], locales: ["en"], browser, manifest,
+  });
+  check(!flipped.ok && flipped.enforced.includes("settings/main") && flipped.enforced.includes("library/list"),
     "flipping a state that is not built to implemented enforces the checks on it and it fails", show(flipped.failures));
   const names = ["targets", "overflow", "orange", "parity", "strings"].filter((name) => flipped.failures.some((failure) => failure.includes(` ${name}: `)));
-  check(["orange", "strings"].every((name) => names.includes(name)),
+  check(["overflow", "strings"].every((name) => names.includes(name)),
     "the enforced run reports failures from the individual checks", `checks that reported: ${names.join(", ")}`);
 
   const rotted = await runGate({ states: [{ key: "today/not-a-state", status: "pending" }], locales: ["en"], browser, manifest });

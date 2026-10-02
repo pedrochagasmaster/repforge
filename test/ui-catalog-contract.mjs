@@ -239,9 +239,9 @@ try {
 
     await transfer.page.evaluate(() => { document.querySelector("#iosInstallTitle").style.overflowWrap = "normal"; });
     const regressed = validate(await transfer.page.evaluate(collectCatalogEvidence, transferConfig), transferConfig);
-    assert.ok(regressed.some((failure) => failure.startsWith("clipped p #iosInstallTitle") && failure.includes("axes=x")),
+    assert.ok(regressed.some((failure) => failure.startsWith("clipped h2 #iosInstallTitle") && failure.includes("axes=x")),
       `removing the long-word wrap safeguard is rejected by the catalog oracle: ${regressed.join(" | ")}`);
-    console.log(`deliberate install-title clipping rejection: ${regressed.find((failure) => failure.startsWith("clipped p #iosInstallTitle"))}`);
+    console.log(`deliberate install-title clipping rejection: ${regressed.find((failure) => failure.startsWith("clipped h2 #iosInstallTitle"))}`);
   } finally {
     await transfer.context.close();
   }
