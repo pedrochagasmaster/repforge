@@ -859,6 +859,20 @@ superseded by the owner's 2026-09-30 unified-topology decision, codified in
 [Plan 064](../plans/064-unified-redesign-convergence.md). Every other answer in
 Q622–Q637 stands.
 
+Amended on 2026-10-02: the owner's decision on PR #295 (comment 5941692606)
+amends G-47, Plan 064's L-08 and Q633. The landing is the boot surface on
+every launch until the device is onboarded (a program or a logged set
+exists), not once. The first visit is the full landing. A return opens a
+condensed returning landing that leads with a welcome back and the entry
+actions; when a setup draft is saved, its lead action names the saved route
+(Continue building your program) and opens the chooser, where Q633's resume
+card stays the one place the draft is resumed or discarded, with no deep link
+to the saved step. The chooser no longer opens by itself before onboarding. An
+onboarded device never boots into the landing, and a shared-setup handoff
+keeps its own landing whatever the device has seen. Q633's answer, "On the
+chooser only", stands for the card; its reason, "A returning lifter never sees
+the one-time landing", no longer holds.
+
 ## Canonical decisions reached across the session
 
 The ledger above preserves sequence. This section is the consolidated product

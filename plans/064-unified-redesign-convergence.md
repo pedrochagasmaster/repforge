@@ -188,6 +188,17 @@ the dependent slice.
 | L-16 | No Pro, payment, entitlement, managed AI, native shell, package manager, backend platform, or fake door. | ADR 0010, ADR 0011, plans README guardrails |
 | L-17 | Free one-off sessions (#257) and historical migration (#258) are outside this workfront. | §15, §16 |
 
+**Dated note, 2026-10-02 (amends G-47 and L-08).** Owner decision on #295
+(comment 5941692606): "Landing appears once" is replaced by "the landing is the
+boot surface on every launch until the device is onboarded". The first visit
+stays the full landing; a return opens the condensed returning landing, which
+leads with a welcome back and the entry actions and, when a setup draft is
+saved, a resume action naming its route that opens the chooser and its Q633
+resume card (no deep link). The chooser no longer opens by itself before
+onboarding; an onboarded device never boots into the landing; a shared-setup
+handoff keeps its own landing. The rest of L-08 stands. Recorded in the
+[decision register](../docs/product-grilling-decision-register.md) beside Q633.
+
 ### 5.2 Inherited (already specified; applied as written unless a reconcilable row says otherwise)
 
 | ID | Decision | Source | Consuming slice |
@@ -663,7 +674,8 @@ names are R0–R7; sub-slices carry letters.
 - **Owns:** transition glue in `app.js` (route focus, announcement, scroll
   reset), guide anchors moved by earlier slices, journey tests.
 - **Consumes:** everything above.
-- **Unchanged:** G-47 landing once; G-62 guides once; install cadence; the
+- **Unchanged:** G-47 as amended on 2026-10-02 (§5.1 note: the landing is the
+  boot surface until onboarding); G-62 guides once; install cadence; the
   first-run gate's `modal` interaction semantics.
 - **Prerequisite:** R2, R3b, R3c, R4.
 - **Parallelism:** two workers: journeys into the app; journeys out to
