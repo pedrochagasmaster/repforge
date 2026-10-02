@@ -591,6 +591,8 @@ function engineTruth() {
 const RETIRED_KEYS = [
   "landing.ethos", "landing.privacy", "landing.body", "landing.closing.body", "landing.preview.alt",
   "landing.program.title", "landing.system.title", "landing.shot.focus.alt", "landing.proof.example",
+  // Focus has no "Now" label since R3c: the walkthrough points at the target on the card (owner decision, #295).
+  "focus.cue.now",
 ];
 /** What the captured import-review screen shows for the sample message: the counts differ by language. */
 const PASTE_COUNTS = { en: { linked: 1, review: 3 }, pt: { linked: 0, review: 4 } };
@@ -611,6 +613,9 @@ function copyPins() {
     assert(CATALOG[lang]["landing.ways.written.body"].includes("{weeks}"), `[${lang}] the program length is a placeholder, never typed into the catalog`);
     for (const key of ["landing.demo.s7.text", "landing.outcomes.did_same", "landing.outcomes.did_mixed", "landing.outcomes.target", "landing.chart.caption", "landing.chart.alt"]) {
       assert(!/\d/.test(CATALOG[lang][key].replace(/\{\w+\}/g, "").replace(/e1RM/g, "")), `[${lang}] ${key} carries no hard-coded number`, CATALOG[lang][key]);
+    }
+    for (const key of ["landing.demo.s2.text", "landing.demo.s7.text", "landing.demo.alt.focus"]) {
+      assert(!CATALOG[lang][key].includes("{now}"), `[${lang}] ${key} names no "Now" line (Focus does not render one)`, CATALOG[lang][key]);
     }
     for (const key of RETIRED_KEYS) assert(!(key in CATALOG[lang]), `[${lang}] retired key ${key} is gone`);
   }

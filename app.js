@@ -17497,7 +17497,7 @@ function landingSceneAlt(scene,add){
   const c=LANDING_CASES.add,first=c.logged[0];
   if(scene==="focus")return t("landing.demo.alt.focus",{exercise:landingExerciseName(c.ex),sets:landingNum(c.sets),
     min:landingNum(c.repMin),max:landingNum(c.repMax),load:landingKg(first[0]),reps:landingNum(first[1]),rir:landingNum(first[2]),
-    now:t("focus.cue.now"),cue:add?landingCue(add.status,add):"",action:t("today.log_set")});
+    cue:add?landingCue(add.status,add):"",action:t("today.log_set")});
   if(scene==="actions")return t("landing.demo.alt.actions",{action:t("ex.actions.substitute")});
   return scene==="rest"?t("landing.demo.alt.rest"):t("landing.demo.alt.note")}
 /** The read of one step as a crop: the spot grown by the lens padding (a share of
@@ -17513,14 +17513,14 @@ function renderLandingProof(add){
   const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
   const text=(key,value)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.textContent=value};
   const c=LANDING_CASES.add,first=c.logged[0];
-  text("s2",t("landing.demo.s2.text",{now:t("focus.cue.now")}));
+  text("s2",t("landing.demo.s2.text"));
   text("s3",t("landing.demo.s3.title",{action:t("today.log_set")}));
   fill("s5",landingRich("landing.demo.s5.text",{},{action:t("ex.actions.substitute")}));
   if(add){
     text("s7.value",t("landing.outcomes.target",{load:landingKg(add.load),reps:landingNum(add.reps)}));
     text("s7.sets",t("landing.demo.s7.sets",{sets:landingNum(c.sets)}));
     text("s7",t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
-      min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps),now:t("focus.cue.now")}))}
+      min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)}))}
   const seen=new Set();
   root.querySelectorAll("[data-landing-step]").forEach(step=>{
     const scene=step.dataset.scene,reads=(step.dataset.read||"").split(" ").filter(Boolean);
