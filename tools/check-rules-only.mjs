@@ -63,7 +63,18 @@ export const RULES_ONLY_STATES = Object.freeze([
  */
 export const RULES_ONLY_EXTRA_ALLOWLIST = [];
 export const RULES_ONLY_ORANGE_ALLOWLIST = [...ORANGE_ALLOWLIST, ...RULES_ONLY_EXTRA_ALLOWLIST];
-export const RULES_ONLY_OVERFLOW_EXCEPTIONS = [...OVERFLOW_EXCEPTIONS];
+/**
+ * The D gate's one overflow exception is the Progress tab row. The Library's sideways filter rails are the other
+ * rows that scroll by design: docs/ui-screens/manifest.json `catalogChecks.intentionalScrollers` (plan-050) already
+ * registers them, and they carry `data-allow-horizontal-scroll="x"` with a partly visible last chip as the cue.
+ * The exercise picker's filter row is the same rail on a sheet. A scrolling row that does not carry the marker is
+ * still reported.
+ */
+export const RULES_ONLY_OVERFLOW_EXCEPTIONS = [
+  ...OVERFLOW_EXCEPTIONS,
+  { id: "intentional-scroller", selector: "[data-allow-horizontal-scroll='x']" },
+  { id: "picker-filter-rail", selector: "#exPickFilters" },
+];
 
 /**
  * Open dialogs that are not sheets, so `.sheetband` does not head them. Anything else that opens as a dialog and is

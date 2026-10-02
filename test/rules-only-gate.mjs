@@ -130,11 +130,15 @@ try {
       <div id="seedWide" style="width:200px;overflow:hidden"><div style="width:600px;height:10px"></div></div>
       <div id="seedFits" style="width:200px;overflow:hidden"><div style="width:100px;height:10px"></div></div>
       <p id="seedEllipsis" style="width:100px;margin:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A very long exercise name that cannot fit</p>
-      <div class="tabrow" id="seedTabRow" style="width:200px;overflow-x:auto"><div style="width:600px;height:10px"></div></div>`;
+      <div class="tabrow" id="seedTabRow" style="width:200px;overflow-x:auto"><div style="width:600px;height:10px"></div></div>
+      <div id="seedRail" data-allow-horizontal-scroll="x" style="width:200px;overflow-x:auto"><div style="width:600px;height:10px"></div></div>
+      <div id="seedUnmarkedRail" style="width:200px;overflow-x:auto"><div style="width:600px;height:10px"></div></div>`;
     const overflow = CHECKS.overflow(await seeded(page, overflowMarkup));
     check(has(overflow, "overflow", "#seedWide"), "an element wider than its box is rejected", show(overflow));
     check(!has(overflow, "#seedFits"), "an element that fits its box is accepted", show(overflow));
     check(!has(overflow, "#seedTabRow"), "Progress' tab row, the one scrolling row, is excepted", show(overflow));
+    check(!has(overflow, "#seedRail"), "a sideways rail registered as an intentional scroller (the plan-050 marker) is excepted", show(overflow));
+    check(has(overflow, "overflow", "#seedUnmarkedRail"), "a scrolling row without the marker is still reported", show(overflow));
     check(has(overflow, "ellipsis", "#seedEllipsis"), "text-overflow: ellipsis is rejected (section 8.13: names wrap, never ellipsized)", show(overflow));
     check(!has(overflow, "ellipsis", "#seedFits"), "an element with no ellipsis is not reported for one", show(overflow));
 
