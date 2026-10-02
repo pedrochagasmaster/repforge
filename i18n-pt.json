@@ -377,7 +377,7 @@
   "program.editor.leave.body": "Suas alterações ainda não foram aplicadas.",
   "program.editor.apply_changes": "Aplicar alterações",
   "program.editor.discard_changes": "Descartar alterações",
-  "program.editor.keep_editing": "Continuar a editar",
+  "program.editor.keep_editing": "Continuar editando",
   "program.editor.workout_conflict.title": "Sessão em andamento",
   "program.editor.workout_conflict.body": "Estas alterações afetam sua sessão inacabada. Aplique-as e descarte essa sessão, ou continue editando.",
   "program.editor.apply_discard_workout": "Aplicar e descartar sessão",
