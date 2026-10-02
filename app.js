@@ -15007,8 +15007,9 @@ function entryFactsText(preview){
   const facts=entryPreviewFacts(preview);
   return t("entry.change.facts",{ex:entryExerciseCountLabel(facts.exercises),sets:t("entry.preview.sets",{n:facts.sets})})}
 /* The rows of `after` that `before` did not have, counted as a multiset so a
-   duplicated movement is added only as often as it was added. When every row is
-   new, none is marked: the whole program is not "new". */
+   duplicated movement is added only as often as it was added. Every changed row
+   is marked, including when a correction replaces all of them (Q637, SPEC-04):
+   the statement counts them as changed, so each carries the tag and accent edge. */
 function entryAddedRowIds(before,after){
   const identity=ProgramEntryAdapter?.exerciseIdentity;
   if(!identity)return[];
@@ -15018,8 +15019,7 @@ function entryAddedRowIds(before,after){
   for(const row of after?.program||[]){
     const key=identity(row);
     if(left.get(key)>0)left.set(key,left.get(key)-1);else added.push(row.id)}
-  const total=(after?.program||[]).length;
-  return added.length&&added.length<total?added:[]}
+  return added}
 function entryBuildChange(beforePreview,afterPreview,state,{lead,beforeLabel="",afterLabel=""}={}){
   const diff=ProgramEntryAdapter?.identityDiff?.(beforePreview,afterPreview)||{n:0,total:(afterPreview?.program||[]).length};
   return{key:entryChangeKey(state),lead,beforeLabel,afterLabel,before:entryFactsText(beforePreview),after:entryFactsText(afterPreview),

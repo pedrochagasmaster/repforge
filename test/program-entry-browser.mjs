@@ -1299,6 +1299,70 @@ try {
     await context.close();
   }
 
+  console.log("\nEvery changed row of a corrected review is tagged, including when all of them change (Q637, SPEC-04)");
+  {
+    const { context, page } = await openFresh(browser);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    // What the review shows, read from the page and compared with the programs the compiler built.
+    const readReview = (before) => page.evaluate((beforeRows) => {
+      const rows = window.__repforgeEntryState().result.preview.program || [];
+      const key = (row) => row.libraryId || row.name;
+      const left = new Map();
+      for (const row of beforeRows) left.set(key(row), (left.get(key(row)) || 0) + 1);
+      let expected = 0;
+      for (const row of rows) { if (left.get(key(row)) > 0) left.set(key(row), left.get(key(row)) - 1); else expected += 1; }
+      const statement = document.querySelector("#entryChange");
+      const exRows = [...document.querySelectorAll("#onbBody .onb__ex")].filter((el) => el.querySelector("b"));
+      return {
+        total: rows.length, expected,
+        changed: Number(statement?.dataset.changed), statementTotal: Number(statement?.dataset.total),
+        shown: exRows.length,
+        accent: exRows.filter((el) => el.classList.contains("is-new")).length,
+        tagged: exRows.filter((el) => el.classList.contains("is-new") && el.querySelector(".entry__new")).length,
+        stray: exRows.filter((el) => !el.classList.contains("is-new") && el.querySelector(".entry__new")).length,
+        rowIds: rows.map(key),
+      };
+    }, before);
+    const programNow = () => page.evaluate(() => (window.__repforgeEntryState().result.preview.program || []).map((row) => ({ libraryId: row.libraryId, name: row.name })));
+    // The partial case: a longer week keeps most movements and tags only the added ones.
+    const baseDays = await programNow();
+    await page.click('[data-entry-chip="days"]');
+    await page.waitForSelector("#entryEditor", { timeout: 5000 });
+    await page.locator('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="4"]').click();
+    await page.click("#entryChipApply");
+    await page.waitForFunction(() => window.__repforgeEntryState().answers.daysPerWeek === 4 && document.querySelector("#entryChange"), undefined, { timeout: 25000 });
+    const partial = await readReview(baseDays);
+    assert(partial.expected > 0 && partial.expected < partial.total && partial.accent === partial.expected && partial.tagged === partial.expected && partial.stray === 0,
+      "SPEC-04: a partial correction still tags exactly the added rows", JSON.stringify(partial));
+    // The audit's case: commercial gym corrected to limited home replaces every movement.
+    const base = await programNow();
+    await page.click('[data-entry-chip="env"]');
+    await page.waitForSelector("#entryEditor", { timeout: 5000 });
+    await page.locator('#entryEditor [data-entry-pick="environment"][data-entry-val="limited_home"]').click();
+    await page.click("#entryChipApply");
+    await page.waitForFunction(() => window.__repforgeEntryState().answers.environment?.kind === "limited_home" && !document.querySelector("#entryEditor") && document.querySelector("#entryChange"), undefined, { timeout: 25000 });
+    const corrected = await readReview(base);
+    assert(corrected.expected > 0 && corrected.changed === corrected.expected,
+      "SPEC-04: the commercial gym to limited home correction changes rows and the statement counts them", JSON.stringify(corrected));
+    assert(corrected.expected === corrected.total,
+      "SPEC-04: the audit's case replaces every exercise, so the all-new case is the one under test", JSON.stringify(corrected));
+    assert(corrected.accent === corrected.expected && corrected.tagged === corrected.expected && corrected.stray === 0,
+      "SPEC-04: every changed row carries the accent edge and the new tag when the correction replaces all of them", JSON.stringify(corrected));
+    await context.close();
+  }
+
   console.log("\nEvery code the compiler and entry model can emit has copy, and an unknown one is loud");
   {
     const { readFileSync } = await import("node:fs");
