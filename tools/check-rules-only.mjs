@@ -172,9 +172,36 @@ export function validateRulesOnlyConfig({ allowlist = RULES_ONLY_ORANGE_ALLOWLIS
   return validateGateConfig({ allowlist, exceptions });
 }
 
+/**
+ * The focused control's focus indicator (outline, halo and field border) is painted from `--color-focus`, the
+ * contract's focus-visible role, and it is not one of the five accent uses. It is reported as a focus indicator
+ * and not as a violation; moving it off the accent would change a token value, which is not this audit's call
+ * (see the R6a handoff). Only the one focused element's outline, box-shadow and border colours are set aside,
+ * and only while it holds focus: the same paint on an unfocused element is still a violation.
+ */
+const FOCUS_PROPS = (prop) => prop === "outline-color" || prop === "box-shadow" || prop.startsWith("border-");
+export function setAsideFocusIndicator(evidence, focusedLocator) {
+  if (evidence.error || !focusedLocator) return evidence;
+  const painted = [], focusIndicators = [];
+  for (const item of evidence.accent.painted) {
+    if (!item.allowedBy && !item.pseudo && item.locator === focusedLocator && item.props.every(FOCUS_PROPS)) focusIndicators.push(item);
+    else painted.push(item);
+  }
+  return { ...evidence, accent: { ...evidence.accent, painted, focusIndicators } };
+}
+
 export async function gatherRulesOnlyEvidence(page, options = {}) {
   const evidence = await gatherEvidence(page, { allowlist: RULES_ONLY_ORANGE_ALLOWLIST, exceptions: RULES_ONLY_OVERFLOW_EXCEPTIONS, ...options });
-  return { ...evidence, sheetEvidence: await gatherSheetEvidence(page, options.scope ? { scope: options.scope } : {}) };
+  // The same locator the D gate prints (tools/check-direction-d.mjs, collectGateEvidence).
+  const focused = await page.evaluate(() => {
+    const element = document.activeElement;
+    if (!element || element === document.body || element === document.documentElement) return null;
+    if (element.id) return `#${element.id}`;
+    const classes = [...element.classList].slice(0, 2).map((name) => `.${name}`).join("");
+    const anchor = element.parentElement?.closest("[id]");
+    return `${element.tagName.toLowerCase()}${classes}${anchor ? ` in #${anchor.id}` : ""}`;
+  });
+  return { ...setAsideFocusIndicator(evidence, focused), sheetEvidence: await gatherSheetEvidence(page, options.scope ? { scope: options.scope } : {}) };
 }
 
 export function checkRulesOnly(evidence) {

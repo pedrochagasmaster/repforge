@@ -97,6 +97,18 @@ try {
     const listed = CHECKS.orange(await seeded(page, orangeMarkup, { allowlist: [{ category: "verdict-glyph", selector: "#seedOrangeFill" }] }));
     check(!has(listed, "#seedOrangeFill") && has(listed, "#seedOrangeText") && has(listed, "#seedOrangeBorder"),
       "a listed element passes and the others still fail beside it", show(listed));
+    // The focused control's focus indicator is the contract's focus role, not an accent use; the same paint unfocused is not.
+    await page.evaluate(() => {
+      document.querySelector("#gateSeed")?.remove();
+      document.body.insertAdjacentHTML("beforeend", `<div id="gateSeed"><input id="seedFocused" style="display:block;width:200px;height:44px">
+        <input id="seedUnfocused" style="display:block;width:200px;height:44px;border:2px solid var(--accent)"></div>`);
+      document.querySelector("#seedFocused").focus();
+    });
+    const focusEvidence = await gatherRulesOnlyEvidence(page, { scope: "#gateSeed", allowlist: [] });
+    const focusOrange = CHECKS.orange(focusEvidence);
+    check(!has(focusOrange, "#seedFocused") && (focusEvidence.accent.focusIndicators || []).some((item) => item.locator === "#seedFocused"),
+      "the focused control's focus indicator is set aside as a focus indicator, not reported", show(focusOrange));
+    check(has(focusOrange, "orange", "#seedUnfocused"), "accent paint on an unfocused control is still reported beside it", show(focusOrange));
     const real = CHECKS.orange(await gatherRulesOnlyEvidence(page, { allowlist: [] }));
     check(real.length > 0, "the detector is not vacuous: Settings' own accent paint is found with an empty list");
     check(RULES_ONLY_ORANGE_ALLOWLIST.some((entry) => entry.category === "active-dock-icon"), "the inherited D list carries the dock's active item");
