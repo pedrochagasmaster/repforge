@@ -162,3 +162,7 @@ Rules that apply to every row:
 | `why.short` | New | Por quê? | Why? | Why this weight | `d.why_short` |
 | `why.split` | New | As {total} repetições de hoje se dividem em {reps}. | Today's {total} reps split into {reps}. | Why this weight | `d.why.split` |
 | `why.top_rir` | New | Você registrou RIR {rir}. | You logged RIR {rir}. | Why this weight | `d.why.top_rir` |
+| `why.calc.rep_target_floor` | New (owner-approved 2026-10-02, audit RT-02/RT-05) | cerca de {pred} − {rir} = {raw}, elevado ao piso da faixa, {reps} | about {pred} − {rir} = {raw}, raised to the range floor, {reps} | Why this weight | — |
+| `why.calc.rep_target_rounded` | New (owner-approved 2026-10-02, audit RT-02/RT-05) | cerca de {pred} − {rir} = {raw}, arredondado para {reps} | about {pred} − {rir} = {raw}, rounded to {reps} | Why this weight | — |
+| `why.calc.rep_target_top` | New (owner-approved 2026-10-02, audit RT-02/RT-05) | cerca de {pred} − {rir} = {raw}, limitado ao topo da faixa, {reps} | about {pred} − {rir} = {raw}, held at the range top, {reps} | Why this weight | — |
+| `why.decision_before` | New (owner-approved 2026-10-02, audit RT-02/RT-05) | Antes desta sessão: {label} | Before this session: {label} | Why this weight | — |
