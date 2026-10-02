@@ -884,6 +884,33 @@ function resolveReturnFocus(target){
   const lab=target.closest?.("label")||target.labels?.[0];
   if(lab&&canTakeFocus(lab))return lab;
   return null}
+/* ---- Route hand-off glue (Plan 064 R5) ----
+   A hand-off between surfaces ends with focus on the new surface: its heading, or
+   the control it documents as its focus target (the control that opened the
+   surface when the lifter backs out of it). A heading is not a control, so it
+   takes a programmatic tabindex of -1: never a tab stop, and styles.css draws no
+   ring on it. The route functions stay where they are; they call these. */
+const ROUTE_NATIVE_FOCUS="a[href],button,input,select,textarea,summary,[tabindex]";
+function routeHeading(view){
+  const root=typeof view==="string"?$(`#${view}`):view;
+  if(!(root instanceof Element))return null;
+  return[...root.querySelectorAll(".page-title,h1,h2")].find(canTakeFocus)||null}
+function focusRoute(target){
+  const el=resolveReturnFocus(target);
+  if(!el)return false;
+  if(!el.matches(ROUTE_NATIVE_FOCUS))el.setAttribute("tabindex","-1");
+  try{el.focus({preventScroll:true})}catch{return false}
+  return document.activeElement===el}
+/* The control the lifter last pressed. Safari does not focus a button on click, so
+   document.activeElement cannot say what opened a flow; the press itself can. */
+let routeInvoker=null;
+document.addEventListener("click",event=>{
+  const target=event.target instanceof Element?event.target.closest("button,a[href],summary,[role='button']"):null;
+  routeInvoker=target?{el:target,at:performance.now()}:null},true);
+function routeInvokerControl(){
+  const pressed=routeInvoker&&performance.now()-routeInvoker.at<600?routeInvoker.el:null;
+  const active=document.activeElement!==document.body?document.activeElement:null;
+  return resolveReturnFocus(pressed)||resolveReturnFocus(active)||null}
 function openModal(el,opts={}){
   if(!el)return false;
   const extras=opts.extras||[];
@@ -5917,7 +5944,14 @@ function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
   if(shell)shell.classList.toggle("hidden",!workoutActive);
   if(!workoutActive){document.body.classList.remove("is-focus-wo");closeWorkoutOverflow()}
   updateFocusChrome();
-  if(workoutActive!==was)playPanelAnimation(workoutActive?shell:dash,workoutActive?"wo-anim-enter":"wo-anim-leave")}
+  if(workoutActive!==was){
+    playPanelAnimation(workoutActive?shell:dash,workoutActive?"wo-anim-enter":"wo-anim-leave");
+    // Focus lands on the surface the lifter moved to, once the move has rendered:
+    // Focus's day title going in, Today's leading control coming back. Not at boot,
+    // where a resumed session is the page itself and not a hand-off.
+    if(window.__repforgeBooted===true)queueMicrotask(()=>{
+      if(workoutActive)focusRoute($("#woDayTitle"));
+      else focusRoute(todayPrimaryControl())})}}
 /** Replay a one-shot CSS animation on a panel that just became visible. */
 function playPanelAnimation(el,cls){if(!el)return;
   el.classList.remove("wo-anim-enter","wo-anim-leave");
@@ -14262,8 +14296,24 @@ function reportEntryRoute(route){
   entryEngaged=true;
   captureEvent("program_path_selected",{route});
   if(route==="recommend"||route==="custom")captureEvent("generator_started",{mode:"baseline"})}
+/* Where an entry flow was started from, so cancelling it returns there and puts
+   focus back on the control that opened it. The landing is the one start that
+   cannot be returned to: it is the boot surface, closed for good once the lifter
+   leaves it, so cancelling lands on Today's no-program state. Activation always
+   ends on Today. */
+let entryReturnTo=null;
+function captureEntryReturn(){
+  if($("#onboarding")?.classList.contains("active"))return;
+  const view=currentViewId();
+  entryReturnTo={view:["stats","history","program","settings"].includes(view)?view:"log",control:routeInvokerControl()}}
+function returnFromEntry(back){
+  const view=back?.view||"log";
+  if(view==="settings")showSettings();
+  else if(view!=="log")returnToTab(view);
+  focusRoute(back?.control||routeHeading(view))}
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
+  captureEntryReturn();
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
   entryEngaged=false;entryOwnOpen=false;entryDialog=null;entryHelpOpen=false;entryHelp={q1:null,q2:null};entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
@@ -14341,7 +14391,9 @@ function maybeShowOnboarding(){
 }
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
-  onboardingOrigin=null;closeOnboarding()}
+  onboardingOrigin=null;
+  const back=entryReturnTo;entryReturnTo=null;
+  closeOnboarding();returnFromEntry(back)}
 function requestEntryCancel(){
   if(!entryState)return cancelOnboarding();
   entryDialogOpener=entryOpenerToken();
@@ -16768,8 +16820,9 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
     document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
-    render();toast(t("toast.tweak_program"));return result}
+    render();toast(t("toast.tweak_program"));focusRoute(routeHeading("program"));return result}
   render();toast(t("toast.onboarding_saved"));
+  focusRoute(routeHeading("log"));
   maybeShowInstallBanner();
   return result}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;

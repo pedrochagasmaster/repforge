@@ -561,11 +561,16 @@ try {
     const chromeAfterCancel = await page.evaluate(() => ({
       bodyClasses: document.body.className,
       navDisplay: getComputedStyle(document.querySelector("nav")).display,
-      todayActive: document.querySelector("#log")?.classList.contains("active") === true,
+      activeViews: [...document.querySelectorAll(".view.active")].map((view) => view.id),
+      focus: document.activeElement?.id || null,
     }));
-    assert(chromeAfterCancel.todayActive && chromeAfterCancel.navDisplay !== "none" &&
-      !chromeAfterCancel.bodyClasses.includes("is-settings"),
-      "Settings program creation restores Today and its dock after Cancel", JSON.stringify(chromeAfterCancel));
+    // Plan 064 R5: an entry exit returns to where it started. Create program was
+    // started from Settings, so Cancel returns to Settings (its chrome, no dock) with
+    // focus back on Create program, and leaves no half-closed entry chrome behind.
+    assert(chromeAfterCancel.activeViews.join() === "settings" && chromeAfterCancel.navDisplay === "none" &&
+      chromeAfterCancel.bodyClasses.includes("is-settings") && !chromeAfterCancel.bodyClasses.includes("is-onboarding") &&
+      chromeAfterCancel.focus === "createProgram",
+      "Settings program creation returns to Settings, on Create program, after Cancel", JSON.stringify(chromeAfterCancel));
 
     await page.evaluate(() => window.startOnboarding("settings"));
     await page.waitForSelector("#entryResumeContinue");

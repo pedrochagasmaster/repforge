@@ -142,6 +142,7 @@ export const SUITES = {
     s("test/shared-setup-flow.mjs", [], { seconds: 31 }),
     s("test/entry-landing.mjs"),
     s("test/landing-variants.mjs", [], { seconds: 14 }),
+    s("test/journeys-in.mjs", [], { domains: ["entry", "today", "workout", "progress", "transition"], seconds: 40 }),
     s("test/landing-proof-capture.mjs", [], { seconds: 100 }),
     s("test/entry-chooser.mjs"),
     s("test/entry-expert-controls.mjs"),
