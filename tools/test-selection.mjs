@@ -193,8 +193,13 @@ const EXPLICIT_INPUT_RULES = [
   },
   {
     match: /^tools\/check-direction-d\.mjs$/,
-    suiteFiles: ["test/direction-d-gate.mjs"],
-    why: "Direction D acceptance gate",
+    suiteFiles: ["test/direction-d-gate.mjs", "test/rules-only-gate.mjs"],
+    why: "Direction D acceptance gate and the rules-only audit that reuses its machinery",
+  },
+  {
+    match: /^tools\/check-rules-only\.mjs$/,
+    suiteFiles: ["test/rules-only-gate.mjs"],
+    why: "rules-only audit",
   },
   {
     match: /^tools\/ui-role-inventory\.json$/,
