@@ -1113,7 +1113,7 @@ function setEffortPick(key,eff){
     if(el.getAttribute("role")==="spinbutton"){
       el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
       el.setAttribute("aria-valuetext",effortLabel(eff))}
-    const pop=el.closest(".curset__cell,.shelf__field")?.querySelector(".effortpop");
+    const pop=el.closest(".shelf__field")?.querySelector(".effortpop");
     fillEffortPop(pop,eff,{bump:!!pop?.classList.contains("is-open")})})}
 
 /* ---- Effort explainer ----
@@ -1141,7 +1141,7 @@ function openEffortPop(key){
   const spin=$(`[data-effspin="${key}"]`),pop=$(`[data-effpop="${key}"]`);
   if(!spin||!pop)return;
   closeEffortPop({except:pop});
-  spin.closest(".curset__cell,.shelf__field")?.classList.add("is-active");
+  spin.closest(".shelf__field")?.classList.add("is-active");
   fillEffortPop(pop,spin.dataset.e);
   clearTimeout(pop.closeT);pop.classList.remove("is-closing");
   pop.classList.add("is-open");spin.classList.add("is-open")}
@@ -1152,7 +1152,7 @@ function closeEffortPop({except=null}={}){
     clearTimeout(pop.closeT);pop.closeT=setTimeout(()=>pop.classList.remove("is-closing"),240);
     const spin=$(`[data-effspin="${pop.dataset.effpop}"]`);
     spin?.classList.remove("is-open");
-    spin?.closest(".curset__cell,.shelf__field")?.classList.remove("is-active")})}
+    spin?.closest(".shelf__field")?.classList.remove("is-active")})}
 const toggleEffortPop=key=>{
   const pop=$(`[data-effpop="${key}"]`);
   if(pop?.classList.contains("is-open"))closeEffortPop();else openEffortPop(key)};
@@ -1229,8 +1229,6 @@ function parseLoadInput(raw,unit=state.settings.unit){
   if(display>MAX_LOAD_KG)return{kind:"invalid"};
   return{kind:"valid",kg:display}}
 const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":"toast.invalid_weight");
-const unitHintHtml=()=>`<span class="unit-hint">${esc(unitLabel())}</span>`;
-const loadHeadHtml=()=>`${esc(t("today.load"))} ${unitHintHtml()}`;
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
@@ -6534,8 +6532,9 @@ function setFieldVals(ex,n,r,draft,prev){
 /* ============================================================
    Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
-   logged on top, and an attached well underneath that never moves — the
-   recommendation, the set being worked on, and the one action that commits it.
+   logged on top, and the shelf underneath that never moves — the set being
+   worked on and the one action that commits it, under the cue that says what
+   to do with it.
    ============================================================ */
 
 /** What a control on a peek copy gets instead of its hooks: the same element,
@@ -6549,7 +6548,7 @@ function focusDoneSets(ex){const out=[];
   if(focusEdit?.exId===ex.id&&!out.includes(focusEdit.n))out.push(focusEdit.n);
   out.sort((a,b)=>a-b);
   return out}
-/** The set the well is working on: the one being edited, else the first unlogged. */
+/** The set the shelf is working on: the one being edited, else the first unlogged. */
 function focusActiveSet(ex){
   if(focusEdit&&focusEdit.exId===ex.id&&focusEdit.n>=1&&focusEdit.n<=ex.sets)return focusEdit.n;
   for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
@@ -6570,12 +6569,12 @@ function focusRefLoad(ex,n,draft,prev){
 function focusCue(ex,n,r,draft,prev,editing){
   const unit=unitLabel();
   if(editing){const text=t("focus.cue.editing_set",{n,total:ex.sets});
-    return{kind:"edit",move:"",label:t("focus.cue.editing"),text,headHtml:esc(text),sub:""}}
+    return{kind:"edit",move:"",headHtml:esc(text),sub:""}}
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
   if(r.status==="manual"){const head=t("program.progression.strategy.manual");
-    return{kind:"manual",move:"",label:"",text:"",headHtml:esc(head),sub:t("focus.cue.reps",{reps:`${ex.min}–${ex.max}`})}}
+    return{kind:"manual",move:"",headHtml:esc(head),sub:t("focus.cue.reps",{reps:`${ex.min}–${ex.max}`})}}
   if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
-    return{kind:"start",move:"",label:t("focus.cue.start"),text:head,headHtml:esc(head),sub:""}}
+    return{kind:"start",move:"",headHtml:esc(head),sub:""}}
   const ref=focusRefLoad(ex,n,draft,prev);
   const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
   const reps=sg.reps!=null?sg.reps:ex.min;
@@ -6585,8 +6584,7 @@ function focusCue(ex,n,r,draft,prev,editing){
   // The first target of the day is `recommendation()`'s own load; a later set's
   // is the engine's in-session answer, which the parity check does not compare.
   const parity=sg.src==="base"&&!sg.tempered?` data-parity-target="${esc(ex.id)}"`:"";
-  return{kind:"now",move,label:t("focus.cue.now"),
-    text:`${t(`focus.cue.${move}`,{load:loadText,unit})} · ${t("focus.cue.reps",{reps})}`,
+  return{kind:"now",move,
     headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${esc(loadText)}</b>`),
     sub:t("focus.cue.reps",{reps})}}
 
@@ -6662,86 +6660,6 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
     else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}</div>`)}
   return head+`<div id="ledger_${esc(ex.id)}">${rows.join("")}</div>`}
 
-/** One value cell of the well: label, big value, hairline, and its steppers.
- *  `extra` rides along out of flow — the effort explainer, which floats over
- *  the card rather than taking a caption slot below the steppers. */
-function focusCell(label,inner,{accent=false,steps="",extra="",cls=""}={}){
-  return `<div class="curset__cell${accent?" is-load is-active":""}${cls?` ${cls}`:""}">`+
-    `<div class="curset__cell-lab${accent?" is-accent":""}">${label}</div>${inner}`+
-    `<span class="curset__underline" aria-hidden="true"></span>`+
-    (steps?`<div class="curset__steps">${steps}</div>`:"")+extra+`</div>`}
-const stepBtn=(target,dir,label,attr="data-step",peek=false)=>
-  `<button type="button" class="stepbtn"${peek?"":` ${attr}="${esc(target)}" data-dir="${dir}" aria-label="${esc(label)}"`} tabindex="-1">${dir>0?"+":"−"}</button>`;
-
-/** The set being worked on — three columns of numbers (or two plus effort). */
-function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
-  const{key,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
-  const effortMode=isEffortMode();
-  const repsLab=esc(t("log.reps"));
-  const unit=unitLabel();
-  // The static copy shows a dash where the live field shows its placeholder.
-  const val=(v,attrs,live=v)=>peek
-    ?`<div class="curset__val curset__val--static">${esc(String(v))}</div>`
-    :`<input class="curset__val" ${attrs} value="${esc(String(live))}">`;
-  // The unit sits on the Load label so three-digit loads still fit the figure.
-  const loadCell=focusCell(loadHeadHtml(),
-    val(kgVal||"—",`data-k="${ex.id}_${n}_load" size="4" type="text" inputmode="decimal" enterkeyhint="next" placeholder="—" aria-label="${esc(t("log.set_unit_aria",{n,unit}))}"`,kgVal),
-    {accent:true,steps:stepBtn(`${ex.id}_${n}_load`,-1,t("log.set_decrease_aria",{n,unit}),"data-step",peek)+stepBtn(`${ex.id}_${n}_load`,1,t("log.set_increase_aria",{n,unit}),"data-step",peek)});
-  const repsCell=focusCell(repsLab,
-    val(repsVal,`data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}"`),
-    {steps:stepBtn(`${ex.id}_${n}_reps`,-1,t("log.set_decrease_aria",{n,unit:repsLab}),"data-step",peek)+stepBtn(`${ex.id}_${n}_reps`,1,t("log.set_increase_aria",{n,unit:repsLab}),"data-step",peek)});
-  // Effort is a word, so its column is a spinner over the three steps rather
-  // than a free number — same geometry as RIR, same two nudge buttons.
-  const effCell=(()=>{
-    const i=Math.max(0,EFFORT_STEPS.indexOf(effortVal));
-    const body=peek
-      ?`<div class="curset__val curset__val--static curset__val--word">${esc(effortLabel(effortVal))}</div>`
-      :`<div class="curset__val curset__val--word" role="spinbutton" tabindex="0" data-effspin="${esc(key)}" data-e="${esc(effortVal)}"`+
-        ` aria-label="${esc(t("log.set_effort_aria",{n}))}" aria-describedby="effpop_${esc(key)}"`+
-        ` aria-valuemin="1" aria-valuemax="${EFFORT_STEPS.length}"`+
-        ` aria-valuenow="${i+1}" aria-valuetext="${esc(effortLabel(effortVal))}">${esc(effortLabel(effortVal))}</div>`;
-    return focusCell(peek?esc(t("log.effort")):term("Effort"),body,{cls:"is-effort",extra:peek?"":effortPopHtml(key,effortVal),
-      steps:stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep",peek)+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep",peek)})})();
-  const rirCell=focusCell(peek?"RIR":term("RIR"),
-    val(rirVal,`data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}"`),
-    {steps:stepBtn(`${ex.id}_${n}_rir`,-1,t("log.set_decrease_aria",{n,unit:"RIR"}),"data-step",peek)+stepBtn(`${ex.id}_${n}_rir`,1,t("log.set_increase_aria",{n,unit:"RIR"}),"data-step",peek)});
-  return `<div class="curset" data-set="${esc(key)}"><div class="curset__grid">`+
-    loadCell+repsCell+(effortMode?effCell:rirCell)+`</div></div>`}
-
-/** The attached lower area: cue, inputs and the single action that commits. */
-function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
-  const n=focusActiveSet(ex);
-  const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
-  // The well re-arms on the set that just landed: the cue and the numbers of
-  // the next set settle in, or — on the last set — the completion mark does.
-  const fresh=focusIsFresh(ex,peek)?" is-fresh":"";
-  if(!n){
-    const done=focusDoneSets(ex).length;
-    const title=allDone?t("focus.wo_done_title"):t("focus.ex_done_title");
-    const sub=allDone
-      ?t("focus.wo_done_sub",{n:focusList().length,lifts:tp(focusList().length,"lift")})
-      :t("focus.ex_done_sets",{n:done,sets:tp(done,"logged set")});
-    const cta=allDone||!hasNext
-      ?`<button type="button" class="btn btn--cta btn--noarrow"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
-      :`<button type="button" class="btn btn--cta"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
-    return `<div class="focus-well is-done${fresh}">`+
-      `<div class="focus-done"><span class="focus-done__mark" aria-hidden="true"></span>`+
-      `<div class="focus-done__text"><p class="focus-done__title">${esc(title)}</p>`+
-      `<p class="focus-done__sub">${esc(sub)}</p></div></div>`+
-      cta+`</div>`}
-  const cue=focusCue(ex,n,r,draft,prev,editing);
-  const key=`${ex.id}_${n}`;
-  const commit=(label)=>`<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button>`;
-  const action=editing
-    ?`<button type="button" class="focus-well__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`+
-      commit(t("focus.save_edit"))
-    :commit(t("today.log_set"));
-  return `<div class="focus-well${editing?" is-editing":""}${fresh}">`+
-    `<p class="focus-cue is-${cue.kind}"><span class="focus-cue__bolt" aria-hidden="true"></span>`+
-    `<b class="focus-cue__lab">${esc(cue.label)}</b><span class="focus-cue__sep" aria-hidden="true">·</span>`+
-    `<span class="focus-cue__text">${esc(cue.text)}</span></p>`+
-    cursetHtml(ex,n,r,draft,prev,{peek})+action+`</div>`}
-
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
@@ -6762,8 +6680,7 @@ function focusExMeta(ex){
   return `${line} · ${name}`}
 
 /* ---- The shelf ----
-   The shelf replaces the input well as a presentation over the same DraftV2
-   commands. It holds nothing of its own that is saved: the three fields show
+   The shelf is a presentation over the DraftV2 commands. It holds nothing of its own that is saved: the three fields show
    the values of the active set, the pads nudge the selected one through the
    `.stepbtn` handler, a typed value goes through the same input handler as
    ever, and the one action is the `.saveset` handler. Which field is selected,

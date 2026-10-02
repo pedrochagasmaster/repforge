@@ -5828,34 +5828,6 @@
       ]
     },
     {
-      "id": "curset-val-not-id",
-      "selector": ".curset__val:not([id])",
-      "roles": {
-        "control": "field"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "validation-error"
-      ],
-      "rationale": "Accepts or edits an explicit value.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "retained until R3e: the shelf replaced the input well in R3c, and the legacy well is no longer rendered by any state. R3e deletes this row with the well."
-    },
-    {
       "id": "daypick-row-not-id",
       "selector": ".daypick__row:not([id])",
       "roles": {
@@ -6165,29 +6137,6 @@
         "workout/persist-retry",
         "workout/stale-draft"
       ]
-    },
-    {
-      "id": "focus-well-cancel-not-id",
-      "selector": ".focus-well__cancel:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "retained until R3e: the shelf replaced the input well in R3c, and the legacy well is no longer rendered by any state. R3e deletes this row with the well."
     },
     {
       "id": "guide-cue-dismiss-not-id",
@@ -8814,23 +8763,6 @@
     }
   ],
   "rootRecipeOwners": [
-    {
-      "id": "focal-data-responsive-input",
-      "token": "--font-size-focal-data-max",
-      "selectors": [
-        ".curset__cell input.curset__val"
-      ],
-      "role": "focal-data",
-      "rationale": "The current-set input is workout focal data. This viewport-fit maximum belongs only to that responsive field; it does not cap the shared focal-data role or any other text role.",
-      "owner": "plan-055/058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
     {
       "id": "anchored-popover-elevation",
       "token": "--elevation-popover-shadow",

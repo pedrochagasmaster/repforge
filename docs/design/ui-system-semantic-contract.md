@@ -298,8 +298,8 @@ creating another role inventory:
 
 | `motion-polish.css` selectors | Existing semantic owner | Interaction evidence |
 | --- | --- | --- |
-| `.view`, `.btn`, `.btn:active`, `nav button:active`, `.curset__val--word[data-effspin]:active` | Navigation, action-control and current-set affordance roles | Navigation and button feedback in the interaction audit |
-| `.ledger__row.is-fresh`, `.ledger__row.is-fresh .ledger__check`, `.ledger__tick.is-fresh`, `.focus-ex__setof.is-fresh b`, `.focus-well.is-fresh .focus-cue`, `.focus-well.is-fresh .curset`, `.focus-well.is-fresh.is-done .focus-done__mark`, `.focus-well.is-fresh.is-done .focus-done__text` | Workout set acknowledgement and exercise-completion outcome | Set completion rows in the interaction audit |
+| `.view`, `.btn`, `.btn:active`, `nav button:active` | Navigation and action-control roles | Navigation and button feedback in the interaction audit |
+| `.ledger__row.is-fresh`, `.ledger__row.is-fresh .ledger__check`, `.ledger__tick.is-fresh`, `.focus-ex__setof.is-fresh b` | Workout set acknowledgement | Set completion rows in the interaction audit |
 | `.effortpop`, `.effortpop.is-open`, `.effortpop.is-closing`, `.effortpop.is-open .effortpop__arrow`, `.effortpop.is-bump .effortpop__hint` | Floating effort explanation | Effort/RIR explainer row in the interaction audit |
 | `.toast`, `.toast.hidden`, `.tour`, `.tour.hidden`, `.installbanner`, `.installbanner.hidden`, `@starting-style` for `.toast:not(.hidden)`, `.tour:not(.hidden)`, and `.installbanner:not(.hidden)` | Status notice, coach overlay and install action | Transient runtime UI rows in the interaction audit |
 | `.toggle::after` and its selected/pressed facets | Reversible selection control | Toggle owner in the UI-role inventory; reduced-motion alternate remains in the interaction audit |

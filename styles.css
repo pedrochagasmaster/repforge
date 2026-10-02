@@ -65,7 +65,6 @@
   --font-size-section-title:1.5rem;
   --font-size-feature-title:1.75rem;
   --font-size-focal-data:var(--font-size-feature-title);
-  --font-size-focal-data-max:8vw;
   --font-size-title:1.875rem;
   --font-size-display:2.5rem;
   /* The selected landing and the saved-session hero have deliberate scale
@@ -1017,7 +1016,6 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 .exercise--focus .term{background:var(--control-quiet-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);font-family:var(--font-language)}
 .exercise--focus .term:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);text-decoration-color:var(--control-quiet-ink)}
 .exercise--focus .term:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-.exercise--focus .curset__cell-lab .term:active:not(:disabled){transform:translate(-50%,-50%) var(--control-pressed-transform)}
 .exercise--focus .term:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .exercise--focus .term:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .exercise--focus .delta-prev{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:0 0 var(--space-8)}
@@ -1133,42 +1131,11 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    Logging a set re-renders the whole card, so the motion is written into the
    markup of that one render (`is-fresh`) rather than driven from a handler:
    the card the lifter sees next is the card that plays it, once. It moves
-   transform and opacity only, and nothing about it celebrates. */
-.ledgerline.is-fresh{animation:setland-row .34s cubic-bezier(.2,.7,.2,1) both}
-@keyframes setland-row{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+   transform and opacity only, finishes inside 160ms, and nothing about it
+   celebrates. */
+.ledgerline.is-fresh{animation:setland-row .16s cubic-bezier(.2,.8,.2,1) both}
+@keyframes setland-row{from{opacity:.68;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.ledgerline.is-fresh{animation:none}}
-
-/* ---- Well: attached, and the same height whatever the ledger is doing ---- */
-.focus-well{
-  flex:none;padding:14px 20px 16px;background:var(--well);border-top:1px solid var(--boundary-decorative);
-}
-.focus-cue{display:flex;align-items:center;flex-wrap:wrap;gap:0 6px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);margin:0;color:var(--color-ink-secondary)}
-.focus-cue__bolt{
-  flex:none;width:19px;height:19px;background:var(--color-action);
-  -webkit-mask:var(--bolt) no-repeat center/contain;mask:var(--bolt) no-repeat center/contain;
-}
-.focus-cue__lab{font-family:var(--font-language);color:var(--color-action-text);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.06em;text-transform:uppercase}
-.focus-cue__sep{color:var(--color-ink-secondary)}
-.focus-cue__text{font-family:var(--font-language);color:var(--color-ink-secondary);min-width:0}
-.focus-well__cancel{
-  display:block;width:100%;min-height:var(--control-target);margin:8px 0 0;padding:8px;
-  border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);background:var(--control-quiet-bg);cursor:pointer;
-  color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center;
-}
-.focus-well__cancel:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)}
-.focus-well__cancel:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);transform:var(--control-pressed-transform)}
-.focus-well__cancel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.focus-well__cancel:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-.focus-well .btn--cta{margin-top:12px}
-.focus-well .btn--cta.saveset{
-  border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);
-  font-family:var(--font-language);text-transform:none;letter-spacing:normal;font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
-  min-height:54px;min-width:0;padding:0 20px;border-radius:var(--radius-control);
-}
-.focus-well .btn--cta.saveset:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
-.focus-well .btn--cta.saveset:active:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)}
-.focus-well .btn--cta.saveset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.focus-well .btn--cta.saveset:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 
 /* Rest bar — one floating clock, parked just above the tab bar in every mode */
 .restbar{
@@ -1292,57 +1259,6 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .stepbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .stepbtn:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 
-/* Current-set cells — bare numbers over a hairline, with the −/+ underneath.
-   The figure size is a variable because the effort word has to know it: that
-   column reads as a word, but it holds the same slot as the numbers beside it. */
-.curset{--curset-val:var(--font-size-focal-data);margin:10px 0 0}
-.curset__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
-.curset__cell{min-width:0;padding:8px 2px 0;text-align:center;position:relative}
-.curset__cell:not(:last-child)::after{
-  content:"";position:absolute;right:0;top:12%;bottom:8%;width:1px;background:var(--rule);
-}
-.curset__cell-lab{position:relative;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);margin-bottom:8px;
-  display:flex;align-items:baseline;justify-content:center;gap:5px;height:1.4em;min-height:1.4em;white-space:nowrap}
-.curset__cell-lab.is-accent{color:var(--color-action-text)}
-.curset__val,.curset__cell input.curset__val{
-  width:100%;max-width:100%;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;border-radius:0;
-  font-family:var(--font-training-data);font-size:var(--curset-val);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--control-field-ink);text-align:center;
-  font-variant-numeric:tabular-nums;height:max(var(--control-target),1.5em);box-shadow:none;
-}
-.curset__val::placeholder{color:var(--color-ink-secondary);opacity:1}
-.curset__cell input.curset__val{font-size:min(var(--curset-val),var(--font-size-focal-data-max));line-height:normal}
-.curset__cell input.curset__val:focus{outline:none;box-shadow:none;border-color:transparent}
-.curset__cell input.curset__val:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-compact)}
-.curset__cell input.curset__val:disabled{color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
-.exercise--focus .curset__val[aria-invalid="true"]{outline:var(--control-focus-outline);outline-offset:2px;color:var(--control-error-boundary)}
-.exercise--focus .curset__cell:has(.curset__val[aria-invalid="true"]) .curset__underline{background:var(--control-error-boundary)}
-/* An effort is a word: a size that keeps three of them on one line, in the same
-   slot height as the figures, so this column's hairline sits on their line. */
-.curset__val--word{
-  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.01em;color:var(--control-field-ink);
-  display:flex;align-items:center;justify-content:center;
-  height:max(var(--control-target),1.5em);
-}
-.curset__val--word:focus-visible{outline:var(--control-focus-outline);outline-offset:3px;border-radius:var(--radius-control)}
-/* The word is also the question: tap it and its explainer pops off the top. */
-.curset__val--word[data-effspin]{
-  cursor:pointer;transition:color .18s ease;
-}
-.curset__val--word[data-effspin]:active{transform:var(--control-pressed-transform)}
-.curset__val--word[data-effspin].is-open{color:var(--color-action)}
-.unit-hint{
-  font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:var(--line-standard);letter-spacing:0;text-transform:none;color:var(--color-ink-secondary);
-}
-.curset__cell-lab .unit-hint{font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
-.curset__cell-lab.is-accent .unit-hint{color:var(--color-ink-secondary)}.ledger__head .unit-hint{margin-left:4px;font-size:var(--font-size-caption);letter-spacing:0;text-transform:none;font-weight:var(--weight-medium)}
-.curset__underline{display:block;height:2px;margin:8px auto 0;width:56%;background:var(--control-field-boundary);border-radius:var(--radius-compact)}
-.curset__cell.is-active .curset__underline,.curset__cell.is-load .curset__underline{background:var(--color-action-text)}
-.curset__steps{display:flex;justify-content:space-evenly;align-items:center;margin-top:2px}
-.curset__steps .stepbtn{
-  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);border-radius:var(--radius-control);border:1px solid var(--control-adjustment-boundary);background:var(--control-adjustment-bg);
-  color:var(--control-adjustment-ink);font-family:var(--font-language);font-size:var(--control-icon-size);font-weight:var(--weight-regular);line-height:1;padding:0;
-}
-.curset__steps .stepbtn:hover:not(:disabled){color:var(--control-adjustment-ink);background:var(--well);border-color:var(--control-adjustment-boundary)}
 
 /* ---- Effort explainer ----
    The reps-left shorthand is an answer to a question, not a permanent caption,
@@ -1399,7 +1315,6 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 @media (prefers-reduced-motion:reduce){
   .effortpop.is-open,.effortpop.is-closing,
   .effortpop.is-open .effortpop__arrow,.effortpop.is-bump .effortpop__hint{animation:none}
-  .curset__val--word[data-effspin]{transition:none}
 }
 
 /* ---- Exercise note sheet ---- */
@@ -2675,10 +2590,6 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   min-width:44px;min-height:44px;box-sizing:border-box;vertical-align:middle;
   text-decoration:underline dotted;text-decoration-color:var(--ink-faint);cursor:pointer;font:inherit;line-height:1.4}
 .term:hover{text-decoration-color:var(--accent);color:var(--accent-deep)}
-/* Form controls drop inherited casing and tracking (HTML's UA sheet), so a term
-   used as a column heading has to be told to look like one. Its 44px hit box
-   overlays the label band instead of making that column taller than its peers. */
-.curset__cell-lab .term{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-transform:uppercase;letter-spacing:.08em}
 .glossary{
   position:absolute;z-index:60;max-width:280px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);
   display:flex;flex-direction:column;
@@ -3103,7 +3014,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   .stepbtn{width:var(--control-target);min-width:var(--control-target);font-size:var(--control-icon-size)}
   .saveset{min-width:44px;padding:0 4px}
   #history .edrow{grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) var(--control-target);gap:6px}
-  .curset__val{font-size:var(--font-size-metric)}
 }
 
 /* ---- Shell class aliases (HTML / renderToday) ---- */

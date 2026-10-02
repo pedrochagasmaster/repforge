@@ -43,13 +43,14 @@ assert.ok(validateRoleInventory(missingDisabled, manifest).some((error) => error
 const badException = structuredClone(inventory);
 badException.exceptions.push({ selector: ".bad" });
 assert.ok(validateRoleInventory(badException, manifest).some((error) => error.startsWith("exception .bad needs")), "an unowned exception cannot suppress a failure");
+const firstRecipe = inventory.rootRecipeOwners[0].id;
 const missingRecipeOwner = structuredClone(inventory);
 delete missingRecipeOwner.rootRecipeOwners[0].rationale;
-assert.ok(validateRoleInventory(missingRecipeOwner, manifest).some((error) => error.startsWith("root recipe focal-data-responsive-input needs")),
+assert.ok(validateRoleInventory(missingRecipeOwner, manifest).some((error) => error.startsWith(`root recipe ${firstRecipe} needs`)),
   "a root helper recipe cannot escape semantic ownership");
 const staleRecipeState = structuredClone(inventory);
 staleRecipeState.rootRecipeOwners[0].catalogStates.push("workout/not-a-live-state");
-assert.ok(validateRoleInventory(staleRecipeState, manifest).some((error) => error.includes("root recipe focal-data-responsive-input names stale catalog state")),
+assert.ok(validateRoleInventory(staleRecipeState, manifest).some((error) => error.includes(`root recipe ${firstRecipe} names stale catalog state`)),
   "root recipe ownership must point at live catalog states");
 const broadException = structuredClone(inventory);
 broadException.exceptions.push({ ...inventory.exceptions[0], selector: "body *" });

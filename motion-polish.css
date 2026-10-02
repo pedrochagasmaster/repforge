@@ -15,7 +15,6 @@
 .btn{transition-duration:.1s,.18s,.18s,.18s}
 .btn:active{transform:translateY(1px) scale(.975)}
 nav button:active{transform:scale(.975)}
-.curset__val--word[data-effspin]:active{transform:scale(.97)}
 
 /* ---- Set completion: acknowledgement, not ceremony ----
    A lifter can trigger this dozens of times in one session. Keep the state
@@ -48,25 +47,6 @@ nav button:active{transform:scale(.975)}
 @keyframes taurifer-setland-count{
   from{opacity:.72;transform:translateY(-3px)}
   to{opacity:1;transform:none}
-}
-.focus-well.is-fresh .focus-cue,
-.focus-well.is-fresh .curset{
-  animation:taurifer-setland-arm .14s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-arm{
-  from{opacity:.72;transform:translateY(3px)}
-  to{opacity:1;transform:none}
-}
-.focus-well.is-fresh.is-done .focus-done__mark{
-  animation:taurifer-exercise-done .28s cubic-bezier(.2,.85,.25,1) both;
-}
-.focus-well.is-fresh.is-done .focus-done__text{
-  animation:taurifer-setland-arm .18s .04s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-exercise-done{
-  0%{opacity:.55;transform:scale(.92)}
-  65%{opacity:1;transform:scale(1.04)}
-  100%{opacity:1;transform:scale(1)}
 }
 
 /* ---- Effort explainer: emerge from the value without growing from nothing ---- */
@@ -198,10 +178,8 @@ nav button:active{transform:scale(.975)}
    leave behind a sticky desktop affordance. */
 @media (hover:none), (pointer:coarse){
   .icon-btn:hover{color:var(--ink-soft)}
-  .focus-well .btn--cta.saveset:hover{color:var(--cta-ink);border-color:transparent}
   .saveset:hover{color:var(--ink-soft);border-color:var(--rule)}
   .stepbtn:hover{color:var(--ink-soft)}
-  .curset__steps .stepbtn:hover{color:var(--ink);background:transparent}
   .pday__head .iconbtn--del:hover{border-color:var(--rule)}
   .iconbtn:hover:not(:disabled){color:var(--ink-soft);border-color:var(--rule)}
   .iconbtn--del:hover:not(:disabled){color:var(--danger);border-color:var(--rule);background:var(--surface)}
@@ -340,10 +318,6 @@ nav button:active{transform:scale(.975)}
   .ledger__row.is-fresh .ledger__check,
   .ledger__tick.is-fresh,
   .focus-ex__setof.is-fresh b,
-  .focus-well.is-fresh .focus-cue,
-  .focus-well.is-fresh .curset,
-  .focus-well.is-fresh.is-done .focus-done__mark,
-  .focus-well.is-fresh.is-done .focus-done__text,
   .effortpop.is-open,
   .effortpop.is-closing,
   .effortpop.is-open .effortpop__arrow,

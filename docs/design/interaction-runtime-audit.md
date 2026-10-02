@@ -70,10 +70,10 @@ stays reachable through the Move controls.
 
 | Interaction | Current implementation | Decision | Technique | Reason |
 | --- | --- | --- | --- | --- |
-| Saving a set (ledger row, tick, check) | `motion-polish.css` keyframes, ~160ms | **CSS retained** | — | Dozens of times a session. PR #231 cut this to one short acknowledgement on purpose; a runtime here would add payload and main-thread work to an interaction that must feel instant |
+| Saving a set (the Focus ledger row, `.ledgerline.is-fresh`) | `styles.css` keyframe `setland-row`, 160ms, a 4px rise while fading in, written into the markup of the one render that logs the set | **CSS retained** | — | Dozens of times a session. PR #231 cut this to one short acknowledgement on purpose; a runtime here would add payload and main-thread work to an interaction that must feel instant. The shelf's first version played it over 340ms from 10px; R3e brought it back inside the budget (see [Focus after the input well](#focus-after-the-input-well)) |
 | Set counter increment | CSS keyframe, 140ms | **CSS retained** | — | Same frequency, same argument |
-| Arming the next set (cue + current-set well) | CSS keyframe, 140ms | **CSS retained** | — | Follows every save; anything richer would be felt as lag |
-| Completing an exercise (`focus-done__mark`) | CSS keyframe, 280ms | **CSS retained** | — | A few times a session. Already the larger beat PR #231 allowed it; there is no physics here, only a curve |
+| Arming the next set (cue + current-set well) | — | **Removed** (R3e) | — | The input well it armed is gone. The next set's cue and shelf are drawn at rest in the render that logs the set, and the only beat on a save is the ledger row above, so nothing follows every save that the lifter has to wait on |
+| Completing an exercise (`focus-done__mark`) | — | **Removed** (R3e) | — | The 280ms mark beat belonged to the input well and went with it; the shelf's completion state is drawn at rest |
 | Effort/RIR explainer popover | CSS keyframes with a trigger-anchored origin | **CSS retained** | — | Frequent, small, and already correct: it emerges from the value rather than growing from nothing |
 | Effort value swap (`is-bump`) | CSS keyframe, 180ms | **CSS retained** | — | High frequency; a keyframe restarting is acceptable because the value it decorates has already changed |
 | Rest-timer dial | 250ms interval writing a CSS-transitioned arc | **Unchanged** | — | A four-times-a-second tick with a transition smoothing it is cheaper than a per-frame animation and kinder to a phone's battery mid-session |
@@ -229,6 +229,20 @@ the moment a run is superseded) rather than read back from the animation. And
 `animateIndicator` scales as well as translates, so a bordered indicator changes
 thickness while it travels between different sizes; a consumer that cannot
 accept that draws its indicator as a fill or a hairline.
+
+## Focus after the input well
+
+Plan 064 R3e (Plan 063 P5c) removes the input well that the shelf replaced in
+R3c: `focusWellHtml`, `cursetHtml` and their helpers, every `.focus-well`,
+`.focus-cue` and `.curset` rule, and the well's three motion-polish beats
+(the cue and numbers arming, and the exercise-complete mark with its text). What
+remains of the set-logging loop is recorded here, one row per beat, with the
+rule 11 additions recorded by the later rows of this section.
+
+| Addition | Owner | Trigger | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| Set landing: `.ledgerline.is-fresh`, a 4px rise from 68% opacity, 160ms | `styles.css` (the Focus section) | `app.js` writes `is-fresh` into the one render that logs a set (`focusLogged`); every later render draws the card at rest, and a peek copy never carries it | `animation: none`; the row is at rest on the first frame | Closes RF-11. The shelf's first version played this over 340ms from 10px, outside the training loop's 160ms acknowledgement budget; R3e brought it inside. Nothing in the shelf, the cue or the CTA waits on it |
+| Shelf field, pad and action press: the pressed compression (`--control-pressed-transform`) on `.shelf__fieldbtn`, `.shelf__pad` and `.saveset`, no rebound | `styles.css` (the Focus section) and the shared `.btn` transition in `motion-polish.css` | The control's `:active` state | The compression is a transform on a held press; there is no timed animation to remove | Owner pick T2, in scope of rule 11. Selecting a field, swapping it for its input on the second tap, and stepping a value are state changes, not motion: the shelf is rebuilt at rest |
 
 ## Reduced motion
 
