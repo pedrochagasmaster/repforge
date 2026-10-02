@@ -7006,3 +7006,34 @@ body.is-entry-editor #entryProgramName,
 .privacy-sheet,.installsheet{padding-inline:var(--space-16)}
 .privacy-sheet__body{padding-inline:0}
 @media (max-height:700px){.installsheet{padding-inline:var(--space-16)}}
+
+/* Library: Back, Close and the custom-exercise link are quiet ink; the active tab and filter chip take the quiet
+   selected boundary on the well; a ticked row is an ink disc with the tick cut out of it. */
+#library :is(#libBack,#libClose,#libCustom),#exercise #exBack,#exercisePreview #previewBack{color:var(--control-quiet-ink)}
+#library #libCustom{text-decoration:underline;text-underline-offset:.2em}
+#library .picktab.is-active,#library .picktab.is-active:hover:not(:disabled),#library .picktab.is-active:active:not(:disabled){border-bottom-color:var(--boundary-selected-quiet)}
+:is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active,
+:is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active:hover:not(:disabled),
+:is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active:active:not(:disabled){
+  background:var(--well);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
+}
+#library .librow__check{position:relative}
+#library .librow__check.is-on::before,#library .librow__check.is-on:hover:not(:disabled)::before{
+  border-color:var(--boundary-selected-quiet);background-color:var(--boundary-selected-quiet);background-image:none
+}
+#library .librow__check.is-on::after{
+  content:"";position:absolute;inset:0;margin:auto;width:24px;height:24px;background:var(--surface);
+  -webkit-mask:var(--check) no-repeat center/60%;mask:var(--check) no-repeat center/60%
+}
+#library .librow__edit{color:var(--control-quiet-ink)}
+#library .libstep__bar.is-done{background:var(--color-ink)}
+#library .librow__meta,.pickrow__meta{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+/* The illustration field bleeds to the screen edge. Its box carries the gutter, so the bleed stays inside it. */
+#exercise,#exDetail{
+  margin-left:calc(-1 * max(16px,env(safe-area-inset-left)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right)));
+  padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))
+}
+#exDetail .recblock{border-left-color:var(--boundary-selected-quiet)}
+#exDetail .recblock__lab{color:var(--color-ink-secondary)}
+#exDetail :is(.link-accent,.recblock__why){color:var(--control-quiet-ink);text-decoration:underline;text-underline-offset:.2em}
+#exDetail :is(.listrow__sub,.statrow__cap){white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
