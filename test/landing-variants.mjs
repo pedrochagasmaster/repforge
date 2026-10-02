@@ -860,10 +860,19 @@ async function finalPage(browser) {
     await page.waitForTimeout(150);
     const still = await page.evaluate(() => window.__repforgeLandingProof());
     assert(still.frames === 0 && still.timers === 0 && still.listeners === 0, "scroll and resize on a closed landing start nothing", JSON.stringify(still));
-    // Reopening builds a fresh controller.
+    // Reopening on the same device is a return: a fresh controller mounts, and
+    // the condensed returning landing leaves the proof out, so nothing pins.
     await page.evaluate(() => window.openFirstRun());
     const again = await page.evaluate(proofState);
-    assert(again?.open && again.pinned && again.step === 0, "reopening mounts a fresh controller at step one", JSON.stringify(again));
+    assert(again?.open && again.listeners > 0 && !again.pinned && again.step === null, "reopening mounts a fresh controller; the returning landing does not pin the proof", JSON.stringify(again));
+    await page.evaluate(() => window.closeFirstRun());
+    // A device that has not seen the landing gets the full first-visit page again.
+    await page.evaluate((key) => localStorage.removeItem(key), UIKEY);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    const fresh = await page.evaluate(proofState);
+    assert(fresh?.open && fresh.pinned && fresh.step === 0, "a first visit mounts a fresh controller at step one", JSON.stringify(fresh));
     await page.evaluate(() => window.closeFirstRun());
     assert(errors.length === 0, "mounting and disposing raise no page errors", errors.slice(0, 2).join(" | "));
     await context.close();

@@ -16547,17 +16547,16 @@ function landingResumeRoute(){
   return landingReturning()?String($("#firstRun").dataset.entryDraft||""):""}
 function landingResumeLabel(route){
   return LANDING_RESUME_ROUTES.includes(route)?t(`landing.returning.resume.${route}`):t("landing.returning.resume.generic")}
-/** With a saved setup the hero leads with one action that names it, and the
- *  persistent control says the same; both open the chooser, whose resume card
- *  takes it from there. Without one the hero keeps Build and Track. */
+/** With a saved setup, the landing's one creation action says so: the hero, the
+ *  persistent control and the closing action all name the saved route instead of
+ *  Build. They stay the same control and open the same chooser, whose resume card
+ *  takes it from there; it does not jump to the saved step. */
 function renderLandingResume(){
-  const route=landingResumeRoute(),label=route?landingResumeLabel(route):"";
-  const resume=$("#firstRunResume");
-  if(resume){
-    resume.classList.toggle("hidden",!route);
-    const text=$("#firstRunResumeLabel");if(text)text.textContent=label||t("landing.returning.resume.generic")}
-  $("#firstRunCreate")?.classList.toggle("hidden",!!route);
-  const dock=$("#firstRunCreateDockLabel");if(dock)dock.textContent=route?label:t("landing.build")}
+  const route=landingResumeRoute(),label=route?landingResumeLabel(route):t("landing.build");
+  for(const name of["firstRunCreate","firstRunCreateClose","firstRunCreateDock"]){
+    const button=$("#"+name),text=$(`#${name}Label`);
+    if(text)text.textContent=label;
+    if(button){if(route)button.dataset.entryResume=route;else delete button.dataset.entryResume}}}
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
 function closeFirstRunInstall(){
@@ -16854,7 +16853,7 @@ function createLandingController(root){
     requestTick()}
   /* ---- the persistent Build control ---- */
   function mountDock(){
-    const dock=root.querySelector("#firstRunDock"),hero=root.querySelector(landingResumeRoute()?"#firstRunResume":"#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
+    const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
     if(!dock||!hero||!close||sharedSetupReady()||typeof IntersectionObserver==="undefined")return;
     let gone=false,closing=false;
     const paint=()=>dock.classList.toggle("is-on",gone&&!closing);
@@ -17503,9 +17502,6 @@ function init(){
   $("#firstRunCreate").onclick=openFirstRunCreate;
   $("#firstRunCreateClose").onclick=openFirstRunCreate;
   $("#firstRunCreateDock").onclick=openFirstRunCreate;
-  // Resume opens the same chooser as Build: with a saved setup, its resume card
-  // is the first thing in it. It does not jump to the saved step.
-  $("#firstRunResume").onclick=openFirstRunCreate;
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
   // Copy and paste is the primary BYOP door, with the file door one tap away.

@@ -481,6 +481,20 @@
       "variants": "standard"
     },
     {
+      "id": "first-run-returning",
+      "flow": "onboarding-start",
+      "label": "Returning landing",
+      "scenario": "A later visit to a device with no program and no log, with nothing saved. The welcome-back headline and its line, the Build pill, the Track link and Privacy lead; the chips, the proof and the outcomes are left out, and the ways, the data promise, the questions and the closing band follow.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "first-run-returning-resume",
+      "flow": "onboarding-start",
+      "label": "Returning landing — setup saved",
+      "scenario": "A later visit with a half-finished Recommend setup saved. The lead action names it (Continue choosing your program) in the hero and the closing band; tapping it opens the chooser's resume card.",
+      "variants": "accessibility"
+    },
+    {
       "id": "hub",
       "flow": "onboarding-start",
       "label": "Entry hub",

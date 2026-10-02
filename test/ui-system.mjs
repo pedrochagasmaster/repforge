@@ -412,6 +412,9 @@ const landingScrolled = ["proof", "ways", "track", "data", "faq-open", "close"].
 const landingHero = ["onboarding-shared/invalid", "onboarding-start/first-run"];
 const landingStates = [...landingHero, ...landingScrolled];
 const landingEverywhere = ["onboarding-shared/gate", ...landingStates];
+// The returning landing (owner decision on #295, comment 5941692606) is the same page, condensed: it shows the creation and
+// Track actions, the headline and the bands that stay, but not the proof, the outcomes or the persistent Build control.
+const landingReturning = ["onboarding-start/first-run-returning", "onboarding-start/first-run-returning-resume"];
 const radiusRecipe = [
   { selector: ".firstrun-proof__glass", condition: "default", token: "--radius-landing-stage" },
   { selector: ".firstrun-step__crop", condition: "default", token: "--radius-landing-crop" },
@@ -440,10 +443,10 @@ assert.ok(radiusContractErrors(widenedRadiusOwner).length, "stage radius cannot 
 // Owner decision L-1 (PR #295): the ink pill with its arrow, the underlined Track link, and the one floating Build control.
 const landingRecipes = [
   { id: "landing-ink-primary", role: "primary", boundary: "decorative", elevation: undefined,
-    selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart"], states: landingEverywhere,
-    stateFor: (selector) => selector === "#firstRunSharedStart" ? ["onboarding-shared/gate"] : landingStates },
+    selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart"], states: [...landingEverywhere, ...landingReturning],
+    stateFor: (selector) => selector === "#firstRunSharedStart" ? ["onboarding-shared/gate"] : [...landingStates, ...landingReturning] },
   { id: "landing-text-link", role: "quiet-navigation", boundary: undefined, elevation: undefined,
-    selectors: ["#firstRunImport", "#firstRunImportClose"], states: landingStates, stateFor: () => landingStates },
+    selectors: ["#firstRunImport", "#firstRunImportClose"], states: [...landingStates, ...landingReturning], stateFor: () => [...landingStates, ...landingReturning] },
   { id: "landing-sticky-build", role: "primary", boundary: "decorative", elevation: "floating",
     selectors: ["#firstRunCreateDock"], states: landingScrolled, stateFor: () => landingScrolled },
 ];
@@ -465,7 +468,7 @@ function landingContractErrors(candidate) {
     }
   }
   const hero = candidate.contextualVariants.find((item) => item.id === "landing-headline-scale");
-  if (hero?.selector !== ".firstrun-h1" || !sameSet(hero.catalogStates, landingEverywhere)) errors.push("landing-headline-scale declaration");
+  if (hero?.selector !== ".firstrun-h1" || !sameSet(hero.catalogStates, [...landingEverywhere, ...landingReturning])) errors.push("landing-headline-scale declaration");
   if (candidate.contextualVariants.some((item) => item.id === "landing-climax-data")) errors.push("retired climax variant is back");
   return errors;
 }

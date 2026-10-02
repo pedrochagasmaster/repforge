@@ -95,8 +95,9 @@ function landingSnapshot() {
     draft: root?.dataset.entryDraft ?? null,
     headline: text("#firstRunHeadline"),
     lede: text("#firstRunLede"),
-    resumeShown: shown("#firstRunResume"),
-    resumeText: text("#firstRunResume"),
+    resumeRoute: document.querySelector("#firstRunCreate")?.dataset.entryResume ?? null,
+    resumeText: text("#firstRunCreate"),
+    closeText: text("#firstRunCreateClose"),
     createShown: shown("#firstRunCreate"),
     importShown: shown("#firstRunImport"),
     dockLabel: text("#firstRunCreateDock"),
@@ -1282,7 +1283,7 @@ try {
     assert(first.visit === "first" && first.kind === "generic", "the first visit is the generic landing marked first", JSON.stringify(first));
     assert(first.headline === CATALOG.en["landing.headline"] && first.lede === CATALOG.en["landing.hero.sub"],
       "the first visit keeps its marketing headline and lede", JSON.stringify(first));
-    assert(first.createShown && first.importShown && !first.resumeShown && first.chipsShown,
+    assert(first.createShown && first.importShown && first.chipsShown && first.resumeRoute === null && first.resumeText === CATALOG.en["landing.build"],
       "the first visit keeps Build, Track and the chips, and offers no resume action", JSON.stringify(first));
     assert(first.proofShown && first.trackShown && first.waysShown && first.dataShown && first.faqShown && first.closeShown,
       "the first visit keeps every band of the page", JSON.stringify(first));
@@ -1294,8 +1295,9 @@ try {
     assert(back.headline === CATALOG.en["landing.returning.headline"], "the returning landing leads with a welcome-back line", back.headline);
     assert(back.lede === CATALOG.en["landing.returning.sub"], "the returning landing's lede is the short returning copy", back.lede);
     assert(back.headline !== first.headline && back.lede !== first.lede, "the returning copy differs from the first-visit copy");
-    assert(back.draft === null && !back.resumeShown, "without a setup draft the returning landing offers no resume action", JSON.stringify(back));
-    assert(back.createShown && back.importShown, "the returning landing leads with the entry actions: Build and Track", JSON.stringify(back));
+    assert(back.draft === null && back.resumeRoute === null, "without a setup draft the returning landing offers no resume action", JSON.stringify(back));
+    assert(back.createShown && back.importShown && back.resumeText === CATALOG.en["landing.build"] && back.dockLabel === CATALOG.en["landing.build"],
+      "the returning landing leads with the entry actions: Build and Track", JSON.stringify(back));
     assert(!back.chipsShown && !back.proofShown && !back.trackShown, "the returning landing condenses the marketing: no chips, no proof, no outcomes", JSON.stringify(back));
     assert(back.waysShown && back.dataShown && back.faqShown && back.closeShown, "the returning landing keeps the ways, the data promise, the questions and the close", JSON.stringify(back));
     assert(back.pinned === false, "the returning landing never pins the hidden proof", JSON.stringify(back));
@@ -1323,17 +1325,16 @@ try {
     const copy = CATALOG[lang];
     assert(snap.open && snap.visit === "returning" && snap.draft === "recommend",
       `[${lang}] the returning landing names the saved route`, JSON.stringify(snap));
-    assert(snap.resumeShown && snap.resumeText === copy["landing.returning.resume.recommend"],
-      `[${lang}] the resume action names the saved route`, JSON.stringify({ text: snap.resumeText }));
-    assert(!snap.createShown && snap.importShown,
-      `[${lang}] the resume action replaces Build in the hero and Track stays`, JSON.stringify(snap));
-    assert(snap.dockLabel === copy["landing.returning.resume.recommend"],
-      `[${lang}] the persistent control follows the resume action`, snap.dockLabel);
+    assert(snap.createShown && snap.resumeRoute === "recommend" && snap.resumeText === copy["landing.returning.resume.recommend"],
+      `[${lang}] the lead action is a resume action that names the saved route`, JSON.stringify({ route: snap.resumeRoute, text: snap.resumeText }));
+    assert(snap.importShown, `[${lang}] Track stays beside the resume action`, JSON.stringify(snap));
+    assert(snap.dockLabel === copy["landing.returning.resume.recommend"] && snap.closeText === copy["landing.returning.resume.recommend"],
+      `[${lang}] the persistent control and the closing action say the same`, JSON.stringify({ dock: snap.dockLabel, close: snap.closeText }));
     assert(snap.headline === copy["landing.returning.headline"], `[${lang}] the draft does not change the welcome-back line`, snap.headline);
     assert(!snap.chooserOpen && !snap.resumeCard, `[${lang}] the chooser stays closed until the lifter taps`, JSON.stringify(snap));
     const draftBefore = await page.evaluate((k) => localStorage.getItem(k), SETUP_DRAFT);
 
-    await page.click("#firstRunResume");
+    await page.click("#firstRunCreate");
     await page.waitForSelector("#onboarding.active #entryResumeContinue", { timeout: 15000 });
     const after = await page.evaluate(landingSnapshot);
     assert(!after.open && after.chooserOpen && after.resumeCard,
@@ -1366,7 +1367,7 @@ try {
       }, { k: SETUP_DRAFT, route });
       await reloadToLanding(page);
       const snap = await page.evaluate(landingSnapshot);
-      assert(snap.draft === route && snap.resumeShown && snap.resumeText === CATALOG.en[`landing.returning.resume.${route}`],
+      assert(snap.draft === route && snap.resumeRoute === route && snap.resumeText === CATALOG.en[`landing.returning.resume.${route}`],
         `the ${route} draft reads its own resume line`, JSON.stringify({ draft: snap.draft, text: snap.resumeText }));
       labels.add(snap.resumeText);
     }
@@ -1380,10 +1381,10 @@ try {
     await reloadToLanding(page);
     const unknown = await page.evaluate(landingSnapshot);
     if (unknown.draft === "no-such-route") {
-      assert(unknown.resumeShown && unknown.resumeText === CATALOG.en["landing.returning.resume.generic"],
+      assert(unknown.resumeRoute === "no-such-route" && unknown.resumeText === CATALOG.en["landing.returning.resume.generic"],
         "an unknown saved route falls back to the generic resume line", JSON.stringify(unknown));
     } else {
-      assert(!unknown.resumeShown && unknown.draft === null,
+      assert(unknown.resumeRoute === null && unknown.resumeText === CATALOG.en["landing.build"] && unknown.draft === null,
         "a draft the app cannot read offers no resume action", JSON.stringify(unknown));
     }
 
@@ -1444,7 +1445,7 @@ try {
     await leaveRecommendDraft(page);
     await reloadToLanding(page);
     const returning = await page.evaluate(landingSnapshot);
-    assert(returning.visit === "returning" && returning.draft === "recommend" && returning.resumeShown,
+    assert(returning.visit === "returning" && returning.draft === "recommend" && returning.resumeRoute === "recommend",
       "setup: the device is a returning visit with a saved draft", JSON.stringify(returning));
 
     const encoded = await encodeSharedPayload(page, makeSentinelPayload());
@@ -1455,7 +1456,7 @@ try {
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(shared.open && shared.kind === "shared" && shared.visit === "first" && shared.draft === null,
       "a valid handoff opens the shared landing, not the returning one", JSON.stringify(shared));
-    assert(shared.headline === CATALOG[shared.lang]["landing.shared.headline"] && !shared.resumeShown,
+    assert(shared.headline === CATALOG[shared.lang]["landing.shared.headline"] && shared.resumeRoute === null,
       "the shared landing keeps its own headline and offers no resume action", JSON.stringify(shared));
     assert(gate.startVisible && gate.startName.includes(SENTINELS.name) && !gate.createVisible && !gate.importVisible,
       "the shared landing offers Start this program and neither Build nor Track", JSON.stringify(gate));
@@ -1466,7 +1467,7 @@ try {
     const invalid = await page.evaluate(landingSnapshot);
     assert(invalid.open && invalid.kind === "shared-invalid" && invalid.visit === "first" && invalid.draft === null,
       "an invalid handoff opens the fail-closed landing, not the returning one", JSON.stringify(invalid));
-    assert(invalid.headline === CATALOG[invalid.lang]["landing.shared.invalid_headline"] && !invalid.resumeShown,
+    assert(invalid.headline === CATALOG[invalid.lang]["landing.shared.invalid_headline"] && invalid.resumeRoute === null && invalid.resumeText === CATALOG[invalid.lang]["landing.build"],
       "the fail-closed landing keeps its own headline and offers no resume action", JSON.stringify(invalid));
     assert(invalid.createShown && invalid.importShown, "the fail-closed landing keeps Build and Track", JSON.stringify(invalid));
 
