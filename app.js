@@ -15394,7 +15394,9 @@ function wireEntryImportControls(root){
        program belongs to this flow, so it is dropped before Build opens. */
     /* Owner decision (#295, 2026-10-01): ask first when text was pasted, as
        the switch to the file door does. */
-    if((entryFreeformInput.trim().length>10||entryFreeformReply.trim().length>10)&&!confirm(t("entry.freeform.confirm_write_own")))return;
+    /* ADR 0014: ask whenever text was pasted. There is no length exception
+       (SPEC-02): a short coach note such as "3x10 curls" is still the lifter's. */
+    if((entryFreeformInput.trim().length>0||entryFreeformReply.trim().length>0)&&!confirm(t("entry.freeform.confirm_write_own")))return;
     resetFreeformImport();
     entrySelectRoute("build")}}
 function freeformAppLink(app){
