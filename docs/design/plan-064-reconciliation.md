@@ -158,7 +158,7 @@ Totals by owning slice (screens): R2 3, R3 77, R4 42, R6 26.
 | `today/ready` | 12 | redesign | `redesign (D)` | I-01 §4.1, L-01 | R3 |  |
 | `today/rest-bar` | 8 | not in D | `redesign (D)` | I-01 §4.1, §4.2 | R3 | classified by rule, confirm |
 | `today/day-picker` | 8 | redesign | `redesign (D)` | I-01 §4.1, L-01 | R3 |  |
-| `today/done` | 8 | needs drawing | `redesign (D)` | I-01 §4.1, L-01, OG-6, I-02 | R3 |  |
+| `today/done` | 8 | drawn (OG-6 round 1, `e04e7f3`) | `redesign (D)` | I-01 §4.1, L-01, OG-6, I-02 | R3 | built in R3x (2026-10-02) |
 | `today/preview` | 8 | retired | `retire` | C-07, D §3 | R3 |  |
 | `today/draft-resume` | 8 | needs drawing | `redesign (D)` | I-01 §4.1, L-01, OG-6, I-02 | R3 |  |
 | `workout/focus` | 8 | redesign | `redesign (D)` | I-01 §4.2, L-01 | R3 |  |
