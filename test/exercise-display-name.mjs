@@ -418,6 +418,11 @@ async function visitProgress(page, { pt, label }) {
     shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), CUSTOM.stored],
     gone: pt ? [...ptGone(), ...never(), CUSTOM.pt] : [],
   });
+  // The list is alphabetical by the name the lifter reads, not by the stored English text.
+  const strengthOrder = await texts(page, "#strengthDash .evrow__name");
+  const collated = [...strengthOrder].sort((a, b) => a.localeCompare(b, pt ? "pt-BR" : "en"));
+  assert(strengthOrder.join("|") === collated.join("|"), `${label} Progress Strength list is in the order of the shown names`,
+    strengthOrder.join(" | "));
   await page.locator('#statsSeg [data-seg="volume"]').click();
   await page.locator('#volumeScopeSeg [data-vscope="block-to-date"]').click();
   await page.waitForSelector("#volumeDash [data-volume-muscle]");

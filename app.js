@@ -8353,7 +8353,8 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   for(const ex of prog.exercises){const k=exerciseLiftKey(ex)||`slot:${ex.id}`;if(!keys.has(k))keys.add(k)}
   if(!keys.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const nameOf=k=>dash.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
-  el.innerHTML=[...keys].sort((a,b)=>nameOf(a).localeCompare(nameOf(b),locTag())).map(k=>{
+  const shownName=k=>liftDisplayName(nameOf(k),k);
+  el.innerHTML=[...keys].sort((a,b)=>shownName(a).localeCompare(shownName(b),locTag())).map(k=>{
     const series=projection.series.get(k),detail=strengthDetailTable(k,projection);
     const panel=`<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`;
     // A slot with no history in this scope keeps its shipped row: nothing is drawn for it.
