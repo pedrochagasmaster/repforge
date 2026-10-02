@@ -17906,7 +17906,22 @@ function closeWhySheet(){
    points at Safari's own control. The bar it draws is an illustration of
    Safari, and the only third-party UI Taurifer ever draws — Chrome's install
    prompt is Chrome's to render, and we only ever ask for it. */
-let installTransferVisibleState="manual",privacyReturnsToTransfer=false;
+let installTransferVisibleState="manual",privacyReturnsToTransfer=false,privacyTransferOpener=null;
+/** Where focus starts in each install-sheet state: the Done button of the
+ *  instructions, the explanation's primary action, or the heading of every state
+ *  that has nothing to choose yet. */
+function installSheetInitialControl(stateName){
+  return stateName==="eligible"?$("#installTransferStart"):stateName==="manual"?$("#iosInstallDone"):$("#iosInstallTitle")}
+/** A state change hides the control that held focus (Start becomes a transfer in
+ *  progress, "Install without transferring" becomes the instructions). Focus does
+ *  not follow a hidden control, it drops to the page behind the dialog, so the
+ *  sheet hands it to the new state's own starting point. */
+function installSheetKeepFocus(sheet,stateName){
+  if(activeModal?.el!==sheet)return;
+  const held=document.activeElement;
+  if(held&&sheet.contains(held)&&canTakeFocus(held))return;
+  const target=installSheetInitialControl(stateName);
+  try{target?.focus({preventScroll:true})}catch{}}
 function installTransferTime(expiresAt){
   const date=new Date(expiresAt);
   if(Number.isNaN(date.valueOf()))return"";
@@ -17966,10 +17981,11 @@ function installTransferRenderState(stateName,detail={}){
   if(cont)cont.onclick=()=>["eligible","retryable"].includes(stateName)?installTransferContinueWithoutTransfer()
     :["unknown","claimed-expired"].includes(stateName)?installTransferRequestDivergence()
     :closeIosInstallSheet();
+  installSheetKeepFocus(sheet,stateName);
   if(["ready","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName))
     queueMicrotask(()=>{try{title?.focus({preventScroll:true})}catch{}});
   return true}
-function openIosInstallSheet(stateName){
+function openIosInstallSheet(stateName,{returnFocus}={}){
   const sheet=$("#iosInstallSheet"),scrim=$("#iosInstallScrim");
   if(!sheet)return;
   const selected=stateName||((!isStandalone()&&installTransferMeaningful(state))?"eligible":"manual");
@@ -17977,9 +17993,9 @@ function openIosInstallSheet(stateName){
   const host=$("#iosInstallHost");
   if(host)host.textContent=location.hostname||"";
   document.body.classList.add("is-sheet-open");
-  const initial=selected==="eligible"?$("#installTransferStart"):selected==="manual"?$("#iosInstallDone"):$("#iosInstallTitle");
+  const initial=installSheetInitialControl(selected);
   const dismissable=!["creating","claiming","importing","interrupted","unknown","claimed-expired"].includes(selected);
-  openModal(sheet,{initialFocus:initial,onEscape:dismissable?closeIosInstallSheet:undefined,scrim,
+  openModal(sheet,{initialFocus:initial,onEscape:dismissable?closeIosInstallSheet:undefined,scrim,returnFocus,
     delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 function closeIosInstallSheet(){
@@ -17990,14 +18006,18 @@ function closeIosInstallSheet(){
 function openPrivacySheet({fromTransfer=false}={}){
   const sheet=$("#privacySheet"),scrim=$("#privacyScrim");if(!sheet)return;
   privacyReturnsToTransfer=fromTransfer;
+  // The transfer sheet is hidden while Privacy is up; whoever opened it is still
+  // owed focus when it closes, and Privacy's own opener is only a hop in between.
+  privacyTransferOpener=fromTransfer&&activeModal?.el===$("#iosInstallSheet")?activeModal.returnFocus:null;
   openModal(sheet,{scrim,handoff:fromTransfer,initialFocus:$("#privacyClose"),onEscape:closePrivacySheet,
     returnFocus:fromTransfer?$("#installTransferPrivacy"):document.activeElement,delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 async function closePrivacySheet(){
-  const returns=privacyReturnsToTransfer;privacyReturnsToTransfer=false;
+  const returns=privacyReturnsToTransfer,opener=privacyTransferOpener;
+  privacyReturnsToTransfer=false;privacyTransferOpener=null;
   await closeModal($("#privacySheet"));
   if(returns){
-    openIosInstallSheet(installTransferVisibleState);
+    openIosInstallSheet(installTransferVisibleState,{returnFocus:opener});
     queueMicrotask(()=>$("#installTransferPrivacy")?.focus({preventScroll:true}));
   }}
 async function installTransferRequestDivergence(){

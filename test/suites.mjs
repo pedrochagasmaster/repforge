@@ -153,6 +153,8 @@ export const SUITES = {
     s("test/share-repair.mjs", [], { seconds: 44 }),
     s("test/privacy-ui.mjs", [], { domains: ["entry", "settings", "privacy"] }),
     s("test/privacy-share-flow.mjs", [], { domains: ["entry", "privacy"] }),
+    s("test/journeys-out.mjs", [], { domains: ["entry", "settings", "install", "privacy", "transition"], seconds: 45 }),
+    s("test/journeys-out.mjs", ["--seeded"], { domains: ["entry", "settings", "install", "privacy", "transition"], seconds: 10 }),
   ],
   workout: [
     s("test/i18n.mjs"),
