@@ -17604,22 +17604,45 @@ function whyRepTarget({capacity,pred,rir,reps,min,max}){
     shown=Math.round(capacity*10)/10;raw=Math.round((capacity-r)*10)/10;
     if(Math.abs(raw-reps)>1e-9)return t("why.calc.rep_target_rounded",vars())}
   return t("why.calc.rep_target_v",vars())}
-function whySheetModel(ex){
-  const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
-  const glyph=rxVerdict(rec);
-  // The headline is the cue Focus shows: the verdict and the load, then the reps the engine asks for.
+/** The headline of the sheet: the cue Focus shows. From the Focus card it is the cue of the set the shelf is on, from the
+ *  same draft and `setSuggestion`, so a session that moved the target moves the headline with it (RT-05). The exercise
+ *  page, and a card with no set left, show the base recommendation's own cue, as they always did. `inSession` says the
+ *  target is no longer the one the previous session produced. */
+function whyHeadline(ex,rec,surface){
+  const u=unitLabel(),verdict=rxVerdict(rec);
+  const n=surface==="exercise"?0:whyCueSet(ex);
+  if(n){
+    const draft=loadDraft(),prev=last(ex),cue=focusCue(ex,n,rec,draft,prev,false);
+    const sg=cue.kind==="now"?setSuggestion(ex,n,rec,draft,prev.find(x=>x.set===n)):null;
+    // Until the session moves the target, the base recommendation's cue (every set of a strategy) is the headline.
+    if(sg&&(sg.src!=="base"||sg.tempered))
+      return{target:`${t(`focus.cue.${cue.move}`,{load:cue.loadText,unit:u})}, ${t("focus.cue.reps",{reps:cue.reps})}`,
+        glyph:cue.move,inSession:true,set:{n,load:sg.load,reps:cue.reps}}}
   const cueReps=rec.engineSets?.length?rec.engineSets.map(x=>x.reps).join(", ")
     :rec.load!=null?setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min:null;
-  const cueKey=glyph==="up"?"focus.cue.up":glyph==="down"?"focus.cue.down":"focus.cue.hold";
-  const model={target:rec.load!=null?`${t(cueKey,{load:fmtLoad(rec.load),unit:u})}, ${t("focus.cue.reps",{reps:cueReps})}`:"",
-    decision:rec.label,glyph,blocks:[],calc:[],evidence:""};
+  const cueKey=verdict==="up"?"focus.cue.up":verdict==="down"?"focus.cue.down":"focus.cue.hold";
+  return{target:rec.load!=null?`${t(cueKey,{load:fmtLoad(rec.load),unit:u})}, ${t("focus.cue.reps",{reps:cueReps})}`:"",
+    glyph:verdict,inSession:false}}
+/** The set the Focus cue speaks for: the first one not logged. The draft reopens a set while it is corrected, so that set
+ *  is the one the headline and the "Set n target" in the same sheet both name. */
+function whyCueSet(ex){
+  for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
+  return 0}
+function whySheetModel(ex,surface="focus"){
+  const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
+  const head=whyHeadline(ex,rec,surface),glyph=head.glyph;
+  // Once the session has moved the target, the previous session's decision is said as that, never as today's verdict.
+  const model={target:head.target,
+    decision:head.inSession&&rec.label?t("why.decision_before",{label:rec.label}):rec.label,glyph,blocks:[],calc:[],evidence:""};
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
   if(rec.status==="manual"){block("manual",t("why.lead.manual"),t("why.manual"));return model}
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
   const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
   const lastGroup=()=>{if(prev.length){calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});setRows(prev)}};
-  const todayRow=()=>{const line=setsTargetLine(ex,rec);if(line)calc.push({sum:true,k:t("nav.log"),v:line})};
+  const todayRow=()=>{const line=setsTargetLine(ex,rec);if(line)calc.push({sum:!head.inSession,k:t("nav.log"),v:line})};
+  // Once the session has moved the target, the working ends on the set the headline speaks for; the base target above it stays labelled Today.
+  const setRow=()=>{if(head.inSession&&head.set)calc.push({sum:true,k:t("why.calc.set",{n:head.set.n}),v:`${fmtLoad(head.set.load)} ${u} × ${head.set.reps}`})};
   if(prev.length)model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)});
   const isRange=!rec.strategy||rec.strategy==="range";
   // The first unlogged working set, as the in-session note names it.
@@ -17629,7 +17652,7 @@ function whySheetModel(ex){
   const session=completedCurrentSets(ex,ex.sets+1,draft);
   if(isRange&&rec.status!=="new"&&session.length&&nextSet!=null){
     // In-session: the capacity the set showed comes before the prediction for the next one, never the reverse.
-    const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,null),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
+    const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,last(ex).find(x=>+x.set===nextSet)),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
     block("set1",t("why.lead.set1",{n:session.length}),isEffortMode()
       ?t("why.set1_effort",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,effort:effortLabel(effortForRir(seen.rir))})
       :t("why.set1",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,rir:fmt(seen.rir)}),t("why.session"));
@@ -17660,7 +17683,7 @@ function whySheetModel(ex){
     if(!sameLoad(rec.load,rec.lastLoad)&&load?.facts)calc.push({k:t("why.calc.new_load"),v:whyLoadMove(load.facts.from,load.facts.to,load.facts.raw?{pct:load.facts.pctValue}:{step:load.facts.stepValue})});
     if(rec.reenterReps&&reps?.facts)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:reps.facts.capacity,pred:reps.facts.pred,rir:reps.facts.rirValue,reps:reps.facts.reps,min:reps.facts.min,max:reps.facts.max})});
     const blockRow=take("block");if(blockRow)calc.push({k:t("why.calc.block"),v:blockRow.text,text:true});
-    todayRow();
+    todayRow();setRow();
   }
   else if(rec.strategy==="rep_goal"){
     const total=take("rg-total"),effort=take("rg-effort"),rebuild=take("rg-rebuild");
@@ -17674,7 +17697,7 @@ function whySheetModel(ex){
     calc.push({group:t("why.calc.working")});
     if(f.performedTotal!=null)calc.push({k:t("why.calc.goal"),v:`${f.performedTotal} / ${f.repGoal}`});
     if(sets.length)calc.push({k:t("why.calc.split"),v:`${sets.map(s=>s.reps).join(" + ")} = ${sum(sets.map(s=>s.reps))}`});
-    todayRow();
+    todayRow();setRow();
   }
   else if(rec.strategy==="anchor_backoff"){
     const top=take("an-top"),topRir=take("an-toprir"),backoff=take("an-backoff"),text=take("text");
@@ -17687,7 +17710,7 @@ function whySheetModel(ex){
     if(f.capacityReps!=null&&f.anchorLoad!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(f.capacityReps),load:fmtLoad(f.anchorLoad),unit:u})});
     if(f.targetLoad!=null&&f.anchorLoad!=null&&!sameLoad(f.targetLoad,f.anchorLoad))calc.push({k:t("why.calc.new_load"),v:whyLoadMove(f.anchorLoad,f.targetLoad,{pct:+params.jumpPercent})});
     if(f.backoffLoad!=null&&params.backoffPercent!=null)calc.push({k:t("rec.anchor.session.label"),v:`${fmtLoad(f.targetLoad??f.anchorLoad)} × ${fmt(Math.round(params.backoffPercent*100))}% → ${fmtLoad(f.backoffLoad)}`});
-    todayRow();
+    todayRow();setRow();
   }
   else if(rec.strategy==="effort_target"){
     const evidence=take("ef-evidence"),target=take("ef-target"),grid=take("ef-grid"),text=take("text");
@@ -17696,7 +17719,7 @@ function whySheetModel(ex){
     if(target)block("reps",t("why.lead.reps",{n:f.targetReps}),target.text);
     if(grid)block("load",t("why.lead.load"),grid.text);
     lastGroup();
-    todayRow();
+    todayRow();setRow();
   }
   // Rows that are not placed as a sentence stay readable in the working, so nothing the producer says is lost.
   const note=pick("session");
@@ -17733,7 +17756,7 @@ function openWhySheetFor(ex,opener){
   if(!sheet||!ex)return;
   // Focus is the only workout-logging surface; the exercise page is the other opener.
   captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
-  renderWhySheet(whySheetModel(ex));
+  renderWhySheet(whySheetModel(ex,opener?.closest?.("#exDetail")?"exercise":"focus"));
   const okBtn=$("#whyOk");if(okBtn)okBtn.onclick=()=>closeWhySheet();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,

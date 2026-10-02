@@ -296,6 +296,87 @@ try {
     assert(/piso da faixa/.test(row(why, "repTarget")?.v || ""), "RT-02: pt: the floor clamp is named in Portuguese", row(why, "repTarget")?.v);
     await closeWhy(page);
   }
+
+  // ------------------------------------------------------------------ RT-05
+  console.log("RT-05: the in-session headline is the Focus cue");
+  const history = rows([[7, [[50, 7, 1], [50, 7, 1], [50, 7, 1]]]]);
+  const sessionCase = async (name, setOne, { lang = "en", program = bench, log = history, then, relabelled = true } = {}) => {
+    await boot(page, { lang, program, log });
+    const baseCue = await focusCue(page);
+    await logSet(page, setOne);
+    // A correction hides the cue behind "Editing"; the draft reopens the set, so the sheet speaks for that set's own cue.
+    const corrected = then ? await then() : null;
+    const cue = corrected ? baseCue : await focusCue(page);
+    const why = await openWhy(page);
+    const expected = `${cue.line1}, ${cue.line2}`;
+    assert(cue.line1.length > 0 && why.target === expected,
+      `RT-05: ${name}: the Why headline is the Focus cue (${expected})`, `focus=${JSON.stringify(cue)} why=${JSON.stringify(why.target)}`);
+    assert(cue.mark.length === 0 || JSON.stringify(cue.mark) === JSON.stringify(why.mark),
+      `RT-05: ${name}: the verdict mark is the cue's`, `focus=${JSON.stringify(cue.mark)} why=${JSON.stringify(why.mark)}`);
+    const sum = why.calc.filter((item) => item.sum).at(-1);
+    assert(!sum || sum.v.replace(/\s+/g, " ").includes(cue.line1.match(/\d+(?:[.,]\d+)?/)[0]),
+      `RT-05: ${name}: the working's next-set row names the same load`, JSON.stringify(sum));
+    if (relabelled) {
+      assert(why.decision.startsWith(why.keys.before) || why.decision === "",
+        `RT-05: ${name}: the base recommendation is labelled as before this session`, why.decision);
+    }
+    await closeWhy(page);
+    return { cue, why };
+  };
+  const down = await sessionCase("session-down", { load: 50, reps: 2, rir: 0 });
+  assert(/47\.5/.test(down.why.target) && /^Drop/.test(down.why.target), "RT-05: session-down: the audit case reads \"Drop to 47.5 kg\"", down.why.target);
+  const up = await sessionCase("session-up", { load: 50, reps: 14, rir: 3 });
+  assert(/^Go up/.test(up.why.target), "RT-05: session-up: the headline raises the load", up.why.target);
+  const hold = await sessionCase("session-hold", { load: 50, reps: 7, rir: 1 });
+  assert(/^Hold/.test(hold.why.target), "RT-05: session-hold: the headline holds the load", hold.why.target);
+  await sessionCase("session-down (pt)", { load: 50, reps: 2, rir: 0 }, { lang: "pt" });
+  await sessionCase("rep_goal (non-range)", { load: 100, reps: 11, rir: 3 }, {
+    program: slots([{ min: 6, max: 12, progression: REP_GOAL }]),
+    log: rows([[7, [[100, 10, 2], [100, 10, 2], [100, 10, 2]]]]),
+  });
+  await sessionCase("correction", { load: 50, reps: 2, rir: 0 }, {
+    then: async () => {
+      await logSet(page, { load: 47.5, reps: 6, rir: 1 });
+      await page.locator("#workout .exercise.is-current [data-editex]").first().click();
+      await settle(page, 400);
+      return true;
+    },
+    relabelled: false,
+  });
+
+  // A tempered first set: three weak sets on a lift with the same muscles lower the next lift's first-set target.
+  {
+    const two = slots([{ id: "ex0" }, { id: "ex1", name: "Incline press" }]);
+    const strong = [...rows([[21, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]], [14, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]], [7, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]]]),
+      ...rows([[21, [[80, 8, 2], [80, 8, 2], [80, 8, 2]]], [7, [[80, 8, 2], [80, 8, 2], [80, 8, 2]]]], { id: "ex1", name: "Incline press" })];
+    await boot(page, { program: two, log: strong });
+    for (let i = 0; i < 3; i++) await logSet(page, { load: 60, reps: 8, rir: 2 });
+    await page.locator("#workout .exercise.is-current [data-fnextrow]").first().click();
+    await page.waitForSelector('#workout .exercise.is-current[data-ex="ex1"]');
+    await settle(page, 600);
+    const tempered = await page.evaluate(() => {
+      const P = window.__repforgeProgression;
+      const ex = P.programSlot("ex1"), rec = P.recommendation(ex);
+      const sg = P.setSuggestion(ex, 1, rec, window.__repforgeWorkoutDraft.projection?.() || {}, null);
+      return { tempered: !!sg.tempered, base: rec.load };
+    });
+    const cue = await focusCue(page);
+    const why = await openWhy(page);
+    assert(tempered.tempered, "RT-05: tempered first set: the producer tempers the first set (the case is not vacuous)", JSON.stringify(tempered));
+    assert(why.target === `${cue.line1}, ${cue.line2}`, "RT-05: tempered first set: the Why headline is the Focus cue",
+      `focus=${JSON.stringify(cue)} why=${JSON.stringify(why.target)} ${JSON.stringify(tempered)}`);
+    await closeWhy(page);
+  }
+
+  // Before any set is logged the headline is still the base cue, unchanged.
+  await boot(page, { program: bench, log: history });
+  {
+    const cue = await focusCue(page);
+    const why = await openWhy(page);
+    assert(why.target === `${cue.line1}, ${cue.line2}`, "RT-05: before any set: the headline is the Focus cue", `focus=${JSON.stringify(cue)} why=${JSON.stringify(why.target)}`);
+    assert(!why.decision.startsWith(why.keys.before), "RT-05: before any set: the base recommendation is not relabelled", why.decision);
+    await closeWhy(page);
+  }
 } finally {
   await browser.close();
 }

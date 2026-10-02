@@ -1627,6 +1627,7 @@
   "why.calc.split": "Divisão",
   "why.calc.working": "Cálculo",
   "why.calc_hide": "Ocultar o cálculo",
+  "why.decision_before": "Antes desta sessão: {label}",
   "why.evidence": "Com base em {n} sessão comparável, {date}",
   "why.lead.anchor": "Série principal",
   "why.lead.effort": "Esforço registrado",

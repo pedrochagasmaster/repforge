@@ -1627,6 +1627,7 @@
   "why.calc.split": "Split",
   "why.calc.working": "Working",
   "why.calc_hide": "Hide the working",
+  "why.decision_before": "Before this session: {label}",
   "why.evidence": "Based on {n} comparable session, {date}",
   "why.lead.anchor": "Top set",
   "why.lead.effort": "Logged effort",
