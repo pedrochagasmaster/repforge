@@ -1113,6 +1113,9 @@ export const APP_SCENARIOS = {
     await page.locator("#sessions .session__open").first().click({ timeout: 30000 });
     await page.waitForSelector(".session--read", { timeout: 20000 });
     await page.waitForSelector("[data-history-edit]", { timeout: 20000 });
+    // The session page rides in on a push (N4); the frame is its resting state, and the scroll below
+    // belongs to the page, not to the layer it is riding in.
+    await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
     // The read actions are the destructive boundary at large text. Capture the
     // scroll-end state so the fixed navigation cannot hide Edit or Delete in
     // the PT+200 matrix.

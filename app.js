@@ -911,6 +911,88 @@ function routeInvokerControl(){
   const pressed=routeInvoker&&performance.now()-routeInvoker.at<600?routeInvoker.el:null;
   const active=document.activeElement!==document.body?document.activeElement:null;
   return resolveReturnFocus(pressed)||resolveReturnFocus(active)||null}
+/* ---- Page push (amendment N4 drill-downs, N5 Today to Focus) ----
+   A drill-down is an interruptible push on the motion layer's `navPush` spring
+   (`RepForgeMotion.animatePush`): the pushed page rides in from the right, and
+   Back is the same push run the other way. Both pages are mounted for the run,
+   the pushed one above (`is-push-over`) and the other held still beneath it
+   (`is-push-under`); focus, route state, telemetry and scroll reset are the route
+   function's own and have already happened when the run starts. Under reduced
+   motion, before boot, with no runtime, or while Focus is the page underneath
+   (its layout belongs to body classes the route has just changed), the route
+   simply changes. The top-level dock fade stays as it is. */
+let routePushState=null;
+function routePushOn(){
+  const motion=window.RepForgeMotion;
+  return window.__repforgeBooted===true&&!!motion?.animatePush&&motion.available?.()===true&&!motion.reducedMotion?.()}
+function routePushEnd(){
+  const state=routePushState;if(!state)return;
+  routePushState=null;
+  state.mover.classList.remove("is-push-over");
+  if(state.under?.classList.contains("is-push-under")){
+    state.under.classList.remove("is-push-under");state.under.style.removeProperty("--push-top");
+    state.under.inert=false;state.under.removeAttribute("aria-hidden")}
+  if(state.ghost)state.ghost.remove();
+  document.body.classList.remove("is-pushing")}
+/** Begin a push around a route change that happens synchronously in the caller:
+ *  call this first, make the change, then call the function it returns. `pushed`
+ *  is the page that moves. For a push in, `under` is the page that stays beneath
+ *  it; for a push out, `under` is the page being returned to. `ghost` is a still
+ *  copy of the surface as it was, for a route that swaps content inside one view
+ *  (History's list and session page): the copy is the page under a push in, and
+ *  the page that moves on a push out. Null when the route should simply change. */
+function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.round(window.scrollY)}){
+  if(!routePushOn()||!(pushed instanceof Element)||under===pushed)return null;
+  if(direction==="in"&&!under&&!ghost)return null;
+  if(workoutActive&&under?.id==="log")return null;
+  return()=>{
+    routePushEnd();
+    const beneath=direction==="in"?(ghost||under):null;
+    const mover=direction==="out"&&ghost?ghost:pushed;
+    const state={mover,under:beneath,ghost};
+    routePushState=state;
+    if(ghost){ghost.inert=true;ghost.setAttribute("aria-hidden","true");pushed.after(ghost)}
+    if(beneath){
+      beneath.style.setProperty("--push-top",`${offset}px`);
+      beneath.classList.add("is-push-under");beneath.inert=true;beneath.setAttribute("aria-hidden","true")}
+    mover.classList.add("is-push-over");
+    document.body.classList.add("is-pushing");
+    window.RepForgeMotion.animatePush(mover,{direction}).then(arrived=>{
+      if(arrived&&routePushState===state)routePushEnd()})}}
+/* History swaps its list for a session page inside one view, so there is no second
+   page to keep mounted. A still copy of the surface as it was, taken as the lifter
+   presses the control that changes it, stands in: under the session page as it
+   pushes in, and as the page that rides out on Back. */
+let historySnap=null,historySessionOpen=false;
+document.addEventListener("click",event=>{
+  const target=event.target instanceof Element?event.target:null;
+  const view=$("#history");
+  if(!target||!view?.classList.contains("active")||!target.closest("#history [data-edit],#history [data-history-back],#historyCalSheet button"))return;
+  const copy=view.cloneNode(true);
+  copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
+  copy.classList.remove("is-push-over","is-push-under");
+  historySnap={copy,at:performance.now(),scroll:window.scrollY,session:view.classList.contains("is-session-page")}},true);
+function watchRouteSurfaces(){
+  const main=$("main"),history=$("#history");
+  if(history){
+    historySessionOpen=history.classList.contains("is-session-page");
+    new MutationObserver(()=>{
+      const open=history.classList.contains("is-session-page");
+      if(open===historySessionOpen)return;
+      historySessionOpen=open;
+      const snap=historySnap;historySnap=null;
+      if(!snap||snap.session===open||performance.now()-snap.at>1500)return;
+      routePushBegin(open?"in":"out",{pushed:history,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
+    }).observe(history,{attributes:true,attributeFilter:["class"]})}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",watchRouteSurfaces,{once:true});
+else watchRouteSurfaces();
+/** A push around a route change given as a function. */
+function pushRoute(direction,pages,change){
+  const settle=routePushBegin(direction,pages);
+  change();
+  settle?.()}
+function routeViewEl(id){return $(`#${id}`)}
 function openModal(el,opts={}){
   if(!el)return false;
   const extras=opts.extras||[];
@@ -5938,14 +6020,20 @@ function updateSessionBanner(){
 function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
 function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
-  document.body.classList.toggle("is-workout",workoutActive);
   const dash=$("#todayDash"),shell=$("#workoutShell");
+  // N5: Today to Focus is the same push as a drill-down, and Back from Focus is it
+  // run the other way. Finishing a session clears the draft first, so the card has
+  // nothing left to carry out and that exit stays instant.
+  const settle=workoutActive!==was&&(workoutActive||activeWorkoutDraft)
+    ?routePushBegin(workoutActive?"in":"out",{pushed:shell,under:dash}):null;
+  document.body.classList.toggle("is-workout",workoutActive);
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
   if(!workoutActive){document.body.classList.remove("is-focus-wo");closeWorkoutOverflow()}
   updateFocusChrome();
   if(workoutActive!==was){
-    playPanelAnimation(workoutActive?shell:dash,workoutActive?"wo-anim-enter":"wo-anim-leave");
+    if(settle)settle();
+    else playPanelAnimation(workoutActive?shell:dash,workoutActive?"wo-anim-enter":"wo-anim-leave");
     // Focus lands on the surface the lifter moved to, once the move has rendered:
     // Focus's day title going in, Today's leading control coming back. Not at boot,
     // where a resumed session is the page itself and not a hand-off.
@@ -9814,18 +9902,26 @@ function exerciseSessionsDetail(key){const m=new Map();
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
-  exView={key:movement?exerciseLiftKey(movement):key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
+  exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
   chartView={scope:"current-block",metric:"top",pt:null};
+  const settle=routePushBegin("in",{pushed:$("#exercise"),under:routeViewEl(exView.from)});
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercise"));
   document.body.classList.add("is-exercise");document.body.classList.remove("is-settings","is-onboarding","is-workout");
-  window.scrollTo({top:0});renderExerciseView()}
-function closeExerciseView(){const back=exView?.from||"log";exView=null;
+  window.scrollTo({top:0});renderExerciseView();
+  focusRoute(routeHeading("exercise")||$("#exercise .exview-head__title"));
+  settle?.()}
+function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.openKey;exView=null;
+  const settle=routePushBegin("out",{pushed:$("#exercise"),under:routeViewEl(back)});
   document.body.classList.remove("is-exercise");
-  if(back==="settings"){showSettings();return}
+  if(back==="settings"){showSettings();settle?.();return}
   $$("nav button").forEach(x=>{const on=x.dataset.view===back;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id===back));
-  window.scrollTo({top:0});render()}
+  window.scrollTo({top:0});render();
+  // Back puts focus on the row that opened the page (found again by its key: the render replaced it).
+  const sel=openKey?[`data-exopen`,`data-ovkey`,`data-action-lift`].map(a=>`#${back} [${a}="${CSS.escape(openKey)}"]`).join(","):null;
+  focusRoute((sel&&$(sel))||routeHeading(back));
+  settle?.()}
 function openSettingsView(){showSettings()}
 
 function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
@@ -12854,23 +12950,27 @@ function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",que
   libFlow={day:dayName,tab:LIB_PAGE_TABS.includes(tab)?tab:"browse",query:String(query||""),muscle,equipment,step,
     editorScope:!!editorScope,selected:librarySelectionMap(selected)};
   libReturn=document.activeElement;
+  const settle=routePushBegin("in",{pushed:$("#library"),under:routeViewEl(currentViewId())});
   document.body.classList.add("is-library");
   document.body.classList.remove("is-preview");
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));
   window.scrollTo({top:0});
   const search=$("#libSearch");if(search)search.value=libFlow.query;
   renderLibrary();
-  search?.focus({preventScroll:true})}
+  search?.focus({preventScroll:true});
+  settle?.()}
 
 function closeLibrary({toProgram=true}={}){
   const returnToOnboarding=!!libFlow?.editorScope&&setupEditorOpen;
   libFlow=null;
+  const settle=toProgram?routePushBegin("out",{pushed:$("#library"),under:routeViewEl(returnToOnboarding?"onboarding":"program")}):null;
   document.body.classList.remove("is-library","is-preview");
   const back=resolveReturnFocus(libReturn);libReturn=null;
   if(toProgram){
     if(returnToOnboarding){showOnboardingView();renderOnboarding()}
     else returnToTab("program")}
-  if(back)try{back.focus({preventScroll:true})}catch{}}
+  if(back)try{back.focus({preventScroll:true})}catch{}
+  settle?.()}
 
 function renderLibrary(){
   if(!libFlow)return;
@@ -13057,19 +13157,23 @@ async function commitLibrarySelection(){
 function openExercisePreview(id){
   const entry=libraryEntry(id);if(!entry)return;
   previewState={id,from:libFlow?"library":"picker",returnId:id};
+  const settle=routePushBegin("in",{pushed:$("#exercisePreview"),under:routeViewEl(currentViewId())});
   document.body.classList.add("is-preview");
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercisePreview"));
   window.scrollTo({top:0});
   renderExercisePreview();
-  $("#previewBack")?.focus({preventScroll:true})}
+  $("#previewBack")?.focus({preventScroll:true});
+  settle?.()}
 
 function closeExercisePreview(){
   const back=previewState?.from,returnId=previewState?.returnId;
   previewState=null;
+  const settle=routePushBegin("out",{pushed:$("#exercisePreview"),under:routeViewEl(back==="library"&&libFlow?"library":"program")});
   document.body.classList.remove("is-preview");
   if(back==="library"&&libFlow){$$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));renderLibrary();
     requestAnimationFrame(()=>{const target=$(`[data-lib-preview="${CSS.escape(returnId||"")}"]`);if(target)target.focus({preventScroll:true})})}
-  else{document.body.classList.remove("is-library");returnToTab("program")}}
+  else{document.body.classList.remove("is-library");returnToTab("program")}
+  settle?.()}
 
 function renderExercisePreview(){
   const el=$("#previewBody");if(!el||!previewState)return;

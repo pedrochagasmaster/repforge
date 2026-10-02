@@ -1611,6 +1611,8 @@ async function seedIllustratedProgram(page, lang) {
     const img = document.querySelector(".exdet-art__img");
     return !!img && img.complete && img.naturalWidth > 0;
   }, { timeout: 8000 });
+  // The page rides in on a push (N4): geometry is read once it has come to rest.
+  await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
 }
 
 export async function runExerciseIllustrationAccessibility(browser, check = assert) {

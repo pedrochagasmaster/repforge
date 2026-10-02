@@ -336,7 +336,7 @@ await section(async () => {
   for (const file of ["app.js", "program-editor.js", "history-ui.js"]) {
     assert(!/\bstiffness\b|type\s*:\s*["']spring["']/.test(read(file)), `${file} declares no spring`);
   }
-  for (const name of ["animateIndicator", "animateCoordinates", "animateSlot", "trackEdgeSwipe"]) {
+  for (const name of ["animateIndicator", "animateCoordinates", "animateSlot", "animatePush", "trackEdgeSwipe"]) {
     const start = layer.indexOf(`function ${name}(`);
     const body = layer.slice(start, layer.indexOf("\n  }\n", start));
     assert(start > 0 && /VOCABULARY\.\w+/.test(body), `${name} takes its timing from the named vocabulary`);

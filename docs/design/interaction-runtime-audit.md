@@ -213,7 +213,7 @@ application code and the vendored entry does not widen.
 | --- | --- | --- | --- | --- |
 | One indicator travelling between two places: `RepForgeMotion.animateIndicator(el, fromRect)`, a single-element FLIP on `layoutShift` | `motion-layer.js` | The caller moves the element to its new place, then passes the rect it measured before moving it. A second call mid-run starts from the element's live position, not from where the first began | Clears any run and leaves the element at its end state; no transform, origin or layer hint is set | consumers: T1 field outline and L2 open-row outline landed in R3e (see [Focus after the input well](#focus-after-the-input-well)); N3 Progress tab indicator and D4 chart marker landed in R3 (see [Progress chart and tabs](#progress-chart-and-tabs)); N1 dock lens in R6 |
 | Coordinate travel: `RepForgeMotion.animateCoordinates(host, from, to, paint)`, a set of coordinates moving from one layout to another on `layoutShift`, painted by the caller on every frame | `motion-layer.js` | The caller renders the end state, then hands over the layout it came from. One motion value counts the largest displacement down in pixels; every coordinate moves by the same fraction of its own distance. `paint` gets the start layout before the call returns and the end layout on arrival. A second call on the same `host` supersedes the first, which is never painted again; the caller starts the new run from the layout it last painted | Nothing is painted and nothing runs: the caller's end state stands | consumer: C2 chart scope change landed in R3 (see [Progress chart and tabs](#progress-chart-and-tabs)). Added by R3 beside `animateIndicator`; the amendment's section 4 names it as "a small interpolation helper over `layoutShift`" |
-| Page push: the `navPush` spring | `motion-layer.js` | Used by the edge-swipe commit now; a tapped push (N4 drill-downs, N5 Today to Focus) retargets it from the live transform | Jumps to the end state | consumer: lands in R5 (N4, N5 push) |
+| Page push: `RepForgeMotion.animatePush(page, { direction, velocity })`, the `navPush` spring on one page's offset | `motion-layer.js` | A tapped push (N4 drill-downs, N5 Today to Focus) brings the page in from the right edge to rest, and its reverse carries it back off. A second call on the same page starts from where the page is on screen now, and `velocity` (px/ms) seeds the spring. The edge-swipe commit uses the same spring from inside the layer | Jumps to the end state: no transform is ever set and the promise is already resolved | consumers: N4 drill-downs and N5 Today to Focus landed in R5 (see [Page push and edge swipe](#page-push-and-edge-swipe-r5)) |
 | Edge-swipe back: `RepForgeMotion.registerEdgeSwipeBack({ page, onCommit })`, the third gesture owner in `mountGestureController()` beside the sheet and Focus owners | `motion-layer.js` | A touch or pen pointer that goes down within 24 px of the left edge on a registered page, then moves right past the 10 px lock. Inert until a page registers; never in Focus; only while `display-mode: standalone` matches, since in a browser tab the left edge belongs to the browser and the visible back control stays the primary route. Release picks home or off-screen from `projectMomentum` and `nearestSnap`; home settles on `gestureSettle`, off-screen commits on `navPush` seeded with the release velocity (zeroed if the thumb stopped for 100 ms), then calls `onCommit`. `pointercancel` never commits. Same lifecycle as the other owners: mounting is idempotent, disposal and Escape cancel any run and hand the page back. While it runs the page carries `is-edge-swiping` so its own CSS can stand down; the consuming page must carry `touch-action: pan-y` or the browser may claim the horizontal drag | Dragging still follows the thumb; a settle or a commit jumps to its end state, and `onCommit` runs on release | consumer: lands in R5 (N4 pages, as part of the transition glue) |
 | Measured slot height: `RepForgeMotion.animateSlot(slot, swap)`, the disclosure height run (`revealIn` growing, `revealOut` shrinking) generalised from open and close to swapping one content for another | `motion-layer.js` | `swap` runs exactly once, whichever path is taken; the slot measures its height before and after and animates between them, reversing from the live height if called again mid-run. The slot's minimum height and the content crossfade are the caller's CSS | `swap` runs and the slot is at its new height on the next frame | consumer: L3 inline rest in the cue slot landed in R3f (see [Inline rest](#inline-rest)) |
 | Rise: `.motion-rise`, at most 12 px while fading in, 160 ms | `motion-polish.css` | The class is added when the shelf changes job or the completion actions arrive | `animation: none`; the element is at its end state | consumer: L4 exercise-complete shelf landed in R3e (see [Focus after the input well](#focus-after-the-input-well)); the shelf changing job lands in R3 |
@@ -321,6 +321,40 @@ though most of the distance is covered in the first 150ms. And on a lift with
 many sessions the scope change repaints the series on every frame by
 replacing one SVG group's markup; the chart's size is bounded by the sessions
 of one lift.
+
+## Page push and edge swipe (R5)
+
+Plan 064 amendment picks N4 (drill-downs: History, a Today row, Program), N5 (Today to
+Focus) and the interactive edge swipe back, built only on the R1c vocabulary:
+`RepForgeMotion.animatePush` (the `navPush` spring), `registerEdgeSwipeBack`
+and the stylesheet classes `is-push-under` / `is-push-over` in `motion-polish.css`.
+The top-level view fade (N2, 140 ms) is untouched and still serves the dock.
+No spring literal exists at a call site. Transform only: no opacity, no new elevation.
+
+A push keeps both pages mounted for its whole run. The page that moves rides above
+(`is-push-over`) and the other is held still beneath it (`is-push-under`); both are
+pinned to the screen so they overlap, and the page under keeps the scroll offset it
+had. `app.js` (`routePushBegin`, `pushRoute`) writes and removes the classes around
+the route change, which has already happened, focus and scroll reset included, when
+the run starts. Back is the same push the other way, on the page being left.
+Interrupting a push reverses the page from where it is on screen. The push is simply
+not played, and the route simply changes, under reduced motion, before boot, without
+the runtime, when the page underneath would be Focus (its layout belongs to body
+classes the route has just changed), and when an edge swipe has already carried the
+page off screen.
+
+| Addition | Owner | Trigger | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| N4, a drill-down pushes in from the right and Back pushes it out: the exercise page (`#exercise`) from a Today prescription row (`#todayExList [data-exopen]`), a Progress strength row or attention lift, and a Program overview row; the library (`#library`) from Program; the exercise preview (`#exercisePreview`) from the library | `app.js` (`openExerciseView`, `closeExerciseView`, `openLibrary`, `closeLibrary`, `openExercisePreview`, `closeExercisePreview`) for the trigger; `motion-layer.js` for the spring (`navPush`); `motion-polish.css` for the layers | The route function changes the active view exactly as before, then hands the two pages to `routePushBegin`. Focus lands on the new page's heading (the exercise page) or its documented target (the library search, the preview Back control); Back puts focus on the row that opened it | The route changes, no class is written, no transform is set | Opened from Focus's exercise name the page changes instantly, as does returning to a Focus that is still open: Focus's layout belongs to body classes the route changes. The import review and Settings are not drill-downs and keep their instant route |
+| N4, History: a session (or a calendar day) opens as a page that pushes in over the list, and its Back carries it out | `app.js` (`watchRouteSurfaces`, the History snapshot) for the trigger; `motion-layer.js` for the spring | History swaps its list for the session page inside one view, so no second page exists to keep mounted. A still copy of the view, taken as the lifter presses the control that changes it (`[data-edit]`, `[data-history-back]`, the calendar sheet), is the page under the session page as it pushes in, and the page that rides out on Back. The copy is inert, `aria-hidden`, has its ids stripped and is removed when the run ends | No copy is used and the route changes | A snapshot older than 1.5 s is discarded, so a Back that waits on the discard sheet simply changes |
+| N5, Today to Focus pushes Focus in like a drill-down, and Back from Focus is the reverse push | `app.js` (`setWorkoutActive`) for the trigger; `motion-layer.js`; `motion-polish.css` (the layers, and Focus keeping its own layout while it rides out) | `setWorkoutActive` flips after boot: Start workout, Up next, Log another session, and Back from Focus. Focus lands on its day title (`#woDayTitle`); Back lands on Today's leading control. The draft is untouched either way (G-43) | The route changes; the old `wo-anim-enter` and `wo-anim-leave` keyframes still play where the runtime is missing and are `animation: none` under reduced motion | Finishing a session clears the draft first, so that exit stays instant; a resumed session at boot is the page itself, not a hand-off |
+
+Measured on `navPush` (390 px page, headless Chromium, 60 Hz frames, five runs): the
+page is half way in at about 78 ms, 90% at about 160 ms, 95% at about 195 ms and 99%
+at about 262 ms, and Motion's rest test (1 px, 40 px/s) hands the page back at about
+360 ms. The "roughly 220 ms feel" is therefore the 95 to 99% band; the last 100 ms is
+a sub-pixel tail the eye does not read. The constants are `gestureExit`'s and were not
+retuned.
 
 ## Reduced motion
 

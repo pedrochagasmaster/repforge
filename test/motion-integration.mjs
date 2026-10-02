@@ -1605,8 +1605,241 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await context.close();
 }
 
+/**
+ * N4 drill-downs and N5 Today to Focus are one interruptible push on `navPush`
+ * (`RepForgeMotion.animatePush`), Back is the same push the other way, and the
+ * pages a push can leave take an interactive edge swipe back in standalone. Every
+ * run is sampled frame by frame on the production app; nothing here reads a
+ * constant.
+ */
+const PUSH_PROBE = `
+window.__standalone = false;
+{
+  const real = window.matchMedia.bind(window);
+  window.matchMedia = (query) => /display-mode:\\s*standalone/.test(query)
+    ? { matches: window.__standalone, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }
+    : real(query);
+}
+window.__push = {
+  x(sel) { const el = document.querySelector(sel); return el ? Math.round(new DOMMatrixReadOnly(getComputedStyle(el).transform).m41 * 10) / 10 : null; },
+  frame() {
+    return {
+      views: [...document.querySelectorAll(".view")].filter((v) => v.classList.contains("active")).map((v) => v.id),
+      under: [...document.querySelectorAll(".is-push-under")].map((e) => e.id || e.tagName),
+      over: [...document.querySelectorAll(".is-push-over")].map((e) => e.id || e.tagName),
+      underShown: [...document.querySelectorAll(".is-push-under")].every((e) => getComputedStyle(e).display !== "none"),
+      overShown: [...document.querySelectorAll(".is-push-over")].every((e) => getComputedStyle(e).display !== "none"),
+      pushing: document.body.classList.contains("is-pushing"),
+    };
+  },
+  /** Run \`act\`, then sample \`sel\`'s x and the mounted layers on every frame for \`ms\`. */
+  run(sel, act, ms = 700) {
+    return new Promise((resolve) => {
+      const samples = [];
+      // Whether any push layer was ever written, even for less than a frame.
+      let ever = false;
+      const watch = new MutationObserver((records) => {
+        for (const r of records) if (r.target.classList?.contains("is-push-over") || r.target.classList?.contains("is-push-under")) ever = true;
+      });
+      watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
+      const t0 = performance.now();
+      const step = () => {
+        const t = performance.now() - t0;
+        samples.push({ t: Math.round(t * 10) / 10, x: this.x(sel), ...this.frame(), ever });
+        if (t < ms) requestAnimationFrame(step); else { watch.disconnect(); resolve(samples); }
+      };
+      act();
+      requestAnimationFrame(step);
+    });
+  },
+};
+`;
+
+/** A past session so History has a row to open (ids match the seed program's). */
+function seedLogRows() {
+  const rows = [];
+  for (const [date, day] of [["2026-09-20", "Day 1"], ["2026-09-27", "Day 1"]]) {
+    for (const [id, name, primary] of [["seed-ex-1", "Hack squat", "Quads"], ["seed-ex-2", "Seated leg curl", "Hamstrings"]]) {
+      for (const set of [1, 2]) {
+        rows.push({ session: `${date}_${day}_seed`, date, day, name, exerciseId: id, set, load: 80 + set * 5, reps: 6, rir: 2,
+          notes: "", created: `${date}T12:00:00.000Z`, primary, secondary: "" });
+      }
+    }
+  }
+  return rows;
+}
+
+/** What a recorded push run says about the page that moved. */
+function pushRun(samples) {
+  const layered = samples.filter((s) => s.over.length);
+  const xs = layered.map((s) => s.x);
+  const first = samples.findIndex((s) => s.over.length);
+  const arrived = first < 0 ? null : samples.slice(first).find((s) => !s.over.length);
+  return {
+    layered, xs, frames: layered.length,
+    never: first < 0 && !samples.at(-1).ever,
+    start: xs[0], min: Math.min(...xs), max: Math.max(...xs),
+    // The page is parked at its resting offset on the frame the layers come off.
+    ms: arrived ? Math.round(arrived.t - samples[first].t) : null,
+    mounted: layered.every((s) => s.overShown && s.underShown),
+    single: samples.every((s) => s.views.length === 1),
+    leftover: samples.at(-1).over.length + samples.at(-1).under.length + (samples.at(-1).pushing ? 1 : 0),
+  };
+}
+const monotone = (xs, dir) => xs.every((x, i) => i === 0 || (dir === "in" ? x <= xs[i - 1] + 0.6 : x >= xs[i - 1] - 0.6));
+
+async function pageMotion(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion, hasTouch: true });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.addInitScript(PUSH_PROBE);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate((rows) => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    state.log = rows;
+    localStorage.setItem("repforge_v1", JSON.stringify(state));
+  }, seedLogRows());
+  await installSeedProgram(page, { waitFor: settle });
+  await page.waitForSelector("#todayExList [data-exopen], #startWorkout", { timeout: 10000 });
+  await page.waitForTimeout(300);
+
+  phase(`N4: a Today row pushes the exercise page in from the right${tag}`);
+  const opened = pushRun(await page.evaluate(() => window.__push.run("#exercise", () => document.querySelector("#todayExList [data-exopen]").click())));
+  const afterOpen = await page.evaluate(() => ({
+    views: [...document.querySelectorAll(".view.active")].map((v) => v.id), transform: document.querySelector("#exercise").style.transform,
+    hint: document.querySelector("#exercise").style.willChange, focus: document.activeElement?.className || "", scroll: Math.round(scrollY),
+    pushing: document.body.classList.contains("is-pushing") }));
+  assert(afterOpen.views.join() === "exercise" && afterOpen.scroll === 0, "the route has changed and the scroll is reset on the first frame", JSON.stringify(afterOpen));
+  assert(/exdet__name|exview-head__title/.test(afterOpen.focus), "focus lands on the new page's heading", afterOpen.focus);
+  assert(!afterOpen.transform && !afterOpen.hint && !afterOpen.pushing && opened.leftover === 0,
+    "and the page is handed back clean: no transform, layer hint, push layers or class", JSON.stringify({ afterOpen, left: opened.leftover }));
+  if (reduced) {
+    assert(opened.never, "reduced motion changes the route and mounts no push layers at all", JSON.stringify(opened.frames));
+  } else {
+    assert(opened.frames >= 5 && opened.start >= 300 && opened.start <= 390.5,
+      "the page starts at the right edge", JSON.stringify({ frames: opened.frames, start: opened.start }));
+    assert(monotone(opened.xs, "in") && opened.min >= -0.6 && opened.xs.at(-1) <= 1,
+      "it moves left only, lands on 0 and never overshoots", JSON.stringify(opened.xs));
+    assert(opened.mounted && opened.single && opened.layered.every((s) => s.under.includes("log") && s.over.includes("exercise")),
+      "both pages are mounted for the whole run (Today under, the exercise page over) and exactly one view is active", JSON.stringify(opened.layered[0]));
+    console.log(`  · measured push settle (navPush, 390px, click to layers off): ${opened.ms} ms; offsets ${opened.xs.slice(0, 8).map(Math.round).join(" ")} …`);
+    assert(opened.ms >= 150 && opened.ms <= 520, "and it comes to rest inside the time a push may take", String(opened.ms));
+  }
+
+  phase(`N4: Back is the same push run the other way${tag}`);
+  const closed = pushRun(await page.evaluate(() => window.__push.run("#exercise", () => document.querySelector("#exBack").click())));
+  const afterClose = await page.evaluate(() => ({
+    views: [...document.querySelectorAll(".view.active")].map((v) => v.id), focus: document.activeElement?.dataset?.exopen || document.activeElement?.id || "",
+    transform: document.querySelector("#exercise").style.transform, hidden: !document.querySelector("#exercise").classList.contains("active") }));
+  assert(afterClose.views.join() === "log" && afterClose.hidden && !afterClose.transform, "the route is Today again and the page is put away clean", JSON.stringify(afterClose));
+  assert(afterClose.focus === "seed-ex-1" || /^seed-ex-/.test(afterClose.focus), "focus is back on the row that opened it", afterClose.focus);
+  if (reduced) assert(closed.never, "reduced motion puts it away with no push layers");
+  else {
+    assert(closed.frames >= 5 && closed.start <= 40 && monotone(closed.xs, "out") && closed.max <= 390.5,
+      "the page carries off to the right and never past the edge", JSON.stringify(closed.xs));
+    assert(closed.leftover === 0 && closed.single && closed.mounted, "with Today live beneath it and no layers left behind", JSON.stringify({ left: closed.leftover, single: closed.single }));
+  }
+
+  if (!reduced) {
+    phase("N4: a push is interruptible: Back mid-flight reverses from where the page is");
+    const flip = await page.evaluate(() => window.__push.run("#exercise", () => {
+      document.querySelector("#todayExList [data-exopen]").click();
+      setTimeout(() => document.querySelector("#exBack").click(), 90);
+    }, 900));
+    const turn = flip.findIndex((s) => s.views.join() === "log");
+    const before = flip[turn - 1], at = flip[turn];
+    assert(turn > 2 && before.x > 20 && before.x < 360, "Back landed while the page was part-way in", JSON.stringify({ turn, before: before?.x }));
+    assert(Math.abs(at.x - before.x) < 90, "and the page carries on from its live offset, not from a jump to either end", JSON.stringify({ before: before.x, at: at.x }));
+    const end = flip.at(-1);
+    assert(end.over.length === 0 && end.under.length === 0 && flip.every((s) => s.x == null || s.x >= -0.6), "it ends away with no layers and no overshoot", JSON.stringify(end));
+  }
+
+  phase(`N4: Program pushes the library, and the library its exercise preview${tag}`);
+  await page.click('nav button[data-view="program"]');
+  await page.waitForTimeout(250);
+  const lib = pushRun(await page.evaluate(() => window.__push.run("#library", () => window.__repforgeOpenLibrary({}))));
+  const libState = await page.evaluate(() => ({ views: [...document.querySelectorAll(".view.active")].map((v) => v.id), focus: document.activeElement?.id }));
+  assert(libState.views.join() === "library" && libState.focus === "libSearch", "the library is the active view with its search focused", JSON.stringify(libState));
+  if (reduced) assert(lib.never, "no push layers under reduced motion");
+  else assert(lib.frames >= 5 && lib.mounted && lib.leftover === 0 && lib.layered.every((s) => s.under.includes("program")),
+    "it pushes in over the Program tab, both mounted", JSON.stringify({ frames: lib.frames, mounted: lib.mounted }));
+  await page.waitForSelector("#libList [data-lib-preview]", { timeout: 5000 });
+  const preview = pushRun(await page.evaluate(() => window.__push.run("#exercisePreview", () => document.querySelector("#libList [data-lib-preview]").click())));
+  if (reduced) assert(preview.never, "no push layers for the preview under reduced motion");
+  else assert(preview.frames >= 5 && preview.layered.every((s) => s.under.includes("library")) && preview.leftover === 0,
+    "the preview pushes in over the library", JSON.stringify({ frames: preview.frames }));
+  const previewBack = pushRun(await page.evaluate(() => window.__push.run("#exercisePreview", () => document.querySelector("#previewBack").click())));
+  const toLibrary = await page.evaluate(() => [...document.querySelectorAll(".view.active")].map((v) => v.id).join());
+  assert(toLibrary === "library", "Back from the preview returns to the library", toLibrary);
+  if (!reduced) assert(previewBack.frames >= 5 && previewBack.leftover === 0, "as the reverse push", JSON.stringify({ frames: previewBack.frames }));
+  const libOut = pushRun(await page.evaluate(() => window.__push.run("#library", () => document.querySelector("#libBack").click())));
+  assert(await page.evaluate(() => document.querySelector("#program").classList.contains("active")), "and Back from the library returns to Program");
+  if (!reduced) assert(libOut.frames >= 5 && libOut.leftover === 0, "as the reverse push", JSON.stringify({ frames: libOut.frames }));
+
+  phase(`N4: a History session pushes in over the list, and Back carries it out${tag}`);
+  await page.click('nav button[data-view="history"]');
+  await page.waitForSelector("#sessions [data-edit]", { timeout: 5000 });
+  await page.waitForTimeout(250);
+  const read = pushRun(await page.evaluate(() => window.__push.run("#history", () => document.querySelector("#sessions [data-edit]").click())));
+  const readState = await page.evaluate(() => ({ page: document.querySelector("#history").classList.contains("is-session-page"),
+    ghosts: document.querySelectorAll("#history").length, focus: document.activeElement?.hasAttribute("data-history-selection-heading") || document.activeElement?.className || "" }));
+  assert(readState.page && readState.ghosts === 1, "the session page is open and the still copy of the list is gone", JSON.stringify(readState));
+  if (reduced) assert(read.never, "no push layers under reduced motion");
+  else {
+    assert(read.frames >= 5 && read.start >= 300 && monotone(read.xs, "in") && read.xs.at(-1) <= 1 && read.leftover === 0,
+      "the session page rides in from the right and lands on 0", JSON.stringify(read.xs));
+    assert(read.mounted && read.layered.every((s) => s.under.length === 1), "with the list, still, mounted beneath it", JSON.stringify(read.layered[0]));
+  }
+  const back = pushRun(await page.evaluate(() => window.__push.run("#history", () => document.querySelector("[data-history-back]").click(), 900)));
+  const listState = await page.evaluate(() => ({ page: document.querySelector("#history").classList.contains("is-session-page"), ghosts: document.querySelectorAll("#history").length }));
+  assert(!listState.page && listState.ghosts === 1, "Back returns to the list and leaves no copy behind", JSON.stringify(listState));
+  if (!reduced) assert(back.frames >= 5 && back.leftover === 0 && back.layered.every((s) => s.over.length === 1), "as the reverse push", JSON.stringify({ frames: back.frames, left: back.leftover }));
+
+  phase(`N5: Today pushes Focus in like a drill-down, and Back keeps the draft${tag}`);
+  await page.click('nav button[data-view="log"]');
+  await page.waitForSelector("#startWorkout", { state: "visible", timeout: 5000 });
+  await page.waitForTimeout(250);
+  const enter = pushRun(await page.evaluate(() => window.__push.run("#workoutShell", () => document.querySelector("#startWorkout").click(), 1000)));
+  const inFocus = await page.evaluate(() => ({ focus: document.activeElement?.id, draft: !!window.__repforgeWorkoutDraft.current(),
+    dash: document.querySelector("#todayDash").classList.contains("hidden"), transform: document.querySelector("#workoutShell").style.transform,
+    left: document.querySelectorAll(".is-push-over,.is-push-under").length }));
+  assert(inFocus.focus === "woDayTitle" && inFocus.draft && inFocus.dash && !inFocus.transform && inFocus.left === 0,
+    "Focus is open on its day title with a draft, and nothing is left transformed or layered", JSON.stringify(inFocus));
+  if (reduced) assert(enter.never, "reduced motion opens Focus with no push layers");
+  else {
+    assert(enter.frames >= 5 && enter.start >= 300 && monotone(enter.xs, "in") && enter.xs.at(-1) <= 1 && enter.min >= -0.6,
+      "Focus rides in from the right and lands without overshoot", JSON.stringify(enter.xs));
+    assert(enter.mounted && enter.single && enter.layered.every((s) => s.under.includes("todayDash") && s.over.includes("workoutShell")),
+      "with Today mounted beneath it for the whole run", JSON.stringify(enter.layered[0]));
+    console.log(`  · measured Focus push settle: ${enter.ms} ms`);
+  }
+  const exitFocus = pushRun(await page.evaluate(() => window.__push.run("#workoutShell", () => document.querySelector("#leaveWorkout").click(), 1000)));
+  const outFocus = await page.evaluate(() => ({ focus: document.activeElement?.id, draft: !!window.__repforgeWorkoutDraft.current(),
+    dash: !document.querySelector("#todayDash").classList.contains("hidden"), left: document.querySelectorAll(".is-push-over,.is-push-under").length }));
+  assert(outFocus.draft && outFocus.dash && outFocus.left === 0, "Back from Focus keeps the draft (G-43) and shows Today", JSON.stringify(outFocus));
+  assert(outFocus.focus === "startWorkout" || outFocus.focus === "reviewTodaySession", "focus returns to Today's leading control", outFocus.focus);
+  if (!reduced) assert(exitFocus.frames >= 5 && exitFocus.start <= 40 && monotone(exitFocus.xs, "out") && exitFocus.leftover === 0,
+    "Focus carries off to the right as the reverse push", JSON.stringify(exitFocus.xs));
+
+  assert(errors.length === 0, `no page errors in the push run${tag}`, errors.join(" | "));
+  await context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
+
+  // REPFORGE_MOTION_ONLY=pages runs only the page push and edge swipe sections: the seeded-failure proofs.
+  if (process.env.REPFORGE_MOTION_ONLY === "pages") {
+    await pageMotion(browser);
+    await pageMotion(browser, { reducedMotion: "reduce" });
+    await browser.close();
+    console.log(`\nmotion integration (pages): ${results.passed} passed, ${results.failed} failed`);
+    process.exit(results.failed ? 1 : 0);
+  }
 
   // ---- the runtime is live -----------------------------------------------------
   phase("the vendored runtime loads and animates");
@@ -1992,6 +2225,9 @@ async function run() {
   await entrySelectionInk(browser);
   await entrySelectionInk(browser, { reducedMotion: "reduce" });
   await entrySelectionInk(browser, { colorScheme: "dark" });
+
+  await pageMotion(browser);
+  await pageMotion(browser, { reducedMotion: "reduce" });
 
   await browser.close();
   console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);

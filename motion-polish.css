@@ -369,3 +369,39 @@ nav button:active{transform:scale(.975)}
   .toggle[aria-pressed="true"]:active::after,
   .toggle.is-on:active::after{transform:translateX(20px)}
 }
+
+/* ---- Page push (N4 drill-downs, N5 Today to Focus) ----
+   For the length of a push both pages are mounted: the page being entered or
+   left rides above (`is-push-over`, the one that moves) and the other sits under
+   it, still (`is-push-under`). Both are pinned to the screen so they overlap
+   instead of stacking, and the page under is held at the scroll offset it had
+   (`--push-top`). Transform only; no new elevation, so the edge is the page's own.
+   The class names are written and removed by `app.js` (`pushRoute`) and never
+   exist under reduced motion, where the route simply changes. */
+.is-push-under,.is-push-over{
+  position:fixed;left:max(0px,calc(50% - var(--maxw) / 2));right:max(0px,calc(50% - var(--maxw) / 2));
+  box-sizing:border-box;overflow:hidden;animation:none;
+  padding-top:calc(12px + env(safe-area-inset-top));
+}
+.view.is-push-under,.view.is-push-over{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.view.is-push-under,.view.is-push-over{display:block}
+.hidden.is-push-under,.hidden.is-push-over{display:block!important}
+.is-push-under{top:var(--push-top,0px);z-index:1;pointer-events:none}
+.is-push-over{top:0;bottom:0;z-index:2;background:var(--bg)}
+/* Focus sits in a main with no side padding and the same top inset, so it rides in the same box it will rest in. */
+#workoutShell.is-push-over{top:calc(12px + env(safe-area-inset-top));bottom:env(safe-area-inset-bottom);padding:0}
+/* Focus lays itself out from the body classes `is-workout is-focus-wo`, which are
+   gone by the time Back carries it off. While it rides out it keeps its own layout. */
+#workoutShell.is-push-over,
+#workoutShell.is-push-over #logForm,
+#workoutShell.is-push-over #workout{display:flex;flex-direction:column;flex:1;min-height:0}
+#workoutShell.is-push-over > :not(#logForm),
+#workoutShell.is-push-over #logForm > :not(#workout),
+#workoutShell.is-push-over #workout > :not(.deck){
+  margin-left:max(var(--gut),env(safe-area-inset-left));margin-right:max(var(--gut),env(safe-area-inset-right));
+}
+#workoutShell.is-push-over .deck{flex:1;min-height:0}
+#workoutShell.is-push-over #dayTabs,
+#workoutShell.is-push-over #logForm > .field,
+#workoutShell.is-push-over #logForm > .btn--save{display:none!important}
+#workoutShell.hidden.is-push-over{display:flex!important}

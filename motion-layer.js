@@ -358,6 +358,62 @@
     });
   }
 
+  /* A tapped page push (N4 drill-downs, N5 Today to Focus) and its reverse. The
+     page is the one that moves: "in" brings it from the right edge to rest, "out"
+     carries it back off. One motion value is the page's offset in pixels, so
+     `navPush`'s pixel-scale rest threshold applies, and a second call on the same
+     page starts from where that page is on screen now: an interrupted push
+     reverses without a jump, and `velocity` (px/ms) seeds the spring. The caller
+     owns what sits underneath and keeps both pages mounted for the run. The
+     promise resolves true when the page arrived (including at once, under reduced
+     motion or without the runtime, where the page jumps and no transform is ever
+     set) and false when the run was superseded or cancelled. The transform is
+     cleared on arrival either way, before the caller's continuation runs. */
+  const pushRuns = new WeakMap();
+  const trueNow = Promise.resolve(true);
+  function animatePush(page, { direction = "in", velocity = 0 } = {}) {
+    if (!page) return trueNow;
+    const live = pushRuns.get(page);
+    const start = live ? Math.max(0, live.x.get()) : null;
+    if (live) { pushRuns.delete(page); live.x.stop(); live.stopPaint(); live.arrived?.abandon(); }
+    if (!available || reducedMotion()) {
+      page.style.transform = "";
+      hint(page, null);
+      return trueNow;
+    }
+    const out = direction === "out";
+    const width = page.offsetWidth || global.innerWidth || 1;
+    const from = start != null ? Math.min(start, width) : (out ? 0 : width);
+    const to = out ? width : 0;
+    const x = motionValue(from);
+    const run = { x };
+    pushRuns.set(page, run);
+    const paint = value => {
+      page.style.transform = value > 0.01 ? `translate3d(${value}px,0,0)` : "";
+    };
+    run.stopPaint = x.on("change", paint);
+    paint(from);
+    hint(page, "transform");
+    run.arrived = arrival(animate(x, to, { ...VOCABULARY.navPush, velocity: perSecond(velocity) }), () => pushRuns.get(page) === run);
+    const done = run.arrived.finally(() => {
+      run.stopPaint();
+      if (pushRuns.get(page) !== run) return;
+      pushRuns.delete(page);
+      page.style.transform = "";
+      hint(page, null);
+    });
+    done.cancel = () => {
+      if (pushRuns.get(page) !== run) return;
+      pushRuns.delete(page);
+      run.arrived.abandon();
+      x.stop();
+      run.stopPaint();
+      page.style.transform = "";
+      hint(page, null);
+    };
+    return done;
+  }
+
   const disclosureRuns = new WeakMap();
   const COLLAPSING = "is-collapsing";
   /* The measured-height run shared by a disclosure opening or closing and a slot
@@ -1074,6 +1130,7 @@
     animateCoordinates,
     animateDisclosure,
     animateSlot,
+    animatePush,
     registerEdgeSwipeBack,
     mountGestureController,
   };
