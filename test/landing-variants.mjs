@@ -891,6 +891,12 @@ async function finalPage(browser) {
     const { context, page } = await landingPage(browser, { lang: "pt", ...opts });
     if (prepare) await prepare(page);
     const ctl = await page.evaluate(proofState);
+    // The static cards arrive as they scroll in (Plan 064 O1); scrolled through, all seven are painted.
+    for (let i = 0; i < 7; i++) {
+      await page.evaluate((index) => document.querySelectorAll("[data-landing-step]")[index].scrollIntoView({ block: "center" }), i);
+      await page.waitForTimeout(100);
+    }
+    await page.waitForTimeout(400);
     const st = await page.evaluate(stepState);
     assert(ctl?.open && ctl.pinned === false, `${label}: the stage is not pinned`, JSON.stringify(ctl));
     assert(st.phones === 0 && st.rail === 0 && !st.pinnedClass, `${label}: no phone, lens or rail is built`, JSON.stringify(st));
