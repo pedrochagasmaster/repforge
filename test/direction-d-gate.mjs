@@ -212,7 +212,7 @@ try {
     if (probe) {
       const other = probe.label === "Improved" ? "Maintained" : "Improved";
       const good = `<span id="seedOutcomeOk" data-parity-outcome="${probe.id}" data-parity-session="${probe.session}">${probe.label}</span>
-        <span id="seedTargetOk" data-parity-target="${probe.id}">3 × 7 at ${String(probe.load).replace(".", ",")}</span>`;
+        <span id="seedTargetOk" data-parity-target="${probe.id}">3 × 7 at ${String(probe.load).replace(".", ",")} kg</span>`;
       const okFailures = checkParity(await seeded(page, good));
       check(okFailures.length === 0, "a shown outcome word and target that match the app are accepted", show(okFailures));
       // The summary says the session-outcome word (Melhorou, Manteve, Regressou); History's page says the delta label.
@@ -229,8 +229,32 @@ try {
       check(defaulted.length === 0, "without data-parity-session the latest logged session is compared", show(defaulted));
       const wrongWord = checkParity(await seeded(page, `<span id="seedOutcomeBad" data-parity-outcome="${probe.id}" data-parity-session="${probe.session}">${other}</span>`));
       check(has(wrongWord, "parity", "#seedOutcomeBad", probe.label), `a wrong outcome word is rejected (${other} for ${probe.label})`, show(wrongWord));
-      const wrongLoad = checkParity(await seeded(page, `<span id="seedTargetBad" data-parity-target="${probe.id}">3 × 7 at ${probe.load + 2.5}</span>`));
+      const wrongLoad = checkParity(await seeded(page, `<span id="seedTargetBad" data-parity-target="${probe.id}">3 × 7 at ${probe.load + 2.5} kg</span>`));
       check(has(wrongLoad, "parity", "#seedTargetBad"), "a target that differs from recommendation() is rejected", show(wrongLoad));
+      // STD-1: the load is the marked element's own load figure, not any number that happens to equal it.
+      const fmtKg = (value) => String(value).replace(".", ",");
+      const coincidence = checkParity(await seeded(page,
+        `<span id="seedTargetCoincide" data-parity-target="${probe.id}">3 × ${probe.load} at ${probe.load + 100} kg</span>`));
+      check(has(coincidence, "parity", "#seedTargetCoincide"),
+        "STD-1: a wrong load is rejected when another number in the marked text equals the recommendation (3 × L at L+100 kg)", show(coincidence));
+      const repsCoincide = checkParity(await seeded(page,
+        `<span id="seedTargetReps" data-parity-target="${probe.id}">${probe.load + 100} kg × ${Math.round(probe.load)}</span>`));
+      check(has(repsCoincide, "parity", "#seedTargetReps"),
+        "STD-1: a wrong load is rejected when the reps figure equals the recommendation", show(repsCoincide));
+      const ambiguous = checkParity(await seeded(page,
+        `<span id="seedTargetBare" data-parity-target="${probe.id}">3 × ${probe.load}</span>`));
+      check(has(ambiguous, "parity", "#seedTargetBare"),
+        "STD-1: several bare figures with no unit cannot say which is the load and are rejected", show(ambiguous));
+      const otherUnit = checkParity(await seeded(page,
+        `<span id="seedTargetUnit" data-parity-target="${probe.id}">${fmtKg(probe.load)} lb × 8</span>`));
+      check(has(otherUnit, "parity", "#seedTargetUnit"),
+        "STD-1: a load figure in the other unit is rejected (the app shows kg here)", show(otherUnit));
+      const goodForms = checkParity(await seeded(page,
+        `<span id="seedTargetUnitOk" data-parity-target="${probe.id}">${fmtKg(probe.load)} kg × 8, 8</span>
+         <span id="seedTargetDotOk" data-parity-target="${probe.id}">Next: ${probe.load} kg × 3</span>
+         <span id="seedTargetBareOk" data-parity-target="${probe.id}">${fmtKg(probe.load)}</span>
+         <span id="seedTargetArrowOk" data-parity-target="${probe.id}">${probe.load - 2.5}→${fmtKg(probe.load)} kg</span>`));
+      check(goodForms.length === 0, "STD-1: the shapes the app prints (load and unit, a bare load, last→next with the unit) are accepted", show(goodForms));
       const unknown = checkParity(await seeded(page, `<span id="seedOutcomeUnknown" data-parity-outcome="no-such-exercise">${probe.label}</span>`));
       check(has(unknown, "#seedOutcomeUnknown", "no-such-exercise"), "a parity marker naming an unknown exercise is rejected", show(unknown));
       const orphan = checkParity(await seeded(page, `<span id="seedOrphan">${probe.label}</span>`));

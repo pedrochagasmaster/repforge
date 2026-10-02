@@ -331,6 +331,16 @@ export function collectGateEvidence(options = {}) {
     const text = element.textContent.replace(/\s+/g, " ").trim();
     const tokens = text.match(/\d+(?:[.,]\d+)?/g) || [];
     const entry = { locator: locator(element), exerciseId, text, tokens };
+    // The load is the marked element's own load figure, never any number that happens to equal it (STD-1).
+    // A figure the unit follows ("102,5 kg") is a load figure and the first one is the target, in the unit the
+    // app shows. Text with no unit-bearing figure is a bare load, which is only one figure.
+    const unitFigures = [...text.matchAll(/(\d+(?:[.,]\d+)?)\s*(kg|lbs?)(?![\p{L}\d])/giu)];
+    entry.unit = durable.settings?.unit === "lb" ? "lb" : "kg";
+    entry.loadToken = null;
+    if (unitFigures.length) {
+      entry.loadToken = unitFigures[0][1];
+      entry.unitMismatch = unitFigures[0][2].toLowerCase().replace(/s$/, "") !== entry.unit;
+    } else if (tokens.length === 1) entry.loadToken = tokens[0];
     const slot = program?.programSlot?.(exerciseId);
     if (!slot) entry.error = `names unknown exercise ${exerciseId}`;
     else {
@@ -338,12 +348,13 @@ export function collectGateEvidence(options = {}) {
       entry.expectedLoad = Number.isFinite(load) ? load : null;
       if (entry.expectedLoad !== null) {
         // The app's own display-to-kg parser, with the tolerance of the figure's last shown decimal.
-        entry.matched = tokens.some((token) => {
+        const token = entry.loadToken;
+        entry.matched = token !== null && !entry.unitMismatch && (() => {
           const decimals = (token.split(/[.,]/)[1] || "").length;
           const base = window.__repforgeParseLoad(token);
           const high = window.__repforgeParseLoad(String(+(Number.parseFloat(token.replace(",", ".")) + 0.5 * 10 ** -decimals).toFixed(decimals + 1)));
-          return base.kind === "valid" && Math.abs(base.kind === "valid" ? base.kg - load : Infinity) <= Math.abs(high.kg - base.kg) + 1e-9;
-        });
+          return base.kind === "valid" && Math.abs(base.kg - load) <= Math.abs(high.kg - base.kg) + 1e-9;
+        })();
       }
     }
     parity.targets.push(entry);
@@ -471,7 +482,7 @@ export function checkParity(evidence) {
   }
   for (const item of evidence.parity.targets) {
     if (item.error) failures.push(prefix("parity", `${item.locator} ${item.error}`));
-    else if (item.expectedLoad !== null && !item.matched) failures.push(prefix("parity", `target at ${item.locator} shows [${item.tokens.join(", ")}] but recommendation(${item.exerciseId}).load is ${item.expectedLoad} kg`));
+    else if (item.expectedLoad !== null && !item.matched) failures.push(prefix("parity", `target at ${item.locator} ${item.loadToken === null ? `has no single load figure in [${item.tokens.join(", ")}]` : item.unitMismatch ? `shows its load in the wrong unit (the app shows ${item.unit})` : `shows the load ${item.loadToken}`} but recommendation(${item.exerciseId}).load is ${item.expectedLoad} kg`));
   }
   for (const item of evidence.parity.orphans) {
     failures.push(prefix("parity", `outcome word "${item.text}" at ${item.locator} has no ${PARITY_ATTRIBUTES.outcome} marker, so it cannot be checked against compareExerciseSession`));
