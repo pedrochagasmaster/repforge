@@ -212,8 +212,8 @@ Totals by owning slice (screens): R2 3, R3 77, R4 42, R6 26.
 | `progress/recovery-reassessment` | 8 | rules only | `rules only` | I-03, I-01 §4.6 | R3 |  |
 | `history/list` | 3 | redesign | `redesign (D)` | I-01 §4.7, §4.8, L-01 | R3 |  |
 | `history/session` | 8 | redesign | `redesign (D)` | I-01 §4.7, §4.8, L-01 | R3 |  |
-| `history/edit-dirty` | 8 | needs drawing | `redesign (D)` | I-01 §4.7, §4.8, L-01, OG-6, I-02 | R3 |  |
-| `history/edit-invalid` | 8 | needs drawing | `redesign (D)` | I-01 §4.7, §4.8, L-01, OG-6, I-02 | R3 |  |
+| `history/edit-dirty` | 8 | drawn (OG-6 round 2, `b891de0`) | `redesign (D)` | I-01 §4.7, §4.8, L-01, OG-6, I-02 | R3 | built in R3j2 (2026-10-02) |
+| `history/edit-invalid` | 8 | drawn (OG-6 round 2, `b891de0`) | `redesign (D)` | I-01 §4.7, §4.8, L-01, OG-6, I-02 | R3 | built in R3j2 (2026-10-02) |
 | `history/delete-confirm` | 8 | rules only | `rules only` | I-03 | R3 |  |
 | `history/conflict` | 8 | rules only | `rules only` | I-03 | R3 |  |
 | `library/list` | 8 | rules only | `rules only` | I-03 | R6 |  |
