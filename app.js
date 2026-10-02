@@ -18030,6 +18030,9 @@ function init(){
   // Copy and paste is the primary BYOP door, with the file door one tap away.
   const openFirstRunImport=()=>{
     closeFirstRun();
+    // A saved setup is resumed or discarded only on the chooser's resume card
+    // (Q-A): Track must never start a fresh import over it.
+    if(readSetupDraftRecord().raw!==null){startOnboarding("first-run");return}
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
     setImportSourceMode("freeform",{render:false});
     entrySelectRoute("import")};

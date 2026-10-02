@@ -556,7 +556,11 @@ try {
     await page.click("#onbBack");
     await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
 
-    // 5b. Direct first-run Import control (#firstRunImport from first-run screen)
+    // 5b. Direct first-run Import control (#firstRunImport from first-run screen),
+    // with nothing saved: the route exploration above left a setup draft, and
+    // Track with a saved draft goes to the chooser's resume card instead
+    // (SPEC-01, Phase 9g).
+    await page.evaluate((k) => localStorage.removeItem(k), SETUP_DRAFT);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     await page.evaluate(() => window.openFirstRun?.());
@@ -1433,6 +1437,44 @@ try {
         await context.close();
       }
     }
+  }
+
+  phase("Phase 9g: SPEC-01 — Track on a returning landing with a saved setup goes to the chooser's resume card, never over the draft");
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    await leaveRecommendDraft(page);
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.waitForFunction((key) => {
+      try { return !!JSON.parse(localStorage.getItem(key) || "{}").state?.answers?.structuredExperience; } catch { return false; }
+    }, SETUP_DRAFT, { timeout: 10000 });
+    await reloadToLanding(page);
+    const before = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SETUP_DRAFT);
+    await page.click("#firstRunImport");
+    await page.waitForSelector("#onboarding.active #entryResumeContinue", { timeout: 15000 });
+    const after = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SETUP_DRAFT);
+    assert(after?.draftId === before?.draftId && after?.state?.route === "recommend"
+      && JSON.stringify(after?.state?.answers) === JSON.stringify(before?.state?.answers),
+      "SPEC-01: Track leaves the saved Recommend draft exactly as it was", JSON.stringify({ before: before?.state, after: after?.state }));
+    const snap = await page.evaluate(landingSnapshot);
+    assert(!snap.open && snap.chooserOpen && snap.resumeCard,
+      "SPEC-01: Track opens the chooser on its resume card, where the draft is resumed or discarded", JSON.stringify(snap));
+    await context.close();
+  }
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    await reloadToLanding(page);
+    await page.click("#firstRunImport");
+    await page.waitForFunction(() => window.__repforgeOnboarding?.entry?.()?.route === "import", null, { timeout: 15000 });
+    assert(true, "SPEC-01: with nothing saved, Track still goes straight to the import route");
+    await context.close();
   }
 
   phase("Phase 9f: A shared-setup handoff keeps its own landing whatever the device has seen or saved");
