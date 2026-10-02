@@ -1464,6 +1464,60 @@ async function main() {
     await vpCtx.close();
   }
 
+  // The presets sheet at 200% text (RT-04 follow-up): a long word such as Reiniciar clipped in its box. Every control's
+  // label must sit inside its control, and the sheet inside the viewport, in both languages at the two narrowest widths.
+  for (const [name, size] of [["320×568", { width: 320, height: 568 }], ["390×844", { width: 390, height: 844 }]]) {
+    for (const lang of ["en", "pt"]) {
+      phase(`Rest presets sheet at 200% text: ${name}, ${lang.toUpperCase()}`);
+      const restCtx = await browser.newContext({ viewport: size, isMobile: true, hasTouch: true });
+      const restPage = await restCtx.newPage();
+      await boot(restPage, { size, lang });
+      await enterFocus(restPage, 0);
+      const probe = () => restPage.evaluate(() => {
+        const sheet = document.querySelector("#restSheet");
+        const box = sheet.getBoundingClientRect();
+        const controls = [...sheet.querySelectorAll("button")].map((button) => {
+          const rect = button.getBoundingClientRect();
+          const range = document.createRange();
+          range.selectNodeContents(button);
+          const lines = [...range.getClientRects()].filter((line) => line.width && line.height);
+          const inside = lines.every((line) => line.left >= rect.left - 0.5 && line.right <= rect.right + 0.5 && line.top >= rect.top - 0.5 && line.bottom <= rect.bottom + 0.5);
+          const label = button.querySelector(".restctl__label") || button;
+          return { id: button.id || button.dataset.restpreset, text: button.textContent.trim(), inside, scrolls: label.scrollWidth > label.clientWidth + 1,
+            tall: rect.height >= 44 - 0.5, top: Math.round(rect.top), width: Math.round(rect.width) };
+        });
+        return { controls, withinViewport: box.left >= -0.5 && box.right <= innerWidth + 0.5 && box.bottom <= innerHeight + 0.5,
+          pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+          ellipsis: [...sheet.querySelectorAll("*")].filter((el) => getComputedStyle(el).textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth + 1).length };
+      });
+      await restPage.evaluate(() => { document.documentElement.style.fontSize = "200%"; window.startRest(); });
+      await restPage.click("#woRest");
+      await restPage.waitForSelector("#restSheet:not([hidden]).is-open");
+      await restPage.waitForTimeout(400);
+      const big = await probe();
+      const ids = big.controls.map((control) => control.id);
+      assert(["restHold", "restMinus", "restPlus", "restReset", "restStop"].every((id) => ids.includes(id)),
+        "the open sheet lists Pause or Resume, the nudges, restart and end", ids.join());
+      assert(big.controls.every((control) => control.inside && !control.scrolls),
+        "no control label overflows its control at 200% text", JSON.stringify(big.controls.filter((control) => !control.inside || control.scrolls)));
+      assert(big.controls.every((control) => control.tall), "every control keeps a 44px target at 200% text", JSON.stringify(big.controls.map((control) => [control.id, control.tall])));
+      assert(big.withinViewport && !big.pageScrollsX && big.ellipsis === 0,
+        "the sheet stays inside the viewport with no sideways scroll and no ellipsis", JSON.stringify(big));
+      await restPage.click("#restSheetClose");
+      await restPage.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
+      // At the usual size the four controls keep their one row.
+      await restPage.evaluate(() => { document.documentElement.style.fontSize = ""; });
+      await restPage.click("#woRest");
+      await restPage.waitForSelector("#restSheet:not([hidden]).is-open");
+      await restPage.waitForTimeout(400);
+      const usual = await probe();
+      const row = usual.controls.filter((control) => ["restMinus", "restPlus", "restReset", "restStop"].includes(control.id));
+      assert(row.length === 4 && new Set(row.map((control) => control.top)).size === 1 && row.every((control) => control.inside),
+        "at the usual size the nudges, restart and end share one row", JSON.stringify(row));
+      await restCtx.close();
+    }
+  }
+
   phase("Complete draft resume (UX-19)");
   const draftCtx = await browser.newContext({
     viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true,

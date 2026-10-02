@@ -1998,7 +1998,7 @@ textarea.sheetfield__input{
    end it deliberately. Pause and resume are here as well as on the inline
    Pausar/Retomar pad, which gives way to the field pads. */
 .sheet--rest{height:auto}
-.restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom))}
+.restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom));container:restsheet/inline-size}
 .restsheet__presets{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
 .restpreset{
   min-width:0;min-height:var(--control-target);padding:0 12px;border-radius:var(--radius-pill);cursor:pointer;
@@ -2037,6 +2037,14 @@ textarea.sheetfield__input{
   #restSheet #restSheetClose{grid-column:2;grid-row:1}
   .restsheet{gap:14px;padding-top:14px}
   .restctl__label{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+}
+/* Enlarged text: four icon-over-label controls no longer share a row (a long word such as Reiniciar clipped in its box),
+   so each control becomes a row of its own with the icon beside the label, and the label may wrap. The measure is the
+   sheet's width in rem, which grows with the text size, so the usual size keeps its four columns at every width. */
+@container restsheet (max-width:17rem){
+  .restsheet__controls{grid-template-columns:repeat(auto-fit,minmax(min(100%,6rem),1fr))}
+  .restctl{flex-direction:row;justify-content:flex-start;gap:var(--space-8);padding:6px var(--space-12)}
+  .restctl__label{white-space:normal;overflow-wrap:break-word;text-align:left}
 }
 
 /* Short screens trade padding, never a control: the ledger scrolls above the
