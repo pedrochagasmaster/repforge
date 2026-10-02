@@ -260,6 +260,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "history/list", "history/session", // R3j
   "program/overview", // R3k
+  "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history", // R3i
   "progress/strength-comparison", "progress/strength-sparse", // R3i
@@ -270,7 +271,7 @@ const D_FIXTURE_STATES = new Set([
  * states draw it), so Today's states read the log as it stood that morning.
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
-  "today/ready", "today/day-picker", "today/rest-bar", "today/mixed-strategies",
+  "today/ready", "today/day-picker", "today/rest-bar", "today/mixed-strategies", "today/draft-resume",
   "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
   "workout/rest-running", "workout/rest-done",
 ]);

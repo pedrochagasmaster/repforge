@@ -51,7 +51,7 @@ console.log("\nD-owned state list");
   const built = ["workout/focus", "workout/focus-glossary", "workout/correction", "workout/rest-running", "workout/rest-done",
     "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
-    "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
+    "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies", "today/draft-resume",
     "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
     "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
     "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/strength", "progress/strength-current-block",
@@ -62,8 +62,8 @@ console.log("\nD-owned state list");
   JSON.stringify(DIRECTION_D_STATES.filter((item) => item.status === "implemented").map((item) => item.key)));
   const status = (key) => DIRECTION_D_STATES.find((item) => item.key === key)?.status;
   check(DIRECTION_D_STATES.every((item) => ["pending", "implemented"].includes(item.status)), "every D state is pending or implemented");
-  check(["today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies"].every((key) => status(key) === "implemented"),
-    "R3b's Today states are enforced");
+  check(["today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies", "today/draft-resume"].every((key) => status(key) === "implemented"),
+    "R3b's Today states and R3b2's unfinished-session state are enforced");
   check(["workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"].every((key) => status(key) === "implemented"),
     "R3g's Why states are enforced");
   check(["session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first"].every((key) => status(key) === "implemented"),
@@ -71,7 +71,7 @@ console.log("\nD-owned state list");
   check(["workout/rest-running", "workout/rest-done"].every((key) => status(key) === "implemented") &&
     !DIRECTION_D_STATES.some((item) => /^workout\/rest-timer/.test(item.key)),
   "R3f's inline rest states are enforced and the retired rest-timer sheet states are in no gate list");
-  check(["today/done", "today/draft-resume"].every((key) => status(key) === "pending"),
+  check(["today/done"].every((key) => status(key) === "pending"),
     "states that still need a drawing, or whose slice has not landed, stay pending");
   // The parity oracle accepts a status's word in either vocabulary; in PT they must be the same words
   // (CONTEXT.md "Session outcome": Melhorou, Manteve, Regressou).

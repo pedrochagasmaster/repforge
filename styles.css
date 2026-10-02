@@ -3107,6 +3107,15 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #logAnotherSession:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
 #logAnotherSession:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 #logAnotherSession:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+/* Today with an unfinished session (Direction D, spec 4.1, OG-6 `today/draft-resume`): a status band above the prescription,
+   two hairlines around a title and where the lifter left off. Its host is always in the flow and empty, so the band
+   measures open from zero height (S2). The band's own margin is held inside the host by `flow-root`, so the measured
+   height is the whole of the band's room and nothing jumps when the run ends. */
+.today-resume{display:flow-root}
+.today-resume__band{display:grid;gap:var(--space-4);margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
+.today-resume__title{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.today-resume__where{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+
 #logAnotherSession:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 
 /* Today prescription (Direction D, spec 4.1): the day's exercises as a table of

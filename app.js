@@ -6352,6 +6352,44 @@ function todayRxHtml(exs){
     `<div class="today-rx" id="todayExList"><div class="today-rx__grid">`+
     `<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`+
     model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
+/* The unfinished-session band (OG-6 `today/draft-resume`, Direction D 4.1): a status line above the prescription that
+   says a session is open and where the lifter left it. It reads the draft and never writes it. The position uses the
+   Focus header's own format (`focus.head.day_ex`) over the draft's exercise order, skipped lifts left out the way
+   `focusList` leaves them out. */
+function draftResumeWhere(){
+  let d=activeWorkoutDraft;
+  if(!d){try{d=JSON.parse(DraftStore.readRaw()||"null")}catch{d=null}}
+  if(!d||typeof d!=="object")return dayLabel(day);
+  if(d.schemaVersion===2&&Array.isArray(d.exerciseOrder)){
+    const live=d.exerciseOrder.filter(id=>d.exercises?.[id]&&d.exercises[id].status!=="skipped");
+    const label=dayLabel(d.program?.dayLabel||day);
+    if(!live.length)return label;
+    return t("focus.head.day_ex",{day:label,n:Math.max(0,live.indexOf(d.session?.selectedExerciseId))+1,m:live.length})}
+  const named=typeof d.__day==="string"&&days().includes(d.__day)?d.__day:day,label=dayLabel(named);
+  const skip=new Set(Array.isArray(d.__skipped)?d.__skipped:[]),live=exercises(named).filter(e=>!skip.has(e.id));
+  if(!live.length)return label;
+  return t("focus.head.day_ex",{day:label,n:Math.max(0,live.findIndex(e=>e.id===d.__selectedExerciseId))+1,m:live.length})}
+/** The band's host stands before Today's session label and is empty (zero height) while no session is open, so the
+ *  first band measures in from nothing (S2: `animateDisclosure`, the R1c vocabulary's `revealIn`). It is made here, not in
+ *  the shell markup, because the band has no meaning before the first render that needs it. */
+function todayResumeHost(){
+  let host=$("#todayResume");if(host)return host;
+  const before=$("#todaySessionLabel");if(!before?.parentNode)return null;
+  host=document.createElement("div");host.id="todayResume";host.className="today-resume";
+  before.parentNode.insertBefore(host,before);return host}
+/** Draw the band while a session is open and Today is the surface in view; take it away otherwise. A render that finds
+ *  the band already there keeps it (and only rewrites it when its words changed, so the status region does not speak
+ *  again); the render that adds it to an empty host measures it open, or draws it at once under reduced motion or
+ *  without the runtime. The Start/Continue label is a separate instant swap in `renderToday`. */
+function renderTodayResume(show){
+  const host=todayResumeHost();if(!host)return;
+  if(!show){host.innerHTML="";host.removeAttribute("style");return}
+  const html=`<div class="today-resume__band" role="status"><span class="today-resume__title">${esc(t("today.resume.title"))}</span>`+
+    `<span class="today-resume__where">${esc(draftResumeWhere())}</span></div>`;
+  if(host.firstElementChild){if(host.innerHTML!==html)host.innerHTML=html;return}
+  const draw=()=>{host.innerHTML=html};
+  if(window.RepForgeMotion?.animateDisclosure)window.RepForgeMotion.animateDisclosure(host,true,draw);
+  else draw()}
 /* Today with nothing behind it. Backing out of onboarding used to land here on
    a bundled program the lifter had never seen, which read as "your training" —
    so the empty device now says it is empty and offers the way back in. Every
@@ -6363,6 +6401,7 @@ function renderTodayNoProgram(){
     "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
   const sess=$("#todaySession");if(sess)sess.innerHTML="";
+  renderTodayResume(false);
   const empty=$("#todayNoProgram");if(empty)empty.classList.remove("hidden");
   // No origin: `startOnboarding` reads first-run against the live state, which
   // is the same reading the gate and Settings' Create program already get.
@@ -6402,6 +6441,9 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const cta=$("#startWorkout")?.querySelector("span");
   if(cta){const key=inProgress?"today.continue":"today.start";
     cta.setAttribute("data-i18n",key);cta.textContent=t(key)}
+  // The band is drawn only while Today is in view: the render that returns from a session is the one that finds it
+  // absent, so that is the render it measures in on. The CTA above is the same condition and an instant text swap.
+  renderTodayResume(inProgress&&!workoutActive);
   const weekEl=$("#todayWeek");if(weekEl){const w=week,{start}=weekRange(today()),letters=weekdayLetters();
     const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
     const cells=letters.map((lab,i)=>{const d=new Date(`${start}T12:00:00`);d.setDate(d.getDate()+i);

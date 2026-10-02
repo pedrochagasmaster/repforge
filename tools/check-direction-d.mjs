@@ -73,6 +73,8 @@ const IMPLEMENTED_D_STATES = new Set([
   "program/overview",
   // R3b: Today, the prescription table, the day picker and the mixed-strategies day.
   "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
+  // R3b2: Today with an unfinished session, the status band drawn in OG-6 round 1 (today/done stays pending until it is built).
+  "today/draft-resume",
   // R3g: Why this weight, the five states, enforced on the sheet (STATE_SCOPES).
   "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
   // R3h: the session summary, the five states, enforced on #sessionSummary (STATE_SCOPES).
