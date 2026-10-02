@@ -69,6 +69,8 @@ const IMPLEMENTED_D_STATES = new Set([
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions",
   // R3j: History's week list with the frequency counts and the calendar sheet, and the session page.
   "history/list", "history/session",
+  // R3j2: the History editor with unsaved changes (the discard question is a sheet).
+  "history/edit-dirty",
   // R3k: the Program overview as a ledger (readiness retired).
   "program/overview",
   // R3b: Today, the prescription table, the day picker and the mixed-strategies day.

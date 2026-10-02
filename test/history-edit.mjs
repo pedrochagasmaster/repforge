@@ -121,15 +121,22 @@ async function main() {
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
     const page = await context.newPage();
-    let dialogDecision = "accept";
+    // Plan 064 R3j2: the discard question is a sheet, so a native dialog is a regression. Any that opens is
+    // dismissed (keep editing) and recorded; the run asserts there were none.
+    const nativeDialogs = [];
     page.on("dialog", async (dialog) => {
-      if (dialogDecision === "dismiss") {
-        dialogDecision = "accept";
-        await dialog.dismiss();
-        return;
-      }
-      await dialog.accept();
+      nativeDialogs.push(dialog.message());
+      await dialog.dismiss();
     });
+    const answerDiscard = async (choice) => {
+      await page.waitForSelector("#historyDiscardSheet.is-open", { timeout: 5000 });
+      await page.locator(choice === "keep" ? "#historyDiscardKeep" : "#historyDiscardDrop").click();
+      await page.waitForSelector("#historyDiscardSheet", { state: "hidden", timeout: 5000 });
+    };
+    const clickDiscarding = async (selector) => {
+      await page.locator(selector).click();
+      await answerDiscard("discard");
+    };
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await clearState(page);
@@ -170,7 +177,7 @@ async function main() {
     }));
     assert(editingA11y.heading.length > 0 && editingA11y.status.length > 0 && editingA11y.role === "status" && editingA11y.focused,
       "entering History Edit announces and focuses the editing state", editingA11y);
-    const editorName = await page.locator('.session--edit[data-editing="history-edit-a"] .edrow__name').first().textContent();
+    const editorName = await page.locator('.session--edit[data-editing="history-edit-a"] .edgroup__name').first().textContent();
     assert(editorName?.includes("A Very Long Exercise Name That Must Remain Whole"),
       "The characterized editor exposes the complete exercise identity", editorName);
 
@@ -182,7 +189,7 @@ async function main() {
       "Typing an edit field makes zero durable change before Save",
       JSON.stringify({ localChanged: canonical(afterTyping.local) !== canonical(beforeEdit.local), idbChanged: canonical(afterTyping.idb) !== canonical(beforeEdit.idb) }));
 
-    await page.locator("[data-edcancel]").click();
+    await clickDiscarding("[data-edcancel]");
     await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
     assert(await page.evaluate(() => document.activeElement?.matches?.('[data-history-edit="history-edit-a"]') || false),
       "Cancel restores focus to the selected session Edit action");
@@ -222,7 +229,8 @@ async function main() {
     await page.locator('[data-history-edit="history-edit-a"]').click();
     const poundInput = page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first();
     await poundInput.fill("100");
-    await page.locator('nav button[data-view="log"]').click();
+    // The dock is hidden while a session is edited (R3j2), so the route changes the way a notification or a deep link would.
+    await page.evaluate(() => document.querySelector('nav button[data-view="log"]').click());
     await page.locator('nav button[data-view="history"]').click();
     await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
     const rerenderedPounds = await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().inputValue();
@@ -243,7 +251,8 @@ async function main() {
     await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
     await page.locator('[data-history-edit="history-edit-a"]').click();
     await page.locator('.session--edit[data-editing="history-edit-a"] [data-edrm="1"]').click();
-    await page.locator('nav button[data-view="log"]').click();
+    // The dock is hidden while a session is edited (R3j2), so the route changes the way a notification or a deep link would.
+    await page.evaluate(() => document.querySelector('nav button[data-view="log"]').click());
     await page.locator('nav button[data-view="history"]').click();
     await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
     const removedAfterRender = await page.evaluate(() => {
@@ -268,8 +277,8 @@ async function main() {
     await page.locator('[data-history-edit="history-edit-a"]').click();
     const dirtyBeforeDelete = page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first();
     await dirtyBeforeDelete.fill("175");
-    dialogDecision = "dismiss";
     await page.locator('.session--edit[data-editing="history-edit-a"] [data-del="history-edit-a"]').click();
+    await answerDiscard("keep");
     await page.waitForFunction(() => document.querySelector('.session--edit[data-editing="history-edit-a"]') || document.querySelector('[data-history-delete-confirm="history-edit-a"]'), undefined, { timeout: 5000 });
     const retainedDirtyEdit = await page.locator('.session--edit[data-editing="history-edit-a"]').count() === 1 &&
       await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().inputValue() === "175";
@@ -278,7 +287,7 @@ async function main() {
     // Retry must remain under the durable owner. Blocking only WAL cleanup makes
     // replica equality look successful to the old UI even though settlement is
     // still pending.
-    if (retainedDirtyEdit) await page.locator('[data-edcancel]').click();
+    if (retainedDirtyEdit) await clickDiscarding('[data-edcancel]');
     else await page.locator('[data-history-delete-cancel]').click();
     await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
     await writeState(page, historyBaseline);
@@ -341,7 +350,7 @@ async function main() {
     });
     const pendingSave = page.locator('[data-edsave="history-edit-a"]').click();
     await page.waitForFunction(() => typeof window.__historyCommitGate?.release === "function", undefined, { timeout: 5000 });
-    await page.locator('[data-history-back]').click();
+    await clickDiscarding('[data-history-back]');
     await page.locator('#sessions [data-sess="history-other"] .session__open').click();
     await page.locator('[data-history-edit="history-other"]').click();
     const newerInput = page.locator('.session--edit[data-editing="history-other"] input[data-ek^="load|"]').first();
@@ -356,8 +365,7 @@ async function main() {
     });
     assert(await page.locator('.session--edit[data-editing="history-other"]').count() === 1 && await newerInput.inputValue() === "222",
       "A stale History completion cannot replace a newer dirty selection");
-    dialogDecision = "accept";
-    await page.locator('[data-edcancel]').click();
+    await clickDiscarding('[data-edcancel]');
     await page.waitForSelector('.session--read[data-reading="history-other"]', { timeout: 5000 });
 
     // The already-committed recovery branch also awaits durable settlement.
@@ -384,7 +392,7 @@ async function main() {
     });
     const pendingAlreadyCommitted = page.locator('[data-edsave="history-edit-a"]').click();
     await page.waitForFunction(() => typeof window.__historySettlementGate?.release === "function", undefined, { timeout: 5000 });
-    await page.locator('[data-history-back]').click();
+    await clickDiscarding('[data-history-back]');
     await page.waitForSelector('#historyCalBtn:not(.hidden)', { timeout: 5000 });
     await page.locator('#sessions [data-sess="history-other"] .session__open').click();
     await page.locator('[data-history-edit="history-other"]').click();
@@ -483,11 +491,12 @@ async function main() {
       io.writeIdb = original.writeIdb;
       delete window.__historyFaultOriginal;
     });
-    dialogDecision = "dismiss";
     await page.locator('[data-history-back]').click();
+    await answerDiscard("keep");
     await page.waitForSelector('[data-history-operation="failure"]', { timeout: 5000 });
-    assert(dialogDecision === "accept", "Back from a dirty failed edit requires explicit discard confirmation");
-    await page.locator('[data-history-back]').click();
+    assert(await page.locator('[data-history-operation="failure"]').count() === 1,
+      "Back from a dirty failed edit requires explicit discard confirmation");
+    await clickDiscarding('[data-history-back]');
     await page.waitForSelector('#historyCalBtn:not(.hidden)', { timeout: 5000 });
     const calendarFocus = await page.evaluate(() => document.activeElement?.matches?.('[data-sess="history-edit-a"] .session__open') || false);
     assert(calendarFocus, "Back from History selection returns focus to the selected calendar session");
@@ -688,12 +697,103 @@ async function main() {
       "A02 invalid RIR is rejected and does not upgrade provenance");
 
     await editor("a02-old").locator('input[data-ek="rir|0"]').fill("2");
-    await page.locator('[data-edcancel]').click();
+    await clickDiscarding('[data-edcancel]');
     await page.waitForSelector('.session--read[data-reading="a02-old"]', { timeout: 5000 });
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterA02Cancel = await readReplicas(page);
     assert(canonical(afterA02Cancel.local) === canonical(beforeInvalid.local) && canonical(afterA02Cancel.idb) === canonical(beforeInvalid.idb),
       "A02 cancelled RIR edit persists nothing");
+
+    // Plan 064 R3j2: the dirty editor on Direction D. Groups, a quiet remove with Undo, the dock hidden with
+    // Cancel and Save pinned, and the discard question as a sheet instead of the native confirm.
+    await seedA02(a02Controls());
+    await openEdit("a02-old");
+    const layoutA = await page.evaluate(() => {
+      const card = document.querySelector('.session--edit[data-editing="a02-old"]');
+      const rm = card.querySelector(".edrow__rm");
+      const rmStyle = getComputedStyle(rm);
+      const bar = card.querySelector(".histedit__bar").getBoundingClientRect();
+      return {
+        groups: card.querySelectorAll(".histedit__lift").length,
+        names: [...card.querySelectorAll(".edgroup__name")].map((el) => el.textContent.trim()),
+        rows: card.querySelectorAll(".edrow").length,
+        perRowNames: card.querySelectorAll(".edrow__name").length,
+        navShown: getComputedStyle(document.querySelector("nav")).display !== "none",
+        barBottom: Math.round(innerHeight - bar.bottom),
+        rmGlyph: rm.textContent.trim(), rmBorder: rmStyle.borderTopColor, rmBg: rmStyle.backgroundColor,
+        rmInk: rmStyle.color, ink: getComputedStyle(document.documentElement).getPropertyValue("--color-ink").trim(),
+        saveArrow: getComputedStyle(card.querySelector("[data-edsave]"), "::after").content,
+      };
+    });
+    assert(layoutA.groups === 1 && layoutA.names.length === 1 && layoutA.rows === 3 && layoutA.perRowNames === 0,
+      "R3j2: the editor names the lift once for its group of sets, not on every row", JSON.stringify(layoutA));
+    assert(!layoutA.navShown && layoutA.barBottom === 0,
+      "R3j2: the dock is hidden and Cancel/Save are pinned to the bottom edge while a session is edited", JSON.stringify(layoutA));
+    assert(layoutA.rmGlyph === "×" && layoutA.rmBorder === "rgba(0, 0, 0, 0)" && layoutA.rmBg === "rgba(0, 0, 0, 0)" && layoutA.saveArrow === "none",
+      "R3j2: the remove control is a quiet ink × (no box, no destructive colour) and Save carries no CTA arrow", JSON.stringify(layoutA));
+
+    // Nothing asks while nothing changed.
+    await page.locator("[data-edcancel]").click();
+    await page.waitForSelector('.session--read[data-reading="a02-old"]', { timeout: 5000 });
+    assert(await page.locator("#historyDiscardSheet.is-open").count() === 0, "R3j2: Cancel on an unchanged editor leaves without asking");
+    await openEdit("a02-old");
+
+    await editor("a02-old").locator('[data-edrm="1"]').click();
+    const struck = await page.evaluate(() => {
+      const row = document.querySelector('.session--edit .edrow[data-edidx="1"]');
+      const input = row.querySelector(".edrow__in");
+      return {
+        removed: row.classList.contains("is-removed"), line: getComputedStyle(input).textDecorationLine, visible: getComputedStyle(input).visibility,
+        idx: getComputedStyle(row.querySelector(".ledgerline__idx")).textDecorationLine,
+        undo: row.querySelector("[data-edrm]").textContent.trim(), aria: row.querySelector("[data-edrm]").getAttribute("aria-label"),
+      };
+    });
+    assert(struck.removed && struck.line.includes("line-through") && struck.idx.includes("line-through") && struck.visible === "visible" && struck.undo === "↺",
+      "R3j2: a removed set stays on the page struck through, with Undo in place", JSON.stringify(struck));
+    await editor("a02-old").locator('[data-edrm="1"]').click();
+
+    // The discard question: once changed, Cancel asks in a sheet.
+    await editor("a02-old").locator('input[data-ek="load|0"]').fill("77");
+    await page.locator("[data-edcancel]").click();
+    await page.waitForSelector("#historyDiscardSheet.is-open", { timeout: 5000 });
+    const ask = await page.evaluate(() => {
+      const sheet = document.querySelector("#historyDiscardSheet");
+      return {
+        role: sheet.getAttribute("role"), modal: sheet.getAttribute("aria-modal"),
+        title: document.getElementById(sheet.getAttribute("aria-labelledby"))?.textContent.trim(),
+        keep: document.querySelector("#historyDiscardKeep")?.textContent.trim(), drop: document.querySelector("#historyDiscardDrop")?.textContent.trim(),
+        focus: document.activeElement?.id, behindInert: document.querySelector("main")?.inert === true,
+        keepBg: getComputedStyle(document.querySelector("#historyDiscardKeep")).backgroundColor,
+        dropInk: getComputedStyle(document.querySelector("#historyDiscardDrop")).color,
+      };
+    });
+    assert(ask.role === "dialog" && ask.modal === "true" && /^Discard these unsaved changes\?$/.test(ask.title) &&
+      ask.keep === "Keep editing" && ask.drop === "Discard changes" && ask.focus === "historyDiscardKeep" && ask.behindInert,
+    "R3j2: the discard question is a modal sheet that starts on Keep editing, with the page behind it inert", JSON.stringify(ask));
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#historyDiscardSheet", { state: "hidden", timeout: 5000 });
+    const keptByEscape = await page.evaluate(() => ({
+      value: document.querySelector('.session--edit input[data-ek="load|0"]')?.value,
+      focus: document.activeElement?.matches("[data-edcancel]"),
+      scrollLocked: document.body.classList.contains("is-sheet-open"),
+    }));
+    assert(keptByEscape.value === "77" && keptByEscape.focus && !keptByEscape.scrollLocked,
+      "R3j2: Escape on the discard question is Keep editing: the value stays and focus returns to Cancel", JSON.stringify(keptByEscape));
+    await page.locator("[data-history-back]").click();
+    await page.waitForSelector("#historyDiscardSheet.is-open", { timeout: 5000 });
+    await page.locator("#historyDiscardScrim").click({ position: { x: 5, y: 5 } });
+    await page.waitForSelector("#historyDiscardSheet", { state: "hidden", timeout: 5000 });
+    assert(await editor("a02-old").locator('input[data-ek="load|0"]').inputValue() === "77",
+      "R3j2: Back asks the same question, and a tap on the scrim keeps editing");
+    const beforeDiscard = await readReplicas(page);
+    await page.locator("[data-edcancel]").click();
+    await answerDiscard("discard");
+    await page.waitForSelector('.session--read[data-reading="a02-old"]', { timeout: 5000 });
+    const afterDiscard = await readReplicas(page);
+    assert(canonical(afterDiscard.local) === canonical(beforeDiscard.local) && canonical(afterDiscard.idb) === canonical(beforeDiscard.idb) &&
+      afterDiscard.local.log.find((row) => row.session === "a02-old" && row.set === 1).load === 50,
+    "R3j2: Discard changes returns to the saved session and writes nothing");
+    assert(nativeDialogs.length === 0, "R3j2: no native confirm opened anywhere in the History editor", JSON.stringify(nativeDialogs));
 
     await context.close();
   } finally {

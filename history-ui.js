@@ -226,9 +226,49 @@ function historyFocusFailure(mode){
   return historyFocus($('[data-history-operation="'+CSS.escape(mode)+'"] h3'))}
 function historyFocusEditing(){
   return historyFocus($("[data-history-editing-heading]"))}
-function historyBackToCalendar(){
+// ---- The discard question (Plan 064 R3j2) ----
+// Leaving an edit with unsaved changes asks in a sheet, not the native confirm:
+// "Keep editing" is the first and default choice, and Escape, the scrim and a
+// downward swipe all mean it. The page behind the sheet is inert while it is open.
+let historyDiscardAsk=null;
+function historyDiscardParts(){
+  let sheet=$("#historyDiscardSheet"),scrim=$("#historyDiscardScrim");
+  if(sheet&&scrim)return{sheet,scrim};
+  scrim=document.createElement("div");scrim.id="historyDiscardScrim";scrim.className="sheet-scrim hidden";
+  sheet=document.createElement("div");sheet.id="historyDiscardSheet";sheet.className="sheet sheet--discard hidden";
+  sheet.setAttribute("role","dialog");sheet.setAttribute("aria-modal","true");sheet.setAttribute("aria-labelledby","historyDiscardTitle");sheet.hidden=true;
+  sheet.innerHTML='<div class="sheetband"><span class="sheetband__handle" aria-hidden="true"></span><h2 class="sheetband__title" id="historyDiscardTitle"></h2></div>'+
+    '<div class="sheetfoot"><button type="button" id="historyDiscardKeep"></button><button type="button" id="historyDiscardDrop"></button></div>';
+  document.body.append(scrim,sheet);
+  return{sheet,scrim}}
+/** Resolves true to discard, false to keep editing. One question at a time. */
+function historyConfirmDiscard(){
+  if(historyDiscardAsk)return historyDiscardAsk;
+  if(typeof deps.openModal!=="function"||typeof deps.closeModal!=="function")return Promise.resolve(false);
+  const {sheet,scrim}=historyDiscardParts();
+  $("#historyDiscardTitle").textContent=t("history.confirm.discard_changes");
+  const keep=$("#historyDiscardKeep"),drop=$("#historyDiscardDrop");
+  keep.textContent=t("history.edit.keep_editing");drop.textContent=t("history.edit.discard_changes");
+  historyDiscardAsk=new Promise(resolve=>{
+    let settled=false;
+    const finish=async discard=>{
+      if(settled)return;settled=true;
+      await deps.closeModal(sheet);
+      historyDiscardAsk=null;resolve(discard)};
+    keep.onclick=()=>finish(false);drop.onclick=()=>finish(true);scrim.onclick=()=>finish(false);
+    const reduced=typeof deps.reducedMotion==="function"&&deps.reducedMotion();
+    document.body.classList.add("is-sheet-open");
+    const opened=deps.openModal(sheet,{onEscape:()=>finish(false),scrim,returnFocus:document.activeElement,initialFocus:keep,delayHide:reduced?0:280});
+    if(opened===false){document.body.classList.remove("is-sheet-open");settled=true;historyDiscardAsk=null;resolve(false);return}
+    requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
+  return historyDiscardAsk}
+/** True when the lifter agreed to drop the unsaved changes of this session. */
+async function historyDiscardAgreed(sid){
+  const agreed=await historyConfirmDiscard();
+  return agreed&&String(historySelection.sessionId)===String(sid)}
+async function historyBackToCalendar(){
   const sid=historySelection.sessionId;
-  if(historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
+  if(historySelection.dirty&&!await historyDiscardAgreed(sid))return false;
   historySetSelection(emptyHistorySelection());
   renderHistory();
   historyFocus(historyCalendarAction(sid)||$("#historyRecentLabel"));historyOutcome("cancel","success");
@@ -374,9 +414,11 @@ async function historyRetryEdit(){
   const result=await historyEditCommit(sid,proposed,original);
   await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result?.committed===true&&result?.settled===true}
-function historyBeginDelete(sid){
+async function historyBeginDelete(sid){
   const rows=historySessionRows(state.log,sid);if(!rows.length)return false;
-  if(historySelection.mode==="editing"&&historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
+  if(historySelection.mode==="editing"&&historySelection.dirty){
+    const editing=historySelection.sessionId;
+    if(!await historyDiscardAgreed(editing))return false}
   const selected=String(historySelection.sessionId)===String(sid)&&typeof historySelection.originalFingerprint==="string"&&historySelection.originalFingerprint;
   historySetSelection({mode:"deleting",sessionId:String(sid),originalFingerprint:selected||historySessionFingerprint(rows),
     desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
@@ -497,9 +539,9 @@ function bindHistoryEditRows(){
       row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false);historySelection.dirty=true}});
   $(".session--edit")?.addEventListener("input",historyApplyWorkingInput);
 }
-function historyCancelOperation(){
+async function historyCancelOperation(){
   const sid=historySelection.sessionId;
-  if(historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
+  if(historySelection.dirty&&!await historyDiscardAgreed(sid))return false;
   const next=historySelectionFor(historySelection.sessionId);
   historySetSelection(next||emptyHistorySelection());
   renderHistory();
@@ -714,12 +756,13 @@ function renderHistory(source=state.log){
     // The session page owns the whole top of the view; the edit, delete and
     // conflict states keep the head they have always had.
     $("#history")?.classList.toggle("is-session-page",mode==="reading");
-    selectionEl.innerHTML=mode==="reading"?historySessionHead(record)
+    $("#history")?.classList.toggle("is-session-edit",mode==="editing");
+    selectionEl.innerHTML=mode==="reading"?historySessionHead(record):mode==="editing"?historyEditHead()
       :`<div class="history-selection__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
       `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3 data-history-selection-heading tabindex="-1">${esc(longDate)}</h3></div></div>`;
     $("#sessions").innerHTML=body;$("#historyTable").innerHTML="";
     bindHistorySelection();return}
-  $("#history")?.classList.remove("is-session-page");
+  $("#history")?.classList.remove("is-session-page","is-session-edit");
   recent?.classList.remove("hidden");tableDetails?.classList.remove("hidden");
   listControls.forEach(b=>b?.classList.remove("hidden"));selectionEl?.classList.add("hidden");selectionEl&&(selectionEl.innerHTML="");
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
@@ -751,24 +794,43 @@ function setEdrowRmState(btn,removed){
   const glyph=btn.querySelector(".edrow__rm-glyph")||btn;
   glyph.textContent=removed?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}
 
+// The editor is the session page turned into a form (Plan 064 R3j2): the lift's name once
+// per group, one ledger row per set with load, reps and RIR inputs and a quiet remove, the
+// date as a field, and Cancel and Save pinned on a shelf with the dock hidden. A removed
+// row stays on the page, struck through, until Undo or Save.
+function historyEditHead(){
+  return`<div class="histpage__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button></div>`}
 function sessionEditor(s,sets){
   const removed=new Set((historySelection.removedRowIndices||[]).map(Number));
-  const rows=sets.map((r,i)=>{
-    const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set");
-    return `<div class="edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}"${disabled}>`+
-      `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}"${disabled}>`+
-      `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}"${disabled}>`+
-      `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
-  return `<div class="session session--edit" data-editing="${esc(s.session)}" data-history-state="editing">`+
-    `<h4 class="history-editing__heading" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</h4>`+
-    `<p class="history-editing__status" data-history-editing-status role="status" aria-live="polite">${esc(t("history.editing_status"))}</p>`+
-    `<div class="edhead"><div class="session__day">${esc(dayLabel(s.day))}</div>`+
-    `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(sets[0]?.date||s.date)}"></label></div>`+
-    `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
-    `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
-    `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div>`+
-    `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></div>`;
+  const groups=[];
+  // Consecutive sets of one lift share a group, so the DOM keeps the working copy's order.
+  sets.forEach((r,i)=>{
+    const key=liftKey(r),last=groups[groups.length-1];
+    if(last&&last.key===key)last.rows.push({r,i});else groups.push({key,rows:[{r,i}]})});
+  const lifts=groups.map(g=>{
+    const name=displayName(g.rows[0].r);
+    const rows=g.rows.map(({r,i})=>{
+      const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set"),
+        mark=r.warmup?"W"+r.set:r.set,aria=`${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
+      return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
+        `<span class="ledgerline__vals edrow__vals">`+
+        `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
+        `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${aria} ${esc(t("log.reps"))}"${disabled}>`+
+        `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("glossary.term.RIR"))}"${disabled}></span>`+
+        `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
+    return`<section class="histlift histedit__lift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name edgroup__name">${esc(name)}</h3></div>${rows}</section>`}).join("");
+  return`<div class="session session--edit histedit" data-editing="${esc(s.session)}" data-history-state="editing">`+
+    `<p class="histedit__eyebrow" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</p>`+
+    `<h2 class="page-title histpage__title">${esc(dayLabel(s.day))}</h2>`+
+    `<p class="histpage__lede" data-history-editing-status role="status" aria-live="polite">${esc(t("history.editing_status"))}</p>`+
+    `<div class="histedit__date"><label class="sheetfield"><span class="sheetfield__cap">${esc(t("stats.table.date"))}</span>`+
+    `<input class="sheetfield__input" data-ed="date" type="date" value="${esc(sets[0]?.date||s.date)}"></label></div>`+
+    `<div class="ledgerline__head histedit__cols"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals edrow__vals">`+
+    `<span class="fx-col">${unitLabel()}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span></span><span></span></div>`+
+    lifts+
+    `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div>`+
+    `<div class="histedit__bar workshelf"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
+    `<button type="button" class="btn btn--cta btn--noarrow" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div></div>`;
 }
 
 // The editor is a volatile projection. Its commit path validates the exact

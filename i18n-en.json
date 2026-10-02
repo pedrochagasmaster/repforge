@@ -262,6 +262,8 @@
   "history.edit.remove_set": "Remove set",
   "history.edit.undo_remove": "Undo remove",
   "history.edit.keep_one": "Keep at least one set, or delete the whole session.",
+  "history.edit.keep_editing": "Keep editing",
+  "history.edit.discard_changes": "Discard changes",
   "history.confirm.delete_session": "Delete this session? This cannot be undone.",
   "history.confirm.discard_changes": "Discard these unsaved changes?",
   "exercise.aria": "Exercise detail",

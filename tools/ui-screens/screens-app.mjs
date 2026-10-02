@@ -258,7 +258,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
-  "history/list", "history/session", // R3j
+  "history/list", "history/session", "history/edit-dirty", // R3j, R3j2
   "program/overview", // R3k
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
@@ -1118,7 +1118,10 @@ export const APP_SCENARIOS = {
   },
   "history/edit-dirty": async (page) => {
     await openHistoryEditor(page);
-    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("175");
+    // The drawing: the first set's load changed to 105 and the squat's third set removed (struck
+    // through, with Undo). The load is filled last so the changed field keeps the ink ring.
+    await page.locator('.session--edit [data-edrm="2"]').click();
+    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("105");
     await sleep(page, 500);
   },
   "history/edit-invalid": async (page) => {

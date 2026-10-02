@@ -5908,8 +5908,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Deletes or discards user-controlled work and needs destructive treatment.",
-      "owner": "plan-058",
+      "rationale": "Stages the removal of one set from the editor's working copy; nothing is written until Save. Drawn as a quiet ink × with an Undo in place (OG-6 round 2). The role is by meaning: it removes user-entered work.",
+      "owner": "plan-064/r3j2",
       "catalogStates": [
         "history/edit-dirty",
         "history/edit-invalid"
@@ -7396,7 +7396,7 @@
       "states": [
         "default"
       ],
-      "rationale": "Ledger sets still to do are flat read-only data on one decorative hairline per break, in soft ink with the previous session's matching set as a second line. A logged set is its own row (ledgerline-done) because tapping it reopens the set; the open or corrected row is ledgerline-open (OG-4).",
+      "rationale": "Ledger sets still to do are flat read-only data on one decorative hairline per break, in soft ink with the previous session's matching set as a second line. A logged set is its own row (ledgerline-done) because tapping it reopens the set; the open or corrected row is ledgerline-open (OG-4). The History editor's set rows sit on the same flat ledger, with the three value inputs and the quiet remove in place of read-only values (R3j2).",
       "owner": "plan-064/r1a",
       "catalogStates": [
         "workout/correction",
@@ -7406,7 +7406,9 @@
         "workout/stale-draft",
         "history/session",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "history/edit-dirty",
+        "history/edit-invalid"
       ]
     },
     {
@@ -7590,7 +7592,7 @@
       "states": [
         "default"
       ],
-      "rationale": "The workout shelf keeps the set-logging actions reachable under Focus: persistent-action with a shallow top edge and the persistent depth, the existing prominent top radius, and no second raised card inside. Within it the field and adjustment roles take the drawn grounds (well and page ground); fields, pads and the primary action are separate rows added by the slice that renders them (OG-4).",
+      "rationale": "The workout shelf keeps the set-logging actions reachable under Focus: persistent-action with a shallow top edge and the persistent depth, the existing prominent top radius, and no second raised card inside. Within it the field and adjustment roles take the drawn grounds (well and page ground); fields, pads and the primary action are separate rows added by the slice that renders them (OG-4). The History editor pins Cancel and Save on the same shelf with the dock hidden (R3j2).",
       "owner": "plan-064/r1b",
       "catalogStates": [
         "workout/correction",
@@ -7599,7 +7601,9 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "history/edit-dirty",
+        "history/edit-invalid"
       ]
     },
     {
@@ -8458,6 +8462,114 @@
       "owner": "plan-064/r3f",
       "catalogStates": [
         "workout/rest-running"
+      ]
+    },
+    {
+      "id": "histedit-date",
+      "selector": "[data-ed=\"date\"]",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Accepts or edits an explicit value: the session's date in the History editor, on the shared sheet field.",
+      "owner": "plan-064/r3j2",
+      "catalogStates": [
+        "history/edit-dirty",
+        "history/edit-invalid"
+      ]
+    },
+    {
+      "id": "historydiscardsheet",
+      "selector": "#historyDiscardSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the underlying route with dialog semantics while the discard question is open.",
+      "owner": "plan-064/r3j2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the discard question opens from Cancel, Back or Delete when the History editor holds unsaved changes, and the catalog state history/edit-dirty is the editor with the question closed. The history-edit and accessibility suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/edit-dirty"
+      ]
+    },
+    {
+      "id": "historydiscardscrim",
+      "selector": "#historyDiscardScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind the discard question; a tap on it keeps editing.",
+      "owner": "plan-064/r3j2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the discard question opens from Cancel, Back or Delete when the History editor holds unsaved changes, and the catalog state history/edit-dirty is the editor with the question closed. The history-edit and accessibility suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/edit-dirty"
+      ]
+    },
+    {
+      "id": "historydiscardkeep",
+      "selector": "#historyDiscardKeep",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Keeps the unsaved edit open: the strongest action on the sheet and the one focus starts on.",
+      "owner": "plan-064/r3j2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the discard question opens from Cancel, Back or Delete when the History editor holds unsaved changes, and the catalog state history/edit-dirty is the editor with the question closed. The history-edit and accessibility suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/edit-dirty"
+      ]
+    },
+    {
+      "id": "historydiscarddrop",
+      "selector": "#historyDiscardDrop",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Discards the unsaved changes and returns to the saved session; the confirmation stays explicit.",
+      "owner": "plan-064/r3j2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the discard question opens from Cancel, Back or Delete when the History editor holds unsaved changes, and the catalog state history/edit-dirty is the editor with the question closed. The history-edit and accessibility suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/edit-dirty"
       ]
     }
   ],

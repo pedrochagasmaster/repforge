@@ -1742,7 +1742,7 @@ body.is-sheet-open{overflow:hidden}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
    The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d),
    and so does the Why sheet (R3g); the rest sheet keeps its own head until its slice lands. */
-#sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet{
+#sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet,#historyDiscardSheet{
   background:var(--color-surface);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;
   box-shadow:var(--elevation-modal-shadow);
 }
@@ -1791,7 +1791,7 @@ body.is-sheet-open{overflow:hidden}
    One band (.sheetband) heads each sheet; the body scrolls under a pinned foot; groups are hairline
    bands, never cards; fields are the shared field control with the quiet selected (ink) ring. */
 .sheet--session,.sheet--exactions{height:auto;max-height:85vh;display:flex;flex-direction:column}
-.sheet--note{height:auto;display:flex;flex-direction:column}
+.sheet--note,.sheet--discard{height:auto;display:flex;flex-direction:column}
 .session-sheet__body,.exactions-sheet__body,.sheetbody{
   flex:1 8 auto;min-height:0;display:flex;flex-direction:column;
   overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:0 16px var(--space-16);
@@ -1906,14 +1906,14 @@ textarea.sheetfield__input{
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-:is(#sessionEarlyConfirm,#exNoteSave){
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep){
   min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
   background:var(--control-primary-bg);color:var(--control-primary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
-:is(#sessionEarlyConfirm,#exNoteSave):hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
-:is(#sessionEarlyConfirm,#exNoteSave):active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
-:is(#sessionEarlyConfirm,#exNoteSave):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-:is(#sessionEarlyConfirm,#exNoteSave):disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep):hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep):active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep):disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
 :is(#sessionEarlyCancel,#exNoteCancel){
   min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
@@ -1922,6 +1922,16 @@ textarea.sheetfield__input{
 :is(#sessionEarlyCancel,#exNoteCancel):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyCancel,#exNoteCancel):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyCancel,#exNoteCancel):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+/* The History discard question (Plan 064 R3j2): Keep editing is the primary choice above, Discard
+   changes the destructive one below it. */
+#historyDiscardDrop{
+  min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
+  background:var(--control-destructive-bg);color:var(--control-destructive-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+}
+#historyDiscardDrop:hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
+#historyDiscardDrop:active:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
+#historyDiscardDrop:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#historyDiscardDrop:disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #restSheetClose,#whyClose{
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
@@ -2882,33 +2892,48 @@ button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;co
 #history .history-selection__date{margin-left:auto;text-align:right}
 #history .history-selection__date .section-label{margin:0}
 #history .history-selection__date h3{margin:2px 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-#history .history-editing__heading{margin:0 0 4px;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-#history .history-editing__status{margin:0 0 14px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 #history .history-delete__icon{display:grid;place-items:center;width:40px;height:40px;margin-bottom:12px;border:1px solid var(--boundary-required);border-radius:var(--radius-round);color:var(--color-destructive);font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight)}
 #history .history-operation{padding:16px 0}
 #history .session--delete h3,#history .history-operation h3{margin:0 0 8px;font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 #history .session--delete>p,#history .history-operation>p{margin:0 0 14px;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#history .edhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
-#history .edate{display:flex;flex-direction:column;align-items:flex-end;gap:0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);text-transform:uppercase;letter-spacing:.08em;color:var(--color-ink-secondary)}
-#history .edate input{width:auto;margin-top:5px;padding:9px 11px;font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-regular);line-height:var(--line-standard);background:var(--control-field-bg);border-color:var(--control-field-boundary);border-radius:var(--radius-control);color:var(--control-field-ink)}
-#history .edrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) var(--control-target);gap:8px;align-items:center;margin-top:8px}
-#history .edrow--head span{text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-language);font-size:var(--font-size-label);line-height:var(--line-standard);color:var(--color-ink-secondary);text-align:center;font-weight:var(--weight-semibold)}
-#history .edrow--head span:first-child{text-align:left}
-#history .edrow__name{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink);min-width:0;overflow-wrap:anywhere;white-space:normal;word-break:break-word}
-#history .edrow__name small{font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#history .edrow__in{width:100%;min-width:0;margin-top:0;text-align:center;font-family:var(--font-training-data);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);font-variant-numeric:tabular-nums;padding:9px 4px;background:var(--control-field-bg);border-color:var(--control-field-boundary);border-radius:var(--radius-control);color:var(--control-field-ink)}
-#history .edrow__rm{justify-self:end;display:inline-flex;align-items:center;justify-content:center;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);flex:none;padding:0;cursor:pointer;border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);background:var(--control-destructive-bg);color:var(--control-destructive-ink);font-family:var(--font-language);font-size:var(--control-icon-size);line-height:var(--line-tight)}
-#history .edrow__rm.is-undo{color:var(--color-action-text);border-color:var(--boundary-required);font-size:var(--control-icon-size)}
-#history .edrow__rm-glyph{display:block;pointer-events:none}
-#history .edrow.is-removed .edrow__name{text-decoration:line-through;text-decoration-color:var(--color-ink-secondary)}
-#history .edrow.is-removed .edrow__in{visibility:hidden}
 input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-deep);outline-offset:1px}
 #history .edbtns{display:flex;gap:10px;margin-top:14px}
 #history .edbtns .btn{flex:1;min-width:0;padding:12px;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
 /* Throwing the session away sits after the edits and under a rule, so the eye
    reaches Save first and never lands on it while aiming for something else. */
-#history .edrisk{display:flex;justify-content:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--boundary-decorative)}
+#history .edrisk{display:flex;justify-content:center;margin-top:var(--space-18)}
 #history .edrisk .session__del{padding:10px 12px}
+
+/* ---- History edit (Plan 064 R3j2) ----
+   The session page turned into a form: the lift's name once per group, a ledger row per set
+   with three inputs and a quiet ink remove, the date as the shared field, and Cancel and Save
+   pinned on the persistent shelf with the dock hidden. The selected field wears the quiet ink
+   ring, an invalid one the error boundary with its reason under the row. */
+#history .session--edit.histedit{padding:0;border-bottom:0}
+#history .histedit__eyebrow{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+#history .histedit__eyebrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+#history .histedit .histpage__title{margin-top:var(--space-4)}
+#history .histedit__date{max-width:14rem;margin-top:var(--space-14)}
+#history .histedit__cols{margin-top:var(--space-18);min-height:var(--control-target);align-items:center}
+#history .histedit__cols,#history .histedit .edrow{grid-template-columns:2.5rem minmax(0,1fr) var(--control-target);column-gap:var(--space-8);padding-inline:0}
+#history .histedit__cols .ledgerline__vals{letter-spacing:0;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;text-transform:inherit;color:inherit}
+#history .histedit .edrow__vals{display:grid;grid-template-columns:repeat(auto-fit,minmax(3.75rem,1fr));gap:var(--space-8);justify-content:stretch}
+#history .histedit .edrow__vals>.fx-col{min-width:0;text-align:right;padding-right:var(--space-8)}
+#history .histedit .edrow{min-height:0;padding-block:var(--space-4);border-bottom:0}
+#history .histedit__lift{padding-bottom:var(--space-4)}
+#history .histedit__lift .histlift__head{margin-bottom:var(--space-4)}
+#history .edrow__in{width:100%;min-width:0;min-height:var(--control-target);margin:0;padding:0 var(--space-8);text-align:right;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);background:var(--control-field-bg);color:var(--control-field-ink);font-family:var(--font-training-data);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);font-variant-numeric:tabular-nums;caret-color:var(--color-ink)}
+#history .edrow__rm{justify-self:end;display:inline-flex;align-items:center;justify-content:center;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);flex:none;margin:0;padding:0;cursor:pointer;border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--control-icon-size);line-height:var(--line-tight)}
+#history .edrow__rm-glyph{display:block;pointer-events:none}
+#history .edrow.is-removed .ledgerline__idx{text-decoration:line-through;color:var(--color-disabled-reason)}
+#history .edrow.is-removed .edrow__in{text-decoration:line-through}
+/* The pinned shelf: Cancel the smaller, Save the larger, the dock gone beneath it. */
+#history .histedit__bar{position:fixed;z-index:26;left:50%;transform:translateX(-50%);bottom:var(--kb,0px);width:min(100%,var(--maxw));grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));align-items:stretch;box-sizing:border-box}
+#history .histedit__bar .btn{width:100%;min-height:var(--control-target);margin:0;padding:var(--space-12) var(--space-16);white-space:normal;overflow-wrap:break-word}
+#history.is-session-edit{padding-bottom:calc(9rem + env(safe-area-inset-bottom,0px))}
+body:has(#history.view.active.is-session-edit) nav{display:none}
+body:has(#history.view.active.is-session-edit)::after{content:none}
+body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inset-bottom,0px)}
 
 
 @keyframes rise{from{opacity:0}to{opacity:1}}
@@ -3019,7 +3044,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   .vrow{grid-template-columns:1fr auto}
   .stepbtn{width:var(--control-target);min-width:var(--control-target);font-size:var(--control-icon-size)}
   .saveset{min-width:44px;padding:0 4px}
-  #history .edrow{grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) var(--control-target);gap:6px}
 }
 
 /* ---- Shell class aliases (HTML / renderToday) ---- */
@@ -6253,32 +6277,27 @@ body.is-entry-editor #entryProgramName,
 #history .btn--cta:disabled::after{color:var(--color-disabled-reason)}
 #history .btn--steel:disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #history .btn--danger:disabled{background:var(--control-destructive-bg);border-color:transparent;color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-#history .edate input:hover,#history .edrow__in:hover{border-color:var(--control-field-boundary)}
-#history .edate input:active,#history .edrow__in:active{border-color:var(--control-field-boundary)}
-#history .edate input:focus-visible,#history .edrow__in:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-color:var(--control-field-boundary)}
-#history .edrow__in[aria-invalid="true"]{outline:2px solid var(--control-error-boundary);outline-offset:1px;border-color:var(--control-error-boundary);box-shadow:none}
-#history .edate input:disabled,#history .edrow__in:disabled{background:var(--control-field-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
-#history .edrow__rm:hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
-#history .edrow__rm:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+#history .edrow__in:hover{border-color:var(--control-field-boundary)}
+#history .edrow__in:active{border-color:var(--control-field-boundary)}
+/* A field is selected with the quiet ink ring; orange is not a field state. */
+#history .edrow__in:focus{border-color:var(--boundary-selected-quiet);box-shadow:none}
+#history .edrow__in:focus-visible{outline:2px solid var(--boundary-selected-quiet);outline-offset:-1px}
+#history .edrow__in[aria-invalid="true"]{outline:1px solid var(--control-error-boundary);outline-offset:-2px;border-color:var(--control-error-boundary);box-shadow:none}
+#history .edrow__in[aria-invalid="true"]:focus-visible{outline:2px solid var(--control-error-boundary);outline-offset:-1px}
+#history .edrow__in:disabled{background:var(--control-field-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
+#history .histedit .sheetfield__input:focus-visible{outline:2px solid var(--boundary-selected-quiet);outline-offset:-1px}
+#history .histedit .sheetfield__input[aria-invalid="true"]{border-color:var(--control-error-boundary);outline:1px solid var(--control-error-boundary);outline-offset:-2px}
+#history .histedit .sheetfield__input[aria-invalid="true"]:focus-visible{outline:2px solid var(--control-error-boundary);outline-offset:-1px}
+#history .edrow__rm:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+#history .edrow__rm:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #history .edrow__rm:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#history .edrow__rm:disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-#history .edrow__rm.is-undo:hover:not(:disabled){background:var(--well);border-color:var(--boundary-required);color:var(--color-action-text)}
+#history .edrow__rm:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #history .advanced{border-top-color:var(--boundary-decorative);border-bottom-color:var(--boundary-decorative)}
 #history .advanced>summary{min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-disclosure-ink)}
 #history .advanced>summary::after{background:var(--control-disclosure-ink)}
 #history .advanced>summary:hover{background:var(--well);color:var(--control-disclosure-ink)}
 #history .advanced>summary:active{background:var(--well);transform:var(--control-pressed-transform)}
 #history .advanced>summary:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
-
-@media (max-width:420px){
-  #history .edhead{align-items:flex-start;flex-direction:column;gap:4px}
-  #history .edate{align-items:flex-start;width:100%;min-width:0}
-  #history .edate input{max-width:100%;min-width:0}
-  #history .edrow{grid-template-columns:repeat(3,minmax(0,1fr)) var(--control-target);column-gap:6px;row-gap:2px}
-  #history .edrow--head span:first-child,#history .edrow--head span:last-child{display:none}
-  #history .edrow__name{grid-column:1/-1}
-  #history .edrow__in{padding-left:2px;padding-right:2px}
-}
 
 /* P4d Share keeps the modal's task heading readable at enlarged text while
    retaining the close action first in both DOM and visual order. */

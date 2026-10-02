@@ -1762,6 +1762,90 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
     JSON.stringify(layout.calendar)
   );
 
+  // The History editor and its discard question at the same width (Plan 064 R3j2), in both languages.
+  for (const lang of ["en", "pt"]) {
+    await seedLangUnit(page, lang, "kg", true);
+    await showView(page, "history");
+    await page.waitForSelector("#sessions [data-sess]");
+    await page.locator("#sessions .session__open").first().click();
+    await page.waitForSelector(".session--read");
+    await page.locator("[data-history-edit]").click();
+    await page.waitForSelector(".session--edit");
+    await settleAnimations(page);
+    const edit = await page.evaluate(() => {
+      const shown = (el) => {
+        const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none";
+      };
+      const name = (el) => el.getAttribute("aria-label") || el.dataset.ek || el.textContent.trim().slice(0, 24) || el.tagName;
+      const controls = [...document.querySelectorAll("#history button, #history input")].filter(shown);
+      const small = controls.filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width + 0.01 < 44 || r.height + 0.01 < 44;
+      }).map((el) => `${name(el)} ${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)}`);
+      const bar = document.querySelector(".histedit__bar").getBoundingClientRect();
+      const root = document.documentElement;
+      const names = [...document.querySelectorAll(".edgroup__name")].map((el) => el.textContent.trim());
+      return {
+        controls: controls.length, small,
+        barBottomGap: Math.round(innerHeight - bar.bottom), barWidth: Math.round(bar.width),
+        overflowX: root.scrollWidth > root.clientWidth,
+        navHidden: getComputedStyle(document.querySelector("nav")).display === "none",
+        names, distinct: new Set(names).size, rowCount: document.querySelectorAll(".session--edit .edrow").length,
+        perRowNames: document.querySelectorAll(".session--edit .edrow__name").length,
+      };
+    });
+    check(edit.controls >= 8 && edit.small.length === 0,
+      `320px History editor controls are all at least 44x44 (${lang})`, JSON.stringify({ controls: edit.controls, small: edit.small }));
+    check(!edit.overflowX && edit.barBottomGap === 0 && edit.barWidth === 320,
+      `320px History editor has no horizontal overflow and Cancel/Save are pinned to the bottom edge (${lang})`, JSON.stringify(edit));
+    check(edit.navHidden, `the dock is hidden while a session is edited (${lang})`);
+    check(edit.names.length > 0 && edit.names.length === edit.distinct && edit.perRowNames === 0,
+      `the History editor heads each lift's group with its name and keeps no per-set name column (${lang})`, JSON.stringify(edit));
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const tail = await page.evaluate(() => ({
+      barTop: Math.round(document.querySelector(".histedit__bar").getBoundingClientRect().top),
+      deleteBottom: Math.round(document.querySelector(".edrisk .session__del").getBoundingClientRect().bottom),
+    }));
+    check(tail.deleteBottom <= tail.barTop, `Delete session stays reachable above the pinned bar at the end of the page (${lang})`, JSON.stringify(tail));
+
+    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("101");
+    await page.locator("[data-edcancel]").click();
+    await page.waitForSelector("#historyDiscardSheet.is-open");
+    await settleAnimations(page);
+    const sheet = await page.evaluate(() => {
+      const el = document.querySelector("#historyDiscardSheet"), r = el.getBoundingClientRect();
+      const buttons = [...el.querySelectorAll("button")].map((b) => b.getBoundingClientRect());
+      return {
+        role: el.getAttribute("role"), modal: el.getAttribute("aria-modal"), label: document.getElementById(el.getAttribute("aria-labelledby"))?.textContent.trim(),
+        top: Math.round(r.top), bottomGap: Math.round(innerHeight - r.bottom), left: Math.round(r.left), width: Math.round(r.width),
+        small: buttons.filter((b) => b.width + 0.01 < 44 || b.height + 0.01 < 44).length, buttons: buttons.length,
+        focus: document.activeElement?.id, pageInert: document.querySelector("main")?.inert === true,
+        overflowX: el.scrollWidth > el.clientWidth,
+      };
+    });
+    check(sheet.role === "dialog" && sheet.modal === "true" && sheet.label && sheet.buttons === 2 && sheet.small === 0,
+      `the discard question is a modal sheet with two 44px choices (${lang})`, JSON.stringify(sheet));
+    check(sheet.top >= 0 && sheet.bottomGap === 0 && sheet.left === 0 && sheet.width === 320 && !sheet.overflowX,
+      `the discard sheet fits the 320px viewport (${lang})`, JSON.stringify(sheet));
+    check(sheet.focus === "historyDiscardKeep" && sheet.pageInert,
+      `the discard sheet starts on Keep editing and the page behind it is inert (${lang})`, JSON.stringify(sheet));
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#historyDiscardSheet", { state: "hidden" });
+    const kept = await page.evaluate(() => ({
+      editing: !!document.querySelector(".session--edit"),
+      value: document.querySelector('.session--edit input[data-ek^="load|"]')?.value,
+      focus: document.activeElement?.matches("[data-edcancel]"),
+    }));
+    check(kept.editing && kept.value === "101" && kept.focus,
+      `Escape on the discard question keeps editing and returns focus to Cancel (${lang})`, JSON.stringify(kept));
+    await page.locator("[data-edcancel]").click();
+    await page.waitForSelector("#historyDiscardSheet.is-open");
+    await page.locator("#historyDiscardDrop").click();
+    await page.waitForSelector(".session--read");
+    await page.waitForSelector("#historyDiscardSheet", { state: "hidden" });
+  }
+
   await context.close();
 }
 

@@ -262,6 +262,8 @@
   "history.edit.remove_set": "Remover série",
   "history.edit.undo_remove": "Desfazer remoção",
   "history.edit.keep_one": "Mantenha pelo menos uma série, ou apague a sessão inteira.",
+  "history.edit.keep_editing": "Continuar editando",
+  "history.edit.discard_changes": "Descartar alterações",
   "history.confirm.delete_session": "Excluir esta sessão? Isso não pode ser desfeito.",
   "history.confirm.discard_changes": "Descartar estas alterações não salvas?",
   "exercise.aria": "Detalhe do exercício",
