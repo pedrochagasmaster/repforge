@@ -9498,9 +9498,22 @@ async function main() {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
-  // The generic landing is intentionally one-shot. A retained setup draft
-  // resumes directly in the entry hub on later launches instead of replaying
-  // the marketing surface and making the lifter choose Create again.
+  // Owner decision on #295 (landing until onboarding): a retained setup draft
+  // brings the returning landing back, naming the saved route; the chooser
+  // with its resume card is one step from it, never opened by itself.
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
+  const returningLanding = await page.evaluate(() => ({
+    visit: document.querySelector("#firstRun")?.dataset.entryVisit || null,
+    draft: document.querySelector("#firstRun")?.dataset.entryDraft || null,
+    chooser: !!document.querySelector("#onboarding")?.classList.contains("active"),
+  }));
+  assert(
+    returningLanding.visit === "returning" && !!returningLanding.draft && !returningLanding.chooser,
+    "A retained setup draft returns to the landing, which names the saved route and does not open the chooser by itself",
+    JSON.stringify(returningLanding),
+    "Reload with a setup draft and no program"
+  );
+  await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active", { timeout: 10000 });
   await page.waitForSelector("#entryResumeContinue", { timeout: 10000 });
   await page.click("#entryResumeContinue");
