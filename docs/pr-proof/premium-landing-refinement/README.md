@@ -55,6 +55,8 @@ candidate. Fixed in the same markup this pass already owns.
 
 ## Renders, assets, and offline boundary
 
+*Historical: Plan 064 R6d deleted these renders from `assets/brand/`; they live in git history.*
+
 All eight approved scenes (`entry-hub`, `recommend-result`, `today-ready`,
 `program-overview`, `focus`, `why-this-weight`, `session-summary`,
 `exercise-chart`, each EN/PT × light/dark, shared 903×1832 frame) stay in
