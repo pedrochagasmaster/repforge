@@ -114,8 +114,6 @@
   --control-accent-keyline-shadow:inset 0 0 0 1px var(--accent);
   --control-selection-rail-shadow:inset 3px 0 0 var(--accent);
   --control-selection-underline-shadow:inset 0 -3px 0 var(--accent);
-  --status-restover-shadow-rest:0 0 0 0 rgba(var(--danger-rgb),0);
-  --status-restover-shadow-alert:0 0 0 5px rgba(var(--danger-rgb),.15);
   --boundary-flat:var(--rule);
   --boundary-selected:var(--accent-deep);
   --boundary-floating:var(--rule-strong);
@@ -1227,34 +1225,13 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .restbar.is-done{border-color:var(--boundary-persistent);color:var(--color-ink)}
 .restbar__time{min-width:2.5em;text-align:center}
 
-/* Overtime — the clock has passed zero and is counting up in the negative.
-   A slow breathing ring plus a blinking dot reads as "still waiting", which no
-   part of the countdown does. Placed after both rest blocks so it wins. */
-@keyframes restover-ring{
-  0%,100%{box-shadow:var(--status-restover-shadow-rest)}
-  50%{box-shadow:var(--status-restover-shadow-alert)}
-}
-@keyframes restover-dot{
-  0%,100%{opacity:1;transform:scale(1)}
-  50%{opacity:.25;transform:scale(.72)}
-}
-.wo-rest.is-over,.restbar.is-over{
-  color:var(--danger);border-color:var(--danger);
-  animation:restover-ring 1.5s ease-in-out infinite;
-}
-.wo-rest.is-over .wo-rest__dot,.restbar.is-over .restbar__dot{
-  background:var(--danger);animation:restover-dot 1.5s ease-in-out infinite;
-}
+/* Overrun — the clock has passed zero and counts up as +m:ss. It reads as the
+   inline "Rest done" line does: soft ink, no warning colour, no pulse. The
+   wider minimum keeps the sign from moving the chip. */
+.wo-rest.is-over,.restbar.is-over{color:var(--color-ink-secondary)}
 .restbar.is-over .restbar__time{min-width:3.4em}
 /* Held in the timer sheet: the clock is frozen, so the live dot goes quiet. */
 .wo-rest.is-paused .wo-rest__dot,.restbar.is-paused .restbar__dot{background:var(--ink-faint)}
-@media (prefers-reduced-motion:reduce){
-  /* Colour alone carries overtime; the dot holds at half strength so it still
-     differs from the steady countdown dot. */
-  .wo-rest.is-over,.restbar.is-over,
-  .wo-rest.is-over .wo-rest__dot,.restbar.is-over .restbar__dot{animation:none}
-  .wo-rest.is-over .wo-rest__dot,.restbar.is-over .restbar__dot{opacity:.5}
-}
 
 /* Hidden legacy gauge (tests may still poke it; UI uses Today readiness) */
 .gauge{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}

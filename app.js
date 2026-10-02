@@ -5400,7 +5400,8 @@ function refreshSuggestions(exId){return trackDraftRefresh(()=>runRefreshSuggest
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
 /** Rest reads in two places: the floating bar outside the workout and the chip
  *  in the workout header, where it must never sit over a control.
- *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
+ *  `over` is seconds elapsed past the bell: the clock then counts up as "+m:ss",
+ *  in the same soft ink as the inline "Rest done" line, and is not a warning. */
 function paintRest(text,done,over=0){
   paintRestSheet();
   restInlineSync();
@@ -5439,7 +5440,7 @@ function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0
   updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
-/** Past the bell the clock keeps running as a negative count-up, so a glance
+/** Past the bell the clock keeps running as a "+m:ss" count-up, so a glance
  *  says how long the set has been waiting. It stops climbing after an hour —
  *  by then the number has stopped meaning anything. */
 const REST_OVERTIME_MAX=60*60;
@@ -5463,7 +5464,7 @@ function ringRest(){
 function tickRest(){const left=Math.round(restLeftMs()/1000);
   if(left>0){paintRest(fmtClock(left),false);return}
   const over=Math.min(-left,REST_OVERTIME_MAX);
-  paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over);
+  paintRest(over>0?`+${fmtClock(over)}`:"0:00",true,over);
   if(over>=REST_OVERTIME_MAX&&restTick){clearInterval(restTick);restTick=null}
   ringRest()}
 function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250)}
@@ -5474,7 +5475,7 @@ function syncRest(){
   if(!restEnd){paintRest("—",false);updateRestChrome();return}
   const left=Math.round(restLeftMs()/1000);
   if(left>0)paintRest(fmtClock(left),false);
-  else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over)}
+  else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`+${fmtClock(over)}`:"0:00",true,over)}
   updateRestChrome()}
 function startRest(sec){const s=sec||restPlanSec();if(s<=0)return;
   restLength=s;restPaused=null;restPadsBack=false;

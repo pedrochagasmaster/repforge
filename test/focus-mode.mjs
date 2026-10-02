@@ -737,6 +737,49 @@ async function main() {
   assert(overtime.color === overtime.soft && overtime.color !== overtime.warning && overtime.size === 18 && overtime.cueBack === 24 && overtime.padsMode === "field",
     "at zero the clock collapses to an 18px ink-soft line, the 24px cue returns and the field pads come back", JSON.stringify(overtime));
 
+  // The header chip and Today's rest bar follow the inline line: one overrun, one style. "+0:15" counts up in
+  // ink-soft with none of the old warning facet (danger colour, danger border, pulsing ring or dot).
+  await page.waitForFunction(() => /^\+0:1\d$/.test(document.querySelector("#woRest .wo-rest__time")?.textContent.trim() || ""));
+  const chipOverrun = await page.evaluate(() => {
+    const probe = (value) => {
+      const el = document.createElement("span");
+      el.style.color = value;
+      document.body.append(el);
+      const resolved = getComputedStyle(el).color;
+      el.remove();
+      return resolved;
+    };
+    const face = (node, dot) => {
+      const style = getComputedStyle(node), dotStyle = getComputedStyle(dot);
+      return {
+        color: style.color, border: style.borderTopColor, shadow: style.boxShadow, animation: style.animationName,
+        dot: dotStyle.backgroundColor, dotAnimation: dotStyle.animationName, dotOpacity: dotStyle.opacity,
+      };
+    };
+    const chip = document.querySelector("#woRest"), bar = document.querySelector("#restBar");
+    return {
+      soft: probe("var(--ink-soft)"), danger: probe("var(--danger)"), warning: probe("var(--color-warning)"),
+      chipText: chip.querySelector(".wo-rest__time").textContent.trim(),
+      barText: bar.querySelector(".restbar__time").textContent.trim(),
+      chipOver: chip.classList.contains("is-over"), barOver: bar.classList.contains("is-over"),
+      chip: face(chip, chip.querySelector(".wo-rest__dot")),
+      bar: face(bar, bar.querySelector(".restbar__dot")),
+      label: chip.getAttribute("aria-label"),
+    };
+  });
+  assert(/^\+0:1\d$/.test(chipOverrun.chipText) && /^\+0:1\d$/.test(chipOverrun.barText) && chipOverrun.chipOver && chipOverrun.barOver,
+    "past the bell the header chip and Today's rest bar count up as +m:ss", JSON.stringify(chipOverrun));
+  for (const [name, face] of [["chip", chipOverrun.chip], ["bar", chipOverrun.bar]]) {
+    assert(face.color === chipOverrun.soft && face.color !== chipOverrun.danger && face.color !== chipOverrun.warning,
+      `the ${name}'s overrun text is ink-soft, not a warning colour`, JSON.stringify(face));
+    assert(face.border !== chipOverrun.danger && face.border !== chipOverrun.warning && face.dot !== chipOverrun.danger && face.dot !== chipOverrun.warning,
+      `the ${name}'s border and dot take no warning colour past the bell`, JSON.stringify(face));
+    assert(face.animation === "none" && face.dotAnimation === "none" && face.dotOpacity === "1" && !/ 5px/.test(face.shadow),
+      `the ${name} does not pulse past the bell`, JSON.stringify(face));
+  }
+  assert(/^Rest finished \d+:\d\d ago\./.test(chipOverrun.label || ""),
+    "the chip's label still says the rest is over", chipOverrun.label);
+
   // At large text four pads no longer fit one row, and a second row would push the action off the shortest screens:
   // the field pads stay, the clock stays inline, and the rest controls are the presets sheet's.
   await page.evaluate(() => { window.startRest(); });

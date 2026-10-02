@@ -9224,40 +9224,6 @@
         "onboarding-recovery/rules-drift",
         "progress/schedule-diagnosis"
       ]
-    },
-    {
-      "id": "rest-overtime-rest-shadow",
-      "token": "--status-restover-shadow-rest",
-      "selectors": [
-        "@keyframes restover-ring",
-        ".wo-rest.is-over",
-        ".restbar.is-over"
-      ],
-      "role": "warning",
-      "rationale": "The zero-shadow animation endpoints make overtime pulse from and return to the stable warning state without leaving an unintended glow.",
-      "owner": "plan-055/058",
-      "catalogStates": [
-        "workout/rest-done"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "The keyframe is stylesheet source; workout/rest-done draws the header timer past the bell with the ring at rest."
-    },
-    {
-      "id": "rest-overtime-alert-shadow",
-      "token": "--status-restover-shadow-alert",
-      "selectors": [
-        "@keyframes restover-ring",
-        ".wo-rest.is-over",
-        ".restbar.is-over"
-      ],
-      "role": "warning",
-      "rationale": "The alert ring is a motion-only overtime cue paired with the danger color and timer text; reduced motion keeps the same status through non-motion signals.",
-      "owner": "plan-055/058",
-      "catalogStates": [
-        "workout/rest-done"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "The keyframe is stylesheet source; workout/rest-done draws the header timer past the bell with the ring at rest."
     }
   ],
   "progressCandidateSelectors": [
