@@ -1018,7 +1018,6 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
 .exercise--focus .term:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .term:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .exercise--focus .term:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-.exercise--focus .delta-prev{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:0 0 var(--space-8)}
 
 /* The ledger is the record, one row per set. Values sit in right-aligned Mono
    columns that the head's labels share; the set being worked on wears the open

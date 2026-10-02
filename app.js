@@ -4783,15 +4783,6 @@ function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
   if(c.regressed)parts.push(t("delta.count.regressed",{n:c.regressed}));if(c.new)parts.push(t("delta.count.new_lifts",{n:c.new,lifts:tp(c.new,"lift")}));
   return parts.join(sep)}
 function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
-function draftRowsForExercise(ex,draft){const warm=new Set(draft.__warm||[]),rows=[];
-  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(warm.has(key))continue;
-    const ld=fromDisplay(draft[`${key}_load`]||0),rp=parseDec(draft[`${key}_reps`])||0;if(ld<=0||rp<=0)continue;
-    let rir=parseDec(draft[`${key}_rir`]);if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
-    else if(!Number.isFinite(rir))rir=1;
-    rows.push({exerciseId:ex.id,name:ex.name,day:ex.day,load:ld,reps:rp,rir,warmup:false})}
-  return rows}
-function deltaPreviewFor(ex,draft){const rows=draftRowsForExercise(ex,draft);if(!workingRows(rows).length)return"";
-  const cmp=compareExerciseSession(ex,rows);const fd=cmp.metrics?formatDelta(cmp):"";return fd?t("delta.preview",{delta:fd}):""}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
@@ -7111,7 +7102,6 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const{peek=false,hasNext=true,allDone=false,nextName=""}=opts;
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
-  const deltaText=deltaPreviewFor(ex,draft);
   const perf=substituted.get(ex.id);
   const name=perf||ex.name;
   const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
@@ -7131,7 +7121,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `<div class="fx-head">${exerciseThumb(exerciseRefEntry(ex),{size:"sm"})}<div class="fx-head__text">${nameHtml}`+
     `<p class="focus-ex__meta">${esc(focusExMeta(ex))}</p></div></div>`+
     slotHtml+note+
-    `<div class="fcard__ledger"><p class="delta-prev${deltaText?"":" hidden"}" aria-live="polite">${esc(deltaText)}</p>`+
+    `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+nextRow+`</div>`+
     focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
@@ -7249,13 +7239,6 @@ async function refreshAfterCommittedEdit(row){
   const exId=row.closest(".exercise")?.dataset.ex;
   return exId?refreshSuggestions(exId):{status:"unchanged"}}
 
-function updateExerciseDeltaPreview(exId){
-  const card=$(`#workout .exercise.is-current[data-ex="${CSS.escape(exId)}"]`);
-  const ex=sessionExercise(prog.find(exId)),el=card?.querySelector(".delta-prev");
-  if(!ex||!el)return;
-  const text=deltaPreviewFor(ex,WorkoutSession.projection());
-  el.textContent=text;el.classList.toggle("hidden",!text)}
-
 // Latest note the lifter left on this exercise, so machine setup carries into the next session.
 function lastExerciseNote(ex){const match=matchLift(ex);
   const rows=state.log.filter(r=>match(r)&&String(r.exNote||"").trim());
@@ -7300,7 +7283,7 @@ function bindWorkout(){
       setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
     if(result.status!=="applied")return;
     syncShelfField(i,padDir);
-    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);await refreshAfterCommittedEdit(row)};
+    updateSaveMeta();await refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
@@ -7350,7 +7333,7 @@ function bindWorkout(){
     setEffortPick(key,next,dir);
     const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
-    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);refreshAfterCommittedEdit(el.closest(".shelf__field"))};
+    updateSaveMeta();refreshAfterCommittedEdit(el.closest(".shelf__field"))};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
   $w("[data-effspin]").forEach(el=>{
     // The tap belongs to the field handler (select, then explain); the arrow

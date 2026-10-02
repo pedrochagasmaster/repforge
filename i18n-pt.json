@@ -735,7 +735,6 @@
   "delta.e1rm": "{signed}{delta}{unit} e1RM",
   "delta.reps": "{signed}{delta} reps",
   "delta.e1rm_labeled": "e1RM {signed}{delta}{unit}",
-  "delta.preview": "Mudança desde a última sessão · {delta}",
   "delta.count.improved": "{n} com melhora",
   "delta.count.flat": "{n} sem mudança",
   "delta.count.regressed": "{n} com queda",

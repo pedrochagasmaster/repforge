@@ -8146,15 +8146,19 @@ async function main() {
   await selectDay(page, browseDay);
   await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 12, 2);
   await page.waitForTimeout(100);
-  const deltaPreview = await page
-    .locator(`[data-ex="${browseEx.id}"] .delta-prev`)
-    .textContent()
-    .catch(() => "");
+  const retiredDelta = await page.evaluate((exId) => {
+    const card = document.querySelector(`#workout [data-ex="${exId}"]`);
+    return {
+      card: !!card,
+      element: !!card?.querySelector(".delta-prev"),
+      text: /Change (from|since) last session|Mudan[çc]a desde a última sessão/i.test(card?.textContent || ""),
+    };
+  }, browseEx.id);
   assert(
-    /Change from last session/.test(deltaPreview || ""),
-    "Log tab live delta preview vs last session",
-    `Preview: ${deltaPreview || "(empty)"}`,
-    "Enter draft kg/reps for an exercise with prior sessions"
+    retiredDelta.card && !retiredDelta.element && !retiredDelta.text,
+    "Focus card carries no change-since-last-session line (retired)",
+    `Card: ${retiredDelta.card}, element: ${retiredDelta.element}, text: ${retiredDelta.text}`,
+    "The Focus card shows the cue and the ledger only; the comparison lives in the session summary"
   );
 
   beginPhase("\nPhase: program day collapse");

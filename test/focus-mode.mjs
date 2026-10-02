@@ -328,6 +328,16 @@ async function main() {
   await endRest(page);
   st = await cardState(page);
   assert(st.logged === 2 && st.rows === 5, "two logged sets read back in the ledger and every set keeps its row", JSON.stringify(st));
+  // The "Change since last session" line is retired (OG-6 round 2): no element, no text, however many sets are logged.
+  const retiredDelta = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    return {
+      element: card.querySelectorAll(".delta-prev").length,
+      text: /Change (from|since) last session|Mudan[çc]a desde a última sessão/i.test(card.textContent || ""),
+    };
+  });
+  assert(retiredDelta.element === 0 && !retiredDelta.text,
+    "the Focus card carries no change-since-last-session line once sets are logged", JSON.stringify(retiredDelta));
   // Two sets at the same load: the next set holds that load, so the cue draws the ink "=".
   assert(assertCueMark(st, "State 03") === "hold", "a set that repeats the load just logged reads as a hold", JSON.stringify({ cueL1: st.cueL1, mark: st.cueMark }));
   assert(/3/.test(st.ctaText) && st.ctaText.toLowerCase() === "log set 3",

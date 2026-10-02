@@ -399,7 +399,6 @@ async function main() {
     "settings.notifications.permission",
     "settings.storage.last_backup",
     "settings.storage.last_backup_never",
-    "delta.preview",
     "toast.workout_pr",
     "toast.command_applied",
   ];
