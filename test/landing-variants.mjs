@@ -780,7 +780,9 @@ async function finalPage(browser) {
         `[${lang}] chart ${where} states ${chart.from} -> ${chart.to} kg over ${chart.sessions} sessions (Progress model)`, text);
     }
     assert(shownChart.src.includes(`exercise-chart-${lang}-`), `[${lang}] the chart image is the ${lang} capture`, shownChart.src);
-    assert(shownChart.width === "903" && shownChart.height === "1832", `[${lang}] the chart image reserves its box (width and height)`, `${shownChart.width}x${shownChart.height}`);
+    const chartFile = webpSize(readFileSync(new URL(`../assets/brand/exercise-chart-${lang}-light.webp`, import.meta.url)));
+    assert(shownChart.width === String(chartFile.width) && shownChart.height === String(chartFile.height),
+      `[${lang}] the chart image reserves its box, the committed capture's ${chartFile.width}x${chartFile.height}`, `${shownChart.width}x${shownChart.height}`);
 
     assert(f.faqCount === 5, `[${lang}] the questions section has five <details>`, `found ${f.faqCount}`);
     assert(f.faqOpen === 0, `[${lang}] every question starts closed`);

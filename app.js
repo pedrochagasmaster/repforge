@@ -17425,7 +17425,9 @@ const LANDING_CASES={
 /** The squat history behind the chart image: four sessions, one rung up each week. */
 const LANDING_CHART={exerciseId:"ex-squat",libraryId:"sq_bb",started:"2026-08-03",
   dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
-  ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5};
+  ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5,
+  /* the capture size per language (the Portuguese name wraps to two lines), from tools/capture-landing-proof.mjs */
+  dims:{en:[780,1646],pt:[780,1708]}};
 function landingChartRows(){
   const c=LANDING_CHART,rows=[];
   c.dates.forEach((date,week)=>{
@@ -17553,7 +17555,10 @@ function renderLandingChart(){
   const figure=root.querySelector("[data-landing-chart]"),fig=landingChartFigures();
   if(!figure||!fig)return;
   const vars={exercise:landingExerciseName(LANDING_CHART.libraryId),from:landingNum(fig.from),to:landingKg(fig.to),sessions:landingNum(fig.sessions)};
-  const img=figure.querySelector("img");if(img)img.alt=t("landing.chart.alt",vars);
+  const img=figure.querySelector("img");
+  if(img){
+    const dims=LANDING_CHART.dims[landingLang()];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);
+    img.alt=t("landing.chart.alt",vars)}
   const caption=figure.querySelector("figcaption");if(caption)caption.textContent=t("landing.chart.caption",vars)}
 function renderLandingWays(){
   const root=$("#firstRun");if(!root)return;

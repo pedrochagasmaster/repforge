@@ -6,12 +6,12 @@
  *   --proof <dir>      Capture the landing's real-app proof images into <dir>:
  *                        wt-{focus,rest,actions,note}-{en,pt}-dark.webp   (8; 390x844 @2x, dark only)
  *                        paste-review-{en,pt}-{light,dark}.webp            (4; the import-review screen)
- *                      (exercise-chart-{en,pt}-{light,dark}.webp is not made here: see assets/brand/README.md)
+ *                        exercise-chart-{en,pt}-{light,dark}.webp         (4; the exercise page, best e1RM, from the chart fixture)
  *                        landing-proof-spots.json                          (lens hotspots + paste counts)
  *                        proof-report.json                                 (sizes, counts, review rows)
  *                      Prints the linked / to-review counts read off each captured paste-review
  *                      DOM. Never writes into assets/brand/: copy the files there deliberately.
- *     --scenes a,b       limit to some of focus,rest,actions,note,paste-review
+ *     --scenes a,b       limit to some of focus,rest,actions,note,paste-review,exercise-chart
  *     --spots-only       measure and write the JSON only (no WebP files)
  *   --check            Capture nothing. Re-measure every lens hotspot (and the paste-review counts)
  *                      and fail when the stored JSON no longer matches the live DOM, so R3 / R4 / R6
@@ -48,6 +48,7 @@ import {parseArgs} from 'node:util';
 import {launchChromium, waitForAppBoot} from '../test/browser.mjs';
 import {MINIMAL_PAYLOAD, BUILT_IN_IDS} from '../test/fixtures/shared-setup.mjs';
 import {settle} from './ui-screens/session.mjs';
+import {realisticState} from './landing-prototype/fixture.mjs';
 
 const ROOT = new URL('../', import.meta.url);
 export const DEFAULT_SPOTS_FILE = fileURLToPath(new URL('assets/brand/landing-proof-spots.json', ROOT));
@@ -60,6 +61,11 @@ export const WEBP_QUALITY = 0.86;
 export const LANGS = ['en', 'pt'];
 export const PASTE_SCENE = 'paste-review';
 export const PASTE_THEMES = ['light', 'dark'];
+export const CHART_SCENE = 'exercise-chart';
+export const CHART_THEMES = ['light', 'dark'];
+/** The squat the landing's chart figures come from: 92.5 to 100 kg over 4 sessions (owner decision L-2). */
+export const CHART_LIFT = 'library:sq_bb';
+export const CHART_FIGURES = {from: 92.5, to: 100, sessions: 4};
 const NOTE = {
   en: 'Bench on 4, grip one finger past the ring.',
   pt: 'Banco no 4, pegada um dedo além da marca.',
@@ -100,6 +106,20 @@ export function visibleRetired(selectors) {
 /** The import review's crop: from its head (R4c: `.onb__head`, the shared onboarding bar) through the first row. */
 export const PASTE_TARGETS = {head: '#importReview .onb__head', firstRow: '#importRows .improw'};
 
+/**
+ * The exercise page as the Progress strength list opens it (R3i): the scope and metric toggles, the plot that
+ * snaps to a session, and the session table under it. The capture selects best e1RM, the metric the landing's
+ * caption explains, and is cropped from the back link through the last table row.
+ */
+export const CHART_TARGETS = {
+  page: '#exercise.exview--chart',
+  head: '#exBack',
+  plot: '#exDetail .exchart__plot',
+  e1rm: '#exDetail [data-metric="e1rm"]',
+  rows: '#exDetail .exrow',
+  figs: '#exDetail .exchart__figs',
+};
+
 /** Scene table: the runner name, the spots it owns, and what the frame must show. */
 export const PROOF_SCENES = [
   {name: 'focus', spots: ['cue', 'log', 'last'], shows: 'Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, cue 62.5 x 8'},
@@ -109,9 +129,11 @@ export const PROOF_SCENES = [
 ];
 export const sceneFile = (scene, lang) => `wt-${scene}-${lang}-dark.webp`;
 export const pasteFile = (lang, theme) => `paste-review-${lang}-${theme}.webp`;
+export const chartFile = (lang, theme) => `exercise-chart-${lang}-${theme}.webp`;
 export const outputFiles = () => [
   ...PROOF_SCENES.flatMap(scene => LANGS.map(lang => sceneFile(scene.name, lang))),
   ...LANGS.flatMap(lang => PASTE_THEMES.map(theme => pasteFile(lang, theme))),
+  ...LANGS.flatMap(lang => CHART_THEMES.map(theme => chartFile(lang, theme))),
 ];
 
 const round2 = value => Number(value.toFixed(2));
@@ -206,16 +228,17 @@ async function safeInsets(page) {
  * `quiet` marks every one-time guide seen so a returning lifter's screen is captured.
  */
 async function open(browser, {width = 430, height = 932, lang = 'en', theme = 'light', scale = 1, dpr,
-  source = false, program = source, seen = source, quiet = false, insets = false, forcedColors = 'none', reducedMotion = 'reduce'}) {
+  source = false, program = source, seen = source, quiet = false, insets = false, forcedColors = 'none', reducedMotion = 'reduce',
+  seed = null}) {
   const context = await browser.newContext({viewport: {width, height}, deviceScaleFactor: dpr ?? (source ? 3 : 1),
     locale: lang === 'pt' ? 'pt-BR' : 'en-US', timezoneId: 'UTC', colorScheme: theme,
     serviceWorkers: 'block', reducedMotion, forcedColors});
   const page = await context.newPage();
   if (insets) await safeInsets(page);
   await page.clock.setFixedTime(new Date('2026-08-31T12:00:00Z'));
-  const state = structuredClone(fixture);
+  const state = structuredClone(seed || fixture);
   state.settings.lang = lang;
-  if (lang === 'pt') {
+  if (lang === 'pt' && !seed) {
     state.programMeta.name = 'Programa de força';
     for (const exercise of state.program) {
       exercise.day = 'Superiores';
@@ -472,6 +495,62 @@ async function capturePasteReview(browser, lang, theme, {images}) {
   } finally {await context.close();}
 }
 
+/**
+ * The exercise page for the landing's squat, best e1RM selected. The state is the one the landing's chart
+ * figures come from (tools/landing-prototype/fixture.mjs), and the figures the page draws are checked against
+ * the Progress model's own reading of that history, which is what landing.chart.caption pours in.
+ */
+async function captureChart(browser, lang, theme, {images}) {
+  const name = `${CHART_SCENE}-${lang}-${theme}`;
+  const {page, context} = await open(browser, {width: PROOF_FRAME.width, height: 1300, dpr: PROOF_FRAME.scale, lang, theme,
+    source: true, quiet: true, insets: true, seed: realisticState(lang)});
+  try {
+    await page.evaluate(key => window.openExerciseView(key, 'stats'), CHART_LIFT);
+    await page.waitForSelector(`${CHART_TARGETS.page} ${CHART_TARGETS.e1rm}`, {timeout: 20000});
+    await page.click(CHART_TARGETS.e1rm);
+    await page.waitForSelector(`${CHART_TARGETS.e1rm}[aria-pressed="true"]`, {timeout: 20000});
+    await settle(page);
+    const found = await page.evaluate(({targets, lift}) => {
+      const rows = [...document.querySelectorAll(targets.rows)].map(row => {
+        const cells = [...row.children].map(cell => cell.textContent.trim());
+        return {date: cells[0], top: Number(cells[1].split('\u00d7')[0].trim().replace(',', '.')), set: cells[1], e1rm: cells[2]};
+      });
+      const state = JSON.parse(localStorage.getItem('repforge_v1'));
+      const series = RepForgeProgressModel.buildStrengthEvidence('all-history', 'ex-squat', state.log, {started: state.programMeta.started});
+      const pressed = [...document.querySelectorAll('#exDetail [aria-pressed="true"]')].map(button => button.dataset.metric || button.dataset.scope);
+      return {
+        rows, pressed, lift,
+        plot: !!document.querySelector(targets.plot), canvas: !!document.querySelector('#exChart'),
+        figs: [...document.querySelectorAll(`${targets.figs} b`)].map(node => node.textContent.trim()),
+        model: {from: series.points[0].value, to: series.points.at(-1).value, sessions: series.evidenceCount},
+      };
+    }, {targets: CHART_TARGETS, lift: CHART_LIFT});
+    assert(found.plot, `${name}: the exercise page draws the chart (${CHART_TARGETS.plot})`);
+    assert(!found.canvas, `${name}: the page is the Progress chart, not the pre-R3i canvas page`);
+    assert(found.pressed.includes('e1rm'), `${name}: the best e1RM metric is pressed (${found.pressed})`);
+    assert.deepEqual(found.model, CHART_FIGURES, `${name}: the Progress model reads the landing's figures from this history`);
+    // The table is the chart's accessible twin: its oldest and newest top sets and its row count are the caption's numbers.
+    assert.equal(found.rows.length, CHART_FIGURES.sessions, `${name}: one table row per session`);
+    assert.equal(found.rows.at(-1).top, CHART_FIGURES.from, `${name}: the oldest session drawn is ${CHART_FIGURES.from} kg`);
+    assert.equal(found.rows[0].top, CHART_FIGURES.to, `${name}: the newest session drawn is ${CHART_FIGURES.to} kg`);
+    if (values['fault-retired']) await injectRetiredFault(page);
+    const retired = await page.evaluate(visibleRetired, RETIRED_SELECTORS);
+    assert.deepEqual(retired, [], `${name}: the frame shows retired UI`);
+    let webp = null;
+    if (images) {
+      const clip = await page.evaluate(targets => {
+        const top = document.querySelector(targets.head).getBoundingClientRect().top;
+        const rows = [...document.querySelectorAll(targets.rows)];
+        const bottom = rows.at(-1).getBoundingClientRect().bottom;
+        const y = Math.max(0, Math.floor(top) - 16);
+        return {x: 0, y, width: innerWidth, height: Math.ceil(bottom) - y + 12};
+      }, CHART_TARGETS);
+      webp = await encodeWebp(page, await page.screenshot({type: 'png', clip}));
+    }
+    return {figures: found.model, rows: found.rows, figs: found.figs, pressed: found.pressed, plot: found.plot, webp};
+  } finally {await context.close();}
+}
+
 /** Run the selected proof scenes. Returns measured spots, counts, and (with images) the WebP buffers by file name. */
 export async function runProof(browser, {scenes, images, log = () => {}}) {
   const measured = {schema: SPOT_SCHEMA, frame: {...PROOF_FRAME}, tolerance: SPOT_TOLERANCE, scenes: {}, pasteReview: {}};
@@ -503,6 +582,15 @@ export async function runProof(browser, {scenes, images, log = () => {}}) {
       const [light, dark] = PASTE_THEMES.map(theme => review[`${lang}-${theme}`].counts);
       assert.deepEqual(light, dark, `${PASTE_SCENE} ${lang}: light and dark capture disagree on the counts`);
       measured.pasteReview[lang] = light;
+    }
+  }
+  if (scenes.includes(CHART_SCENE)) {
+    for (const lang of LANGS) for (const theme of CHART_THEMES) {
+      const result = await captureChart(browser, lang, theme, {images});
+      review[`${CHART_SCENE}-${lang}-${theme}`] = {page: '#exercise', plot: result.plot, pressed: result.pressed, figures: result.figures, rows: result.rows, figs: result.figs};
+      if (result.webp) files[chartFile(lang, theme)] = result.webp;
+      log(`ok ${CHART_SCENE} ${lang} ${theme}: ${result.figures.from} to ${result.figures.to} kg over ${result.figures.sessions} sessions; `
+        + `table ${result.rows.map(row => row.set).join(', ')}; figures ${result.figs.join(' | ')}`);
     }
   }
   return {measured, files, review};
@@ -609,7 +697,7 @@ async function captureMatrix(browser, output, report) {
 let values = {};
 
 async function proofMode(browser, {check}) {
-  const allScenes = [...PROOF_SCENES.map(scene => scene.name), PASTE_SCENE];
+  const allScenes = [...PROOF_SCENES.map(scene => scene.name), PASTE_SCENE, CHART_SCENE];
   const scenes = values.scenes ? values.scenes.split(',') : allScenes;
   assert(scenes.length && scenes.every(name => allScenes.includes(name)), `--scenes must be some of ${allScenes.join(',')}`);
   const images = !check && !values['spots-only'];
