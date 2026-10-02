@@ -184,6 +184,7 @@ export const SUITES = {
     s("test/management-summary.mjs"),
     s("test/summary-evidence.mjs"),
     s("test/progression-strategies-ui.mjs", [], { seconds: 10 }),
+    s("test/why-sheet.mjs", [], { domains: ["workout"], seconds: 40 }),
     s("test/progress-navigation.mjs"),
     s("test/progress-evidence.mjs", [], { seconds: 34 }),
     s("test/progress-lifecycle.mjs", [], {"env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, seconds: 10 }),

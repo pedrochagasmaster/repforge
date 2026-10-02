@@ -17565,10 +17565,15 @@ const whyList=items=>{const a=items.map(String);
 /** The first sentence of the first block: what was performed, and the RIR (or effort) it used. */
 function whyPerformedText(prev,u){
   const rows=prev.filter(x=>+x.load>0&&+x.reps>0);if(!rows.length)return"";
-  const effort=isEffortMode(),reps=whyList(rows.map(x=>x.reps));
-  if(effort)return t("why.performed_effort",{reps,load:fmtLoad(rows[0].load),unit:u,efforts:whyList(rows.map(x=>effortLabel(effortForRir(x.rir))))});
-  return t("why.performed",{reps,load:fmtLoad(rows[0].load),unit:u,
-    rirs:whyList(rows.map(x=>x.rir==null||x.rir===""?t("why.effort.missing"):fmt(x.rir)))})}
+  // One sentence per run of sets at the same load, so a backoff set never borrows the first set's load.
+  const runs=[];
+  for(const x of rows){const run=runs.at(-1);if(run&&sameLoad(+run.load,+x.load))run.sets.push(x);else runs.push({load:x.load,sets:[x]})}
+  const effort=isEffortMode();
+  return runs.map(run=>{
+    const reps=whyList(run.sets.map(x=>x.reps)),load=fmtLoad(run.load);
+    if(effort)return t("why.performed_effort",{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
+    return t("why.performed",{reps,load,unit:u,
+      rirs:whyList(run.sets.map(x=>x.rir==null||x.rir===""?t("why.effort.missing"):fmt(x.rir)))})}).join(" ")}
 /** "102.5 kg × 8" / "137.5 kg × 5 + 117.5 kg × 8, 8": the sets the engine asks for, grouped by load. */
 function setsTargetLine(ex,rec){
   const u=unitLabel();let sets=rec.engineSets;
