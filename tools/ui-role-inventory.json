@@ -5127,8 +5127,8 @@
       ]
     },
     {
-      "id": "stats-button-role-tab",
-      "selector": "#stats button[role=\"tab\"]:not(.tabrow__tab)",
+      "id": "stats-button-aria-pressed",
+      "selector": "#stats button[aria-pressed]:not(.tabrow__tab)",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -5147,7 +5147,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes the visible evidence panel or scope without committing data. The five section tabs are the shared tab row (.tabrow__tab); this row covers the remaining in-panel scope and filter controls.",
+      "rationale": "Changes the visible evidence panel or scope without committing data. The five section tabs are the shared tab row (.tabrow__tab); this row covers the remaining in-panel scope and filter controls, which are toggle buttons (aria-pressed) in a group, not tabs (R7 J-20).",
       "owner": "plan-058",
       "catalogStates": [
         "progress/exercise-chart",
@@ -7608,8 +7608,8 @@
       ]
     },
     {
-      "id": "tabrow-tab-not-id",
-      "selector": ".tabrow__tab:not([id])",
+      "id": "tabrow-tab",
+      "selector": ".tabrow__tab",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -7628,7 +7628,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes the visible evidence panel or scope without committing data. The selected tab carries a 2px indicator in the quiet selected boundary (ink), 3:1 or better on the page ground and the surface in both themes (OG-4); a consumer that needs an id gets its own exact row. Progress renders it (R3i): Overview, Strength, Volume, PRs and Review.",
+      "rationale": "Changes the visible evidence panel or scope without committing data. The selected tab carries a 2px indicator in the quiet selected boundary (ink), 3:1 or better on the page ground and the surface in both themes (OG-4); the Progress tabs carry runtime ids only so their panels can name them (aria-labelledby, R7 J-20). Progress renders it (R3i): Overview, Strength, Volume, PRs and Review.",
       "owner": "plan-064/r1b",
       "catalogStates": [
         "progress/guided-repair",
