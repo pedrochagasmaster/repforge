@@ -280,6 +280,23 @@ async function runContextualGuideAccessibility(browser) {
     "Contextual Privacy guide is labelled, anchored, and non-modal",
     JSON.stringify(automatic)
   );
+  // Every keyboard stop in Settings is a named, visible control (R7 J-01: two clipped,
+  // unnamed state checkboxes sat in the tab order beside the toggles that own them).
+  const settingsStops = await page.evaluate(() => {
+    const selector = "a[href],button,input,select,textarea,summary,[tabindex]";
+    const bad = [];
+    for (const el of document.querySelectorAll(`#settings ${selector.split(",").join(`,#settings `)}`)) {
+      if (el.disabled || el.tabIndex < 0 || el.closest("[hidden],[inert],[aria-hidden='true']")) continue;
+      const style = getComputedStyle(el), rect = el.getBoundingClientRect();
+      if (!el.getClientRects().length || style.visibility === "hidden") continue;
+      const clipped = style.clip === "rect(0px, 0px, 0px, 0px)" || /inset\(50%/.test(style.clipPath || "") || rect.width < 2 || rect.height < 2;
+      const named = (el.getAttribute("aria-label") || "").trim() || (el.getAttribute("aria-labelledby") || "").trim()
+        || [...(el.labels || [])].some((label) => label.textContent.trim()) || el.textContent.trim() || (el.getAttribute("title") || "").trim();
+      if (clipped || !named) bad.push({ id: el.id || el.className || el.tagName, clipped, named: !!named });
+    }
+    return bad;
+  });
+  assert(settingsStops.length === 0, "Every Settings keyboard stop is a named, visible control", JSON.stringify(settingsStops));
   await page.locator('[data-guide-cue="privacy"] [data-guide-dismiss]').click();
   await page.locator("#guideReplayToggle").focus();
   await page.keyboard.press("Enter");
