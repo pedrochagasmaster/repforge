@@ -453,7 +453,7 @@ function radiusContractErrors(candidate) {
       JSON.stringify(variant.radiusRecipes) !== JSON.stringify(radiusRecipe)) return ["landing stage radius scope or recipe changed"];
   return [];
 }
-assert.equal(inventory.contextualVariants.length, 16, "the landing recipes, radius and headline plus the workout shelf make 16 contextual variants");
+assert.equal(inventory.contextualVariants.length, 15, "the landing recipes, radius and headline plus the workout shelf make 15 contextual variants (the summary hero is a title-role consumer, not a variant)");
 assert.deepEqual(radiusContractErrors(inventory), [], "the proof's phone plate, its compact plate and the step crop retain the Plan 054 geometry");
 const flattenedRadius = structuredClone(inventory);
 flattenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").radiusRecipes[1].token = "--radius-prominent";
@@ -532,7 +532,7 @@ try {
       "--font-size-body": "1rem", "--font-size-control": "1rem", "--font-size-subtitle": "1.125rem",
       "--font-size-metric": "1.375rem", "--font-size-section-title": "1.5rem", "--font-size-feature-title": "1.75rem",
       "--font-size-title": "1.875rem", "--font-size-display": "2.5rem",
-      "--font-size-summary-hero": "2.125rem", "--font-size-landing-headline": "2.375rem",
+      "--font-size-landing-headline": "2.375rem",
       "--font-size-landing-headline-wide": "3.25rem", "--font-size-landing-climax": "min(4.25rem,16vw)",
       "--font-size-landing-climax-wide": "min(5.5rem,7.5vw)", "--font-size-rest-clock": "clamp(2rem,10cqi,2.625rem)",
       "--line-tight": "1.1", "--line-standard": "1.4", "--line-reading": "1.55",
@@ -545,7 +545,8 @@ try {
     };
     const errors = Object.entries(expected).filter(([name, wanted]) => value(name) !== wanted)
       .map(([name, wanted]) => `${name}: ${value(name)} != ${wanted}`);
-    for (const alias of ["--radius-legacy", "--radius", "--r", "--shadow", "--display", "--body", "--mono"]) {
+    // Owner decision #295 comment 5965828337: the summary hero is a 30px title-role consumer, so no 34px token returns.
+    for (const alias of ["--font-size-summary-hero", "--radius-legacy", "--radius", "--r", "--shadow", "--display", "--body", "--mono"]) {
       if (value(alias)) errors.push(`${alias} must remain absent`);
     }
     if (value("--font-size-focal-data") !== value("--font-size-feature-title")) {

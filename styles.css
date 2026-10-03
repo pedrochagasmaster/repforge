@@ -67,10 +67,9 @@
   --font-size-focal-data:var(--font-size-feature-title);
   --font-size-title:1.875rem;
   --font-size-display:2.5rem;
-  /* The selected landing and the saved-session hero have deliberate scale
-     breaks above the ordinary display tier. These are bounded role variants,
+  /* The selected landing has deliberate scale breaks above the ordinary
+     display tier; the saved-session hero is a plain title (30px). These are bounded role variants,
      not permission for one-off sizes in other surfaces. */
-  --font-size-summary-hero:2.125rem;
   --font-size-landing-headline:2.375rem;
   --font-size-landing-headline-wide:3.25rem;
   --font-size-landing-climax:min(4.25rem,16vw);

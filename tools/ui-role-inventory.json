@@ -9037,20 +9037,6 @@
       ]
     },
     {
-      "id": "summary-hero-scale",
-      "selector": ".sum-hero",
-      "role": "typography:summary-hero",
-      "rationale": "The saved-session summary hero sits between title and display without flattening its completion hierarchy.",
-      "owner": "plan-057/058",
-      "catalogStates": [
-        "session/summary",
-        "session/summary-maintained",
-        "session/summary-declined",
-        "session/summary-mixed",
-        "session/summary-first"
-      ]
-    },
-    {
       "id": "rest-clock-scale",
       "selector": ".restinline__clock",
       "role": "typography:rest-clock",
