@@ -1390,10 +1390,29 @@ function closeEffortPop({except=null}={}){
 const toggleEffortPop=key=>{
   const pop=$(`[data-effpop="${key}"]`);
   if(pop?.classList.contains("is-open"))closeEffortPop();else openEffortPop(key)};
+/* The glossary popover is a non-modal dialog opened from a term. By keyboard or screen reader it behaves as one:
+   the term says it opens a dialog and whether it is open, focus moves into the popover (named and described by the
+   definition it shows, so the text is read out), and Escape or the close button closes it and returns focus to the
+   term. A tap elsewhere closes it without moving focus. (R7 J-15) */
+let glossaryOpener=null;
+function closeGlossary({restore=true}={}){
+  const g=$("#glossary");if(!g||g.classList.contains("hidden"))return false;
+  g.classList.add("hidden");
+  const opener=glossaryOpener;glossaryOpener=null;
+  if(opener){
+    opener.setAttribute("aria-expanded","false");
+    // A rebuild of the page may have replaced the term: ask for its equivalent.
+    const term=opener.isConnected?opener:$$(`[data-term="${CSS.escape(opener.dataset.term||"")}"]`).find(el=>!el.closest(".is-peek")&&canTakeFocus(el));
+    if(restore&&term)focusRoute(term)}
+  return true}
 function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
+  if(glossaryOpener&&glossaryOpener!==anchor)glossaryOpener.setAttribute("aria-expanded","false");
   g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
   g.querySelector(".glossary__body").textContent=t(`glossary.${termKey}`)||"";
   g.classList.remove("hidden");
+  glossaryOpener=anchor;anchor.setAttribute("aria-haspopup","dialog");anchor.setAttribute("aria-expanded","true");
+  anchor.setAttribute("aria-controls","glossary");
+  try{g.focus({preventScroll:true})}catch{}
   const r=anchor.getBoundingClientRect(),viewportWidth=document.documentElement.clientWidth||window.innerWidth;
   const bounds=g.getBoundingClientRect(),left=Math.max(8,Math.min(r.left,viewportWidth-bounds.width-8));
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
@@ -18973,9 +18992,12 @@ function init(){
   const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>requestEntryCancel();
   window.addEventListener("popstate",onEntryPopState);
   document.addEventListener("visibilitychange",onAppVisible);
-  $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
+  $("#glossary .glossary__close").onclick=()=>closeGlossary();
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
-    if(!g.contains(e.target)&&!e.target.closest("[data-term]"))g.classList.add("hidden")});
+    if(!g.contains(e.target)&&!e.target.closest("[data-term]"))closeGlossary({restore:false})});
+  document.addEventListener("keydown",e=>{
+    if(e.key!=="Escape"||e.defaultPrevented)return;
+    if(closeGlossary())e.preventDefault()});
   // Comma decimals from locale keypads: rewrite digit-comma-digit to a period
   // as the user types so steppers, drafts, and saves all see a parseable value.
   document.addEventListener("input",e=>{

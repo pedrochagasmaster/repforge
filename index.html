@@ -558,10 +558,10 @@
     <button data-view="program" data-telemetry-action="nav_program"><span class="nav__icon" data-i="program"></span><span data-i18n="nav.program">Program</span></button>
   </nav>
 
-  <div id="glossary" class="glossary hidden" role="dialog" data-i18n-aria="dialog.glossary.aria" aria-label="Definition">
+  <div id="glossary" class="glossary hidden" role="dialog" tabindex="-1" data-i18n-aria="dialog.glossary.aria" aria-label="Definition" aria-labelledby="glossaryTerm" aria-describedby="glossaryBody">
     <button type="button" class="glossary__close" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
-    <p class="glossary__term"></p>
-    <p class="glossary__body"></p>
+    <p class="glossary__term" id="glossaryTerm"></p>
+    <p class="glossary__body" id="glossaryBody"></p>
   </div>
   <dialog id="importChoice" class="importchoice" data-i18n-aria="dialog.import.aria" aria-label="Import backup">
     <p class="importchoice__title" data-i18n="dialog.import.title">Import backup</p>

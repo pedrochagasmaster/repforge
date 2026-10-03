@@ -1048,6 +1048,32 @@ async function main() {
     "the Effort glossary term stays clickable in the ledger head", effortTerm || "empty glossary");
   await page.click("#glossary .glossary__close");
   await page.waitForFunction(() => document.querySelector("#glossary")?.classList.contains("hidden"));
+  // R7 J-15: by keyboard the popover takes focus, is named and described by the definition it shows, and Escape
+  // closes it and hands focus back to the term that opened it.
+  await page.locator('#workout .term[data-term="Effort"]').focus();
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#glossary:not(.hidden)");
+  const glossaryOpen = await page.evaluate(() => {
+    const g = document.querySelector("#glossary"), a = document.activeElement;
+    const termBtn = document.querySelector('#workout .term[data-term="Effort"]');
+    const text = (attr) => document.getElementById(g.getAttribute(attr) || "")?.textContent?.trim() || "";
+    return {
+      inside: !!a && (a === g || g.contains(a)), expanded: termBtn?.getAttribute("aria-expanded"),
+      name: text("aria-labelledby"), desc: text("aria-describedby"),
+      term: g.querySelector(".glossary__term").textContent.trim(), body: g.querySelector(".glossary__body").textContent.trim(),
+    };
+  });
+  assert(glossaryOpen.inside && glossaryOpen.expanded === "true" && glossaryOpen.name === glossaryOpen.term &&
+    glossaryOpen.name.length > 0 && glossaryOpen.desc === glossaryOpen.body && glossaryOpen.desc.length > 0,
+  "opening the glossary by keyboard moves focus into it, and it is named and described by its definition (R7 J-15)", JSON.stringify(glossaryOpen));
+  await page.keyboard.press("Escape");
+  const glossaryClosed = await page.evaluate(() => ({
+    hidden: document.querySelector("#glossary").classList.contains("hidden"),
+    onTerm: !!document.activeElement?.matches?.('#workout .term[data-term="Effort"]'),
+    expanded: document.querySelector('#workout .term[data-term="Effort"]')?.getAttribute("aria-expanded"),
+  }));
+  assert(glossaryClosed.hidden && glossaryClosed.onTerm && glossaryClosed.expanded === "false",
+    "Escape closes the glossary and returns focus to its term (R7 J-15)", JSON.stringify(glossaryClosed));
   const shelfAlign = await page.evaluate(() => {
     const fields = [...document.querySelectorAll("#workout .exercise.is-current .focus-shelf .shelf__field")];
     const band = (sel) => fields.map((c) => {
