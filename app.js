@@ -13208,10 +13208,12 @@ function libraryResumeOptions(){
   return{day:libFlow.day,tab:libFlow.tab,query:libFlow.query,muscle:libFlow.muscle,
     equipment:libFlow.equipment,step:libFlow.step,editorScope:libFlow.editorScope,
     selected:[...libFlow.selected.entries()].map(cloneSnapshot)}}
-function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null,editorScope=false}={}){
+function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null,editorScope=false,returnTo=null}={}){
   libFlow={day:dayName,tab:LIB_PAGE_TABS.includes(tab)?tab:"browse",query:String(query||""),muscle,equipment,step,
     editorScope:!!editorScope,selected:librarySelectionMap(selected)};
-  libReturn=document.activeElement;
+  // Reached through the picker, the control that was pressed is the picker's own and it is gone by now: the caller
+  // names the control that opened the picker instead (R7 J-19).
+  libReturn=returnTo||document.activeElement;
   const settle=routePushBegin("in",{pushed:$("#library"),under:routeViewEl(currentViewId())});
   document.body.classList.add("is-library");
   document.body.classList.remove("is-preview");
@@ -13227,11 +13229,17 @@ function closeLibrary({toProgram=true}={}){
   libFlow=null;
   const settle=toProgram?routePushBegin("out",{pushed:$("#library"),under:routeViewEl(returnToOnboarding?"onboarding":"program")}):null;
   document.body.classList.remove("is-library","is-preview");
-  const back=resolveReturnFocus(libReturn);libReturn=null;
+  let back=resolveReturnFocus(libReturn);
+  // The editor may have redrawn its Add control since: ask for its equivalent by day.
+  if(!back&&libReturn instanceof Element&&libReturn.dataset?.role==="add-exercise")
+    back=resolveReturnFocus($$(`[data-role="add-exercise"][data-day="${CSS.escape(libReturn.dataset.day||"")}"]`).find(canTakeFocus));
+  if(back===document.body||back===document.documentElement)back=null;
+  libReturn=null;
   if(toProgram){
     if(returnToOnboarding){showOnboardingView();renderOnboarding()}
     else returnToTab("program")}
-  if(back)try{back.focus({preventScroll:true})}catch{}
+  // Back lands on the control that opened the library, or else on the heading of the page it returns to.
+  if(!(back&&focusRoute(back)))focusRoute(routeHeading(returnToOnboarding?"onboarding":"program"));
   settle?.()}
 
 function renderLibrary(){
@@ -18785,9 +18793,9 @@ function init(){
   const previewBack=$("#previewBack");if(previewBack)previewBack.onclick=closeExercisePreview;
   const pkFull=$("#exPickFull");
   if(pkFull)pkFull.onclick=()=>{
-    const resume=pickerResumeOptions(),target=pickerState?.day||day;
+    const resume=pickerResumeOptions(),target=pickerState?.day||day,opener=pickerReturn;
     closeExercisePicker().then(()=>openLibrary({day:target,query:resume?.query||"",muscle:resume?.muscle||null,
-      equipment:resume?.equipment||null,editorScope:setupEditorOpen}))};
+      equipment:resume?.equipment||null,editorScope:setupEditorOpen,returnTo:opener}))};
   const impBack=$("#importBack");if(impBack)impBack.onclick=()=>closeImportReview();
   const impCancel=$("#importReviewCancel");
   if(impCancel)impCancel.onclick=()=>{closeImportReview();toast(t("toast.program_import_cancelled"))};
