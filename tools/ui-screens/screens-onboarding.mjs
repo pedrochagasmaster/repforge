@@ -240,9 +240,17 @@ async function buildTo(page, step) {
     await page.locator("#exPickList .pickrow").first().click();
     await page.waitForTimeout(220);
   };
+  // Each pick is announced ("Exercise added.", R7 J-08). The frame is the editor at rest, so the
+  // announcement's ordinary lifetime ends before capture rather than racing the settle pass.
+  const settleAnnouncement = () => page.waitForFunction(
+    () => document.querySelector("#toast")?.classList.contains("hidden") !== false,
+    undefined,
+    { timeout: 15000 }
+  );
   await addExercise(0);
-  if (step === "editor-partial") return;
+  if (step === "editor-partial") return settleAnnouncement();
   for (let day = 1; day < 3; day++) await addExercise(day);
+  await settleAnnouncement();
   await page.waitForFunction(
     () => !document.querySelector("#entryEditorActivate")?.disabled,
     undefined,

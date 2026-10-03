@@ -10279,7 +10279,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -10404,7 +10405,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -10529,7 +10531,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -10654,7 +10657,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -10779,7 +10783,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -10904,7 +10909,8 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um treino"
+          "text": "Montar um treino",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -11029,7 +11035,8 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um treino"
+          "text": "Montar um treino",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -11154,7 +11161,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -11279,7 +11287,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -11479,7 +11488,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -11679,7 +11689,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -11879,7 +11890,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -12079,7 +12091,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -12279,7 +12292,8 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um treino"
+          "text": "Montar um treino",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -12479,7 +12493,8 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um treino"
+          "text": "Montar um treino",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -12679,7 +12694,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -12879,7 +12895,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -13249,7 +13266,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -13619,7 +13637,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -13989,7 +14008,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -14359,7 +14379,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -14729,7 +14750,8 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um treino"
+          "text": "Montar um treino",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -15099,7 +15121,8 @@
         },
         {
           "tag": "h1",
-          "text": "Montar um treino"
+          "text": "Montar um treino",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
@@ -15469,7 +15492,8 @@
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Build a program",
+          "tabindex": "-1"
         },
         {
           "tag": "div",
