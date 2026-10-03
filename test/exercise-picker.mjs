@@ -336,6 +336,20 @@ async function main() {
       "cancelling a custom detour restores the picker search and filters", JSON.stringify(resumedPicker));
     await page.click("#exPickCustom");
     await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+    // R7 J-21: an empty name is reported on the field, not by a toast alone.
+    await page.fill("#exCustomName", "");
+    await page.click("#exCustomSave");
+    const emptyName = await page.evaluate(() => {
+      const el = document.activeElement;
+      const note = document.getElementById(el?.getAttribute?.("aria-describedby")?.split(/\s+/).at(-1) || "");
+      return { id: el?.id, invalid: el?.getAttribute?.("aria-invalid"), note: note?.textContent?.trim() || "",
+        sheetOpen: document.querySelector("#exCustomSheet")?.classList.contains("is-open") };
+    });
+    assert(emptyName.id === "exCustomName" && emptyName.invalid === "true" && emptyName.note.length > 0 && emptyName.sheetOpen,
+      "saving a custom exercise with no name focuses the field, marks it invalid and explains why inline (R7 J-21)", JSON.stringify(emptyName));
+    await page.fill("#exCustomName", "Belt squat");
+    assert(await page.getAttribute("#exCustomName", "aria-invalid") !== "true",
+      "typing a name clears the invalid state (R7 J-21)");
     await page.evaluate(() => {
       // Equipment and a primary muscle are required: the wizard filters on one
       // and the volume audit groups by the other.

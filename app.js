@@ -12517,6 +12517,7 @@ function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=f
   setCustomExercisePhase(customState,"editing");
   customReturn=document.activeElement;
   if(name)name.value=entry?.name||"";
+  setCustomNameError(null);
   const notes=$("#exCustomNotes");if(notes)notes.value=entry?.notes||"";
   const del=$("#exCustomDelete");
   if(del){const action=inUse?"custom.archive":"custom.delete";
@@ -12690,11 +12691,26 @@ async function finishCustomExerciseMutation(active,{operation,entry}){
   if(active.onSave&&entry)await active.onSave(entry);
   else if(pickerState)renderPickerList()}
 
+/** The name field carries its own error (R7 J-21): focus, aria-invalid and a note linked by aria-describedby, not a toast alone. */
+const CUSTOM_NAME_ERROR_ID="exCustomNameError";
+function setCustomNameError(message){
+  const input=$("#exCustomName");if(!input)return;
+  let note=document.getElementById(CUSTOM_NAME_ERROR_ID);
+  if(!message){
+    input.removeAttribute("aria-invalid");
+    if(input.getAttribute("aria-describedby")===CUSTOM_NAME_ERROR_ID)input.removeAttribute("aria-describedby");
+    note?.remove();return}
+  if(!note){
+    note=document.createElement("p");note.id=CUSTOM_NAME_ERROR_ID;note.className="custom__error";note.setAttribute("role","alert");
+    (input.closest("label")||input).after(note)}
+  note.textContent=message;
+  input.setAttribute("aria-invalid","true");input.setAttribute("aria-describedby",CUSTOM_NAME_ERROR_ID);
+  try{input.focus()}catch{}}
 async function saveCustomExerciseSheet(){
   const active=customState;
   if(!active||active.phase!=="editing")return;
   const name=String($("#exCustomName")?.value||"").trim();
-  if(!name){toast(t("toast.custom_needs_name"));return}
+  if(!name){setCustomNameError(t("toast.custom_needs_name"));return}
   if(!active.id){
     const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
     if(twin&&twin.id!==active.duplicateAcknowledgedId){
@@ -18760,6 +18776,7 @@ function init(){
   const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;
+  const cuName=$("#exCustomName");if(cuName)cuName.addEventListener("input",()=>{if(cuName.getAttribute("aria-invalid")==="true")setCustomNameError(null)});
   const cuDelete=$("#exCustomDelete");if(cuDelete)cuDelete.onclick=deleteCustomExerciseSheet;
   const cuRecoveryRetry=$("#exCustomRecoveryRetry");if(cuRecoveryRetry)cuRecoveryRetry.onclick=retryCustomExerciseRecovery;
   const cuRecoveryReload=$("#exCustomRecoveryReload");if(cuRecoveryReload)cuRecoveryReload.onclick=()=>location.reload();
