@@ -1,0 +1,37 @@
+{
+  "finding": "F01",
+  "input": {
+    "schemaVersion": 2,
+    "familyId": "balanced",
+    "frequency": 3,
+    "sessionMinutes": 45,
+    "preferredRestSeconds": null,
+    "equipment": [
+      "barbell",
+      "dumbbell",
+      "machine",
+      "cable",
+      "smith"
+    ],
+    "environment": [
+      "safe_pull",
+      "training_support"
+    ],
+    "loadIncrements": {
+      "barbell": 2.5,
+      "dumbbell": 2,
+      "machine": 5,
+      "cable": 5,
+      "smith": 2.5
+    },
+    "profile": "standard"
+  },
+  "kind": "compiled",
+  "slotId": "balanced_3_d1_s4",
+  "exercise": "Romanian deadlift machine",
+  "prescriptionClass": "compound_8_12",
+  "actualSets": 1,
+  "exportedMinSets": 2,
+  "documentedMinimum": 2,
+  "reproduced": true
+}
