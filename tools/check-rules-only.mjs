@@ -22,6 +22,7 @@
  * Usage:
  *   node tools/check-rules-only.mjs                        all 64 states, PT and EN
  *   node tools/check-rules-only.mjs --state settings/main  one state
+ *   node tools/check-rules-only.mjs --onboarding            the accent budget over every onboarding-* state (R7 V-12)
  *   options: --locale pt|en  --theme light|dark  --evidence <file.json>  --verbose
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -29,6 +30,7 @@ import { join } from "node:path";
 import { ROOT, loadManifest } from "./ui-screens/manifest.mjs";
 import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { dismissChrome, launchChromium, openPage, setCaptureBase, settle } from "./ui-screens/session.mjs";
+import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
 import {
   ORANGE_ALLOWLIST, ORANGE_CATEGORIES, OVERFLOW_EXCEPTIONS, checkOrange, checkOverflow, checkTargets, gateManifest, gatherEvidence, validateGateConfig,
@@ -281,11 +283,89 @@ export async function runRulesOnly({
   return result;
 }
 
+/**
+ * R7 V-12 (owner decision #295 comment 5965828337): the accent budget over the onboarding states. Onboarding is drawn by
+ * the entry flow, not by the app scenarios above, so this renders each live `onboarding-*` catalog state through
+ * ONBOARDING_SCENARIOS and runs the same `checkOrange` over it at 360 px. The pain note (`p.entry__pain` and its shield)
+ * and the hub guide cue sit on `--well` with an `--ink-soft` shield, so neither may be painted with the accent.
+ *
+ * `scope` names those elements. A finding that matches it fails the audit; any other onboarding accent use (the landing's
+ * orange band, the segbar's current segment, group labels, new-exercise marks) is returned in `outside` and printed, and is
+ * not this finding's to judge.
+ */
+export const ONBOARDING_ACCENT_SCOPE = /entry__pain|guide-cue/;
+export const onboardingStates = (manifest = loadManifest()) =>
+  manifest.screens.map((screen) => `${screen.flow}/${screen.id}`).filter((key) => key.startsWith("onboarding-"));
+
+export async function runOnboardingOrange({
+  states = null, locales = ["pt", "en"], theme = "light", browser = null, manifest = loadManifest(), onProgress = () => {}, scope = ONBOARDING_ACCENT_SCOPE, prepare = null,
+} = {}) {
+  states = states || onboardingStates(manifest);
+  const result = { ok: false, rendered: [], findings: [], outside: [] };
+  const gate = gateManifest(manifest);
+  let preview = null, own = null;
+  if (!browser) {
+    preview = await maybeStartLocalPreview([{ lane: "state" }], { cwd: ROOT });
+    setCaptureBase(preview.env.REPFORGE_URL);
+    own = browser = await launchChromium();
+  }
+  try {
+    for (const key of states) {
+      for (const locale of locales) {
+        let outcome = null;
+        for (let attempt = 1; attempt <= RENDER_ATTEMPTS && !outcome; attempt++) {
+          let context;
+          try {
+            if (!ONBOARDING_SCENARIOS[key]) throw new Error("missing production catalog scenario");
+            const capture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-360", theme, locale, text: "normal", motion: "normal" };
+            const opened = await openPage(browser, gate, capture, onboardingState(key, gate.locales[locale].lang), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
+            context = opened.context;
+            await ONBOARDING_SCENARIOS[key](opened.page);
+            await settle(opened.page);
+            if (prepare) await prepare(opened.page, key);
+            const evidence = await gatherRulesOnlyEvidence(opened.page);
+            outcome = { found: [...new Set(checkOrange(evidence))] };
+          } catch (error) {
+            if (attempt === RENDER_ATTEMPTS || !ONBOARDING_SCENARIOS[key]) outcome = { error };
+          } finally {
+            await context?.close();
+          }
+        }
+        if (outcome.error) {
+          result.findings.push({ key, locale, check: "render", message: `render: could not be rendered: ${outcome.error.stack || outcome.error.message}` });
+          result.rendered.push({ key, locale, findings: 1, outside: 0 });
+        } else {
+          const inScope = outcome.found.filter((message) => scope.test(message));
+          result.rendered.push({ key, locale, findings: inScope.length, outside: outcome.found.length - inScope.length });
+          result.findings.push(...inScope.map((message) => ({ key, locale, check: "orange", message })));
+          result.outside.push(...outcome.found.filter((message) => !scope.test(message)).map((message) => ({ key, locale, check: "orange", message })));
+        }
+        onProgress(`${key} [${locale}]`);
+      }
+    }
+  } finally {
+    await own?.close();
+    preview?.cleanup();
+  }
+  result.ok = result.findings.length === 0;
+  return result;
+}
+
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
   const args = process.argv.slice(2);
   const option = (name) => { const index = args.indexOf(name); return index < 0 ? null : args[index + 1]; };
   const stateKey = option("--state"), locale = option("--locale"), theme = option("--theme") || "light", evidencePath = option("--evidence");
   const manifest = loadManifest();
+  if (args.includes("--onboarding")) {
+    const picked = stateKey ? [stateKey] : onboardingStates(manifest);
+    const outcome = await runOnboardingOrange({
+      states: picked, theme, manifest, locales: locale ? [locale] : ["pt", "en"], onProgress: (label) => { if (args.includes("--verbose")) console.log(`  checked ${label}`); },
+    });
+    console.log(`Onboarding accent budget: ${picked.length} states, ${outcome.rendered.length} renders (${theme}, 360 px), ${outcome.findings.length} finding(s) on the pain note and hub guide cue; ${outcome.outside.length} other accent use(s) outside this finding.`);
+    for (const item of outcome.findings) console.error(`FAIL: ${item.key} [${item.locale}] ${item.message}`);
+    if (args.includes("--verbose")) for (const item of outcome.outside) console.log(`  outside V-12: ${item.key} [${item.locale}] ${item.message}`);
+    process.exit(outcome.ok ? 0 : 1);
+  }
   if (stateKey && !RULES_ONLY_STATES.includes(stateKey)) {
     console.error(`FAIL: ${stateKey} is not one of the ${RULES_ONLY_STATES.length} rules-only states`);
     process.exit(1);

@@ -3697,7 +3697,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 /* The chooser's entry guide sits right after the Recommend card it explains.
    The hub becomes a CSS grid at wider widths, so without this the cue would
    land in a card-sized cell instead of its own full-width row. */
-.entry__hub .guide-cue{grid-column:1/-1;margin:0 0 10px}
+.entry__hub .guide-cue{grid-column:1/-1;margin:0 0 10px;background:var(--well)}
 .entry-body .entry__own{gap:0;padding:2px 0 2px 20px;border-left:1px solid var(--rule);margin-top:2px}
 .entry-body .entry__group-lab{
   margin:22px 0 8px;display:flex;align-items:center;gap:10px;color:var(--ink-faint)
@@ -3992,13 +3992,14 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 }
 .entry__field--search input{padding-left:40px}
 
-/* Pain / safety notice: a calm but unmistakable tinted card. */
+/* Pain / safety notice: a calm card on the --well ground with a --rule edge and an --ink-soft shield. No accent: the
+   notice is information, not an action (R7 V-12, owner decision #295 comment 5965828337). */
 .entry-body .entry__pain{
-  display:flex;gap:12px;align-items:flex-start;margin:16px 0 0;padding:14px 14px 14px 15px;
-  border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:var(--radius-surface);
-  background:var(--entry-tint);color:var(--ink);font-size:var(--font-size-body-small);line-height:1.45
+  display:flex;gap:12px;align-items:flex-start;margin:16px 0 0;padding:14px;
+  border:1px solid var(--rule);border-radius:var(--radius-surface);
+  background:var(--well);color:var(--ink);font-size:var(--font-size-body-small);line-height:1.45
 }
-.entry-body .entry__pain-ico{flex:none;width:22px;height:22px;color:var(--accent);margin-top:1px}
+.entry-body .entry__pain-ico{flex:none;width:22px;height:22px;color:var(--ink-soft);margin-top:1px}
 
 /* Manual Build is an editable draft, not an activated Program view. Empty days
    stay explicit, with the next action attached to each day. */

@@ -16,7 +16,7 @@ import { dismissChrome, setCaptureBase, launchChromium, openPage, settle } from 
 import { ORANGE_CATEGORIES, gateManifest } from "../tools/check-direction-d.mjs";
 import {
   CHECKS, NON_SHEET_DIALOGS, RULES_ONLY_EXTRA_ALLOWLIST, RULES_ONLY_ORANGE_ALLOWLIST, RULES_ONLY_STATES,
-  checkSheetBand, gatherRulesOnlyEvidence, readRulesOnlyTreatment, runRulesOnly, validateRulesOnlyConfig, validateRulesOnlyList,
+  ONBOARDING_ACCENT_SCOPE, checkSheetBand, gatherRulesOnlyEvidence, readRulesOnlyTreatment, runOnboardingOrange, runRulesOnly, validateRulesOnlyConfig, validateRulesOnlyList,
 } from "../tools/check-rules-only.mjs";
 
 const results = { passed: 0, failed: 0 };
@@ -174,6 +174,27 @@ try {
     show(run.findings.map((item) => `${item.key} [${item.locale}] ${item.message}`)));
   check(sample.every((key) => run.rendered.filter((item) => item.key === key).every((item) => item.sheets > 0)),
     "each sampled state was audited as an open sheet", JSON.stringify(run.rendered.map((item) => `${item.key}:${item.sheets}`)));
+
+  // ------------------------------------------------ R7 V-12: the onboarding accent budget
+  // The pain note and the hub guide cue sit on --well with an --ink-soft shield; the same checkOrange the D gate runs
+  // reports nothing on them, in both themes and both languages. A seeded accent edge on the pain note is reported, so the
+  // audit bites. (Other onboarding accent uses are out of this finding's scope and come back in `outside`.)
+  console.log("\nThe onboarding accent budget (owner decision #295 comment 5965828337)");
+  const v12 = ["onboarding-start/hub", "onboarding-start/hub-own-open", "onboarding-start/hub-existing", "onboarding-start/hub-help", "onboarding-recommend/avoidance-pain"];
+  for (const theme of ["light", "dark"]) {
+    const onboarding = await runOnboardingOrange({ states: v12, locales: ["pt", "en"], theme, browser, manifest });
+    check(onboarding.rendered.length === v12.length * 2, `every pain-note and hub state rendered in PT and EN (${theme})`, JSON.stringify(onboarding.rendered));
+    check(onboarding.ok && onboarding.findings.length === 0, `the pain note and the hub guide cue use no accent (${theme})`,
+      show(onboarding.findings.map((item) => `${item.key} [${item.locale}] ${item.message}`)));
+  }
+  const seededPain = await runOnboardingOrange({
+    states: ["onboarding-recommend/avoidance-pain"], locales: ["en"], browser, manifest,
+    prepare: (page) => page.addStyleTag({ content: ".entry__pain{border-left:3px solid var(--accent) !important}" }),
+  });
+  check(!seededPain.ok && seededPain.findings.some((item) => /entry__pain/.test(item.message) && /border-left-color/.test(item.message)),
+    "an accent edge on the pain note is reported by the same check", show(seededPain.findings.map((item) => item.message)));
+  check(ONBOARDING_ACCENT_SCOPE.test("p.entry__pain in #onbBody is painted with the accent") && ONBOARDING_ACCENT_SCOPE.test("aside.guide-cue in #onbBody is painted with the accent"),
+    "the audit's scope is the pain note and the hub guide cue");
 
   console.log("\nThe audit refuses a bad list");
   const broken = await runRulesOnly({ states: ["today/not-a-state"], locales: ["en"], browser, manifest });
