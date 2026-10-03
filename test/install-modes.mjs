@@ -698,6 +698,8 @@ async function run() {
         assert(shape.nextTargets.length === 3 && shape.nextTargets.every((text) => /\d/.test(text)) && /100/.test(shape.chartAlt) && /e1RM/.test(shape.chartAlt) && /\b4\b/.test(shape.chartAlt),
           `${at}: the three next targets and the strength trend remain live text`, JSON.stringify(shape));
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
+        // The logo floor is 32, not the old 39: b83c3b8 rewrote this pin when the final landing page replaced the retired
+        // hero. The lockup's mark is now a 32px paper plate (.firstrun__logo, built in 7d8ae3e), so 32 is its own size.
         assert(
           shape.logoWidth >= 32 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,
           `${at}: the brand lockup remains legible and contained`,
@@ -840,7 +842,11 @@ async function run() {
         await page.waitForTimeout(60);
       }
       const at = `${locale} x${scale}`;
-      for (const [selector, what] of [[".firstrun-close__body", "the closing line on the orange band"], [".firstrun-rows p", "a data row on the ink band"],
+      // R7 C-08: the ethos line meets 4.5:1 against its rendered background again. b83c3b8 dropped `.firstrun-ethos p`
+      // (the section left with the retired hero) and replaced the assertion with the band lines below, but the ethos is now
+      // the hero headline (owner decision L-3), so #firstRunHeadline carries it.
+      for (const [selector, what] of [["#firstRunHeadline", "the ethos headline on the night band"],
+        [".firstrun-close__body", "the closing line on the orange band"], [".firstrun-rows p", "a data row on the ink band"],
         [".firstrun-footer .firstrun-wrap span", "the footer wordmark on the night band"], ["#firstRunLede", "the hero subtitle on the night band"]]) {
         const info = await contrastOf(page, selector);
         const r = ratio(info.fg, info.bg);
@@ -849,7 +855,7 @@ async function run() {
       }
       const imageBackgrounds = await page.evaluate(() => {
         const layers = [];
-        for (let el = document.querySelector(".firstrun-close__body"); el; el = el.parentElement) {
+        for (let el of [document.querySelector("#firstRunHeadline"), document.querySelector(".firstrun-close__body")]) for (; el; el = el.parentElement) {
           for (const pseudo of [null, "::before", "::after"]) {
             const style = getComputedStyle(el, pseudo);
             if (style.backgroundImage !== "none") layers.push(style.backgroundImage);
@@ -863,7 +869,7 @@ async function run() {
         }
         return layers;
       });
-      assert(imageBackgrounds.length === 0, `${at}: no background image sits behind the closing text`, JSON.stringify(imageBackgrounds));
+      assert(imageBackgrounds.length === 0, `${at}: no background image sits behind the ethos headline or the closing text`, JSON.stringify(imageBackgrounds));
       allErrors.push(...errors);
       await context.close();
     }
