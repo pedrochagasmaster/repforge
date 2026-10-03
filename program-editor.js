@@ -661,7 +661,7 @@
           <p class="program-editor__status" data-role="editor-status" role="status" aria-live="polite" tabindex="-1"${adapter.status?.(document) ? "" : " hidden"}>${esc(adapter.status?.(document) || "")}</p>
         </div>
         <div class="program-editor__days" data-role="days">${days.map((day, index) => renderDay(day, index)).join("") || `<p class="program-editor__empty">${esc(label("emptyDays"))}</p>`}</div>
-        <button type="button" class="program-editor__add-day" data-role="add-day"><span aria-hidden="true">＋</span> <span>${esc(addDayText)}</span></button>
+        <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(addDayText)}</span></button>
       </div>`;
       bind();
     }
