@@ -10657,12 +10657,14 @@ async function main() {
     }),
     "Compute WCAG contrast for --ink-faint and --accent-deep against --bg and --surface"
   );
+  // R7 V-01: the CTA arrow is drawn in the CTA's own ink (--cta-ink), not the accent: --accent on the parchment dark CTA
+  // measured 2.05:1. The brand orange stays on the nav icon, the volume fill and the focus ring.
   assert(
-    contrastAudit.ctaAfter.includes("var(--accent)") &&
+    contrastAudit.ctaAfter.includes("var(--cta-ink)") && !contrastAudit.ctaAfter.includes("var(--accent)") &&
       contrastAudit.navIcon.some((b) => b.includes("var(--accent)")) &&
       contrastAudit.vrowFill.some((v) => v.bg.includes("var(--accent)")) &&
       contrastAudit.focusVisible.some((o) => o.includes("var(--accent)")),
-    "C1: brand-orange fills, CTA arrow and focus rings still use --accent",
+    "C1: brand-orange fills and focus rings still use --accent; the CTA arrow uses the CTA ink",
     JSON.stringify({
       ctaAfter: contrastAudit.ctaAfter,
       navIcon: contrastAudit.navIcon,
