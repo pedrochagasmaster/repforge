@@ -8086,7 +8086,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -8094,7 +8094,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -8102,7 +8102,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -8110,7 +8110,7 @@
         },
         {
           "tag": "b",
-          "text": "Standing calf raise machine"
+          "text": "Elevação de panturrilha em pé na máquina"
         },
         {
           "tag": "summary",
@@ -8127,7 +8127,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -8135,7 +8135,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -8143,7 +8143,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -8151,7 +8151,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable pressdown"
+          "text": "Tríceps na polia"
         },
         {
           "tag": "summary",
@@ -8168,7 +8168,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -8176,7 +8176,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -8184,7 +8184,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -8192,7 +8192,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "summary",
@@ -8209,7 +8209,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -8217,7 +8217,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -8225,7 +8225,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -8233,7 +8233,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "h4",
@@ -12333,8 +12333,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Machine seated crunch",
-          "label": "Collapse Machine seated crunch",
+          "name": "Collapse Abdominal sentado na máquina",
+          "label": "Collapse Abdominal sentado na máquina",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -12533,8 +12533,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Machine seated crunch",
-          "label": "Collapse Machine seated crunch",
+          "name": "Collapse Abdominal sentado na máquina",
+          "label": "Collapse Abdominal sentado na máquina",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -14783,8 +14783,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Machine seated crunch",
-          "label": "Collapse Machine seated crunch",
+          "name": "Collapse Abdominal sentado na máquina",
+          "label": "Collapse Abdominal sentado na máquina",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -14886,8 +14886,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Goblet squat",
-          "label": "Collapse Goblet squat",
+          "name": "Collapse Agachamento goblet",
+          "label": "Collapse Agachamento goblet",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -14989,8 +14989,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Goblet squat",
-          "label": "Collapse Goblet squat",
+          "name": "Collapse Agachamento goblet",
+          "label": "Collapse Agachamento goblet",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -15153,8 +15153,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Machine seated crunch",
-          "label": "Collapse Machine seated crunch",
+          "name": "Collapse Abdominal sentado na máquina",
+          "label": "Collapse Abdominal sentado na máquina",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -15256,8 +15256,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Goblet squat",
-          "label": "Collapse Goblet squat",
+          "name": "Collapse Agachamento goblet",
+          "label": "Collapse Agachamento goblet",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -15359,8 +15359,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Goblet squat",
-          "label": "Collapse Goblet squat",
+          "name": "Collapse Agachamento goblet",
+          "label": "Collapse Agachamento goblet",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -28527,7 +28527,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -28535,7 +28535,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -28543,7 +28543,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -28551,7 +28551,7 @@
         },
         {
           "tag": "b",
-          "text": "Standing calf raise machine"
+          "text": "Elevação de panturrilha em pé na máquina"
         },
         {
           "tag": "summary",
@@ -28568,7 +28568,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -28576,7 +28576,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -28584,7 +28584,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -28592,7 +28592,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable pressdown"
+          "text": "Tríceps na polia"
         },
         {
           "tag": "summary",
@@ -28609,7 +28609,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -28617,7 +28617,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -28625,7 +28625,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -28633,7 +28633,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "summary",
@@ -28650,7 +28650,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -28658,7 +28658,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -28666,7 +28666,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -28674,7 +28674,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "section",
@@ -38726,7 +38726,7 @@
         },
         {
           "tag": "b",
-          "text": "Chest press machine"
+          "text": "Supino máquina"
         },
         {
           "tag": "div",
@@ -38734,7 +38734,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -38742,7 +38742,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -38750,7 +38750,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "div",
@@ -38758,7 +38758,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "summary",
@@ -38775,7 +38775,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -38783,7 +38783,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -38791,7 +38791,7 @@
         },
         {
           "tag": "b",
-          "text": "Shoulder press machine"
+          "text": "Desenvolvimento na máquina"
         },
         {
           "tag": "div",
@@ -38807,7 +38807,7 @@
         },
         {
           "tag": "b",
-          "text": "Incline chest press machine"
+          "text": "Supino máquina inclinado"
         },
         {
           "tag": "div",
@@ -38815,7 +38815,7 @@
         },
         {
           "tag": "b",
-          "text": "Standing calf raise machine"
+          "text": "Elevação de panturrilha em pé na máquina"
         },
         {
           "tag": "summary",
@@ -38832,7 +38832,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -38840,7 +38840,7 @@
         },
         {
           "tag": "b",
-          "text": "Incline chest press machine"
+          "text": "Supino máquina inclinado"
         },
         {
           "tag": "div",
@@ -38848,7 +38848,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -38856,7 +38856,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -38864,7 +38864,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "div",
@@ -38872,7 +38872,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "h4",
@@ -43680,7 +43680,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -43688,7 +43688,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -43696,7 +43696,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -43704,7 +43704,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -43712,7 +43712,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "summary",
@@ -43729,7 +43729,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -43737,7 +43737,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -43745,7 +43745,7 @@
         },
         {
           "tag": "b",
-          "text": "Shoulder press machine"
+          "text": "Desenvolvimento na máquina"
         },
         {
           "tag": "div",
@@ -43753,7 +43753,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -43761,7 +43761,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "summary",
@@ -43778,7 +43778,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -43786,7 +43786,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -43794,7 +43794,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -43802,7 +43802,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -43810,7 +43810,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "section",
@@ -48965,7 +48965,7 @@
         },
         {
           "tag": "b",
-          "text": "Chest press machine"
+          "text": "Supino máquina"
         },
         {
           "tag": "div",
@@ -48973,7 +48973,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -48981,7 +48981,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -48989,7 +48989,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "div",
@@ -48997,7 +48997,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "summary",
@@ -49014,7 +49014,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -49022,7 +49022,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -49030,7 +49030,7 @@
         },
         {
           "tag": "b",
-          "text": "Shoulder press machine"
+          "text": "Desenvolvimento na máquina"
         },
         {
           "tag": "div",
@@ -49046,7 +49046,7 @@
         },
         {
           "tag": "b",
-          "text": "Incline chest press machine"
+          "text": "Supino máquina inclinado"
         },
         {
           "tag": "div",
@@ -49054,7 +49054,7 @@
         },
         {
           "tag": "b",
-          "text": "Standing calf raise machine"
+          "text": "Elevação de panturrilha em pé na máquina"
         },
         {
           "tag": "summary",
@@ -49071,7 +49071,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -49079,7 +49079,7 @@
         },
         {
           "tag": "b",
-          "text": "Incline chest press machine"
+          "text": "Supino máquina inclinado"
         },
         {
           "tag": "div",
@@ -49087,7 +49087,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -49095,7 +49095,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -49103,7 +49103,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "div",
@@ -49111,7 +49111,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "section",
@@ -51189,7 +51189,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -51197,7 +51197,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -51205,7 +51205,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -51213,7 +51213,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -51221,7 +51221,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "summary",
@@ -51238,7 +51238,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -51246,7 +51246,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -51254,7 +51254,7 @@
         },
         {
           "tag": "b",
-          "text": "Shoulder press machine"
+          "text": "Desenvolvimento na máquina"
         },
         {
           "tag": "div",
@@ -51262,7 +51262,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -51270,7 +51270,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "summary",
@@ -51287,7 +51287,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -51295,7 +51295,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -51303,7 +51303,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -51311,7 +51311,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -51319,7 +51319,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "section",
@@ -51557,7 +51557,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -51565,7 +51565,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -51573,7 +51573,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -51581,7 +51581,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -51589,7 +51589,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "summary",
@@ -51606,7 +51606,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -51614,7 +51614,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -51622,7 +51622,7 @@
         },
         {
           "tag": "b",
-          "text": "Shoulder press machine"
+          "text": "Desenvolvimento na máquina"
         },
         {
           "tag": "div",
@@ -51630,7 +51630,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -51638,7 +51638,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "summary",
@@ -51655,7 +51655,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -51663,7 +51663,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -51671,7 +51671,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -51679,7 +51679,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -51687,7 +51687,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "section",
@@ -53186,7 +53186,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -53194,7 +53194,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -53202,7 +53202,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -53210,7 +53210,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -53218,7 +53218,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "summary",
@@ -53235,7 +53235,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -53243,7 +53243,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -53251,7 +53251,7 @@
         },
         {
           "tag": "b",
-          "text": "Shoulder press machine"
+          "text": "Desenvolvimento na máquina"
         },
         {
           "tag": "div",
@@ -53259,7 +53259,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "span",
@@ -53271,7 +53271,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "summary",
@@ -53288,7 +53288,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "span",
@@ -53300,7 +53300,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -53308,7 +53308,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -53316,7 +53316,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -53324,7 +53324,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "section",
@@ -54467,7 +54467,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -54475,7 +54475,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -54483,7 +54483,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -54491,7 +54491,7 @@
         },
         {
           "tag": "b",
-          "text": "Standing calf raise machine"
+          "text": "Elevação de panturrilha em pé na máquina"
         },
         {
           "tag": "span",
@@ -54512,7 +54512,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -54520,7 +54520,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -54528,7 +54528,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -54536,7 +54536,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable pressdown"
+          "text": "Tríceps na polia"
         },
         {
           "tag": "span",
@@ -54557,7 +54557,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -54565,7 +54565,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell back squat"
+          "text": "Agachamento livre com barra"
         },
         {
           "tag": "div",
@@ -54573,7 +54573,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -54581,7 +54581,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "span",
@@ -54602,7 +54602,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino com barra"
         },
         {
           "tag": "div",
@@ -54610,7 +54610,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -54618,7 +54618,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -54626,7 +54626,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "section",
@@ -55674,7 +55674,7 @@
         },
         {
           "tag": "b",
-          "text": "Chest press machine"
+          "text": "Supino máquina"
         },
         {
           "tag": "div",
@@ -55682,7 +55682,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -55690,7 +55690,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -55698,7 +55698,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "div",
@@ -55706,7 +55706,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "summary",
@@ -55723,7 +55723,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -55731,7 +55731,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -55739,7 +55739,7 @@
         },
         {
           "tag": "b",
-          "text": "Shoulder press machine"
+          "text": "Desenvolvimento na máquina"
         },
         {
           "tag": "div",
@@ -55755,7 +55755,7 @@
         },
         {
           "tag": "b",
-          "text": "Incline chest press machine"
+          "text": "Supino máquina inclinado"
         },
         {
           "tag": "div",
@@ -55763,7 +55763,7 @@
         },
         {
           "tag": "b",
-          "text": "Standing calf raise machine"
+          "text": "Elevação de panturrilha em pé na máquina"
         },
         {
           "tag": "summary",
@@ -55780,7 +55780,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -55788,7 +55788,7 @@
         },
         {
           "tag": "b",
-          "text": "Incline chest press machine"
+          "text": "Supino máquina inclinado"
         },
         {
           "tag": "div",
@@ -55796,7 +55796,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -55804,7 +55804,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -55812,7 +55812,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "div",
@@ -55820,7 +55820,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "section",
@@ -58830,7 +58830,7 @@
         },
         {
           "tag": "b",
-          "text": "Chest press machine"
+          "text": "Supino máquina"
         },
         {
           "tag": "div",
@@ -58838,7 +58838,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -58846,7 +58846,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -58854,7 +58854,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "div",
@@ -58862,7 +58862,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "summary",
@@ -58879,7 +58879,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -58887,7 +58887,7 @@
         },
         {
           "tag": "b",
-          "text": "Assisted pull-up"
+          "text": "Barra fixa assistida"
         },
         {
           "tag": "div",
@@ -58895,7 +58895,7 @@
         },
         {
           "tag": "b",
-          "text": "Shoulder press machine"
+          "text": "Desenvolvimento na máquina"
         },
         {
           "tag": "div",
@@ -58911,7 +58911,7 @@
         },
         {
           "tag": "b",
-          "text": "Incline chest press machine"
+          "text": "Supino máquina inclinado"
         },
         {
           "tag": "div",
@@ -58919,7 +58919,7 @@
         },
         {
           "tag": "b",
-          "text": "Standing calf raise machine"
+          "text": "Elevação de panturrilha em pé na máquina"
         },
         {
           "tag": "summary",
@@ -58936,7 +58936,7 @@
         },
         {
           "tag": "b",
-          "text": "Barbell lunge"
+          "text": "Afundo com barra"
         },
         {
           "tag": "div",
@@ -58944,7 +58944,7 @@
         },
         {
           "tag": "b",
-          "text": "Incline chest press machine"
+          "text": "Supino máquina inclinado"
         },
         {
           "tag": "div",
@@ -58952,7 +58952,7 @@
         },
         {
           "tag": "b",
-          "text": "Seated row machine"
+          "text": "Remada sentada na máquina"
         },
         {
           "tag": "div",
@@ -58960,7 +58960,7 @@
         },
         {
           "tag": "b",
-          "text": "Romanian deadlift machine"
+          "text": "Levantamento terra romeno na máquina"
         },
         {
           "tag": "div",
@@ -58968,7 +58968,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable lateral raise"
+          "text": "Elevação lateral na polia"
         },
         {
           "tag": "div",
@@ -58976,7 +58976,7 @@
         },
         {
           "tag": "b",
-          "text": "Cable curl"
+          "text": "Rosca na polia"
         },
         {
           "tag": "section",
@@ -61719,7 +61719,7 @@
         },
         {
           "tag": "p",
-          "text": "Today's target shows under Now, and the weight and reps are already filled in below it."
+          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
         },
         {
           "tag": "h3",
@@ -61771,7 +61771,7 @@
         },
         {
           "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's what Now shows."
+          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's the target the card shows."
         },
         {
           "tag": "section",
@@ -62289,7 +62289,7 @@
         },
         {
           "tag": "p",
-          "text": "Today's target shows under Now, and the weight and reps are already filled in below it."
+          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
         },
         {
           "tag": "h3",
@@ -62341,7 +62341,7 @@
         },
         {
           "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's what Now shows."
+          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's the target the card shows."
         },
         {
           "tag": "section",
@@ -62859,7 +62859,7 @@
         },
         {
           "tag": "p",
-          "text": "Today's target shows under Now, and the weight and reps are already filled in below it."
+          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
         },
         {
           "tag": "h3",
@@ -62911,7 +62911,7 @@
         },
         {
           "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's what Now shows."
+          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's the target the card shows."
         },
         {
           "tag": "section",
@@ -63376,7 +63376,7 @@
         },
         {
           "tag": "p",
-          "text": "Today's target shows under Now, and the weight and reps are already filled in below it."
+          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
         },
         {
           "tag": "h3",
@@ -63428,7 +63428,7 @@
         },
         {
           "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's what Now shows."
+          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's the target the card shows."
         },
         {
           "tag": "section",
@@ -63893,7 +63893,7 @@
         },
         {
           "tag": "p",
-          "text": "Today's target shows under Now, and the weight and reps are already filled in below it."
+          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
         },
         {
           "tag": "h3",
@@ -63945,7 +63945,7 @@
         },
         {
           "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's what Now shows."
+          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's the target the card shows."
         },
         {
           "tag": "section",
@@ -64463,7 +64463,7 @@
         },
         {
           "tag": "p",
-          "text": "A meta de hoje aparece em Agora, e o peso e as repetições já vêm preenchidos logo abaixo."
+          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
         },
         {
           "tag": "h3",
@@ -64515,7 +64515,7 @@
         },
         {
           "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 8 repetições por série. É o que aparece em Agora."
+          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 8 repetições por série. É a meta que aparece no cartão."
         },
         {
           "tag": "section",
@@ -64980,7 +64980,7 @@
         },
         {
           "tag": "p",
-          "text": "A meta de hoje aparece em Agora, e o peso e as repetições já vêm preenchidos logo abaixo."
+          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
         },
         {
           "tag": "h3",
@@ -65032,7 +65032,7 @@
         },
         {
           "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 8 repetições por série. É o que aparece em Agora."
+          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 8 repetições por série. É a meta que aparece no cartão."
         },
         {
           "tag": "section",
@@ -65550,7 +65550,7 @@
         },
         {
           "tag": "p",
-          "text": "Today's target shows under Now, and the weight and reps are already filled in below it."
+          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
         },
         {
           "tag": "h3",
@@ -65602,7 +65602,7 @@
         },
         {
           "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's what Now shows."
+          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's the target the card shows."
         },
         {
           "tag": "section",
@@ -66124,7 +66124,7 @@
         },
         {
           "tag": "p",
-          "text": "Today's target shows under Now, and the weight and reps are already filled in below it."
+          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
         },
         {
           "tag": "h3",
@@ -66176,7 +66176,7 @@
         },
         {
           "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's what Now shows."
+          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's the target the card shows."
         },
         {
           "tag": "section",
@@ -66713,7 +66713,7 @@
         },
         {
           "tag": "p",
-          "text": "Today's target shows under Now, and the weight and reps are already filled in below it."
+          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
         },
         {
           "tag": "h3",
@@ -66765,7 +66765,7 @@
         },
         {
           "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's what Now shows."
+          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 8 reps per set. That's the target the card shows."
         },
         {
           "tag": "section",
@@ -67302,7 +67302,7 @@
         },
         {
           "tag": "p",
-          "text": "A meta de hoje aparece em Agora, e o peso e as repetições já vêm preenchidos logo abaixo."
+          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
         },
         {
           "tag": "h3",
@@ -67354,7 +67354,7 @@
         },
         {
           "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 8 repetições por série. É o que aparece em Agora."
+          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 8 repetições por série. É a meta que aparece no cartão."
         },
         {
           "tag": "section",
