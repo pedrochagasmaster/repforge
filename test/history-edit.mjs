@@ -167,8 +167,20 @@ async function main() {
 
     await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
     await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    // R7 J-06: Edit may be pressed with the page scrolled (a long read page); the editor opens at its top.
+    await page.setViewportSize({ width: 390, height: 420 });
+    await page.locator('[data-history-edit="history-edit-a"]').scrollIntoViewIfNeeded();
+    const readScroll = await page.evaluate(() => Math.round(window.scrollY));
     await page.locator('[data-history-edit="history-edit-a"]').click();
     await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
+    const editEntry = await page.evaluate(() => {
+      const el = document.activeElement, box = el?.getBoundingClientRect();
+      return { scrollY: Math.round(window.scrollY), tag: el?.tagName, editing: !!el?.matches?.("[data-history-editing-heading]"),
+        visible: !!box && box.top >= 0 && box.bottom <= window.innerHeight && box.height > 0 };
+    });
+    assert(readScroll > 1 && editEntry.scrollY <= 1 && editEntry.editing && editEntry.visible,
+      "History Edit opens at the top with focus on its visible heading (R7 J-06)", JSON.stringify({ readScroll, ...editEntry }));
+    await page.setViewportSize({ width: 390, height: 844 });
     const editingA11y = await page.evaluate(() => ({
       heading: document.querySelector('[data-history-editing-heading]')?.textContent.trim() || "",
       status: document.querySelector('[data-history-editing-status]')?.textContent.trim() || "",

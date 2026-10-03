@@ -287,7 +287,10 @@ function historyStartEditing(){
   historySetSelection({mode:"editing",sessionId:String(sid),originalFingerprint:historySelection.originalFingerprint,
     desiredFingerprint:null,workingCopy:cloneSnapshot(rows),removedRowIndices:[],dirty:false,validation:null,
     operation:null,operationId:null});
-  renderHistory();historyFocusEditing();return true}
+  renderHistory();
+  // The editor is a new page: it opens at its top, whatever the read page was scrolled to, so the heading focus lands in view (R7 J-06).
+  try{root.scrollTo?.(0,0)}catch{}
+  historyFocusEditing();return true}
 function historySessionFromWorkingCopy(card){
   const selection=historySelection,source=selection.workingCopy||historySessionRows(state.log,selection.sessionId),out=[];
   const dateEl=card?.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
