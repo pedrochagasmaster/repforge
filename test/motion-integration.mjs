@@ -1886,6 +1886,7 @@ async function edgeBack(browser, { reducedMotion = "no-preference" } = {}) {
     inline: document.querySelector("#exercise").style.transform, swiping: !!document.querySelector(".is-edge-swiping"),
     layers: document.querySelectorAll(".is-push-over,.is-push-under").length, hint: document.querySelector("#exercise").style.willChange }));
 
+  const openerKey = await page.evaluate(() => document.querySelector("#todayExList [data-exopen]").dataset.exopen);
   phase(`edge swipe: a pushed page opts in and takes the horizontal drag${tag}`);
   await openExercise();
   const touchAction = await page.evaluate(() => getComputedStyle(document.querySelector("#exercise")).touchAction);
@@ -1916,8 +1917,9 @@ async function edgeBack(browser, { reducedMotion = "no-preference" } = {}) {
   const afterCommit = samples.slice(samples.findIndex((s) => s.views.join() === "log"));
   assert(afterCommit.length > 0 && afterCommit.every((s) => !s.over.length && !s.under.length),
     "the route did not push the page out a second time", JSON.stringify(afterCommit.slice(0, 3)));
-  const focus = await page.evaluate(() => document.activeElement?.dataset?.exopen || document.activeElement?.id || "");
-  assert(/^seed-ex-|^todayDash|^$/.test(focus) || focus.length > 0, "and focus is where the Back control would have put it", focus);
+  // R7 J-22: the commit hands focus to the row that opened the page, exactly as the tap on Back does.
+  const focus = await page.evaluate(() => document.activeElement?.dataset?.exopen || document.activeElement?.id || document.activeElement?.tagName || "");
+  assert(focus === openerKey, "and focus is where the Back control would have put it: the row that opened the page", `${focus} vs ${openerKey}`);
 
   phase(`edge swipe: History's session page is a pushed page too${tag}`);
   await page.click('nav button[data-view="history"]');

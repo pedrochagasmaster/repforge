@@ -995,6 +995,9 @@ function syncEdgeSwipe(){
   if(!page||!motion?.registerEdgeSwipeBack)return;
   const registration=motion.registerEdgeSwipeBack({page,onCommit:()=>{
     routeSwipeCommitting=true;
+    // The page held beneath the pull is still inert and aria-hidden: it must be live before the Back handler hands it
+    // focus, or the swipe lands focus on <body> where the tap would not (R7 J-22).
+    unmount();
     try{releaseSwallowedClick();$(EDGE_BACK[page.id])?.click()}finally{routeSwipeCommitting=false}}});
   if(!registration)return;
   let beneath=null;
