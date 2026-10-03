@@ -2227,6 +2227,65 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
 }
 
 /**
+ * R7 V-15: reduced motion reaches pseudo-elements. `*` does not match `::before` / `::after`, so the landing FAQ and
+ * disclosure marks (`i::after`) and any other drawn mark kept their transition. Under emulated reduced motion every
+ * generated box on the landing, Today and Settings has a computed transition-duration and animation-duration of at most
+ * 10ms; with motion welcome the FAQ mark does transition (a control, so the sweep is not vacuous).
+ */
+const PSEUDO_SWEEP = () => {
+  const seconds = (list) => String(list).split(",").map((part) => { const value = parseFloat(part); return /ms\s*$/.test(part) ? value / 1000 : value; });
+  const offenders = [];
+  let checked = 0;
+  for (const el of document.querySelectorAll("*")) {
+    for (const pseudo of ["::before", "::after"]) {
+      const cs = getComputedStyle(el, pseudo);
+      if (cs.content === "none" || cs.content === "normal") continue;
+      checked++;
+      const transition = Math.max(...seconds(cs.transitionDuration)), animation = cs.animationName === "none" ? 0 : Math.max(...seconds(cs.animationDuration));
+      if (transition > 0.01 || animation > 0.01) {
+        const id = el.id ? `#${el.id}` : `${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).slice(0, 2).join(".") : ""}`;
+        offenders.push(`${id}${pseudo} transition ${cs.transitionDuration} animation ${cs.animationName} ${cs.animationDuration}`);
+      }
+    }
+  }
+  return { checked, offenders };
+};
+
+async function pseudoElementMotion(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  phase(`Pseudo-elements follow the motion preference${tag}`);
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 8000 });
+  const landing = await page.evaluate(PSEUDO_SWEEP);
+  const faq = await page.evaluate(() => {
+    const mark = document.querySelector(".firstrun-qa summary i");
+    return mark ? getComputedStyle(mark, "::after").transitionDuration : null;
+  });
+  if (reduced) {
+    assert(landing.checked > 20 && landing.offenders.length === 0, "no landing ::before or ::after transitions or animates", JSON.stringify(landing.offenders.slice(0, 5)));
+    assert(faq !== null && parseFloat(faq) < 0.001, "the FAQ mark's ::after has no transition", String(faq));
+  } else {
+    assert(faq !== null && parseFloat(faq) >= 0.2, "with motion welcome the FAQ mark's ::after transitions (the sweep is not vacuous)", String(faq));
+  }
+  await settle(page);
+  const today = await page.evaluate(PSEUDO_SWEEP);
+  await openSettings(page);
+  const settings = await page.evaluate(PSEUDO_SWEEP);
+  if (reduced) {
+    assert(today.offenders.length === 0, "no Today ::before or ::after transitions or animates", JSON.stringify(today.offenders.slice(0, 5)));
+    assert(settings.offenders.length === 0, "no Settings ::before or ::after transitions or animates", JSON.stringify(settings.offenders.slice(0, 5)));
+  }
+  assert(errors.length === 0, `no page error${tag}`, errors.join(" | "));
+  await context.close();
+}
+
+/**
  * R7 V-13: a programmatic scroll never asks for `behavior: "smooth"` unless motion is welcome. The app's own scroll
  * helper routes through RepForgeMotion.reducedMotion(), so reduced motion jumps. Proven on the real go-to-exercise path,
  * and by a sweep that no production script writes the smooth literal anywhere else.
@@ -2679,6 +2738,8 @@ async function run() {
   await dockMotion(browser);
   await dockMotion(browser, { reducedMotion: "reduce" });
 
+  await pseudoElementMotion(browser);
+  await pseudoElementMotion(browser, { reducedMotion: "reduce" });
   await programmaticScroll(browser);
   await programmaticScroll(browser, { reducedMotion: "reduce" });
   await scrollLiteralSweep();

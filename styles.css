@@ -3138,7 +3138,8 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 
 
 @media (prefers-reduced-motion:reduce){
-  *{animation:none!important;transition:none!important}
+  /* `*` does not match generated boxes, so the marks drawn in ::before and ::after are named too (R7 V-15). */
+  *,*::before,*::after{animation:none!important;transition:none!important}
 }
 @media (min-width:680px){
   .metrics,.statrow--4{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -4905,7 +4906,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   color:inherit;text-decoration:underline;text-underline-offset:4px;
 }
 @media(prefers-reduced-motion:reduce){
-  .firstrun *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  .firstrun *,.firstrun *::before,.firstrun *::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
 }
 @media(forced-colors:active){
   .firstrun__cta{border:1px solid ButtonText}
