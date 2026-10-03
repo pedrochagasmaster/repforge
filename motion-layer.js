@@ -887,6 +887,19 @@
       },
     };
   }
+  /* The edge zone is 24px wide but a page sits inside <main>'s own padding, so a
+     finger at x=4 lands on <main>, not on the page. A press counts when it lands
+     on the page, or on something that wraps it, at a height the page occupies
+     (R7 J-11). The dock, a sheet or a sibling page are never ancestors of the
+     page, so none of them can start a swipe this way. */
+  function edgeHitsPage(page, event) {
+    const hit = event.target;
+    if (!(hit instanceof Element)) return false;
+    if (page.contains(hit)) return true;
+    if (!hit.contains(page)) return false;
+    const rect = page.getBoundingClientRect();
+    return event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }
   function edgePointerDown(event) {
     const target = edgeTarget;
     if (!target || edgeGesture) return;
@@ -895,7 +908,7 @@
     if (focusActive() || !standaloneDisplay() || edgeBlockedByOverlay()) return;
     const { page } = target;
     if (!page.isConnected || page.hidden) return;
-    if (!(event.target instanceof Element) || !page.contains(event.target)) return;
+    if (!edgeHitsPage(page, event)) return;
     edgeGesture = {
       id: event.pointerId, page, target, x: event.clientX, y: event.clientY, dx: 0, live: false,
       velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(), motion: null,

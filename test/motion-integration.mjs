@@ -1835,8 +1835,16 @@ window.__edge2 = {
   fire(sel, type, x, y = 400, id = 11) {
     document.querySelector(sel).dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true, clientX: x, clientY: y }));
   },
-  async drag(sel, xs, { start = 4, wait = 16, end = "pointerup", hold = 0 } = {}) {
-    this.fire(sel, "pointerdown", start);
+  /** The element a finger at (x, y) really lands on: pointerdown goes to it, not to the page the test names. */
+  lastHit: "",
+  fireAtPoint(type, x, y = 400, id = 11) {
+    const hit = document.elementFromPoint(x, y);
+    this.lastHit = hit ? (hit.id ? "#" + hit.id : hit.tagName.toLowerCase()) : "none";
+    hit?.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true, clientX: x, clientY: y }));
+  },
+  async drag(sel, xs, { start = 4, wait = 16, end = "pointerup", hold = 0, real = false } = {}) {
+    if (real) this.fireAtPoint("pointerdown", start);
+    else this.fire(sel, "pointerdown", start);
     const seen = [];
     for (const x of xs) {
       this.fire(sel, "pointermove", x);
@@ -1922,6 +1930,40 @@ async function edgeBack(browser, { reducedMotion = "no-preference" } = {}) {
   const listBack = await page.evaluate(() => ({ session: document.querySelector("#history").classList.contains("is-session-page"),
     inline: document.querySelector("#history").style.transform, swiping: !!document.querySelector(".is-edge-swiping") }));
   assert(!listBack.session && !listBack.inline && !listBack.swiping, "a long pull returns to the History list", JSON.stringify(listBack));
+
+  phase(`edge swipe: a swipe that starts at x=4 commits on all four pushed pages${tag}`);
+  // The pointer lands where a finger would: on whatever is at x=4, which on three of these pages is the
+  // inset <main>, not the page. Each page must still take it and run its own Back control (R7 J-11).
+  const swipeFromEdge = async (label, expectBack) => {
+    const seen = await page.evaluate(() => window.__edge2.drag("#" + document.querySelector(".view.active").id, [40, 120, 220, 310], { wait: 16, real: true }));
+    const hit = await page.evaluate(() => window.__edge2.lastHit);
+    await page.waitForTimeout(reduced ? 150 : 900);
+    const after = await page.evaluate(() => ({ views: [...document.querySelectorAll(".view.active")].map((v) => v.id),
+      session: document.querySelector("#history").classList.contains("is-session-page"), swiping: !!document.querySelector(".is-edge-swiping"),
+      layers: document.querySelectorAll(".is-push-over,.is-push-under").length }));
+    assert(seen.some((s) => s.swiping), `${label}: the swipe from x=4 (landing on ${hit}) takes the page`, JSON.stringify({ hit, seen: seen.map((s) => s.x) }));
+    assert(expectBack(after) && !after.swiping && after.layers === 0, `${label}: it commits and runs the Back control's path`, JSON.stringify(after));
+  };
+  await page.click('nav button[data-view="log"]');
+  await openExercise();
+  await swipeFromEdge("exercise page", (a) => a.views.join() === "log");
+  await page.click('nav button[data-view="program"]');
+  await page.waitForTimeout(250);
+  await page.evaluate(() => window.__repforgeOpenLibrary({}));
+  await page.waitForFunction(() => document.querySelector("#library").classList.contains("active") && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
+  await page.waitForSelector("#libList [data-lib-preview]", { timeout: 5000 });
+  await page.evaluate(() => document.querySelector("#libList [data-lib-preview]").click());
+  await page.waitForFunction(() => document.querySelector("#exercisePreview").classList.contains("active") && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
+  await page.waitForTimeout(150);
+  await swipeFromEdge("exercise preview", (a) => a.views.join() === "library");
+  await page.waitForTimeout(150);
+  await swipeFromEdge("library", (a) => a.views.join() === "program");
+  await page.click('nav button[data-view="history"]');
+  await page.waitForSelector("#sessions [data-edit]", { timeout: 5000 });
+  await page.evaluate(() => document.querySelector("#sessions [data-edit]").click());
+  await page.waitForFunction(() => document.querySelector("#history").classList.contains("is-session-page") && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
+  await page.waitForTimeout(150);
+  await swipeFromEdge("History session page", (a) => !a.session && a.views.join() === "history");
 
   phase(`edge swipe: never in Focus${tag}`);
   await page.click('nav button[data-view="log"]');
