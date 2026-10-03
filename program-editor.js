@@ -26,6 +26,12 @@
     dayCount: ({ n }) => `${n} exercise${n === 1 ? "" : "s"}`,
     exercises: ({ n }) => `${n} exercise${n === 1 ? "" : "s"}`,
     sets: "SETS",
+    setsDecrease: "Decrease sets",
+    setsIncrease: "Increase sets",
+    expandExercise: ({ name }) => `Expand ${name}`,
+    collapseExercise: ({ name }) => `Collapse ${name}`,
+    expandDay: ({ day }) => `Expand ${day}`,
+    collapseDay: ({ day }) => `Collapse ${day}`,
     repRange: "REP RANGE",
     min: "MIN",
     max: "MAX",
@@ -59,7 +65,9 @@
   const I18N_KEYS = Object.freeze({
     programName: "program.editor.program_name", namePlaceholder: "program.editor.name_placeholder",
     dayName: "program.editor.day_name", dayCount: "program.editor.day_count", exercises: "program.editor.day_count",
-    sets: "program.editor.sets", repRange: "program.editor.rep_range", min: "program.editor.min", max: "program.editor.max",
+    sets: "program.editor.sets", setsDecrease: "program.editor.sets_decrease", setsIncrease: "program.editor.sets_increase",
+    expandExercise: "program.editor.expand_exercise", collapseExercise: "program.editor.collapse_exercise",
+    expandDay: "program.day.expand", collapseDay: "program.day.collapse", repRange: "program.editor.rep_range", min: "program.editor.min", max: "program.editor.max",
     addExercise: "program.editor.add_exercise", replaceExercise: "program.editor.replace_exercise",
     removeExercise: "program.editor.remove_exercise", removeDay: "program.editor.remove_day",
     details: "program.editor.details", notes: "program.editor.notes", primary: "program.editor.primary",
@@ -561,9 +569,9 @@
           <div class="program-editor__sets" data-role="sets-control" aria-label="${esc(label("sets"))}">
             <span class="program-editor__field-label">${esc(label("sets"))}</span>
             <div class="program-editor__stepper">
-              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="-1" aria-label="Decrease sets">−</button>
+              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="-1" aria-label="${esc(label("setsDecrease"))}">−</button>
               <output data-role="sets-value">${esc(format(adapter, exercise.sets))}</output>
-              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="1" aria-label="Increase sets">+</button>
+              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="1" aria-label="${esc(label("setsIncrease"))}">+</button>
             </div>
           </div>
           <div class="program-editor__rep-rule" aria-hidden="true"></div>
@@ -589,7 +597,7 @@
           <input class="program-editor__exercise-name pex__name" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" value="${esc(name)}" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">
           <span class="program-editor__summary" data-role="exercise-summary">${esc(summary(exercise))}</span>
           <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${shownName}`))}" title="${esc(label("move"))}">≡</button>
-          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(shownName)}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(label(open ? "collapseExercise" : "expandExercise", { name: shownName }))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
           <button type="button" class="program-editor__exercise-menu" data-role="exercise-menu" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
         </header>${details}
         <div class="program-editor__menu" data-role="move-menu" data-id="${esc(exercise.id)}" hidden role="menu">
@@ -615,7 +623,7 @@
           <input class="program-editor__day-name pday__name" data-role="day-name" data-day="${esc(day)}" value="${esc(titleFor(day, index))}" aria-label="${esc(label("dayName"))}">
           <span class="program-editor__day-count pday__count">${esc(dayCount(list.length))}</span>
           <button type="button" class="program-editor__day-menu" data-role="day-menu" data-action-role="expansion" data-day="${esc(day)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
-          <button type="button" class="program-editor__day-toggle pday__caret" data-role="toggle-day" data-action-role="expansion" data-day="${esc(day)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(titleFor(day, index))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__day-toggle pday__caret" data-role="toggle-day" data-action-role="expansion" data-day="${esc(day)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(label(open ? "collapseDay" : "expandDay", { day: titleFor(day, index) }))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
         </header>
         <div class="program-editor__day-menu-panel" data-role="day-menu-panel" data-day="${esc(day)}" hidden role="menu">
           <button type="button" role="menuitem" data-role="toggle-reorder">${esc(label("reorder", undefined, "Reorder exercises"))}</button>
