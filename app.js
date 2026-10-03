@@ -1469,7 +1469,9 @@ function resetDraftSessionPresentation(){
   delete document.body.dataset.unfinishedPrompt;
   renderDraftRecovery();
 }
-function resetDraftSessionState(){resetWorkoutSessionIdentity();resetDraftSessionPresentation()}
+/* Ending a session by any route (discard, replace, clear) ends its rest clock with it: a
+   running rest belongs to the session it was started in. */
+function resetDraftSessionState(){resetWorkoutSessionIdentity();resetDraftSessionPresentation();stopRest()}
 async function clearDraft(){
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
     renderDraftRecovery();focusDraftRecovery();return false}

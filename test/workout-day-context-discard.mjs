@@ -54,7 +54,7 @@ function fixture() {
       minJump: 2.5,
       rirHigh: 2,
       hardRir: 4,
-      restSec: 0,
+      restSec: 90,
       lastExport: "",
       unit: "kg",
       lang: "en",
@@ -200,6 +200,10 @@ async function main() {
       { beforeSet }
     );
 
+    // A running rest belongs to the session: discarding the session must end it.
+    await page.locator("#woRest").click();
+    await page.waitForFunction(() => document.querySelector("#woRest")?.classList.contains("is-running"), undefined, { timeout: 5000 });
+
     await page.locator("#leaveWorkout").click();
     await page.locator("#chooseAnotherDay").click();
     await page.locator('[data-daypick="Day 2"]').click();
@@ -226,6 +230,16 @@ async function main() {
       () => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 2",
       { timeout: 5000 }
     );
+    const restAfterDiscard = await page.evaluate(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      return {
+        running: document.querySelector("#woRest")?.classList.contains("is-running"),
+        bar: !document.querySelector("#restBar")?.classList.contains("hidden"),
+        said: (document.querySelector("#restAnnounce")?.textContent || "").trim(),
+      };
+    });
+    check(!restAfterDiscard.running && !restAfterDiscard.bar && !restAfterDiscard.said,
+      "Discarding the session ends its running rest (no clock, no bar, nothing announced)", restAfterDiscard);
     const afterConfirm = await contextSnapshot(page);
     const confirmedDraft = JSON.parse(afterConfirm.draftRaw || "{}");
     const confirmedContext = confirmedDraft.schemaVersion === 2
