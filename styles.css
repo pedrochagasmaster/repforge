@@ -1603,7 +1603,7 @@ body.is-sheet-open{overflow:hidden}
   border-radius:var(--radius-control);font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
-#libBar #libPrimary::after,.preview #previewAdd::after{width:var(--control-icon-size);height:var(--control-icon-size);color:var(--color-action)}
+#libBar #libPrimary::after,.preview #previewAdd::after{width:var(--control-icon-size);height:var(--control-icon-size);color:var(--control-primary-ink)}
 #libBar #libPrimary:focus-visible,.preview #previewAdd:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #libBar #libPrimary:disabled,.preview #previewAdd:disabled{
   background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
@@ -2430,7 +2430,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-onboarding-actions{display:flex;flex-direction:column;gap:16px;margin:16px 0 12px}
 .program-editor-onboarding-actions .btn{width:100%;min-height:52px;height:52px;font-size:var(--font-size-control)}
 .program-editor-onboarding-actions .program-editor__activate{display:flex;align-items:center;justify-content:space-between;padding-inline:18px;background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
-.program-editor-onboarding-actions .program-editor__activate::after{content:"→";font-size:var(--control-icon-size);color:var(--accent)}
+.program-editor-onboarding-actions .program-editor__activate::after{content:"→";font-size:var(--control-icon-size);color:var(--control-primary-ink)}
 .program-editor-onboarding-actions .program-editor__save{background:var(--surface);color:var(--ink);border:1px solid var(--rule-strong)}
 /* The onboarding selector is more specific than .btn--cta. Keep the blocked
    Build action in the same calm, legible hierarchy as every other disabled
