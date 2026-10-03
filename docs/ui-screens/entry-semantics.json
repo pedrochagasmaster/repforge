@@ -10923,8 +10923,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Adicione um exercício a Day 1, Day 2, Day 3.",
-          "name": "Adicione um exercício a Day 1, Day 2, Day 3.",
+          "text": "Adicione um exercício a Dia 1, Dia 2, Dia 3.",
+          "name": "Adicione um exercício a Dia 1, Dia 2, Dia 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -10968,8 +10968,8 @@
         },
         {
           "tag": "button",
-          "name": "Expand Dia 2",
-          "label": "Expand Dia 2",
+          "name": "Expandir Dia 2",
+          "label": "Expandir Dia 2",
           "aria-expanded": "false",
           "type": "button"
         },
@@ -10985,8 +10985,8 @@
         },
         {
           "tag": "button",
-          "name": "Expand Dia 3",
-          "label": "Expand Dia 3",
+          "name": "Expandir Dia 3",
+          "label": "Expandir Dia 3",
           "aria-expanded": "false",
           "type": "button"
         },
@@ -11000,7 +11000,7 @@
           "tag": "button",
           "text": "Usar este treino",
           "name": "Usar este treino",
-          "describedBy": "Adicione um exercício a Day 1, Day 2, Day 3.",
+          "describedBy": "Adicione um exercício a Dia 1, Dia 2, Dia 3.",
           "disabled": true,
           "type": "button"
         }
@@ -11048,8 +11048,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Adicione um exercício a Day 1, Day 2, Day 3.",
-          "name": "Adicione um exercício a Day 1, Day 2, Day 3.",
+          "text": "Adicione um exercício a Dia 1, Dia 2, Dia 3.",
+          "name": "Adicione um exercício a Dia 1, Dia 2, Dia 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -11093,8 +11093,8 @@
         },
         {
           "tag": "button",
-          "name": "Expand Dia 2",
-          "label": "Expand Dia 2",
+          "name": "Expandir Dia 2",
+          "label": "Expandir Dia 2",
           "aria-expanded": "false",
           "type": "button"
         },
@@ -11110,8 +11110,8 @@
         },
         {
           "tag": "button",
-          "name": "Expand Dia 3",
-          "label": "Expand Dia 3",
+          "name": "Expandir Dia 3",
+          "label": "Expandir Dia 3",
           "aria-expanded": "false",
           "type": "button"
         },
@@ -11125,7 +11125,7 @@
           "tag": "button",
           "text": "Usar este treino",
           "name": "Usar este treino",
-          "describedBy": "Adicione um exercício a Day 1, Day 2, Day 3.",
+          "describedBy": "Adicione um exercício a Dia 1, Dia 2, Dia 3.",
           "disabled": true,
           "type": "button"
         }
@@ -12298,8 +12298,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Adicione um exercício a Day 2, Day 3.",
-          "name": "Adicione um exercício a Day 2, Day 3.",
+          "text": "Adicione um exercício a Dia 2, Dia 3.",
+          "name": "Adicione um exercício a Dia 2, Dia 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -12333,8 +12333,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Abdominal sentado na máquina",
-          "label": "Collapse Abdominal sentado na máquina",
+          "name": "Recolher Abdominal sentado na máquina",
+          "label": "Recolher Abdominal sentado na máquina",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -12349,8 +12349,8 @@
         {
           "tag": "button",
           "text": "−",
-          "name": "Decrease sets",
-          "label": "Decrease sets",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
           "type": "button"
         },
         {
@@ -12360,8 +12360,8 @@
         {
           "tag": "button",
           "text": "+",
-          "name": "Increase sets",
-          "label": "Increase sets",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
           "type": "button"
         },
         {
@@ -12418,8 +12418,8 @@
         },
         {
           "tag": "button",
-          "name": "Expand Dia 2",
-          "label": "Expand Dia 2",
+          "name": "Expandir Dia 2",
+          "label": "Expandir Dia 2",
           "aria-expanded": "false",
           "type": "button"
         },
@@ -12435,8 +12435,8 @@
         },
         {
           "tag": "button",
-          "name": "Expand Dia 3",
-          "label": "Expand Dia 3",
+          "name": "Expandir Dia 3",
+          "label": "Expandir Dia 3",
           "aria-expanded": "false",
           "type": "button"
         },
@@ -12450,7 +12450,7 @@
           "tag": "button",
           "text": "Usar este treino",
           "name": "Usar este treino",
-          "describedBy": "Adicione um exercício a Day 2, Day 3.",
+          "describedBy": "Adicione um exercício a Dia 2, Dia 3.",
           "disabled": true,
           "type": "button"
         }
@@ -12498,8 +12498,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Adicione um exercício a Day 2, Day 3.",
-          "name": "Adicione um exercício a Day 2, Day 3.",
+          "text": "Adicione um exercício a Dia 2, Dia 3.",
+          "name": "Adicione um exercício a Dia 2, Dia 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -12533,8 +12533,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Abdominal sentado na máquina",
-          "label": "Collapse Abdominal sentado na máquina",
+          "name": "Recolher Abdominal sentado na máquina",
+          "label": "Recolher Abdominal sentado na máquina",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -12549,8 +12549,8 @@
         {
           "tag": "button",
           "text": "−",
-          "name": "Decrease sets",
-          "label": "Decrease sets",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
           "type": "button"
         },
         {
@@ -12560,8 +12560,8 @@
         {
           "tag": "button",
           "text": "+",
-          "name": "Increase sets",
-          "label": "Increase sets",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
           "type": "button"
         },
         {
@@ -12618,8 +12618,8 @@
         },
         {
           "tag": "button",
-          "name": "Expand Dia 2",
-          "label": "Expand Dia 2",
+          "name": "Expandir Dia 2",
+          "label": "Expandir Dia 2",
           "aria-expanded": "false",
           "type": "button"
         },
@@ -12635,8 +12635,8 @@
         },
         {
           "tag": "button",
-          "name": "Expand Dia 3",
-          "label": "Expand Dia 3",
+          "name": "Expandir Dia 3",
+          "label": "Expandir Dia 3",
           "aria-expanded": "false",
           "type": "button"
         },
@@ -12650,7 +12650,7 @@
           "tag": "button",
           "text": "Usar este treino",
           "name": "Usar este treino",
-          "describedBy": "Adicione um exercício a Day 2, Day 3.",
+          "describedBy": "Adicione um exercício a Dia 2, Dia 3.",
           "disabled": true,
           "type": "button"
         }
@@ -14783,8 +14783,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Abdominal sentado na máquina",
-          "label": "Collapse Abdominal sentado na máquina",
+          "name": "Recolher Abdominal sentado na máquina",
+          "label": "Recolher Abdominal sentado na máquina",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -14799,8 +14799,8 @@
         {
           "tag": "button",
           "text": "−",
-          "name": "Decrease sets",
-          "label": "Decrease sets",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
           "type": "button"
         },
         {
@@ -14810,8 +14810,8 @@
         {
           "tag": "button",
           "text": "+",
-          "name": "Increase sets",
-          "label": "Increase sets",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
           "type": "button"
         },
         {
@@ -14886,8 +14886,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Agachamento goblet",
-          "label": "Collapse Agachamento goblet",
+          "name": "Recolher Agachamento goblet",
+          "label": "Recolher Agachamento goblet",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -14902,8 +14902,8 @@
         {
           "tag": "button",
           "text": "−",
-          "name": "Decrease sets",
-          "label": "Decrease sets",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
           "type": "button"
         },
         {
@@ -14913,8 +14913,8 @@
         {
           "tag": "button",
           "text": "+",
-          "name": "Increase sets",
-          "label": "Increase sets",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
           "type": "button"
         },
         {
@@ -14989,8 +14989,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Agachamento goblet",
-          "label": "Collapse Agachamento goblet",
+          "name": "Recolher Agachamento goblet",
+          "label": "Recolher Agachamento goblet",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -15005,8 +15005,8 @@
         {
           "tag": "button",
           "text": "−",
-          "name": "Decrease sets",
-          "label": "Decrease sets",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
           "type": "button"
         },
         {
@@ -15016,8 +15016,8 @@
         {
           "tag": "button",
           "text": "+",
-          "name": "Increase sets",
-          "label": "Increase sets",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
           "type": "button"
         },
         {
@@ -15153,8 +15153,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Abdominal sentado na máquina",
-          "label": "Collapse Abdominal sentado na máquina",
+          "name": "Recolher Abdominal sentado na máquina",
+          "label": "Recolher Abdominal sentado na máquina",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -15169,8 +15169,8 @@
         {
           "tag": "button",
           "text": "−",
-          "name": "Decrease sets",
-          "label": "Decrease sets",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
           "type": "button"
         },
         {
@@ -15180,8 +15180,8 @@
         {
           "tag": "button",
           "text": "+",
-          "name": "Increase sets",
-          "label": "Increase sets",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
           "type": "button"
         },
         {
@@ -15256,8 +15256,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Agachamento goblet",
-          "label": "Collapse Agachamento goblet",
+          "name": "Recolher Agachamento goblet",
+          "label": "Recolher Agachamento goblet",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -15272,8 +15272,8 @@
         {
           "tag": "button",
           "text": "−",
-          "name": "Decrease sets",
-          "label": "Decrease sets",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
           "type": "button"
         },
         {
@@ -15283,8 +15283,8 @@
         {
           "tag": "button",
           "text": "+",
-          "name": "Increase sets",
-          "label": "Increase sets",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
           "type": "button"
         },
         {
@@ -15359,8 +15359,8 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Agachamento goblet",
-          "label": "Collapse Agachamento goblet",
+          "name": "Recolher Agachamento goblet",
+          "label": "Recolher Agachamento goblet",
           "aria-expanded": "true",
           "type": "button"
         },
@@ -15375,8 +15375,8 @@
         {
           "tag": "button",
           "text": "−",
-          "name": "Decrease sets",
-          "label": "Decrease sets",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
           "type": "button"
         },
         {
@@ -15386,8 +15386,8 @@
         {
           "tag": "button",
           "text": "+",
-          "name": "Increase sets",
-          "label": "Increase sets",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
           "type": "button"
         },
         {
