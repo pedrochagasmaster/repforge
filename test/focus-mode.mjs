@@ -456,6 +456,60 @@ async function main() {
   assert(sh.editing.join() === "load", "a second tap on the selected field opens it as the real input", JSON.stringify(sh));
   const focusedKey = await page.evaluate(() => document.activeElement?.dataset?.k || "");
   assert(/_load$/.test(focusedKey), "the opened input takes focus under its draft key", focusedKey);
+  // #300: the software keyboard shrinks the visual viewport but not dvh. Model it on the live visualViewport the app
+  // already listens to (an Android keyboard of 336px; Chrome reports no offset until it pans) and let the app's own
+  // resize path settle the shelf: the focused field has to sit wholly inside the band left on screen, for every field
+  // it moves between, and closing the keyboard has to give Focus its full screen back with no stray scroll.
+  const keyboard = async (height) => {
+    await page.evaluate((h) => {
+      const vv = window.visualViewport;
+      if (h == null) { delete vv.height; delete vv.offsetTop; }
+      else {
+        Object.defineProperty(vv, "height", { configurable: true, get: () => h });
+        Object.defineProperty(vv, "offsetTop", { configurable: true, get: () => 0 });
+      }
+      vv.dispatchEvent(new Event("resize"));
+    }, height);
+    await page.waitForTimeout(120);
+    return page.evaluate(() => {
+      const vv = window.visualViewport, el = document.activeElement;
+      const r = el?.getBoundingClientRect?.();
+      const shelf = document.querySelector("#workout .exercise.is-current .focus-shelf").getBoundingClientRect();
+      return {
+        key: el?.dataset?.k || "", flag: document.documentElement.dataset.keyboard || "",
+        band: [vv.offsetTop, vv.offsetTop + vv.height],
+        field: r ? [Math.round(r.top), Math.round(r.bottom)] : null,
+        shelfBottom: Math.round(shelf.bottom), scroll: [window.scrollX, window.scrollY], inner: window.innerHeight,
+      };
+    });
+  };
+  const kbUp = await keyboard(852 - 336);
+  assert(kbUp.flag === "up" && kbUp.field && kbUp.field[0] >= kbUp.band[0] && kbUp.field[1] <= kbUp.band[1] + 1,
+    "with the keyboard up, the opened load field sits wholly above it before anything is typed (#300)", JSON.stringify(kbUp));
+  const kbFields = [];
+  for (const k of ["reps", "rir", "load"]) {
+    const field = page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${k}']`);
+    if (!(await field.count())) continue;
+    // Tapping a field button (not an input) closes the keyboard first, as it does on the phone.
+    await page.evaluate(() => document.activeElement?.blur());
+    await keyboard(null);
+    await field.click();
+    await field.click();
+    await page.waitForTimeout(120);
+    kbFields.push(await keyboard(852 - 336));
+  }
+  assert(kbFields.length >= 2 && kbFields.every((f) => f.flag === "up" && f.field && f.field[0] >= f.band[0] && f.field[1] <= f.band[1] + 1)
+    && new Set(kbFields.map((f) => f.scroll.join())).size === 1,
+    "moving between shelf fields keeps each one above the keyboard without the page drifting", JSON.stringify(kbFields));
+  const kbLoad = await page.evaluate(() => document.activeElement?.dataset?.k || "");
+  assert(/_load$/.test(kbLoad), "the load field is open again for typing", kbLoad);
+  await page.evaluate(() => document.activeElement?.blur());
+  const kbDown = await keyboard(null);
+  assert(!kbDown.flag && kbDown.scroll.join() === "0,0" && Math.abs(kbDown.shelfBottom - kbDown.inner) <= 2,
+    "closing the keyboard restores Focus's full screen with the shelf on the bottom edge and no residual scroll", JSON.stringify(kbDown));
+  // The field is still open after the keyboard goes; tapping it again brings the caret back.
+  await page.locator("#workout .exercise.is-current .focus-shelf .shelf__field.is-editing .shelf__input").click();
+  await page.evaluate(() => document.activeElement?.select?.());
   await page.keyboard.type("111");
   await page.waitForTimeout(200);
   const typed = await page.evaluate(() => {

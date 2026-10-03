@@ -61,3 +61,30 @@ A mint cannot be driven from a test: it happens on a Google server, for a real
 device. The on-device check is `chrome://webapks` after installing — the app is
 listed there when a WebAPK was minted, and absent when Chrome fell back to a
 shortcut.
+
+## Addendum (2026-10, #304): the launch URL on a redirecting host
+
+The production custom domain answers `/index.html` with `308 Location: /`.
+Installed Android apps launch at the manifest's `./index.html`, through the
+service worker. A navigation's redirect mode is `manual`, so the worker's
+network fetch returned an opaque redirect; the worker took that for a failure
+and answered from its precache, whose `./index.html` entry had been stored
+after following the same redirect and so carried the `redirected` flag. Chrome
+refuses a redirected response as the answer to a navigation, and the launch
+became a bare `ERR_FAILED` page, online and offline alike.
+
+The worker now hands a navigation's opaque redirect to the browser (which
+follows it and asks the worker for the destination), stores and serves shell
+copies without the `redirected` flag, and falls back to the scope root before
+`./index.html`. Notification links open the scope root. Existing installs
+recover as soon as the updated worker is fetched — any visit to the site, or
+the next launch's update check — with no reinstall.
+
+`start_url` stays `./index.html` and `id` stays omitted, so the WebAPK
+identity above is unchanged. Moving `start_url` to `./` would change the
+derived identity of every existing install and would stop iOS Home Screen
+launches from seeing the `repforge_setup_v1` handoff cookie, whose path is the
+`index.html` document (ADR 0007); that is a separate owner decision.
+`test/sw-launch-redirect.mjs` serves the app behind the production host's
+redirect rule and requires the manifest launch URL, the legacy `index.html`
+links and the scope root to boot through the worker online and offline.

@@ -83,6 +83,8 @@
   --radius-compact:4px;
   --radius-control:8px;
   --radius-surface:12px;
+  /* The curve just inside a 1px-bordered surface, for a child that has to follow its clip (#299). */
+  --radius-surface-inner:calc(var(--radius-surface) - 1px);
   --radius-prominent:16px;
   /* Exact Plan 054 device-stage composition; these are not reusable scale steps. */
   --radius-landing-stage:24px;
@@ -233,10 +235,17 @@
   --dock-gap:10px;
   --dock-inset:14px;
   --nav:calc(var(--dock-h) + var(--dock-gap));
-  --dock-glass:rgba(250,248,245,.8);
+  /* Liquid Glass (#301): translucent enough that what scrolls under the dock reads through the frost, with a rim
+     that catches light (--dock-rim) and a faint caustic under it (--dock-caustic) so the capsule reads as a lens
+     suspended over the page rather than a plate laid on it. */
+  --dock-glass:rgba(250,248,245,.6);
   --dock-glass-opaque:rgba(250,248,245,.97);
   --dock-edge:rgba(27,26,23,.10);
   --dock-sheen:rgba(255,255,255,.7);
+  --dock-rim:rgba(255,255,255,.55);
+  --dock-caustic:rgba(255,255,255,.22);
+  --dock-blur:blur(20px) saturate(190%) brightness(1.04);
+  --dock-rim-shadow:inset 0 0 0 .5px var(--dock-rim),inset 0 6px 12px -8px var(--dock-rim);
   --dock-pill:rgba(255,255,255,.82);
   --dock-pill-sheen:rgba(255,255,255,.82);
   --maxw:560px;
@@ -306,10 +315,14 @@
   --scrim:rgba(0,0,0,.62);
   /* Dark content showing through glass becomes visual noise around the nav
      labels. Keep the material, but make it read as smoked glass, not a lens. */
-  --dock-glass:rgba(30,28,24,.92);
+  --dock-glass:rgba(30,28,24,.76);
   --dock-glass-opaque:rgba(24,22,19,.97);
   --dock-edge:rgba(255,255,255,.10);
   --dock-sheen:rgba(255,255,255,.04);
+  /* Smoked glass keeps a heavier frost and dims what it lets through, so dark content stays quiet behind the labels. */
+  --dock-rim:rgba(255,255,255,.12);
+  --dock-caustic:rgba(255,255,255,.05);
+  --dock-blur:blur(24px) saturate(160%) brightness(.9);
   --dock-pill:rgba(255,255,255,.07);
   --dock-pill-sheen:rgba(255,255,255,.05);
   /* Plan 064 R1b: the same tokens as the light block. A separator on --surface
@@ -814,6 +827,15 @@ div.settings-row{cursor:default}
 .today-session{padding:4px 0 8px}
 .today-session__name{font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.02em;margin:4px 0 6px;color:var(--color-ink)}
 .today-session + .btn--cta,#startWorkout{margin-top:32px}
+/* Start / Continue stays in reach while the lifter reads the prescription (#303). It is sticky, not fixed: it keeps its
+   place in the flow, so it rides a deliberate gap above the dock (positioned from --nav, the Dock Reservation Rule,
+   plus the safe area) only while its own place is still below the fold, and settles back above Choose another day
+   once the lifter scrolls there. Nothing under it is ever covered for good, and hidden it leaves no surface behind.
+   It floats on the existing floating elevation, a primary pill over the page, never a fifth dock item. */
+#startWorkout{
+  position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12));z-index:5;
+  box-shadow:var(--elevation-floating-shadow);
+}
 /* The alternative to the day Today leads with, so it sits under the CTA and
    reads as the quieter of the two. */
 .today-otherday{width:100%;min-height:48px;margin-top:10px}
@@ -948,6 +970,14 @@ body.is-workout.is-focus-wo #log > :not(#workoutShell),
 body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
   flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
 }
+/* With the software keyboard up (`data-keyboard`, set by trackSheetViewport while a field is edited) the screen is the
+   band the keyboard leaves visible, not 100dvh, so the shelf and the field being edited sit just above the keyboard
+   (#300). The floors that keep the shelf from being squeezed by the chrome above it stand down: in that band the shelf
+   is what matters, and the context region gives up its height instead. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo main{height:var(--vvh,100dvh)}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
 /* A guide above the deck never takes more than a quarter of the screen, so the card under it keeps its context. */
 body.is-workout.is-focus-wo #workoutShell > .guide-cue{max-height:25dvh}
 body.is-workout.is-focus-wo #dayTabs,
@@ -2479,6 +2509,8 @@ body:has(#program.program-editor-installed) nav{
   border:0;border-top:1px solid var(--boundary-persistent);border-radius:0;background:var(--color-surface);backdrop-filter:none;-webkit-backdrop-filter:none;
   box-shadow:var(--elevation-program-dock-shadow)
 }
+/* The flush bar is opaque surface, not glass: it has no rim to catch light. */
+body:has(#program.program-editor-installed) nav::before{display:none}
 body:has(#program.program-editor-installed) #programEditor{padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom))}
 body:has(#program.program-editor-installed) nav button,
 body:has(#program.program-editor-installed) nav button.active{border-radius:0;background:transparent;box-shadow:none}
@@ -2532,13 +2564,26 @@ nav{
   padding:6px;gap:2px;
   border:1px solid var(--dock-edge);border-radius:calc(var(--dock-h)/2);
   background:var(--dock-glass);
-  backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);
+  backdrop-filter:var(--dock-blur);-webkit-backdrop-filter:var(--dock-blur);
   box-shadow:var(--elevation-nav-shadow);
+}
+/* The lens rim: light bending at the capsule's edge. A bright rim along the top, a softer caustic band just inside the
+   bottom edge where the curve would focus it, and a hairline of light all the way round. Painted, not a second
+   backdrop sample, so it costs nothing while the page scrolls and needs nothing a browser might lack; it sits under the
+   buttons and the travelling lens (z-index:-1 inside the dock's own stacking context). */
+nav::before{
+  content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  background:
+    linear-gradient(180deg,var(--dock-rim) 0,transparent 32%),
+    linear-gradient(0deg,var(--dock-caustic) 0,transparent 24%);
+  box-shadow:var(--dock-rim-shadow);
+  opacity:.9;
 }
 /* Without backdrop-filter the panel is a plain translucent sheet and the page
    shows through sharp, so pay for legibility with opacity instead. */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   nav{--dock-glass:var(--dock-glass-opaque)}
+  nav::before{display:none}
 }
 nav button{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
@@ -6935,6 +6980,17 @@ body.is-entry-editor #entryProgramName,
 /* List choices are hairline rows inside one bounded list, not a stack of rounded cards. */
 #onbBody.entry-body .onb__opts.onb__list .radio-card{border-radius:var(--radius-none);border-width:0;border-top:1px solid var(--boundary-decorative)}
 #onbBody.entry-body .onb__opts.onb__list .radio-card:first-child{border-top-width:0}
+/* The selected row's inset ring would otherwise keep square corners inside the
+   list's rounded clip and be cut at the corner (#299). The end rows follow the
+   list's inner curve (outer radius less its 1px border) so the ring bends with it. */
+.entry-body .onb__opts.onb__list .radio-card:first-child,
+#onbBody.entry-body .onb__opts.onb__list .radio-card:first-child{
+  border-top-left-radius:var(--radius-surface-inner);border-top-right-radius:var(--radius-surface-inner)
+}
+.entry-body .onb__opts.onb__list .radio-card:last-child,
+#onbBody.entry-body .onb__opts.onb__list .radio-card:last-child{
+  border-bottom-left-radius:var(--radius-surface-inner);border-bottom-right-radius:var(--radius-surface-inner)
+}
 #onbBody.entry-body .onb__opts.onb__list .radio-card.is-selected{
   border-color:var(--boundary-decorative);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
 }

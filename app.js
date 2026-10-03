@@ -2025,7 +2025,7 @@ function onUnfinishedIdle(){
   if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
   if(unfinishedAlreadyPrompted()) return;
   if(document.visibilityState==="visible") showUnfinishedPrompt();
-  else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.unfinished.body"),tag:"repforge-unfinished",url:"./index.html"}).then(ok=>{if(ok)markUnfinishedPrompted()});
+  else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.unfinished.body"),tag:"repforge-unfinished",url:"./"}).then(ok=>{if(ok)markUnfinishedPrompted()});
 }
 
 function maybeUnfinishedOnOpen(){
@@ -5856,7 +5856,7 @@ function ringRest(){
   restNotified=true;
   if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
-  else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"})}
+  else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
 function tickRest(){const left=Math.round(restLeftMs()/1000);
   if(left>0){paintRest(fmtClock(left),false);return}
   const over=Math.min(-left,REST_OVERTIME_MAX);
@@ -6341,14 +6341,36 @@ async function confirmPickerDay(){
   await enterWorkout({day:next});
   toast(t("toast.day_ready",{day:dayLabel(next)}))}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
- *  the band the keyboard leaves visible so its header stays on screen. */
+ *  the band the keyboard leaves visible so its header stays on screen.
+ *  The keyboard shrinks the visual viewport but not dvh, so a field in Focus's
+ *  shelf (pinned to the bottom of a 100dvh screen) opened behind it, and the
+ *  browser's own focus scroll left it half covered (#300). While a field is being
+ *  edited with the keyboard up, `data-keyboard` lets Focus size itself to the
+ *  visible band, and the field is brought fully into that band once the band is
+ *  known; when the keyboard goes, Focus drops any scroll the browser left behind. */
 function trackSheetViewport(){
   const vv=window.visualViewport;if(!vv)return;
   const root=document.documentElement;
+  let settle=0;
+  const editing=()=>{const el=document.activeElement;
+    return el?.matches?.("input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]),textarea,[contenteditable=true]")?el:null};
   const apply=()=>{const inset=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
     root.style.setProperty("--kb",`${Math.round(inset)}px`);
-    root.style.setProperty("--vvh",`${Math.round(vv.height)}px`)};
-  vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);apply()}
+    root.style.setProperty("--vvh",`${Math.round(vv.height)}px`);
+    const field=editing(),up=!!field&&window.innerHeight-vv.height>1,was=root.dataset.keyboard==="up";
+    if(up)root.dataset.keyboard="up";else delete root.dataset.keyboard;
+    cancelAnimationFrame(settle);
+    if(up&&field.closest(".focus-shelf"))settle=requestAnimationFrame(()=>{
+      if(document.activeElement!==field)return;
+      // Client coordinates are layout-viewport relative; the band on screen is [offsetTop, offsetTop + height].
+      const r=field.getBoundingClientRect();
+      if(r.top<vv.offsetTop||r.bottom>vv.offsetTop+vv.height)field.scrollIntoView({block:"nearest",inline:"nearest"})});
+    else if(was&&!up&&document.body.classList.contains("is-focus-wo")&&(window.scrollY||window.scrollX))window.scrollTo(0,0)};
+  vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);
+  document.addEventListener("focusin",apply);
+  // Focus leaves before it lands anywhere else, so read where it went once it has.
+  document.addEventListener("focusout",()=>setTimeout(apply,0));
+  apply()}
 /* ---- Zoom is off everywhere ---- */
 /* The layout is already sized to the phone, and it is worked one-handed between
  * sets: a zoom is never asked for and always in the way, because the hand that

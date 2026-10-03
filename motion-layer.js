@@ -495,6 +495,7 @@
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
+  nav::before { display: none; }
 }
 @media (prefers-contrast: more) {
   :root {

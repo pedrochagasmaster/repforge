@@ -1296,7 +1296,7 @@ try {
     await reloadToLanding(page);
     const back = await page.evaluate(landingSnapshot);
     assert(back.open && back.visit === "returning" && back.kind === "generic", "a return opens the generic landing marked returning", JSON.stringify(back));
-    assert(back.headline === CATALOG.en["landing.returning.headline"], "the returning landing leads with a welcome-back line", back.headline);
+    assert(back.headline === CATALOG.en["landing.returning.headline"], "the returning landing leads with the choose-how-to-train line", back.headline);
     assert(back.lede === CATALOG.en["landing.returning.sub"], "the returning landing's lede is the short returning copy", back.lede);
     assert(back.headline !== first.headline && back.lede !== first.lede, "the returning copy differs from the first-visit copy");
     assert(back.draft === null && back.resumeRoute === null, "without a setup draft the returning landing offers no resume action", JSON.stringify(back));
@@ -1334,7 +1334,7 @@ try {
     assert(snap.importShown, `[${lang}] Track stays beside the resume action`, JSON.stringify(snap));
     assert(snap.dockLabel === copy["landing.returning.resume.recommend"] && snap.closeText === copy["landing.returning.resume.recommend"],
       `[${lang}] the persistent control and the closing action say the same`, JSON.stringify({ dock: snap.dockLabel, close: snap.closeText }));
-    assert(snap.headline === copy["landing.returning.headline"], `[${lang}] the draft does not change the welcome-back line`, snap.headline);
+    assert(snap.headline === copy["landing.returning.headline"], `[${lang}] the draft does not change the returning headline`, snap.headline);
     assert(!snap.chooserOpen && !snap.resumeCard, `[${lang}] the chooser stays closed until the lifter taps`, JSON.stringify(snap));
     const draftBefore = await page.evaluate((k) => localStorage.getItem(k), SETUP_DRAFT);
 
