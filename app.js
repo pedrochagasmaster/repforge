@@ -7588,6 +7588,7 @@ function refreshShelf({focus=null}={}){
   const nowSel=card.querySelector(".focus-shelf .shelf__field.is-sel");
   if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||nowSel.dataset.field!==prevField))
     travelOutline(nowSel,fromRect,"shelf");
+  syncFocusFloor();
   // The first-set cue points at the shelf's action; the rebuilt action is the same control.
   if(activeGuideId&&activeGuideAnchor&&!activeGuideAnchor.isConnected){
     const anchor=guideAnchor(guideDefinition(activeGuideId));if(anchor)activeGuideAnchor=anchor}
@@ -7812,7 +7813,35 @@ function openWorkoutMore(){
 function sizeFocusDeck(){
   const cards=$$("#focusDeck .exercise--focus");
   if(cards.length)cards.forEach(sizeFocusCard);
-  else sizeFocusCard(focusCard())}
+  else sizeFocusCard(focusCard());
+  syncFocusFloor()}
+/** The shelf keeps its fields, pads and action whole at every text size, and its height depends on the text, so the
+ *  layout cannot know it. This publishes the height the shell has to keep (the rigid chrome, the progress bar, the
+ *  context region's floor and the shelf) as `--focus-floor` and `--focus-form-floor`; the stylesheet lets banners and
+ *  guides above the deck give way to it. Watching the header and the shelf republishes it when a timer widens a chip
+ *  or an edit rebuilds the shelf. */
+let focusFloorWatch=null;
+function syncFocusFloor(){
+  const card=focusCard(),shell=$("#workoutShell"),shelf=card?.querySelector(".focus-shelf"),head=shell?.querySelector(".wo-head");
+  if(!card||!shell||!shelf||!head)return;
+  const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
+  const context=card.querySelector(".fcard__context");
+  const least=context?getComputedStyle(context):null;
+  let form=tall($("#woProgress"))+tall(shelf)+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
+  for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
+  // A guide gives way to everything but its own padding, border and margins.
+  const guideLeast=el=>{
+    if(!el?.getClientRects().length)return 0;
+    const s=getComputedStyle(el);
+    return["paddingTop","paddingBottom","borderTopWidth","borderBottomWidth","marginTop","marginBottom"].reduce((n,k)=>n+(parseFloat(s[k])||0),0)};
+  form+=guideLeast(card.querySelector(":scope > .guide-cue"));
+  const shellGuide=guideLeast(shell.querySelector(":scope > .guide-cue"));
+  shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
+  shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head)+shellGuide)}px`);
+  if(typeof ResizeObserver!=="function")return;
+  focusFloorWatch??=new ResizeObserver(()=>syncFocusFloor());
+  focusFloorWatch.disconnect();
+  for(const el of [head,shelf,$("#woProgress")])if(el)focusFloorWatch.observe(el)}
 function sizeFocusCard(card){
   if(!card)return;
   const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -18512,7 +18541,9 @@ function saveGuideTransition(id,status){
   const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
   return replaceUiPrefs({...next})}
 function removeContextualGuide(){
-  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null}
+  const hadCue=!!activeGuideCue;
+  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null;
+  if(hadCue)syncFocusFloor()}
 function dismissContextualGuide({restoreFocus=false}={}){
   if(!activeGuideId)return false;
   const target=activeGuideReturnFocus||activeGuideAnchor;
@@ -18548,6 +18579,7 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
     anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry-feature")||
     anchor.closest("#statsSeg")||anchor;
   placement.insertAdjacentElement(shelf?"beforebegin":"afterend",cue);
+  syncFocusFloor();
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
   activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
   const stored=guideStored(id);

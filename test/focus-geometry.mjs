@@ -7,6 +7,10 @@
  * 2. Deliberate failure contract: title must NOT shift or wrap/clip when the timer
  *    transitions between idle and running at PT+200%.
  * 3. Previous-session band minimum: defined compact ledger band that does not dominate.
+ * 3. The shelf's action stays whole at large text (R7 V-02): on every Focus state of the screen catalog, at 320, 360 and
+ *    390 in both languages with double-size text, the action is inside the viewport above the bottom safe area and
+ *    is what a tap lands on, the load does not wrap, the card does not overflow, no two lines of the shelf overprint,
+ *    and the context region (never the shelf) is what gives up height.
  * 4. Explicit gesture controller lifetime:
  *    - Boot mounts one gesture owner returning a disposal handle { dispose }.
  *    - Mounting twice is idempotent (does not duplicate listeners/navigation).
@@ -18,6 +22,9 @@
 
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { loadManifest } from "../tools/ui-screens/manifest.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "../tools/ui-screens/screens-app.mjs";
+import { dismissChrome, openPage, settle } from "../tools/ui-screens/session.mjs";
 
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
@@ -26,6 +33,122 @@ function assert(condition, message, detail = "") {
   if (!condition) {
     throw new Error(`Assertion failed: ${message}${detail ? ` — detail: ${detail}` : ""}`);
   }
+}
+
+const SAFE_AREA = { top: 44, bottom: 34 };
+const FOCUS_STATES = ["workout/focus", "workout/focus-glossary", "workout/exercise-note", "workout/why-this-weight",
+  "workout/rest-running", "workout/rest-done", "workout/correction", "workout/stale-draft", "workout/persist-retry"];
+const CATALOG_PHONES = { 320: 568, 360: 740, 390: 844 };
+
+/** Open one catalog state exactly as the screen catalog draws it, with the emulated safe areas the shipped app sees. */
+async function openCatalogState(browser, key, width, lang, text) {
+  const manifest = loadManifest();
+  manifest.viewports[`phone-${width}`] = { width, height: CATALOG_PHONES[width], label: "geometry" };
+  manifest.deviceScaleFactor = 1;
+  const job = { flow: "workout", screen: key.split("/")[1], viewport: `phone-${width}`, theme: "light", locale: lang, text, motion: "normal" };
+  const opened = await openPage(browser, manifest, job, appState(key, manifest.locales[lang].lang), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
+  const cdp = await opened.context.newCDPSession(opened.page);
+  await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { ...SAFE_AREA, left: 0, right: 0 } });
+  await dismissChrome(opened.page);
+  await APP_SCENARIOS[key](opened.page);
+  await settle(opened.page);
+  return opened;
+}
+
+/** What the live Focus card looks like in this frame; every number is measured in the page. */
+function measureFocusCard(safeBottom) {
+  const q = (selector, root = document) => root.querySelector(selector);
+  const art = q("#workout .exercise--focus.is-current");
+  if (!art) return { error: "no live Focus card" };
+  const cta = q("[data-save]", art);
+  if (!cta) return { error: "the shelf has no action" };
+  const rect = cta.getBoundingClientRect();
+  const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  const values = [...art.querySelectorAll(".shelf__val")].map((value) => {
+    const lineHeight = parseFloat(getComputedStyle(value).lineHeight);
+    return { text: value.textContent.trim(), height: value.scrollHeight, lineHeight, wraps: value.scrollHeight > lineHeight * 1.5, spills: value.scrollWidth > value.clientWidth + 1 };
+  });
+  const shelf = q(".focus-shelf", art);
+  const boxes = [];
+  const walker = document.createTreeWalker(shelf, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.textContent.trim()) continue;
+    let hidden = false;
+    for (let el = node.parentElement; el && el !== shelf.parentElement; el = el.parentElement) {
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden" || parseFloat(style.opacity) === 0) { hidden = true; break; }
+    }
+    if (hidden) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    for (const box of range.getClientRects()) if (box.width > 1 && box.height > 1) boxes.push({ text: node.textContent.trim().slice(0, 16), left: box.left, right: box.right, top: box.top, bottom: box.bottom });
+  }
+  const overprinted = [];
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const a = boxes[i], b = boxes[j];
+    // Tight leading lets neighbouring lines' boxes touch; overprint is one line sitting over another.
+    const across = Math.min(a.right, b.right) - Math.max(a.left, b.left), down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    if (across > 1 && down > 0.35 * Math.min(a.bottom - a.top, b.bottom - b.top)) overprinted.push(`${a.text} / ${b.text}`);
+  }
+  const context = q(".fcard__context", art);
+  const banner = q("#draftRecovery");
+  const bannerRect = banner && !banner.classList.contains("hidden") ? banner.getBoundingClientRect() : null;
+  const shelfRect = shelf.getBoundingClientRect();
+  return {
+    height: innerHeight,
+    // A state that opens a sheet or the glossary is drawn with that layer over the card, and what lies over the action
+    // there is the layer's; every other state must put the tap on the action itself.
+    action: { top: rect.top, bottom: rect.bottom, inside: rect.top >= 0 && rect.bottom <= innerHeight - safeBottom + 0.5,
+      tapped: !!hit && (hit === cta || cta.contains(hit) || !!hit.closest(".sheet,.sheet-scrim,#glossary")) },
+    values, overprinted,
+    card: { scroll: art.scrollHeight, client: art.clientHeight },
+    contextScrolls: !!context && ["auto", "scroll"].includes(getComputedStyle(context).overflowY),
+    banner: bannerRect && { top: bannerRect.top, bottom: bannerRect.bottom, aboveShelf: bannerRect.bottom <= shelfRect.top + 1 },
+  };
+}
+
+function focusCardProblems(m) {
+  if (m.error) return [m.error];
+  const problems = [];
+  if (!m.action.inside) problems.push(`the action is not above the safe area (top ${Math.round(m.action.top)}, bottom ${Math.round(m.action.bottom)} of ${m.height}, safe ${SAFE_AREA.bottom})`);
+  if (!m.action.tapped) problems.push("a tap at the centre of the action does not land on it");
+  const wrapped = m.values.filter((value) => value.wraps || value.spills);
+  if (wrapped.length) problems.push(`shelf values wrap or spill: ${wrapped.map((value) => `${value.text} (${Math.round(value.height)}px over a ${Math.round(value.lineHeight)}px line)`).join(", ")}`);
+  if (m.card.scroll > m.card.client + 1) problems.push(`the card overflows itself (${m.card.scroll} > ${m.card.client})`);
+  if (m.overprinted.length) problems.push(`shelf lines overprint: ${m.overprinted.join("; ")}`);
+  if (!m.contextScrolls) problems.push("the context region is not the scroller");
+  if (m.banner && !m.banner.aboveShelf) problems.push(`the banner (bottom ${Math.round(m.banner.bottom)}) is not above the shelf`);
+  return problems;
+}
+
+/** Run the cases a few pages at a time; the catalog states are independent of one another. */
+async function inPool(items, size, work) {
+  const queue = [...items];
+  await Promise.all(Array.from({ length: size }, async () => { for (let item = queue.shift(); item; item = queue.shift()) await work(item); }));
+}
+
+async function checkFocusStatesAtLargeText(browser) {
+  console.log("\nFocus states at double-size text: 320/360/390 x EN/PT, every catalog state");
+  const cases = [];
+  for (const key of FOCUS_STATES) for (const width of Object.keys(CATALOG_PHONES)) for (const lang of ["en", "pt"]) cases.push({ key, width: +width, lang });
+  const failures = [];
+  await inPool(cases, 3, async ({ key, width, lang }) => {
+    const label = `${key} ${width}px ${lang} 200%`;
+    let opened;
+    try {
+      opened = await openCatalogState(browser, key, width, lang, "text200");
+      const problems = focusCardProblems(await opened.page.evaluate(measureFocusCard, SAFE_AREA.bottom));
+      if (problems.length) failures.push(`${label}: ${problems.join(" | ")}`);
+    } catch (error) {
+      failures.push(`${label}: the state did not reach its drawing: ${String(error.message).split("\n")[0]}`);
+    } finally {
+      await opened?.context.close();
+    }
+  });
+  failures.sort();
+  for (const failure of failures) console.error(`  FAIL ${failure}`);
+  assert(!failures.length, `${failures.length} of ${cases.length} large-text Focus frames lose the shelf's action or its values`, failures.slice(0, 3).join(" || "));
+  console.log(`  ${cases.length} frames keep the shelf whole`);
 }
 
 async function main() {
@@ -145,7 +268,12 @@ async function main() {
     }
 
     /* ======================================================================
-     * 2. Gesture Controller Lifetime
+     * 2. The shelf's action stays whole at large text (R7 V-02)
+     * ====================================================================== */
+    await checkFocusStatesAtLargeText(browser);
+
+    /* ======================================================================
+     * 3. Gesture Controller Lifetime
      * ====================================================================== */
     console.log("\nGesture Controller Lifetime: explicit mount, disposal, safety");
     const testPage = await browser.newPage({ viewport: { width: 390, height: 844 } });

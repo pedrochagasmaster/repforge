@@ -190,6 +190,9 @@
   --space-26:26px;
   --space-32:32px;
   --gut:16px;
+  /* The least the Focus context region keeps: the exercise's name row (the 56px thumbnail and the card's padding).
+     Banners and guides give way before it does; at large text on a short screen the shelf comes first and it is 0. */
+  --focus-context-floor:80px;
   /* Workout shelf grounds, on the shelf only: fields sit on the well, pads on
      the page ground. */
   --shelf-field-bg:var(--well);
@@ -824,6 +827,25 @@ div.settings-row{cursor:default}
    takes room from it, the controls and the first line of the title stay where they were. */
 .wo-head__center{text-align:center;min-width:0;flex:1;padding-top:var(--space-12)}
 .wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+/* At large text the controls leave the title a column too narrow to read, and a running timer's pill narrows it
+   further, so the title takes the row under the controls: it neither squeezes nor moves when the timer starts. */
+body:has(.exercise--focus.is-text-scaled){--focus-context-floor:0px}
+body:has(.exercise--focus.is-text-scaled) .wo-head{flex-wrap:wrap;row-gap:0}
+body:has(.exercise--focus.is-text-scaled) .fcard__context{padding-block:0}
+body:has(.exercise--focus.is-text-scaled) .exercise--focus .guide-cue{margin-block:0}
+body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bottom:0}
+/* A guide is a hint, and at double size it wraps into most of a short screen. Where the shelf and the controls already
+   take the height, it stands down rather than take the shelf's room; it keeps its state and returns on a taller screen. */
+@media (max-height:600px){
+  body:has(.exercise--focus.is-text-scaled) :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
+}
+/* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
+   from costing the shelf the room its action needs. The running timer's pill drops its dot and takes the label size so
+   the controls and the timer share one row with the title under them. */
+body:has(.exercise--focus.is-text-scaled) .shelf__lab{line-height:var(--line-tight)}
+body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{padding:0 var(--space-8);font-size:var(--font-size-body-small)}
+body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running .wo-rest__dot{display:none}
+body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
 .wo-head__sub{display:none}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
 /* Rest lives in the workout chrome, never over the card's controls: a square
@@ -911,6 +933,19 @@ body.is-workout.is-focus-wo #workoutShell,
 body.is-workout.is-focus-wo #logForm,
 body.is-workout.is-focus-wo #workout{display:flex;flex-direction:column;flex:1;min-height:0}
 body.is-workout.is-focus-wo .deck{flex:1;min-height:0}
+/* The shelf is not paid for by what sits above it. Everything above the deck that can vary (a banner, a guide, the
+   header's second line) is measured by the screen, never by the shelf: the shell keeps the height of the rigid
+   chrome plus the shelf (`syncFocusFloor` in app.js publishes it), and the banners and guides above give way and
+   scroll inside themselves. The context region is the one that gives up height inside the card. */
+body.is-workout.is-focus-wo .wo-head{flex:none}
+body.is-workout.is-focus-wo #workoutShell{min-height:var(--focus-floor,0px)}
+body.is-workout.is-focus-wo #logForm{min-height:var(--focus-form-floor,0px)}
+body.is-workout.is-focus-wo #log > :not(#workoutShell),
+body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
+  flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+}
+/* A guide above the deck never takes more than a quarter of the screen, so the card under it keeps its context. */
+body.is-workout.is-focus-wo #workoutShell > .guide-cue{max-height:25dvh}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
@@ -950,9 +985,12 @@ article.exercise--focus{
 article.exercise--focus input,article.exercise--focus textarea{-webkit-user-select:text;user-select:text}
 
 .fcard__context{
-  flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;
+  flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;
   padding:var(--space-8) var(--gut) var(--space-16);
 }
+/* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
+   floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
+article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .fx-head{display:flex;align-items:center;gap:var(--space-12);margin:0 0 var(--space-16)}
 .fx-head .exthumb{flex:none;width:56px;height:56px;border-radius:var(--radius-surface)}
@@ -1056,7 +1094,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .fx-next__chev{flex:none;transform:rotate(-90deg)}
 
 /* A first-set cue rides above the shelf, in the flow, and keeps the shelf on the edge. */
-.exercise--focus .guide-cue{flex:none;margin:var(--space-8) var(--gut)}
+.exercise--focus .guide-cue{flex:0 1 auto;min-height:0;max-height:25%;overflow-y:auto;overscroll-behavior:contain;margin:var(--space-8) var(--gut)}
 #workoutShell .guide-cue{background:var(--well)}
 
 /* ---- The shelf ----
@@ -1065,8 +1103,17 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    roles. A field is a button until a second tap turns it into the real input. */
 .focus-shelf{flex:none;position:relative}
 .focus-shelf{--control-selection-bg:var(--shelf-field-bg)}
+/* A third of the shelf has to hold a load such as 102,5 on one line at any text size. The numeral is as large as the
+   token allows and no larger than five Mono digits take in the room a field has left after its gutters, gaps and
+   padding (a Mono digit is 0.6em, so 9.6 is three fields at 3.2em each); at the usual size the token is the smaller
+   of the two and nothing changes, at double size the step-down replaces the wrap. */
+.focus-shelf{
+  --shelf-field-inset:calc(2 * var(--space-12) + 2px);
+  --shelf-numeral-fit:calc((100vw - 2 * var(--gut) - 2 * var(--space-8) - 3 * var(--shelf-field-inset)) / 9.6);
+}
 .shelf__fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-8)}
-.shelf__field{position:relative;min-width:0}
+/* The three fields share a row's height whichever label wrapped (a flex field stretches its button). */
+.shelf__field{position:relative;display:flex;min-width:0}
 .shelf__fieldbtn{
   display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;width:100%;min-height:64px;margin:0;
   padding:var(--space-8) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
@@ -1081,7 +1128,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
 .shelf__val{
-  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);
+  font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
   color:var(--control-selection-ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
 }
 .shelf__field.is-untouched .shelf__val{color:var(--color-ink-secondary)}
@@ -1091,7 +1138,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   position:absolute;inset:0;width:100%;height:100%;min-height:64px;margin:0;padding:var(--space-8) var(--space-12) 0;
   opacity:0;pointer-events:none;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
   background:var(--control-field-bg);color:var(--control-field-ink);box-shadow:var(--elevation-selected-quiet-shadow);
-  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);
+  font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
   font-variant-numeric:tabular-nums;text-align:left;
 }
 .shelf__field.is-editing .shelf__input{opacity:1;pointer-events:auto;padding-top:calc(var(--space-8) + var(--font-size-body-small) * var(--line-standard) + 2px);padding-bottom:0}
@@ -2061,6 +2108,7 @@ textarea.sheetfield__input{
 }
 /* On the narrowest phones a three-digit load needs the room its padding took, or it wraps onto a second line. */
 @media (max-width:340px){
+  .focus-shelf{--shelf-field-inset:calc(2 * var(--space-8) + 2px)}
   .shelf__fieldbtn{padding-left:var(--space-8);padding-right:var(--space-8)}
   .shelf__input{padding-left:var(--space-8);padding-right:var(--space-8)}
   .shelf__lab--edit{left:var(--space-8);right:var(--space-8)}
