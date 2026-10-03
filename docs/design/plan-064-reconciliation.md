@@ -1466,7 +1466,7 @@ Build decisions recorded on [#295](https://github.com/pedrochagasmaster/repforge
 Recorded on [#295](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5961176728), 2026-10-02:
 - **RF-4, manual slot load: kept as built.** Direction D spec §4.9 and §5 draw a manual slot's program-authored load. The program has no such field, and adding one would change the program schema, the editor, import and the setup-link format. Manual rows therefore show sets × range and "manual" with no load and no mark. This is a recorded deviation from the D spec, and the authored-load field is a backlog item (Product and UX debt, "Manual-slot authored load").
 - **RF-10, Portuguese exercise names: localized at display.** In PT, a library exercise whose stored name still equals the library's English name shows the library's PT name. Stored data, setup links, telemetry and exercises the lifter renamed are unchanged. R6 builds it.
-- **Icon set.** The Round 3 G icon set is optional under Plan 064 §7.1 item 7 and is not adopted, so the existing icon masks stay.
+- **Icon set (corrected 2026-10-03).** An earlier version of this line said the G icon set was not adopted. That was an orchestrator record, not an owner decision, and it contradicted the owner's Q-D ([#295 comment 5927122354](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5927122354)): G's 28-glyph set becomes the app-wide icon set through the shared mask mechanism, inventoried. It is adopted after R7, and the correction is recorded on [#295](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5968535491).
 
 ## R6 rules-only sweep
 
