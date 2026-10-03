@@ -720,6 +720,42 @@ async function runHistoryHeadAtLargeText(browser) {
   }
 }
 
+/**
+ * R7 V-14: counts take their singular form. The month heading and the calendar subtitle read "1 session · 1 set" /
+ * "1 sessão · 1 série" for one and "2 sessions · 2 sets" / "2 sessões · 2 séries" for two, in both languages, and the count
+ * catalog (`count.*`, `<key>_one`) answers for exactly 1.
+ */
+export async function runCountFormChecks(page, check = assert) {
+  const expected = {
+    en: { one: "1 session · 1 set", two: "2 sessions · 2 sets", exercise: ["1 exercise", "2 exercises"], added: ["1 exercise added.", "2 exercises added."], days: ["1 day per week", "2 days per week"] },
+    pt: { one: "1 sessão · 1 série", two: "2 sessões · 2 séries", exercise: ["1 exercício", "2 exercícios"], added: ["1 exercício adicionado.", "2 exercícios adicionados."], days: ["1 dia por semana", "2 dias por semana"] },
+  };
+  for (const lang of ["en", "pt"]) {
+    const read = await page.evaluate((language) => {
+      window.RepForgeI18n.setLang(language);
+      const row = (session, date, set) => ({ session, date, day: "Push", name: "Alpha Press", exerciseId: "ex-alpha", set, load: 60, reps: 8, rir: 1,
+        notes: "", created: `${date}T12:00:00.000Z`, primary: "Chest", secondary: "" });
+      // March 2026: one session with one set. April 2026: two sessions with one set each.
+      window.__repforgeHistory.renderWithSource([row("c-1", "2026-03-10", 1), row("c-2", "2026-04-07", 1), row("c-3", "2026-04-14", 1)]);
+      const t = (key, vars) => window.RepForgeI18n.t(key, vars);
+      return {
+        months: [...document.querySelectorAll("#sessions .hist-month")].map((heading) => heading.querySelector("span")?.textContent.trim()),
+        exercise: [1, 2].map((n) => t(n === 1 ? "today.exercise_count_one" : "today.exercise_count", { n })),
+        added: [1, 2].map((n) => t(n === 1 ? "toast.exercises_added_one" : "toast.exercises_added", { n })),
+        days: [1, 2].map((n) => t(n === 1 ? "program.days_per_week_one" : "program.days_per_week", { n })),
+      };
+    }, lang);
+    const want = expected[lang];
+    check(read.months.includes(want.one), `[${lang}] a month with one session and one set reads "${want.one}"`, JSON.stringify(read.months));
+    check(read.months.includes(want.two), `[${lang}] a month with two sessions and two sets reads "${want.two}"`, JSON.stringify(read.months));
+    check(!read.months.some((text) => /\b1 (sessions|sessões|sets|séries)\b/.test(text)), `[${lang}] no month heading reads a plural for one`, JSON.stringify(read.months));
+    check(JSON.stringify(read.exercise) === JSON.stringify(want.exercise), `[${lang}] exercise counts: ${want.exercise.join(" / ")}`, JSON.stringify(read.exercise));
+    check(JSON.stringify(read.added) === JSON.stringify(want.added), `[${lang}] added-exercise toast: ${want.added.join(" / ")}`, JSON.stringify(read.added));
+    check(JSON.stringify(read.days) === JSON.stringify(want.days), `[${lang}] days per week: ${want.days.join(" / ")}`, JSON.stringify(read.days));
+  }
+  await page.evaluate(() => window.RepForgeI18n.setLang("en"));
+}
+
 async function main() {
   const browser = await launchChromium();
   try {
@@ -737,6 +773,8 @@ async function main() {
     await runHistoryIndexChecks(page, assert);
     console.log("\nHistory operability");
     await runHistoryOperabilityChecks(page, assert);
+    console.log("\nCount forms (singular and plural, both languages)");
+    await runCountFormChecks(page, assert);
 
     await context.close();
     await runHistoryHeadAtLargeText(browser);

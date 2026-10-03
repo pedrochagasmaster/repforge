@@ -509,7 +509,7 @@ async function main() {
       libraryOpen: document.querySelector("#library")?.classList.contains("active") === true,
       toast: document.querySelector("#toast")?.textContent?.trim() || "",
     }));
-    assert(partialUi.libraryOpen && !partialUi.toast.includes("exercises added"),
+    assert(partialUi.libraryOpen && !/exercises? added/.test(partialUi.toast),
       "a one-replica full-library Program write is not presented as success", JSON.stringify(partialUi));
     await page.evaluate(() => {
       const io = window.RepForgeDurableState.storageIO;

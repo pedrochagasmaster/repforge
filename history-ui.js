@@ -632,6 +632,8 @@ function historyNameList(items){
   if(!parts)parts=items.flatMap((value,i)=>i?[{type:"literal",value:" · "},{type:"element",value}]:[{type:"element",value}]);
   return parts.map(p=>p.type==="element"?`<span>${esc(p.value)}</span>`:`<span aria-hidden="true">${esc(p.value)}</span>`).join("")}
 const historySetsText=n=>n===1?t("history.sets.one",{n}):t("entry.catalogue.sets_exact",{n});
+/** "1 session" / "2 sessions": the count catalog keeps a `_one` form for exactly 1 (R7 V-14). */
+const historyCountText=(kind,n)=>t(n===1?`count.${kind}_one`:`count.${kind}`,{n});
 const historyPrText=n=>n===1?t("history.prs",{n}):t("history.prs_many",{n});
 
 function historyMonthHeading(index,date){
@@ -639,7 +641,7 @@ function historyMonthHeading(index,date){
   if(!bucket)return"";
   const d=new Date(`${date}T12:00:00`);
   return`<h3 class="hist-month"><b>${esc(t("history.month_title",{month:historyMonthName(d.getMonth()),year:d.getFullYear()}))}</b>`+
-    `<span>${esc(t("history.month_summary",{sessions:bucket.sessions.size,sets:bucket.sets}))}</span></h3>`}
+    `<span>${esc(t("history.month_summary",{sessions:historyCountText("sessions",bucket.sessions.size),sets:historyCountText("sets",bucket.sets)}))}</span></h3>`}
 
 function historyRowHtml(s,prLifts){
   const sets=s.rows,work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
@@ -757,7 +759,7 @@ function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)retu
     if(i===41)break;if(i>=startDow+daysInMonth-1&&(i+1)%7===0)break}
   const title=$("#historyCalTitle"),sub=$("#historyCalSub");
   if(title)title.textContent=t("history.month_title",{month:historyMonthName(m),year:y});
-  if(sub)sub.textContent=t("history.month_summary",{sessions:sessCount,sets:setCount});
+  if(sub)sub.textContent=t("history.month_summary",{sessions:historyCountText("sessions",sessCount),sets:historyCountText("sets",setCount)});
   el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="${esc(t("history.calendar_prev_aria"))}"><span class="chevron cal-head__prev" aria-hidden="true"></span></button>`+
     `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="${esc(t("history.calendar_next_aria"))}"><span class="chevron" aria-hidden="true"></span></button></div>`+
     `<div class="cal-grid">${cells}</div>`;

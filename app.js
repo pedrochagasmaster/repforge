@@ -780,6 +780,10 @@ function enqueueStateChange(base,proposal,io,options={}){return DurableState.enq
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
+/** "1 session" / "2 sessions": the count catalog keeps a `_one` form for exactly 1 (R7 V-14). kind: sessions, sets, exercises. */
+const countText=(kind,n)=>t(n===1?`count.${kind}_one`:`count.${kind}`,{n});
+/** A catalog key with a `_one` sibling: the sibling for exactly 1, the key otherwise. */
+const tOne=(key,n,vars)=>t(n===1?`${key}_one`:key,{n,...vars});
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
 const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
 const coarseCountBucket=value=>{const n=Number(value);return!Number.isSafeInteger(n)||n<0?"0":n===0?"0":n===1?"1":n<=5?"2-5":"6+"};
@@ -6295,7 +6299,7 @@ let dayPickSelected=null;
 function dayPickRowHtml(d,i){
   const named=!DEFAULT_DAY_NAME.test(String(d).trim()),label=dayLabel(d);
   const muscles=dayMuscles(d).map(muscleLabel).join(" · ");
-  const count=t("today.exercise_count",{n:exercises(d).length});
+  const count=tOne("today.exercise_count",exercises(d).length);
   const title=named?label:(muscles||label);
   const sub=named&&muscles?`${muscles} · ${count}`:count;
   const isToday=d===day,chip=t("today.choose_day_current");
@@ -6763,7 +6767,7 @@ function todayRxHtml(exs){
   const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));
   return todayTallyHtml(model)+
     `<div class="today-rx__head"><h3 class="today-rx__title">${esc(t("today.rx.title"))}</h3>`+
-    `<span class="today-rx__meta">${esc(t("today.rx.meta",{lifts:exs.length,sets}))}</span></div>`+
+    `<span class="today-rx__meta">${esc(t("today.rx.meta",{exercises:countText("exercises",exs.length),sets:countText("sets",sets)}))}</span></div>`+
     `<div class="today-rx" id="todayExList"><div class="today-rx__grid">`+
     `<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`+
     model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
@@ -6875,7 +6879,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(dayLabel(next))}</div>`+
-        `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
+        `<div class="listrow__sub">${esc(tOne("today.exercise_count",nEx))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
       $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
     else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
   // The recap above already says today was trained; the footer would only echo it.
@@ -8396,7 +8400,7 @@ function sessionSummaryHtml(s){
         Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div></div>`:"")+
       (s.next?`<div class="sum-next sum-split__cell"><p class="sum-split__k sum-next__lab">${esc(t("summary.next"))}</p>`+
         `<p class="sum-next__day">${esc(dayLabel(s.next.day))}</p>`+
-        `<p class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</p></div>`:"")+`</div>`)}
+        `<p class="sum-next__meta">${esc(tOne("today.exercise_count",s.next.exercises))}</p></div>`:"")+`</div>`)}
   // The detour beside the door, both pinned: the report scrolls under them.
   out.push(`<div class="sum-actions"><button type="button" class="btn btn--steel" id="sumSee">${esc(t("summary.see_session"))}</button>`+
     `<button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
@@ -11218,7 +11222,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const segs=mc.total||6,cur=mc.current||0;
   const plainWeek=!mc.isComplete&&!mc.isFinalWeek&&mc.current!=null;
   const lede=goal&&plainWeek?t("program.overview.lede",{goal,days:ds.length,n:mc.current,total:mc.total})
-    :[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ");
+    :[goal,tOne("program.days_per_week",ds.length)].filter(Boolean).join(" · ");
   let daysHtml="";
   ds.forEach((d,i)=>{const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d).map(muscleLabel);
     daysHtml+=`<section class="prog-day" aria-labelledby="progDay${i}"><div class="prog-day__head"><h4 class="prog-day__title" id="progDay${i}">${esc(dayLabel(d))}</h4>`+
@@ -11355,7 +11359,7 @@ function dayCard(d){
   return `<div class="pday${isCollapsed?" is-collapsed":""}" data-day="${esc(d)}">`+
     `<div class="pday__head">`+
       `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(dayLabel(d))}" aria-label="${esc(t("program.day.name_aria"))}">`+
-      `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets}))}</span>`+
+      `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets:countText("sets",sets)}))}</span>`+
       `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
       `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
     `</div>`+
@@ -13435,7 +13439,7 @@ function renderLibraryConfigure(){
   const rows=libraryConfigureRows();
   const count=$("#libConfigureCount");
   if(count)count.textContent=t("library.configure_count",
-    {n:rows.length,sets:rows.reduce((a,r)=>a+r.cfg.sets,0)});
+    {exercises:countText("exercises",rows.length),sets:countText("sets",rows.reduce((a,r)=>a+r.cfg.sets,0))});
   el.innerHTML=rows.map(r=>
     `<div class="libcfg" data-cfg="${esc(r.id)}">`+
       exerciseThumb(r.entry,{size:"md"})+
@@ -13498,7 +13502,7 @@ async function commitLibrarySelection(){
     onboardingProgramEditor?.discard?.();
     updateOnboardingEditorActions();
   }else render();
-  toast(t("toast.exercises_added",{n}));
+  toast(tOne("toast.exercises_added",n));
   return result}
 
 /* ---- exercise preview ---- */
@@ -14496,7 +14500,7 @@ function openImportChoice(ctx){const d=$("#importChoice");
     if(importBusy)return;importBusy=true;
     const discardDraftRaw=readDraftRaw();
     try{const result=await replaceImportedState(ctx.s,io,{discardDraftRaw});
-      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();leaveSetupGates();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))}}
+      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();leaveSetupGates();render();toast(tOne("toast.imported_sessions",ctx.inSessions,{sessions:ctx.inSessions}))}}
     finally{importBusy=false}};
   $("#importMerge").onclick=async()=>{
     if(importBusy)return;importBusy=true;
@@ -19189,8 +19193,8 @@ function applyGotoParam(){
 function recoveryCopyLabel(side){return t(side==="local"?"dialog.storage_recovery.copy_a":"dialog.storage_recovery.copy_b")}
 function recoverySummaryText(parsed){
   const sum=snapshotSummary(parsed),name=sum.name||t("dialog.storage_recovery.unnamed");
-  if(sum.lastDate)return t("dialog.storage_recovery.summary",{name,sessions:sum.sessions,sets:sum.sets,date:sum.lastDate});
-  return t("dialog.storage_recovery.summary_empty",{name,sessions:sum.sessions,sets:sum.sets})}
+  if(sum.lastDate)return t("dialog.storage_recovery.summary",{name,sessions:countText("sessions",sum.sessions),sets:countText("sets",sum.sets),date:sum.lastDate});
+  return t("dialog.storage_recovery.summary_empty",{name,sessions:countText("sessions",sum.sessions),sets:countText("sets",sum.sets)})}
 function recoveryStatusText(read){
   if(read.status==="valid")return recoverySummaryText(read.parsed);
   if(read.status==="invalid")return t("dialog.storage_recovery.invalid_copy");
