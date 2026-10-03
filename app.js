@@ -5133,7 +5133,7 @@ async function goToLogExercise(exId){
   if(selected.status!=="applied")return;
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   renderWorkout();
-  const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:"smooth",block:"center"})}}
+  const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:scrollBehavior(),block:"center"})}}
 function evidenceRenderers(){
   return{strength:renderStrengthDash,volume:renderVolumeDash,prs:renderPRTimeline}}
 function renderEvidenceView(){
@@ -6506,6 +6506,9 @@ function focusTrack(){return $("#focusTrack")}
 function focusStep(){const card=focusCard();return (card?.offsetWidth||320)+FOCUS_GAP}
 const FOCUS_GAP=14;
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/** `behavior` for a programmatic scroll. The motion layer owns the reduced-motion decision (RepForgeMotion.reducedMotion),
+ *  so a smooth scroll is only ever asked for when motion is welcome; reduced motion jumps. */
+const scrollBehavior=()=>(window.RepForgeMotion?.reducedMotion?.()??!!reducedMotion())?"auto":"smooth";
 /** Carry the deck one card over, animating the track exactly as a fling does,
  *  then re-render at the new index with the track back at rest. Chevrons, the
  *  Next exercise button, the arrow keys and a completed swipe all land here.
@@ -8048,7 +8051,7 @@ function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=re
     if(lab)lab.textContent=hot?t("top.gauge.hot",{n:hot}):t("top.gauge.forge");
     g.classList.toggle("is-hot",hot>0);
     g.style.cursor=hot?"pointer":"default";
-    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){first.scrollIntoView({behavior:"smooth",block:"center"})}}:null}
+    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){first.scrollIntoView({behavior:scrollBehavior(),block:"center"})}}:null}
 }
 
 function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercises();
@@ -16155,7 +16158,7 @@ window.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible"&&entryFreeformStage===3){
     const out=$("#entryFreeformOut");
     if(out){
-      out.scrollIntoView?.({behavior:"smooth",block:"nearest"});
+      out.scrollIntoView?.({behavior:scrollBehavior(),block:"nearest"});
       out.classList.add("is-returned");
       setTimeout(()=>out.classList.remove("is-returned"),2000);
     }
@@ -16838,7 +16841,7 @@ function wireEntryDom(){
     entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
   $$("[data-entry-select-candidate]").forEach(btn=>btn.onclick=()=>{
     if(entryState?.step==="result"&&(entryState.route==="recommend"||entryState.route==="custom")){
-      $("#entryCandidateReview")?.scrollIntoView?.({behavior:reducedMotion()?"auto":"smooth",block:"start"});
+      $("#entryCandidateReview")?.scrollIntoView?.({behavior:scrollBehavior(),block:"start"});
       return}
     const id=btn.dataset.entrySelectCandidate;
     const selected=(entryState.result?.candidates||[]).find(c=>c.id===id)||entryState.result?.selected;

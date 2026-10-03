@@ -2226,6 +2226,43 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
   await context.close();
 }
 
+/**
+ * R7 V-13: a programmatic scroll never asks for `behavior: "smooth"` unless motion is welcome. The app's own scroll
+ * helper routes through RepForgeMotion.reducedMotion(), so reduced motion jumps. Proven on the real go-to-exercise path,
+ * and by a sweep that no production script writes the smooth literal anywhere else.
+ */
+async function programmaticScroll(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  phase(`Programmatic scrolls${tag}`);
+  const { context, page, errors } = await focusPage(browser, { reducedMotion, sets: 2 });
+  const seen = await page.evaluate(async () => {
+    const calls = [];
+    const real = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (options) { calls.push(options && options.behavior ? options.behavior : "default"); return real.call(this, options); };
+    const id = document.querySelector("#workout .exercise.is-current")?.dataset.ex;
+    await window.__repforgeGoToLogExercise(id);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    Element.prototype.scrollIntoView = real;
+    return { id, calls, matches: matchMedia("(prefers-reduced-motion: reduce)").matches, layer: window.RepForgeMotion?.reducedMotion?.() };
+  });
+  assert(!!seen.id && seen.calls.length > 0, `going to an exercise scrolls it into view${tag}`, JSON.stringify(seen));
+  assert(seen.matches === reduced && seen.layer === reduced, `the page${reduced ? " is" : " is not"} in reduced motion, in the browser and in the motion layer`, JSON.stringify(seen));
+  assert(seen.calls.every((behavior) => behavior === (reduced ? "auto" : "smooth")),
+    reduced ? "reduced motion scrolls instantly (behavior auto)" : "motion welcome keeps the smooth scroll", JSON.stringify(seen.calls));
+  assert(errors.length === 0, `no page error${tag}`, errors.join(" | "));
+  await context.close();
+}
+
+/** Every `behavior` a production script passes is the helper's, never the smooth literal. */
+async function scrollLiteralSweep() {
+  phase("No production script writes behavior: smooth directly");
+  const { readFileSync } = await import("node:fs");
+  const files = ["app.js", "history-ui.js", "program-editor.js", "program-entry-adapter.js", "motion-layer.js", "notify.js", "index.html"];
+  const offenders = files.filter((file) => /behavior\s*:\s*["']smooth["']/.test(readFileSync(new URL(`../${file}`, import.meta.url), "utf8")));
+  assert(offenders.length === 0, "smooth scrolling is asked for only through scrollBehavior() (the motion layer's reduced-motion decision)", offenders.join(", "));
+}
+
 async function run() {
   const browser = await launchChromium();
 
@@ -2641,6 +2678,10 @@ async function run() {
 
   await dockMotion(browser);
   await dockMotion(browser, { reducedMotion: "reduce" });
+
+  await programmaticScroll(browser);
+  await programmaticScroll(browser, { reducedMotion: "reduce" });
+  await scrollLiteralSweep();
 
   await browser.close();
   console.log(`\nmotion integration:${results.passed} passed, ${results.failed} failed`);
