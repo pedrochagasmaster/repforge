@@ -238,13 +238,13 @@
   /* Liquid Glass (#301): translucent enough that what scrolls under the dock reads through the frost, with a rim
      that catches light (--dock-rim) and a faint caustic under it (--dock-caustic) so the capsule reads as a lens
      suspended over the page rather than a plate laid on it. */
-  --dock-glass:rgba(250,248,245,.6);
+  --dock-glass:rgba(250,248,245,.5);
   --dock-glass-opaque:rgba(250,248,245,.97);
   --dock-edge:rgba(27,26,23,.10);
   --dock-sheen:rgba(255,255,255,.7);
   --dock-rim:rgba(255,255,255,.55);
   --dock-caustic:rgba(255,255,255,.22);
-  --dock-blur:blur(20px) saturate(190%) brightness(1.04);
+  --dock-blur:blur(14px) saturate(190%) brightness(1.05);
   --dock-rim-shadow:inset 0 0 0 .5px var(--dock-rim),inset 0 6px 12px -8px var(--dock-rim);
   --dock-pill:rgba(255,255,255,.82);
   --dock-pill-sheen:rgba(255,255,255,.82);
@@ -315,14 +315,14 @@
   --scrim:rgba(0,0,0,.62);
   /* Dark content showing through glass becomes visual noise around the nav
      labels. Keep the material, but make it read as smoked glass, not a lens. */
-  --dock-glass:rgba(30,28,24,.76);
+  --dock-glass:rgba(30,28,24,.66);
   --dock-glass-opaque:rgba(24,22,19,.97);
   --dock-edge:rgba(255,255,255,.10);
   --dock-sheen:rgba(255,255,255,.04);
   /* Smoked glass keeps a heavier frost and dims what it lets through, so dark content stays quiet behind the labels. */
   --dock-rim:rgba(255,255,255,.12);
   --dock-caustic:rgba(255,255,255,.05);
-  --dock-blur:blur(24px) saturate(160%) brightness(.9);
+  --dock-blur:blur(18px) saturate(160%) brightness(.85);
   --dock-pill:rgba(255,255,255,.07);
   --dock-pill-sheen:rgba(255,255,255,.05);
   /* Plan 064 R1b: the same tokens as the light block. A separator on --surface
@@ -429,10 +429,6 @@ main{
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 36px max(16px,env(safe-area-inset-left));
 }
 .view{display:none;animation:rise .35s cubic-bezier(.2,.7,.2,1) both}
-/* An opacity animation that keeps filling after it ends keeps a stacking context, and on Today that context sat under
-   the paper fade (body::after) with Start / Continue inside it, washing out the floating button (#303). The fade-in
-   ends at the natural opacity, so Today's host only needs the start held: once it has risen it is plain flow again. */
-#log.view{animation-fill-mode:backwards}
 .view.active{display:block}
 .hidden{display:none!important}
 .visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
@@ -835,10 +831,9 @@ div.settings-row{cursor:default}
    place in the flow, so it rides a deliberate gap above the dock (positioned from --nav, the Dock Reservation Rule,
    plus the safe area) only while its own place is still below the fold, and settles back above Choose another day
    once the lifter scrolls there. Nothing under it is ever covered for good, and hidden it leaves no surface behind.
-   It floats on the existing floating elevation, a primary pill over the page, never a fifth dock item. Like the dock,
-   it sits above the paper fade (body::after, z-index 24) that softens what scrolls under the floating layers. */
+   It floats on the existing floating elevation, a primary pill over the page, never a fifth dock item. */
 #startWorkout{
-  position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12));z-index:25;
+  position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12));z-index:5;
   box-shadow:var(--elevation-floating-shadow);
 }
 /* The alternative to the day Today leads with, so it sits under the CTA and
@@ -2664,25 +2659,8 @@ body.is-settings nav,body.is-exercise nav,body.is-onboarding nav,
 body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
 body.is-settings,body.is-exercise,body.is-onboarding,
 body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
-/* The dock floats, so the page keeps scrolling past it: rows pass through the
-   inset gutters beside the capsule and the strip beneath it, and what shows
-   there is the top half of a checkmark or the bottom of a word. A capsule only
-   earns its float if what goes under it is composed, so the paper takes the
-   last stretch of the page back. Below the dock and the rest bar, above
-   everything that scrolls, and gone wherever the dock itself is. */
-body::after{
-  content:"";position:fixed;z-index:24;pointer-events:none;
-  left:0;right:0;bottom:0;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + 26px);
-  /* The first stop is a length, not a percentage: it has to land exactly on the
-     dock's top edge whatever the safe area is, so the gutters beside the capsule
-     are paper rather than half a word, and the softening happens above it. */
-  background:linear-gradient(to top,
-    var(--bg) calc(var(--nav) + env(safe-area-inset-bottom)),transparent);
-}
-body.is-firstrun::after,body.is-focus-wo::after,
-body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,
-body.is-library::after,body.is-preview::after,body.is-import::after{content:none}
+/* No paper fade under the dock (#301): the dock is glass, and glass only reads as glass when the page passes beneath
+   it. What scrolls under the capsule is softened by the dock's own frost, not painted out. */
 
 /* ---- Toast ---- */
 .toast{
@@ -3066,7 +3044,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #history .histedit__bar .btn{width:100%;min-height:var(--control-target);margin:0;padding:var(--space-12) var(--space-16);white-space:normal;overflow-wrap:break-word}
 #history.is-session-edit{padding-bottom:calc(9rem + env(safe-area-inset-bottom,0px))}
 body:has(#history.view.active.is-session-edit) nav{display:none}
-body:has(#history.view.active.is-session-edit)::after{content:none}
 body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inset-bottom,0px)}
 
 

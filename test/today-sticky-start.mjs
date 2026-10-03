@@ -13,7 +13,9 @@
  *     another day, which stays an ordinary flow control, and nothing under the
  *     control is left covered;
  *   - Continue (a draft with progress) takes the same placement;
- *   - a spent day and a device with no program leave no floating surface.
+ *   - a spent day and a device with no program leave no floating surface;
+ *   - the dock is glass: what passes under it shows through, except under
+ *     reduced transparency (#301).
  *
  * Run: node test/today-sticky-start.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -158,6 +160,57 @@ for (const [width, height] of [[320, 568], [390, 844]]) {
 
     await context.close();
   }
+}
+
+// #301: the dock is glass. A dark block passing under it has to show through the frost; it used to sit on an opaque
+// paper fade and read as a plate whatever its own alpha was. Measured from real pixels (the screenshot decoded in a
+// canvas), never from declared styles.
+phase("Dock glass");
+{
+  const { context, page } = await freshPage(browser, { width: 390, height: 844, locale: "en-US" });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  const dock = await page.evaluate(() => { const r = document.querySelector("nav").getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; });
+  // The inner strip between the lens and the labels' baseline: the dock's material, not its text.
+  const clip = { x: Math.round(dock.x + dock.width * 0.3), y: Math.round(dock.y + 3), width: Math.round(dock.width * 0.4), height: 4 };
+  const luminance = async () => {
+    const png = (await page.screenshot({ clip })).toString("base64");
+    return page.evaluate(async (src) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${src}`;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = img.width; c.height = img.height;
+      const g = c.getContext("2d");
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data;
+      let sum = 0;
+      for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      return sum / (d.length / 4);
+    }, png);
+  };
+  const behind = (on) => page.evaluate(({ on, dock }) => {
+    document.getElementById("glassProbe")?.remove();
+    if (!on) return;
+    // In the page's own layer (below the dock), the way a dark row scrolls beneath it.
+    const el = document.createElement("div");
+    el.id = "glassProbe";
+    el.style.cssText = `position:fixed;left:0;right:0;top:${dock.y - 40}px;height:${dock.height + 80}px;background:#000;z-index:1;pointer-events:none`;
+    document.body.append(el);
+  }, { on, dock });
+  await behind(false);
+  await page.waitForTimeout(100);
+  const paper = await luminance();
+  await behind(true);
+  await page.waitForTimeout(100);
+  const dark = await luminance();
+  assert(paper - dark >= 40, "a dark block under the dock shows through its glass instead of a paper plate", JSON.stringify({ paper, dark }));
+  // Reduced transparency keeps the opaque dock: the same block no longer reads through.
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+  await page.waitForTimeout(100);
+  const reduced = await luminance();
+  assert(reduced >= paper - 12, "with reduced transparency the dock is opaque and the block stays hidden", JSON.stringify({ paper, reduced }));
+  await context.close();
 }
 
 // A spent day recaps instead of offering the session again: no floating control.

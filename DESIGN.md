@@ -24,7 +24,7 @@ colors:
   rule-on-surface: "#E4E1DA"             # token: --rule-on-surface
   shelf-field: "#FAF8F5"                 # token: --shelf-field-bg
   shelf-pad: "#F4F2EF"                   # token: --shelf-pad-bg
-  dock-glass: "rgba(250,248,245,.6)"     # token: --dock-glass
+  dock-glass: "rgba(250,248,245,.5)"     # token: --dock-glass
   dock-lens: "rgba(255,255,255,.82)"     # token: --dock-pill
   band-night: "#141310"                  # token: --band-night-bg
   band-night-raised: "#1E1C18"           # token: --band-night-raised
@@ -66,7 +66,7 @@ colors-dark:
   rule-on-surface: "#4A453D"             # token: --rule-on-surface
   shelf-field: "#191713"                 # token: --shelf-field-bg
   shelf-pad: "#141310"                   # token: --shelf-pad-bg
-  dock-glass: "rgba(30,28,24,.76)"       # token: --dock-glass
+  dock-glass: "rgba(30,28,24,.66)"       # token: --dock-glass
   dock-lens: "rgba(255,255,255,.07)"     # token: --dock-pill
   band-night: "#141310"                  # token: --band-night-bg
   band-night-raised: "#1E1C18"           # token: --band-night-raised
@@ -710,12 +710,13 @@ A floating glass capsule: `--dock-h` tall (62px at the default text size), inset
 `--dock-inset` (14px) from each edge and parked `--dock-gap` (10px) above the safe
 area, with four columns (Today, Progress, History, Program) and 6px padding. It is
 Liquid Glass: translucent enough that what scrolls beneath it reads through a
-frost (`--dock-blur`: `blur(20px) saturate(190%) brightness(1.04)` in light,
-a heavier, dimming `blur(24px) saturate(160%) brightness(.9)` smoked glass in
+frost (`--dock-blur`: `blur(14px) saturate(190%) brightness(1.05)` in light,
+a heavier, dimming `blur(18px) saturate(160%) brightness(.85)` smoked glass in
 dark) with an inset sheen and a painted lens rim (`--dock-rim`, `--dock-caustic`)
 where light bends at the capsule's edge. Reduced transparency, no
 backdrop-filter support and the Program edit bar drop the rim and the frost
-for the opaque material. Items are a masked icon
+for the opaque material. There is no paper fade under the dock: the page
+scrolls beneath the glass. Items are a masked icon
 over an 11px label at 500 weight, in `--ink-soft` at rest. The active item takes
 `--accent` on the icon and `--accent-deep` on the label and sits in one lens
 (`.dock-lens`, `--dock-pill`) that travels between tabs on `layoutShift`; with the
