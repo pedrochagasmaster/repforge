@@ -170,7 +170,10 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   }
 }
 assert(!/animateSetCompletion|animateLedger|animate\(.*ledger/i.test(layer), "set completion remains a short CSS acknowledgement");
-assert(polish.includes(".ledger__row.is-fresh"), "CSS still owns frequent surfaces");
+// R7 C-03: the set-landing beat belongs to the live ledger row (`.ledgerline.is-fresh`, which app.js marks); the old
+// `.ledger__row.is-fresh` rules named markup that no longer exists and are gone from motion-polish.css.
+assert(`${styles}\n${polish}`.includes(".ledgerline.is-fresh{animation:") && !/\.ledger__row|\.ledger__tick|\.ledger__check|\.focus-ex__setof/.test(`${styles}\n${polish}`),
+  "CSS still owns frequent surfaces: the set-landing beat is on .ledgerline.is-fresh and no retired ledger selector remains");
 // Motion amendment M2 (owner decision on #295): the session summary keeps its 600 ms count ramp and nothing else
 // moves. No staged class, no row stagger, no crest animation, no overshoot and no odometer digits remain anywhere
 // a stylesheet or the app could start one.

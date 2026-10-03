@@ -9455,7 +9455,6 @@
   ],
   "progressCandidateSelectors": [
     ".segbar",
-    ".ov-week-bar",
     ".week-letters",
     ".libstep",
     ".blockprogress",

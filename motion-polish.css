@@ -20,35 +20,9 @@ nav button:active{transform:scale(.975)}
    A lifter can trigger this dozens of times in one session. Keep the state
    change legible, but finish the whole beat inside ~160ms and never grow an
    element from a tiny scale. Exercise completion is the shelf's actions rising
-   in (.motion-rise below), not a larger celebration. */
-.ledger__row.is-fresh{
-  animation:taurifer-setland-row .16s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-row{
-  from{opacity:.68;transform:translateY(4px)}
-  to{opacity:1;transform:none}
-}
-.ledger__row.is-fresh .ledger__check{
-  animation:taurifer-setland-check .16s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-check{
-  0%{opacity:.7;transform:scale(.96);background-color:var(--accent)}
-  100%{opacity:1;transform:scale(1);background-color:var(--ink)}
-}
-.ledger__tick.is-fresh{
-  animation:taurifer-setland-tick .15s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-tick{
-  from{opacity:.72;transform:scale(.96)}
-  to{opacity:1;transform:scale(1)}
-}
-.focus-ex__setof.is-fresh b{
-  animation:taurifer-setland-count .14s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-count{
-  from{opacity:.72;transform:translateY(-3px)}
-  to{opacity:1;transform:none}
-}
+   in (.motion-rise below), not a larger celebration. The ledger row's own beat is
+   `.ledgerline.is-fresh` (styles.css, setland-row); the rules that named the retired
+   ledger and set-count markup are gone. */
 
 /* ---- Effort explainer: emerge from the value without growing from nothing ---- */
 .effortpop{
@@ -344,10 +318,6 @@ nav button:active{transform:scale(.975)}
 /* Reduced motion is a semantic alternate state, not a slower animation. */
 @media (prefers-reduced-motion:reduce){
   .view,
-  .ledger__row.is-fresh,
-  .ledger__row.is-fresh .ledger__check,
-  .ledger__tick.is-fresh,
-  .focus-ex__setof.is-fresh b,
   .effortpop.is-open,
   .effortpop.is-closing,
   .effortpop.is-open .effortpop__arrow,

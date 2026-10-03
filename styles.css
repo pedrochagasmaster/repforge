@@ -431,8 +431,6 @@ main{
   font-size:var(--font-size-label);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
   color:var(--ink-faint);margin:32px 0 12px;
 }
-.section-label--accent{color:var(--accent-deep)}
-.section-label__count{color:var(--ink-faint)}
 .eyebrow{font-size:var(--font-size-label);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px}
 .eyebrow--link{background:none;border:0;padding:0;cursor:pointer;text-align:left;color:var(--accent-deep)}
 .eyebrow--link::after{content:" ›"}
@@ -667,16 +665,16 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
 .metric:not(:last-child)::after{
   content:"";position:absolute;right:0;top:20%;bottom:20%;width:1px;background:var(--rule);
 }
-.statrow__val,.metric__val{
+.statrow__val{
   font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:1.1;color:var(--ink);
   font-variant-numeric:tabular-nums;letter-spacing:-0.01em;
 }
 .statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
-.statrow__cap,.metric__label{
+.statrow__cap{
   display:block;margin-top:4px;font-size:var(--font-size-caption);color:var(--ink-soft);font-weight:400;
   text-transform:none;letter-spacing:0;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.statrow--4 .statrow__cap,.metrics .metric__label{font-size:var(--font-size-label)}
+.statrow--4 .statrow__cap{font-size:var(--font-size-label)}
 
 /* ---- Recommendation block ---- */
 .recblock{
@@ -817,8 +815,6 @@ div.settings-row{cursor:default}
 /* ---- Today dashboard ---- */
 .today-session{padding:4px 0 8px}
 .today-session__name{font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.02em;margin:4px 0 6px;color:var(--color-ink)}
-.today-session__muscles{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-.today-session__meta{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
 .today-session + .btn--cta,#startWorkout{margin-top:32px}
 /* The alternative to the day Today leads with, so it sits under the CTA and
    reads as the quieter of the two. */
@@ -1469,13 +1465,7 @@ body.is-sheet-open{overflow:hidden}
 }
 .sheet__titles{text-align:center;min-width:0}
 .sheet__title{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);overflow-wrap:anywhere;word-break:break-word}
-.sheet__sub{font-size:var(--font-size-body-small);color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sheet__body{flex:1;min-height:0;display:flex;padding:16px 16px 0}
-.sheet__text{
-  flex:1;width:100%;margin:0;padding:0;border:0;background:transparent;border-radius:0;resize:none;
-  font-size:var(--font-size-subtitle);line-height:1.5;letter-spacing:normal;text-transform:none;color:var(--ink);
-}
-.sheet__text:focus{outline:none;box-shadow:none;border-color:transparent}
 /* The plain-text program preview: the export exactly as it will be copied, so
    line breaks are preserved and long exercise names wrap instead of clipping. */
 .sheet__pre{
@@ -1795,8 +1785,6 @@ body.is-sheet-open{overflow:hidden}
    starting it — switching days can discard a session in progress — so the rows
    read as a set of choices and the CTA below them is what commits one. */
 .sheet--daypick{height:auto}
-.sheet__head--stack{grid-template-columns:1fr;padding:4px 16px 14px}
-.sheet__head--stack .sheet__titles{text-align:left}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
    The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d),
    and so does the Why sheet (R3g); the rest sheet keeps its own head until its slice lands. */
@@ -1806,10 +1794,6 @@ body.is-sheet-open{overflow:hidden}
 }
 #restSheet .sheet__title{
   font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);
-}
-#restSheet .sheet__sub{
-  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
-  white-space:normal;overflow:visible;margin-top:4px;
 }
 #restSheet .sheet__grab,#whySheet .sheet__grab{
   background:var(--boundary-floating);border-radius:var(--radius-compact);
@@ -2185,11 +2169,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 #history .sessions{display:flex;flex-direction:column;gap:0;margin-bottom:8px}
 #history .session{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
   background:transparent;border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);padding:16px 0}
-#history .session__day{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.01em;color:var(--color-ink)}
-#history .session__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
-#history .session__delta{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
 #history .session__del{flex:none;min-height:var(--control-target);border:0;border-radius:var(--radius-none);padding:9px 8px;background:var(--control-destructive-bg);color:var(--control-destructive-ink);font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);cursor:pointer}
-#history .session__info{min-width:0;flex:1}
 .cal{margin-bottom:18px}
 .hist-search{margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .hist-search input{flex:1;min-width:0}
@@ -3293,9 +3273,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .ov-week-line{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:6px}
 /* One segment per planned session; filled ones are the sessions already logged. The
    line above says the same thing in words, so the bar is decoration to assistive tech. */
-.ov-week-bar{display:flex;gap:8px;margin-top:14px}
-.ov-week-bar__seg{flex:1 1 0;min-width:0;max-width:56px;height:4px;border-radius:var(--radius-compact);background:var(--boundary-required)}
-.ov-week-bar__seg.is-done{background:var(--color-ink)}
 .listrow{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:12px 0;background:none;border:0;border-bottom:1px solid var(--rule);cursor:pointer;text-align:left;font:inherit;color:inherit}
 .listrow--static{cursor:default}
 .range-static{font-size:var(--font-size-body-small);color:var(--ink)}
@@ -3324,14 +3301,14 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   text-align:left;font:inherit;color:var(--ink);font-size:var(--font-size-control);font-weight:500;
 }
 .link-row-cta .chevron{color:var(--ink-faint)}
-.strength-pick select,.select-flat{
+.select-flat{
   appearance:none;-webkit-appearance:none;border:0;background-color:transparent;margin:0;padding:8px 22px 8px 0;
   width:auto;max-width:100%;text-align:left;color:var(--ink);font-size:var(--font-size-control);font-weight:600;border-radius:0;box-shadow:none;
   background-image:var(--select-caret);
   background-position:right center;background-size:14px 14px;background-repeat:no-repeat;
 }
-.strength-pick select:focus,.select-flat:focus{box-shadow:none}
-.strength-pick select:focus-visible,.select-flat:focus-visible{
+.select-flat:focus{box-shadow:none}
+.select-flat:focus-visible{
   outline:2px solid var(--accent);outline-offset:2px}
 .today-footer{display:flex;align-items:center;gap:8px;margin:22px 0 8px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .today-footer__icon{color:var(--color-ink-secondary)}
@@ -3408,7 +3385,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .btnrow--primary-first .btn{width:100%;flex:0 0 auto}
 
 /* Review actions sit above the weekly detail, not after it. */
-.entry__confirm{display:flex;flex-direction:column;gap:8px;margin:18px 0 22px}
 .entry__confirm-alt{display:flex;gap:10px}
 .entry__confirm-alt .btn{flex:1}
 
@@ -3417,18 +3393,8 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
    a program identity, a compact metric strip, and ruled icon-and-copy rows.
    Informational rows stay open (hairline + icon); only genuine choices get a
    bounded white surface elsewhere in the flow. */
-.entry__payoff{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
-.entry__payoff .onb__explain{flex:1;min-width:0}
-.entry__payoff-badge{
-  flex:none;width:56px;height:56px;border-radius:50%;
-  border:1.5px solid var(--accent);color:var(--accent);
-  display:grid;place-items:center
-}
-.entry__payoff-badge .icon-mask{width:26px;height:26px}
 
 /* The named program is the payoff of the whole flow, not a subheading. */
-.entry__recommend h3{margin:0 0 10px;font-size:var(--font-size-feature-title);line-height:1.1;letter-spacing:-.015em}
-.entry__ident{margin:6px 0 4px}
 /* The review keeps the candidate's real name in its own case — a screen
    reader and the browser tests both read this string verbatim — and leans on
    weight and the bounded surface for prominence rather than a transform. */
@@ -3444,30 +3410,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry__ident--boxed .entry__source{margin-bottom:0}
 .entry__source span{font-weight:600;color:var(--ink-faint);text-transform:uppercase;
   font-size:var(--font-size-label);letter-spacing:.06em;margin-right:6px}
-
-/* Metric strip: copper glyph + factual value. Boxed variant divides three
-   equal metrics with a hairline, like the reference review card. */
-.entry__metrics{
-  display:flex;flex-wrap:wrap;gap:10px 18px;margin:12px 0 4px;
-  font-size:var(--font-size-body-small);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums
-}
-.entry__metric{display:inline-flex;align-items:center;gap:8px;min-height:24px}
-.entry__metric .icon-mask{width:18px;height:18px;flex:none;color:var(--ink-soft)}
-.entry__metrics--boxed{
-  gap:0;border:1px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface);
-  margin:12px 0 4px;overflow:hidden
-}
-.entry__metrics--boxed .entry__metric{
-  flex:1 1 0;min-width:0;flex-direction:column;align-items:flex-start;gap:6px;
-  padding:14px 14px;border-left:1px solid var(--rule)
-}
-.entry__metrics--boxed .entry__metric:first-child{border-left:0}
-.entry__metrics--boxed .entry__metric .icon-mask{color:var(--accent)}
-@media (max-width:360px){
-  .entry__metrics--boxed{flex-direction:column}
-  .entry__metrics--boxed .entry__metric{border-left:0;border-top:1px solid var(--rule)}
-  .entry__metrics--boxed .entry__metric:first-child{border-top:0}
-}
 
 /* The Browse catalogue's answered-context row: the schedule and environment
    facts the list below is filtered by. An open ruled band rather than a card,
@@ -3509,8 +3451,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 /* Edit / Start over sit under the dominant activation action as a quiet pair. */
 .entry__confirm-alt .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .entry__confirm-alt .btn .icon-mask{width:15px;height:15px;flex:none}
-.entry__custom-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.entry__custom-actions .btn{flex:1 1 180px}
 
 /* Resume: recovery gets its own legible composition — a single bounded
    surface, the route/step context, and the real saved location. */
@@ -3708,12 +3648,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   margin:22px 0 8px;display:flex;align-items:center;gap:10px;color:var(--ink-faint)
 }
 .entry-body .entry__group-lab:first-child{margin-top:8px}
-.entry-body .entry__group-lab-ico{width:18px;height:18px;flex:none;color:var(--accent)}
 /* Copper section metadata: the hub route groups, the questionnaire section
    headers that carry a glyph, and the result's "why it fits". */
-.entry-body--entry .entry__group-lab,
-.entry-body .entry__group-lab--ico,
-.entry-body .entry__group-lab--accent{color:var(--accent-deep)}
+.entry-body--entry .entry__group-lab{color:var(--accent-deep)}
 .entry-body--entry .entry__group-lab::after{content:"";flex:1;height:1px;background:var(--rule)}
 
 /* ---- Choice surfaces ----
@@ -3776,27 +3713,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry-body .onb__opts.onb__list .radio-card:first-child{border-top:0}
 .entry-body .onb__opts.onb__list .radio-card.is-selected{
   box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
-}
-
-/* Segmented control: days per week and session ceiling. Real radios, laid out
-   as one horizontal band where they fit; a selected numeric segment takes the
-   quiet ink ring. */
-.entry-body .onb__opts.onb__seg{
-  flex-direction:row;flex-wrap:wrap;gap:0;border:1px solid var(--rule);border-radius:var(--radius-surface);
-  background:var(--surface);overflow:hidden
-}
-.entry-body .onb__opts.onb__seg .radio-card{
-  flex:1 1 6rem;min-width:6rem;flex-direction:column;justify-content:center;text-align:center;
-  gap:2px;min-height:62px;padding:10px 6px;border:0;border-left:1px solid var(--rule);border-top:1px solid var(--rule);
-  border-radius:0;box-shadow:none;background:transparent
-}
-.entry-body .onb__opts.onb__seg .radio-card:first-child{border-left:0}
-.entry-body .onb__opts.onb__seg .radio-card__body{align-items:center;flex:0 0 auto;gap:0}
-.entry-body .onb__opts.onb__seg .radio-card__title{font-weight:600;font-size:var(--font-size-control);line-height:1.15}
-.entry-body .onb__opts.onb__seg .radio-card__cap{font-size:var(--font-size-label)}
-.entry-body .onb__opts.onb__seg .radio-card__mark{display:none}
-.entry-body .onb__opts.onb__seg .radio-card.is-selected{
-  background:var(--well);box-shadow:var(--elevation-selected-quiet-shadow)
 }
 
 /* Tiles: the short-label muscle and movement checkboxes. Bounded cards in a
@@ -5243,13 +5159,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__opts--reasons .radio-card__title{
   overflow-wrap:anywhere
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__opts.onb__seg .radio-card__title{
-  font-family:var(--font-training-data);font-size:var(--font-size-control);
-  font-weight:var(--weight-medium);line-height:var(--line-tight)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__opts.onb__seg .radio-card__cap{
-  font-family:var(--font-language);font-size:var(--font-size-body-small)
-}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card.is-selected .radio-card__title,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card.is-selected .radio-card__cap{
   color:var(--control-selection-ink)
@@ -5271,15 +5180,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__opts.onb__list{
   border-color:var(--boundary-required);border-radius:var(--radius-surface)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__opts.onb__seg{
-  border-color:var(--boundary-required);border-radius:var(--radius-surface)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__opts.onb__seg .radio-card{
-  border-left-color:var(--control-selection-boundary);border-top-color:var(--control-selection-boundary)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__opts.onb__seg .radio-card.is-selected{
-  border-left-color:var(--boundary-selected-quiet);border-top-color:var(--boundary-selected-quiet)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__none .radio-card{border-width:1px}
 
@@ -5307,16 +5207,11 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-body-small);line-height:var(--line-reading)
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__recommend h3{
-  color:var(--color-ink);font-family:var(--font-language);
-  font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight)
-}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__decision h3{
   color:var(--color-ink);font-family:var(--font-language);
   font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__ident--boxed,
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__metrics--boxed,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__notice,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__disclosure,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__day{
@@ -5330,23 +5225,13 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__row-lab{
   color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-label)
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__metrics{
-  color:var(--color-ink);font-family:var(--font-training-data);
-  font-size:var(--font-size-body-small);line-height:var(--line-standard)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__metrics--boxed{border-color:var(--boundary-decorative)}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__metrics--boxed .entry__metric{border-color:var(--boundary-decorative)}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__row-ico,
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__metrics--boxed .entry__metric .icon-mask{
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__row-ico{
   color:var(--color-action)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__rows{
   border-color:var(--boundary-decorative)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__row{border-color:var(--boundary-decorative)}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__recommend .entry__payoff-badge{
-  border-color:var(--color-action);color:var(--color-action)
-}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__notice[role="alert"]{border-left-color:var(--color-destructive)}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__notice--warn{border-left-color:var(--color-warning)}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__notice[role="alert"]>strong{color:var(--color-destructive)}
@@ -5432,20 +5317,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 
 /* The review metrics wrap with the user's text scale. A rem-relative minimum
    keeps the three-column summary at normal size and stacks it when enlarged. */
-/* Browse and shared previews render the same factual metric strip. The
-   rem-relative minimum keeps three facts side by side at normal size and
-   stacks them when text scaling or a narrow viewport requires it. */
-:is(#onbBody.entry-route--browse, #onbBody.entry-route--shared) .entry__metrics--boxed{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,7em),1fr));
-  gap:1px;background:var(--boundary-decorative)
-}
-:is(#onbBody.entry-route--browse, #onbBody.entry-route--shared) .entry__metrics--boxed .entry__metric{
-  min-width:0;border:0;background:var(--color-surface)
-}
-@media (max-width:360px){
-  :is(#onbBody.entry-route--browse, #onbBody.entry-route--shared) .entry__metrics--boxed{grid-template-columns:1fr}
-}
-
 
 /* The onboarding draft and installed Program share editor controls. Keep their
    semantic treatments scoped to each host because their page layouts differ. */
@@ -5946,7 +5817,7 @@ body.is-entry-editor #entryProgramName,
   color:var(--color-action-text);font-family:var(--font-language);
   font-size:var(--font-size-caption);font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
-#onbBody.entry-route--import :is(.entry__ident--boxed, .entry__metrics--boxed, .entry__notice, .entry__disclosure, .onb__day){
+#onbBody.entry-route--import :is(.entry__ident--boxed, .entry__notice, .entry__disclosure, .onb__day){
   background:var(--color-surface);border-color:var(--boundary-decorative);border-radius:var(--radius-surface)
 }
 #onbBody.entry-route--import .entry__source{
@@ -5955,14 +5826,10 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-route--import .entry__source span{
   color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-label)
 }
-#onbBody.entry-route--import .entry__metrics{
-  color:var(--color-ink);font-family:var(--font-training-data);font-size:var(--font-size-body-small);
-  line-height:var(--line-standard);font-variant-numeric:tabular-nums
-}
-#onbBody.entry-route--import :is(.entry__metrics--boxed, .entry__metrics--boxed .entry__metric, .entry__rows, .entry__row){
+#onbBody.entry-route--import :is(.entry__rows, .entry__row){
   border-color:var(--boundary-decorative)
 }
-#onbBody.entry-route--import :is(.entry__row-ico, .entry__metrics--boxed .entry__metric .icon-mask){color:var(--ink-soft)}
+#onbBody.entry-route--import :is(.entry__row-ico){color:var(--ink-soft)}
 #onbBody.entry-route--import .entry__active{
   background:var(--color-surface);border-color:var(--boundary-decorative);border-radius:var(--radius-surface);
   color:var(--color-ink-secondary);font-family:var(--font-language);
@@ -6431,10 +6298,6 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);
   line-height:var(--line-tight);color:var(--color-ink);
 }
-#shareSetupSheet .sheet__sub{
-  margin-top:4px;overflow:visible;overflow-wrap:anywhere;text-overflow:clip;white-space:normal;
-  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
-}
 #shareSetupBody{
   margin:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);
 }
@@ -6560,9 +6423,6 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-body .radio-card[role="radio"].is-selected .radio-card__mark{border-color:var(--boundary-selected-quiet)}
 #onbBody.entry-body .radio-card[role="radio"].is-selected .radio-card__mark::after{background:var(--boundary-selected-quiet)}
 #onbBody.entry-body .onb__opts.onb__list .radio-card.is-selected{box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)}
-#onbBody.entry-body .onb__opts.onb__seg .radio-card.is-selected{
-  background:var(--well);box-shadow:var(--elevation-selected-quiet-shadow);border-color:var(--boundary-selected-quiet)
-}
 
 /* Hub */
 .entry-body--entry .entry-hub__lede{margin-bottom:var(--space-18)}
