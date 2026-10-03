@@ -848,8 +848,8 @@ body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bott
 @media (max-height:600px){
   body.is-focus-wo :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
 }
-/* A recovery banner is the one thing to act on; a first-use hint does not sit beside it. */
-body.is-focus-wo:has(#draftRecovery:not(.hidden)) :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
+/* At large text a recovery banner is the one thing to act on; a first-use hint does not sit beside it. */
+body.is-focus-wo:has(#draftRecovery:not(.hidden)):has(.exercise--focus.is-text-scaled) :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
 /* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
    from costing the shelf the room its action needs. The running timer's pill drops its dot and takes the label size so
    the controls and the timer share one row with the title under them. */
@@ -1955,16 +1955,27 @@ textarea.sheetfield__input{
 #sessionEarlyOmissions li{padding:var(--space-4) 0;overflow-wrap:anywhere}
 .session-early-sets{font-family:var(--font-training-data);color:var(--color-ink)}
 .session-early-actions{display:flex;flex-direction:column;gap:var(--space-8)}
-/* While the confirmation is open it is the sheet's one job: the session map and fields give their room to it, the
-   band keeps its title and close, and the sheet may use the screen under the safe area. The sentence and the omitted
-   sets scroll in the prompt while Confirm and Cancel stay pinned to its foot, so enlarged text can never push them
-   below the screen or leave the text a sliver. */
-#sessionSheet:has(#sessionEarlyPrompt:not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
-#sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
-#sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
-#sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
-#sessionEarlyPrompt{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
-.session-early-actions{position:sticky;bottom:0;padding-top:var(--space-8);background:var(--color-surface)}
+/* When the screen cannot hold the whole sheet beside the confirmation (a short phone, or text enlarged until the screen
+   is narrow in rem) the confirmation is the sheet's one job while it is open: the session map and fields give their
+   room to it, the band keeps its title and close, and the sheet may use the screen under the safe area. The sentence
+   and the omitted sets scroll in the prompt while Confirm and Cancel stay pinned to its foot, so enlarged text can
+   never push them below the screen or leave the text a sliver. A roomy screen keeps the sheet as it was. */
+@media (max-height:600px){
+  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
+  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
+  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
+  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
+  #sessionEarlyPrompt{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .session-early-actions{position:sticky;bottom:0;padding-top:var(--space-8);background:var(--color-surface)}
+}
+@container (max-width:19rem){
+  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
+  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
+  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
+  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
+  #sessionEarlyPrompt{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .session-early-actions{position:sticky;bottom:0;padding-top:var(--space-8);background:var(--color-surface)}
+}
 
 /* Workout sheet controls keep their current routes and state owners. */
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry){
