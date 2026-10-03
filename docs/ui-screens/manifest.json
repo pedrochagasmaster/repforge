@@ -989,7 +989,7 @@
       "flow": "session",
       "label": "Session summary",
       "scenario": "The Direction D lifter's Day 1 summary: an outcome word per lift, the sets, records in green and the next target as the strongest line.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "summary-maintained",
@@ -1024,7 +1024,7 @@
       "flow": "progress",
       "label": "Progress — overview",
       "scenario": "The Progress landing tab.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "overview-baseline",
@@ -1038,35 +1038,35 @@
       "flow": "progress",
       "label": "Progress — actionable overview",
       "scenario": "Sufficient evidence produces linked program-wide action items.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "exercise-chart",
       "flow": "progress",
       "label": "Progress — exercise chart",
       "scenario": "A single lift's strength chart.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "strength",
       "flow": "progress",
       "label": "Progress — Strength",
       "scenario": "The Strength sub-tab.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "strength-current-block",
       "flow": "progress",
       "label": "Progress — Strength current block",
       "scenario": "Current-block values, outcomes, and drill-in share one scope.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "strength-all-history",
       "flow": "progress",
       "label": "Progress — Strength all history",
       "scenario": "All-history scope explicitly includes archived observations.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "strength-comparison",
@@ -1220,7 +1220,7 @@
       "flow": "history",
       "label": "History",
       "scenario": "The logged session list.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "session",
@@ -1304,7 +1304,7 @@
       "flow": "program",
       "label": "Program",
       "scenario": "The current program and its days.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "progression-editor",
