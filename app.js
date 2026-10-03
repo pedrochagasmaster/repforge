@@ -18591,6 +18591,8 @@ function showSettings(){
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
   workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
+  // Settings opens on its heading (R7 J-09); Back, below, returns to the control that opened it.
+  focusRoute(routeHeading("settings"));
   queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]))}
 /* Returns to a bottom-nav destination from a stacked view. navTo cannot do it:
    it skips the click when the nav button is already marked active, which it
@@ -18841,7 +18843,7 @@ function init(){
   blockZoomGestures();
   // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
-  const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
+  const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>{navTo("log");focusRoute("#openSettings")};
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({});
   const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
   const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();
