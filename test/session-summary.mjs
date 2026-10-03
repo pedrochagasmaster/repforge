@@ -161,27 +161,94 @@ async function enterLog(page) {
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 }
 
-async function finish(page) {
-  await finishEarly(page);
-  await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
-  await settleStats(page);
+/** Record every figure the stat row paints from before the summary opens, so the ramp is read, not guessed. */
+async function recordRamp(page) {
+  await page.evaluate(() => {
+    const read = () => [...document.querySelectorAll("#sessionSummary .sum-stats .statrow__val")].map((n) => n.textContent);
+    const series = [];
+    const body = document.querySelector("#sessionSummaryBody");
+    const observer = new MutationObserver(() => {
+      const figures = read();
+      if (figures.length) series.push({ t: performance.now(), figures });
+    });
+    observer.observe(body, { subtree: true, childList: true, characterData: true });
+    window.__sumRamp = { series, stop: () => observer.disconnect() };
+  });
 }
 
-/** The stat row spins up to its numbers, so read it once it has landed. */
-async function settleStats(page) {
-  const read = () =>
-    page.evaluate(() =>
-      [...document.querySelectorAll("#sessionSummary .sum-stats .statrow__val")]
-        .map((n) => n.textContent)
-        .join("|")
-    );
-  await page.waitForTimeout(900);
-  let prev = await read();
-  for (let i = 0; i < 20; i++) {
-    await page.waitForTimeout(100);
-    const now = await read();
-    if (now === prev) return;
-    prev = now;
+async function finish(page, { reduced = false } = {}) {
+  await recordRamp(page);
+  await finishEarly(page);
+  await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
+  await assertCountRamp(page, { reduced });
+}
+
+/**
+ * The session summary keeps its count ramp (motion amendment M2): the totals count up over 600 ms through
+ * the motion layer and land on the figures the markup carries. Nothing else moves: no row stagger, no
+ * crest, no overshoot and no odometer digits. Reduced motion prints the final figures on the first read
+ * and never paints a lower one.
+ */
+async function assertCountRamp(page, { reduced }) {
+  const probe = () =>
+    page.evaluate(() => {
+      const el = document.querySelector("#sessionSummary");
+      return {
+        figures: [...el.querySelectorAll(".sum-stats .statrow__val")].map((n) => n.textContent),
+        final: [...el.querySelectorAll(".sum-stats .statrow__val")].map((n) => n.dataset.ramp),
+        running: el.getAnimations({ subtree: true }).length,
+        played: el.classList.contains("is-played"),
+        staged: !!el.querySelector("[style*='--i']"),
+        opaque: [...el.querySelectorAll("#sessionSummaryBody > *")].every((n) => getComputedStyle(n).opacity === "1"),
+        digits: el.querySelectorAll(".sum-stats .odometer, .sum-stats [class*='digit']").length,
+      };
+    });
+  const first = await probe();
+  assert(!first.played && !first.staged && first.opaque && first.digits === 0,
+    "no stagger or crest: no staged class, every block fully opaque from the first frame, no odometer digits", JSON.stringify(first));
+  assert(first.running === 0, "the ramp is script-driven: no CSS animation runs on the summary", String(first.running));
+  if (reduced) {
+    assert(first.figures.every((v) => /[1-9]/.test(v)), "reduced motion shows the final figures on the first read", JSON.stringify(first.figures));
+  }
+  // Wait out the ramp (600 ms) with margin, then read twice: the figures have landed and do not move.
+  await page.waitForTimeout(1300);
+  const landed = await probe();
+  await page.waitForTimeout(400);
+  const later = await probe();
+  assert(landed.figures.join("|") === later.figures.join("|") && landed.figures.every((v) => /[1-9]/.test(v)),
+    "the totals land on their final figures and stay put", JSON.stringify({ landed: landed.figures, later: later.figures }));
+  assert(landed.running === 0 && later.running === 0, "nothing on the summary is animating once the ramp has landed");
+  const numeric = (text) => {
+    const n = parseFloat(String(text).replace(/[^0-9.,]/g, "").replace(/,(?=\d{3}\b)/g, "").replace(",", "."));
+    return String(text).endsWith("k") ? n * 1000 : n;
+  };
+  const series = await page.evaluate(() => {
+    window.__sumRamp.stop();
+    return window.__sumRamp.series;
+  });
+  const painted = series.map((entry) => entry.figures);
+  const final = landed.figures;
+  assert(painted.length > 0 && painted.at(-1).join("|") === final.join("|"), "the last paint is the final figures", JSON.stringify({ last: painted.at(-1), final }));
+  // Never above the final figure (no overshoot), and never going back down once counting (no wobble).
+  let overshoot = false, wobble = false;
+  final.forEach((text, cell) => {
+    let previous = -Infinity;
+    for (const figures of painted) {
+      const value = numeric(figures[cell]);
+      if (!Number.isFinite(value)) continue;
+      if (value > numeric(text) + 1e-9) overshoot = true;
+      if (value + 1e-9 < previous) wobble = true;
+      previous = value;
+    }
+  });
+  assert(!overshoot && !wobble, "the ramp never overshoots a figure and never steps back", JSON.stringify(painted.slice(0, 12)));
+  const lowest = painted.some((figures) => figures.some((v, cell) => numeric(v) < numeric(final[cell])));
+  if (reduced) {
+    assert(!lowest, "reduced motion never paints a figure below its final value", JSON.stringify(painted.slice(0, 6)));
+  } else {
+    assert(lowest, "the totals count up: figures below the final value are painted on the way", JSON.stringify(painted.slice(0, 6)));
+    const span = series.at(-1).t - series[0].t;
+    assert(span >= 300 && span <= 1300, "the count-up takes about 600 ms", String(Math.round(span)));
   }
 }
 
@@ -197,20 +264,12 @@ const readSummary = (page) =>
       sub: body.querySelector(".sum-sub")?.textContent.trim() || "",
       statCaps: txt(".sum-stats .statrow__cap"),
       statVals: txt(".sum-stats .statrow__val"),
-      prBadges: txt(".sum-pr__badge"),
-      prNames: txt(".sum-pr__name"),
+      // Direction D (spec 4.4): a record is one line inside the group of the lift that set it.
+      prMarks: body.querySelectorAll(".sum-pr .verdictmark--record").length,
+      prNames: [...body.querySelectorAll(".sum-grp")].filter((g) => g.querySelector(".sum-pr")).map((g) => g.querySelector(".sum-grp__n").textContent.trim()),
       prOver: txt(".sum-pr__over"),
-      prVals: txt(".sum-pr__val"),
-      prOneKind: !!body.querySelector(".sum-prs--onekind"),
-      // With the badge column gone the figure has to keep the right edge rather
-      // than drift into the space the badge used to hold.
-      prValGap: (() => {
-        const list = body.querySelector(".sum-prs");
-        const val = body.querySelector(".sum-pr__val");
-        if (!list || !val) return null;
-        return Math.round(list.getBoundingClientRect().right - val.getBoundingClientRect().right);
-      })(),
-      more: body.querySelector(".sum-more")?.textContent.trim() || "",
+      prSets: [...body.querySelectorAll(".sum-grp")].filter((g) => g.querySelector(".sum-pr")).map((g) => g.querySelector(".sum-grp__sets").textContent.trim()),
+      overflowLine: !!body.querySelector(".sum-more"),
       chips: txt(".sum-chip"),
       outcomeRoles: [...body.querySelectorAll(".sum-outcome")].map((row) => ({
         exerciseId: row.dataset.exerciseId,
@@ -314,18 +373,18 @@ async function run() {
   assert(s.statVals[1] === "1,968" && /kg moved/.test(s.statCaps[1]), "volume is the load actually moved", JSON.stringify([s.statVals[1], s.statCaps[1]]));
   assert(s.statVals[2] === "3" && /^lifts$/.test(s.statCaps[2]), "the third figure counts lifts, not sets again", JSON.stringify(s.statVals));
 
-  assert(s.prBadges.length === 2, "only the lifts that set a record get a line", JSON.stringify(s.prBadges));
-  assert(s.prBadges[0] === "Load" && s.prNames[0] === "Bench press", "a load record outranks a reps record", JSON.stringify([s.prBadges, s.prNames]));
+  assert(s.prMarks === 2 && s.prNames.length === 2, "only the lifts that set a record get a line", JSON.stringify([s.prMarks, s.prNames]));
+  assert(s.prNames[0] === "Bench press", "a load record sits in its lift's group", JSON.stringify(s.prNames));
   assert(/\+2\.5 kg over your best/.test(s.prOver[0]), "a load record says how much heavier", s.prOver[0]);
-  assert(s.prVals[0] === "62.5 kg × 8", "the record line carries the set that set it", s.prVals[0]);
-  assert(s.prBadges[1] === "Reps" && s.prNames[1] === "Barbell row", "holding the load and adding reps is a reps record", JSON.stringify([s.prBadges, s.prNames]));
+  assert(s.prSets[0].startsWith("62.5 kg × 8"), "the group above the record carries the set that set it", s.prSets[0]);
+  assert(s.prNames[1] === "Barbell row", "holding the load and adding reps is a reps record", JSON.stringify(s.prNames));
   assert(/\+2 reps at that load/.test(s.prOver[1]), "a reps record says how many more reps", s.prOver[1]);
   assert(
     !s.prNames.includes("Dumbbell curl"),
     "repeating last session's numbers sets no record",
     JSON.stringify(s.prNames)
   );
-  assert(!s.more, "three records or fewer need no overflow line", s.more);
+  assert(!s.overflowLine, "every record is shown on its own lift, so there is no 'and N more' line");
 
   assert(s.outcomeRoles.filter((row) => row.outcome === "improved").length === 2,
     "canonical lift outcomes are on the screen", JSON.stringify(s.outcomeRoles));
@@ -344,6 +403,28 @@ async function run() {
   assert(s.weekSegs === 2 && s.weekDone === 1, "the week bar fills the session just logged", JSON.stringify({ segs: s.weekSegs, done: s.weekDone }));
   assert(s.next === "Day 2", "the next training day is named", s.next);
   assert(!s.pageScrollsX, "the summary never scrolls the page sideways");
+
+  // Direction D (spec 4.4): no mark celebrates the save, and each lift ends on the engine's next target.
+  const ledger = await page.evaluate(() => {
+    const body = document.querySelector("#sessionSummaryBody");
+    const P = window.__repforgeProgression;
+    return {
+      crest: !!body.querySelector(".sum-crest"),
+      groups: body.querySelectorAll(".sum-grp").length,
+      words: [...body.querySelectorAll(".sum-outcome")].map((w) => ({ id: w.dataset.parityOutcome, session: w.dataset.paritySession })),
+      targets: [...body.querySelectorAll(".sum-grp__next[data-parity-target]")].map((n) => ({
+        text: n.textContent.trim(), id: n.dataset.parityTarget, load: P.recommendation(P.programSlot(n.dataset.parityTarget)).load,
+      })),
+      actions: [...body.querySelectorAll(".sum-actions button")].map((b) => b.id),
+    };
+  });
+  assert(!ledger.crest, "no check mark celebrates the save", JSON.stringify(ledger));
+  assert(ledger.groups === 3 && ledger.targets.length === 3, "each of the three lifts is a group ending on a next target", JSON.stringify(ledger));
+  assert(ledger.targets.every((n) => n.load != null && n.text.includes(String(n.load))),
+    "every next target is the engine's recommendation() load for that lift", JSON.stringify(ledger.targets));
+  assert(ledger.words.length === 3 && ledger.words.every((w) => w.id && w.session),
+    "outcome words carry the parity markers the Direction D gate reads", JSON.stringify(ledger.words));
+  assert(ledger.actions.join(",") === "sumSee,sumDone", "both actions sit in one pinned bar", JSON.stringify(ledger.actions));
 
   // ---- 2 — the dialog holds the app -------------------------------------------
   phase("The screen behaves like the dialog it is");
@@ -391,6 +472,16 @@ async function run() {
   );
   assert(afterEsc.focused === "reviewTodaySession", "focus lands on what Today asks for next", afterEsc.focused);
 
+  // ---- 3b — reduced motion prints the final figures on the first read -----------
+  phase("Reduced motion shows the final figures immediately");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await enterLog(page);
+  await logSet(page, "ex2", 1, 12.5, 10, 1);
+  await finish(page, { reduced: true });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+
   // ---- 4 — a first session has no records to claim -----------------------------
   phase("A first session is a baseline, not a record");
   assert((await persistCalls(page)) === 0, "a session that already has history never asks for persistent storage");
@@ -404,7 +495,7 @@ async function run() {
   s = await readSummary(page);
   await page.waitForFunction((k) => +sessionStorage.getItem(k) >= 1, PERSIST_CALLS, { timeout: 3000 }).catch(() => {});
   assert((await persistCalls(page)) === 1, "the first completed session asks for persistent storage once", String(await persistCalls(page)));
-  assert(!s.prBadges.length, "a lift with no history sets no personal record", JSON.stringify(s.prBadges));
+  assert(!s.prMarks, "a lift with no history sets no personal record", JSON.stringify(s.prNames));
   assert(
     /first session/i.test(s.baseline) && /compare/i.test(s.baseline),
     "the screen says what a first session is instead",
@@ -443,7 +534,7 @@ async function run() {
   assert(hist.summaryHidden, "the summary closes on its way out", JSON.stringify(hist));
 
   // ---- 6 — a block of one kind drops the badge ---------------------------------
-  phase("A badge that reads the same on every line is not drawn");
+  phase("Every lift's record sits on its own lift");
   await seed(
     page,
     fixture({
@@ -462,14 +553,12 @@ async function run() {
   await finish(page);
   s = await readSummary(page);
   assert(s.prNames.length === 3, "all three lifts set a record", JSON.stringify(s.prNames));
-  assert(!s.prBadges.length, "one kind of record across the block draws no badge", JSON.stringify(s.prBadges));
-  assert(s.prOneKind, "the list says so, so the row can drop the badge column");
+  assert(s.prMarks === 3, "each record carries the record mark", String(s.prMarks));
   assert(
     s.prOver.every((o) => /over your best/.test(o)),
     "the sentence under each name still says what kind of record it is",
     JSON.stringify(s.prOver)
   );
-  assert(s.prValGap === 0, "the figure keeps the right edge without the badge", String(s.prValGap));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 

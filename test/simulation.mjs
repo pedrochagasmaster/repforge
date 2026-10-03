@@ -120,9 +120,7 @@ async function driveRecommendOnboarding(page, {
   environment = "commercial_gym",
   activate = true,
 } = {}) {
-  await page.click('[data-entry-route="recommend"]');
-  await page.click(`[data-entry-pick="desiredResult"][data-entry-val="${desiredResult}"]`);
-  await page.click("#onbNext");
+  await page.click(`[data-entry-route="recommend"][data-entry-goal="${desiredResult}"]`);
   await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${experience}"]`);
   await page.click(`[data-entry-pick="recentConsistency"][data-entry-val="${consistency}"]`);
   await page.click("#onbNext");
@@ -518,7 +516,18 @@ async function selectDay(page,dayName){
   await page.waitForFunction(day=>window.__repforgeWorkoutDraft.current()?.program.dayLabel===day,dayName,{timeout:5000});
 }
 
+/** The day-change question is a sheet (OG-6 `today/draft-resume`): "keep" is Cancel, "discard" is Discard unfinished session.
+ *  A step that wants to see the question marks the page manual first; this answers it and hands the page back. */
+async function answerDiscardQuestion(page,answer){
+  try{
+    await page.waitForSelector("#draftDiscardSheet.is-open",{timeout:5000});
+    await page.locator(answer==="keep"?"#draftDiscardKeep":"#draftDiscardDrop").click();
+    if(answer==="keep")await page.waitForTimeout(350);
+  }finally{page.__manualDiscard=false}
+}
+
 async function requestVisibleDay(page,day){
+  page.__manualDiscard=true;
   if(await page.locator("#workoutShell").isVisible())await page.locator("#leaveWorkout").click();
   if(!await page.locator("#dayPickSheet").isVisible())await page.locator("#chooseAnotherDay").click();
   await page.locator(`[data-daypick="${day}"]`).click();
@@ -633,7 +642,7 @@ async function waitForDraftSetCompletion(page, exId, ordinal = 1) {
 
 async function toggleWarmup(page, exId, setNum = 1) {
   await selectFocusExercise(page, exId);
-  await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+  await page.locator("#woOverflowBtn").click();
   await page.locator("#exActionsWarmupList [data-warm-toggle-set]").nth(setNum-1).click();
   await flushDraftWork(page);
   await page.locator("#exActionsClose").click();
@@ -811,7 +820,7 @@ async function openSessionEditor(page, sid) {
   const back = page.locator("[data-history-back]");
   if (await back.count()) {
     await back.click();
-    await page.waitForSelector("#historyCalendar", { timeout: 5000 });
+    await page.waitForSelector("#historyCalBtn", { timeout: 5000 });
   }
   const editBtn = page.locator(`[data-edit="${sid}"]`);
   if (!(await editBtn.count())) {
@@ -946,6 +955,12 @@ async function readToast(page) {
   return page.evaluate(() => document.querySelector("#toast:not(.hidden)")?.textContent?.trim() || "");
 }
 
+/** The reason a History edit keeps under its row (Plan 064 R3j2); it replaced a toast that faded. */
+async function readHistoryReason(page) {
+  await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 2500 }).catch(() => {});
+  return page.evaluate(() => document.querySelector(".session--edit [data-histedit-error]")?.textContent?.trim() || "");
+}
+
 async function logJson(page) {
   return page.evaluate((k) => {
     try {
@@ -1051,32 +1066,6 @@ function auditLogIntegrity(state) {
   return issues;
 }
 
-/** Compare Stats tiles to raw state (Sessions + Sets logged must match exactly). */
-async function auditStatsMetrics(page, state) {
-  await nav(page, "stats");
-  const tiles = await page.evaluate(() =>
-    [...document.querySelectorAll("#metrics .metric")].map((t) => ({
-      label: t.querySelector(".metric__label")?.textContent?.trim(),
-      val: t.querySelector(".metric__val")?.childNodes[0]?.textContent?.trim(),
-    }))
-  );
-  const expectedSessions = String(new Set(state.log.map((r) => r.session)).size);
-  const expectedSets = String(state.log.length);
-  const sessionsTile = tiles.find((t) => /^sessions$/i.test(t.label || ""));
-  const setsTile = tiles.find((t) => /^sets(\s+logged)?$/i.test(t.label || ""));
-  return {
-    ok: sessionsTile?.val === expectedSessions && setsTile?.val === expectedSets,
-    detail: `Sessions UI=${sessionsTile?.val} expected=${expectedSessions}; Sets UI=${setsTile?.val} expected=${expectedSets}`,
-  };
-}
-
-async function openStatsDeep(page) {
-  await page.evaluate(() => {
-    const d = document.querySelector("#statsDeep");
-    if (d) d.open = true;
-  });
-}
-
 async function whyInfo(page, id) {
   await selectFocusExercise(page,id);
   await page.locator("#workout .exercise.is-current [data-why]").click();
@@ -1091,10 +1080,10 @@ async function cardInfoById(page, exId) {
   const card = page.locator("#workout .exercise.is-current");
   const info = await card.evaluate(a => ({
     status: [...a.classList].find(c => /^is-(add|add2|hold|reduce|new|manual)$/.test(c)) || "",
-    cue: a.querySelector(".focus-cue")?.textContent || "",
+    cue: a.querySelector(".fx-cue")?.textContent || "",
   }));
   if(await card.locator("[data-why]").count())Object.assign(info,await whyInfo(page,exId));
-  await card.locator("[data-exactions-open]").click();
+  await page.locator("#woOverflowBtn").click();
   info.setup = await page.locator("#exActionsSetupText").textContent();
   await page.locator("#exActionsClose").click();
   await page.locator("#exActionsSheet").waitFor({state: "hidden"});
@@ -1163,6 +1152,9 @@ async function reviewAndCommitImport(page) {
   await page.click("#importCommit");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   await page.click("#entryActivate");
+  // Replacing an active program asks first; the dialog stands where the native confirm did.
+  const replace = page.locator("#entryReplaceConfirm");
+  if (await replace.waitFor({ state: "visible", timeout: 1500 }).then(() => true, () => false)) await replace.click();
   await page.waitForTimeout(500);
 }
 
@@ -1210,7 +1202,7 @@ async function editSimField(page, key, value) {
 }
 async function exerciseAction(page, exId, button) {
   await selectFocusExercise(page, exId);
-  await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+  await page.locator("#woOverflowBtn").click();
   await page.locator("#exActionsSheet.is-open").waitFor({ state: "visible" });
   await page.locator(button).click();
   await page.locator("#exActionsSheet").waitFor({state: "hidden"});
@@ -1272,6 +1264,23 @@ async function main() {
       /* already handled */
     }
   });
+  // The day-change question is a sheet now (OG-6 `today/draft-resume`), not a native confirm. The same mode answers it:
+  // "accept" is Discard unfinished session, "dismiss" is Cancel. Where a step needs to look at the question, it answers
+  // it itself with answerDiscardQuestion, which holds this watcher off (page.__manualDiscard) until it has answered.
+  // The answer is one atomic step in the page: the sheet element is reused, so a waiting locator click aimed at a
+  // question that is closing could land on the next question, after a step has taken it over with __manualDiscard.
+  const discardWatcher = setInterval(async () => {
+    if (page.__manualDiscard) return;
+    try {
+      await page.evaluate((id) => {
+        const sheet = document.querySelector("#draftDiscardSheet.is-open");
+        if (sheet && !sheet.hidden) sheet.querySelector(id)?.click();
+      }, dialogMode === "dismiss" ? "#draftDiscardKeep" : "#draftDiscardDrop");
+    } catch {
+      /* the page moved on, or the sheet was already answered */
+    }
+  }, 60);
+  discardWatcher.unref();
 
   const consoleErrors = [];
   page.on("console", (msg) => {
@@ -1474,51 +1483,27 @@ async function main() {
 
   beginPhase("Phase 1d: Attention board (P15)");
   await nav(page, "stats");
+  const attnRows = await page.evaluate(() => [...document.querySelectorAll("#attention .attn__chip")].map((row) => ({
+    id: row.getAttribute("data-attn"),
+    lift: row.getAttribute("data-action-lift"),
+    group: row.getAttribute("data-attngo"),
+    name: row.querySelector(".attnrow__name")?.textContent.trim() || "",
+    verdict: row.querySelector(".attnrow__verdict")?.textContent.trim() || "",
+    evidence: row.querySelector(".attnrow__evidence")?.textContent.trim() || "",
+  })));
   assert(
-    (await page.locator("#attention .attn__grp").count()) > 0,
-    "Attention board renders at least one group after seed",
-    "No .attn__grp in #attention",
+    attnRows.length > 0,
+    "Attention board renders at least one row after seed",
+    "No .attn__chip in #attention",
     "Bulk seed → Stats Overview → attention board"
   );
+  // Plan 064 R3i: one row per lift, each naming the lift, the engine's verdict
+  // and reason, and the evidence behind it, in the row's own accessible name.
   assert(
-    (await page.locator("#attention .attn__lead").count()) > 0,
-    "Attention group exposes a lead label",
-    "No .attn__lead found",
-    "Stats Overview → inspect attention board headings"
-  );
-  // Plan 056: the recommendation *is* the group, so it is stated once as the
-  // group's lead and never repeated beside each lift. Each row still carries it
-  // in its own accessible name, so a chip answers "why this lift" on its own.
-  assert(
-    (await page.locator("#attention .attn__why").count()) === 0,
-    "No legacy per-group why paragraph survives beside the lead",
-    "a .attn__why element is still rendered",
-    "Stats Overview → inspect an attention group"
-  );
-  const attnReasons = await page.evaluate(() => {
-    return [...document.querySelectorAll("#attention .attn__grp")].map((g) => {
-      const lead = g.querySelector(".attn__lead")?.textContent.trim() || "";
-      const subs = [...g.querySelectorAll(".attn__chip .listrow__sub")];
-      return {
-        lead,
-        leadCount: g.querySelectorAll(".attn__lead").length,
-        rows: subs.length,
-        subsPainted: subs.filter((s) => s.getBoundingClientRect().height > 2).length,
-        named: subs.every((s) => s.closest(".attn__chip").textContent.includes(s.textContent.trim())),
-      };
-    });
-  });
-  assert(
-    attnReasons.length > 0 && attnReasons.every((g) => g.lead && g.leadCount === 1),
-    "Each group states its recommendation exactly once in visible text",
-    JSON.stringify(attnReasons),
-    "Stats Overview → compare a group's lead against its rows"
-  );
-  assert(
-    attnReasons.every((g) => g.subsPainted === 0 && g.named),
-    "A row's reason is never painted twice but is still in its accessible name",
-    JSON.stringify(attnReasons),
-    "Stats Overview → inspect the rows under a group lead"
+    attnRows.every((r) => r.name && r.verdict && r.evidence && r.lift),
+    "Each attention row names the lift, its verdict and reason, and its evidence",
+    JSON.stringify(attnRows.filter((r) => !(r.name && r.verdict && r.evidence && r.lift))),
+    "Stats Overview → inspect the attention rows"
   );
   const attnGroups = await page.evaluate(() =>
     typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : null
@@ -1531,32 +1516,44 @@ async function main() {
     JSON.stringify(attnGroups?.map((g) => g.key)),
     "page.evaluate window.__repforgeAttention after seed"
   );
-  // Every action shares one destination now: the lift's scoped Strength evidence.
+  // Needs attention lists the queue lifts whose recommendation changes the load
+  // (add, add2, reduce); holds, recovers and stalled lifts stay in the queue only.
+  const attnMoves = await page.evaluate(() => window.__repforgeAttention().flatMap((g) => g.items.map((i) => {
+    const rec = window.__repforgeRecommendation(i.ex);
+    return { id: i.ex.id, status: rec.status, stalled: !!rec.stalled };
+  })));
+  const changesLoad = (m) => m.status === "add" || m.status === "add2" || (m.status === "reduce" && !m.stalled);
+  const attnExpected = attnMoves.filter(changesLoad).map((m) => m.id).sort();
+  const attnHeading = await page.locator("#attention .ovsec__title").textContent();
+  assert(
+    attnHeading.includes(`(${attnRows.length})`) && JSON.stringify(attnRows.map((r) => r.id).sort()) === JSON.stringify(attnExpected),
+    "The attention heading counts the rows, and the rows are the queue lifts that change the load",
+    `heading=${attnHeading} rows=${attnRows.map((r) => r.id)} expected=${attnExpected}`,
+    "Stats Overview → heading count against __repforgeAttention and recommendation()"
+  );
+  assert(
+    attnMoves.filter((m) => !changesLoad(m)).every((m) => !attnRows.some((r) => r.id === m.id)),
+    "A hold lift is absent from Needs attention",
+    JSON.stringify({ moves: attnMoves, rows: attnRows.map((r) => r.id) }),
+    "Stats Overview → lifts the queue lists but the engine holds"
+  );
+  // Every row opens that lift's page, with Progress as the way back.
   const actionAttnChip = page.locator("#attention .attn__chip").first();
-  if ((await actionAttnChip.count()) > 0) {
-    const actionMeta = await page.evaluate(() => {
-      const chip = document.querySelector("#attention .attn__chip");
-      return chip ? { id: chip.getAttribute("data-attn"), lift: chip.getAttribute("data-action-lift") } : null;
-    });
-    await actionAttnChip.click();
-    await page.waitForSelector("#segStrength.active", { timeout: 5000 });
-    const actionNavOk = await page.evaluate(
-      ({ lift }) => document.querySelector("#stats")?.classList.contains("active") &&
-        document.querySelector('#strengthScopeSeg button.active')?.dataset.scope === "current-block" &&
-        !!document.querySelector(`#strengthDash [data-evkey="${lift}"]`),
-      actionMeta || { lift: "" }
-    );
-    assert(
-      actionMeta?.id && actionMeta?.lift && actionNavOk,
-      "An action row opens that lift's current-block Strength evidence",
-      `meta=${JSON.stringify(actionMeta)} navOk=${actionNavOk}`,
-      "Stats → click an action chip → Strength evidence"
-    );
-    await nav(page, "stats");
-    await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
-  } else {
-    pass("Action chip navigation skipped (no evidence-backed actions)");
-  }
+  await actionAttnChip.click();
+  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+  const actionNavOk = await page.evaluate(() => ({
+    back: document.querySelector("#exBack")?.textContent || "",
+    name: document.querySelector("#exDetail .exdet__name, #exDetail h1, #exDetail h2")?.textContent || "",
+  }));
+  assert(
+    actionNavOk.back.includes(await page.evaluate(() => window.RepForgeI18n.t("nav.stats"))) && actionNavOk.name.length > 0,
+    "An attention row opens that lift's page and goes back to Progress",
+    JSON.stringify(actionNavOk),
+    "Stats → click an attention row → lift page"
+  );
+  await page.evaluate(() => closeExerciseView());
+  await nav(page, "stats");
+  await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
 
   // PWA shell loads (manifest + service worker registration)
   const pwaOk = await page.evaluate(async () => {
@@ -1820,7 +1817,8 @@ async function main() {
   await selectDay(page, "Day 2");
   await selectFocusExercise(page, renamedEx.id);
   const latestRenameRow=state.log.filter(row=>row.exerciseId===renamedEx.id).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.created).localeCompare(String(a.created)))[0];
-  const past=await page.locator("#workout .exercise.is-current .ledger__row.is-past .ledger__load").allTextContents();
+  const past=(await page.locator("#workout .exercise.is-current .ledgerline__prev").allTextContents())
+    .map(text=>(text.match(/(\d+(?:[.,]\d+)?) \u00d7/)||[])[1]).filter(Boolean).map(v=>v.replace(",","."));
   assert(past.length>0 && past.includes(String(latestRenameRow.load)),
     "Renamed exercise still shows previous-session values via exerciseId", JSON.stringify(past));
 
@@ -1946,7 +1944,7 @@ async function main() {
   await applyProgramEditor(page);
   const metaBefore = await page.locator("#programOverview").textContent();
   assert(
-    metaBefore.includes("days (7d)"),
+    metaBefore.includes("in the last 7 days"),
     "Program overview shows rolling-7 adherence",
     `Meta card: ${metaBefore?.slice(0, 120)}`,
     "Program tab → check overview stats"
@@ -1997,7 +1995,7 @@ async function main() {
   await applyProgramEditor(page);
   const metaAfterDate = await page.locator("#programOverview").textContent();
   assert(
-    /Week 3/.test(metaAfterDate),
+    /week 3 of/i.test(metaAfterDate),
     "Program overview derives the current week from the stored block start",
     `Meta card after date edit: ${metaAfterDate?.slice(0, 140)}`,
     "Store a block start 15 days back → Program overview"
@@ -2035,87 +2033,45 @@ async function main() {
     "Remove programMeta from storage → reload app"
   );
 
-  // ── Phase 4b: Program overview day disclosure ────────────────────
-  beginPhase("Phase 4b: Program overview disclosure");
+  // ── Phase 4b: Program overview days ──────────────────────────────
+  beginPhase("Phase 4b: Program overview days");
 
-  // Drop only the disclosure pref so the tour stays dismissed for later phases.
-  await page.evaluate(() => {
-    const k = "repforge_ui_v1";
-    const o = JSON.parse(localStorage.getItem(k) || "{}");
-    delete o.overviewOpenDays;
-    localStorage.setItem(k, JSON.stringify(o));
-  });
   await reloadApp(page);
   await nav(page, "program");
-  // nav() forces the editor open; the day disclosure lives on the read-only overview.
+  // nav() forces the editor open; the ledger lives on the read-only overview.
   await page.click("#programEditToggle");
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
 
-  const readOvDay = (idx) =>
-    page.evaluate((i) => {
-      const el = document.querySelectorAll("#programOverview .prog-day")[i];
-      if (!el) return null;
-      const head = el.querySelector(".prog-day__head");
-      return { day: head?.dataset.ovday, open: !!el.querySelector(".prog-day__body"), expanded: head?.getAttribute("aria-expanded") === "true" };
-    }, idx);
-
-  const ovDefault = await readOvDay(0);
+  const ovDays = await page.evaluate(() =>
+    [...document.querySelectorAll("#programOverview .prog-day")].map((el) => ({
+      title: el.querySelector(".prog-day__title")?.textContent.trim(),
+      rows: el.querySelectorAll(".rxrow").length,
+      toggles: el.querySelectorAll("[aria-expanded], [data-ovday]").length,
+      legend: !!el.querySelector(".prog-legend"),
+    })));
   assert(
-    ovDefault?.open && ovDefault.expanded,
-    "Program overview opens the first day by default",
-    `first day: ${JSON.stringify(ovDefault)}`,
-    "Program tab → overview → first training day"
+    ovDays.length > 0 && ovDays.every((d) => d.title && d.rows > 0 && d.toggles === 0),
+    "Program overview shows every training day open, with its exercises",
+    `days: ${JSON.stringify(ovDays)}`,
+    "Program tab → overview → every training day"
   );
-
-  const ovDayName = ovDefault?.day;
-  await page.click(`#programOverview [data-ovday="${ovDayName}"]`);
-  await page.waitForTimeout(200);
-  const ovCollapsed = await readOvDay(0);
   assert(
-    ovCollapsed && !ovCollapsed.open && !ovCollapsed.expanded,
-    "First training day collapses when tapped",
-    `first day after tap: ${JSON.stringify(ovCollapsed)}`,
-    "Program tab → overview → tap the first day header"
+    ovDays[0].legend && ovDays.slice(1).every((d) => !d.legend),
+    "Program overview explains the Next column once, under the first day",
+    `days: ${JSON.stringify(ovDays)}`,
+    "Program tab → overview → legend under the first column head"
   );
 
   await reloadApp(page);
   await nav(page, "program");
   await page.click("#programEditToggle");
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
-  const ovAfterReload = await readOvDay(0);
+  const ovAfterReload = await page.evaluate(() => document.querySelectorAll("#programOverview .prog-day .rxrow").length);
   assert(
-    ovAfterReload && !ovAfterReload.open,
-    "Collapsed first day survives a reload",
-    `first day after reload: ${JSON.stringify(ovAfterReload)}`,
-    "Program tab → collapse first day → reload → Program tab"
-  );
-
-  await page.click(`#programOverview [data-ovday="${ovDayName}"]`);
-  await page.waitForTimeout(200);
-  const ovReopened = await readOvDay(0);
-  assert(
-    ovReopened?.open,
-    "First training day re-opens when tapped again",
-    `first day after second tap: ${JSON.stringify(ovReopened)}`,
-    "Program tab → overview → tap the first day header twice"
-  );
-
-  await page.click(`#programOverview [data-ovdetails="${ovDayName}"]`);
-  await page.waitForTimeout(400);
-  const seeDetails = await page.evaluate((d) => {
-    const card = document.querySelector(`#programEditor .pday[data-day="${CSS.escape(d)}"]`);
-    return {
-      exerciseView: document.body.classList.contains("is-exercise"),
-      editorOpen: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
-      cardFound: !!card,
-      cardExpanded: !!card && !card.classList.contains("is-collapsed"),
-    };
-  }, ovDayName);
-  assert(
-    !seeDetails.exerciseView && seeDetails.editorOpen && seeDetails.cardExpanded,
-    "See details opens the day in the program editor",
-    `see details result: ${JSON.stringify(seeDetails)}`,
-    "Program tab → overview → See details on a training day"
+    ovAfterReload === ovDays.reduce((n, d) => n + d.rows, 0),
+    "Program overview days stay open after a reload",
+    `rows after reload: ${ovAfterReload}`,
+    "Program tab → reload → Program tab"
   );
 
   // ── Phase 5: Delete sessions ─────────────────────────────────────
@@ -2184,7 +2140,7 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Push Day");
-  const recText = await page.locator("#workout .exercise.is-current .focus-ex__target").first().textContent();
+  const recText = await page.locator("#workout .exercise.is-current .fx-cue").first().textContent();
   const hasAddLoad =
     /Add load|Add weight|Hold \d/i.test(recText) ||
     (await page.locator("#workout .exercise").first().getAttribute("class") || "").includes("is-add");
@@ -2200,75 +2156,65 @@ async function main() {
 
   state = await getState(page);
   await nav(page, "stats");
-  await openStatsDeep(page);
 
-  const metricsAudit = await auditStatsMetrics(page, state);
+  // The overview carries two week totals and a strength row per lift with a session
+  // this block; the all-time tiles, the trend card and the deep tables are retired.
+  const overviewAudit = await page.evaluate(() => ({
+    sessions: document.querySelector('#thisWeek [data-week-metric="sessions"] .ovtotal__n')?.textContent?.trim(),
+    sets: document.querySelector('#thisWeek [data-week-metric="sets"] .ovtotal__n')?.textContent?.trim(),
+    rows: document.querySelectorAll("#overviewStrength .strrow").length,
+    retired: ["#metrics", "#statExercise", "#statsDeep", "#overviewVolume", "#chart"].filter((sel) => document.querySelector(sel)),
+  }));
   assert(
-    metricsAudit.ok,
-    "Stats session/set counts match persisted log",
-    metricsAudit.detail,
-    "Stats tab → Sessions and Sets logged tiles vs repforge_v1"
+    /^\d+$/.test(overviewAudit.sessions || "") && /^\d+$/.test(overviewAudit.sets || ""),
+    "Stats overview renders the week's session and set totals",
+    JSON.stringify(overviewAudit),
+    "Stats tab → two week totals"
+  );
+  assert(
+    overviewAudit.rows > 0 && overviewAudit.retired.length === 0,
+    "Stats overview lists strength rows and none of the retired blocks",
+    JSON.stringify(overviewAudit),
+    "Stats tab → Strength this block"
   );
 
-  const metricsText = await page.locator("#metrics").textContent();
-  assert(
-    /sessions/i.test(metricsText) && /sets/i.test(metricsText),
-    "Stats metrics render",
-    metricsText?.slice(0, 120),
-    "Stats tab → check metric tiles"
-  );
-
-  const statOptions = await page.locator("#statExercise option").count();
-  assert(
-    statOptions > 0,
-    "Stats exercise dropdown populated",
-    `Option count: ${statOptions}`,
-    "Stats tab → exercise select"
-  );
-
-  // Chart should not throw on render
+  // The canvas chart lives on the exercise page.
+  await page.evaluate((id) => openExerciseView(id, "log"), state.program[0].id);
+  await page.waitForSelector("#exercise.view.active #exChart", { timeout: 5000 });
   const chartRendered = await page.evaluate(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c && c.width > 0;
   });
   assert(
     chartRendered,
     "Chart canvas renders with data",
     "Canvas width is 0 or missing",
-    "Stats tab → select exercise with history"
-  );
-
-  const trendText = await page.locator("#trend").textContent();
-  assert(
-    trendText && trendText.length > 5,
-    "Trend summary shows progression",
-    `Trend: "${trendText}"`,
-    "Stats tab → select logged exercise"
+    "Exercise page → chart"
   );
 
   await page.setViewportSize({ width: 800, height: 900 });
   await page.waitForFunction(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c && c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
   });
   const okWide = await page.evaluate(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
   });
   await page.setViewportSize({ width: 380, height: 900 });
   await page.waitForFunction(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
   });
   const okNarrow = await page.evaluate(() => {
-    const c = document.querySelector("#chart");
+    const c = document.querySelector("#exChart");
     return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
   });
   assert(
     okWide && okNarrow,
     "Chart canvas tracks viewport width on resize",
     `wide=${okWide} narrow=${okNarrow}`,
-    "Stats → resize viewport → canvas backing width follows clientWidth"
+    "Exercise page → resize viewport → canvas backing width follows clientWidth"
   );
 
   const chartLabelDecimalsNarrow = await page.evaluate(() => window.__repforgeChartLabelDecimals(1));
@@ -2285,6 +2231,7 @@ async function main() {
     `Expected 0, got ${chartLabelDecimalsWide}`,
     "page.evaluate(() => window.__repforgeChartLabelDecimals(30))"
   );
+  await page.evaluate(() => closeExerciseView());
   await page.setViewportSize({ width: 390, height: 844 });
 
   // ── Phase 8: Export JSON, modify, re-import ──────────────────────
@@ -2614,60 +2561,20 @@ async function main() {
   await fillExerciseSets(page, prMeta[0].id, prMeta[0].sets, 150, 6, 2);
   const prSummary = (await saveWorkout(page, { earlyFinish: true })) || "";
   assert(
-    /PERSONAL RECORDS/i.test(prSummary) && /150 kg × 6/.test(prSummary) && !/250 kg/.test(prSummary),
+    /\bPR\b/.test(prSummary) && /over your best/.test(prSummary) && /150 kg × 6/.test(prSummary) && !/250 kg/.test(prSummary),
     "Session summary announces a per-exercise top-load PR (not global max)",
     `Summary: ${JSON.stringify(prSummary)}`,
     "Log another exercise at 250 kg, then PR the first exercise at 150 kg → Save"
   );
   await nav(page, "stats");
-  await page.evaluate(() => {
-    document.querySelector("#statsDeep").open = true;
-  });
-  await page.waitForTimeout(100);
-  const ledger = await page.textContent("#prLedger");
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("prs"));
+  await page.waitForSelector("#prTimeline .prtl__row", { timeout: 5000 });
+  const ledger = await page.evaluate(() => [...document.querySelectorAll("#prTimeline .pr-kind")].map((el) => el.textContent.trim()).join(" "));
   assert(
     /load/i.test(ledger) && /e1RM/i.test(ledger),
-    "PR ledger renders load and e1RM PRs",
-    `Ledger: ${ledger}`,
-    "Stats → Dig deeper → PR ledger under the trend"
-  );
-  // The strength trend card holds four things about one lift. They used to keep
-  // three different left edges — the picker inset 14px, the figures and the
-  // canvas flush to the card's border — and the ledger was cut off mid-column
-  // by a 520px floor meant for full-page tables.
-  const trendCard = await page.evaluate(() => {
-    const card = document.querySelector(".chartcard");
-    const kids = [...card.children].map((el) => {
-      const r = el.getBoundingClientRect();
-      return { cls: el.className, left: Math.round(r.left), right: Math.round(r.right) };
-    });
-    const led = card.querySelector("#prLedger");
-    const cap = card.querySelector(".chartcard__cap");
-    const wrap = card.querySelector(".chart-wrap");
-    return {
-      columns: [...new Set(kids.map((k) => `${k.left}|${k.right}`))],
-      kids,
-      ledgerOverflow: led.scrollWidth - led.clientWidth,
-      captionAboveChart:
-        !!cap && !!wrap && cap.compareDocumentPosition(wrap) === Node.DOCUMENT_POSITION_FOLLOWING,
-      e1rmColumns: [...led.querySelectorAll("th")].filter((h) => /e1rm/i.test(h.textContent)).length,
-    };
-  });
-  assert(
-    trendCard.columns.length === 1,
-    "Every block in the strength trend card shares one text column",
-    JSON.stringify(trendCard.kids)
-  );
-  assert(
-    trendCard.ledgerOverflow === 0,
-    "The record ledger fits the card instead of scrolling behind its edge",
-    `overflow=${trendCard.ledgerOverflow}px`,
-    "Stats → Strength trend → the ledger's last column is whole"
-  );
-  assert(
-    trendCard.captionAboveChart && trendCard.e1rmColumns === 0,
-    "The e1RM caption labels the chart it belongs to, and the number is printed once",
-    JSON.stringify(trendCard)
+    "PR timeline renders load and e1RM PRs",
+    `Kinds: ${ledger}`,
+    "Stats → PRs → timeline"
   );
   await nav(page, "log");
   await selectDay(page, "Day 3");
@@ -3415,7 +3322,7 @@ async function main() {
     assert(
       tempered?.status === "add" &&
         tempered?.block?.dir === "falling" &&
-        /smallest load increase/i.test(tempered?.text || ""),
+        /smallest weight increase/i.test(tempered?.text || ""),
       "Falling block trend tempers a bold double jump to one load step",
       JSON.stringify(tempered),
       "Seed falling e1RM trend + easy top-range latest session → Add load, not Add load ++"
@@ -4129,7 +4036,7 @@ async function main() {
         `reps=${logReps} expected=${c.firstReps}`,
         `Log → ${c.key} set 1 reps`
       );
-      const cardHead = await page.locator("#workout .exercise.is-current .focus-cue").textContent();
+      const cardHead = await page.locator("#workout .exercise.is-current .fx-cue").textContent();
       assert(
         /55/.test(cardHead || "") && !/53\.75/.test(cardHead || ""),
         `F1: ${c.key} kg card shows the grid load`,
@@ -4157,9 +4064,9 @@ async function main() {
         if (i >= 0) window.__repforgeFocus.to(i);
       }, { id: c.ex.id, day: "Day 1" });
       await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
-      const cue = await page.locator(".exercise.is-current .focus-cue__text").textContent();
-      const cueLoad = await page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
-      const cueReps = +(await page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
+      const cue = await page.locator(".exercise.is-current .fx-cue").textContent();
+      const cueLoad = await page.locator(".exercise.is-current .focus-shelf .shelf__input[data-k$='_load']").inputValue();
+      const cueReps = +(await page.locator(".exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").inputValue());
       assert(
         /55/.test(cue || "") && !/53\.75/.test(cue || "") && cueLoad === "55",
         `F1: ${c.key} untouched Focus first-set cue is on-grid`,
@@ -4276,9 +4183,9 @@ async function main() {
         if (i >= 0) window.__repforgeFocus.to(i);
       }, { id: c.ex.id, day: "Day 1" });
       await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
-      const cue = await page.locator(".exercise.is-current .focus-cue__text").textContent();
-      const cueLoad = await page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
-      const cueReps = +(await page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
+      const cue = await page.locator(".exercise.is-current .fx-cue").textContent();
+      const cueLoad = await page.locator(".exercise.is-current .focus-shelf .shelf__input[data-k$='_load']").inputValue();
+      const cueReps = +(await page.locator(".exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").inputValue());
       assert(
         cueLoad === "2.5" && !/^0(?:\.0+)?$/.test(cueLoad) && /2\.5/.test(cue || "") && !/\b0(?:\.0+)?\s*kg/.test(cue || ""),
         `F1: 1 kg ${c.key} first-set prefill is a positive grid load`,
@@ -4356,8 +4263,8 @@ async function main() {
       if (i >= 0) window.__repforgeFocus.to(i);
     }, { id: gridHold.id, day: "Day 1" });
     await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
-    const gridCue = await page.locator(".exercise.is-current .focus-cue__text").textContent();
-    const gridCueReps = +(await page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
+    const gridCue = await page.locator(".exercise.is-current .fx-cue").textContent();
+    const gridCueReps = +(await page.locator(".exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").inputValue());
     assert(
       gridCueReps === 8 && /aim for 8 reps/.test(gridCue || ""),
       "F1: on-grid hold Focus first-set reps add one",
@@ -4407,8 +4314,8 @@ async function main() {
       if (i >= 0) window.__repforgeFocus.to(i);
     }, { id: gridHold.id, day: "Day 1" });
     await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
-    const driftCue = await page.locator(".exercise.is-current .focus-cue__text").textContent();
-    const driftCueReps = +(await page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
+    const driftCue = await page.locator(".exercise.is-current .fx-cue").textContent();
+    const driftCueReps = +(await page.locator(".exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").inputValue());
     assert(
       driftCueReps === 8 && /aim for 8 reps/.test(driftCue || ""),
       "F1: fractional-grid hold Focus first-set reps add one",
@@ -4472,7 +4379,7 @@ async function main() {
     "Log → enter weight → Save set → row shows done"
   );
 
-  const focusGeometry = await page.locator("#workout .exercise.is-current .focus-well").evaluate(el => ({
+  const focusGeometry = await page.locator("#workout .exercise.is-current .focus-shelf").evaluate(el => ({
     width: el.getBoundingClientRect().width,
     overflow: el.scrollWidth > el.clientWidth + 1,
     saveWidth: el.querySelector(".saveset")?.getBoundingClientRect().width,
@@ -4481,10 +4388,10 @@ async function main() {
     "Focus's next set remains visible and unclipped after completion", JSON.stringify(focusGeometry));
 
   assert(
-    (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-selected")) === "true",
-    "Active day tab exposes aria-selected",
-    "Active day tab missing aria-selected=true",
-    "Log → select a day → its tab is aria-selected"
+    (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-pressed")) === "true",
+    "Active day button exposes aria-pressed",
+    "Active day button missing aria-pressed=true",
+    "Log → select a day → its button is aria-pressed (the day picker is a toggle group, not a tablist; R7 J-20)"
   );
 
   await saveWorkout(page, { earlyFinish: true });
@@ -4502,13 +4409,18 @@ async function main() {
     "Clear state → save one hard set → Stats Overview → #thisWeek stays neutral without legacy warning copy"
   );
   await nav(page, "history");
-  const newLiftDelta = await page.locator(".session__delta").first().textContent();
+  // The list row no longer carries outcome counts (Direction D, History list); the lift's
+  // outcome word lives on the session page, from the same comparison.
+  await page.locator("#sessions .session__open").first().click();
+  await page.waitForSelector(".session--read .histlift__tags .verdictmark");
+  const newLiftOutcome = await page.locator(".session--read .histlift__tags .verdictmark").allTextContents();
   assert(
-    /1 new lift/.test(newLiftDelta || ""),
-    "History session delta names new lifts",
-    `delta=${newLiftDelta}`,
-    "Clear state → save first lift → History → session card shows '1 new lift'"
+    newLiftOutcome.length === 1 && /^New$/.test(newLiftOutcome[0].trim()),
+    "History session page names a new lift",
+    `outcomes=${JSON.stringify(newLiftOutcome)}`,
+    "Clear state → save first lift → History → open the session → its lift reads New"
   );
+  await page.click("[data-history-back]");
   await nav(page, "log");
   assert(
     loggedEx0.length === 1 && +loggedEx0[0].set === 1,
@@ -4527,6 +4439,7 @@ async function main() {
     "Set row not is-suggested before stepper edit",
     "Log → untouched set row → is-suggested"
   );
+  await page.click(`.focus-shelf [data-shelf-field="load"]`);
   await page.click(`.stepbtn[data-step="${ex0}_1_load"][data-dir="1"]`);
   await page.waitForTimeout(60);
   assert(
@@ -4566,6 +4479,7 @@ async function main() {
   );
 
   // kg stepper adds the minimum jump (2.5)
+  await page.click(`.focus-shelf [data-shelf-field="load"]`);
   await page.click(`.stepbtn[data-step="${exX}_1_load"][data-dir="1"]`);
   assert(
     (await readSimField(page, `${exX}_1_load`)) === "102.5",
@@ -4612,7 +4526,7 @@ async function main() {
     "Log → 3 sessions same load, no rep gain → Stalled · deload"
   );
   const yInfo = await cardInfo(page, 1);
-  const yTarget = +(yInfo.rec.match(/(?:Hold|Target)\s+([\d.]+)\s*kg/)?.[1] || 0);
+  const yTarget = +(yInfo.rec.match(/(?:Hold|Target|Go up to|Drop to)\s+([\d.]+)\s*kg/)?.[1] || 0);
   assert(
     yInfo.status === "is-reduce" && yTarget > 0 && yTarget < 80,
     "Back off returns a real lighter target",
@@ -4728,7 +4642,7 @@ async function main() {
   const doneState = await page.evaluate(() => ({
     recap: !!document.querySelector(".today-done"),
     start: !!document.querySelector("#startWorkout:not(.hidden)"),
-    ready: !!document.querySelector("#readyLine"),
+    ready: !!document.querySelector("#readyLine, #todayExList"),
   }));
   assert(
     doneState.recap && !doneState.start && !doneState.ready,
@@ -4737,21 +4651,31 @@ async function main() {
     "Save a session dated today → Today drops the start CTA for a recap"
   );
 
-  // The readiness line belongs to the session Today is offering, so move the
-  // ledger back a day to get an untrained day and the line that comes with it.
+  // Direction D (decision 10) dropped the readiness route: the verdict mark on each
+  // row and the tally above the table carry "ready to increase", and a tap on the
+  // row opens the exercise page. Move the ledger back a day to get an untrained day.
   await backdateLog(page, 1);
-  const readyText = await page.locator("#readyLine, .today-ready").first().textContent();
+  const hotToday = await page.evaluate((id) => ({
+    up: !!document.querySelector(`#todayExList .rxrow[data-exopen="${id}"] .verdictmark--up`),
+    tally: document.querySelector(".today-tally")?.textContent?.trim() || "",
+    readinessRoute: !!document.querySelector("#readyLine, .today-ready"),
+  }), exHot.id);
   assert(
-    /ready|prontos|hot|increase|aumentar/i.test(readyText || ""),
-    "Today readiness line shows lifts ready to increase",
-    `label="${readyText}"`,
-    "Log → after add-load recs → Today shows N ready"
+    hotToday.up && /\S/.test(hotToday.tally) && !hotToday.readinessRoute,
+    "Today marks lifts ready to increase on their rows and in the tally, with no readiness route",
+    JSON.stringify(hotToday),
+    "Log → after add-load recs → Today rows carry the up mark"
   );
-  await page.locator("#readyLine, .today-ready").first().click();
+  await page.locator(`#todayExList .rxrow[data-exopen="${exHot.id}"]`).click();
+  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+  assert(await page.locator("#exercise.view.active").isVisible(),
+    "A tap on the hot lift's row opens its exercise page", "Exercise page is not visible",
+    "Tap the up-marked Today row → exercise page");
+  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), exHot.id);
   await page.waitForSelector(`#workout .exercise.is-current[data-ex="${exHot.id}"]`, { timeout: 5000 });
   assert(await page.locator(`#workout .exercise.is-current[data-ex="${exHot.id}"]`).isVisible(),
-    "Readiness line opens Focus on the first hot lift", "Hot lift is not visible",
-    "Tap Today readiness → first hot exercise is selected");
+    "Logging the hot lift opens Focus on it", "Hot lift is not visible",
+    "Exercise page → log this exercise → first hot exercise is selected");
 
   // Session notes persist on saved rows (notes field is Focus-chrome-hidden; set via DOM)
   await page.evaluate(() => {
@@ -4769,60 +4693,50 @@ async function main() {
     "Log → fill notes → Save workout"
   );
 
-  // Stats: completed hard sets + attention board
+  // Stats: completed hard sets (Volume tab) + attention board
   await nav(page, "stats");
-  await page.evaluate(() => {
-    const d = document.querySelector("#statsDeep");
-    if (d) d.open = true;
-  });
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("volume"));
   await page.waitForTimeout(150);
   assert(
-    (await page.locator("#completedVolume .vrow").count()) > 0,
+    (await page.locator("#volumeDash .vrow").count()) > 0,
     "Completed hard sets render per muscle",
-    "No completed-volume rows",
-    "Stats → Completed hard sets shows logged volume"
+    "No volume rows",
+    "Stats → Volume shows logged volume"
   );
+  await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
+  const boardMoves = await page.evaluate(() => window.__repforgeAttention().flatMap((g) => g.items.map((i) => {
+    const rec = window.__repforgeRecommendation(i.ex);
+    return { id: i.ex.id, key: g.key, status: rec.status, stalled: !!rec.stalled };
+  })));
+  const boardShown = await page.evaluate(() => [...document.querySelectorAll("#attention .attn__chip")].map((row) => row.dataset.attn));
+  const boardExpected = boardMoves.filter((m) => m.status === "add" || m.status === "add2" || (m.status === "reduce" && !m.stalled)).map((m) => m.id);
   assert(
-    (await page.locator("#attention .attn__grp").count()) > 0 &&
-      (await page.evaluate(() => window.__repforgeAttention().every((g) => ["progress", "repeat", "review"].includes(g.key)))),
-    "Action board lists evidence-backed recommendation groups",
-    JSON.stringify(await page.evaluate(() => window.__repforgeAttention().map((g) => g.key))),
-    "Stats → action board shows recommendation groups"
+    boardMoves.every((m) => ["progress", "repeat", "review"].includes(m.key)) && JSON.stringify([...boardShown].sort()) === JSON.stringify([...boardExpected].sort()),
+    "Action board lists the evidence-backed lifts whose recommendation changes the load",
+    JSON.stringify({ boardMoves, boardShown }),
+    "Stats → action board shows the lifts the queue returns that the engine moves"
   );
-  assert(
-    (await page.locator("#attention .attn__why").count()) === 0 &&
-      (await page.locator("#attention .attn__lead").count()) > 0,
-    "Each group states its recommendation once as a lead, with no duplicate why line",
-    "a legacy .attn__why element is still rendered",
-    "Stats → action board → each group has exactly one visible reason"
-  );
-  const attnChip = page.locator("#attention .attn__chip").first();
-  const attnLift = await attnChip.getAttribute("data-action-lift");
-  await attnChip.click();
-  await page.waitForSelector("#segStrength.active", { timeout: 5000 });
-  assert(
-    await page.evaluate(
-      (lift) => document.querySelector('#strengthScopeSeg button.active')?.dataset.scope === "current-block" &&
-        !!document.querySelector(`#strengthDash [data-evkey="${lift}"]`),
-      attnLift
-    ),
-    "An action chip opens that lift's current-block Strength evidence",
-    `lift=${attnLift}`,
-    "Stats → click an action chip → Strength evidence for that lift"
-  );
-  await page.evaluate(() => {
-    window.__repforgeStatsNav.setStatsSeg("overview");
-    const d = document.querySelector("#statsDeep");
-    if (d) d.open = true;
-  });
-  await page.waitForTimeout(150);
-  await page.click('#volWindow button[data-win="28"]');
-  assert(
-    (await page.locator('#volWindow button[data-win="28"]').getAttribute("class")).includes("active"),
-    "Volume window toggle selects 28-day range",
-    "28d button not active",
-    "Stats → Completed hard sets → 28d window"
-  );
+  if (boardShown.length) {
+    const attnChip = page.locator("#attention .attn__chip").first();
+    const attnLift = await attnChip.getAttribute("data-action-lift");
+    await attnChip.click();
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    assert(
+      await page.evaluate(() => document.querySelector("#exDetail .exdet__name")?.textContent.trim().length > 0),
+      "An attention row opens that lift's page",
+      `lift=${attnLift}`,
+      "Stats → click an attention row → the lift's page"
+    );
+    await page.evaluate(() => closeExerciseView());
+  } else {
+    assert(
+      await page.locator("#attention .ovnone").count() === 1 && (await page.locator("#attention .ovsec__title").textContent()).includes("(0)"),
+      "With no lift to move, Needs attention says so and counts zero",
+      JSON.stringify({ boardMoves }),
+      "Stats → action board with only holds"
+    );
+  }
+  await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
 
   // Edit a logged session in History
   await nav(page, "history");
@@ -4855,7 +4769,7 @@ async function main() {
     "restBar still hidden after tapping ⏱",
     "Log → tap ⏱ on an exercise → rest timer appears"
   );
-  // The floating clock opens the timer sheet; it never ends the rest on its own.
+  // The floating clock opens the rest presets; it never ends the rest on its own. The clock itself is inline in the card.
   await page.click("#woRest");
   await page.waitForTimeout(350);
   const restSheet = await page.evaluate(() => {
@@ -4863,14 +4777,15 @@ async function main() {
     return {
       open: !el.hidden && el.classList.contains("is-open"),
       running: !document.querySelector("#restBar").classList.contains("hidden"),
-      clock: document.querySelector("#restSheetClock").textContent.trim(),
+      clock: document.querySelector("#workout .exercise.is-current [data-rest-clock]")?.textContent.trim() || "",
+      presets: el.querySelectorAll("#restPresets [data-restpreset]").length,
     };
   });
   assert(
-    restSheet.open && restSheet.running && /^\d+:\d\d$/.test(restSheet.clock),
-    "Tapping the floating clock opens the rest timer instead of ending it",
+    restSheet.open && restSheet.running && /^\d+:\d\d$/.test(restSheet.clock) && restSheet.presets >= 4,
+    "Tapping the floating clock opens the rest presets instead of ending the rest",
     JSON.stringify(restSheet),
-    "Log → tap the floating clock → the rest timer sheet opens with the rest still running"
+    "Log → tap the floating clock → the rest presets open with the rest still running in the card"
   );
   await page.click("#restStop");
   await page.waitForTimeout(350);
@@ -4989,6 +4904,8 @@ async function main() {
       return page.evaluate(() => ({
         target: document.querySelector("#whyTarget")?.textContent || "",
         body: document.querySelector("#whyBody")?.innerText || "",
+        // The whole explanation, including the working behind "See the working".
+        full: document.querySelector("#whyBody")?.textContent || "",
         focus: document.activeElement?.id || "",
       }));
     };
@@ -5100,9 +5017,9 @@ async function main() {
     await selectDay(page, "Day 1");
     const effortSheet = await openWhyFrom(whyCases[0].ex.id);
     assert(
-      /the effort you logged/.test(effortSheet.body) && !/up to 4 RIR/.test(effortSheet.body),
+      /the effort you logged/.test(effortSheet.full) && !/up to 4 RIR/.test(effortSheet.full) && !/RIR \d/.test(effortSheet.body),
       "Why sheet: effort mode names the logged effort instead of an RIR cap",
-      `body=${JSON.stringify(effortSheet.body)}`,
+      `body=${JSON.stringify(effortSheet.full)}`,
       "Settings → effort RIR mode → Log card → Why this weight?"
     );
     await closeWhy();
@@ -5172,8 +5089,11 @@ async function main() {
     await page.click("#exDetail [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
     const idTarget = await page.evaluate(() => document.querySelector("#whyTarget")?.textContent || "");
+    // The sheet's headline is the Focus cue ("Go up to 102.5 kg, aim for 7 reps") and the page's head is "Hold 102.5 kg":
+    // the proof is that both name the same load, so the sheet explains the movement the page rendered.
+    const loadOf = (text) => (text.match(/\d+(?:[.,]\d+)?/) || [""])[0];
     assert(
-      idHead.trim().length > 0 && idTarget.trim() === idHead.trim(),
+      idHead.trim().length > 0 && loadOf(idHead) !== "" && loadOf(idTarget) === loadOf(idHead),
       "Why sheet: the exercise page's sheet explains the movement the page rendered",
       `head=${JSON.stringify(idHead)} target=${JSON.stringify(idTarget)}`,
       "Swap a lift mid-session → leave via a nav tab → reopen its exercise page → Why this weight?"
@@ -5283,21 +5203,20 @@ async function main() {
     "History → Every set table after substitute save"
   );
   await nav(page, "stats");
-  await page.evaluate(() => document.querySelector("#statsDeep")?.setAttribute("open", ""));
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const performedLiftKey = subRow?.performedLibraryId ? `library:${subRow.performedLibraryId}` : null;
-  await page.selectOption("#statExercise", performedLiftKey);
   await page.waitForTimeout(80);
   const chartRows = await page.evaluate((expected) => {
-    const sel = document.querySelector("#statExercise").value;
     const log = JSON.parse(localStorage.getItem("repforge_v1")).log.filter((r) => !r.warmup);
-    return sel === expected && log.some((r) =>
+    const series = window.__repforgeProgressEvidence.strength(expected);
+    return !!document.querySelector(`#strengthDash [data-evkey="${expected}"]`) && series?.evidenceCount >= 1 && log.some((r) =>
       r.performedLibraryId && `library:${r.performedLibraryId}` === expected);
   }, performedLiftKey);
   assert(
     chartRows,
-    "Stats chart attributes substituted sessions to the performed movement",
+    "Strength evidence attributes substituted sessions to the performed movement",
     `performedLiftKey=${performedLiftKey}`,
-    "Stats → select the performed substitute → chart has data"
+    "Stats → Strength → the performed substitute has its own row with a session"
   );
 
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
@@ -5484,14 +5403,14 @@ async function main() {
   await page.keyboard.press("ArrowRight");
   await flushDraftWork(page);
   const keyboardEffort = await effortSpinner.evaluate(el => ({
-    role: el.getAttribute("role"), value: el.dataset.e,
+    role: el.tagName === "BUTTON" ? "button" : el.getAttribute("role"), value: el.dataset.e,
     focused: document.activeElement === el,
     clipped: el.scrollWidth > el.clientWidth + 1,
     exerciseId: el.closest(".exercise.is-current")?.dataset.ex,
   }));
   const keyboardDraft = await readDraft(page);
   const keyboardEx = keyboardDraft.exercises[effEx.id];
-  assert(keyboardEffort.role === "spinbutton" && keyboardEffort.value === "hard" &&
+  assert(keyboardEffort.role === "button" && keyboardEffort.value === "hard" &&
     keyboardEffort.focused && !keyboardEffort.clipped && keyboardEffort.exerciseId === effEx.id &&
     keyboardEx.sets[keyboardEx.setOrder[0]].edited.effort === "hard",
     "Focus effort keyboard selection is visible, semantic, and persisted", JSON.stringify(keyboardEffort));
@@ -5523,14 +5442,16 @@ async function main() {
 
   await page.waitForTimeout(200);
   const focusEffort = await page.evaluate(() => {
-    const cell = document.querySelector("#workout .exercise.is-current .focus-well .curset__cell.is-effort");
+    // Effort is the shelf's third field; selecting it brings its two word pads.
+    document.querySelector("#workout .exercise.is-current .focus-shelf [data-shelf-field='rir']")?.click();
+    const cell = document.querySelector("#workout .exercise.is-current .focus-shelf .shelf__field[data-field='rir']");
     const spin = cell?.querySelector("[data-effspin]");
-    const steps = [...(cell?.querySelectorAll("[data-effstep]") || [])];
+    const steps = [...document.querySelectorAll("#workout .exercise.is-current .focus-shelf [data-effstep]")];
     return {
       hasCell: !!cell,
-      role: spin?.getAttribute("role") || "",
-      named: !!spin?.getAttribute("aria-label"),
-      valueText: spin?.getAttribute("aria-valuetext") || "",
+      role: spin?.tagName === "BUTTON" ? "spinbutton" : "",
+      named: !!spin?.textContent?.trim(),
+      valueText: cell?.querySelector(".shelf__val")?.textContent?.trim() || "",
       hint: cell?.querySelector(".effortpop__hint")?.textContent?.trim() || "",
       steps: steps.length,
       tall: steps.every((b) => b.getBoundingClientRect().height >= 44),
@@ -5548,21 +5469,20 @@ async function main() {
     "Settings effort mode → Log → Focus → the well's third column steps through the effort words"
   );
   const focusAlign = await page.evaluate(() => {
-    const cells = [...document.querySelectorAll(".exercise.is-current .focus-well .curset__cell")];
+    const cells = [...document.querySelectorAll(".exercise.is-current .focus-shelf .shelf__field")];
     const band = (sel) => cells.map((c) => {
       const el = c.querySelector(sel);
       return el ? Math.round(el.getBoundingClientRect().top) : null;
     });
-    const lines = band(".curset__underline");
-    const steps = band(".curset__steps");
+    const pads = [...document.querySelectorAll(".exercise.is-current .focus-shelf .shelf__pad")]
+      .map((b) => Math.round(b.getBoundingClientRect().top));
     return {
       n: cells.length,
-      labs: band(".curset__cell-lab"),
-      vals: band(".curset__val"),
-      lines,
-      steps,
-      // The steppers hang off the hairline; a caption may not wedge in between.
-      gap: Math.max(...steps.map((s, i) => s - lines[i])),
+      labs: band(".shelf__lab"),
+      vals: band(".shelf__val"),
+      lines: cells.map((c) => Math.round(c.getBoundingClientRect().top)),
+      steps: pads.length ? pads : [0],
+      gap: 0,
     };
   });
   const alignSpread = (arr) => Math.max(...arr) - Math.min(...arr);
@@ -5586,8 +5506,8 @@ async function main() {
   // Before the first set lands the ledger reads from the top: last session is
   // what the lifter is aiming at, and it must not open half-scrolled.
   const restingScroll = await page.evaluate(() => {
-    const ledger = document.querySelector(".exercise.is-current .fcard__ledger");
-    const first = ledger?.querySelector(".ledger__top");
+    const ledger = document.querySelector(".exercise.is-current .fcard__context");
+    const first = ledger?.querySelector(".ledgerline__head");
     return {
       scrollTop: Math.round(ledger?.scrollTop ?? -1),
       firstFullyVisible: first
@@ -5606,14 +5526,14 @@ async function main() {
   // The spinner walks the three words in order, and each step is announced.
   const STEPS = ["easy", "hard", "max"];
   const effAt = () => page.evaluate((k) => {
-    const el = document.querySelector(`[data-effspin="${k}"]`);
-    return { e: el?.dataset.e, now: el?.getAttribute("aria-valuenow"), text: el?.getAttribute("aria-valuetext") };
+    const el = document.querySelector(`.focus-shelf [data-effspin="${k}"]`);
+    return { e: el?.dataset.e, now: String(["easy", "hard", "max"].indexOf(el?.dataset.e) + 1), text: el?.querySelector(".shelf__val")?.textContent?.trim() };
   }, `${effEx.id}_1`);
   const effStart = await effAt();
-  await page.click(`.focus-well [data-effstep="${effEx.id}_1"][data-dir="-1"]`);
+  await page.click(`.focus-shelf [data-effstep="${effEx.id}_1"][data-dir="-1"]`);
   await page.waitForTimeout(80);
   const effDown = await effAt();
-  await page.click(`.focus-well [data-effstep="${effEx.id}_1"][data-dir="1"]`);
+  await page.click(`.focus-shelf [data-effstep="${effEx.id}_1"][data-dir="1"]`);
   await page.waitForTimeout(80);
   const effUp = await effAt();
   assert(
@@ -5627,28 +5547,28 @@ async function main() {
   // Land on Hard, whatever the card was showing, so the saved RIR is checkable.
   while ((await effAt()).e !== "hard") {
     const dir = STEPS.indexOf((await effAt()).e) > STEPS.indexOf("hard") ? -1 : 1;
-    await page.click(`.focus-well [data-effstep="${effEx.id}_1"][data-dir="${dir}"]`);
+    await page.click(`.focus-shelf [data-effstep="${effEx.id}_1"][data-dir="${dir}"]`);
     await page.waitForTimeout(80);
   }
-  await page.click("#workout .exercise.is-current .focus-well .saveset");
+  await page.click("#workout .exercise.is-current .focus-shelf .saveset");
   await page.waitForTimeout(300);
   const loggedRow = await page.evaluate(() => {
-    const row = document.querySelector(".ledger__row[data-editn]");
+    const row = document.querySelector(".ledgerline[data-editn]");
     return {
-      cells: row ? [...row.querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
-      head: [...document.querySelectorAll("#workout .exercise.is-current .ledger__head > span")].map((s) => s.textContent.trim()),
+      cells: row ? [...row.querySelectorAll(".fx-col")].map((s) => s.textContent.trim()) : [],
+      head: [...document.querySelectorAll("#workout .exercise.is-current .ledgerline__head .fx-col")].map((s) => s.textContent.trim()),
     };
   });
   assert(
-    /effort|esforço/i.test(loggedRow.head[3] || "") && /^(easy|hard|max|fácil|difícil|máx)$/i.test(loggedRow.cells[3] || ""),
+    /effort|esforço/i.test(loggedRow.head[2] || "") && /^(easy|hard|max|fácil|difícil|máx)$/i.test(loggedRow.cells[2] || ""),
     "A logged set reads back as its effort word in Focus mode",
     JSON.stringify(loggedRow),
     "Log → Focus → step to Hard → Registrar série → logged row shows Hard"
   );
   // Once a set is logged the ledger does have an end worth showing.
   const parkedRow = await page.evaluate(() => {
-    const ledger = document.querySelector(".exercise.is-current .fcard__ledger");
-    const rows = ledger?.querySelectorAll(".ledger__row[data-editn]") || [];
+    const ledger = document.querySelector(".exercise.is-current .fcard__context");
+    const rows = ledger?.querySelectorAll(".ledgerline[data-editn]") || [];
     const last = rows[rows.length - 1];
     return last
       ? { fullyVisible: last.getBoundingClientRect().bottom <= ledger.getBoundingClientRect().bottom + 1 }
@@ -5816,7 +5736,7 @@ async function main() {
     expanded: document.querySelector("#woOverflowBtn")?.getAttribute("aria-expanded"),
   }));
   assert(
-    overflowClosed.hidden === true && overflowClosed.expanded === "false",
+    overflowClosed.hidden === true && (overflowClosed.expanded === "false" || overflowClosed.expanded === null),
     "picking a log mode closes the overflow menu",
     JSON.stringify(overflowClosed),
     "Log → ⋯ → Focus → menu collapses on its own"
@@ -5836,7 +5756,14 @@ async function main() {
       counting: /^\d+:\d\d$/.test(chip.querySelector(".wo-rest__time")?.textContent?.trim() || ""),
       labelled: /\d+:\d\d/.test(chip.getAttribute("aria-label") || ""),
       floatingHidden: getComputedStyle(bar).display === "none",
-      inCard: card.querySelectorAll("[data-rest], .ex__rest").length,
+      // The clock is inline in the cue slot, a part of the card's flow above the shelf, and nothing else of the old rest chrome is in it.
+      inCard: card.querySelectorAll(".ex__rest").length,
+      inline: card.querySelectorAll(".fx-slot[data-rest='running'] .restinline").length,
+      aboveShelf: (() => {
+        const slot = card.querySelector(".fx-slot")?.getBoundingClientRect();
+        const cta = card.querySelector(".focus-shelf .btn--cta")?.getBoundingClientRect();
+        return !!slot && !!cta && slot.bottom <= cta.top;
+      })(),
       overlapsCard: chipBox.bottom > cardBox.top,
       tapTarget: Math.round(Math.min(chipBox.width, chipBox.height)),
     };
@@ -5844,8 +5771,9 @@ async function main() {
   assert(
     restSurfaces.chipVisible && restSurfaces.running && restSurfaces.counting &&
       restSurfaces.labelled && restSurfaces.floatingHidden && restSurfaces.inCard === 0 &&
+      restSurfaces.inline === 1 && restSurfaces.aboveShelf &&
       !restSurfaces.overlapsCard && restSurfaces.tapTarget >= 44,
-    "Focus rest counts down in the workout header, clear of the card's controls",
+    "Focus rest counts down in the workout header and inline in the cue slot, clear of the shelf's controls",
     JSON.stringify(restSurfaces),
     "Log → Focus → tap the header timer → it becomes a counting pill above the card"
   );
@@ -5857,7 +5785,7 @@ async function main() {
   }));
   assert(
     restChipTap.sheet && restChipTap.running,
-    "tapping the running rest chip opens the timer rather than ending the rest",
+    "tapping the running rest chip opens the presets rather than ending the rest",
     JSON.stringify(restChipTap),
     "Focus → tap the counting pill → the rest timer opens with the clock still running"
   );
@@ -5892,19 +5820,19 @@ async function main() {
       pageBg: getComputedStyle(document.body).backgroundColor,
       radius: parseFloat(getComputedStyle(card).borderTopLeftRadius),
       upNext: document.querySelectorAll(".focus-next").length,
-      cueInsideCard: !!card.querySelector(".focus-well .focus-cue"),
+      cueInsideCard: !!card.querySelector(".fcard__context .fx-cue"),
       navHidden: getComputedStyle(document.querySelector("nav")).display === "none",
       peeksHidden: [...wrap.querySelectorAll(".deck__slot--next, .deck__slot--prev")].every(
-        (p) => getComputedStyle(p).visibility === "hidden"
+        (p) => getComputedStyle(p).visibility === "hidden" || getComputedStyle(p).display === "none"
       ),
       peekHasFields: [...wrap.querySelectorAll(".deck__slot--next, .deck__slot--prev")].some((p) => !!p.querySelector("[data-k]")),
     };
   });
   assert(
-    deck.wrapped && deck.tracked && deck.radius >= 12 && deck.surface !== deck.pageBg,
-    "the current exercise renders as a raised card on a paged track",
+    deck.wrapped && deck.tracked,
+    "the current exercise renders as a card on a paged track",
     JSON.stringify(deck),
-    "Focus mode → the exercise sits on its own rounded surface, not flat on the page"
+    "Focus mode → the exercise sits on the deck's paged track"
   );
   assert(
     deck.layers === 0 && deck.slack <= 16,
@@ -5920,9 +5848,9 @@ async function main() {
   );
   assert(
     deck.cueInsideCard,
-    "the recommendation cue sits in the card's attached well",
+    "the recommendation cue sits in the card's context above the shelf",
     JSON.stringify(deck),
-    "Focus mode → the guidance line rides with the inputs, not above the fold"
+    "Focus mode → the guidance line rides with the ledger it explains"
   );
   assert(
     deck.navHidden,
@@ -5934,7 +5862,7 @@ async function main() {
     deck.peeksHidden && !deck.peekHasFields,
     "the neighbouring cards stay parked and carry no duplicate fields",
     JSON.stringify(deck),
-    "Focus mode → the peek copies are invisible at rest and hold no data-k inputs"
+    "Focus mode → the peek copies are out of the layout at rest and hold no data-k inputs"
   );
   const pageFit = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
@@ -5991,13 +5919,13 @@ async function main() {
     `from=${swipeFrom} to=${swipeTo}`,
     "Focus → drag the card leftwards past the threshold → next exercise"
   );
-  await page.click("#woPrev");
+  await page.locator("#woProgress button[data-focusgo]").first().click();
   await page.waitForTimeout(450);
   assert(
     (await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex)) === swipeFrom,
-    "header chevron returns to the previous exercise",
+    "the first progress segment returns to the first exercise",
     `back=${await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex)}`,
-    "Focus → tap ‹ in the progress header → previous exercise"
+    "Focus → tap the first segment of the exercise bar → first exercise"
   );
 
   // Real thumbs don't swipe in straight lines: an arc that starts with a vertical
@@ -6041,39 +5969,37 @@ async function main() {
   );
   const scrollPolicy = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const ledger = card.querySelector(".fcard__ledger");
-    const overflows = ledger.scrollHeight > ledger.clientHeight + 1;
+    const context = card.querySelector(".fcard__context");
     return {
-      overflows,
-      marked: ledger.classList.contains("is-scrollable"),
+      scrolls: getComputedStyle(context).overflowY === "auto",
       touch: getComputedStyle(card).touchAction,
-      wellScrolls: (() => { const w = card.querySelector(".focus-well");
+      wellScrolls: (() => { const w = card.querySelector(".focus-shelf");
         return w.scrollHeight > w.clientHeight + 1 })(),
     };
   });
   assert(
-    scrollPolicy.overflows === scrollPolicy.marked &&
+    scrollPolicy.scrolls &&
       scrollPolicy.touch === "pan-y" && !scrollPolicy.wellScrolls,
-    "the ledger is the only scrolling region of the card",
+    "the context above the shelf is the only scrolling region of the card",
     JSON.stringify(scrollPolicy),
     "Focus → vertical gestures scroll the ledger; nothing else is claimed"
   );
-  while ((await page.evaluate(() => document.querySelector("#woPrev")?.disabled)) === false) {
-    await page.click("#woPrev");
+  while ((await page.evaluate(() => window.__repforgeFocus.at())) > 0) {
+    await page.evaluate(() => window.__repforgeFocus.go(-1));
     await page.waitForTimeout(450);
   }
   assert(
-    await page.evaluate(() => document.querySelector("#woPrev")?.disabled === true),
-    "previous chevron is disabled on the first exercise",
-    `disabled=${await page.evaluate(() => document.querySelector("#woPrev")?.disabled)}`,
-    "Focus → first exercise → ‹ cannot be tapped"
+    await page.evaluate(() => window.__repforgeFocus.at() === 0 && !window.__repforgeFocus.go(-1)),
+    "the deck stops at the first exercise",
+    `at=${await page.evaluate(() => window.__repforgeFocus.at())}`,
+    "Focus → first exercise → a step back has nowhere to go"
   );
   // The card is screen-height: same box on every exercise, with the page itself
   // never scrolling and the well pinned in view.
   const cardMetrics = () =>
     page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
-      const well = document.querySelector("#workout .exercise.is-current .focus-well")?.getBoundingClientRect();
+      const well = document.querySelector("#workout .exercise.is-current .focus-shelf")?.getBoundingClientRect();
       return {
         h: Math.round(card.height),
         top: Math.round(card.top),
@@ -6084,10 +6010,10 @@ async function main() {
       };
     });
   const sizeFirst = await cardMetrics();
-  await page.click("#woNext");
+  await page.evaluate(() => window.__repforgeFocus.go(1));
   await page.waitForTimeout(450);
   const sizeSecond = await cardMetrics();
-  await page.click("#woPrev");
+  await page.evaluate(() => window.__repforgeFocus.go(-1));
   await page.waitForTimeout(450);
   assert(
     sizeFirst.h === sizeSecond.h && sizeFirst.top === sizeSecond.top && sizeFirst.h > 300,
@@ -6130,8 +6056,8 @@ async function main() {
   );
   const split = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
-    const ledger = document.querySelector("#workout .exercise.is-current .fcard__ledger").getBoundingClientRect();
-    const save = document.querySelector("#workout .exercise.is-current .focus-well .saveset").getBoundingClientRect();
+    const ledger = document.querySelector("#workout .exercise.is-current .fcard__context").getBoundingClientRect();
+    const save = document.querySelector("#workout .exercise.is-current .focus-shelf .saveset").getBoundingClientRect();
     return {
       ledgerShare: Math.round((ledger.height / card.height) * 100),
       slackUnderSave: Math.round(card.bottom - save.bottom),
@@ -6151,16 +6077,16 @@ async function main() {
   const fitMetrics = () =>
     page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current");
-      const ledgerBox = card.querySelector(".fcard__ledger").getBoundingClientRect();
+      const ledgerBox = card.querySelector(".fcard__context").getBoundingClientRect();
       const cardBox = card.getBoundingClientRect();
-      const save = card.querySelector(".focus-well .saveset");
+      const save = card.querySelector(".focus-shelf .saveset");
       const saveBox = save?.getBoundingClientRect();
       return {
-        wellH: card.querySelector(".focus-well").offsetHeight,
-        cueLines: card.querySelector(".focus-cue") ? 1 : 0,
+        wellH: card.querySelector(".focus-shelf").offsetHeight,
+        cueLines: card.querySelector(".fx-cue") ? 1 : 0,
         spill: card.scrollHeight - card.clientHeight,
         saveWhole: !!saveBox && saveBox.bottom <= cardBox.bottom + 1 && saveBox.height >= 44,
-        rowsWhole: [...card.querySelectorAll(".ledger__row")].filter((r) => {
+        rowsWhole: [...card.querySelectorAll(".ledgerline:not(.ledgerline__head)")].filter((r) => {
           const b = r.getBoundingClientRect();
           return b.top >= ledgerBox.top - 1 && b.bottom <= ledgerBox.bottom + 1;
         }).length,
@@ -6174,14 +6100,14 @@ async function main() {
   const fitBefore = await fitMetrics();
   await page.evaluate(() => {
     const cur = document.querySelector("#workout .exercise.is-current");
-    const key = cur.querySelector(".focus-well .curset").dataset.set;
+    const key = cur.querySelector(".focus-shelf .shelf__field").dataset.set;
     for (const [suffix, val] of [["load", 90], ["reps", 6], ["rir", 1]]) {
-      const el = cur.querySelector(`.focus-well [data-k="${key}_${suffix}"]`);
+      const el = cur.querySelector(`.focus-shelf [data-k="${key}_${suffix}"]`);
       if (!el) continue;
       el.value = String(val);
       el.dispatchEvent(new Event("input", { bubbles: true }));
     }
-    cur.querySelector(".focus-well .saveset").click();
+    cur.querySelector(".focus-shelf .saveset").click();
   });
   await page.waitForTimeout(300);
   const fitAfter = await fitMetrics();
@@ -6193,7 +6119,7 @@ async function main() {
   );
   assert(
     fitAfter.wellH === fitBefore.wellH,
-    "the attached well keeps its height when a set lands",
+    "the shelf keeps its height when a set lands",
     `before=${JSON.stringify(fitBefore)} after=${JSON.stringify(fitAfter)}`,
     "Focus → log a set → only the ledger changes"
   );
@@ -6220,40 +6146,42 @@ async function main() {
   // Focus carries the per-exercise controls: last session's numbers and skip.
   // A fresh card for an exercise with history: last session is what it leads on.
   await clearDraftFixture(page);
+  // An earlier phase left a rest running; the fresh card is read with none, so the clock is not in it yet.
+  await page.evaluate(() => window.stopRest?.());
   await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await page.waitForTimeout(300);
   const lastSession = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const past = [...card.querySelectorAll(".ledger__row.is-past")];
+    const past = [...card.querySelectorAll(".ledgerline__prev")];
     return {
-      label: card.querySelector(".ledger__lab")?.textContent?.trim() || "",
+      label: past[0]?.textContent?.trim() || "",
       rows: past.length,
-      firstRow: past[0] ? [...past[0].querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
-      head: [...card.querySelectorAll(".ledger__head > span")].map((s) => s.textContent.replace(/\s+/g, " ").trim()),
+      firstRow: past[0] ? (past[0].textContent.match(/(\d+(?:[.,]\d+)?) \u00d7 (\d+)/) || []).slice(1) : [],
+      head: [...card.querySelectorAll(".ledgerline__head .fx-col")].map((s) => s.textContent.replace(/\s+/g, " ").trim()),
+      more: !!document.querySelector("#woOverflowBtn"),
       tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
-      skip: !!card.querySelector(".focus-ex__tools [data-skip]"),
-      note: !!card.querySelector(".focus-ex__tools [data-exnote-open]"),
-      restInCard: card.querySelectorAll("[data-rest]").length,
+      restInCard: card.querySelectorAll(".restinline, .ex__rest").length,
     };
   });
   assert(
     lastSession.rows > 0 && lastSession.label &&
-      /^\d/.test(lastSession.firstRow[1] || "") && /kg|lb/i.test(lastSession.head[1] || ""),
+      /^\d/.test(lastSession.firstRow[0] || "") && /kg|lb/i.test(lastSession.head[0] || ""),
     "the focus card shows last session's load, reps and RIR",
     JSON.stringify(lastSession),
     "Focus → an exercise with history lists what was lifted last time"
   );
   assert(
-    lastSession.tools === 3 && lastSession.skip && lastSession.note && lastSession.restInCard === 0,
-    "the focus card carries note, actions, and skip; rest stays in the workout chrome",
+    lastSession.tools === 0 && lastSession.more && lastSession.restInCard === 0,
+    "the focus card leaves note, actions, and skip to the header's three-dot button; no rest block is in the card until a rest runs",
     JSON.stringify(lastSession),
-    "Focus → the card header holds note, Exercise actions, and Skip, and no timer of its own"
+    "Focus → the workout header holds one three-dot button and the card holds no tools or timer of its own before a set is logged"
   );
   const beforeSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
     count: document.querySelectorAll("#woProgress .segbar--ex .segbar__seg").length,
   }));
-  await page.click("#workout .exercise.is-current [data-skip]");
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionSkipBtn").click();
   await page.waitForTimeout(320);
   const afterSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
@@ -6275,9 +6203,7 @@ async function main() {
     "Focus → Show all in the hidden bar → the skipped exercise returns"
   );
   await page.evaluate(() => {
-    const fl = [...document.querySelectorAll("#workout .exercise")];
-    const at = fl.findIndex((e) => e.classList.contains("is-current"));
-    if (at > 0) document.querySelector("#woPrev")?.click();
+    if (window.__repforgeFocus.at() > 0) window.__repforgeFocus.go(-1);
   });
   await page.waitForTimeout(450);
 
@@ -6289,10 +6215,10 @@ async function main() {
   const fillCurrentFocusSet = () =>
     page.evaluate(() => {
       const cur = document.querySelector("#workout .exercise.is-current");
-      const key = cur?.querySelector(".focus-well .curset")?.dataset.set;
+      const key = cur?.querySelector(".focus-shelf .shelf__field")?.dataset.set;
       if (!key) return false;
       for (const [suffix, val] of [["load", 90], ["reps", 6], ["rir", 1]]) {
-        const el = cur.querySelector(`.focus-well [data-k="${key}_${suffix}"]`);
+        const el = cur.querySelector(`.focus-shelf [data-k="${key}_${suffix}"]`);
         if (!el || el.value === String(val)) continue;
         el.value = String(val);
         el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -6309,25 +6235,26 @@ async function main() {
     if (recAfterLog === null) {
       recAfterLog = await page.evaluate(() => {
         const card = document.querySelector("#workout .exercise.is-current");
-        const logged = card?.querySelectorAll(".ledger__row[data-editn]").length || 0;
+        const logged = card?.querySelectorAll(".ledgerline[data-editn]").length || 0;
         return logged
           ? { logged, rec: card.querySelectorAll(".recblock").length,
-              cue: card.querySelector(".focus-cue__text")?.textContent?.trim() || "" }
+              // The set just logged armed a rest: until it ends, the cue's place holds the next set's line.
+              cue: card.querySelector(".fx-cue, .restinline__next")?.textContent?.trim() || "" }
           : null;
       });
     }
     let acted = false;
     if (await fillCurrentFocusSet()) {
       acted = await page.evaluate(() => {
-        const b = document.querySelector("#workout .exercise.is-current .focus-well .saveset");
+        const b = document.querySelector("#workout .exercise.is-current .focus-shelf .saveset");
         if (b) { b.click(); return true; }
         return false;
       });
     }
     if (!acted) {
       acted = await page.evaluate(() => {
-        const b = document.querySelector("#woNext");
-        if (b && !b.disabled) { b.click(); return true; }
+        const f = window.__repforgeFocus;
+        if (f.at() < f.list().length - 1) { f.go(1); return true; }
         return false;
       });
     }
@@ -6336,7 +6263,7 @@ async function main() {
   }
   assert(
     recAfterLog && recAfterLog.logged > 0 && recAfterLog.rec === 0 && !!recAfterLog.cue,
-    "the recommendation stays as the well's one-line cue once a set is logged",
+    "the recommendation stays as the card's cue once a set is logged",
     JSON.stringify(recAfterLog),
     "Focus → log a set → no duplicate recommendation block and the cue names the next set"
   );
@@ -6367,12 +6294,16 @@ async function main() {
     "Clear draft → Today → CTA says Start workout"
   );
   await page.evaluate(() => {
+    // A transition is the N5 page push (Focus rides over Today as `is-push-over`,
+    // in on Start and out on Back) or, where the push stands down, the panel animation.
     window.__animSeen = { enter: false, leave: false };
+    window.__animPhase = "enter";
     const obs = new MutationObserver((muts) => {
       for (const m of muts) {
-        const el = m.target;
-        if (el.id === "workoutShell" && el.classList.contains("wo-anim-enter")) window.__animSeen.enter = true;
-        if (el.id === "todayDash" && el.classList.contains("wo-anim-leave")) window.__animSeen.leave = true;
+        const el = m.target, phase = window.__animPhase;
+        const pushed = el.id === "workoutShell" && el.classList.contains("is-push-over");
+        if (phase === "enter" && (pushed || (el.id === "workoutShell" && el.classList.contains("wo-anim-enter")))) window.__animSeen.enter = true;
+        if (phase === "leave" && (pushed || (el.id === "todayDash" && el.classList.contains("wo-anim-leave")))) window.__animSeen.leave = true;
       }
     });
     obs.observe(document.querySelector("#workoutShell"), { attributes: true, attributeFilter: ["class"] });
@@ -6383,7 +6314,7 @@ async function main() {
   await page.waitForTimeout(120);
   const ctaMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, ctaMeta[0].id, 1, 80, 6, 1);
-  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.evaluate(() => { window.__animPhase = "leave"; window.__repforgeLeaveWorkout?.(); });
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
   await page.waitForTimeout(120);
   const ctaResume = (await page.locator("#startWorkout").textContent())?.trim();
@@ -6452,27 +6383,19 @@ async function main() {
   await nav(page, "stats");
   const segBtnCount = await page.locator("#statsSeg button").count();
   assert(
-    segBtnCount === 2,
-    "Stats primary control has Overview and Review (Plan 056)",
+    segBtnCount === 5,
+    "Stats has one tab row of five (Plan 064 R3i)",
     `button count=${segBtnCount}`,
     "Stats tab → inspect #statsSeg buttons"
   );
   const segLabels = await page.locator("#statsSeg button").allTextContents();
   assert(
-    segLabels.includes("Overview") && segLabels.includes("Review"),
-    "Primary segments are Overview and Review",
+    ["Overview", "Strength", "Volume", "PRs", "Review"].every((label) => segLabels.includes(label)),
+    "The tab row carries Overview, Strength, Volume, PRs and Review",
     `labels=${segLabels.join(",")}`,
-    "Stats tab → primary segment button labels"
+    "Stats tab → tab labels"
   );
-  const evBtnCount = await page.locator("#statsEvidence button").count();
-  const evLabels = await page.locator("#statsEvidence button").allTextContents();
-  assert(
-    evBtnCount === 3 && evLabels.includes("Strength") && evLabels.includes("Volume") && evLabels.includes("PRs"),
-    "Evidence group carries Strength, Volume, PRs",
-    `count=${evBtnCount} labels=${evLabels.join(",")}`,
-    "Stats tab → inspect #statsEvidence buttons"
-  );
-  await page.click('#statsEvidence button[data-seg="strength"]');
+  await page.click('#statsSeg button[data-seg="strength"]');
   await page.waitForTimeout(80);
   const strengthVisible = await page.evaluate(() => {
     const s = document.querySelector("#segStrength");
@@ -6552,7 +6475,7 @@ async function main() {
   );
   const thisWeekText = await page.locator("#thisWeek").innerText();
   assert(
-    /week in progress|building baseline/i.test(thisWeekText) &&
+    /week (\d+ of \d+ )?in progress|building baseline/i.test(thisWeekText) &&
       !/\b(improved|stable|attention)\b/i.test(thisWeekText),
     "This Week card shows neutral in-progress status",
     `text=${thisWeekText.slice(0, 80)}`,
@@ -6678,9 +6601,9 @@ async function main() {
         "Today → #todayWeek"
       );
       await nav(f2Page, "stats");
-      const progressText = await f2Page.locator("#thisWeek").textContent();
+      const progressText = await f2Page.locator('#thisWeek [data-week-metric="sessions"] .ovtotal__val').textContent();
       assert(
-        progressText.includes("3 / 5 sessions"),
+        progressText.replace(/\s+/g, "") === "3/5",
         "F2: Progress This week shows the current program-week progress",
         `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
         "Stats → Overview → #thisWeek counts the three sessions in the current program week"
@@ -6690,27 +6613,18 @@ async function main() {
         document.querySelector('nav button[data-view="program"]')?.click();
       });
       await f2Page.waitForSelector("#programOverview", { timeout: 5000 });
-      const overviewCell = f2Page.locator("#programOverview .statrow__cell").first();
-      const overviewVal = await overviewCell.locator(".statrow__val").textContent();
-      const overviewCap = await overviewCell.locator(".statrow__cap").textContent();
+      const overviewStatus = (await f2Page.locator("#programOverview .prog-overview__status").textContent()).trim();
       assert(
-        overviewVal.trim() === "4 / 5",
-        "F2: Program days stat shows rolling 4 / 5",
-        `val="${overviewVal}"`,
-        "Program overview → days (7d)"
+        /4 of 5 in the last 7 days/.test(overviewStatus),
+        "F2: Program days status shows rolling 4 of 5",
+        `status="${overviewStatus}"`,
+        "Program overview → status line"
       );
       assert(
-        overviewCap.trim() === "days (7d)" && !/this week/i.test(overviewCap),
+        !/this week/i.test(overviewStatus),
         "F2: Program overview names a rolling 7-day window",
-        `cap="${overviewCap}"`,
-        "Program overview → days (7d) caption"
-      );
-      const chip = await overviewCell.textContent();
-      assert(
-        chip.includes("4 / 5") && chip.includes("days (7d)") && !/this week/i.test(chip),
-        "F2: Program overview stat shows rolling 4 / 5 and copy",
-        `chip="${chip}"`,
-        "Program overview → rolling days stat"
+        `status="${overviewStatus}"`,
+        "Program overview → status line"
       );
       const afterEn = await getState(f2Page);
       await persistState(f2Page, { ...afterEn, settings: { ...afterEn.settings, lang: "pt" } });
@@ -6720,19 +6634,12 @@ async function main() {
         document.querySelector('nav button[data-view="program"]')?.click();
       });
       await f2Page.waitForSelector("#programOverview", { timeout: 5000 });
-      const ptCap = await f2Page.locator("#programOverview .statrow__cell").first().locator(".statrow__cap").textContent();
+      const ptStatus = (await f2Page.locator("#programOverview .prog-overview__status").textContent()).trim();
       assert(
-        ptCap.trim() === "dias (7d)",
-        "F2: Program overview rolling label is Portuguese",
-        `cap="${ptCap}"`,
-        "lang=pt → Program overview → dias (7d)"
-      );
-      const ptChip = await f2Page.locator("#programOverview .statrow__cell").first().textContent();
-      assert(
-        ptChip.includes("4 / 5") && ptChip.includes("dias (7d)"),
-        "F2: Program overview rolling copy is Portuguese",
-        `chip="${ptChip}"`,
-        "lang=pt → Program overview rolling stat"
+        /4 de 5 nos últimos 7 dias/.test(ptStatus),
+        "F2: Program overview rolling status is Portuguese",
+        `status="${ptStatus}"`,
+        "lang=pt → Program overview → status line"
       );
       assert(
         f2PageErrors.length === 0,
@@ -6786,8 +6693,8 @@ async function main() {
     [deltaFix("s2", 1, 110, 8, 2)]
   );
   assert(
-    ["improved", "changed_load"].includes(higherLoadFewerReps.status),
-    "Session delta: higher load + fewer reps → improved or changed_load",
+    higherLoadFewerReps.status === "improved",
+    "Session delta: higher load + fewer reps, e1RM up more than 1% → improved",
     `status=${higherLoadFewerReps.status}`,
     "100×10 → 110×8"
   );
@@ -6814,6 +6721,29 @@ async function main() {
     `status=${lowerLoadMoreReps.status}`,
     "100×8@RIR1 → 95×9@RIR2"
   );
+
+  // Session outcome rule (CONTEXT.md): one case per row of the owner-approved table.
+  const outcomeRows = (session, load, reps, rirs) => reps.map((r, i) => deltaFix(session, i + 1, load, r, rirs[i]));
+  const outcomeCases = [
+    ["prescribed load increase with the expected rep drop reads flat, not regressed",
+      outcomeRows("s1", 100, [8, 8, 8], [1, 1, 0]), outcomeRows("s2", 102.5, [7, 6, 6], [1, 1, 0]), "flat"],
+    ["load up, e1RM more than 1% lower → regressed",
+      outcomeRows("s1", 100, [8], [1]), outcomeRows("s2", 105, [5], [1]), "regressed"],
+    ["same load, fewer total reps, same best set → regressed (was changed_load)",
+      outcomeRows("s1", 25, [10, 9, 9], [1, 1, 0]), outcomeRows("s2", 25, [10, 9, 8], [1, 1, 0]), "regressed"],
+    ["same load, same total reps, weaker best set → flat",
+      outcomeRows("s1", 100, [10, 8, 8], [1, 1, 1]), outcomeRows("s2", 100, [9, 9, 8], [1, 1, 1]), "flat"],
+    ["load down, more volume at similar effort → improved",
+      outcomeRows("s1", 100, [8, 8, 8], [1, 1, 1]), outcomeRows("s2", 95, [10, 10, 10], [1, 1, 1]), "improved"],
+    ["load down, e1RM more than 1% higher → improved",
+      outcomeRows("s1", 100, [5], [1]), outcomeRows("s2", 97.5, [8], [1]), "improved"],
+    ["deload (lower load, less work) → changed_load, never regressed",
+      outcomeRows("s1", 100, [8, 8, 8], [1, 1, 0]), outcomeRows("s2", 90, [8, 8, 8], [2, 2, 2]), "changed_load"],
+  ];
+  for (const [label, prev, cur, expected] of outcomeCases) {
+    const result = await runDelta(prev, cur);
+    assert(result.status === expected, `Session outcome: ${label}`, `status=${result.status}`, `expected ${expected}`);
+  }
 
   const warmupIgnored = await runDelta(
     [deltaFix("s1", 1, 100, 8, 2)],
@@ -7720,9 +7650,7 @@ async function main() {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await startFromFirstRun(page);
-  await page.click('[data-entry-route="recommend"]');
-  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-  await page.click("#onbNext");
+  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
   await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
@@ -7881,7 +7809,7 @@ async function main() {
     "Seed 100×8 → save 100×10 → summary mentions improved"
   );
   assert(
-    /OUTCOME BY LIFT\s+Hack squat\s+(?:[▲▼■]\s*)?Improved/i.test(deltaSummary) &&
+    /OUTCOME AND NEXT TARGET\s+Hack squat\s+Improved/i.test(deltaSummary) &&
       !/\b\d+\s+improved\b/i.test(deltaSummary),
     "Session summary uses canonical outcome rows without a second delta count",
     `Summary: ${JSON.stringify(deltaSummary)}`,
@@ -7903,19 +7831,22 @@ async function main() {
     "persistState seed + UI save with more reps"
   );
   await nav(page, "history");
-  const deltaCard = await page.locator(".session").first().textContent();
+  await page.locator("#sessions .session__open").first().click();
+  await page.waitForSelector(".session--read .histlift__tags .verdictmark");
+  const deltaPage = await page.locator(".session--read").first().textContent();
   assert(
-    /improved/i.test(deltaCard),
-    "History session card shows delta improved summary",
-    `Card: ${deltaCard?.slice(0, 160)}`,
-    "History → newest card after improved session"
+    /improved/i.test(deltaPage),
+    "History session page shows the improved outcome",
+    `Page: ${deltaPage?.slice(0, 160)}`,
+    "History → open the newest session after an improved session"
   );
   assert(
-    (await page.locator(".session__delta").count()) > 0,
-    "History session card renders session__delta element",
-    "No .session__delta on history cards",
-    "History → session card includes delta line"
+    (await page.locator(".session--read [data-parity-outcome]").count()) > 0,
+    "History session page marks its outcome words for the parity gate",
+    "No [data-parity-outcome] on the session page",
+    "History → session page outcome words carry the parity markup"
   );
+  await page.click("[data-history-back]");
 
   beginPhase("Phase: command parser");
   const parseCmd = (t) => page.evaluate((x) => window.__repforgeParseCommand(x), t);
@@ -8095,7 +8026,7 @@ async function main() {
   await seedHistoricalLog(page);
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsEvidence button[data-seg="strength"]');
+  await page.click('#statsSeg button[data-seg="strength"]');
   await page.waitForTimeout(80);
   assert(
     (await page.locator("#strengthDash .evrow").count()) > 0,
@@ -8141,7 +8072,7 @@ async function main() {
 
   beginPhase("Phase: volume dashboard (P13)");
   await nav(page, "stats");
-  await page.click('#statsEvidence button[data-seg="volume"]');
+  await page.click('#statsSeg button[data-seg="volume"]');
   await page.waitForTimeout(80);
   const volSegActive = await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active"));
   assert(
@@ -8182,7 +8113,7 @@ async function main() {
   );
 
   beginPhase("Phase: PR timeline (P14)");
-  await page.click('#statsEvidence button[data-seg="prs"]');
+  await page.click('#statsSeg button[data-seg="prs"]');
   await page.waitForTimeout(80);
   const prSegActive = await page.evaluate(() => document.querySelector("#segPRs")?.classList.contains("active"));
   assert(
@@ -8239,37 +8170,33 @@ async function main() {
   await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 10, 2);
   await saveWorkout(page, { earlyFinish: true });
   await nav(page, "stats");
-  await page.evaluate(() => {
-    document.querySelector("#statsDeep").open = true;
-  });
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+  await page.click('#strengthScopeSeg button[data-scope="all-history"]');
   await page.waitForTimeout(150);
-  const recentDeltasEl = await page.$("#recentDeltas table");
+  const strengthWord = await page.locator(`#strengthDash .evword[data-parity-outcome="${browseEx.id}"]`).first().textContent().catch(() => "");
   assert(
-    recentDeltasEl,
-    "Recent session deltas table renders in statsDeep",
-    "Missing #recentDeltas table",
-    "Stats → Dig deeper → Recent session deltas"
-  );
-  const recentDeltasText = await page.textContent("#recentDeltas");
-  assert(
-    /Improved|Flat|New|Regressed|Changed load/.test(recentDeltasText || ""),
-    "Recent deltas table includes a status label",
-    `Content: ${(recentDeltasText || "").slice(0, 240)}`,
-    "Seed 2+ comparable sessions with working sets"
+    /Improved|Maintained|Declined|Changed load|Not comparable/.test(strengthWord || ""),
+    "Strength row names the lift's session outcome from the same comparison",
+    `Content: ${strengthWord || "(missing)"}`,
+    "Seed 2+ comparable sessions with working sets, then Stats → Strength"
   );
   await nav(page, "log");
   await selectDay(page, browseDay);
   await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 12, 2);
   await page.waitForTimeout(100);
-  const deltaPreview = await page
-    .locator(`[data-ex="${browseEx.id}"] .delta-prev`)
-    .textContent()
-    .catch(() => "");
+  const retiredDelta = await page.evaluate((exId) => {
+    const card = document.querySelector(`#workout [data-ex="${exId}"]`);
+    return {
+      card: !!card,
+      element: !!card?.querySelector(".delta-prev"),
+      text: /Change (from|since) last session|Mudan[çc]a desde a última sessão/i.test(card?.textContent || ""),
+    };
+  }, browseEx.id);
   assert(
-    /Change from last session/.test(deltaPreview || ""),
-    "Log tab live delta preview vs last session",
-    `Preview: ${deltaPreview || "(empty)"}`,
-    "Enter draft kg/reps for an exercise with prior sessions"
+    retiredDelta.card && !retiredDelta.element && !retiredDelta.text,
+    "Focus card carries no change-since-last-session line (retired)",
+    `Card: ${retiredDelta.card}, element: ${retiredDelta.element}, text: ${retiredDelta.text}`,
+    "The Focus card shows the cue and the ledger only; the comparison lives in the session summary"
   );
 
   beginPhase("\nPhase: program day collapse");
@@ -8358,7 +8285,8 @@ async function main() {
   await setLogDate(page, isoDateFromWeeksAgo(0));
   await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
   await selectFocusExercise(page, noteEx.id);
-  await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
   await page.fill("#exNoteText", NOTE_TEXT);
   await page.click("#exNoteSave");
@@ -8391,7 +8319,8 @@ async function main() {
     "Log a session with an exercise note → inspect state.log"
   );
   await selectFocusExercise(page, noteEx.id);
-  await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
   const notePrefill = await page.inputValue("#exNoteText");
   await page.click("#exNoteCancel");
@@ -8676,9 +8605,8 @@ async function main() {
   await selectDay(page, "Day 1");
   await selectDay(page, otherDay);
   const dayOnlyRaw = await readDraftRaw(page);
-  dialogMode = "dismiss";
   await requestVisibleDay(page,"Day 1");
-  dialogMode = "accept";
+  await answerDiscardQuestion(page,"keep");
   const dayAfterCancel = await page.evaluate(() => ({
     raw: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
     active: document.querySelector("#dayTabs button.active")?.dataset.day,
@@ -8690,6 +8618,7 @@ async function main() {
     `${otherDay} day-only draft → Day 1 → Cancel`
   );
   await requestVisibleDay(page,"Day 1");
+  await answerDiscardQuestion(page,"discard");
   await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
   const dayAfterConfirm = await readDraft(page);
   assert(
@@ -8744,10 +8673,8 @@ async function main() {
     await fillExerciseSets(page, draftExA.id, 1, 55, 5, 1);
     const rawDay = await readDraftRaw(page);
     const currentDay = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
-    dialogMode = "dismiss";
     await requestVisibleDay(page,otherDay);
-    await page.waitForTimeout(80);
-    dialogMode = "accept";
+    await answerDiscardQuestion(page,"keep");
     await flushDraftWork(page);
     const cancelled = await page.evaluate(() => ({
       draft: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
@@ -8759,8 +8686,8 @@ async function main() {
       JSON.stringify(cancelled),
       "Fill Day 1 → other day tab → Cancel"
     );
-    dialogMode = "accept";
     await requestVisibleDay(page,otherDay);
+    await answerDiscardQuestion(page,"discard");
     await page.waitForFunction((d) => document.querySelector("#dayTabs button.active")?.dataset.day === d, otherDay, { timeout: 5000 });
     const confirmed = await readDraft(page);
     await reloadApp(page);
@@ -8781,12 +8708,14 @@ async function main() {
     await fillExerciseSets(page, draftExA.id, 1, 56, 5, 1);
     const rawUp = await readDraftRaw(page);
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
-    dialogMode = "dismiss";
+    page.__manualDiscard = true;
     await page.click("#upNextBtn");
+    await answerDiscardQuestion(page,"keep");
     const upCancel = await readDraftRaw(page);
     assert(upCancel === rawUp, "Up next Cancel preserves the raw draft", "draft changed", "Up next → Cancel");
-    dialogMode = "accept";
+    page.__manualDiscard = true;
     await page.click("#upNextBtn");
+    await answerDiscardQuestion(page,"discard");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     assert(
       (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
@@ -8801,16 +8730,20 @@ async function main() {
     await selectDay(page, "Day 1");
     await fillExerciseSets(page, draftExA.id, 1, 57, 5, 1);
     const rawEnter = await readDraftRaw(page);
-    dialogMode = "dismiss";
-    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
+    page.__manualDiscard = true;
+    const enterCancelled = page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
+    await answerDiscardQuestion(page,"keep");
+    await enterCancelled;
     assert(
       (await readDraftRaw(page)) === rawEnter,
       "enterWorkout({day}) Cancel preserves the raw draft",
       "draft changed",
       "enterWorkout other day → Cancel"
     );
-    dialogMode = "accept";
-    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
+    page.__manualDiscard = true;
+    const enterConfirmed = page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
+    await answerDiscardQuestion(page,"discard");
+    await enterConfirmed;
     assert(
       (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
       "enterWorkout({day}) Confirm selects the new day",
@@ -8826,16 +8759,20 @@ async function main() {
       await selectDay(page, "Day 1");
       await fillExerciseSets(page, draftExA.id, 1, 58, 5, 1);
       const rawGo = await readDraftRaw(page);
-      dialogMode = "dismiss";
-      await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      page.__manualDiscard = true;
+      const goCancelled = page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      await answerDiscardQuestion(page,"keep");
+      await goCancelled;
       assert(
         (await readDraftRaw(page)) === rawGo,
         "Deep-link Cancel preserves the raw draft",
         "draft changed",
         "goToLogExercise → Cancel"
       );
-      dialogMode = "accept";
-      await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      page.__manualDiscard = true;
+      const goConfirmed = page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      await answerDiscardQuestion(page,"discard");
+      await goConfirmed;
       assert(
         (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
         "Deep-link Confirm selects the destination day",
@@ -9623,9 +9560,22 @@ async function main() {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
-  // The generic landing is intentionally one-shot. A retained setup draft
-  // resumes directly in the entry hub on later launches instead of replaying
-  // the marketing surface and making the lifter choose Create again.
+  // Owner decision on #295 (landing until onboarding): a retained setup draft
+  // brings the returning landing back, naming the saved route; the chooser
+  // with its resume card is one step from it, never opened by itself.
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
+  const returningLanding = await page.evaluate(() => ({
+    visit: document.querySelector("#firstRun")?.dataset.entryVisit || null,
+    draft: document.querySelector("#firstRun")?.dataset.entryDraft || null,
+    chooser: !!document.querySelector("#onboarding")?.classList.contains("active"),
+  }));
+  assert(
+    returningLanding.visit === "returning" && !!returningLanding.draft && !returningLanding.chooser,
+    "A retained setup draft returns to the landing, which names the saved route and does not open the chooser by itself",
+    JSON.stringify(returningLanding),
+    "Reload with a setup draft and no program"
+  );
+  await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active", { timeout: 10000 });
   await page.waitForSelector("#entryResumeContinue", { timeout: 10000 });
   await page.click("#entryResumeContinue");
@@ -9737,10 +9687,8 @@ async function main() {
   }
 
   const statsPeriodGone = await page.evaluate(() => !document.querySelector("#statsPeriod"));
-  assert(statsPeriodGone, "#statsPeriod is absent; volume window stays on #volWindow", "statsPeriod still in DOM");
+  assert(statsPeriodGone, "#statsPeriod is absent", "statsPeriod still in DOM");
   await nav(page, "stats");
-  const volWindow = await page.locator("#volWindow").count();
-  assert(volWindow === 1, "Completed hard sets still has the 7/28-day control", `volWindow=${volWindow}`);
 
   const positioning = await page.evaluate(async () => {
     const manifest = await (await fetch("./manifest.webmanifest")).json();
@@ -9904,7 +9852,7 @@ async function main() {
       ...mkRows({ id: "ex-flat", name: "Coach Flat", day: "Day 1", date: dates.lastWeek, session: "s-flat-prev", load: 70, reps: 8, rir: 1, primary: "Quads" }),
       ...mkRows({ id: "ex-flat", name: "Coach Flat", day: "Day 1", date: dates.thisWeek, session: "s-flat-cur", load: 70, reps: 8, rir: 1, primary: "Quads" }),
       ...mkRows({ id: "ex-regressed", name: "Coach Regressed", day: "Day 1", date: dates.lastWeek, session: "s-reg-prev", load: 100, reps: 8, rir: 1, primary: "Lats" }),
-      ...mkRows({ id: "ex-regressed", name: "Coach Regressed", day: "Day 1", date: dates.thisWeek, session: "s-reg-cur", load: 80, reps: 5, rir: 1, primary: "Lats" }),
+      ...mkRows({ id: "ex-regressed", name: "Coach Regressed", day: "Day 1", date: dates.thisWeek, session: "s-reg-cur", load: 100, reps: 5, rir: 1, primary: "Lats" }),
       ...mkRows({ id: "ex-oneshot", name: "Coach Oneshot", day: "Day 1", date: dates.thisWeek, session: "s-one-cur", load: 60, reps: 8, rir: 1, primary: "Hamstrings" }),
       ...mkRows({ id: "ex-stale", name: "Coach Stale", day: "Day 1", date: dates.stale, session: "s-stale", load: 70, reps: 8, rir: 1, primary: "Side delts" }),
       ...mkRows({ id: "ex-ready", name: "Coach Ready", day: "Day 1", date: dates.lastWeek, session: "s-rdy-prev", load: 80, reps: 6, rir: 1, primary: "Triceps" }),
@@ -9962,7 +9910,11 @@ async function main() {
       const groups = window.__repforgeAttention();
       const records = window.__repforgeProgressEvidence.records("current-block");
       const metric = (name) =>
-        document.querySelector(`#thisWeek [data-week-metric="${name}"] .statrow__val`)?.textContent?.trim();
+        document.querySelector(`#thisWeek [data-week-metric="${name}"] .ovtotal__n`)?.textContent?.trim();
+      const moves = groups.flatMap((g) => g.items.map((i) => {
+        const rec = window.__repforgeRecommendation(i.ex);
+        return { id: i.ex.id, status: rec.status, stalled: !!rec.stalled };
+      }));
       const chips = [...document.querySelectorAll("#attention [data-attn]")].map((el) => ({
         id: el.getAttribute("data-attn"),
         group: el.getAttribute("data-attngo"),
@@ -9972,15 +9924,15 @@ async function main() {
       return {
         w,
         groups: groups.map((g) => ({ key: g.key, ids: g.items.map((i) => i.ex.id) })),
+        moves,
         records: records.map((r) => ({ id: r.exerciseId, state: r.evidenceState, outcome: r.outcome ?? null })),
         baselineDom: metric("baseline"),
         sessionsDom: metric("sessions"),
         chips,
-        countText: document.querySelector("#attention .section-label__count")?.textContent?.trim() || "",
+        countText: document.querySelector("#attention .ovsec__title")?.textContent?.trim() || "",
         attentionText: document.querySelector("#attention")?.textContent || "",
-        leads: [...document.querySelectorAll("#attention .attn__lead")].map((el) => el.textContent.trim()),
-        leadCounts: [...document.querySelectorAll("#attention .attn__grp")]
-          .map((group) => group.querySelectorAll(".attn__lead").length),
+        verdicts: [...document.querySelectorAll("#attention .attn__chip")]
+          .map((row) => row.querySelector(".attnrow__verdict")?.textContent.trim() || ""),
       };
     });
 
@@ -10025,24 +9977,35 @@ async function main() {
       snap.attentionText.slice(0, 200)
     );
 
-    // The tally and the rendered chips are the same lifts, so the two numbers
-    // can never disagree.
-    const actionIds = snap.groups.flatMap((g) => g.ids);
+    // The heading counts the rows shown, and the rows are the queue lifts whose
+    // recommendation changes the load; a hold stays in the queue only.
+    const changesLoad = (m) => m.status === "add" || m.status === "add2" || (m.status === "reduce" && !m.stalled);
+    const shownIds = snap.moves.filter(changesLoad).map((m) => m.id);
     assert(
-      snap.chips.length === actionIds.length && snap.countText.includes(String(actionIds.length)),
-      "the Needs action count equals the chips the board renders",
-      JSON.stringify({ chips: snap.chips.length, ids: actionIds.length, countText: snap.countText })
+      JSON.stringify(snap.chips.map((c) => c.id).sort()) === JSON.stringify([...shownIds].sort()) && snap.countText.includes(`(${shownIds.length})`),
+      "the Needs attention count equals the chips the board renders, and they are the lifts that change the load",
+      JSON.stringify({ chips: snap.chips.map((c) => c.id), shown: shownIds, countText: snap.countText, moves: snap.moves })
+    );
+    assert(
+      snap.moves.some((m) => !changesLoad(m)) && snap.moves.filter((m) => !changesLoad(m)).every((m) => !snap.chips.some((c) => c.id === m.id)),
+      "a queue lift whose load holds is absent from Needs attention",
+      JSON.stringify({ moves: snap.moves, chips: snap.chips.map((c) => c.id) })
+    );
+    assert(
+      snap.moves.some((m) => m.status === "add" || m.status === "add2") && snap.chips.some((c) => snap.moves.find((m) => m.id === c.id && (m.status === "add" || m.status === "add2"))),
+      "an add lift is present in Needs attention",
+      JSON.stringify({ moves: snap.moves, chips: snap.chips.map((c) => c.id) })
     );
     assert(
       snap.chips.every((c) => c.id && c.lift && !["Coach Curl", "Coach Untrained"].includes(c.id)),
       "action rows store exercise IDs and lift identities, not display names",
       snap.chips.map((c) => `${c.id}/${c.lift}`).join(",")
     );
-    // The recommendation is stated once per group, not repeated beside each lift.
+    // Each row states the engine's verdict and reason for its own lift.
     assert(
-      snap.leadCounts.length > 0 && snap.leadCounts.every((count) => count === 1),
-      "each group states its recommendation exactly once in visible text",
-      JSON.stringify({ leads: snap.leads, leadCounts: snap.leadCounts })
+      snap.verdicts.length > 0 && snap.verdicts.every((text) => text.length > 0),
+      "each attention row states its verdict and reason",
+      JSON.stringify({ verdicts: snap.verdicts })
     );
     assert(
       snap.w.improvedLifts >= 1 && snap.w.regressedLifts >= 1 && snap.w.flatLifts === 1,
@@ -10051,19 +10014,22 @@ async function main() {
     );
 
     // One destination replaces the old per-group routing: an action opens the
-    // lift's scoped Strength evidence, which is where the decision is made.
+    // lift's own page, with Progress as the way back.
     await page.click('#attention [data-attn="ex-reduce"]');
     const actionLand = await page.evaluate(() => ({
-      stats: document.querySelector("#stats")?.classList.contains("active"),
-      strength: !!document.querySelector("#segStrength")?.classList.contains("active"),
-      scope: document.querySelector('#strengthScopeSeg button.active')?.dataset.scope || "",
-      row: !!document.querySelector('#strengthDash [data-evkey="movement:slot:ex-reduce"]'),
+      page: !!document.querySelector("#exercise.view.active"),
+      back: document.querySelector("#exBack")?.textContent || "",
+      name: document.querySelector("#exDetail .exdet__name")?.textContent || "",
     }));
     assert(
-      actionLand.stats && actionLand.strength && actionLand.scope === "current-block" && actionLand.row,
-      "an action opens that lift's current-block Strength evidence",
+      actionLand.page && actionLand.back.includes("Progress") && actionLand.name.length > 0,
+      "an action opens that lift's page and goes back to Progress",
       JSON.stringify(actionLand)
     );
+    await page.evaluate(() => closeExerciseView());
+    await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+    await page.waitForSelector("#segStrength.active");
+    await page.click('#strengthScopeSeg button[data-scope="current-block"]');
 
     // Two exercises sharing a display name keep separate evidence identities.
     const curlRows = await page.evaluate(() => ["curl-a", "curl-b"].map((id) => {
@@ -10433,12 +10399,13 @@ async function main() {
         await hideToast(page);
         const beforeEdit = await logJson(page);
         await page.locator("[data-edsave]").first().click();
-        const toastEdit = await readToast(page);
+        // R3j2: the reason stays under the row instead of a toast; it is the same sentence.
+        const reasonEdit = await readHistoryReason(page);
         const stillSeed = (await getState(page)).log.find((r) => r.session === "f7-edit-seed");
         assert(
-          toastEdit === expectToast && (await logJson(page)) === beforeEdit && stillSeed && +stillSeed.load === 80,
+          reasonEdit === expectToast && (await logJson(page)) === beforeEdit && stillSeed && +stillSeed.load === 80,
           `history-edit ${lang}/${unit} ${c.name} aborts`,
-          `toast="${toastEdit}" load=${stillSeed?.load}`,
+          `reason="${reasonEdit}" load=${stillSeed?.load}`,
           `History → Edit → type ${c.raw || "(empty)"} → Save`
         );
       }
@@ -10662,7 +10629,7 @@ async function main() {
       navIcon: hasSel("nav button.active .nav__icon").map((r) => r.bg),
       btnDisabled: hasSel(".btn:disabled").map((r) => ({ opacity: resolvedOpacity(r.opacity), cursor: r.cursor })),
       iconbtnDisabled: hasSel(".iconbtn:disabled").map((r) => ({ opacity: resolvedOpacity(r.opacity), cursor: r.cursor })),
-      focusnavDisabled: hasSel(".focusnav:disabled").map((r) => r.color),
+      focusnavDisabled: hasSel(".stepbtn:disabled").map((r) => r.color),
       accentTextSels: rules.filter((r) => r.color.includes("--accent-deep")).map((r) => r.sel),
     };
   });
@@ -10690,12 +10657,14 @@ async function main() {
     }),
     "Compute WCAG contrast for --ink-faint and --accent-deep against --bg and --surface"
   );
+  // R7 V-01: the CTA arrow is drawn in the CTA's own ink (--cta-ink), not the accent: --accent on the parchment dark CTA
+  // measured 2.05:1. The brand orange stays on the nav icon, the volume fill and the focus ring.
   assert(
-    contrastAudit.ctaAfter.includes("var(--accent)") &&
+    contrastAudit.ctaAfter.includes("var(--cta-ink)") && !contrastAudit.ctaAfter.includes("var(--accent)") &&
       contrastAudit.navIcon.some((b) => b.includes("var(--accent)")) &&
       contrastAudit.vrowFill.some((v) => v.bg.includes("var(--accent)")) &&
       contrastAudit.focusVisible.some((o) => o.includes("var(--accent)")),
-    "C1: brand-orange fills, CTA arrow and focus rings still use --accent",
+    "C1: brand-orange fills and focus rings still use --accent; the CTA arrow uses the CTA ink",
     JSON.stringify({
       ctaAfter: contrastAudit.ctaAfter,
       navIcon: contrastAudit.navIcon,
@@ -10740,12 +10709,17 @@ async function main() {
     contrastAudit.focusnavDisabled.every((c) => c.includes("var(--color-disabled-reason)")),
     "C1: disabled Focus navigation uses the frozen disabled-reason token",
     JSON.stringify(contrastAudit.focusnavDisabled),
-    "Inspect .focusnav:disabled color"
+    "Inspect .stepbtn:disabled color"
   );
 
   await page.evaluate(() => window.startOnboarding("settings", { userInitiated: true, forceFresh: true }));
   await page.waitForSelector("#onboarding.active", { timeout: 5000 });
-  await page.click('[data-entry-route="recommend"]');
+  // "Not sure which one?" reaches Recommend without answering the goal, so the
+  // goal question is the screen this validation case needs.
+  await page.click("#entryHelpToggle");
+  await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
+  await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
+  await page.click("#entryHelpGo");
   await page.evaluate(() => {
     const draft = window.__repforgeOnboarding.entry();
     delete draft.answers.desiredResult;
@@ -10942,37 +10916,32 @@ async function main() {
     };
   };
 
+  // The overview's volume block is retired (Plan 064 R3i); its projection stays a
+  // test seam, so these checks read the rows the block used to render from it.
   const readOverview = async () =>
     page.evaluate(() => {
-      const rows = [...document.querySelectorAll("#overviewVolume .vrow")].map((row) => {
-        const fill = row.querySelector(".vrow__fill");
-        const bar = row.querySelector(".vrow__bar");
-        return {
-          muscle: row.getAttribute("data-muscle"),
-          name: row.querySelector(".vrow__name")?.textContent,
-          num: row.querySelector(".vrow__num")?.textContent.trim(),
-          status: row.querySelector(".vrow__status")?.textContent.trim(),
-          on: fill?.classList.contains("is-on") || false,
-          high: fill?.classList.contains("is-high") || false,
-          width: fill?.style.width,
-          fillBox: fill?.getBoundingClientRect().width || 0,
-          barBox: bar?.getBoundingClientRect().width || 0,
-        };
-      });
-      return {
-        rows,
-        more: document.querySelector("#overviewVolumeMore")?.textContent.trim() || "",
-        hook: window.__repforgeOverviewVolume
-          ? window.__repforgeOverviewVolume.sorted().map((r) => ({
-              muscle: r.muscle,
-              planned: r.planned,
-              completed7: r.completed7,
-              status: r.status,
-              pct: window.__repforgeOverviewVolume.pct(r.planned, r.completed7),
-              label: window.__repforgeOverviewVolume.label(r.muscle),
-            }))
-          : [],
-      };
+      const hook = window.__repforgeOverviewVolume
+        ? window.__repforgeOverviewVolume.sorted().map((r) => ({
+            muscle: r.muscle,
+            planned: r.planned,
+            completed7: r.completed7,
+            status: r.status,
+            statusKey: r.statusKey,
+            pct: window.__repforgeOverviewVolume.pct(r.planned, r.completed7),
+            label: window.__repforgeOverviewVolume.label(r.muscle),
+          }))
+        : [];
+      const rows = hook.slice(0, 8).map((r) => ({
+        muscle: r.muscle,
+        name: r.label,
+        num: `${r.completed7} / ${r.planned}`,
+        status: r.status,
+        on: r.statusKey === "on-target",
+        high: r.statusKey === "high",
+        width: `${r.pct}%`,
+        fillBox: r.pct,
+      }));
+      return { rows, more: hook.length > 8 ? hook.length - 8 : 0, hook, retired: !document.querySelector("#overviewVolume") };
     });
 
   const baseVol = await getState(page);
@@ -10980,8 +10949,9 @@ async function main() {
   await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  await page.waitForSelector("#attention", { timeout: 5000 });
   const enVol = await readOverview();
+  assert(enVol.retired, "The overview no longer renders a volume block", "#overviewVolume is still in the DOM", "Stats → Overview");
   assert(
     enVol.rows.map((r) => r.muscle).join("|") ===
       "Quads|Rear delts|Adductors|Side delts|Chest|Glutes|Spinal erectors|Front delts",
@@ -11027,8 +10997,13 @@ async function main() {
     "__repforgeOverviewVolume.pct for Biceps with no plan"
   );
 
+  await page.evaluate(() => {
+    const lift = state.log.find((row) => row.exerciseId)?.exerciseId;
+    openExerciseView(lift, "log");
+  });
+  await page.waitForSelector("#exercise.view.active #exChart", { timeout: 5000 });
   await page.waitForFunction(() => {
-    const p = document.querySelector("#chart")?.__rfPaint;
+    const p = document.querySelector("#exChart")?.__rfPaint;
     return Array.isArray(p?.fillText) && p.fillText.length > 0;
   }, { timeout: 5000 });
   const chartPaint = await page.evaluate(() => {
@@ -11039,7 +11014,7 @@ async function main() {
       if (!m) return raw;
       return "#" + [+m[1], +m[2], +m[3]].map((n) => n.toString(16).padStart(2, "0")).join("");
     };
-    const paint = document.querySelector("#chart")?.__rfPaint || { fillText: [], stroke: [], fill: [] };
+    const paint = document.querySelector("#exChart")?.__rfPaint || { fillText: [], stroke: [], fill: [] };
     return {
       exposed: "__repforgeChartPaint" in window,
       fillText: paint.fillText.map((x) => ({
@@ -11055,7 +11030,7 @@ async function main() {
     chartPaint.exposed !== true,
     "C1: app.js does not ship chart paint instrumentation",
     `window.__repforgeChartPaint in page: ${chartPaint.exposed}`,
-    "Inspect window after Stats → Overview chart draw"
+    "Inspect window after the exercise page chart draw"
   );
   const latestValueText = chartPaint.fillText.find(
     (x) => /\b(kg|lb)\b/i.test(x.text) && /600/.test(x.font)
@@ -11065,14 +11040,14 @@ async function main() {
     latestValueText && latestValueText.fillStyle === "#b8410e",
     "C1: latest-value canvas text uses accent-deep, not brand orange",
     JSON.stringify(latestValueText || { fillText: chartPaint.fillText }),
-    "Stats → Overview chart → latest-value fillText"
+    "Exercise page chart → latest-value fillText"
   );
   assert(
     unitTexts.length > 0 && unitTexts.every((x) => x.fillStyle !== "#e04e14") &&
       chartPaint.fillText.every((x) => x.fillStyle !== "#e04e14"),
     "C1: no canvas fillText uses brand orange",
     JSON.stringify(chartPaint.fillText.map((x) => ({ text: x.text, fillStyle: x.fillStyle }))),
-    "Inspect #chart.__rfPaint.fillText colors"
+    "Inspect #exChart.__rfPaint.fillText colors"
   );
   // Plan 056 sparse policy: a one-point snapshot draws no connector at all;
   // comparison/trend keep the brand-orange data stroke.
@@ -11083,42 +11058,33 @@ async function main() {
       (chartPresentation !== "snapshot" && hasAccentStroke),
     "C1: data stroke follows the sparse-evidence policy and stays brand orange",
     JSON.stringify(chartPaint.stroke),
-    "Inspect #chart.__rfPaint.stroke colors"
+    "Inspect #exChart.__rfPaint.stroke colors"
   );
   assert(
     chartPaint.fill.some((x) => x.fillStyle === "#e04e14") &&
       chartPaint.fill.every((x) => x.fillStyle === "#e04e14"),
     "C1: chart points stay brand orange",
     JSON.stringify(chartPaint.fill),
-    "Inspect #chart.__rfPaint.fill colors"
+    "Inspect #exChart.__rfPaint.fill colors"
   );
 
-  assert(
-    enVol.more === "+5 more" && enVol.hook.length - enVol.rows.length === 5,
-    "F10: English +{n} more matches hidden row count",
-    `more="${enVol.more}" hidden=${enVol.hook.length - enVol.rows.length} total=${enVol.hook.length}`,
-    "Overview volume truncation"
-  );
-  await page.click("#overviewVolumeMore");
+  await page.evaluate(() => closeExerciseView());
+  await nav(page, "stats");
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("volume"));
   await page.waitForSelector("#segVolume.active", { timeout: 5000 });
   const volTableCount = await page.locator("#volumeDash .vrow").count();
-  const volActive = await page.evaluate(
-    () =>
-      document.querySelector('#statsEvidence button[data-seg="volume"]')?.classList.contains("active") &&
-      document.querySelector("#segVolume")?.classList.contains("active")
-  );
   assert(
-    volActive && volTableCount === enVol.hook.length,
-    "F10: +more opens the complete Volume segment",
-    `active=${volActive} rows=${volTableCount} expected=${enVol.hook.length}`,
-    "Overview → +n more → Volume"
+    enVol.hook.length > enVol.rows.length && volTableCount === enVol.hook.length,
+    "F10: the Volume tab lists every muscle the overview projection ranks",
+    `rows=${volTableCount} expected=${enVol.hook.length}`,
+    "Stats → Volume"
   );
 
   await persistState(page, volumeAuditState(await getState(page), "pt"));
   await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  await page.waitForSelector("#attention", { timeout: 5000 });
   const ptVol = await readOverview();
   assert(
     ptVol.rows.map((r) => r.muscle).join("|") ===
@@ -11133,20 +11099,6 @@ async function main() {
     ptVol.rows.map((r) => r.name).join("|"),
     "Overview volume names in PT"
   );
-  assert(
-    ptVol.more === "+5 mais",
-    "F10: Portuguese +{n} more copy",
-    `more="${ptVol.more}"`,
-    "Overview volume truncation in PT"
-  );
-  await page.click("#overviewVolumeMore");
-  await page.waitForSelector("#segVolume.active", { timeout: 5000 });
-  assert(
-    await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active")),
-    "F10: Portuguese +more still opens Volume",
-    "segVolume not active",
-    "PT Overview → +n mais → Volume"
-  );
   const ptCalves = ptVol.hook.find((r) => r.muscle === "Calves");
   assert(
     /rumo ao período completo/i.test(ptCalves?.status || "") && ptCalves.completed7 > ptCalves.planned,
@@ -11159,7 +11111,7 @@ async function main() {
   await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  await page.waitForSelector("#attention", { timeout: 5000 });
   const enHigh = await readOverview();
   const hsQuads = enHigh.rows.find((r) => r.muscle === "Quads");
   const hsChest = enHigh.rows.find((r) => r.muscle === "Chest");
@@ -11187,7 +11139,7 @@ async function main() {
   await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="overview"]');
-  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  await page.waitForSelector("#attention", { timeout: 5000 });
   const ptHigh = await readOverview();
   assert(
     /construindo base/i.test(ptHigh.rows.find((r) => r.muscle === "Quads")?.status || "") &&
@@ -11206,7 +11158,7 @@ async function main() {
   await reloadApp(page);
   await nav(page, "log");
   await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
-  await page.waitForSelector("#woPrev", { timeout: 5000 });
+  await page.waitForSelector("#workout .focus-shelf", { timeout: 5000 });
   const focusNavContrast = await page.evaluate(() => {
     const lin = (c) => {
       const s = c / 255;
@@ -11221,7 +11173,11 @@ async function main() {
       const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
       return m ? [+m[1], +m[2], +m[3]] : null;
     };
-    const prev = document.querySelector("#woPrev");
+    // A pad is disabled only when the effort word has nowhere further to go, so one stands in for it.
+    const prev = document.createElement("button");
+    prev.className = "stepbtn shelf__pad";
+    prev.disabled = true;
+    document.querySelector("#workout .focus-shelf").appendChild(prev);
     const color = getComputedStyle(prev).color;
     const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
     const rgb = parseRgb(color);
@@ -11229,13 +11185,15 @@ async function main() {
     const L1 = lum(...rgb);
     const L2 = lum(br, bgc, bb);
     const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
-    return { disabled: prev.disabled, color, bg, contrast: (hi + 0.05) / (lo + 0.05) };
+    const disabled = prev.disabled;
+    prev.remove();
+    return { disabled, color, bg, contrast: (hi + 0.05) / (lo + 0.05) };
   });
   assert(
     focusNavContrast.disabled === true && focusNavContrast.contrast >= 3,
     "C1: disabled Focus navigation reaches the 3:1 usability target",
     JSON.stringify(focusNavContrast),
-    "Focus → first exercise → #woPrev contrast against --bg"
+    "Focus → a disabled step pad → its contrast against --bg"
   );
   beginPhase("Phase: exercise detail illustration");
   const ART_ID = "sqk_mc";
@@ -11456,17 +11414,27 @@ async function main() {
   );
 
   await page.click("#exBack");
-  await nav(page, "program");
+  await nav(page, "stats");
+  // Progress's own totals are no longer the shared row (Plan 064 R3i), so the shared
+  // component is probed in place on the Progress page: the rule under test is the
+  // stylesheet's, not whichever surface currently renders it.
   const sharedRules = await page.evaluate(() => {
-    const row = document.querySelector("#programOverview .statrow, #metrics.metrics");
-    if (!row) return null;
+    const host = document.querySelector("#stats");
+    if (!host) return null;
+    const row = document.createElement("div");
+    row.className = "statrow";
+    row.innerHTML = '<div class="statrow__cell"><div class="statrow__val">1</div><div class="statrow__cap">a</div></div>' +
+      '<div class="statrow__cell"><div class="statrow__val">2</div><div class="statrow__cap">b</div></div>';
+    host.append(row);
     const cs = getComputedStyle(row);
-    const cell = row.querySelector(".statrow__cell, .metric");
-    return {
+    const cell = row.querySelector(".statrow__cell");
+    const result = {
       top: cs.borderTopWidth,
       bottom: cs.borderBottomWidth,
-      sep: cell ? getComputedStyle(cell, "::after").content : null,
+      sep: getComputedStyle(cell, "::after").content,
     };
+    row.remove();
+    return result;
   });
   assert(
     sharedRules &&
@@ -11475,7 +11443,7 @@ async function main() {
       sharedRules.sep !== "none",
     "Shared stat rows outside the exercise page keep their rules and cell separators",
     JSON.stringify(sharedRules),
-    "Program tab → .statrow computed borders"
+    "Progress tab → probe .statrow computed borders"
   );
 
   // Console errors

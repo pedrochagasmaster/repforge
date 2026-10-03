@@ -134,6 +134,26 @@ async function main() {
       "the full library takes the screen instead of adding a nav tab"
     );
 
+    // ---- Back from the library, reached through the picker (R7 J-19) ----
+    await page.click("#libBack");
+    await page.waitForFunction(() => !document.querySelector("#library")?.classList.contains("active"), undefined, { timeout: 5000 });
+    await settle(page);
+    const backFocus = await page.evaluate((d) => {
+      const el = document.activeElement;
+      return {
+        tag: el?.tagName, id: el?.id, role: el?.dataset?.role, text: (el?.textContent || "").trim().slice(0, 30),
+        add: !!el?.matches?.(`[data-role="add-exercise"][data-day="${d}"]`),
+        heading: !!el?.closest?.("#program") && !!el?.matches?.(".page-title,h1,h2"),
+      };
+    }, day);
+    assert(backFocus.add || backFocus.heading,
+      "Back from the library lands on the control that opened it, or the Program heading, never <body>", JSON.stringify(backFocus));
+    await page.click(`#programEditor [data-role="add-exercise"][data-day="${day}"]`);
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await page.click("#exPickFull");
+    await page.waitForSelector("#library.active", { timeout: 5000 });
+    await settle(page);
+
     // ---- artwork contract ----
     const media = await page.evaluate(() => ({
       rows: document.querySelectorAll("#libList .librow").length,
@@ -489,7 +509,7 @@ async function main() {
       libraryOpen: document.querySelector("#library")?.classList.contains("active") === true,
       toast: document.querySelector("#toast")?.textContent?.trim() || "",
     }));
-    assert(partialUi.libraryOpen && !partialUi.toast.includes("exercises added"),
+    assert(partialUi.libraryOpen && !/exercises? added/.test(partialUi.toast),
       "a one-replica full-library Program write is not presented as success", JSON.stringify(partialUi));
     await page.evaluate(() => {
       const io = window.RepForgeDurableState.storageIO;

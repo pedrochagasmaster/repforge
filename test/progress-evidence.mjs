@@ -90,8 +90,9 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
 async function assertCanonicalOutcomeLabels(page, outcomes) {
   for (const { key, outcome } of outcomes) {
     const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
-    const label = await page.evaluate((value) => window.RepForgeI18n.t(`stats.outcome.${value}`), outcome);
-    const status = row.locator(".listrow__sub");
+    // The word is the compareExerciseSession label the summary and History read.
+    const label = await page.evaluate((value) => window.RepForgeI18n.t(`delta.${{ improved: "improved", maintained: "flat", declined: "regressed" }[value]}.label`), outcome);
+    const status = row.locator(".evrow__out");
     assert.ok(await status.isVisible(), `the ${outcome} outcome label stays visible in its evidence row`);
     assert.ok((await status.textContent()).includes(label),
       `the ${outcome} outcome keeps its localized text distinction in the rendered row`);
@@ -139,7 +140,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.equal(seamAll.points.length, 4, "all-history scope includes pre-block rows");
   assert.equal(seamAll.presentation, "trend");
   const lateralAll = page.locator(`#strengthDash [data-evkey="${keys.lateral}"]`);
-  assert.match(await lateralAll.locator(".evrow__val").textContent(), /62\.5×8/, "all-history latest includes historical observations");
+  assert.match(await lateralAll.locator(".evrow__val").textContent(), /62\.5 kg/, "all-history latest includes historical observations");
   await lateralAll.click();
   assert.equal(await page.locator(`#strengthDash [data-evdetail="${keys.lateral}"] tbody tr`).count(), 1,
     "all-history drill-in includes the historical session");
@@ -185,7 +186,44 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await context.close();
 }
 
+// Needs attention lists only the action-queue lifts whose recommendation changes the
+// load (add, add2, reduce). A hold stays in the queue but not in this section, and
+// the heading counts the rows shown.
+{
+  // Leg extension repeats 40 kg for 6 reps: a maintained lift the engine holds.
+  const holdLog = [
+    ...log.filter((row) => row.exerciseId !== "pev-4"),
+    { session: "h1", date: "2026-09-14", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 6, rir: 1, set: 1, work: true },
+    { session: "h2", date: "2026-09-16", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 6, rir: 1, set: 1, work: true },
+  ];
+  const { context, page } = await freshPage({ seededLog: holdLog });
+  const read = await page.evaluate(() => {
+    const queue = window.__repforgeAttention().flatMap((group) => group.items.map((entry) => ({
+      id: entry.ex.id, lift: entry.item.destinationId,
+      status: window.__repforgeRecommendation(entry.ex).status, stalled: !!window.__repforgeRecommendation(entry.ex).stalled,
+    })));
+    return {
+      queue,
+      shown: [...document.querySelectorAll("#attention .attn__chip")].map((row) => row.dataset.attn),
+      heading: document.querySelector("#attention .ovsec__title").textContent,
+    };
+  });
+  const changesLoad = (item) => item.status === "add" || item.status === "add2" || (item.status === "reduce" && !item.stalled);
+  const expected = read.queue.filter(changesLoad).map((item) => item.id);
+  assert.ok(read.queue.some((item) => item.id === "pev-4" && !changesLoad(item)),
+    `the held lift is in the action queue (${JSON.stringify(read.queue)})`);
+  assert.ok(read.queue.some((item) => item.id === "pev-1" && (item.status === "add" || item.status === "add2")),
+    `the climbing bench lift is recommended to add (${JSON.stringify(read.queue)})`);
+  assert.ok(!read.shown.includes("pev-4"), "a hold lift is absent from Needs attention");
+  assert.ok(read.shown.includes("pev-1"), "an add lift is present in Needs attention");
+  assert.deepEqual([...read.shown].sort(), [...expected].sort(), "the rows are exactly the queue lifts that change the load");
+  assert.match(read.heading, new RegExp(`\\(${read.shown.length}\\)`), "the heading counts the rows shown");
+  await context.close();
+}
+
 // Outcome words stay visible beside their canonical improved/maintained/declined facts.
+// The declined lift repeats its load with a rep fewer: under the Session outcome rule a
+// lower load is never read as declined, so the decline must happen at the same load.
 // The final assertion deliberately hides those words: the rendered semantic
 // oracle must reject a presentation that leaves outcome meaning to color alone.
 {
@@ -195,7 +233,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
     { session: "outcome-steady-1", date: "2026-09-14", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 8, rir: 2, set: 1, work: true },
     { session: "outcome-steady-2", date: "2026-09-16", day: "Day 3", exerciseId: "pev-4", name: "Leg extension", load: 40, reps: 8, rir: 2, set: 1, work: true },
     { session: "outcome-worse-1", date: "2026-09-14", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 8, rir: 2, set: 1, work: true },
-    { session: "outcome-worse-2", date: "2026-09-16", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 85, reps: 7, rir: 2, set: 1, work: true },
+    { session: "outcome-worse-2", date: "2026-09-16", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 7, rir: 2, set: 1, work: true },
   ];
   const { context, page } = await freshPage({ seededLog: outcomeLog });
   await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
@@ -212,7 +250,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   ], "the production evidence producer supplies all three canonical outcomes");
   await assertCanonicalOutcomeLabels(page, outcomes);
 
-  await page.addStyleTag({ content: "#strengthDash .listrow__sub { visibility: hidden !important; }" });
+  await page.addStyleTag({ content: "#strengthDash .evrow__out { visibility: hidden !important; }" });
   await assert.rejects(() => assertCanonicalOutcomeLabels(page, outcomes),
     /the improved outcome label stays visible in its evidence row/,
     "the deliberate color-only presentation failure is rejected by the rendered outcome oracle");
@@ -225,7 +263,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await en.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const enKey = await en.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
   await en.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await en.page.locator(`#strengthDash [data-evkey="${enKey}"] .evrow__val`).textContent(), /62\.5×8/,
+  assert.match(await en.page.locator(`#strengthDash [data-evkey="${enKey}"] .evrow__val`).textContent(), /62\.5 kg/,
     "English kg renders the decimal once without reparsing it");
   await en.context.close();
 
@@ -233,7 +271,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await pt.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const key = await pt.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
   await pt.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await pt.page.locator(`#strengthDash [data-evkey="${key}"] .evrow__val`).textContent(), /62,5×8/,
+  assert.match(await pt.page.locator(`#strengthDash [data-evkey="${key}"] .evrow__val`).textContent(), /62,5 kg/,
     "Portuguese kg renders the decimal once without reparsing it");
   await pt.context.close();
 
@@ -241,7 +279,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await lb.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
   const lbKey = await lb.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
   await lb.page.click('#strengthScopeSeg button[data-scope="all-history"]');
-  assert.match(await lb.page.locator(`#strengthDash [data-evkey="${lbKey}"] .evrow__val`).textContent(), /137\.79×8/,
+  assert.match(await lb.page.locator(`#strengthDash [data-evkey="${lbKey}"] .evrow__val`).textContent(), /137\.79 lb/,
     "62.5 kg converts to pounds exactly once");
   await lb.context.close();
 }
@@ -306,8 +344,8 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   const { context, page } = await freshPage({ seededLog: sparseLog });
   const overview = await page.locator("#segOverview").textContent();
   assert.doesNotMatch(overview, /Attention|Below/, "legacy warning labels are absent for baseline-building evidence");
-  assert.match(overview, /Needs action\s*0|Needs action[\s\S]*Nothing requires action/,
-    "insufficient evidence contributes zero Needs action items");
+  assert.match(overview, /Needs attention\s*\(0\)[\s\S]*Nothing requires action/,
+    "insufficient evidence contributes zero Needs attention items");
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
   assert.match(await page.locator("#reviewPanel").textContent(), /baseline building/i,
     "the same insufficient records reach Review as neutral baseline state");
@@ -362,7 +400,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
 }
 
 // Two visible observations are still baseline-building when effort is absent,
-// and a changed exposure is not promoted to an action outcome. Both cases use
+// and a changed exposure (a lower load with no gain in strength or volume; a higher load is judged on e1RM) is not promoted to an action outcome. Both cases use
 // the real producer → model → renderer path.
 {
   const scopedMeta = seedProgramMeta({ id: "evidence-contract", started: "2026-09-14", blockId: "block-contract" });
@@ -370,7 +408,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
     { session: "bench-1", date: "2026-09-15", created: "2026-09-15T09:00:00.000Z", blockId: "block-contract", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 100, reps: 8, set: 1, work: true },
     { session: "bench-2", date: "2026-09-16", created: "2026-09-16T09:00:00.000Z", blockId: "block-contract", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 101, reps: 8, set: 1, work: true },
     { session: "rdl-1", date: "2026-09-15", created: "2026-09-15T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 8, rir: 2, set: 1, work: true },
-    { session: "rdl-2", date: "2026-09-16", created: "2026-09-16T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 103, reps: 7, rir: 2, set: 1, work: true },
+    { session: "rdl-2", date: "2026-09-16", created: "2026-09-16T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 95, reps: 8, rir: 2, set: 1, work: true },
   ];
   const { context, page } = await freshPage({ seededLog: contractLog, seededMeta: scopedMeta });
   const values = await page.evaluate(() => {
@@ -1025,8 +1063,14 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
 }
 
 // Canvas chart labels follow the app's text scale, including the 200% setting.
+// The exercise page owns the canvas now that the overview carries none.
+async function openExerciseCanvas(page) {
+  await page.evaluate(() => openExerciseView("pev-1", "log"));
+  await page.waitForSelector("#exercise.view.active #exChart", { timeout: 5000 });
+}
 {
   const { context, page } = await freshPage();
+  await openExerciseCanvas(page);
   const fonts = await page.evaluate(() => {
     document.documentElement.style.fontSize = "200%";
     const seen = [];
@@ -1041,7 +1085,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
         { date: "2026-09-14", e1rm: 60, top: 55 },
         { date: "2026-09-16", e1rm: 62, top: 57 },
         { date: "2026-09-18", e1rm: 65, top: 60 },
-      ], "#chart");
+      ], "#exChart");
     } finally {
       prototype.fillText = original;
     }
@@ -1057,9 +1101,10 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   async function assertEmptyChartFits(lang) {
     const empty = await freshPage({ lang });
     await empty.page.setViewportSize({ width: 320, height: 844 });
+    await openExerciseCanvas(empty.page);
     const lines = await empty.page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
-      const canvas = document.querySelector("#chart");
+      const canvas = document.querySelector("#exChart");
       const extents = [];
       const prototype = CanvasRenderingContext2D.prototype;
       const original = prototype.fillText;
@@ -1069,7 +1114,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
         return original.call(this, text, x, y);
       };
       try {
-        draw([], "#chart");
+        draw([], "#exChart");
       } finally {
         prototype.fillText = original;
       }
@@ -1145,6 +1190,145 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.equal(plain.block.plannedSessions, 6);
   assert.equal(plain.block.plannedWorkingSets, 72);
   assert.equal(plain.lifecycle.elapsedWeek, 2);
+}
+
+// The exercise chart (Plan 064 R3i): reached from an attention row, it draws the
+// scope's top loads as the step itself, snaps one selection across the plot, the
+// readout and the table, and reads every figure from the model's series.
+{
+  const { context, page } = await freshPage();
+  const key = await page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-1"));
+  const model = await page.evaluate((k) => ({
+    block: window.__repforgeProgressEvidence.strength(k).points.map((p) => ({ date: p.date, value: p.value, reps: p.reps })),
+    sessions: strengthProjection("current-block").sessions.filter((x) => x.liftKey === k).map((x) => ({ top: x.top, e1rm: x.e1rm })),
+  }), key);
+  assert.equal(model.block.length, 3, "the bench series has three block points");
+
+  await page.click(`#attention [data-action-lift="${key}"]`);
+  await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 5000 });
+  assert.match(await page.locator("#exBack").textContent(), /Progress/, "the page goes back to Progress");
+  assert.equal(await page.locator("#exDetail #exChart").count(), 0, "Progress' chart page carries no canvas");
+
+  const read = () => page.evaluate(() => ({
+    figs: [...document.querySelectorAll(".exchart__figs div")].map((d) => d.textContent.replace(/\s+/g, " ").trim()),
+    rows: [...document.querySelectorAll(".exrow")].map((b) => ({ pt: b.dataset.pt, pressed: b.getAttribute("aria-pressed"), text: b.textContent.replace(/\s+/g, " ").trim(), old: b.classList.contains("is-old") })),
+    readout: document.querySelector(".exchart__readout").textContent.replace(/\s+/g, " ").trim(),
+    selected: document.querySelectorAll(".exchart__svg .ex-pt--sel").length,
+    ticks: document.querySelectorAll(".exchart__svg .ex-tick").length,
+    block: !!document.querySelector(".exchart__svg .ch-block"),
+    pressed: [...document.querySelectorAll(".segpill button")].filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.dataset.scope || b.dataset.metric),
+    label: document.querySelector(".exchart__plot").getAttribute("aria-label"),
+  }));
+
+  // Top load, current block: three points, two rises, the latest selected.
+  let view = await read();
+  assert.deepEqual(view.pressed, ["current-block", "top"], "the block and top-load toggles start selected");
+  assert.equal(view.rows.length, 3, "one table row per session in the scope");
+  assert.deepEqual(view.rows.map((r) => r.pt), ["2", "1", "0"], "the table lists the newest session first");
+  assert.equal(view.rows[0].pressed, "true", "the latest session starts selected");
+  assert.equal(view.selected, 1, "the plot marks one selected point");
+  assert.equal(view.ticks, 2, "a tick marks each load increase in the block");
+  assert.equal(view.block, false, "no block rule is drawn when the scope is the block");
+  assert.match(view.figs[0], /60/, "the first figure is the best top load");
+  assert.match(view.figs[1], /\+5/, "the second figure is the change over the block");
+  assert.match(view.figs[2], /^3\s*sessions/, "the third figure counts the sessions");
+  assert.match(view.readout, /60/, "the readout names the selected value");
+  assert.match(view.readout, /60 × 8/, "the readout names the source set");
+  assert.match(view.rows[0].text, /\+2\.5/, "a row's delta is its change from the session before");
+  assert.match(view.label, /Top load/, "the plot is labelled with the metric");
+
+  // A table row selects the same point everywhere.
+  await page.click('.exrow[data-pt="0"]');
+  view = await read();
+  assert.equal(view.rows.find((r) => r.pt === "0").pressed, "true");
+  assert.equal(view.rows.filter((r) => r.pressed === "true").length, 1, "exactly one row is selected");
+  assert.match(view.readout, /55/, "the readout follows the table row");
+  assert.equal(view.selected, 1);
+
+  // The whole plot is one target that snaps to the nearest session.
+  const hit = await page.evaluate(() => {
+    const plot = document.querySelector(".exchart__plot"), r = plot.getBoundingClientRect();
+    const xs = plot.dataset.xs.split(",").map(Number), w = +plot.dataset.w;
+    return { x: r.left + xs[1] / w * r.width + 6, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(hit.x, hit.y);
+  view = await read();
+  assert.equal(view.rows.find((r) => r.pt === "1").pressed, "true", "a tap near the second point selects the second session");
+  assert.match(view.readout, /57\.5/, "the readout follows the plot");
+
+  // Best e1RM is the second metric, in its own units, from the same sessions.
+  await page.click('#exDetail [data-metric="e1rm"]');
+  view = await read();
+  assert.deepEqual(view.pressed, ["current-block", "e1rm"]);
+  assert.equal(view.ticks, 0, "the e1RM line draws no load-increase ticks");
+  const bestE1rm = Math.max(...model.sessions.map((x) => x.e1rm));
+  assert.match(view.figs[0], new RegExp(String(Math.round(bestE1rm * 10) / 10).replace(".", "\\.")), "the first figure is the best e1RM");
+  assert.match(view.figs[0], /e1RM/);
+
+  // All history adds the earlier session, ruled off from the block.
+  await page.click('#exDetail [data-metric="top"]');
+  await page.click('#exDetail [data-scope="all-history"]');
+  view = await read();
+  assert.equal(view.rows.length, 4, "all history lists the earlier session too");
+  assert.equal(view.rows.at(-1).old, true, "the earlier session is set apart from the block");
+  assert.equal(view.block, true, "a rule marks where the block starts");
+  assert.equal(view.ticks, 3, "every rise across the history is ticked");
+  assert.match(view.figs[0], /60/);
+  assert.match(view.figs[1], /\+10/, "the change spans the history");
+
+  await page.evaluate(() => closeExerciseView());
+  await context.close();
+}
+{
+  const { context, page } = await freshPage({ unit: "lb", lang: "pt" });
+  const key = await page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-1"));
+  await page.evaluate((k) => openExerciseView(k, "stats"), key);
+  await page.waitForSelector(".exchart__plot", { timeout: 5000 });
+  const text = await page.evaluate(() => ({
+    figs: [...document.querySelectorAll(".exchart__figs span")].map((s) => s.textContent),
+    readout: document.querySelector(".exchart__readout").textContent,
+  }));
+  assert.ok(text.figs[0].includes("lb") && text.figs[1].includes("lb"), `figures follow the unit setting (${text.figs})`);
+  assert.match(text.readout, /132[,.]\d+/, "the readout converts 60 kg to pounds once");
+  await context.close();
+}
+
+// R7 V-09: the lift's chart page at double-size text, Portuguese and pounds (the widest labels and figures). At 390 and
+// at 320 the page does not scroll sideways, the three figures neither overprint nor spill, every axis label stays
+// inside the drawing's viewBox, and no column of the table (the change column included) is cut or leaves the screen.
+{
+  const { context, page } = await freshPage({ unit: "lb", lang: "pt" });
+  const key = await page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-1"));
+  await page.evaluate((k) => openExerciseView(k, "stats"), key);
+  await page.waitForSelector(".exchart__plot", { timeout: 5000 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  for (const [width, height] of [[390, 844], [320, 568]]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(250);
+    const m = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll(".exchart__figs > div")];
+      const boxes = cells.map((cell) => cell.getBoundingClientRect());
+      const overlap = boxes.some((a, i) => boxes.some((b, j) => j > i && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1));
+      const spill = cells.filter((cell) => { const b = cell.querySelector("b"); return b.scrollWidth > b.clientWidth + 1 || cell.querySelector("span").scrollWidth > cell.clientWidth + 1; }).length;
+      const svg = document.querySelector(".exchart__svg"), vb = svg.viewBox.baseVal;
+      const outside = [...svg.querySelectorAll("text")].filter((text) => {
+        const bb = text.getBBox();
+        return bb.x < vb.x - 0.5 || bb.x + bb.width > vb.x + vb.width + 0.5 || bb.y < vb.y - 0.5 || bb.y + bb.height > vb.y + vb.height + 0.5;
+      }).map((text) => text.textContent);
+      const rows = [...document.querySelectorAll(".exchart__cols, .exrow")];
+      const cut = rows.flatMap((row) => [...row.children].filter((cell) => cell.scrollWidth > cell.clientWidth + 1 || cell.getBoundingClientRect().right > innerWidth + 0.5 || cell.getBoundingClientRect().left < -0.5).map((cell) => cell.textContent.trim()));
+      const delta = document.querySelector(".exrow span:last-child");
+      return { scrollWidth: document.documentElement.scrollWidth, width: innerWidth, overlap, spill, outside, cut, deltaShown: !!delta && delta.getBoundingClientRect().right <= innerWidth + 0.5, rows: rows.length };
+    });
+    const label = `${width}px PT 200%`;
+    assert.ok(m.scrollWidth <= m.width, `${label}: the page does not scroll sideways (${m.scrollWidth} > ${m.width})`);
+    assert.equal(m.overlap, false, `${label}: the three figures do not overprint`);
+    assert.equal(m.spill, 0, `${label}: no figure or its label spills out of its cell`);
+    assert.deepEqual(m.outside, [], `${label}: every axis label is inside the drawing's viewBox`);
+    assert.deepEqual(m.cut, [], `${label}: no table cell is cut or leaves the screen`);
+    assert.ok(m.deltaShown && m.rows > 1, `${label}: the change column is whole on screen`);
+  }
+  await context.close();
 }
 
 assert.deepEqual(errors, [], "no page errors during evidence journeys");

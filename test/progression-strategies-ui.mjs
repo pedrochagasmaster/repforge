@@ -206,7 +206,7 @@ async function workoutSurface(page) {
   await page.evaluate(async () => {
     await window.__repforgeEnterWorkout({});
   });
-  await page.waitForSelector('#workout.is-focus article.is-current .curset');
+  await page.waitForSelector('#workout.is-focus article.is-current .focus-shelf');
   const data = await page.evaluate(() => {
     const card = document.querySelector('#workout.is-focus article.is-current');
     const P = window.__repforgeProgression;
@@ -217,17 +217,19 @@ async function workoutSurface(page) {
     for (let n = 1; n <= ex.sets; n++) suggestions.push(P.setSuggestion(ex, n, rec, draft, null));
     const isLb = state.settings.unit === "lb";
     const formatLoad = (val) => isLb ? String(toDisplay(val)) : String(val);
+    // Effort is the shelf's third field; selecting it brings its two word pads.
+    document.querySelector('#workout.is-focus article.is-current .focus-shelf [data-shelf-field="rir"][data-effspin]')?.click();
     const targets = {
       loads: suggestions.map((s) => formatLoad(s.load)),
       reps: suggestions.map((s) => String(s.reps)),
-      recommendation: card.querySelector('.focus-ex__target')?.textContent?.trim() || "",
+      recommendation: card.querySelector('.fx-cue')?.textContent?.trim() || "",
       effortControls: card.querySelectorAll("[data-effspin], [data-effstep]").length,
     };
     const focus = {
-      load: card.querySelector('.curset input[data-k$="_load"]')?.value || "",
-      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value || "",
+      load: card.querySelector('.focus-shelf input[data-k$="_load"]')?.value || "",
+      reps: card.querySelector('.focus-shelf input[data-k$="_reps"]')?.value || "",
       whyName: card.querySelector('[data-why]')?.getAttribute('aria-label') || "",
-      effortSpinner: !!card.querySelector('[role="spinbutton"][data-effspin]'),
+      effortSpinner: !!card.querySelector('.focus-shelf [data-effspin]'),
     };
     return { targets, focus };
   });
@@ -311,8 +313,8 @@ try {
       });
     }
   });
-  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset");
-  await page.locator("#workout.is-focus .exercise.is-current .focus-well .saveset").click();
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf .saveset");
+  await page.locator("#workout.is-focus .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForFunction(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     const exId = draft?.exerciseOrder?.[0] || "ex0";
@@ -322,8 +324,8 @@ try {
   const set2Values = await page.evaluate(() => {
     const card = document.querySelector("#workout.is-focus article.is-current");
     return {
-      load: card.querySelector('.curset input[data-k$="_load"]')?.value,
-      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value,
+      load: card.querySelector('.focus-shelf input[data-k$="_load"]')?.value,
+      reps: card.querySelector('.focus-shelf input[data-k$="_reps"]')?.value,
     };
   });
   assert(set2Values.load === "77.5" && set2Values.reps === "7",
@@ -393,8 +395,8 @@ try {
       });
     }
   });
-  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset");
-  await page.locator("#workout.is-focus .exercise.is-current .focus-well .saveset").click();
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf .saveset");
+  await page.locator("#workout.is-focus .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForFunction(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     const exId = draft?.exerciseOrder?.[0] || "ex0";
@@ -404,8 +406,8 @@ try {
   const set2ValuesEffort = await page.evaluate(() => {
     const card = document.querySelector("#workout.is-focus article.is-current");
     return {
-      load: card.querySelector('.curset input[data-k$="_load"]')?.value,
-      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value,
+      load: card.querySelector('.focus-shelf input[data-k$="_load"]')?.value,
+      reps: card.querySelector('.focus-shelf input[data-k$="_reps"]')?.value,
     };
   });
   assert(set2ValuesEffort.load === "77.5" && set2ValuesEffort.reps === "7",
@@ -423,6 +425,9 @@ try {
   assert(anchorAdvance.suggestions[0].load > anchorAdvance.suggestions[1].load,
     "the anchor is always heavier than its back-offs");
   assert(leaked(anchorAdvance).length === 0, "no strategy id or raw key reaches the lifter", leaked(anchorAdvance).join(" | "));
+  const anchorWhy = anchorAdvance.explain.map((row) => row.text).join(" ");
+  assert(anchorWhy.includes("Your top set was 100 kg for 5 reps.") && anchorWhy.includes("You logged RIR 2 on it."),
+    "Why names the top set as logged (5 reps, RIR 2), not its capacity (7)", anchorWhy);
   const anchorSurface = await workoutSurface(page);
   assert(anchorSurface.targets.loads[0] === "102.5" && anchorSurface.targets.loads.slice(1).every((value) => value === "82.5"),
     "the engine exposes the heavy anchor and lighter targets", JSON.stringify(anchorSurface.targets));
@@ -437,6 +442,9 @@ try {
   assert(anchorLogged.suggestions[1].load === 80,
     "today's anchor re-derives the untouched back-offs", anchorLogged.suggestions[1].load);
   assert(anchorLogged.rec.text.length > 0, "the in-session copy explains the lighter sets");
+  const anchorLoggedWhy = anchorLogged.explain.map((row) => row.text).join(" ");
+  assert(anchorLoggedWhy.includes("Your top set was 100 kg for 5 reps."),
+    "in session, Why names today's logged top set", anchorLoggedWhy);
 
   const anchorFailed = await capture(page, {
     lang: "en", program: anchorProgram,
@@ -527,7 +535,7 @@ try {
   await capture(page, { lang: "pt", program: legacySlot, rows: [] });
   editorRow = await openInstalledEditor(page);
   const ptEditor = await page.locator('#programEditor [data-role="editor"]').innerText();
-  assert(/Nome do programa/i.test(ptEditor) && /Substituir exercício/i.test(ptEditor) && /Remover exercício/i.test(ptEditor),
+  assert(/Nome do treino/i.test(ptEditor) && /Substituir exercício/i.test(ptEditor) && /Remover exercício/i.test(ptEditor),
     "the installed editor is usable in Portuguese", ptEditor);
   await page.setViewportSize({ width: 320, height: 800 });
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });

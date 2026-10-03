@@ -3,12 +3,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ROOT, captureKey, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures } from "./ui-system-core.mjs";
-import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
+import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
-import { measureRenderedRoles, renderedRoleProblems } from "./ui-system-rendered.mjs";
+import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "./ui-system-rendered.mjs";
 import { join, resolve } from "node:path";
 
 export function inspectRoleCoverage({ key, components, exceptions, progressCandidateSelectors, allowProgressDebt = false }) {
@@ -175,6 +175,10 @@ export async function auditFocusRoles(page, { key, components, pixels }) {
       }
     }
     if (focusTargets.length) {
+      // Forcing :focus-visible stands for a keyboard user. In the app any key press clears a quiet hand-off
+      // (app.js workoutInputModality: focus moved after a tap draws no ring until a key is used), so the
+      // emulation clears it too rather than measuring a state no keyboard user can reach.
+      await page.evaluate(() => document.querySelectorAll("[data-quiet-focus]").forEach((el) => el.removeAttribute("data-quiet-focus")));
       await Promise.all(focusTargets.map(({ nodeId }) => session.send("CSS.forcePseudoState", {
         nodeId, forcedPseudoClasses: ["focus-visible"],
       })));
@@ -229,7 +233,7 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
       try {
         if (!scenarios[key]) throw new Error("missing production catalog scenario");
         const opened = await openPage(browser, manifest, capture,
-          isOnboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale), { userAgent: APP_USER_AGENT[key] });
+          isOnboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
         context = opened.context;
         if (!isOnboarding) await dismissChrome(opened.page);
         await scenarios[key](opened.page);
@@ -250,6 +254,11 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
         for (const item of rendered) measurements[item.status] = (measurements[item.status] || 0) + 1;
         measurements.total += rendered.length;
         problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, rendered));
+        // A heading is read whole: a line clamp that cuts one short is a finding, not a style.
+        const clamps = await opened.page.evaluate(measureClampedHeadings);
+        for (const item of clamps) measurements[item.status] = (measurements[item.status] || 0) + 1;
+        measurements.total += clamps.length;
+        problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, clamps));
         const exceptionBoundaries = requiredBoundaryExceptionRequests(inventory.exceptions, key);
         if (exceptionBoundaries.length) {
           const renderedExceptions = await opened.page.evaluate(measureRenderedRoles, { requests: exceptionBoundaries, pixels });
@@ -257,6 +266,15 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
           measurements.total += renderedExceptions.length;
           problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, renderedExceptions));
         }
+        // A clamp that fits a heading at 390 can cut the same heading on the smallest supported phone, so the
+        // headings are measured again there; layout is all that changes, so the frame needs no second scenario.
+        const smallest = manifest.viewports["phone-320"];
+        await opened.page.setViewportSize({ width: smallest.width, height: smallest.height });
+        await settle(opened.page);
+        const narrowClamps = await opened.page.evaluate(measureClampedHeadings);
+        for (const item of narrowClamps) measurements[item.status] = (measurements[item.status] || 0) + 1;
+        measurements.total += narrowClamps.length;
+        problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}/320]`, narrowClamps));
       } catch (error) {
         problems.push(`${key}: scenario failed: ${error.stack || error.message}`);
       } finally { await context?.close(); }
@@ -289,6 +307,9 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
   for (const item of debt.slice(0, 8)) console.log(`  debt ${item.path}:${item.line}: ${item.selector} { ${item.property}: ${item.value} }`);
   for (const item of aliases.slice(0, 8)) console.log(`  alias ${item.path}:${item.line}: ${item.alias}`);
   if (process.argv.includes("--strict-css") && debt.length) metadata.push(`${debt.length} unapproved CSS literals`);
+  for (const { path, css } of cssFiles) {
+    for (const block of uninventoriedSharedComponents(css, inventory)) metadata.push(`${path}: shared component .${block} has no inventory row`);
+  }
   if (process.argv.includes("--strict-css") && aliases.length) metadata.push(`${aliases.length} obsolete CSS alias references`);
   if (!process.argv.includes("--metadata")) {
     const flowArgument = process.argv.indexOf("--flow");

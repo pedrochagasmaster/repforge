@@ -67,7 +67,22 @@ export async function runProgramEntryA11y(browser, check = assert) {
     "keyboard-focused controls retain a visible ring", JSON.stringify(controlFocus));
   check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the desired result is answered");
 
+  // R7 J-16: the screen's title is exposed once. The legacy hidden #onbTitle must not repeat #entryHeading.
+  const headingNames = await page.locator("#onboarding").getByRole("heading").allTextContents();
+  const normalizedHeadings = headingNames.map((text) => text.replace(/\s+/g, " ").trim()).filter(Boolean);
+  check(normalizedHeadings.length > 0 && new Set(normalizedHeadings).size === normalizedHeadings.length,
+    "the entry screen exposes each heading once to assistive technology", JSON.stringify(normalizedHeadings));
+  // R7 J-12: #onbStepLabel is aria-live. Answering a question must not rewrite it with the text it already has.
+  await page.evaluate(() => {
+    const label = document.querySelector("#onbStepLabel");
+    window.__stepLabelWrites = 0;
+    window.__stepLabelObserver?.disconnect();
+    window.__stepLabelObserver = new MutationObserver((records) => { window.__stepLabelWrites += records.length; });
+    window.__stepLabelObserver.observe(label, { childList: true, characterData: true, subtree: true });
+  });
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+  check(await page.evaluate(() => { window.__stepLabelObserver.takeRecords(); return window.__stepLabelWrites; }) === 0,
+    "answering a question does not rewrite the live step label");
   check(!(await page.locator("#onbNext").isDisabled()), "answering the desired result enables Continue");
   check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && !el.hasAttribute("aria-pressed")), "radio exposes aria-checked, not aria-pressed");
   check(await page.getByRole("radio").count() === 3, "accessibility tree exposes the three desired-result radios");
@@ -221,9 +236,117 @@ export async function runProgramEntryA11y(browser, check = assert) {
   if (await page.locator("#entryResumeContinue").count()) await page.click("#entryResumeContinue");
   check(await page.locator("html").getAttribute("data-theme") === "dark", "dark theme remains tokenized in entry flow");
   check(await page.locator(".entry-card").first().evaluate((el) => getComputedStyle(el).transitionDuration === "0s"), "reduced motion removes entry transitions");
+
+  await runEntryDialogFocus(page);
   } finally {
     await page.close();
   }
+}
+
+const ACTIVE_SEED = {
+  settings: { unit: "kg", lang: "en", jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120 },
+  programMeta: { id: "a11y-active", name: "Current block", started: "2026-08-01", created: "2026-08-01T00:00:00.000Z", updated: "2026-08-01T00:00:00.000Z", onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6, daysPerWeek: 1, goal: "hypertrophy", equipment: ["barbell"] },
+  program: [{ id: "active-row", day: "Day 1", order: 1, name: "Barbell row", sets: 2, min: 6, max: 10, primary: "Mid/upper back", secondary: "Biceps", notes: "", alternates: [], libraryId: "rw_bb" }],
+  log: [{ session: "a11y-session", date: "2026-08-29", day: "Day 1", exerciseId: "active-row", set: 1, load: 50, reps: 8, rir: 2 }],
+  programHistory: [], customExercises: [], _storageRevision: 7,
+};
+
+/** Import a one-exercise program and stop at the activation-ready review. */
+async function reachImportReview(page) {
+  await page.click("#entryOwnToggle");
+  await page.click('[data-entry-route="import"]');
+  await page.setInputFiles("#importProgram", {
+    name: "dialog-a11y.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      version: 3, meta: { name: "Dialog program" },
+      exercises: [{ day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8 }],
+    })),
+  });
+  await page.waitForSelector("#importReview.active", { timeout: 10000 });
+  await page.click("#importCommit");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+}
+
+const dialogHasFocus = (page) => page.evaluate(() => {
+  const dialog = document.getElementById("entryDialog");
+  return !!dialog?.open && dialog.contains(document.activeElement);
+});
+const focusedId = (page) => page.evaluate(() => document.activeElement?.id || "");
+
+/**
+ * K-26: every entry dialog takes focus inside itself, keeps Tab inside, closes
+ * on Escape and returns focus to the control that opened it.
+ */
+async function runEntryDialogFocus(page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await clean(page);
+
+  // Cancel, opened from the hub's own Cancel control.
+  await page.click("#onbCancel");
+  await page.waitForSelector("#entryCancelKeep");
+  assert(await dialogHasFocus(page), "the cancel dialog takes focus inside itself");
+  assert(await page.getByRole("dialog").count() === 1, "the cancel dialog is exposed as a dialog");
+  for (let press = 0; press < 5; press++) await page.keyboard.press("Tab");
+  assert(await dialogHasFocus(page), "Tab stays inside the cancel dialog");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.getElementById("entryDialog")?.open);
+  assert(await focusedId(page) === "onbCancel", "Escape closes the cancel dialog and returns focus to Cancel", await focusedId(page));
+  await page.click("#onbCancel");
+  await page.click("#entryCancelContinue");
+  assert(await focusedId(page) === "onbCancel", "Continue setup returns focus to Cancel", await focusedId(page));
+
+  // Start over, opened from the review.
+  await reachImportReview(page);
+  await page.locator("#entryRestart").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#entryRestartConfirm");
+  assert(await dialogHasFocus(page), "the start-over dialog takes focus inside itself");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.getElementById("entryDialog")?.open);
+  assert(await focusedId(page) === "entryRestart", "Escape closes the start-over dialog and returns focus to Start over", await focusedId(page));
+  assert(await page.evaluate(() => window.__repforgeEntryState?.()?.step) === "preview", "dismissing start over keeps the review");
+  await page.click("#entryRestart");
+  await page.click("#entryRestartCancel");
+  assert(await focusedId(page) === "entryRestart", "Back to the program returns focus to Start over", await focusedId(page));
+
+  // Resume, discarding the saved setup.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.evaluate(() => { window.closeFirstRun?.(); window.startOnboarding?.("settings"); });
+  await page.waitForSelector("#entryResumeContinue");
+  await page.locator("#entryResumeRestart").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#entryRestartConfirm");
+  assert(await dialogHasFocus(page) && /saved setup/i.test(await page.locator("#entryRestartTitle").innerText()),
+    "the resume card's Start over asks to discard the saved setup");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.getElementById("entryDialog")?.open);
+  assert(await focusedId(page) === "entryResumeRestart", "Escape returns focus to the resume card's Start over", await focusedId(page));
+  assert(await page.locator("#entryResumeContinue").isVisible(), "dismissing the discard keeps the resume card");
+
+  // Replace, opened from the review when a program is already active.
+  await clean(page);
+  await page.evaluate(async (seed) => {
+    localStorage.setItem("repforge_v1", JSON.stringify(seed));
+    await window.__repforgeStorage.flush();
+  }, ACTIVE_SEED);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.evaluate(() => { window.closeFirstRun?.(); window.startOnboarding?.("settings", { resume: false }); });
+  await reachImportReview(page);
+  await page.locator("#entryActivate").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#entryReplaceConfirm");
+  assert(await dialogHasFocus(page), "the replace dialog takes focus inside itself");
+  const replaceCopy = await page.locator("#entryDialog").innerText();
+  assert(/Current block/.test(replaceCopy) && /Dialog program/.test(replaceCopy),
+    "the replace dialog names the program it archives and the one it starts", replaceCopy);
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.getElementById("entryDialog")?.open);
+  assert(await focusedId(page) === "entryActivate", "Escape closes the replace dialog and returns focus to the activation", await focusedId(page));
+  const untouched = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")).programMeta.name);
+  assert(untouched === "Current block", "dismissing the replace dialog leaves the active program as it was", untouched);
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;

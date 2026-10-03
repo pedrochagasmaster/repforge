@@ -73,9 +73,16 @@ async function liveField(page,keySuffix,value){
   return live;
 }
 async function liveWellButton(page, kind) {
-  const btn = page.locator(`#workout .exercise.is-current:not(.is-peek) .focus-well .${kind}`).first();
+  const btn = page.locator(`#workout .exercise.is-current:not(.is-peek) .focus-shelf .${kind}`).first();
   await btn.waitFor({ state: "visible", timeout: 5000 });
   return btn;
+}
+/** The header's three-dot button opens the exercise actions. This suite turns voice input on, so there it opens the short menu that holds both. */
+async function openActions(page) {
+  await page.locator("#woOverflowBtn").click();
+  const item = page.locator("#woExActions");
+  if (await item.isVisible()) await item.click();
+  await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 }
 async function currentCard(page) {
   return page.locator("#workout .exercise.is-current:not(.is-peek)").first();
@@ -177,8 +184,8 @@ async function commitActiveSet(page,{load=60,reps=8,rir=2}={}){
   await liveField(page,"_load",load);
   await liveField(page,"_reps",reps);
   await liveField(page,"_rir",rir);
-  const key=await page.locator("#workout .exercise.is-current .focus-well [data-k$='_load']").getAttribute("data-k");
-  await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+  const key=await page.locator("#workout .exercise.is-current .focus-shelf [data-k$='_load']").getAttribute("data-k");
+  await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
   await flushDraft(page);
   await page.waitForFunction(key=>{
     const target=window.__repforgeWorkoutDraft.target(key);
@@ -241,38 +248,40 @@ async function main() {
     phase("Navigation: first/middle/last reachable, position announced, arrows bounded");
     await enterFocus(page, 0);
     const nav = await page.evaluate(() => ({
-      label: document.querySelector("#woProgress .wo-progress__lab")?.textContent?.trim(),
-      prevDisabled: document.querySelector("#woPrev")?.disabled,
+      label: document.querySelector("#woDayTitle")?.textContent?.trim(),
+      announced: document.querySelector("#woProgress .visually-hidden")?.textContent?.trim(),
+      segments: document.querySelectorAll("#woProgress [data-focusgo]").length,
+      current: document.querySelector("#woProgress .segbar__seg.is-current")?.dataset.focusgo,
       count: window.__repforgeFocus.list().length,
     }));
-    assert(nav.label?.endsWith("1 of 6") && nav.prevDisabled === true && nav.count === 6,
-      "first exercise is reachable with the previous arrow disabled and position announced", JSON.stringify(nav));
+    assert(nav.label?.endsWith("1 of 6") && /1 of 6$/.test(nav.announced || "") && nav.current === "0" && nav.segments === 6 && nav.count === 6,
+      "first exercise is reachable with its segment current and the position announced", JSON.stringify(nav));
     const walkTo = async (target) => {
       while (await page.evaluate(() => window.__repforgeFocus.at()) < target) {
         const next = await page.evaluate(() => window.__repforgeFocus.at() + 1);
-        await page.locator("#woNext").click();
+        await page.locator("#workout .exercise.is-current [data-fnextrow]").click();
         await page.waitForFunction(
-          (n) => document.querySelector("#woProgress .wo-progress__lab")?.textContent?.trim().endsWith(`${n} of 6`),
+          (n) => document.querySelector("#woDayTitle")?.textContent?.trim().endsWith(`${n} of 6`),
           next + 1, { timeout: 5000 });
       }
     };
     await walkTo(1);
     const middle = await page.evaluate(() => ({
-      label: document.querySelector("#woProgress .wo-progress__lab")?.textContent?.trim(),
+      label: document.querySelector("#woDayTitle")?.textContent?.trim(),
       name: document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim(),
     }));
     assert(middle.label?.endsWith("2 of 6") && middle.name?.includes(second.name),
-      "the middle exercise is reachable through the visible next arrow", JSON.stringify(middle));
+      "the middle exercise is reachable through the Next row", JSON.stringify(middle));
     await walkTo(5);
     const lastCard = await page.evaluate(() => ({
-      label: document.querySelector("#woProgress .wo-progress__lab")?.textContent?.trim(),
-      nextDisabled: document.querySelector("#woNext")?.disabled,
+      label: document.querySelector("#woDayTitle")?.textContent?.trim(),
+      noNextRow: !document.querySelector("#workout .exercise.is-current .fx-next"),
       name: document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim(),
     }));
     const dayExercises = program.filter((e) => e.day === first.day);
     const lastOfDay = dayExercises.at(-1);
-    assert(lastCard.label?.endsWith("6 of 6") && lastCard.nextDisabled === true && lastCard.name?.includes(lastOfDay.name),
-      "the last exercise is reachable and the next arrow stops there", JSON.stringify(lastCard));
+    assert(lastCard.label?.endsWith("6 of 6") && lastCard.noNextRow === true && lastCard.name?.includes(lastOfDay.name),
+      "the last exercise is reachable and the Next row stops there", JSON.stringify(lastCard));
     await enterFocus(page, 0);
 
     /* ---- Active-set fields, units, adjacent validation ---- */
@@ -286,13 +295,16 @@ async function main() {
       "typed field values land in the DraftV2 projection", JSON.stringify({ before, typed }));
     const loadStep = await page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current:not(.is-peek)");
+      // A first tap selects the load field (rebuilding the shelf), and the pads follow it.
+      card.querySelector("[data-shelf-field='load']").click();
       const input = card.querySelector("[data-k$='_load']");
       const before = input.value;
-      card.querySelector(".curset__steps .stepbtn[data-dir='1']").click();
-      return { before, after: input.value, unit: document.querySelector("#workout .unit-hint")?.textContent?.trim() };
+      card.querySelector(".shelf__pad[data-dir='1']").click();
+      return { before, after: card.querySelector("[data-k$='_load']").value,
+        unit: card.querySelector(".shelf__field[data-field='load'] .shelf__lab")?.textContent?.trim() };
     });
-    assert(loadStep.after !== loadStep.before && loadStep.unit === "kg",
-      "the visible load stepper nudges the live field and the unit is named", JSON.stringify(loadStep));
+    assert(loadStep.after !== loadStep.before && /kg$/.test(loadStep.unit || ""),
+      "the visible load pad nudges the live field and the unit is named", JSON.stringify(loadStep));
     const invalid = await (async () => {
       await liveField(page, "_reps", "abc");
       await (await liveWellButton(page, "saveset")).click();
@@ -300,7 +312,7 @@ async function main() {
       return page.evaluate(() => ({
         toast: document.querySelector("#toast")?.textContent?.trim(),
         invalid: document.querySelectorAll("#workout .exercise.is-current [aria-invalid='true']").length,
-        done: document.querySelector("#workout .exercise.is-current .focus-well .saveset")?.getAttribute("aria-pressed"),
+        done: document.querySelector("#workout .exercise.is-current .focus-shelf .saveset")?.getAttribute("aria-pressed"),
       }));
     })();
     assert(invalid.done !== "true" && (invalid.invalid > 0 || invalid.toast), 
@@ -315,13 +327,13 @@ async function main() {
     assert(committed.sets[0].completion === "done" && committed.sets[1].completion === "pending",
       "committing the active set completes exactly that ordinal", JSON.stringify(committed));
     const setOf = await page.evaluate(() => ({
-      setof: document.querySelector("#workout .exercise.is-current .focus-ex__setof")?.textContent?.replace(/\s+/g, " ").trim(),
-      rows: document.querySelectorAll("#workout .exercise.is-current .ledger__row[data-editn]").length,
+      setof: document.querySelector("#workout .exercise.is-current .focus-shelf .saveset")?.textContent?.replace(/\s+/g, " ").trim(),
+      rows: document.querySelectorAll("#workout .exercise.is-current .ledgerline[data-editn]").length,
     }));
-    assert(setOf.rows === 1 && /2\s*of\s*2/.test(setOf.setof),
-      "the ledger carries the committed row and the well moves to set 2", JSON.stringify(setOf));
+    assert(setOf.rows === 1 && /\b2$/.test(setOf.setof),
+      "the ledger carries the committed row and the shelf moves to set 2", JSON.stringify(setOf));
     // Correction: reopen the committed row through the ledger.
-    await page.locator("#workout .exercise.is-current .ledger__row[data-editn]").click();
+    await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction(() => window.__repforgeFocus.editing() !== null, undefined, { timeout: 5000 });
     const snap = await page.evaluate(() => window.__repforgeFocus.editing());
     await liveField(page, "_load", 65);
@@ -332,7 +344,7 @@ async function main() {
       corrected.sets[0].ordinal === 1 && corrected.sets[1].completion === "pending",
       "correction updates the committed set in place and the next ordinal stays untouched", JSON.stringify({ snap, corrected }));
     // Uncommit: values retained, status back to pending.
-    await page.locator("#workout .exercise.is-current .ledger__row[data-editn]").click();
+    await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction((id) => {
       const ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
       return ex?.sets?.[ex.setOrder[0]]?.completion === "pending";
@@ -347,15 +359,15 @@ async function main() {
     const contextFacts = await page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current:not(.is-peek)");
       return {
-        pastRows: card.querySelectorAll(".ledger__row.is-past").length,
-        lastSessionLabel: card.querySelector(".ledger__lab")?.textContent?.trim(),
-        target: card.querySelector(".focus-ex__target")?.textContent?.trim(),
+        pastRows: card.querySelectorAll(".ledgerline__prev").length,
+        lastSessionLabel: card.querySelector(".ledgerline__prev")?.textContent?.trim(),
+        target: card.querySelector(".focus-ex__meta")?.textContent?.trim(),
         why: !!card.querySelector("[data-why]"),
         head: { title: document.querySelector("#woDayTitle")?.textContent?.trim(), sub: document.querySelector("#woDaySub")?.textContent?.trim() },
       };
     });
     assert(contextFacts.pastRows === 2 && contextFacts.lastSessionLabel,
-      "the previous session renders inside the ledger band before the first set", JSON.stringify(contextFacts));
+      "the previous session renders under its matching ledger rows before the first set", JSON.stringify(contextFacts));
     assert(contextFacts.target && contextFacts.why && contextFacts.head.title,
       "day context, target text, and the Why control are all visible on the card", JSON.stringify(contextFacts.head));
     await page.locator("#workout .exercise.is-current [data-why]").click();
@@ -366,10 +378,12 @@ async function main() {
     }));
     assert(why.target && why.body > 0, "Why this weight? opens with the engine's facts and copy", JSON.stringify(why));
     await page.evaluate(() => window.closeWhySheet?.());
+    await page.waitForSelector("#whySheet", { state: "hidden", timeout: 5000 });
 
     /* ---- User exercise note ---- */
     phase("Exercise note: save, reload, restoration");
-    await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+    await openActions(page);
+    await page.locator("#exActionNotesBtn").click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
     await page.fill("#exNoteText", "Seat 4, handles chest height.");
     await page.locator("#exNoteSave").click();
@@ -385,7 +399,8 @@ async function main() {
 
     /* ---- Skip/restore through the visible tool ---- */
     phase("Skip and restore: status, focus advance, show-all restore");
-    await page.locator("#workout .exercise.is-current [data-skip]").click();
+    await openActions(page);
+    await page.locator("#exActionSkipBtn").click();
     await page.waitForFunction((id) => {
       const draft = window.__repforgeWorkoutDraft.current();
       return draft?.exercises?.[id]?.status === "skipped";
@@ -409,7 +424,7 @@ async function main() {
       "restore returns the exercise with its set identities and order intact", JSON.stringify(restored));
 
     /* ---- Rest timer through the header chip ---- */
-    phase("Rest timer: chip start, sheet hold, stop; commit independent of timer");
+    phase("Rest timer: chip start, inline hold, sheet stop; commit independent of timer");
     await page.locator("#woRest").click();
     await page.waitForFunction(() => !!document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
     const running = await page.evaluate(() => ({
@@ -417,12 +432,17 @@ async function main() {
       hidden: document.querySelector("#woRest")?.classList.contains("hidden"),
     }));
     assert(running.chip && running.chip !== "—" && !running.hidden, "the chip starts the clock and reads the countdown", JSON.stringify(running));
+    // The clock is inline in the cue slot and its Pause pad holds it while the lifter stays on the set.
+    await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='running'] [data-rest-clock]", { timeout: 5000 });
+    const labels = await page.evaluate(() => ({ pause: window.RepForgeI18n.t("rest.inline.pause"), resume: window.RepForgeI18n.t("rest.inline.resume") }));
+    await page.locator("#workout .exercise.is-current .restpad--toggle").click();
+    const paused = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restpad--toggle")?.textContent.trim());
+    assert(paused === labels.resume, "the inline pad holds the clock while the lifter stays on the set", paused);
+    await page.locator("#workout .exercise.is-current .restpad--toggle").click();
+    assert(await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restpad--toggle")?.textContent.trim()) === labels.pause,
+      "the same pad lets the clock go again");
     await page.locator("#woRest").click();
     await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
-    await page.locator("#restPlayPause").click();
-    const paused = await page.evaluate(() => document.querySelector("#restSheet")?.classList.contains("is-paused"));
-    assert(paused === true, "the sheet holds the clock while the lifter stays on the set");
-    await page.locator("#restPlayPause").click();
     await page.locator("#restStop").click();
     await page.waitForFunction(() => !document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
     assert(true, "stopping from the sheet clears the chip");

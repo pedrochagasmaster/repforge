@@ -15,6 +15,10 @@ const CHECKPOINT = `${DRAFT}:v2-checkpoint`;
 const RECOVERY = `${DRAFT}:recovery`;
 const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
 const OLD_APP = execFileSync("git", ["show", `${OLD_APP_SHA}:app.js`], { encoding: "utf8" });
+// An installed older version runs its own shell with its own app.js, so the legacy
+// writer gets that commit's index.html too (the current shell retired DOM it binds).
+const OLD_INDEX = execFileSync("git", ["show", `${OLD_APP_SHA}:index.html`], { encoding: "utf8" });
+const OLD_DOCUMENT = /\/(?:index\.html)?(?:\?[^/]*)?$/;
 const failures = [];
 let passed = 0;
 
@@ -53,6 +57,9 @@ async function openOldApp(context) {
     contentType: "text/javascript",
     body: OLD_APP,
   }));
+  await page.route(OLD_DOCUMENT, (route) => route.request().resourceType() === "document"
+    ? route.fulfill({ status: 200, contentType: "text/html", body: OLD_INDEX })
+    : route.continue());
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForBoot(page);
   return page;
@@ -136,11 +143,11 @@ async function completeAllButCurrent(page) {
     await hook.flush();
   });
   await page.evaluate(() => window.__repforgeFocus.to(0));
-  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset", { timeout: 5000 });
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf .saveset", { timeout: 5000 });
 }
 
 async function fillCurrent(page, field, value) {
-  const input = page.locator(`#workout .exercise.is-current .focus-well [data-k$="_${field}"]`);
+  const input = page.locator(`#workout .exercise.is-current .focus-shelf [data-k$="_${field}"]`);
   const key = await input.getAttribute("data-k");
   await input.fill(String(value));
   await page.waitForFunction(({ key, field, value }) => {
@@ -213,7 +220,7 @@ async function main() {
     await fillCurrent(page, "load", "60");
     await fillCurrent(page, "reps", "8");
     await fillCurrent(page, "rir", "2");
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft.exercises[draft.session.selectedExerciseId];
@@ -230,7 +237,7 @@ async function main() {
     await page.waitForSelector("#workout.is-focus .exercise.is-current");
     await page.evaluate(() => document.querySelectorAll("#workout .focus-inputs").forEach((node) => node.remove()));
     await fillCurrent(page, "load", "62.5");
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft.exercises[draft.session.selectedExerciseId];
@@ -437,7 +444,7 @@ async function main() {
         window.__releaseSuggestionRefresh = resolve;
       });
     });
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(() => typeof window.__releaseSuggestionRefresh === "function");
     const immediateBefore = await rawState(page);
     await page.evaluate(() => {
@@ -474,7 +481,7 @@ async function main() {
         window.__releaseSuggestionRefresh = resolve;
       });
     });
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(() => typeof window.__releaseSuggestionRefresh === "function");
     await page.evaluate(() => {
       window.__failedRefreshSaveSettled = false;
@@ -775,7 +782,7 @@ async function main() {
     await fillCurrent(page, "load", "60");
     await fillCurrent(page, "reps", "8");
     await fillCurrent(page, "rir", "2");
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     const contender = await openApp(context);
     watch(contender);
     await page.evaluate(() => {
@@ -825,7 +832,7 @@ async function main() {
     await fillCurrent(page, "load", "64");
     await fillCurrent(page, "reps", "8");
     await fillCurrent(page, "rir", "2");
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     const savedDraftId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
     const saveWithSuccessor = await page.evaluate(async () => {
       window.__repforgeDraftAfterSaveCommit = async () => {
@@ -1236,17 +1243,17 @@ async function main() {
     console.log("\n7. Recovery actions preserve pending input and reject stale destructive choices");
     await reset(page, { lang: "pt", unit: "lb" });
     await enter(page);
-    let loadInput = page.locator('#workout .exercise.is-current .focus-well [data-k$="_load"]');
+    let loadInput = page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_load"]');
     let loadKey = await loadInput.getAttribute("data-k");
     await loadInput.fill("150");
-    await page.locator('#workout .exercise.is-current .focus-well [data-k$="_reps"]').fill("8");
-    await page.locator('#workout .exercise.is-current .focus-well [data-k$="_rir"]').fill("2");
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_reps"]').fill("8");
+    await page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_rir"]').fill("2");
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current(), exercise = draft.exercises[draft.session.selectedExerciseId];
       return exercise.sets[exercise.setOrder[0]].completion !== "pending";
     });
-    loadInput = page.locator('#workout .exercise.is-current .focus-well [data-k$="_load"]');
+    loadInput = page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_load"]');
     loadKey = await loadInput.getAttribute("data-k");
     const durableBeforeFailure = (await rawState(page)).raw;
     const durableLoad = await page.evaluate((key) => {
@@ -1292,7 +1299,7 @@ async function main() {
       result: finishWhilePending, draftUnchanged: afterBlockedFinish.raw === durableBeforeFailure,
       historyRows: afterBlockedFinish.state.log.length,
     });
-    const repsInput = page.locator('#workout .exercise.is-current .focus-well [data-k$="_reps"]');
+    const repsInput = page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_reps"]');
     await repsInput.fill("11");
     await page.waitForFunction(() => document.querySelector("#draftRecoveryPending")?.textContent.includes("157,1"));
     const blockedFollowup = await page.evaluate(({ draftKey, loadKey }) => {
@@ -1313,12 +1320,18 @@ async function main() {
         document.querySelector("#draftRecovery")?.classList.contains("hidden");
     }, { loadKey });
     await page.waitForFunction((key) => document.activeElement?.dataset?.k === key, loadKey);
-    check(await page.evaluate((key) => document.activeElement?.dataset?.k === key, loadKey),
-      "Retry persists the exact operation and restores its logical field focus");
+    // R7 C-01: the restored focus is the control the lifter can use (live: in the tab order, in the accessibility
+    // tree), not the shelf's dormant input for that field.
+    const retryFocus = await page.evaluate((key) => {
+      const el = document.activeElement;
+      return { key: el?.dataset?.k === key, live: !!el && el.tabIndex >= 0 && !el.closest("[aria-hidden='true']") };
+    }, loadKey);
+    check(retryFocus.key && retryFocus.live,
+      "Retry persists the exact operation and restores its logical field focus on the live control", retryFocus);
 
     await reset(page);
     await enter(page);
-    loadInput = page.locator('#workout .exercise.is-current .focus-well [data-k$="_load"]');
+    loadInput = page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_load"]');
     loadKey = await loadInput.getAttribute("data-k");
     const stalePage = await openApp(context);watch(stalePage);await enter(stalePage);
     await fillCurrent(page, "load", "80");

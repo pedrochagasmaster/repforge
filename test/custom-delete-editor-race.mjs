@@ -228,7 +228,7 @@ async function testStaleFullLibraryAddAfterDelete(browser) {
       customReferenceHasDefinition(snapshot, id));
     check(safe && [afterApply.local, afterApply.idb].every(snapshot =>
         !snapshot?.program?.some(row => row.libraryId === id)) && applyUi.libraryOpen &&
-        !applyUi.toast.includes("exercises added"),
+        !/exercises? added/.test(applyUi.toast),
     "the full-library ingress rejects a stale custom identity after Delete", {
       applyUi,
       local: stateSummary(afterApply.local, id, null),

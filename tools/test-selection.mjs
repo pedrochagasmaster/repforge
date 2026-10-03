@@ -177,6 +177,7 @@ const EXPLICIT_INPUT_RULES = [
       "test/ui-plan-050-build-hierarchy.mjs",
       "test/ui-plan-050-editor.mjs",
       "test/ui-catalog-contract.mjs",
+      "test/direction-d-gate.mjs",
     ],
     why: "UI screen manifest consumers",
   },
@@ -184,6 +185,21 @@ const EXPLICIT_INPUT_RULES = [
     match: /^docs\/ui-screens\/entry-semantics\.json$/,
     suiteFiles: ["test/ui-screens.mjs"],
     why: "UI screen semantic baseline",
+  },
+  {
+    match: /^assets\/brand\/landing-proof-spots\.json$/,
+    suiteFiles: ["test/landing-proof-capture.mjs"],
+    why: "landing proof lens hotspots; a measurement record, not rendered UI (tools/capture-landing-proof.mjs --check owns drift)",
+  },
+  {
+    match: /^tools\/check-direction-d\.mjs$/,
+    suiteFiles: ["test/direction-d-gate.mjs", "test/rules-only-gate.mjs"],
+    why: "Direction D acceptance gate and the rules-only audit that reuses its machinery",
+  },
+  {
+    match: /^tools\/check-rules-only\.mjs$/,
+    suiteFiles: ["test/rules-only-gate.mjs"],
+    why: "rules-only audit",
   },
   {
     match: /^tools\/ui-role-inventory\.json$/,

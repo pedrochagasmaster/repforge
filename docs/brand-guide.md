@@ -81,17 +81,42 @@ it is not referenced or precached. Current landing rules live in
 
 ## First-run modes
 
-The Plan 054 landing (`#firstRun`) is the one-time threshold into an empty
-device. It uses warm paper, ink, burnt orange, the Taurifer lockup and an
-editorial headline. An actual workout capture rendered through Form iPhone
-Studio sits beside live prescription, logged-work and next-target facts.
-The owner-directed refinement and historical reference hashes live in
+The landing (`#firstRun`) is the one-time threshold into an empty device. Plan 064
+R2 rebuilt it as the owner-accepted final page (OG-3): one scrolling page of
+bands. The night hero carries the headline, the subtitle, the Build pill, the Track
+link and three chips; the night proof pins the app's real workout screen over seven
+steps, each read by a lens; three ways to start run as an orange, a surface and an
+ink stripe; three engine outcomes and the strength-trend chart show that the next
+target follows what the lifter did; an ink band says where the history lives;
+five questions follow, and an orange band closes before the night footer. A
+floating Build control follows the hero action once it has scrolled away.
+
+The headline is the landing's one ethos line (owner decision L-3): the old
+"Plan. Lift. Progress." line and the one-line privacy sentence are gone. Every
+number on the page is produced when it renders, never typed into markup or a
+catalog value: the three outcomes come from `progression-engine.js` with the
+app's default settings, the chart's figures from the Progress model over the
+history the chart image is captured from, and each sentence that carries a
+number is a catalog template with `{curly}` placeholders. Copy makes no absolute
+promise: warm-ups are left out of the next target, "free" is scoped to building
+and logging, and "works offline" is qualified by "once opened".
+
+Orange is a field here and nowhere else in the app: the first way's stripe, the
+closing band and the install card carry near-black ink on the accent, the night
+bands hold the dark palette in both appearances, and the ink band inverts the
+page. The prototype's orange arrow on the parchment pill measured 2.05:1, so the
+night pill draws its arrow in its own ink. The proof's phone shows the dark
+captures in both appearances; the paste review and the chart swap on the chosen
+appearance (`data-theme`), never on `prefers-color-scheme`. The owner-directed
+refinement and historical reference hashes of the earlier landing live in
 `docs/design/plan-054-landing-directions.md`. No gym photograph ships on the page.
 
 **Generic** — no shared setup source. It renders only while no program,
 content, or history exists and `repforge_ui_v1.entryLandingSeen` is not true.
-Build my program and Track my current program are the early entry actions.
-Privacy opens the existing disclosure surface. A later empty visit boots the
+Build my program is the ink pill and Track my current program the underlined link
+under it, repeated at the closing band; the floating Build control opens the same
+route. Privacy in the header opens the existing disclosure surface, and the footer
+Privacy link goes to the data band on the same page. A later empty visit boots the
 ordinary Today/Program no-program states.
 
 **Shared valid** — a valid setup proposal on an eligible device. The headline
@@ -103,13 +128,14 @@ required for activation.
 
 **Shared invalid** — an invalid or unsupported link says that it cannot be used
 and that nothing was saved, retains the specific live-region reason, and offers
-the safe generic entry actions. It does not consume `entryLandingSeen`.
+the safe generic entry actions. It does not consume `entryLandingSeen`. The shared
+valid gate shows no Build, Track or floating control anywhere on the page.
 
 Shared captions remain localized rather than assembled from fragments:
 
 | Key | English | Portuguese |
 | --- | --- | --- |
-| `setup.shared.title` | Start this program | Começar este programa |
+| `setup.shared.title` | Start this program | Começar este treino |
 | `setup.shared.cap_one` | {name} · 1 day per week | {name} · 1 dia por semana |
 | `setup.shared.cap_many` | {name} · {n} days per week | {name} · {n} dias por semana |
 
@@ -126,15 +152,17 @@ proposal.
 Plan 054 P3 owns only the landing and routing above. Later packets still own
 install timing, contextual guidance, and the cached Privacy page.
 
-**What a setup link shares.** The in-app share sheet states the exact
-claim before the coach acts; do not strengthen or soften it in other
-copy, and do not paste it into the outbound system share or the
-clipboard:
+**What a setup link shares.** The in-app share sheet states the claim in
+one line before the coach acts, and the sheet's body stays task-only. The full
+disclosure, including the iOS cookie, is the cached in-app Privacy page's
+setup section. Do not strengthen or soften either text in other copy, and do
+not paste it into the outbound system share or the clipboard:
 
-| Key | English | Portuguese |
-| --- | --- | --- |
-| `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, ajustes e idioma do app · sem histórico de treinos |
-| `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta. |
+| Key | Surface | English | Portuguese |
+| --- | --- | --- | --- |
+| `program.share_setup_sub` | Share row and sheet | Program, settings and app language · no workout history | Treino, ajustes e idioma do app · sem histórico de sessões |
+| `program.share_setup_body` | Share sheet | Create a setup link for this program. Copy the link or open the system Share sheet. | Crie um link de configuração para este treino. Copie o link ou abra o menu de compartilhamento do sistema. |
+| `privacy.setup.body` | Privacy page | A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history. | Um link de configuração leva uma proposta de treino no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de sessão nem histórico de treinos anteriores. |
 
 Outbound Share link is title plus URL only. Copy link is the URL only. The
 Share sheet stays task-only: privacy and transport explanations live on the
@@ -236,7 +264,10 @@ woff2 files; no external font services.
 Principles the tokens can't express:
 
 - One accent, used sparingly — emphasis, primary actions, small highlights.
-  Never decorative washes or large orange fields.
+  Never decorative washes or large orange fields. The one-time landing is the
+  approved exception: its first way's stripe, its closing band and the install
+  card are orange fields that carry near-black ink (Plan 064 R2, OG-3). Nothing
+  else in the app is.
 - Page content stays flat: hairlines (`--rule`) separate content, whitespace
   groups it. Depth is allowlisted by semantic role only — `flat`, `selected`,
   `floating`, `modal`, and `persistent-action` as defined in
@@ -252,8 +283,9 @@ Principles the tokens can't express:
 Dark appearance carries the same material grammar rather than introducing a
 second visual identity: warm charcoal paper, off-white ink, ember orange,
 hairlines and whitespace. Working-surface primary actions use a quiet parchment
-inversion. The one-time landing's owner-selected burnt-orange CTA is the
-approved exception. Artwork painted on cream — the exercise illustrations and
+inversion. The one-time landing's night, orange and ink bands (OG-3) are the
+approved exception, and its creation pill follows them: parchment with ink on the
+night band, near-black with an orange arrow on the orange band (L-1). Artwork painted on cream — the exercise illustrations and
 the ground-free mark — keeps that paper as a deliberate archival
 plate with a corner of its own, rather than being inverted, tinted, dimmed, or
 dissolved into charcoal with a gradient. Repeated status markers should not all

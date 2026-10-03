@@ -218,6 +218,11 @@ async function main() {
 
     const name = fieldInput(page, "name");
 
+    // 0. R7 J-18: the Add day control carries one plus, not the glyph and the string's own.
+    const addDayText = ((await page.locator('#programEditor [data-role="add-day"]').textContent()) || "").replace(/\s+/g, " ").trim();
+    check((addDayText.match(/[+＋]/g) || []).length === 1 && /Add day/.test(addDayText),
+      "the Add day control shows a single plus", { addDayText });
+
     // 1. Typing a multi-word name keeps its spaces.
     await name.click();
     await page.keyboard.press("End");
@@ -342,6 +347,25 @@ async function main() {
       "edited text fields survive a reload",
       { reloaded }
     );
+
+    // 9. R7 J-14: in Portuguese no editor control is named in English, and the stepper reads as sets.
+    await writeFixture(page, { ...fixture(), settings: { ...fixture().settings, lang: "pt" } });
+    await openProgramEditor(page);
+    await page.locator('#programEditor [data-role="toggle-exercise"]').first().click();
+    await page.waitForSelector('#programEditor [data-role="adjust"]', { timeout: 5000 });
+    const names = await page.$$eval("#programEditor button, #programEditor [role=button]", (nodes) =>
+      nodes.map((node) => (node.getAttribute("aria-label") || node.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean));
+    const english = names.filter((value) => /^(Expand|Collapse|Increase|Decrease)\b/.test(value));
+    check(english.length === 0, "PT editor: no control is named Expand, Collapse, Increase or Decrease", { english, names });
+    const steppers = await page.$$eval('#programEditor [data-role="adjust"]', (nodes) => nodes.map((node) => node.getAttribute("aria-label")));
+    check(steppers.length === 2 && steppers.every((value) => /s[eé]ries/i.test(value || "")),
+      "PT editor: the sets steppers are named in Portuguese", { steppers });
+    const toggles = await page.$$eval('#programEditor [data-role="toggle-exercise"], #programEditor [data-role="toggle-day"]', (nodes) => nodes.map((node) => node.getAttribute("aria-label")));
+    check(toggles.length === 2 && toggles.every((value) => /^(Expandir|Recolher)\b/.test(value || "")),
+      "PT editor: the exercise and day toggles read Expandir or Recolher", { toggles });
+    const addDayPt = ((await page.locator('#programEditor [data-role="add-day"]').textContent()) || "").replace(/\s+/g, " ").trim();
+    check((addDayPt.match(/[+＋]/g) || []).length === 1 && /Adicionar dia/.test(addDayPt),
+      "PT editor: Add day shows a single plus", { addDayPt });
   } finally {
     await context.close();
     await browser.close();

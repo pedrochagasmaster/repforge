@@ -115,6 +115,8 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
   // a broken scenario.
   context.setDefaultTimeout(45000);
   const page = await context.newPage();
+  // A state may be drawn on an earlier day than the catalog clock (`options.now`,
+  // from APP_CLOCK in screens-app.mjs); every other state keeps CAPTURE_NOW.
   await page.addInitScript((fixedNow) => {
     const RealDate = Date;
     const fixedTime = RealDate.parse(fixedNow);
@@ -123,7 +125,7 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
       static now() { return fixedTime; }
     }
     globalThis.Date = CaptureDate;
-  }, CAPTURE_NOW);
+  }, options.now || CAPTURE_NOW);
   // The enlarged-text state is an inline style on <html>, which a navigation
   // destroys — and several scenarios reach their surface through a real
   // `page.goto` rather than in-page routing (the setup-link gate is one). Set
@@ -207,8 +209,12 @@ export async function settle(page) {
       new Promise((resolve) => setTimeout(resolve, ms)),
     ]);
     await deadline(document.fonts.ready.catch(() => {}), 5000);
+    // Only rendered images can change a frame. A lazy image inside a hidden
+    // surface (the closed landing keeps its walkthrough images in the DOM)
+    // never loads, so waiting on it only burns the deadline and lets a
+    // transient state such as a toast expire before the shot.
     await deadline(Promise.all([...document.images]
-      .filter((image) => !image.complete)
+      .filter((image) => !image.complete && image.checkVisibility())
       .map((image) => image.decode().catch(() => {}))), 3000);
     for (const animation of document.getAnimations()) {
       if (animation.effect?.getComputedTiming().iterations === Infinity) continue;

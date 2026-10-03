@@ -20,142 +20,79 @@ Re-run it when a new mark lands. Never hand-edit or hand-crop the output, and
 never point the gate at `icons/icon.svg` instead: the app icon paints its own
 warm ground, which reads as a tile against the app's paper.
 
-## Sectioned landing renders
+## Sectioned landing renders (retired)
 
-The current landing uses 32 renders named
-`{shot}-{en,pt}-{light,dark}.webp`: eight real Taurifer states in both
-languages and both appearances. The shots are `today-ready`, `entry-hub`,
-`recommend-result`, `program-overview`, `focus`, `why-this-weight`,
-`session-summary`, and `exercise-chart`.
+The Plan 054 landing used 32 renders named `{shot}-{en,pt}-{light,dark}.webp`
+(`today-ready`, `entry-hub`, `recommend-result`, `program-overview`, `focus`,
+`why-this-weight`, `session-summary`, `exercise-chart`). The final landing page
+(Plan 064 R2) shows none of them, and Plan 064 R6d deleted them (see "Removed
+renders"). The tools that made them (`tools/landing-prototype/capture.mjs`,
+`render.sh`) targeted that retired composition and were removed too;
+`tools/landing-prototype/fixture.mjs` stays because the landing's chart figures
+(92.5 to 100 kg over 4 sessions, owner decision L-2) are derived from it. The
+original reproduction notes live in
+[`docs/design/plan-054-landing-prototype`](../../docs/design/plan-054-landing-prototype/README.md).
+The name `exercise-chart-*` lives on as a live capture (below), not a studio render.
 
-`tools/landing-prototype/capture.mjs` reconstructs one intermediate lifter
-with three full-body days and twelve sessions, then captures the shipped UI at
-1290×2796. Form iPhone Studio renders each source with
-`docs/design/plan-054-landing-prototype/render/scene.json`; the per-shot device
-angles are recorded in `tools/landing-prototype/render.sh`. All outputs are
-cropped to the same 903×1832 frame so a more rotated phone does not render
-smaller than the others. No app content is redrawn or generated.
+## Landing proof images
 
-The service worker precaches only the four `today-ready` hero variants. The
-other 28 renders load on demand. The complete design and reproduction notes
-live in [`docs/design/plan-054-landing-prototype`](../../docs/design/plan-054-landing-prototype/README.md).
+The final landing's walkthrough and the paste-way disclosure use real-app
+captures, regenerated with repo tooling and never copied from the #276
+prototype. `tools/capture-landing-proof.mjs` owns them:
 
-## `landing-workout-{en,pt}-{light,dark}.webp` (historical)
+```
+node tools/capture-landing-proof.mjs --proof <scratch-dir>   # capture 16 WebP files + the spots JSON
+node tools/capture-landing-proof.mjs --check                 # recapture nothing; fail on a stale lens
+```
 
-The previous landing used four renders of the actual Taurifer Focus screen.
-Each shows a bench-press program, three recorded sets at 60 kg for 10 reps at
-RIR 2, and the app-derived 62.5 kg for 8 reps. These are authored example
-records, not a person's workout history. The range engine and real UI produce
-the shown result. No pixels or training values are invented by an image model.
+`--proof` rebuilds the bench "add" state from `test/fixtures/landing-proof.json`
+(last session 3 x 60 kg x 10 at RIR 2), asserts the real Focus inputs are
+62.5 kg x 8, and writes to the directory you name, never into this one. Copy the
+files here deliberately. `REPFORGE_URL` names the served worktree and
+`REPFORGE_CHROME` the pinned Chromium. `landing-proof-spots.json` holds the lens
+hotspots (percentages of the 390x844 frame, measured from the live DOM, stored
+once per scene because EN and PT must agree) and the paste-review counts. Commit
+it with the images, and keep the `LANDING_SPOTS` table in `app.js` equal to it
+(`test/landing-variants.mjs` compares them). `--check` re-measures and fails when
+it drifts. Every scene refuses a retired selector on screen (the rest sheet, the
+import review's old head): a screenshot of retired UI never ships.
 
-Source captures and configuration live in
-[`docs/pr-proof/premium-landing`](../../docs/pr-proof/premium-landing/README.md).
-`tools/capture-landing-proof.mjs --source <directory>` reconstructs the state
-from `test/fixtures/landing-proof.json`, verifies the real Focus inputs and
-history rows, and captures EN/PT in light/dark at 430×932 CSS pixels and 3× DPR,
-producing 1290×2796 PNGs. The capture resolves existing safe-area expressions
-to 59px top and 34px bottom because pinned Chromium cannot emulate those
-insets through CDP. This is a documented browser-layout emulation, not physical
-iPhone evidence. No application content or component layout is replaced.
+| Files | Frame | Shows |
+| --- | --- | --- |
+| `wt-focus-{en,pt}-dark.webp` | 390x844 @2x, dark only | Focus, set 1 of 3: the cue (up to 62.5 kg, aim for 8 reps), the ledger with last session, the shelf |
+| `wt-rest-{en,pt}-dark.webp` | same | Focus after Log set: the inline rest clock and drain bar in the card, set 2 cued |
+| `wt-actions-{en,pt}-dark.webp` | same | The redrawn exercise-actions sheet |
+| `wt-note-{en,pt}-dark.webp` | same | The exercise-note sheet over Focus with a typed note |
+| `paste-review-{en,pt}-{light,dark}.webp` | 390 CSS px wide @2x (780x1242), cropped from the import-review head through the first row | The review screen for the landing's sample coach message |
+| `exercise-chart-{en,pt}-{light,dark}.webp` | the chart region at 2x, from the metric toggle through the plot's readout line, on a 320 px phone (584x728 en, 584x766 pt: 292 CSS px wide, so the landing's 230 px slot draws it at 0.79) | The exercise page opened from Progress for the landing's squat, best e1RM selected: the figures, the plot and its readout (no table), from `tools/landing-prototype/fixture.mjs` (the history behind the caption's 92.5 to 100 kg over 4 sessions) |
 
-Form iPhone Studio at `/home/ubuntu/projects/form-iphone-studio` renders each
-source with the committed `render/scene.json`:
+The paste-review counts are read off the captured DOM and can differ by
+language (the library's Portuguese names match the sample less exactly), so the
+landing's alt text uses each language's own count, as `--proof` prints them.
+`--source <dir>` captures the 430x932 @3x source PNGs of the same Focus state and
+checks the upcoming sets' targets; `--matrix <dir>` runs the generic landing
+geometry checks.
 
-- device preset `iphone15`;
-- camera `Front`, device rotation x=0°, y=-8°, z=0°;
-- lighting `Soft Studio`;
-- screen fit `fit`, zoom 1, x=0, y=0;
-- ratio 9:16, longest edge 2160;
-- transparent export, ground disabled.
+## Removed renders
 
-The resulting 1215×2160 PNG is trimmed to its alpha bounds, 759×1566, and
-encoded as WebP at quality 88, method 6. There is no perspective, color,
-content or hardware edit after rendering. CSS supplies the surrounding paper,
-type, rules, overlap and responsive layout.
+Plan 064 R6d deleted the renders that no markup, service-worker entry, test or tool
+referenced any more. They live in git history only:
 
-The near-frontal view preserves the ledger's column alignment. The recorded
-Three Quarter / Bright Product alternative adds reflection and compresses the
-text. The chosen render's software follows the page language and theme. Live
-HTML beside it carries every numerical claim and reflows with enlarged text.
-The localized image alt describes the same example.
+- `landing-workout-{en,pt}-{light,dark}.webp`: four Form iPhone Studio renders of the
+  Focus screen (iphone15, Soft Studio, near-frontal, 759x1566, WebP quality 88) from the
+  Plan 054 landing. Their sources came from `tools/capture-landing-proof.mjs --source`
+  and `render/scene.json` (see `docs/pr-proof/premium-landing`).
+- the 28 sectioned renders `{today-ready,entry-hub,recommend-result,program-overview,
+  focus,why-this-weight,session-summary}-{en,pt}-{light,dark}.webp`, retired with the
+  Plan 054 landing (see above).
+- `landing-device.webp` (541x1058 with alpha) and `landing-hero.webp` (941x1672, the
+  only photograph in the app), the hero art of the Plan 054 landing, removed from the
+  landing and precache on 2026-09-15.
 
-Model attribution: the studio derives its hardware from
-[polyman's iPhone 15 Pro Max model](https://sketchfab.com/3d-models/apple-iphone-15-pro-max-black-df17520841214c1792fb8a44c6783ee7),
-licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-The renderer resizes that model to the selected iPhone 15 proportions, retaining
-the model's Pro hardware details. The rendered screen and framing are modified
-compositions. This is a product mockup, not a device-specification illustration.
-
-## `landing-device.webp`
-
-Historical asset, removed from the landing and precache on 2026-09-15.
-The former phone in the landing hero was 541×1058 with alpha. Owner-supplied, landed
-2026-09-14 as a rendered iPhone holding a real Taurifer screen: a Push session
-in week 4, the incline converging chest press at 4–8 reps and RIR 0–2, last
-session's 152.5 kg for 7 reps, and the set derived from it.
-
-Two things were done to the original, and both matter if it is ever replaced:
-
-1. **Trimmed to its own alpha** (`Image.getbbox()`), from 1152×1440 to
-   541×1058. The transparent margin was a third of the file and every pixel of
-   it is a pixel the device does not get when the image is sized from a grid
-   column.
-2. **Encoded as WebP at quality 88 (~33 kB) with alpha preserved.** The drop
-   shadow lives in that alpha, so the render needs no CSS shadow and sits on
-   the photograph without a box.
-
-In the superseded composition it was an `<img>`, not a `background-image`, and the brand image
-that is *not* decorative: it is the only place the landing shows the product,
-so it carries a real, localized `alt` naming the loop it displays — the
-target, the work logged last session, and the set derived from them. That
-string is `landing.preview.alt`, and `data-i18n-alt` keeps it translated.
-`test/install-modes.mjs` asserts those facts from the accessible name in both
-languages.
-
-The screen inside it is a raster, so it does not reflow, restyle for dark, or
-translate. That is the accepted cost of the owner's direction, recorded in
-`docs/design/plan-054-landing-directions.md`; a pt-BR reader sees an English
-screen with a Portuguese description of it. Replacing this file means
-re-checking that the alt still describes what the new render actually shows —
-a stale description here is worse than no image.
-
-## `landing-hero.webp`
-
-Historical asset, removed from the landing and precache on 2026-09-15.
-The following processing notes describe the superseded composition.
-
-The photograph behind the Plan 054 landing hero, 941×1672. Owner-supplied,
-landed 2026-09-14 as the background for the selected landing target recorded in
-`docs/design/plan-054-landing-directions.md`. It is the only photograph in the
-app; the 96 exercise illustrations remain a separate closed set, and this file
-is not one of them.
-
-One thing was done to the original, and it matters if it is ever replaced:
-**white-balanced onto the app's paper**, the same per-channel multiply
-`milo-hero.webp` describes below. The photographed wall reads about
-`#F7F2E8`; each channel was scaled so that wall lands on `--bg` (`#F4F2EF`).
-The point is the seam: the hero fades out onto solid paper just above the
-benefit strip, and an unbalanced file would draw a warm-to-neutral line exactly
-there. The plates and the bottle are near-black and move imperceptibly; the
-towel's burnt-orange stripe stays inside the accent family.
-
-It is **not** cropped. The composition is the owner's — lit wall in the upper
-two thirds where the proposition sits, plates and bottle along the bottom.
-Compact widths draw it `center bottom`, so the phone gets that whole
-composition; from 640px the crop moves to `center top`, because covering a
-landscape hero with a portrait file would otherwise put the plates behind the
-headline. Re-crop in CSS, never in this file.
-
-Encoded as WebP at quality 78 (~88 kB) with Pillow — `Image.point()` for the
-balance, then `save(…, quality=78, method=6)`. Unlike `milo-hero.webp` this
-needed no Chromium detour.
-
-It is painted with `background-image` on `.firstrun-hero::before`, decorative
-and never in the accessibility tree: it carries no product fact, so a missing
-export leaves paper behind the copy rather than a broken-image glyph — the
-line the exercise tiles and the retired Milo hero both hold. Dark withholds it
-rather than filtering it, because there is no honest dark treatment of a
-photographed warm wall; `forced-colors` withholds it too.
+The studio renders rested on [polyman's iPhone 15 Pro Max model](https://sketchfab.com/3d-models/apple-iphone-15-pro-max-black-df17520841214c1792fb8a44c6783ee7),
+licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); no file in this
+directory is a studio render any more. `milo-hero.webp` stays below as owner-licensed
+archival art that the brand guide and ADR 0006 still cite.
 
 ## `milo-hero.webp`
 

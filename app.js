@@ -780,6 +780,13 @@ function enqueueStateChange(base,proposal,io,options={}){return DurableState.enq
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
+/** "1 session" / "2 sessions": the count catalog keeps a `_one` form for exactly 1 (R7 V-14). kind: sessions, sets, exercises. */
+const countText=(kind,n)=>t(n===1?`count.${kind}_one`:`count.${kind}`,{n});
+/** Words in the language font, figures in Plex Mono: a line of copy with its numbers (5, 11–12, 39.5) wrapped in `.num`, the
+ *  rest escaped text. Mono is only for values (R7 V-18). */
+const monoNums=text=>String(text).split(/(\d+(?:[.,]\d+)?(?:[–-]\d+(?:[.,]\d+)?)?)/).map((part,i)=>i%2?`<span class="num">${esc(part)}</span>`:esc(part)).join("");
+/** A catalog key with a `_one` sibling: the sibling for exactly 1, the key otherwise. */
+const tOne=(key,n,vars)=>t(n===1?`${key}_one`:key,{n,...vars});
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
 const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
 const coarseCountBucket=value=>{const n=Number(value);return!Number.isSafeInteger(n)||n<0?"0":n===0?"0":n===1?"1":n<=5?"2-5":"6+"};
@@ -797,7 +804,6 @@ const bootTelemetry=()=>{if(installTransferMutationFrozen())return null;try{
   return result}catch{return null}};
 const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
-  const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
   const langSel=$("#lang");if(langSel){if(state?.settings?.lang)langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
   $$("[data-term]").forEach(b=>{const key=b.dataset.term;b.textContent=t(`glossary.term.${key}`)||key;if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(key,b)}});
 };
@@ -806,9 +812,11 @@ const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
    be resolved here rather than handed a null and left to that fallback. */
 const resolveLang=()=>state?.settings?.lang||I18N.detectLang();
 function syncLang(){if(!I18N)return;I18N.setLang(resolveLang());applyI18n()}
-function announce(msg,{assertive=false}={}){
+function announce(msg,{assertive=false,placement=""}={}){
   const generation=announce._generation=(announce._generation||0)+1;
   const live=$("#toast");if(!live)return;
+  // "top" keeps a notice clear of a sheet's pinned foot (the Session sheet's reorder announcement).
+  live.classList.toggle("toast--top",placement==="top");
   live.setAttribute("role",assertive?"alert":"status");
   live.setAttribute("aria-live",assertive?"assertive":"polite");
   live.setAttribute("aria-atomic","true");
@@ -826,7 +834,16 @@ function announce(msg,{assertive=false}={}){
         write()})})}
   else write()}
 const toast=(m,opts)=>announce(m,opts||{});
-let activeModal=null;
+/* The Program editor announces a change it made (an exercise added, changed or removed). A custom exercise saved from
+   the picker has just announced itself, and that is the one announcement for the change. */
+let customCreatedToastAt=-Infinity;
+function announceEditorChange(message,opts){
+  if(opts?.change&&performance.now()-customCreatedToastAt<4000)return;
+  toast(message)}
+let activeModal=null,modalSettleQueue=[];
+/** Run `callback` once no modal is open: now, or as the open one finishes closing and has restored focus. */
+function afterModalSettles(callback){
+  if(!activeModal)callback();else modalSettleQueue.push(callback)}
 function modalFocusables(root){
   if(!root)return[];
   const sel='a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -883,6 +900,165 @@ function resolveReturnFocus(target){
   const lab=target.closest?.("label")||target.labels?.[0];
   if(lab&&canTakeFocus(lab))return lab;
   return null}
+/* ---- Route hand-off glue (Plan 064 R5) ----
+   A hand-off between surfaces ends with focus on the new surface: its heading, or
+   the control it documents as its focus target (the control that opened the
+   surface when the lifter backs out of it). A heading is not a control, so it
+   takes a programmatic tabindex of -1: never a tab stop, and styles.css draws no
+   ring on it. The route functions stay where they are; they call these. */
+const ROUTE_NATIVE_FOCUS="a[href],button,input,select,textarea,summary,[tabindex]";
+function routeHeading(view){
+  const root=typeof view==="string"?$(`#${view}`):view;
+  if(!(root instanceof Element))return null;
+  return[...root.querySelectorAll(".page-title,h1,h2")].find(canTakeFocus)||null}
+function focusRoute(target){
+  const el=resolveReturnFocus(target);
+  if(!el)return false;
+  if(!el.matches(ROUTE_NATIVE_FOCUS))el.setAttribute("tabindex","-1");
+  try{el.focus({preventScroll:true})}catch{return false}
+  return document.activeElement===el}
+/* The control the lifter last pressed. Safari does not focus a button on click, so
+   document.activeElement cannot say what opened a flow; the press itself can. */
+let routeInvoker=null;
+document.addEventListener("click",event=>{
+  const target=event.target instanceof Element?event.target.closest("button,a[href],summary,[role='button']"):null;
+  routeInvoker=target?{el:target,at:performance.now()}:null},true);
+function routeInvokerControl(){
+  const pressed=routeInvoker&&performance.now()-routeInvoker.at<600?routeInvoker.el:null;
+  const active=document.activeElement!==document.body?document.activeElement:null;
+  return resolveReturnFocus(pressed)||resolveReturnFocus(active)||null}
+/* ---- Page push (amendment N4 drill-downs, N5 Today to Focus) ----
+   A drill-down is an interruptible push on the motion layer's `navPush` spring
+   (`RepForgeMotion.animatePush`): the pushed page rides in from the right, and
+   Back is the same push run the other way. Both pages are mounted for the run,
+   the pushed one above (`is-push-over`) and the other held still beneath it
+   (`is-push-under`); focus, route state, telemetry and scroll reset are the route
+   function's own and have already happened when the run starts. Under reduced
+   motion, before boot, with no runtime, or while Focus is the page underneath
+   (its layout belongs to body classes the route has just changed), the route
+   simply changes. The top-level dock fade stays as it is. */
+let routePushState=null,routeUnderView=null,routeSwipeCommitting=false;
+function routePushOn(){
+  const motion=window.RepForgeMotion;
+  return window.__repforgeBooted===true&&!!motion?.animatePush&&motion.available?.()===true&&!motion.reducedMotion?.()}
+function routePushEnd(){
+  const state=routePushState;if(!state)return;
+  routePushState=null;
+  state.mover.classList.remove("is-push-over");
+  if(state.under?.classList.contains("is-push-under")){
+    state.under.classList.remove("is-push-under");state.under.style.removeProperty("--push-top");
+    state.under.inert=false;state.under.removeAttribute("aria-hidden")}
+  if(state.ghost)state.ghost.remove();
+  document.body.classList.remove("is-pushing")}
+/** Begin a push around a route change that happens synchronously in the caller:
+ *  call this first, make the change, then call the function it returns. `pushed`
+ *  is the page that moves. For a push in, `under` is the page that stays beneath
+ *  it; for a push out, `under` is the page being returned to. `ghost` is a still
+ *  copy of the surface as it was, for a route that swaps content inside one view
+ *  (History's list and session page): the copy is the page under a push in, and
+ *  the page that moves on a push out. Null when the route should simply change. */
+function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.round(window.scrollY)}){
+  if(direction==="in"&&under)routeUnderView=under.id;
+  if(routeSwipeCommitting||!routePushOn()||!(pushed instanceof Element)||under===pushed)return null;
+  if(direction==="in"&&!under&&!ghost)return null;
+  if(workoutActive&&under?.id==="log")return null;
+  return()=>{
+    routePushEnd();
+    const beneath=direction==="in"?(ghost||under):null;
+    const mover=direction==="out"&&ghost?ghost:pushed;
+    const state={mover,under:beneath,ghost};
+    routePushState=state;
+    if(ghost){ghost.inert=true;ghost.setAttribute("aria-hidden","true");pushed.after(ghost)}
+    if(beneath){
+      beneath.style.setProperty("--push-top",`${offset}px`);
+      beneath.classList.add("is-push-under");beneath.inert=true;beneath.setAttribute("aria-hidden","true")}
+    mover.classList.add("is-push-over");
+    document.body.classList.add("is-pushing");
+    window.RepForgeMotion.animatePush(mover,{direction}).then(arrived=>{
+      if(arrived&&routePushState===state)routePushEnd()})}}
+/* ---- Edge swipe back on pushed pages (amendment: the third gesture owner) ----
+   The pages a push can leave register with `RepForgeMotion.registerEdgeSwipeBack`
+   while they are the page on screen, and nothing else does: Focus keeps its
+   horizontal axis for the deck, and the layer itself only runs in standalone.
+   Committing runs the visible back control's own handler, so the route, focus and
+   telemetry are exactly the tap's; the page is already off screen by then, so the
+   route does not push it a second time. While a pull is live the page it returns
+   to is mounted beneath it (History has none to mount: its list is rendered
+   over the session page, so the pull shows the paper beneath). */
+const EDGE_BACK={exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
+let routeEdge=null,routeEdgeFrame=0;
+function edgeBackPage(){
+  if(document.body.classList.contains("is-focus-wo"))return null;
+  const view=$(".view.active");
+  if(!view||!EDGE_BACK[view.id])return null;
+  if(view.id==="history"&&!view.classList.contains("is-session-page"))return null;
+  return view}
+function syncEdgeSwipe(){
+  routeEdgeFrame=0;
+  const page=edgeBackPage();
+  if(routeEdge?.page===page)return;
+  routeEdge?.dispose();routeEdge=null;
+  const motion=window.RepForgeMotion;
+  if(!page||!motion?.registerEdgeSwipeBack)return;
+  const registration=motion.registerEdgeSwipeBack({page,onCommit:()=>{
+    routeSwipeCommitting=true;
+    // The page held beneath the pull is still inert and aria-hidden: it must be live before the Back handler hands it
+    // focus, or the swipe lands focus on <body> where the tap would not (R7 J-22).
+    unmount();
+    try{releaseSwallowedClick();$(EDGE_BACK[page.id])?.click()}finally{routeSwipeCommitting=false}}});
+  if(!registration)return;
+  let beneath=null;
+  const unmount=()=>{
+    if(!beneath)return;
+    beneath.classList.remove("is-push-under");beneath.style.removeProperty("--push-top");
+    beneath.inert=false;beneath.removeAttribute("aria-hidden");beneath=null};
+  const watch=new MutationObserver(()=>{
+    const pulling=page.classList.contains("is-edge-swiping");
+    if(pulling&&!beneath){
+      const under=page.id==="history"?null:routeViewEl(routeUnderView||"log");
+      if(under&&under!==page&&!under.classList.contains("active")){
+        beneath=under;under.style.setProperty("--push-top","0px");
+        under.classList.add("is-push-under");under.inert=true;under.setAttribute("aria-hidden","true")}}
+    else if(!pulling)unmount()});
+  watch.observe(page,{attributes:true,attributeFilter:["class"]});
+  routeEdge={page,dispose(){registration.dispose();watch.disconnect();unmount()}}}
+function scheduleEdgeSwipeSync(){
+  if(!routeEdgeFrame)routeEdgeFrame=requestAnimationFrame(syncEdgeSwipe)}
+/* History swaps its list for a session page inside one view, so there is no second
+   page to keep mounted. A still copy of the surface as it was, taken as the lifter
+   presses the control that changes it, stands in: under the session page as it
+   pushes in, and as the page that rides out on Back. */
+let historySnap=null,historySessionOpen=false;
+document.addEventListener("click",event=>{
+  const target=event.target instanceof Element?event.target:null;
+  const view=$("#history");
+  if(!target||!view?.classList.contains("active")||!target.closest("#history [data-edit],#history [data-history-back],#historyCalSheet button"))return;
+  const copy=view.cloneNode(true);
+  copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
+  copy.classList.remove("is-push-over","is-push-under");
+  historySnap={copy,at:performance.now(),scroll:window.scrollY,session:view.classList.contains("is-session-page")}},true);
+function watchRouteSurfaces(){
+  const main=$("main"),history=$("#history");
+  if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
+  if(history){
+    historySessionOpen=history.classList.contains("is-session-page");
+    new MutationObserver(()=>{
+      const open=history.classList.contains("is-session-page");
+      if(open===historySessionOpen)return;
+      historySessionOpen=open;
+      const snap=historySnap;historySnap=null;
+      if(!snap||snap.session===open||performance.now()-snap.at>1500)return;
+      routePushBegin(open?"in":"out",{pushed:history,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
+    }).observe(history,{attributes:true,attributeFilter:["class"]})}
+  scheduleEdgeSwipeSync()}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",watchRouteSurfaces,{once:true});
+else watchRouteSurfaces();
+/** A push around a route change given as a function. */
+function pushRoute(direction,pages,change){
+  const settle=routePushBegin(direction,pages);
+  change();
+  settle?.()}
+function routeViewEl(id){return $(`#${id}`)}
 function openModal(el,opts={}){
   if(!el)return false;
   const extras=opts.extras||[];
@@ -949,6 +1125,7 @@ function closeModal(el){
       const target=resolveReturnFocus(rec.returnFocus);
       if(target){
         try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
+      if(!activeModal&&modalSettleQueue.length){const queued=modalSettleQueue;modalSettleQueue=[];queued.forEach(callback=>callback())}
       resolve(true)};
     if(rec.delayHide>0){
       rec.el.classList.remove("is-open");
@@ -1092,16 +1269,91 @@ const EFFORT_TERM={easy:"Easy effort",hard:"Hard effort",max:"Max effort"};
 const targetEffort=()=>effortForRir(state?.settings?.rirHigh);
 /** How a set reads once it is logged: the word in effort mode, else "@RIR". */
 const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fmt(rir)}`;
-/** The per-set target line: reps plus the effort or the RIR window behind it. */
-const targetText=ex=>isEffortMode()
-  ?t("today.target_rest_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
-  :t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)});
-function setEffortPick(key,eff){
+/* ---- Focus motion (Plan 064 rule 11: owner picks T1, L2, L4 and M1) ----
+   Everything animated here goes through `RepForgeMotion`: the travelling
+   outlines through `animateIndicator`, the short beats through the classes in
+   `motion-polish.css`. Nothing waits on any of it. The shelf action stays
+   enabled and takes a tap on the first frame, a set logged during a travel
+   commits at once, and under reduced motion (or without the runtime) the end
+   state is drawn on the first frame with the same information. */
+/** The layer when it can animate, else null: the travelling outlines need the runtime. */
+function focusMotion(){
+  const m=window.RepForgeMotion;
+  return m&&m.available()&&!m.reducedMotion()?m:null}
+/** One outline travelling to the element that now wears it (T1 the shelf field,
+ *  L2 the ledger open row). The destination keeps its own outline for the rest
+ *  state; while this one is in flight the destination's is set aside, so there
+ *  is one outline on screen, not two. `fromRect` is where the outline was drawn
+ *  before the render moved it. */
+function travelOutline(host,fromRect,kind){
+  const m=focusMotion();
+  if(!m||!host||!fromRect)return false;
+  const ring=document.createElement("span");
+  ring.className=`${kind}__ring`;ring.setAttribute("aria-hidden","true");
+  host.classList.add("is-ring-travel");host.append(ring);
+  const done=()=>{ring.remove();host.classList.remove("is-ring-travel")};
+  m.animateIndicator(ring,fromRect).then(done,done);
+  return true}
+const BEAT_CLASSES=["motion-rise","motion-value-up","motion-value-down","motion-value-fade"];
+/** The CSS beats are stylesheet-only, so they play without the runtime; the
+ *  layer's single reduced-motion decision keeps them off when it is on. */
+const beatsOn=()=>!window.RepForgeMotion?.reducedMotion?.();
+/** Run one CSS beat once and leave the element at rest. A beat holds its end
+ *  keyframe while it is on, which would pin the element's transform, so the
+ *  class comes off the moment it finishes. */
+function playBeat(el,cls){
+  if(!el||!beatsOn())return;
+  el.classList.remove(...BEAT_CLASSES);void el.offsetWidth;
+  el.classList.add(cls);
+  const end=()=>el.classList.remove(cls);
+  el.addEventListener("animationend",end,{once:true});
+  el.addEventListener("animationcancel",end,{once:true})}
+/** A beat written into a render's markup: take it off when it ends. */
+function settleBeats(root){
+  root.querySelectorAll(".motion-rise").forEach(el=>{
+    const end=()=>el.classList.remove("motion-rise");
+    el.addEventListener("animationend",end,{once:true});
+    el.addEventListener("animationcancel",end,{once:true})})}
+/** M1, the shelf value on a pad tap, is conditional on a physical phone check
+ *  at logging frequency (motion-rule-11-amendment.md section 5). This is the one
+ *  switch: "directional" is the owner's pick (6px, 120ms, the way the value
+ *  moved), "fade" is the 80ms crossfade it falls back to, "off" plays nothing. */
+let shelfValueBeat="directional";
+window.__repforgeShelfValueBeat=mode=>{if(mode==="directional"||mode==="fade"||mode==="off")shelfValueBeat=mode;return shelfValueBeat};
+/** The pad's direction for the value it is about to change, read by that input's handler. */
+const padTap=new WeakMap();
+/** Edits the lifter has made that DraftV2 has not yet acknowledged (a write waits for the cross-tab lock and the
+ *  ordered queue). Keyed like the draft's own flat keys (`<exerciseId>_<set>_<field>`), holding the value as the
+ *  lifter sees it. The shelf and the ledger read it through `setFieldVals`, so a rebuild while a write is in flight
+ *  draws the value the lifter set, not the older acknowledged one; the entry is released the moment its write
+ *  settles, whichever way it ends, and the draft is the only record of what is saved. */
+const pendingFields=new Map();
+let pendingFieldSeq=0;
+function holdPendingField(key,value){
+  const token=++pendingFieldSeq;pendingFields.set(key,{value:String(value??""),token});return token}
+function releasePendingField(key,token){if(pendingFields.get(key)?.token===token)pendingFields.delete(key)}
+function shelfValueMove(val,dir){
+  if(!val||!dir||shelfValueBeat==="off")return;
+  playBeat(val,shelfValueBeat==="fade"?"motion-value-fade":dir>0?"motion-value-up":"motion-value-down")}
+function setEffortPick(key,eff,dir=0){
   $$(`[data-effspin="${key}"]`).forEach(el=>{
-    el.dataset.e=eff;el.textContent=effortLabel(eff);
-    el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
-    el.setAttribute("aria-valuetext",effortLabel(eff));
-    const pop=el.closest(".curset__cell")?.querySelector(".effortpop");
+    el.dataset.e=eff;
+    // The shelf's field keeps its caption; the word is only the value inside it.
+    const word=el.querySelector(".shelf__val"),moved=!!word&&word.textContent!==effortLabel(eff);
+    (word||el).textContent=effortLabel(eff);
+    if(moved)shelfValueMove(word,dir);
+    const rowCell=el.closest(".exercise")?.querySelector('.ledgerline--open [data-lv="rir"]');
+    if(rowCell){rowCell.textContent=effortLabel(eff);rowCell.classList.remove("is-soft")}
+    el.closest(".shelf__field")?.classList.remove("is-untouched");
+    // The pads name the word they step to, so they follow the word.
+    $$(`[data-effstep="${key}"]`).forEach(b=>{
+      const dir=+b.dataset.dir,to=EFFORT_STEPS[Math.max(0,EFFORT_STEPS.indexOf(eff))+dir];
+      b.textContent=t("focus.shelf.pad_effort",{sign:dir>0?"+":"−",effort:effortLabel(to||eff)});
+      b.disabled=!to});
+    if(el.getAttribute("role")==="spinbutton"){
+      el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
+      el.setAttribute("aria-valuetext",effortLabel(eff))}
+    const pop=el.closest(".shelf__field")?.querySelector(".effortpop");
     fillEffortPop(pop,eff,{bump:!!pop?.classList.contains("is-open")})})}
 
 /* ---- Effort explainer ----
@@ -1129,7 +1381,7 @@ function openEffortPop(key){
   const spin=$(`[data-effspin="${key}"]`),pop=$(`[data-effpop="${key}"]`);
   if(!spin||!pop)return;
   closeEffortPop({except:pop});
-  spin.closest(".curset__cell")?.classList.add("is-active");
+  spin.closest(".shelf__field")?.classList.add("is-active");
   fillEffortPop(pop,spin.dataset.e);
   clearTimeout(pop.closeT);pop.classList.remove("is-closing");
   pop.classList.add("is-open");spin.classList.add("is-open")}
@@ -1140,14 +1392,33 @@ function closeEffortPop({except=null}={}){
     clearTimeout(pop.closeT);pop.closeT=setTimeout(()=>pop.classList.remove("is-closing"),240);
     const spin=$(`[data-effspin="${pop.dataset.effpop}"]`);
     spin?.classList.remove("is-open");
-    spin?.closest(".curset__cell")?.classList.remove("is-active")})}
+    spin?.closest(".shelf__field")?.classList.remove("is-active")})}
 const toggleEffortPop=key=>{
   const pop=$(`[data-effpop="${key}"]`);
   if(pop?.classList.contains("is-open"))closeEffortPop();else openEffortPop(key)};
+/* The glossary popover is a non-modal dialog opened from a term. By keyboard or screen reader it behaves as one:
+   the term says it opens a dialog and whether it is open, focus moves into the popover (named and described by the
+   definition it shows, so the text is read out), and Escape or the close button closes it and returns focus to the
+   term. A tap elsewhere closes it without moving focus. (R7 J-15) */
+let glossaryOpener=null;
+function closeGlossary({restore=true}={}){
+  const g=$("#glossary");if(!g||g.classList.contains("hidden"))return false;
+  g.classList.add("hidden");
+  const opener=glossaryOpener;glossaryOpener=null;
+  if(opener){
+    opener.setAttribute("aria-expanded","false");
+    // A rebuild of the page may have replaced the term: ask for its equivalent.
+    const term=opener.isConnected?opener:$$(`[data-term="${CSS.escape(opener.dataset.term||"")}"]`).find(el=>!el.closest(".is-peek")&&canTakeFocus(el));
+    if(restore&&term)focusRoute(term)}
+  return true}
 function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
+  if(glossaryOpener&&glossaryOpener!==anchor)glossaryOpener.setAttribute("aria-expanded","false");
   g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
   g.querySelector(".glossary__body").textContent=t(`glossary.${termKey}`)||"";
   g.classList.remove("hidden");
+  glossaryOpener=anchor;anchor.setAttribute("aria-haspopup","dialog");anchor.setAttribute("aria-expanded","true");
+  anchor.setAttribute("aria-controls","glossary");
+  try{g.focus({preventScroll:true})}catch{}
   const r=anchor.getBoundingClientRect(),viewportWidth=document.documentElement.clientWidth||window.innerWidth;
   const bounds=g.getBoundingClientRect(),left=Math.max(8,Math.min(r.left,viewportWidth-bounds.width-8));
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
@@ -1217,8 +1488,6 @@ function parseLoadInput(raw,unit=state.settings.unit){
   if(display>MAX_LOAD_KG)return{kind:"invalid"};
   return{kind:"valid",kg:display}}
 const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":"toast.invalid_weight");
-const unitHintHtml=()=>`<span class="unit-hint">${esc(unitLabel())}</span>`;
-const loadHeadHtml=()=>`${esc(t("today.load"))} ${unitHintHtml()}`;
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
@@ -1235,7 +1504,9 @@ function resetDraftSessionPresentation(){
   delete document.body.dataset.unfinishedPrompt;
   renderDraftRecovery();
 }
-function resetDraftSessionState(){resetWorkoutSessionIdentity();resetDraftSessionPresentation()}
+/* Ending a session by any route (discard, replace, clear) ends its rest clock with it: a
+   running rest belongs to the session it was started in. */
+function resetDraftSessionState(){resetWorkoutSessionIdentity();resetDraftSessionPresentation();stopRest()}
 async function clearDraft(){
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
     renderDraftRecovery();focusDraftRecovery();return false}
@@ -1579,6 +1850,33 @@ function libraryEntry(id,snapshot=state){
 function pickableExercises(snapshot=state){
   return customExercises(snapshot).filter(e=>!e.archived).concat(EXERCISE_LIBRARY)}
 const libraryName=e=>!e?"":(isPt()&&e.namePt)||e.name;
+/* Display-only localisation of a stored exercise name (RF-10). In Portuguese, a
+   movement that resolves to a library entry through the id the app already keeps
+   for it, and whose stored name is still exactly that entry's English name, reads
+   as the entry's Portuguese name. That includes a custom entry that carries a
+   namePt: Exercise.resolveIdentity already shows a linked custom slot under it,
+   so every other surface must agree (R7 J-07). A renamed exercise, an unlinked
+   one and every other language keep the stored text. Nothing here is
+   ever written: storage, setup links, telemetry, lift keys, sort and match keys
+   all keep the stored name. */
+function localizedMovementName(name,libraryId){
+  const stored=String(name??"");
+  if(!isPt()||libraryId==null||libraryId==="")return stored;
+  const entry=libraryEntry(String(libraryId));
+  return entry&&entry.namePt&&stored===entry.name?entry.namePt:stored}
+/* The item is a program slot or session exercise ({name, libraryId}), a draft
+   exercise or replacement snapshot ({displayName, libraryId}) or a log row
+   ({name, performedName, performedLibraryId}). */
+function exerciseDisplayName(item){
+  if(!item)return"";
+  if(item.performedLibraryId!==undefined||item.performedName!==undefined||item.session!==undefined)
+    return localizedMovementName(loggedMovementName(item),item.performedLibraryId);
+  return localizedMovementName(item.name??item.displayName,item.libraryId)}
+/* A projection that carries a lift key instead of the row: `library:<id>` names the
+   library entry the lift was performed as. Any other key keeps the stored name. */
+function liftDisplayName(name,key){
+  const k=String(key??"");
+  return k.startsWith("library:")?localizedMovementName(name,k.slice(8)):String(name??"")}
 function resolveSplit(daysPerWeek,splitType){
   const n=Math.max(1,Math.min(7,Math.round(+daysPerWeek)||3)),st=splitType||"full_body";
   if(st==="full_body"||st==="machine_only")return Array.from({length:n},()=>"full_body");
@@ -1662,12 +1960,18 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
-let state,prog,day,installPrompt=null,saving=false,volWindow=7;
+let state,prog,day,installPrompt=null,saving=false;
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
 // runs); restLength is the length the current or next rest is armed at.
 let restPaused=null,restLength=0;
+// A tap on a shelf field brings the field pads back for the rest of this rest;
+// the next rest starts with the rest controls again. Transient, never stored.
+let restPadsBack=false;
+// True from the set commit that starts a rest until the render that draws it: that render owns the swap
+// into the cue slot, so the clock's own repaint leaves the slot's structure alone in between.
+let restRenderPending=false;
 function announceRestDone(){
   if(restAnnounced)return;
   restAnnounced=true;
@@ -1951,6 +2255,9 @@ function restoreDraftFocus(identity){
   requestAnimationFrame(()=>{let el=identity.id?document.getElementById(identity.id):null;
     if(!el&&identity.attribute)el=$$(`#workout [data-${identity.attribute}]`).find(item=>item.dataset?.[identity.attribute]===identity.value);
     if(!(el instanceof HTMLElement))return;
+    // A shelf input stays out of the tab order and the accessibility tree until its field is open: land on the
+    // control the lifter can actually use, not the dormant one (R7 C-01).
+    if(el.matches(".shelf__input")&&!el.closest(".shelf__field.is-editing"))el=shelfReveal(el)||el;
     try{el.focus();if(identity.start!=null&&typeof el.setSelectionRange==="function")el.setSelectionRange(identity.start,identity.end??identity.start)}catch{}})}
 function draftRecoveryMessageKind(status,initialization=false){
   if(status==="stale")return initialization?"program":"stale";
@@ -1975,7 +2282,24 @@ function renderDraftRecovery(){
   configure("#draftRecoveryReload",kind==="stale","draft.recovery.reload",reloadLatestWorkoutDraft);
   configure("#draftRecoveryCopy",draftUiRecovery.copyValue!=null,
     draftUiRecovery.copyKind==="data"?"draft.recovery.copy_data":"draft.recovery.copy_value",copyDraftRecoveryValue);
-  configure("#draftRecoveryDiscard",!!draftUiRecovery.discard,"draft.recovery.discard",discardRecoveredWorkoutDraft)}
+  configure("#draftRecoveryDiscard",!!draftUiRecovery.discard,"draft.recovery.discard",discardRecoveredWorkoutDraft);
+  paintDraftRetryPending()}
+/* S1: while a retry's durable write is in flight the banner wears the
+   indeterminate hairline (`.motion-hairline.is-pending`), and under reduced
+   motion the same fact as a text label. This only reads the retry's own promise
+   (`retryDraftRecovery`): no persistence or journal logic changes, no control is
+   disabled, and the class comes off the moment that promise settles, whether the
+   write was applied or failed. */
+let draftRetryPending=0;
+function paintDraftRetryPending(){
+  const root=$("#draftRecovery");if(!root)return;
+  const on=draftRetryPending>0&&!!draftUiRecovery;
+  root.classList.toggle("motion-hairline",on);root.classList.toggle("is-pending",on);
+  let label=root.querySelector(".motion-hairline__label");
+  if(!on){label?.remove();return}
+  if(!label){label=document.createElement("p");label.className="motion-hairline__label draft-recovery__saving";
+    root.insertBefore(label,root.querySelector(".draft-recovery__actions"))}
+  label.textContent=t("custom.saving")}
 function focusDraftRecovery(){
   const root=$("#draftRecovery");if(!root)return;
   root.scrollIntoView({block:"start"});root.focus({preventScroll:true})}
@@ -2003,6 +2327,14 @@ async function applyDraftRetryResult(result,recovery){
   showDraftCommandRecovery(result.status,recovery.attempt,recovery);return result}
 function retryDraftRecovery(){
   const recovery=draftUiRecovery;if(!recovery)return Promise.resolve({status:"missing"});
+  // Re-reading a draft that could not be read is not a write; every other retry is one.
+  if(!recovery.retryAction&&!recovery.attempt&&recovery.retryMode!=="create")return runDraftRetry(recovery);
+  draftRetryPending++;paintDraftRetryPending();
+  const settled=()=>{draftRetryPending--;paintDraftRetryPending()};
+  let run;
+  try{run=Promise.resolve(runDraftRetry(recovery))}catch(error){settled();throw error}
+  run.then(settled,settled);return run}
+function runDraftRetry(recovery){
   if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
     if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
     else showDraftCommandRecovery(result?.status,null,recovery);return result});
@@ -2203,11 +2535,52 @@ function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
     const key=`${exerciseId}_${n}`;
     if(marked.has(key)||parseDec(d[`${key}_load`])>0)return true}
   return false}
+/* ---- The day-change question (OG-6 `today/draft-resume`) ----
+   Changing the day with sets logged would replace the draft, so it asks first, in a sheet and not the native confirm:
+   "Cancel" keeps the draft and is where focus starts; Escape, the scrim and a downward swipe all mean it. "Discard
+   unfinished session" is the existing discard path, unchanged. Asked from the day picker, the question takes the
+   picker's place and Keep gives it back on the day that was armed, so a declined change leaves the picker open as it
+   always did. Built here, like the History discard question, so the shell markup stays as it was. */
+let draftDiscardAsk=null;
+function draftDiscardParts(){
+  let sheet=$("#draftDiscardSheet"),scrim=$("#draftDiscardScrim");
+  if(sheet&&scrim)return{sheet,scrim};
+  scrim=document.createElement("div");scrim.id="draftDiscardScrim";scrim.className="sheet-scrim hidden";
+  sheet=document.createElement("div");sheet.id="draftDiscardSheet";sheet.className="sheet sheet--discard hidden";
+  sheet.setAttribute("role","dialog");sheet.setAttribute("aria-modal","true");
+  sheet.setAttribute("aria-labelledby","draftDiscardTitle");sheet.setAttribute("aria-describedby","draftDiscardBody");sheet.hidden=true;
+  sheet.innerHTML='<div class="sheetband"><span class="sheetband__handle" aria-hidden="true"></span><h2 class="sheetband__title" id="draftDiscardTitle"></h2></div>'+
+    '<div class="sheetbody"><p class="draftdiscard__body" id="draftDiscardBody"></p></div>'+
+    '<div class="sheetfoot"><button type="button" id="draftDiscardKeep"></button><button type="button" id="draftDiscardDrop"></button></div>';
+  document.body.append(scrim,sheet);
+  return{sheet,scrim}}
+/** Resolves true to discard the unfinished session, false to keep it. One question at a time. */
+function confirmDiscardDraft(){
+  if(draftDiscardAsk)return draftDiscardAsk;
+  const{sheet,scrim}=draftDiscardParts();
+  $("#draftDiscardTitle").textContent=t("draft.recovery.discard");
+  $("#draftDiscardBody").textContent=t("confirm.discard_draft");
+  const keep=$("#draftDiscardKeep"),drop=$("#draftDiscardDrop");
+  keep.textContent=t("dialog.cancel");drop.textContent=t("draft.recovery.discard");
+  const fromPicker=activeModal?.el?.id==="dayPickSheet";
+  draftDiscardAsk=new Promise(resolve=>{
+    let settled=false;
+    const finish=async discard=>{
+      if(settled)return;settled=true;
+      if(fromPicker&&!discard)openDayPickSheet({resume:true});
+      else await closeModal(sheet);
+      draftDiscardAsk=null;resolve(discard)};
+    keep.onclick=()=>finish(false);drop.onclick=()=>finish(true);scrim.onclick=()=>finish(false);
+    const opened=openModal(sheet,{onEscape:()=>finish(false),scrim,initialFocus:keep,handoff:fromPicker,delayHide:reducedMotion()?0:280});
+    if(opened===false){settled=true;draftDiscardAsk=null;resolve(false);return}
+    document.body.classList.add("is-sheet-open");
+    requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
+  return draftDiscardAsk}
 async function requestWorkoutDay(nextDay){
   if(!nextDay||nextDay===day) return true;
   const hasProgress=draftHasProgress();
   if(hasProgress){
-    if(!confirm(t("confirm.discard_draft"))){
+    if(!await confirmDiscardDraft()){
       return false}
     if(!await clearDraft())return false;
     resetSessionContextFields()}
@@ -2235,12 +2608,6 @@ function changeRirMode(newMode){
     toast(t("toast.rir_locked_draft"));
     return false}
   return true}
-async function applySkipToggle(id){
-  if(!activeWorkoutDraft)return false;
-  const result=await WorkoutSession.dispatch(skipped.has(id)?"restoreExercise":"skipExercise",{exerciseInstanceId:id});
-  if(result.status!=="applied")return false;
-  {const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
-  renderWorkout();return true}
 async function applyShowAll(){
   if(!activeWorkoutDraft)return false;
   for(const id of [...skipped]){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
@@ -2279,7 +2646,7 @@ function openSubstitutePicker(id){
   const ex=prog.find(id);if(!ex)return;
   const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e]));
   const self=(ex.libraryId&&libraryEntry(ex.libraryId))||byName.get(foldSearch(ex.name))||null;
-  openExercisePicker({title:t("picker.title_substitute"),subtitle:ex.name,
+  openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
     onPick:entry=>{
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
       else applyCustomSub(id,libraryName(entry),entry.id)}})}
@@ -2303,19 +2670,15 @@ let focusEdit=null;
 let focusLogged=null;
 /** True while the card being written is the one that just gained a set. */
 const focusIsFresh=(ex,peek)=>!peek&&!!focusLogged&&focusLogged.exId===ex.id;
-/** Exercises whose older logged sets the lifter unfolded from behind the
- *  disclosure row. Folding is the default once a session gets long. */
-const focusUnfolded=new Set();
-/** Sets logged before older rows fold away, and how many stay above the fold. */
-const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,programReadyView=false,setupEditorOpen=false;
+/** The Progress chart page: scope, metric and the selected point (null = the latest session). */
+let chartView={scope:"current-block",metric:"top",pt:null},chartLive=null;
+let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
-const TODAY_EX_PREVIEW=3;let todayExOpen=false;
 // Two-level Progress navigation (Plan 056): Overview/Review are the primary
 // tasks; Strength/Volume/PRs are a labelled Evidence group. Old one-level seg
 // values keep working: evidence keys map onto the Evidence view and unknown
@@ -2920,7 +3283,7 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
   const outcomes=checkpoint.observedOutcomes;
   const outcomeLine=outcomes.length
-    ?outcomes.map(o=>`${esc(nameForLiftKey(o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
+    ?outcomes.map(o=>`${esc(liftDisplayName(nameForLiftKey(o.exerciseId),o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
     :`<span class="visually-hidden">${esc(t("review.outcomes.none_aria"))}</span>${esc(t("review.outcomes.none"))}`;
   const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
   const readOnlyNote=checkpoint.lifecycle==="active-block"
@@ -3617,10 +3980,9 @@ function installTransferUiMeaningful(uiRaw,ui){
       const defaultRecord=currentRecord&&record.status==="unseen"&&record.lastTransitionAt===null;
       // "install" (iOS Safari's always-present card) and "privacy" (the
       // landing's always-present Privacy link) can self-show from the
-      // ordinary automatic landing flow. "entry" now anchors at the
-      // chooser instead of the landing, but an abandoned setup draft can
-      // still resume straight into the chooser on a later automatic boot
-      // (no deliberate action), so it can reach "shown" the same way. None
+      // ordinary automatic landing flow, which now repeats on every boot
+      // until the device is onboarded. "entry" anchors at the chooser, one
+      // tap from that landing, without anything having been set up. None
       // of the three should make an otherwise-fresh destination read as
       // meaningful merely because one of them appeared.
       const automaticLandingGuide=currentRecord&&(id==="entry"||id==="install"||id==="privacy")&&ui.entryLandingSeen===true&&
@@ -4682,42 +5044,28 @@ function previousSessionForExercise(ex,beforeSessionId){const match=matchLift(ex
   if(curIdx<0){const current=state.log.find(r=>r.session===beforeSessionId);if(!current)return ordered.length?ordered.at(-1).rows:[];
     const older=ordered.filter(s=>compareLogChronology(s,current)<0);return older.length?older.at(-1).rows:[]}
   return curIdx>0?ordered[curIdx-1].rows:[]}
+// Session outcome, as defined in CONTEXT.md. At the same load total reps decide;
+// when the load went up, best-set e1RM decides within DELTA_THRESHOLDS.e1rmPct, so a
+// prescribed increase with the expected rep drop reads flat, not regressed; when the
+// load went down it improves only on more strength or more volume at similar effort,
+// otherwise the sessions are not comparable (a deload never reads regressed).
 function buildSessionDelta(prevRows,currentRows){const previous=exerciseSessionMetrics(prevRows),current=exerciseSessionMetrics(currentRows),T=DELTA_THRESHOLDS;
   if(!previous||!current)return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null};
   const loadDelta=current.topLoad-previous.topLoad,repsDelta=current.totalReps-previous.totalReps,volumeDelta=current.totalVolume-previous.totalVolume,
     e1rmDelta=current.bestE1rm-previous.bestE1rm,avgRirDelta=current.avgRir-previous.avgRir,deltas={loadDelta,repsDelta,volumeDelta,e1rmDelta,avgRirDelta};
-  let status,label,text;
-  if(e1rmDelta>previous.bestE1rm*T.e1rmPct){status="improved";label=t("delta.improved.label");text=t("delta.improved.text")}
-  else if(Math.abs(loadDelta)<.01&&repsDelta>0){status="improved";label=t("delta.improved.label");text=t("delta.improved.text")}
-  else if(volumeDelta>previous.totalVolume*T.volumePct&&avgRirDelta<=T.rir){status="improved";label=t("delta.improved.label");text=t("delta.improved.text")}
-  else if(Math.abs(e1rmDelta)<=previous.bestE1rm*T.e1rmPct&&repsDelta===0&&Math.abs(volumeDelta)<=previous.totalVolume*T.volumePct){status="flat";label=t("delta.flat.label");text=t("delta.flat.text")}
-  else if(e1rmDelta<0&&repsDelta<0){status="regressed";label=t("delta.regressed.label");text=t("delta.regressed.text")}
-  else{status="changed_load";label=t("delta.changed_load.label");text=t("delta.changed_load.text")}
-  return{status,label,text,metrics:{current,previous,deltas}}}
+  const band=previous.bestE1rm*T.e1rmPct;
+  let status;
+  if(Math.abs(loadDelta)<.01)status=repsDelta>0?"improved":repsDelta<0?"regressed":"flat";
+  else if(loadDelta>0)status=e1rmDelta>band?"improved":e1rmDelta<-band?"regressed":"flat";
+  else status=e1rmDelta>band||(volumeDelta>previous.totalVolume*T.volumePct&&avgRirDelta<=T.rir)?"improved":"changed_load";
+  const copy={improved:["delta.improved.label","delta.improved.text"],flat:["delta.flat.label","delta.flat.text"],
+    regressed:["delta.regressed.label","delta.regressed.text"],changed_load:["delta.changed_load.label","delta.changed_load.text"]}[status];
+  return{status,label:t(copy[0]),text:t(copy[1]),metrics:{current,previous,deltas}}}
 function compareExerciseSession(ex,currentRows){const cur=workingRows(currentRows);
   if(!cur.length)return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null};
   const prev=previousSessionForExercise(ex,cur[0]?.session);
   if(!prev.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
   return buildSessionDelta(prev,cur)}
-function formatDelta(delta){if(!delta?.metrics)return"";const{deltas}=delta.metrics,{loadDelta,repsDelta,e1rmDelta}=deltas;
-  if(Math.abs(loadDelta)<.01&&repsDelta!==0){const s=repsDelta>0?"+":"";return t("delta.reps_same_load",{signed:s+repsDelta})}
-  if(Math.abs(e1rmDelta)>=.01){const s=e1rmDelta>0?"+":"";return t("delta.e1rm",{signed:s,delta:Math.round(toDisplay(e1rmDelta)),unit:unitLabel()})}
-  const parts=[];if(repsDelta!==0)parts.push(t("delta.reps",{signed:repsDelta>0?"+":"",delta:repsDelta}));if(Math.abs(e1rmDelta)>=.01)parts.push(t("delta.e1rm_labeled",{signed:e1rmDelta>0?"+":"",delta:Math.round(toDisplay(e1rmDelta)),unit:unitLabel()}));
-  return parts.length?parts.join(" · "):""}
-function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
-  if(c.improved)parts.push(t("delta.count.improved",{n:c.improved}));if(c.flat)parts.push(t("delta.count.flat",{n:c.flat}));
-  if(c.regressed)parts.push(t("delta.count.regressed",{n:c.regressed}));if(c.new)parts.push(t("delta.count.new_lifts",{n:c.new,lifts:tp(c.new,"lift")}));
-  return parts.join(sep)}
-function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
-function draftRowsForExercise(ex,draft){const warm=new Set(draft.__warm||[]),rows=[];
-  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(warm.has(key))continue;
-    const ld=fromDisplay(draft[`${key}_load`]||0),rp=parseDec(draft[`${key}_reps`])||0;if(ld<=0||rp<=0)continue;
-    let rir=parseDec(draft[`${key}_rir`]);if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
-    else if(!Number.isFinite(rir))rir=1;
-    rows.push({exerciseId:ex.id,name:ex.name,day:ex.day,load:ld,reps:rp,rir,warmup:false})}
-  return rows}
-function deltaPreviewFor(ex,draft){const rows=draftRowsForExercise(ex,draft);if(!workingRows(rows).length)return"";
-  const cmp=compareExerciseSession(ex,rows);const fd=cmp.metrics?formatDelta(cmp):"";return fd?t("delta.preview",{delta:fd}):""}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
@@ -4772,23 +5120,144 @@ async function goToLogExercise(exId){
   if(selected.status!=="applied")return;
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   renderWorkout();
-  const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:"smooth",block:"center"})}}
+  const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:scrollBehavior(),block:"center"})}}
 function evidenceRenderers(){
   return{strength:renderStrengthDash,volume:renderVolumeDash,prs:renderPRTimeline}}
 function renderEvidenceView(){
   if(!evidenceView)return;
   const fn=evidenceRenderers()[evidenceView];
   if(fn)fn()}
+/** One row of five tabs (Plan 064 R3i): the selected tab is the Evidence view when
+ *  one is open, otherwise the primary task. Selection is exclusive. */
+function paintStatsTabs(){
+  const on=evidenceView||statsSeg,row=$("#statsSeg");
+  // N3: where the 2px indicator is drawn now (or, if one is still travelling, where it is on screen).
+  const was=row?.querySelector('.tabrow__tab[aria-selected="true"]'),liveRing=row?.querySelector(".tabrow__ring");
+  const fromRect=tabIndicatorRect(liveRing||was,!!liveRing),scrolled=row?row.scrollLeft:0;
+  $$("#statsSeg button").forEach(b=>{const sel=b.dataset.seg===on;
+    b.classList.toggle("active",sel);b.setAttribute("aria-selected",sel?"true":"false");
+    b.tabIndex=sel?0:-1;
+    // A row that scrolls keeps its selected tab in view.
+    if(sel&&b.parentElement&&b.parentElement.scrollWidth>b.parentElement.clientWidth){
+      const row=b.parentElement,left=b.offsetLeft-row.offsetLeft;
+      if(left<row.scrollLeft||left+b.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=Math.max(0,left-16)}});
+  const now=row?.querySelector('.tabrow__tab[aria-selected="true"]');
+  if(fromRect&&was&&now&&now!==was){fromRect.left-=row.scrollLeft-scrolled;travelTabIndicator(now,fromRect)}}
+/** The rect of a tab's indicator: the 2px border along its foot, or a travelling indicator as drawn. */
+function tabIndicatorRect(el,isRing){
+  if(!el)return null;
+  const r=el.getBoundingClientRect();
+  if(!r.width)return null;
+  return isRing?{left:r.left,top:r.top,width:r.width,height:r.height}:{left:r.left,top:r.bottom-2,width:r.width,height:2}}
+/** N3: the indicator travels from the tab it left to the one that now carries it. The tab keeps its own
+ *  2px border for the rest state and sets it aside while this one is in the air, so there is one
+ *  indicator on screen. Selecting, the panel switch, focus and ARIA are already done and wait on nothing. */
+function travelTabIndicator(tab,fromRect){
+  const m=focusMotion(),row=tab.parentElement;
+  if(!m||!row)return false;
+  row.querySelectorAll(".tabrow__ring").forEach(r=>r.remove());
+  row.querySelectorAll(".is-ring-travel").forEach(x=>x.classList.remove("is-ring-travel"));
+  const ring=document.createElement("span");
+  ring.className="tabrow__ring";ring.setAttribute("aria-hidden","true");
+  tab.classList.add("is-ring-travel");tab.append(ring);
+  const done=()=>{ring.remove();if(!row.querySelector(".tabrow__ring"))tab.classList.remove("is-ring-travel")};
+  m.animateIndicator(ring,fromRect).then(done,done);
+  return true}
+/* ---- N1: the dock lens travels (Plan 064 rule 11) ----
+   The selected tab sits in one lens: a single `aria-hidden` element that JS puts inside `nav` and places on the
+   active button. While it is mounted the active button stops painting its own lens (`nav[data-lens]`); until
+   then, and wherever the dock is hidden, the button's own paint stands. Nothing here routes. The dock handler,
+   `navTo`, `returnToTab` and `showSettings` keep setting `.active` and `aria-current`, and a MutationObserver
+   on those two attributes is the only trigger. A tab change in a dock that was on screen travels the lens with
+   `animateIndicator`; the button keeps its 1px ring at rest and sets it aside only while the lens carries one
+   in the air (`data-lens="travel"`, as N3 does for the tab indicator). A change while the dock is hidden, a
+   resize, a text-size change, or the editor bar swapping in re-snaps with no travel, so the lens is already
+   in place when the dock is next seen. */
+function mountDockLens(){
+  const nav=document.querySelector("nav");
+  if(!nav||nav.querySelector(".dock-lens")||typeof MutationObserver!=="function")return null;
+  let lens=null,at=null,seenNav=null,shown=false,flight=0;
+  const buttons=()=>[...nav.querySelectorAll(":scope > button")];
+  const near=(a,b,keys)=>!!a&&!!b&&keys.every(k=>Math.abs(a[k]-b[k])<0.5);
+  const BOX=["left","top","width","height"],SHAPE=["left","width","height"];
+  const makeLens=()=>{
+    const el=document.createElement("span");
+    el.className="dock-lens";el.setAttribute("aria-hidden","true");
+    nav.append(el);return el};
+  /** The nav's border box, or null while the dock is hidden (display:none gives it no box). */
+  const navRect=()=>{
+    const r=nav.getBoundingClientRect();
+    return r.width>0&&r.height>0?{left:r.left,top:r.top,width:r.width,height:r.height}:null};
+  /** The button's border box in the nav's padding-box coordinates. A press scales the button about its
+   *  centre, which is not where it rests, so the scale is divided back out. */
+  const boxOf=(button,n)=>{
+    const r=button.getBoundingClientRect(),m=new DOMMatrixReadOnly(getComputedStyle(button).transform);
+    const w=r.width/(m.a||1),h=r.height/(m.d||1);
+    return {left:r.left+r.width/2-w/2-n.left-nav.clientLeft,top:r.top+r.height/2-h/2-n.top-nav.clientTop,width:w,height:h}};
+  const place=box=>{
+    lens.style.setProperty("--lens-x",`${box.left}px`);lens.style.setProperty("--lens-y",`${box.top}px`);
+    lens.style.setProperty("--lens-w",`${box.width}px`);lens.style.setProperty("--lens-h",`${box.height}px`)};
+  function sync(travel){
+    const n=navRect();
+    if(!n){shown=false;return}
+    const active=buttons().find(b=>b.classList.contains("active"));
+    if(!active)return;
+    const box=boxOf(active,n),calm=shown&&near(n,seenNav,SHAPE);
+    if(!lens)lens=makeLens();
+    if(at&&near(box,at,BOX)){seenNav=n;shown=true;return}
+    if(travel&&calm&&at){
+      const from=lens.getBoundingClientRect(),id=++flight;
+      at=box;place(box);
+      const run=window.RepForgeMotion?.animateIndicator?.(lens,{left:from.left,top:from.top,width:from.width,height:from.height});
+      // The helper paints its first frame before it returns: a transform on the lens means it is in the air.
+      if(lens.style.transform&&run&&typeof run.then==="function"){
+        nav.dataset.lens="travel";
+        const done=()=>{if(id===flight)nav.dataset.lens="on"};
+        run.then(done,done)}
+      else nav.dataset.lens="on";
+    }else{
+      // A re-snap is never a travel: a run still in the air is left behind with its element.
+      if(nav.dataset.lens==="travel"){lens.remove();lens=makeLens()}
+      flight++;at=box;place(box);nav.dataset.lens="on"}
+    seenNav=n;shown=true}
+  sync(false);
+  new MutationObserver(()=>sync(true)).observe(nav,{attributes:true,attributeFilter:["class","aria-current"],subtree:true});
+  if(typeof ResizeObserver==="function"){
+    const resize=new ResizeObserver(()=>sync(false));
+    resize.observe(nav);buttons().forEach(b=>resize.observe(b))}
+  window.addEventListener("resize",()=>sync(false));
+  return nav}
+mountDockLens();
 function setEvidenceView(view){
   if(!EVIDENCE_SEG[view]){evidenceView=null;
-    $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
+    paintStatsTabs();
     for(const id of Object.values(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
     return}
   evidenceView=view;
-  $$("#statsEvidence button").forEach(b=>{const on=b.dataset.seg===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===view)}
   renderEvidenceView()}
+/* The WAI tabs pattern on the Progress row (R7 J-20): each tab names the panel it controls and each panel
+   is labelled by its tab; the selected tab is the only tab stop; Left/Right (wrapping), Home and End move
+   focus and select, as a tap does. The window, filter and day segments are toggle groups, not tabs: they
+   change one region and have no panel of their own. */
+function wireStatsTabs(){
+  const row=$("#statsSeg");if(!row)return;
+  const tabs=$$("#statsSeg button");
+  tabs.forEach(b=>{
+    b.id=`statsTab-${b.dataset.seg}`;
+    const panel=$("#"+(b.getAttribute("aria-controls")||""));
+    if(panel)panel.setAttribute("aria-labelledby",b.id);
+    b.onclick=()=>setStatsSeg(b.dataset.seg)});
+  row.onkeydown=e=>{
+    if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
+    const at=tabs.indexOf(document.activeElement);if(at<0)return;
+    const to=e.key==="ArrowRight"?(at+1)%tabs.length:e.key==="ArrowLeft"?(at+tabs.length-1)%tabs.length:
+      e.key==="Home"?0:e.key==="End"?tabs.length-1:-1;
+    if(to<0)return;
+    e.preventDefault();
+    setStatsSeg(tabs[to].dataset.seg);tabs[to].focus()}}
 function setStatsSeg(seg){
   // Legacy one-level values route to their Evidence view (Plan 056 migration).
   if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
@@ -4796,11 +5265,10 @@ function setStatsSeg(seg){
   // Opening the review is the move onto it, not re-selecting it while it is showing.
   const opensReview=seg==="review"&&!(statsSeg==="review"&&!evidenceView&&$("#stats")?.classList.contains("active"));
   statsSeg=seg;evidenceView=null;
-  $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
-  $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
+  paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
-  if(seg==="overview")redrawChart();else if(seg==="review")renderReview();
+  if(seg==="review")renderReview();
   if(opensReview)captureBlockReviewViewed();
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
 window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
@@ -5160,8 +5628,16 @@ function setSuggestion(ex,n,rec,draft,old){
   const reps=clamp(Math.round(predPerf),ex.min,ex.max);
   // Only call it a downward trend when an anticipated drop actually caused it —
   // a target lowered purely by the typical-RIR subtraction is not a fade.
-  return{load:L,reps,src:"session-hold",drop:setDrop>0&&reps<lastSet.reps}}
+  // `pred` and `typ` are the capacity this predicted for the next set and the RIR taken off it,
+  // reported so the Why sheet can say them without recomputing. They are not enumerable, so the
+  // suggestion that serialises (and that the parity proofs compare) is exactly what it was.
+  return Object.defineProperties({load:L,reps,src:"session-hold",drop:setDrop>0&&reps<lastSet.reps},
+    {pred:{value:Math.round(repsAtLoad(predCap,L)*2)/2},typ:{value:typRir},capacity:{value:repsAtLoad(predCap,L)}})}
 // One-line summary of how the current session is steering the next unlogged set.
+/** A row of the explanation carries its kind (and the facts it printed) without changing what serialises:
+ *  the rows stay {label?,text}, so the parity proofs that compare them see the same list. */
+const whyRow=(kind,row,facts)=>{Object.defineProperty(row,"kind",{value:kind});
+  if(facts)Object.defineProperty(row,"facts",{value:facts});return row};
 function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
   const rec=recommendation(ex),u=unitLabel();
@@ -5183,33 +5659,39 @@ function inSessionNote(ex,draft){
 function explainStrategy(ex,rec,u){
   const rows=[],params=progressionForExercise(ex)?.strategy?.params||{};
   const prev=last(ex).filter(x=>+x.load>0);
-  if(prev.length)rows.push({label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
-  const result=RepForgeProgression.evaluateProgression(progressionInput(ex)),f=result.facts;
+  if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
+  const input=progressionInput(ex),result=RepForgeProgression.evaluateProgression(input),f=result.facts;
   if(rec.strategy==="rep_goal"){
-    if(f.performedTotal!=null)rows.push({text:t("why.repgoal.total",
-      {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})});
-    if(f.medianTrustedRir!=null)rows.push({text:t("why.repgoal.effort",
-      {rir:fmt(f.medianTrustedRir),min:fmt(params.targetRirMin)})});
+    if(f.performedTotal!=null)rows.push(whyRow("rg-total",{text:t("why.repgoal.total",
+      {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})}));
+    if(f.medianTrustedRir!=null)rows.push(whyRow("rg-effort",{text:t("why.repgoal.effort",
+      {rir:fmt(f.medianTrustedRir),min:fmt(params.targetRirMin)})}));
     if(result.reasonCodes.includes("rep_goal.rebuild_after_advance"))
-      rows.push({text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})});
-    if(f.completedReps!=null)rows.push({text:t("why.repgoal.distribution")})}
+      rows.push(whyRow("rg-rebuild",{text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})}));
+    if(f.completedReps!=null)rows.push(whyRow("rg-distribution",{text:t("why.repgoal.distribution")}))}
   else if(rec.strategy==="effort_target"){
-    if(f.representativeLoad!=null)rows.push({text:t("why.effort.evidence",{
-      load:fmtLoad(f.representativeLoad),unit:u,reps:fmt(f.representativeReps),rir:f.representativeRir==null?t("why.effort.missing"):fmt(f.representativeRir)})});
-    rows.push({text:t("why.effort.target",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})});
+    if(f.representativeLoad!=null)rows.push(whyRow("ef-evidence",{text:t("why.effort.evidence",{
+      load:fmtLoad(f.representativeLoad),unit:u,reps:fmt(f.representativeReps),rir:f.representativeRir==null?t("why.effort.missing"):fmt(f.representativeRir)})}));
+    rows.push(whyRow("ef-target",{text:t("why.effort.target",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})}));
     if(result.reasonCodes.includes("effort_target.grid_rounded"))
-      rows.push({text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})})}
+      rows.push(whyRow("ef-grid",{text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})}))}
   else{
-    if(f.anchorLoad!=null)rows.push({text:t("why.anchor.top",
-      {load:fmtLoad(f.anchorLoad),unit:u,reps:Math.round(f.capacityReps)})});
-    if(f.backoffLoad!=null)rows.push({text:t("why.anchor.backoff",
-      {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})});
+    // Name the top set the lifter logged, not the capacity the engine read from it:
+    // today's anchor when one is logged, otherwise the latest session's first set.
+    const cur=input.currentSession||[],explicit=cur.findIndex(x=>x.role==="anchor"),
+      idx=explicit>=0?explicit:cur.some(x=>x.role!=null)?-1:0,
+      top=cur.length&&idx>=0?cur[idx]:input.history.at(-1)?.sets?.[0];
+    if(f.anchorLoad!=null&&top&&sameLoad(+top.load,f.anchorLoad)){
+      rows.push(whyRow("an-top",{text:t("why.anchor.top",{load:fmtLoad(f.anchorLoad),unit:u,reps:+top.reps})}));
+      if(top.rir!=null&&top.rir!==""&&Number.isFinite(+top.rir))rows.push(whyRow("an-toprir",{text:t("why.anchor.top_rir",{rir:fmt(+top.rir)})}))}
+    if(f.backoffLoad!=null)rows.push(whyRow("an-backoff",{text:t("why.anchor.backoff",
+      {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})}));
     if(result.reasonCodes.includes("anchor_backoff.backoff_recalculated"))
-      rows.push({text:t("why.anchor.untouched")})}
-  if(rec.text)rows.push({text:rec.text});
+      rows.push(whyRow("an-untouched",{text:t("why.anchor.untouched")}))}
+  if(rec.text)rows.push(whyRow("text",{text:rec.text}));
   const note=inSessionNote(ex,loadDraft());
-  if(note)rows.push({label:t("why.session"),text:note});
+  if(note)rows.push(whyRow("session",{label:t("why.session"),text:note}));
   return rows}
 // On-demand arithmetic behind one recommendation (plan 043). Built at tap time only,
 // never during renderWorkout: the Log tab's render path stays free of this work.
@@ -5221,34 +5703,37 @@ function explainRecommendation(ex){
   const rec=recommendation(ex),u=unitLabel();
   if(rec.status==="manual")return rows;
   // A new lift can still explain an adjustment from sets logged in this session.
-  if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[{label:t("why.session"),text:note}]:rows}
+  if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[whyRow("session",{label:t("why.session"),text:note})]:rows}
   if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
   const prev=last(ex).filter(x=>+x.load>0);
-  if(prev.length)rows.push({label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
-  rows.push({text:t(isEffortMode()?"why.showed_effort":"why.showed",
-    {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})});
+  if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
+  rows.push(whyRow("showed",{text:t(isEffortMode()?"why.showed_effort":"why.showed",
+    {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})}));
   // The tempered line already names both the rule and the tempering, so it stands alone.
-  rows.push({text:rec.temperedBlock?t("rec.add.tempered.text")
+  rows.push(whyRow("rule",{text:rec.temperedBlock?t("rec.add.tempered.text")
     :t("why.rule."+rec.reason,{max:ex.max,min:ex.min,cr:Math.round(rec.cr),
-      margin:CAPACITY.bigJumpMargin,gap:Math.round(rec.cr-rec.lastMedReps)})});
+      margin:CAPACITY.bigJumpMargin,gap:Math.round(rec.cr-rec.lastMedReps)})}));
   const minJ=+state.settings.minJump||2.5,pct=(+state.settings.jumpPct||0)*(rec.jumpMult||1),
     raw=rec.lastLoad*pct/100,
     move={prev:fmtLoad(rec.lastLoad),pct:fmt(pct),step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u};
   // A small percentage on a light load is dominated by the minJump step; say which one moved it.
+  // The numbers the load line printed, kept on the row for the working behind "See the working".
+  const loadFacts={prev:fmtLoad(rec.lastLoad),pct:fmt(pct),step:fmtLoad(minJ),load:fmtLoad(rec.load),raw:raw>minJ,
+    from:rec.lastLoad,to:rec.load,pctValue:pct,stepValue:minJ};
   if(rec.reason==="top"||rec.reason==="cap_top"||rec.reason==="cap_top2")
-    rows.push({text:t(raw>minJ?"why.load_up":"why.load_up_step",move)});
-  else if(rec.reason==="below_range")rows.push({text:t(raw>minJ?"why.load_down":"why.load_down_step",move)});
-  else if(sameLoad(rec.load,rec.lastLoad))rows.push({text:t("why.load_hold",{load:fmtLoad(rec.load),unit:u})});
-  else rows.push({text:t("why.load_snap",{step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u})});
-  if(rec.reenterReps)rows.push({text:t(isEffortMode()?"why.reps_effort":"why.reps",
-    {load:fmtLoad(rec.load),unit:u,pred:Math.round(repsAtLoad(rec.cap,rec.load)),
-      typrir:fmt(rec.typRir),reps:reentryReps(ex,rec.cap,rec.load,rec.typRir)})});
-  else if(rec.pushReps)rows.push({text:t("why.reps_chase",{min:ex.min,max:ex.max})});
-  else rows.push({text:t("why.reps_hold")});
-  if(rec.blockNote&&!rec.temperedBlock)rows.push({text:rec.blockNote});
+    rows.push(whyRow("load",{text:t(raw>minJ?"why.load_up":"why.load_up_step",move)},loadFacts));
+  else if(rec.reason==="below_range")rows.push(whyRow("load",{text:t(raw>minJ?"why.load_down":"why.load_down_step",move)},loadFacts));
+  else if(sameLoad(rec.load,rec.lastLoad))rows.push(whyRow("load",{text:t("why.load_hold",{load:fmtLoad(rec.load),unit:u})}));
+  else rows.push(whyRow("load",{text:t("why.load_snap",{step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u})}));
+  if(rec.reenterReps){const repsFacts={pred:Math.round(repsAtLoad(rec.cap,rec.load)),typrir:fmt(rec.typRir),reps:reentryReps(ex,rec.cap,rec.load,rec.typRir),
+      capacity:repsAtLoad(rec.cap,rec.load),rirValue:+rec.typRir||0,min:ex.min,max:ex.max};
+    rows.push(whyRow("reps",{text:t(isEffortMode()?"why.reps_effort":"why.reps",{load:fmtLoad(rec.load),unit:u,...repsFacts})},repsFacts))}
+  else if(rec.pushReps)rows.push(whyRow("reps",{text:t("why.reps_chase",{min:ex.min,max:ex.max})}));
+  else rows.push(whyRow("reps",{text:t("why.reps_hold")}));
+  if(rec.blockNote&&!rec.temperedBlock)rows.push(whyRow("block",{text:rec.blockNote}));
   const note=inSessionNote(ex,loadDraft());
-  if(note)rows.push({label:t("why.session"),text:note});
+  if(note)rows.push(whyRow("session",{label:t("why.session"),text:note}));
   return rows}
 function applyAcknowledgedSuggestions(ex,draft){
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
@@ -5311,9 +5796,11 @@ function refreshSuggestions(exId){return trackDraftRefresh(()=>runRefreshSuggest
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
 /** Rest reads in two places: the floating bar outside the workout and the chip
  *  in the workout header, where it must never sit over a control.
- *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
+ *  `over` is seconds elapsed past the bell: the clock then counts up as "+m:ss",
+ *  in the same soft ink as the inline "Rest done" line, and is not a warning. */
 function paintRest(text,done,over=0){
   paintRestSheet();
+  restInlineSync();
   const b=$("#restBar");
   if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
     b.classList.toggle("is-done",!!done);
@@ -5349,7 +5836,7 @@ function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0
   updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
-/** Past the bell the clock keeps running as a negative count-up, so a glance
+/** Past the bell the clock keeps running as a "+m:ss" count-up, so a glance
  *  says how long the set has been waiting. It stops climbing after an hour —
  *  by then the number has stopped meaning anything. */
 const REST_OVERTIME_MAX=60*60;
@@ -5360,6 +5847,8 @@ function restLeftMs(){
   if(restPaused!=null)return restPaused;
   return restEnd?restEnd-Date.now():restPlanSec()*1000}
 function restOvertimeSec(){return restEnd?Math.round(-restLeftMs()/1000):0}
+/** Whole seconds left, as the clock reads them: zero or negative once the bell has gone. */
+const restTimeLeftSec=()=>Math.round(restLeftMs()/1000);
 /** One-shot side effects at zero: the live-region line, buzz, or OS notice. */
 function ringRest(){
   announceRestDone();
@@ -5371,7 +5860,7 @@ function ringRest(){
 function tickRest(){const left=Math.round(restLeftMs()/1000);
   if(left>0){paintRest(fmtClock(left),false);return}
   const over=Math.min(-left,REST_OVERTIME_MAX);
-  paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over);
+  paintRest(over>0?`+${fmtClock(over)}`:"0:00",true,over);
   if(over>=REST_OVERTIME_MAX&&restTick){clearInterval(restTick);restTick=null}
   ringRest()}
 function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250)}
@@ -5382,26 +5871,36 @@ function syncRest(){
   if(!restEnd){paintRest("—",false);updateRestChrome();return}
   const left=Math.round(restLeftMs()/1000);
   if(left>0)paintRest(fmtClock(left),false);
-  else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over)}
+  else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`+${fmtClock(over)}`:"0:00",true,over)}
   updateRestChrome()}
 function startRest(sec){const s=sec||restPlanSec();if(s<=0)return;
-  restLength=s;restPaused=null;
+  restLength=s;restPaused=null;restPadsBack=false;
   restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
+  announceRestStart(s);
   armRestTick()}
+/** The start of a rest is one line in the live region, like its end; the clock
+ *  itself is never announced second by second. */
+function announceRestStart(sec){
+  const el=$("#restAnnounce");if(!el)return;
+  el.textContent="";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(restEnd&&!restAnnounced)el.textContent=t("rest.inline.started",{time:fmtClock(sec)})}))}
 window.__repforgeRest={
-  expire(){
+  /** Test seam: run the clock out, `over` seconds past the bell. */
+  expire(over=0){
     if(!restEnd)return false;
-    restEnd=Date.now()-1;restPaused=null;
+    restEnd=Date.now()-1-Math.max(0,Math.round(+over||0))*1000;restPaused=null;
     if(restTick){clearInterval(restTick);restTick=null}
     return true}};
 
-/* ---- Rest timer sheet ---- */
-/* Tapping a running clock used to end the rest — the one thing a lifter with a
-   bar still in hand never means by it. The clock opens this sheet instead, and
-   every edit to the rest lives here: hold it, nudge it 30s either way, restart
-   it at another length, or end it deliberately. */
+/* ---- Rest presets sheet ---- */
+/* The running clock lives inline in the Focus cue slot (see "Inline rest"
+   below). The header timer opens this sheet instead: it keeps the lengths a
+   lifter can pick, the 30s nudges, Pause or Resume, a restart and an explicit
+   end. Every operation of the clock is reachable from here, because the inline
+   pad row that also holds them gives way to the field pads once a field is
+   tapped, while a set is corrected, and at large text. */
 const REST_PRESETS=[60,90,180,300];
 const REST_NUDGE=30;
 const REST_MIN_SEC=15,REST_MAX_SEC=60*60;
@@ -5417,46 +5916,49 @@ function restPresetSecs(){
   const dflt=normalizeRestSec(state?.settings?.restSec);
   if(dflt>0)secs.add(dflt);
   return [...secs].sort((a,b)=>a-b)}
+/** Pause or Resume in the sheet: the same hold as the inline pad (`toggleRestHold`), drawn here so a clock that
+ *  was held can always be let go, whatever the pad row of the card is showing. Built once, as the first control. */
+function ensureRestHold(){
+  const row=$("#restSheet .restsheet__controls");if(!row)return null;
+  let hold=$("#restHold");
+  if(!hold){
+    hold=document.createElement("button");hold.type="button";hold.id="restHold";hold.className="restctl";
+    const label=document.createElement("span");label.className="restctl__label";
+    hold.append(label);hold.onclick=toggleRestHold;
+    row.prepend(hold)}
+  return hold}
 function renderRestPresets(){
   const host=$("#restPresets");if(!host)return;
   host.innerHTML=restPresetSecs().map(s=>
     `<button type="button" class="restpreset" data-restpreset="${s}" aria-pressed="false" aria-label="${esc(t("rest.sheet.preset_aria",{time:fmtClock(s)}))}">${esc(fmtClock(s))}</button>`).join("");
   $$("#restPresets [data-restpreset]").forEach(b=>{b.onclick=()=>setRestLength(+b.dataset.restpreset)})}
-/** The dial reads remaining-over-armed, so a rest nudged longer keeps a ring
- *  that still means something. */
+/** The sheet reads the same clock the inline block does: the length the rest is
+ *  armed at is the active preset, and Restart and End wait for a rest to act on. */
 function paintRestSheet(){
   const sheet=$("#restSheet");if(!sheet||sheet.hidden)return;
-  const left=Math.round(restLeftMs()/1000);
-  const over=left<0?Math.min(-left,REST_OVERTIME_MAX):0;
-  const clock=$("#restSheetClock");
-  if(clock)clock.textContent=over>0?`-${fmtClock(over)}`:fmtClock(Math.max(0,left));
-  const arc=$("#restDialArc");
-  if(arc){
-    const c=2*Math.PI*(Number(arc.getAttribute("r"))||0);
-    const frac=Math.max(0,Math.min(1,left/Math.max(1,restPlanSec())));
-    arc.style.strokeDasharray=String(c);
-    arc.style.strokeDashoffset=String(c*(1-frac))}
-  const running=!!restEnd&&restPaused==null;
   sheet.classList.toggle("is-idle",!restEnd);
-  sheet.classList.toggle("is-paused",restPaused!=null);
-  sheet.classList.toggle("is-over",over>0);
-  const play=$("#restPlayPause");
-  if(play)play.setAttribute("aria-label",t(running?"rest.sheet.pause_aria":restEnd?"rest.sheet.resume_aria":"rest.sheet.start_aria"));
   const armed=restPlanSec();
   $$("#restPresets [data-restpreset]").forEach(b=>{
     const on=+b.dataset.restpreset===armed;
     b.classList.toggle("is-active",on);
     b.setAttribute("aria-pressed",on?"true":"false")});
+  const hold=ensureRestHold();
+  if(hold){
+    // Pause and Resume wait for a rest to hold, like Restart and End; they never start one.
+    hold.disabled=!restEnd;
+    const label=hold.querySelector(".restctl__label"),text=t(restPaused!=null?"rest.inline.resume":"rest.inline.pause");
+    if(label&&label.textContent!==text)label.textContent=text}
   const reset=$("#restReset");if(reset)reset.disabled=!restEnd;
   const stop=$("#restStop");if(stop)stop.disabled=!restEnd}
 function openRestSheet(){
   const sheet=$("#restSheet"),scrim=$("#restSheetScrim");
   if(!sheet)return;
   restSheetReturn=document.activeElement;
+  ensureRestHold();
   renderRestPresets();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
-    initialFocus:$("#restPlayPause"),
+    initialFocus:$$("#restPresets .restpreset").find(b=>+b.dataset.restpreset===restPlanSec())||$("#restMinus"),
     returnFocus:restSheetReturn,
     onEscape:closeRestSheet,
     scrim,
@@ -5479,7 +5981,7 @@ function setRestLength(sec){
   else syncRest();
   paintRestSheet()}
 /** ±30s moves the clock, not the plan — except when the nudge pushes past the
- *  length it was armed at, which becomes the new full turn of the ring. */
+ *  length it was armed at, which becomes the new full length of the drain bar. */
 function nudgeRest(delta){
   if(!restEnd){setRestLength(restPlanSec()+delta);return}
   const next=Math.min(REST_MAX_SEC*1000,Math.max(-REST_OVERTIME_MAX*1000,restLeftMs()+delta*1000));
@@ -5505,6 +6007,141 @@ function toggleRestHold(){
   syncRest()}
 function resetRest(){if(!restEnd)return;startRest(restPlanSec())}
 function endRestFromSheet(){stopRest();closeRestSheet()}
+/** Pular on the inline pad. It ends the rest the way the bell does: the clock
+ *  stands at zero and its overrun counts up from there (owner decision on
+ *  OG-4, proposal 5). The lifter ended it, so there is no buzz or OS notice;
+ *  the live region still says it is over. */
+function skipRest(){
+  if(!restEnd||restTimeLeftSec()<=0)return;
+  restEnd=Date.now();restPaused=null;restNotified=true;
+  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  armRestTick();
+  tickRest()}
+
+/* ---- Inline rest: the live card follows the clock ----
+   The card is drawn from the timer (see "Inline rest" above); between renders
+   the clock's repaint keeps it in step. Figures change in place, and when the
+   timer changes what the cue slot or the pad row should show (time runs out,
+   Pular, a nudge past zero, a rest ending) the slot trades its content in the
+   measured height run `animateSlot` (L3). */
+/** Bound to every rest control in the pad row. */
+function restAct(act){
+  if(act==="minus")nudgeRest(-REST_NUDGE);
+  else if(act==="plus")nudgeRest(REST_NUDGE);
+  else if(act==="pause")toggleRestHold();
+  else if(act==="skip")skipRest()}
+/** Handlers for content swapped into the live card after bindWorkout ran. */
+function bindRestControls(root){
+  root.querySelectorAll("[data-rest-act]").forEach(b=>{b.onclick=()=>restAct(b.dataset.restAct)});
+  root.querySelectorAll("[data-why]").forEach(b=>{b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)}})}
+/** What a host shows right now, without a crossfade layer that is still leaving it (a second swap during the first
+ *  fades out what the lifter sees, not the layer on top of it). */
+function liveHtml(host){
+  if(!host.querySelector(".motion-fade-out"))return host.innerHTML;
+  const copy=host.cloneNode(true);
+  copy.querySelectorAll(".motion-fade-out").forEach(el=>el.remove());
+  copy.querySelectorAll(".motion-fade-in").forEach(el=>el.classList.remove("motion-fade-in"));
+  return copy.innerHTML}
+/** L3, the crossfade: the outgoing content stays over the incoming for one 160ms beat and is gone. The layer is
+ *  inert and hidden from assistive technology, and nothing under it waits on it. */
+function crossfadeIn(host,outHtml,outClass){
+  if(!outHtml||!focusMotion())return;
+  host.querySelectorAll(":scope > .motion-fade-out").forEach(el=>el.remove());
+  const out=document.createElement("div");
+  out.className=`${outClass} motion-fade-out`;out.setAttribute("aria-hidden","true");out.inert=true;out.innerHTML=outHtml;
+  // The copy is scenery: it carries none of the card's hooks, so nothing that looks for a control finds it twice.
+  out.querySelectorAll("*").forEach(el=>{for(const name of el.getAttributeNames())if(name.startsWith("data-"))el.removeAttribute(name)});
+  const kids=[...host.children];
+  kids.forEach(k=>k.classList.add("motion-fade-in"));
+  // First in the markup, last in the paint order (it is positioned): the real last child stays the last child.
+  host.prepend(out);
+  let over=false;
+  const end=()=>{if(over)return;over=true;out.remove();kids.forEach(k=>k.classList.remove("motion-fade-in"))};
+  out.addEventListener("animationend",end,{once:true});
+  out.addEventListener("animationcancel",end,{once:true});
+  setTimeout(end,320)}
+/** The rest markup for a card's cue slot, built from the same pieces the card is: the engine's cue for the set
+ *  the shelf is working on. */
+function restSlotMarkup(card,mode){
+  const base=prog.find(card.dataset.ex);if(!base||!activeWorkoutDraft)return null;
+  const ex=sessionExercise(base),n=focusActiveSet(ex);if(!n)return null;
+  const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id);
+  const cue=focusCue(ex,n,r,draft,prev,editing);
+  return focusSlotInner(ex,n,r,cue,mode,{peek:false,name:exerciseDisplayName(ex),draft,editing})}
+/** L3: trade the slot's content for `next` (the markup for `mode`). The slot measures its height before and after
+ *  and grows or shrinks between them; the crossfade rides in the same beat. Without the runtime, or under reduced
+ *  motion, the end state is drawn on the first frame. */
+function swapRestSlot(slot,mode,next){
+  const fromHtml=liveHtml(slot),m=focusMotion();
+  const apply=()=>{
+    slot.innerHTML=next;slot.dataset.rest=mode;
+    bindRestControls(slot);
+    if(m)crossfadeIn(slot,fromHtml,"fx-slot__out")};
+  if(window.RepForgeMotion?.animateSlot)window.RepForgeMotion.animateSlot(slot,apply);
+  else apply()}
+/** L3 after a render: the card was drawn with the slot's new content (and every handler bound), so the new content
+ *  stays where it is. The slot is held at the height it had, the old content is laid over it, and `animateSlot` carries
+ *  the height from there to the new content's own while the two cross over. */
+function arriveRestSlot(slot,before){
+  slot.style.height=`${before.height}px`;
+  window.RepForgeMotion.animateSlot(slot,()=>crossfadeIn(slot,before.html,"fx-slot__out"))}
+/** The pad row trades the field pads for the rest controls and back, in the same crossfade. */
+function swapRestPads(card,pads){
+  const base=prog.find(card.dataset.ex);if(!base||!activeWorkoutDraft)return;
+  const ex=sessionExercise(base),n=focusActiveSet(ex);if(!n)return;
+  const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id);
+  const key=`${ex.id}_${n}`,vals=setFieldVals(ex,n,r,draft,prev);
+  const hadFocus=pads.contains(document.activeElement);
+  const fromHtml=liveHtml(pads),fromClass=pads.className;
+  const holder=document.createElement("div");
+  holder.innerHTML=focusPadsHtml(ex,n,shelfFor(key),vals,{effortMode:isEffortMode(),peek:false,editing});
+  const next=holder.firstElementChild;
+  pads.replaceWith(next);
+  bindWorkout();
+  crossfadeIn(next,fromHtml,fromClass);
+  // A control that left the row must not take the lifter's place with it.
+  if(hadFocus)card.querySelector(".focus-shelf .shelf__field.is-sel .shelf__fieldbtn")?.focus({preventScroll:true})}
+/** Called with every repaint of the clock. */
+function restInlineSync(){
+  const card=focusCard();if(!card||!activeWorkoutDraft)return;
+  const slot=card.querySelector(".fx-slot"),pads=card.querySelector(".shelf__pads");
+  const editing=!!(focusEdit&&focusEdit.exId===card.dataset.ex);
+  if(!restRenderPending){
+    if(slot&&slot.dataset.rest!==restSlotMode(editing)){
+      const mode=restSlotMode(editing),next=restSlotMarkup(card,mode);
+      if(next!=null)swapRestSlot(slot,mode,next);
+      // The slot was swapped for its new job, which drew the clock at this repaint.
+    }
+    if(pads&&pads.dataset.pads!==(restPadsOn(editing)?"rest":"field"))swapRestPads(card,pads)}
+  const clock=card.querySelector("[data-rest-clock]");
+  if(clock){
+    const left=fmtClock(Math.max(0,restTimeLeftSec()));
+    if(clock.textContent!==left)clock.textContent=left;
+    const of=card.querySelector("[data-rest-of]"),ofText=t("rest.inline.of",{t:fmtClock(restPlanSec())});
+    if(of&&of.textContent!==ofText)of.textContent=ofText;
+    const fill=card.querySelector("[data-rest-fill]");
+    if(fill)fill.style.transform=`scaleX(${restFraction().toFixed(4)})`}
+  const done=card.querySelector("[data-rest-done]");
+  if(done){const text=restDoneText(restOverSec());if(done.textContent!==text)done.textContent=text}
+  const pause=card.querySelector('[data-rest-act="pause"]');
+  if(pause){const label=t(restPaused!=null?"rest.inline.resume":"rest.inline.pause");if(pause.textContent!==label)pause.textContent=label}}
+/** What a render is about to replace: the live cue slot and pad row, so the render can carry them to what it drew. */
+function captureRestSlot(){
+  const card=focusCard();if(!card)return null;
+  const slot=card.querySelector(".fx-slot"),pads=card.querySelector(".shelf__pads");
+  return{exId:card.dataset.ex,
+    slot:slot?{mode:slot.dataset.rest,html:liveHtml(slot),height:slot.getBoundingClientRect().height}:null,
+    pads:pads?{mode:pads.dataset.pads,html:liveHtml(pads),cls:pads.className}:null}}
+/** After a render: if the same exercise's slot or pad row now shows another job, it arrives from the old one. */
+function restSlotArrive(before){
+  const card=focusCard();
+  if(!before||!card||card.dataset.ex!==before.exId||!focusMotion())return;
+  const slot=card.querySelector(".fx-slot");
+  if(slot&&before.slot&&slot.dataset.rest!==before.slot.mode)arriveRestSlot(slot,before.slot);
+  const pads=card.querySelector(".focus-shelf .shelf__pads");
+  if(pads&&before.pads&&pads.dataset.pads!==before.pads.mode)crossfadeIn(pads,before.pads.html,before.pads.cls)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
@@ -5567,13 +6204,26 @@ function updateSessionBanner(){
 function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
 function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
-  document.body.classList.toggle("is-workout",workoutActive);
   const dash=$("#todayDash"),shell=$("#workoutShell");
+  // N5: Today to Focus is the same push as a drill-down, and Back from Focus is it
+  // run the other way. Finishing a session clears the draft first, so the card has
+  // nothing left to carry out and that exit stays instant.
+  const settle=workoutActive!==was&&(workoutActive||activeWorkoutDraft)
+    ?routePushBegin(workoutActive?"in":"out",{pushed:shell,under:dash}):null;
+  document.body.classList.toggle("is-workout",workoutActive);
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
   if(!workoutActive){document.body.classList.remove("is-focus-wo");closeWorkoutOverflow()}
   updateFocusChrome();
-  if(workoutActive!==was)playPanelAnimation(workoutActive?shell:dash,workoutActive?"wo-anim-enter":"wo-anim-leave")}
+  if(workoutActive!==was){
+    if(settle)settle();
+    else playPanelAnimation(workoutActive?shell:dash,workoutActive?"wo-anim-enter":"wo-anim-leave");
+    // Focus lands on the surface the lifter moved to, once the move has rendered:
+    // Focus's day title going in, Today's leading control coming back. Not at boot,
+    // where a resumed session is the page itself and not a hand-off.
+    if(window.__repforgeBooted===true)queueMicrotask(()=>{
+      if(workoutActive)focusRoute($("#woDayTitle"));
+      else focusRoute(todayPrimaryControl())})}}
 /** Replay a one-shot CSS animation on a panel that just became visible. */
 function playPanelAnimation(el,cls){if(!el)return;
   el.classList.remove("wo-anim-enter","wo-anim-leave");
@@ -5590,7 +6240,7 @@ function openExNoteSheet(exId){
   const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim"),ta=$("#exNoteText");
   if(!sheet||!ta)return;
   exNoteFor=exId;exNoteReturn=document.activeElement;
-  $("#exNoteFor").textContent=substituted.get(exId)||ex.name;
+  $("#exNoteFor").textContent=exerciseDisplayName(sessionExercise(ex));
   ta.value=String(activeWorkoutDraft.exercises?.[exId]?.setupNotes??"");
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
@@ -5614,10 +6264,7 @@ async function saveExNoteSheet(){
     if(!activeWorkoutDraft)return;
     await WorkoutSession.dispatch("setExerciseNotes",{exerciseInstanceId:id,value:val})}
   await closeExNoteSheet();
-  if(id){
-    renderWorkout();
-    const trigger=$$("#workout [data-exnote-open]").find(b=>b.dataset.exnoteOpen===id);
-    if(trigger){try{trigger.focus({preventScroll:true})}catch{try{trigger.focus()}catch{}}}}}
+  if(id)renderWorkout()}
 /* ---- Day picker sheet ---- */
 /* Today leads with one day, and a split is rarely trained in order: a machine is
  * taken, a session is swapped, a day is skipped. The picker is how the lifter
@@ -5632,7 +6279,7 @@ let dayPickSelected=null;
 function dayPickRowHtml(d,i){
   const named=!DEFAULT_DAY_NAME.test(String(d).trim()),label=dayLabel(d);
   const muscles=dayMuscles(d).map(muscleLabel).join(" · ");
-  const count=t("today.exercise_count",{n:exercises(d).length});
+  const count=tOne("today.exercise_count",exercises(d).length);
   const title=named?label:(muscles||label);
   const sub=named&&muscles?`${muscles} · ${count}`:count;
   const isToday=d===day,chip=t("today.choose_day_current");
@@ -5660,18 +6307,23 @@ function armPickerDay(d){
   if(!d||!days().includes(d))return;
   dayPickSelected=d;
   paintDayPickList()}
-function openDayPickSheet(){
+/** `resume` gives the picker back from the day-change question on the day that was armed, taking the question's place. */
+function openDayPickSheet({resume=false}={}){
   const sheet=$("#dayPickSheet"),scrim=$("#dayPickScrim");
   if(!sheet)return;
-  dayPickSelected=day;
+  if(!resume)dayPickSelected=day;
   renderDayPickList();
+  const bandClose=sheet.querySelector("[data-daypick-close]");if(bandClose)bandClose.onclick=()=>closeDayPickSheet();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
     initialFocus:$("#dayPickList .daypick__row.is-selected")||$("#dayPickList .daypick__row"),
     onEscape:closeDayPickSheet,
     scrim,
-    delayHide:reducedMotion()?0:280
+    delayHide:reducedMotion()?0:280,
+    handoff:resume
   });
+  // A handoff hides the sheet it replaces, which also lowers the page-behind marker.
+  document.body.classList.add("is-sheet-open");
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 function closeDayPickSheet(){
   const sheet=$("#dayPickSheet");
@@ -5823,6 +6475,13 @@ function focusGo(dir){
   focusIndex=next;focusEdit=null;
   if(activeWorkoutDraft&&fl[next])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:fl[next].id});
   renderWorkout();window.scrollTo({top:0});return true}
+/** Jump to an exercise by its place in the deck: a neighbour slides in the way
+ *  a swipe does, anything further away lands directly. */
+function focusJump(to){
+  const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,d=to-at;
+  if(!d||to<0||to>=fl.length)return false;
+  if(Math.abs(d)===1)return focusAnimateTo(d);
+  window.__repforgeFocus.to(to);return true}
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
 function focusCard(){return $("#workout.is-focus .exercise.is-current")}
@@ -5831,6 +6490,9 @@ function focusTrack(){return $("#focusTrack")}
 function focusStep(){const card=focusCard();return (card?.offsetWidth||320)+FOCUS_GAP}
 const FOCUS_GAP=14;
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/** `behavior` for a programmatic scroll. The motion layer owns the reduced-motion decision (RepForgeMotion.reducedMotion),
+ *  so a smooth scroll is only ever asked for when motion is welcome; reduced motion jumps. */
+const scrollBehavior=()=>(window.RepForgeMotion?.reducedMotion?.()??!!reducedMotion())?"auto":"smooth";
 /** Carry the deck one card over, animating the track exactly as a fling does,
  *  then re-render at the new index with the track back at rest. Chevrons, the
  *  Next exercise button, the arrow keys and a completed swipe all land here.
@@ -5900,10 +6562,18 @@ function focusDragMove(e){
   // The whole track moves as one, the way a paged view does — card and the
   // stack it sits on together.
   focusSetTrack(focusDrag.track,focusDrag.dx)}
+const swallowedClickStops=new Set();
 function swallowNextClick(){
   const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
+  swallowedClickStops.add(stop);
   document.addEventListener("click",stop,{capture:true,once:true});
-  setTimeout(()=>document.removeEventListener("click",stop,{capture:true}),350)}
+  setTimeout(()=>{document.removeEventListener("click",stop,{capture:true});swallowedClickStops.delete(stop)},350)}
+/** A drag that commits a route (the edge swipe) runs the visible control's own
+ *  handler, which is a click; the swallow the drag, or one just before it, set for
+ *  the browser's stray click would eat it. */
+function releaseSwallowedClick(){
+  for(const stop of swallowedClickStops)document.removeEventListener("click",stop,{capture:true});
+  swallowedClickStops.clear()}
 function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   card?.classList.remove("is-dragging");
   const done=()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")};
@@ -5979,7 +6649,8 @@ function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)ret
     .map(ev=>ev.liftKey));
   return{sessions,days:doneDays,lastDay:sessions.at(-1).day||day,
     muscles:[...new Set(work.map(r=>String(rowMuscles(r).primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3),
-    sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size}}
+    sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size,
+    lifts:new Set(work.map(liftKey)).size,rows:sessions.flatMap(s=>s.rows),session:sessions.at(-1).session}}
 /** The program day that follows `from`, or null when the split has only one. */
 function nextDayAfter(from){const ds=days();if(!ds.length)return null;
   const i=ds.indexOf(from);if(i<0)return ds[0];
@@ -5987,14 +6658,21 @@ function nextDayAfter(from){const ds=days();if(!ds.length)return null;
 /** The program day that follows the last one trained today. */
 function dayAfterTrainedToday(){const done=sessionsToday();
   return nextDayAfter(done.length?done.at(-1).day:day)}
+/* Today's finished day (OG-6 `today/done`, Direction D 4.1): the day's name, its totals, the record line and the shipped
+   note, then each lift's outcome word and the engine's next target. The words and targets come from the same lift groups the
+   session summary reads (`sessionOutcomeGroups`), so Today can never disagree with the screen it sends you to. */
 function todayDoneHtml(recap){
+  const{liftGroups,showBaseline}=sessionOutcomeGroups(recap.rows),s={showBaseline,session:recap.session};
+  const cell=(n,cap)=>`<div class="statrow__cell"><div class="statrow__val">${esc(n)}</div><div class="statrow__cap">${esc(cap)}</div></div>`;
   return `<div class="today-done">`+
-    `<div class="today-session__name today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
-    `${esc(recap.days.join(" · ")||t("today.done_title"))}</div>`+
-    (recap.muscles.length?`<div class="today-session__muscles">${esc(recap.muscles.map(muscleLabel).join(" · "))}</div>`:"")+
-    `<div class="today-session__meta">${esc(t("today.done_meta",{sets:recap.sets,setword:tp(recap.sets,"set"),vol:kfmt(toDisplay(recap.volume)),unit:unitLabel()}))}</div>`+
+    `<div class="today-session__name today-session__name--day today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
+    `${esc(recap.days.join(" \u00b7 ")||t("today.done_title"))}</div>`+
+    `<div class="statrow sum-stats">${cell(fmt(recap.sets),tp(recap.sets,"set"))}${cell(kfmt(toDisplay(recap.volume)),t("summary.stat.moved",{unit:unitLabel()}))}`+
+    `${cell(fmt(recap.lifts),tp(recap.lifts,"lift"))}</div>`+
     (recap.prs?`<p class="today-done__pr">${esc(recap.prs===1?t("today.done_pr_one"):t("today.done_prs",{n:recap.prs}))}</p>`:"")+
-    `<p class="today-done__note">${esc(t("today.done_note"))}</p></div>`}
+    `<p class="today-done__note">${esc(t("today.done_note"))}</p>`+
+    (liftGroups.length?`<h3 class="sum-sec today-done__head">${esc(t("summary.outcome_head"))}</h3><div class="sum-grps today-done__lifts">`+
+      liftGroups.map(lift=>summaryGroupHtml(lift,s,{compact:true})).join("")+`</div>`:"")+`</div>`}
 /** Whichever action Today is currently leading with — the start CTA, or the
  *  recap's review action once the day's session is saved. */
 function todayPrimaryControl(){
@@ -6004,31 +6682,125 @@ function todayPrimaryControl(){
 function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
   const sid=done.at(-1).session;HistoryUi.startReading(sid);
   navTo("history");HistoryUi.focusRead(sid)}
-// The day's exercises, previewed on Today: sets × rep range per row, the rest
-// behind a "+N" disclosure. Tapping a row opens that exercise's page.
-function todayExListHtml(exs){if(!exs.length)return"";
-  const collapsible=exs.length>TODAY_EX_PREVIEW,extra=exs.length-TODAY_EX_PREVIEW;
-  const shown=collapsible&&!todayExOpen?exs.slice(0,TODAY_EX_PREVIEW):exs;
-  const rows=shown.map(e=>`<button type="button" class="today-ex" data-exopen="${esc(e.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:e.name}))}">`+
-    `<span class="today-ex__name">${esc(e.name)}</span>`+
-    `<span class="today-ex__value">${esc(`${e.sets} × ${e.min}–${e.max}`)}<span class="chevron" aria-hidden="true"></span></span></button>`).join("");
-  const label=todayExOpen?t("today.fewer_exercises"):extra===1?t("today.more_exercises_one"):t("today.more_exercises",{n:extra});
-  const more=collapsible
-    ?`<button type="button" class="today-exmore" id="todayExMore" aria-expanded="${todayExOpen?"true":"false"}" aria-controls="todayExList">`+
-      `<span>${esc(label)}</span><span class="chevron ${todayExOpen?"is-up":"is-down"}" aria-hidden="true"></span></button>`
-    :"";
-  return `<div class="today-exlist" id="todayExList">${rows}${more}</div>`}
+/* ---- Today prescription (Direction D, spec 4.1) ----
+   The table reads recommendation(ex) for every exercise of the selected day.
+   Nothing here decides a load or a reps target: the load is recommendation().load,
+   the reps come from setSuggestion() or the authored strategy parameters, and the
+   verdict glyph only names the status and reason the engine already attached. */
+const TODAY_TALLY_ORDER=["up","hold","recover","stalled","down","new","manual"];
+const TODAY_TALLY_KEYS={
+  up:["today.tally.up.one","today.tally.up.other"],
+  hold:["today.tally.hold.one","today.tally.hold.other"],
+  recover:["today.tally.recover.one","today.tally.recover.other"],
+  stalled:["today.tally.stalled.one","today.tally.stalled.other"],
+  down:["today.tally.down.one","today.tally.down.other"],
+  new:["today.tally.new.one","today.tally.new.other"],
+  manual:["today.tally.manual.one","today.tally.manual.other"]};
+/** One word for a recommendation, from the status and reason the engine attached. */
+function rxVerdict(rec){
+  if(rec.status==="manual")return"manual";
+  if(rec.status==="new")return"new";
+  if(rec.status==="add"||rec.status==="add2")return"up";
+  if(rec.status==="reduce")return rec.reason==="stalled"?"stalled":"down";
+  if(rec.reason==="recover")return"recover";
+  return"hold"}
+/** The shared verdict mark. Up, down, hold ("=") and recover draw a glyph; stalled, new and manual stay word-only. */
+function verdictMarkHtml(glyph){
+  if(glyph!=="up"&&glyph!=="down"&&glyph!=="hold"&&glyph!=="recover")return"";
+  return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`}
+/** "100 × 8, 8, 8" for one load, "100 × 8, 90 × 10" when the load moved. */
+function rxSetsLine(sets,withUnit){
+  const rows=sets.filter(x=>+x.reps>0);if(!rows.length)return"";
+  const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
+  return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
+    :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
+function rxTargetText(ex,rec){
+  const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
+  if(rec.status==="manual")return `${ex.sets} × ${ex.min}–${ex.max}`;
+  if(strategy==="rep_goal")return t("today.target.total",{n:params.repGoal});
+  if(strategy==="anchor_backoff")return t("today.target.anchor",{n:params.backoffSets});
+  if(strategy==="effort_target")return `${params.workingSets||ex.sets} × ${params.targetReps}`;
+  const first=setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1));
+  return `${ex.sets} × ${first.reps??ex.min}`}
+/** Pure view model: one row per exercise of the day, built once per render. */
+function todayRxModel(exs){
+  return exs.map(ex=>{
+    const rec=recommendation(ex),glyph=rxVerdict(rec),prev=last(ex);
+    const sub=glyph==="stalled"?rec.label
+      :prev.length?t("today.sub.before",{sets:rxSetsLine(prev)}):t("today.sub.first");
+    return{ex,rec,glyph,sub,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(ex,rec)}})}
+function todayTallyHtml(model){
+  const counts={};for(const row of model)counts[row.glyph]=(counts[row.glyph]||0)+1;
+  const items=TODAY_TALLY_ORDER.filter(g=>counts[g]).map(g=>
+    `<li class="today-tally__i">${verdictMarkHtml(g)}<span>${esc(t(TODAY_TALLY_KEYS[g][counts[g]===1?0:1],{n:counts[g]}))}</span></li>`);
+  return items.length?`<ul class="today-tally">${items.join("")}</ul>`:""}
+function todayRxRowHtml(row,index){
+  const{ex,rec,glyph}=row,verdictId=`rxv${index}`,hasVerdict=!!rec.label&&glyph!=="manual";
+  return `<button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${hasVerdict?` aria-describedby="${verdictId}"`:""}>`+
+    `<span class="rxrow__mark">${verdictMarkHtml(glyph)}</span>`+
+    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub">${esc(row.sub)}</span></span>`+
+    `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
+    `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
+    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button>`}
+function todayRxHtml(exs){
+  if(!exs.length)return"";
+  const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));
+  return todayTallyHtml(model)+
+    `<div class="today-rx__head"><h3 class="today-rx__title">${esc(t("today.rx.title"))}</h3>`+
+    `<span class="today-rx__meta">${esc(t("today.rx.meta",{exercises:countText("exercises",exs.length),sets:countText("sets",sets)}))}</span></div>`+
+    `<div class="today-rx" id="todayExList"><div class="today-rx__grid">`+
+    `<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`+
+    model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
+/* The unfinished-session band (OG-6 `today/draft-resume`, Direction D 4.1): a status line above the prescription that
+   says a session is open and where the lifter left it. It reads the draft and never writes it. The position uses the
+   Focus header's own format (`focus.head.day_ex`) over the draft's exercise order, skipped lifts left out the way
+   `focusList` leaves them out. */
+function draftResumeWhere(){
+  let d=activeWorkoutDraft;
+  if(!d){try{d=JSON.parse(DraftStore.readRaw()||"null")}catch{d=null}}
+  if(!d||typeof d!=="object")return dayLabel(day);
+  if(d.schemaVersion===2&&Array.isArray(d.exerciseOrder)){
+    const live=d.exerciseOrder.filter(id=>d.exercises?.[id]&&d.exercises[id].status!=="skipped");
+    const label=dayLabel(d.program?.dayLabel||day);
+    if(!live.length)return label;
+    return t("focus.head.day_ex",{day:label,n:Math.max(0,live.indexOf(d.session?.selectedExerciseId))+1,m:live.length})}
+  const named=typeof d.__day==="string"&&days().includes(d.__day)?d.__day:day,label=dayLabel(named);
+  const skip=new Set(Array.isArray(d.__skipped)?d.__skipped:[]),live=exercises(named).filter(e=>!skip.has(e.id));
+  if(!live.length)return label;
+  return t("focus.head.day_ex",{day:label,n:Math.max(0,live.findIndex(e=>e.id===d.__selectedExerciseId))+1,m:live.length})}
+/** The band's host stands before Today's session label and is empty (zero height) while no session is open, so the
+ *  first band measures in from nothing (S2: `animateDisclosure`, the R1c vocabulary's `revealIn`). It is made here, not in
+ *  the shell markup, because the band has no meaning before the first render that needs it. */
+function todayResumeHost(){
+  let host=$("#todayResume");if(host)return host;
+  const before=$("#todaySessionLabel");if(!before?.parentNode)return null;
+  host=document.createElement("div");host.id="todayResume";host.className="today-resume";
+  before.parentNode.insertBefore(host,before);return host}
+/** Draw the band while a session is open and Today is the surface in view; take it away otherwise. A render that finds
+ *  the band already there keeps it (and only rewrites it when its words changed, so the status region does not speak
+ *  again); the render that adds it to an empty host measures it open, or draws it at once under reduced motion or
+ *  without the runtime. The Start/Continue label is a separate instant swap in `renderToday`. */
+function renderTodayResume(show){
+  const host=todayResumeHost();if(!host)return;
+  if(!show){host.innerHTML="";host.removeAttribute("style");return}
+  const html=`<div class="today-resume__band" role="status"><span class="today-resume__title">${esc(t("today.resume.title"))}</span>`+
+    `<span class="today-resume__where">${esc(draftResumeWhere())}</span></div>`;
+  if(host.firstElementChild){if(host.innerHTML!==html)host.innerHTML=html;return}
+  const draw=()=>{host.innerHTML=html};
+  if(window.RepForgeMotion?.animateDisclosure)window.RepForgeMotion.animateDisclosure(host,true,draw);
+  else draw()}
 /* Today with nothing behind it. Backing out of onboarding used to land here on
    a bundled program the lifter had never seen, which read as "your training" —
    so the empty device now says it is empty and offers the way back in. Every
    part of the dashboard that describes a program is taken down together: a week
    strip and an Up next built from no program are the same lie in smaller type. */
 function renderTodayNoProgram(){
-  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#previewSession","#chooseAnotherDay",
+  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
     "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
     "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
   const sess=$("#todaySession");if(sess)sess.innerHTML="";
+  renderTodayResume(false);
   const empty=$("#todayNoProgram");if(empty)empty.classList.remove("hidden");
   // No origin: `startOnboarding` reads first-run against the live state, which
   // is the same reading the gate and Settings' Create program already get.
@@ -6056,26 +6828,24 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const sessLabel=$("#todaySessionLabel");if(sessLabel){const key=recap?"today.done_label":"today.session_label";
     sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key)}
   const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
-  else if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
-    sess.innerHTML=`<div class="today-session__name">${esc(dayLabel(day))}</div>`+
-      (mus.length?`<div class="today-session__muscles">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
-      `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
-      (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
-      todayExListHtml(exs)}
+  else if(sess){const exs=exercises();
+    sess.innerHTML=`<div class="today-session__name today-session__name--day">${esc(dayLabel(day))}</div>`+todayRxHtml(exs)}
     // A one-day split has no other day to offer, so the picker would open onto
     // the day Today already leads with.
     const canPickDay=!recap&&days().length>1;
-    for(const[sel,shown]of[["#startWorkout",!recap],["#previewSession",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+    for(const[sel,shown]of[["#startWorkout",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
-    const ready=$("#readyLine");if(ready)ready.onclick=()=>{
-      const first=exercises().find(e=>{const status=recommendation(e).status;return status==="add"||status==="add2"});
-      if(first)void goToLogExercise(first.id)}
+    // The finished day's way on is the screen's one commitment: View today's session takes the primary control and its
+    // arrow, and Log another session sits under it as the quieter choice, as Choose another day does under Start.
+    const review=$("#reviewTodaySession");if(review){review.classList.toggle("btn--cta",!!recap);review.classList.toggle("btn--steel",!recap)}
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
-    const more=$("#todayExMore");if(more)more.onclick=()=>{todayExOpen=!todayExOpen;renderToday()}
   // A draft with logged or filled sets means the session is still open.
   const cta=$("#startWorkout")?.querySelector("span");
   if(cta){const key=inProgress?"today.continue":"today.start";
     cta.setAttribute("data-i18n",key);cta.textContent=t(key)}
+  // The band is drawn only while Today is in view: the render that returns from a session is the one that finds it
+  // absent, so that is the render it measures in on. The CTA above is the same condition and an instant text swap.
+  renderTodayResume(inProgress&&!workoutActive);
   const weekEl=$("#todayWeek");if(weekEl){const w=week,{start}=weekRange(today()),letters=weekdayLetters();
     const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
     const cells=letters.map((lab,i)=>{const d=new Date(`${start}T12:00:00`);d.setDate(d.getDate()+i);
@@ -6083,11 +6853,13 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       const isToday=iso===today(),done=trained.has(iso);
       const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
       return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
-    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters" data-progress-dimension="week" data-progress-scope="current-week-trained-days">${cells}</div>`}
+    // A finished day says where the week stands in words alone (OG-6 `today/done`); the weekday strip stays for the days still to train.
+    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div>`+
+      (recap?"":`<div class="week-letters" data-progress-dimension="week" data-progress-scope="current-week-trained-days">${cells}</div>`)}
   const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(dayLabel(next))}</div>`+
-        `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
+        `<div class="listrow__sub">${esc(tOne("today.exercise_count",nEx))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
       $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
     else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
   // The recap above already says today was trained; the footer would only echo it.
@@ -6104,58 +6876,11 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
-  const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day);
+  // The workout header names the day until a workout is open; then updateWorkoutHeader owns the title.
+  if(!workoutActive){const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day)}
   const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
     woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
-/* ---- Today preview (read-only) ---- */
-// Pure view model: no draft, no timestamps, no side effects.
-function plannedPreviewModel(d=day){
-  const exs=exercises(d);
-  return exs.map(ex=>{
-    const rec=recommendation(ex);
-    return {id:ex.id,name:ex.name,sets:ex.sets,min:ex.min,max:ex.max,primary:ex.primary,notes:ex.notes||"",rec};
-  });
-}
-function previewExerciseRowHtml(ex){
-  const sets=`${ex.sets} × ${ex.min}–${ex.max}`;
-  const meta=[ex.primary?muscleListLabel(ex.primary):"",ex.notes?`${t("log.setup")}: ${ex.notes}`:""].filter(Boolean).join(" · ");
-  const rec = ex.rec && ex.rec.status!=="new" ? `<span class="preview__meta">${esc(ex.rec.label)} · ${esc(ex.rec.text)}</span>` : "";
-  return `<button type="button" class="preview__row" data-preview-exercise data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:ex.name}))}">`+
-    `<span class="preview__row-main"><span class="preview__name">${esc(ex.name)}</span><span class="preview__sets">${esc(sets)}</span></span>`+
-    (meta?`<span class="preview__meta">${esc(meta)}</span>`:"")+rec+`</button>`;
-}
-function renderPreviewSessionSheet(){
-  const list=$("#previewSessionList");if(!list)return;
-  const dayEl=document.querySelector("[data-preview-day]");if(dayEl)dayEl.textContent=dayLabel(day);
-  const rows=plannedPreviewModel(day);
-  list.innerHTML=rows.map(previewExerciseRowHtml).join("");
-  $$("#previewSessionList [data-exopen]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.exopen;
-    closePreviewSessionSheet().then(()=>openExerciseView(id,"log"));
-  });
-}
-function openPreviewSessionSheet(){
-  if(!hasProgramContent())return;
-  renderPreviewSessionSheet();
-  const sheet=$("#previewSessionSheet"),scrim=$("#previewSessionScrim");
-  if(!sheet)return;
-  document.body.classList.add("is-sheet-open");
-  openModal(sheet,{
-    initialFocus:$("#previewSessionList .preview__row")||$("#previewSessionClose"),
-    onEscape:closePreviewSessionSheet,
-    scrim,
-    delayHide:reducedMotion()?0:280
-  });
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
-}
-function closePreviewSessionSheet(){
-  const sheet=$("#previewSessionSheet");
-  if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
-  return closeModal(sheet);
-}
-
 /* ---- Session sheet (Focus workout) ---- */
 let sessionEarlyRevision = null;
 let sessionEarlyDraftId = null;
@@ -6178,22 +6903,26 @@ function renderSessionSheet(){
   const mapEl = $("#sessionMap");
   if (mapEl && draft) {
     const order = draft.exerciseOrder || [];
+    // The lift Focus is on wears the ink rule, so the map reads against the page behind the sheet.
+    const currentId = draft.session?.selectedExerciseId || "";
     const rows = order.map((exId, idx) => {
       const ex = draft.exercises[exId];
       if (!ex) return "";
       const doneCount = ex.setOrder.filter(sid => ex.sets[sid]?.completion !== "pending").length;
       const totalCount = ex.setOrder.length;
       const isSkipped = ex.status === "skipped";
-      const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}` + (doneCount === totalCount && totalCount > 0 ? " ✓" : "");
-      return `<div class="session-map__row" data-session-map-ex="${esc(exId)}">` +
+      const isComplete = doneCount === totalCount && totalCount > 0 && !isSkipped;
+      const isCurrent = exId === currentId;
+      const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}`;
+      return `<div class="session-map__row${isCurrent ? " is-current" : ""}" data-session-map-ex="${esc(exId)}"${isCurrent ? ' aria-current="true"' : ""}>` +
         `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
-        `<span class="session-map__name">${esc(ex.displayName)}</span>` +
-        `<span class="session-map__status ${doneCount === totalCount && totalCount > 0 ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
+        `<span class="session-map__name">${esc(exerciseDisplayName(ex))}</span>` +
+        `<span class="session-map__status ${isComplete ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
         `</button>` +
         `<div class="session-map__reorder">` +
-        `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: ex.displayName }))}"${idx === 0 ? " disabled" : ""}>` +
+        `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: exerciseDisplayName(ex) }))}"${idx === 0 ? " disabled" : ""}>` +
         `<span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>` +
-        `<button type="button" class="session-map__reorder-btn" data-session-reorder-down="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_down_aria", { name: ex.displayName }))}"${idx === order.length - 1 ? " disabled" : ""}>` +
+        `<button type="button" class="session-map__reorder-btn" data-session-reorder-down="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_down_aria", { name: exerciseDisplayName(ex) }))}"${idx === order.length - 1 ? " disabled" : ""}>` +
         `<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>` +
         `</div></div>`;
     }).filter(Boolean);
@@ -6225,10 +6954,10 @@ function renderSessionSheet(){
       const exercise = activeWorkoutDraft?.exercises?.[exerciseId];
       restoreReorderFocus(exerciseId, direction);
       if (index >= 0 && exercise) announce(t("session.sheet.reorder_announcement", {
-        name: exercise.displayName,
+        name: exerciseDisplayName(exercise),
         index: index + 1,
         count: order.length,
-      }));
+      }), { placement: "top" });
     };
     $$("#sessionMap [data-session-reorder-up]").forEach(b => b.onclick = async (e) => {
       e.stopPropagation();
@@ -6285,10 +7014,13 @@ function renderEarlyFinishPreview(){
   if(!host)return;
   if(!Array.isArray(rows)){host.textContent=t("session.sheet.early_invalid");return}
   const included=new Set(rows.map(row=>`${row.exerciseId}_${row.set}`));
+  // The set numbers ride in the sentence as a token so they can be set in Mono.
   host.innerHTML=draft.exerciseOrder.map(id=>{
     const exercise=draft.exercises[id];
     const omitted=exercise.setOrder.filter(setId=>!included.has(`${id}_${exercise.sets[setId].ordinal}`));
-    return omitted.length?`<li>${esc(t("session.sheet.omitted",{name:exercise.displayName,sets:omitted.map(setId=>exercise.sets[setId].ordinal).join(", ")}))}</li>`:"";
+    if(!omitted.length)return"";
+    const sets=omitted.map(setId=>exercise.sets[setId].ordinal).join(", ");
+    return `<li>${esc(t("session.sheet.omitted",{name:exerciseDisplayName(exercise),sets:"\u0000"})).replace("\u0000",`<span class="session-early-sets">${esc(sets)}</span>`)}</li>`;
   }).join("");
 }
 function openSessionSheet(){
@@ -6298,7 +7030,7 @@ function openSessionSheet(){
   if (!sheet) return;
   document.body.classList.add("is-sheet-open");
   openModal(sheet, {
-    initialFocus: $("#sessionDate") || $("#sessionSheetClose"),
+    initialFocus: $("#sessionSheetClose") || $("#sessionDate"),
     onEscape: closeSessionSheet,
     scrim,
     delayHide: reducedMotion() ? 0 : 280
@@ -6325,15 +7057,29 @@ function renderExActionsSheet(exId) {
   const progEx = prog.find(exId);
   if (!draftEx) return;
 
-  const displayName = draftEx.displayName || (progEx ? (substituted.get(progEx.id) || progEx.name) : exId);
-  const titleEl = $("#exActionsTitle");
-  if (titleEl) titleEl.textContent = displayName;
+  // A substituted exercise is named for what is being performed; the original rides in the line under it.
+  const shownName = draftEx.substitution?.replacement
+    ? exerciseDisplayName(draftEx.substitution.replacement)
+    : draftEx.displayName ? exerciseDisplayName(draftEx)
+      : progEx ? exerciseDisplayName(sessionExercise(progEx)) : exId;
+  const nameEl = $("#exActionsName");
+  if (nameEl) nameEl.textContent = shownName;
 
+  // Under the name: what it stands in for when substituted, then the muscles and the set count.
   const subEl = $("#exActionsSub");
   if (subEl) {
     const primary = draftEx.programmed?.primary || progEx?.primary || "";
     const setsTotal = draftEx.setOrder.length;
-    subEl.textContent = (primary ? muscleListLabel(primary) + " · " : "") + `${setsTotal} sets`;
+    const lines = [];
+    const original = draftEx.substitution?.original ? exerciseDisplayName(draftEx.substitution.original) : "";
+    if (original) lines.push(t("log.substitute_for", { name: original }));
+    lines.push((primary ? muscleListLabel(primary) + " · " : "") + `${setsTotal} ${tp(setsTotal, "set")}`);
+    subEl.replaceChildren(...lines.map(line => {
+      const row = document.createElement("span");
+      row.className = "exactions__sub-line";
+      row.textContent = line;
+      return row;
+    }));
   }
 
   // Setup notes
@@ -6350,7 +7096,7 @@ function renderExActionsSheet(exId) {
   if (repeatBtn) {
     if (prevSets.length > 0) {
       repeatBtn.disabled = false;
-      if (repeatHint) repeatHint.textContent = "";
+      if (repeatHint) repeatHint.textContent = t("today.sub.before", { sets: previousSetsLine(prevSets) });
     } else {
       repeatBtn.disabled = true;
       if (repeatHint) repeatHint.textContent = t("ex.actions.no_history");
@@ -6361,7 +7107,8 @@ function renderExActionsSheet(exId) {
   const substBtn = $("#exActionSubstBtn");
   const restoreOrigBtn = $("#exActionRestoreOrigBtn");
   const isSubstituted = !!draftEx.substitution;
-  if (substBtn) substBtn.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
+  const substLabel = substBtn?.querySelector(".exactions__act-text > span");
+  if (substLabel) substLabel.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
   if (restoreOrigBtn) restoreOrigBtn.classList.toggle("hidden", !isSubstituted);
 
   // Warmup sets list
@@ -6378,7 +7125,7 @@ function renderExActionsSheet(exId) {
         `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}</span>` +
         `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
         `</div>` +
-        `<button type="button" class="btn btn--steel btn--sm" data-warm-toggle-set="${esc(sid)}">${esc(btnLabel)}</button>` +
+        `<button type="button" class="btn btn--steel exactions__warmup-btn" data-warm-toggle-set="${esc(sid)}">${esc(btnLabel)}</button>` +
         `</div>`;
     }).filter(Boolean);
     warmupList.innerHTML = rows.join("");
@@ -6403,11 +7150,21 @@ function renderExActionsSheet(exId) {
   }
 
   // Skip / restore exercise
-  const skipBtn = $("#exActionSkipBtn");
+  const skipLabel = $("#exActionSkipLabel");
   const isSkipped = draftEx.status === "skipped";
-  if (skipBtn) {
-    skipBtn.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
-  }
+  if (skipLabel) skipLabel.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
+  // A skipped exercise says so in its status group, not only in the changed button label.
+  $("#exActionsStatus")?.classList.toggle("hidden", !isSkipped);
+}
+
+/** "100 × 8, 8, 8" for one load across the sets, "100 × 8, 90 × 10" when the load moved. */
+function previousSetsLine(sets) {
+  const rows = sets.filter(x => +x.reps > 0);
+  if (!rows.length) return "";
+  if (rows.every(x => x.load == null)) return rows.map(x => x.reps).join(", ");
+  const same = rows.every(x => sameLoad(+x.load, +rows[0].load));
+  return same ? `${fmtLoad(rows[0].load)} × ${rows.map(x => x.reps).join(", ")}`
+    : rows.map(x => `${fmtLoad(x.load)} × ${x.reps}`).join(", ");
 }
 
 function openExActionsSheet(exId) {
@@ -6447,22 +7204,25 @@ function render(){applyI18n();
   queueMicrotask(()=>maybeShowContextualGuides())}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
-  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
+  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
 function setFieldVals(ex,n,r,draft,prev){
-  const old=prev.find(x=>x.set===n),draftKg=draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
+  // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
+  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value;
+  const old=prev.find(x=>x.set===n),draftKg=pending("load")??draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
   const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(r.status==="manual"?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
-  const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
+  const repsVal=pending("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
-  const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
-  const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
+  const effortVal=pending("effort")||draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
+  const rirVal=pending("rir")??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
   return{key,isW,kgVal,repsVal,rirVal,effortVal}}
 /* ============================================================
    Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
-   logged on top, and an attached well underneath that never moves — the
-   recommendation, the set being worked on, and the one action that commits it.
+   logged on top, and the shelf underneath that never moves — the set being
+   worked on and the one action that commits it, under the cue that says what
+   to do with it.
    ============================================================ */
 
 /** What a control on a peek copy gets instead of its hooks: the same element,
@@ -6476,7 +7236,7 @@ function focusDoneSets(ex){const out=[];
   if(focusEdit?.exId===ex.id&&!out.includes(focusEdit.n))out.push(focusEdit.n);
   out.sort((a,b)=>a-b);
   return out}
-/** The set the well is working on: the one being edited, else the first unlogged. */
+/** The set the shelf is working on: the one being edited, else the first unlogged. */
 function focusActiveSet(ex){
   if(focusEdit&&focusEdit.exId===ex.id&&focusEdit.n>=1&&focusEdit.n<=ex.sets)return focusEdit.n;
   for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
@@ -6491,17 +7251,112 @@ function focusRefLoad(ex,n,draft,prev){
     if(Number.isFinite(v)&&v>0)return v}
   const old=prev.find(x=>x.set===n)||prev.at(-1);
   return old&&old.load!=null?+old.load:null}
-/** The one line above the inputs: what to do with this set, and why. */
+/** The two lines above the ledger: what to do with this set, and why. Line one
+ *  is the verb and the load, line two the reps to aim for. The load is the
+ *  engine's: `setSuggestion` for this set, never a figure derived here. */
 function focusCue(ex,n,r,draft,prev,editing){
-  if(editing)return{kind:"edit",label:t("focus.cue.editing"),text:t("focus.cue.editing_set",{n,total:ex.sets})};
+  const unit=unitLabel();
+  if(editing){const text=t("focus.cue.editing_set",{n,total:ex.sets});
+    return{kind:"edit",move:"",headHtml:esc(text),sub:""}}
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
-  if(r.status==="manual")return{kind:"manual",label:"",text:""};
-  if(sg.load==null)return{kind:"start",label:t("focus.cue.start"),text:t("focus.cue.pick_load",{min:ex.min,max:ex.max})};
+  if(r.status==="manual"){const head=t("program.progression.strategy.manual");
+    return{kind:"manual",move:"",headHtml:esc(head),sub:t("focus.cue.reps",{reps:`${ex.min}–${ex.max}`})}}
+  if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
+    return{kind:"start",move:"",headHtml:esc(head),sub:""}}
   const ref=focusRefLoad(ex,n,draft,prev);
   const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
   const reps=sg.reps!=null?sg.reps:ex.min;
-  return{kind:"now",label:t("focus.cue.now"),
-    text:`${t(`focus.cue.${move}`,{load:fmtLoad(sg.load),unit:unitLabel()})} · ${t("focus.cue.reps",{reps})}`}}
+  // The load rides in the sentence as a token so the figure can be set in Mono.
+  const sentence=t(`focus.cue.${move}`,{load:"\u0000",unit});
+  const loadText=fmtLoad(sg.load);
+  // The first target of the day is `recommendation()`'s own load; a later set's
+  // is the engine's in-session answer, which the parity check does not compare.
+  const parity=sg.src==="base"&&!sg.tempered?` data-parity-target="${esc(ex.id)}"`:"";
+  return{kind:"now",move,loadText,reps,parity,
+    headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${esc(loadText)}</b>`),
+    sub:t("focus.cue.reps",{reps})}}
+
+/* ---- Inline rest (Direction D 4.2, owner gate OG-4 job 3) ----
+   The rest clock reads the one timer (`restEnd`, `restPaused`, `restLength`):
+   there is no second clock and nothing stored. While time remains it takes the
+   cue slot, with the next set's cue under it and the rest controls in the
+   shelf's pad row. At zero, or after Pular, it collapses to one line that counts
+   the overrun up in soft ink and the cue returns. Logging never waits on it. */
+/** What the timer is doing, said once for every consumer: no rest, time left, or past the bell. */
+function restInlineMode(){
+  if(!restEnd)return"none";
+  return restTimeLeftSec()>0?"running":"done"}
+/** Time left on the drain bar, as the share of the length this rest is armed at. */
+function restFraction(){return Math.max(0,Math.min(1,restLeftMs()/1000/Math.max(1,restPlanSec())))}
+/** The clock's seconds past the bell, capped where the count stops meaning anything. */
+const restOverSec=()=>Math.min(REST_OVERTIME_MAX,Math.max(0,-restTimeLeftSec()));
+/** The slot shows the rest unless the lifter is correcting a set: the correction's cue owns it then. */
+const restSlotMode=editing=>editing?"none":restInlineMode();
+/** Four text pads need a row of their own: at large text (the root above 16px, the same test that sizes the card)
+ *  they no longer fit one row, and a second row would push the shelf's action off the shortest screens. The field
+ *  pads stay then, and the rest controls are the header timer's presets sheet. */
+const restPadsFit=()=>!(Number.parseFloat(getComputedStyle(document.documentElement).fontSize)>16.1);
+/** The rest controls take the pad row while time remains, until a tap on a field brings the field pads back. */
+const restPadsOn=editing=>!editing&&!restPadsBack&&restPadsFit()&&restInlineMode()==="running";
+
+/** The Por quê? link of a cue: the same control in the cue and in the rest line. */
+function focusWhyHtml(ex,r,{peek,name,draft,label,cls}){
+  if(!(r.status!=="new"||inSessionNote(ex,draft)))return"";
+  return `<button type="button" class="text-link focus-ex__why ${cls}"${peek?dead()
+    :` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(label)}</button>`}
+/** The 24px cue: the verb and the load, the reps under it, and the Why link. The mark is the shared verdict mark,
+ *  so hold draws the ink "=" and up the orange arrow exactly as the Why headline does. The column stays when the
+ *  cue has no mark, so the lines never shift. */
+function focusCueBlockHtml(ex,r,cue,{peek,name,draft}){
+  const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml(cue.move)}</span>`;
+  const why=focusWhyHtml(ex,r,{peek,name,draft,label:t("why.open"),cls:"fx-cue__why"});
+  const cancel=cue.kind==="edit"
+    ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
+  return `<div class="fx-cue is-${cue.kind}">${mark}<p class="fx-cue__l1">${cue.headHtml}</p>`+
+    (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+why+cancel+`</div>`}
+/** The running clock: "Descanso 1:30 de 2:00" over the drain bar. */
+function restClockHtml(){
+  return `<div class="restinline" role="timer"><div class="restinline__row">`+
+    `<span class="restinline__label">${esc(t("rest.inline.label"))}</span>`+
+    `<b class="restinline__clock" data-rest-clock>${esc(fmtClock(Math.max(0,restTimeLeftSec())))}</b>`+
+    `<span class="restinline__of" data-rest-of>${esc(t("rest.inline.of",{t:fmtClock(restPlanSec())}))}</span></div>`+
+    `<div class="restinline__bar" aria-hidden="true"><i class="restinline__fill" data-rest-fill style="transform:scaleX(${restFraction().toFixed(4)})"></i></div></div>`}
+const restDoneText=over=>over>0?t("rest.inline.done_over",{time:fmtClock(over)}):t("rest.inline.done");
+/** The collapsed clock: "Descanso concluído · +0:15", counting up. */
+function restDoneHtml(){
+  const over=restOverSec();
+  return `<div class="restinline restinline--done" role="timer"><p class="restinline__done"><span class="restinline__mk" aria-hidden="true"></span>`+
+    `<span data-rest-done>${esc(restDoneText(over))}</span></p></div>`}
+/** The next set's cue on one 18px line, its figures in Mono: the engine's own load and reps for that set. */
+function restNextHtml(ex,n,r,cue,{peek,name,draft}){
+  let line;
+  if(cue.kind==="now"){
+    const vars={n,load:"\u0000",reps:"\u0001",unit:unitLabel()};
+    const sentence=cue.move==="up"?t("rest.inline.next_up",vars):cue.move==="down"?t("rest.inline.next_down",vars):t("rest.inline.next",vars);
+    line=esc(sentence).replace("\u0000",`<b class="restinline__val"${cue.parity}>${esc(cue.loadText)}</b>`)
+      .replace("\u0001",`<b class="restinline__val">${esc(String(cue.reps))}</b>`)}
+  // A manual slot or a first set with no load has no sentence of its own: its cue lines, as they read.
+  else line=cue.headHtml+(cue.sub?` · ${esc(cue.sub)}`:"");
+  return `<div class="restinline__nextrow"><p class="restinline__next">${line}</p>`+
+    focusWhyHtml(ex,r,{peek,name,draft,label:t("why.short"),cls:"restinline__why"})+`</div>`}
+/** The cue slot's content for one mode of the timer: the cue, the running clock with the next cue, or the
+ *  collapsed clock above the returned cue. */
+function focusSlotInner(ex,n,r,cue,mode,opts){
+  if(mode==="running")return restClockHtml()+restNextHtml(ex,n,r,cue,opts);
+  if(mode==="done")return restDoneHtml()+focusCueBlockHtml(ex,r,cue,opts);
+  return focusCueBlockHtml(ex,r,cue,opts)}
+function focusSlotHtml(ex,n,r,cue,opts){
+  const mode=restSlotMode(opts.editing);
+  return `<div class="fx-slot" data-rest="${mode}">${focusSlotInner(ex,n,r,cue,mode,opts)}</div>`}
+/** The rest controls in the shelf's pad row: -30s, Pausar or Retomar, +30s, Pular. They act on the timer
+ *  the header chip and the presets sheet act on. */
+function restPadsHtml(peek){
+  const held=restPaused!=null;
+  const pad=(act,cls,label,aria)=>`<button type="button" class="restpad ${cls}"${peek?dead():` data-rest-act="${act}"`}${aria?` aria-label="${esc(aria)}"`:""}>${esc(label)}</button>`;
+  return pad("minus","restpad--adjust",t("rest.sheet.minus"),t("rest.sheet.minus_aria"))+
+    pad("pause","restpad--toggle",t(held?"rest.inline.resume":"rest.inline.pause"))+
+    pad("plus","restpad--adjust",t("rest.sheet.plus"),t("rest.sheet.plus_aria"))+
+    pad("skip","restpad--skip",t("log.skip"))}
 
 /** How a logged set reads back in the ledger. */
 function focusRowVals(ex,n,r,draft,prev,effortMode){
@@ -6512,139 +7367,304 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
     :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
   return{load,reps:String(repsVal),eff}}
 
-function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false,fresh=false}){
-  const cells=`<span class="ledger__n">${n}</span><span class="ledger__load">${esc(vals.load)}</span><span>${esc(vals.reps)}</span>`+
-    `<span class="${effortMode?"ledger__eff":""}">${esc(vals.eff)}</span>`+
-    `<span class="ledger__check" aria-hidden="true"></span>`;
-  return `<button type="button" class="ledger__row${editing?" is-editing":""}${fresh?" is-fresh":""}"${peek?dead()
-    :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}`+
-    `${editing?' aria-current="true"':""}>${cells}</button>`}
+/** The effort window a set that has not been logged is aimed at. These are the
+ *  program's own parameters and the lifter's RIR ceiling, formatted — the same
+ *  figures the exercise line above shows. */
+function focusTargetEffort(ex){
+  if(isEffortMode())return effortLabel(targetEffort());
+  const p=progressionForExercise(ex)?.strategy?.params||{};
+  const lo=p.targetRirMin!=null?p.targetRirMin:p.anchorTargetRirMin!=null?p.anchorTargetRirMin:0;
+  const hi=p.targetRirMax!=null?p.targetRirMax:p.anchorTargetRirMax!=null?p.anchorTargetRirMax:state.settings.rirHigh;
+  return `${fmt(lo)}–${fmt(hi)}`}
 
-/** The upper ledger: last session before the first set lands, the session's own
- *  rows after that, with older rows folded away once the list gets long. */
+/** The previous session's matching set, as the second line of a ledger row. */
+function focusPrevLine(x,effortMode){
+  if(!x)return"";
+  const load=fmtLoad(x.load),reps=x.reps;
+  if(x.rir==null||x.rir==="")return t("focus.prev_line_norir",{load,reps});
+  return effortMode?t("focus.prev_line_effort",{load,reps,effort:effortLabel(effortForRir(x.rir))})
+    :t("focus.prev_line",{load,reps,rir:fmt(x.rir)})}
+
+/** What the lifter has confirmed on a set. `touched.effort` also covers RIR. */
+function shelfTouched(exId,n){
+  const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
+  const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
+  // An edit the draft has not yet acknowledged is already the lifter's own value.
+  const held=field=>pendingFields.has(`${exId}_${n}_${field}`);
+  const touched={...(draft.sets[setId]?.touched||{})};
+  if(held("load"))touched.load=true;
+  if(held("reps"))touched.reps=true;
+  if(held("rir")||held("effort"))touched.effort=true;
+  return touched}
+/** A warm-up set keeps its place in the ledger under a short label instead of its number. */
+function ledgerSetIsWarmup(exId,n){
+  const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return false;
+  const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
+  return draft.sets[setId]?.role==="warmup"}
+
+/** The ledger: one row per set. Logged sets read back and reopen on a tap, the
+ *  set being worked on (or corrected) wears the open ring, and the sets still
+ *  to do show their targets in soft ink. The second line of every row is the
+ *  previous session's matching set. */
 function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
-  const head=(check=true)=>`<div class="ledger__head"><span>${esc(t("log.set"))}</span><span>${loadHeadHtml()}</span>`+
-    `<span>${esc(t("log.reps"))}</span><span>${effortMode?esc(t("log.effort")):"RIR"}</span>`+
-    (check?`<span></span>`:"")+`</div>`;
-  // What the columns mean, and how far the session has got, stay put while the
-  // rows underneath them scroll.
-  const top=inner=>`<div class="ledger__top">${inner}</div>`;
-  const done=focusDoneSets(ex);
-  if(!done.length){
-    if(prev.length){
-      const rows=prev.map(x=>{
-        const eff=effortMode?effortLabel(effortForRir(x.rir)):fmt(x.rir);
-        return `<div class="ledger__row is-past"><span class="ledger__n">${x.set}</span>`+
-          `<span class="ledger__load">${esc(fmtLoad(x.load))}</span><span>${esc(String(x.reps))}</span>`+
-          `<span class="${effortMode?"ledger__eff":""}">${esc(String(eff))}</span></div>`}).join("");
-      return top(`<p class="ledger__lab">${esc(t("focus.last_session"))}</p>${head(false)}`)+rows}
-    return top(head())+`<div class="ledger__row is-empty"><span class="ledger__empty">${esc(t("focus.ledger.empty"))}</span>`+
-      `<span class="ledger__dash" aria-hidden="true">—</span><span></span></div>`}
+  const active=focusActiveSet(ex);
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
-  // The set that just landed is drawn once as fresh, so it arrives instead of
-  // appearing. Folding always keeps the newest rows, so it is never hidden.
   const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
-  const open=focusUnfolded.has(ex.id);
-  const folds=done.length>=FOCUS_FOLD_MIN&&!open;
-  const hidden=folds?done.slice(0,done.length-FOCUS_FOLD_KEEP):[];
-  const shown=folds?done.slice(done.length-FOCUS_FOLD_KEEP):done;
-  const rowsFor=list=>list.map(n=>focusLedgerRow(ex,n,focusRowVals(ex,n,r,draft,prev,effortMode),
-    {effortMode,editing:n===editN,peek,fresh:n===freshN})).join("");
-  // A long session leads with a count and a run of ticks, so the sets that
-  // scrolled behind the fold are still accounted for at a glance.
-  const summary=done.length>=FOCUS_FOLD_MIN
-    ?`<p class="ledger__count">${esc(t("focus.ledger.done_count",{n:done.length}))}</p>`+
-      `<div class="ledger__ticks" aria-hidden="true">${done.map(n=>`<span class="ledger__tick${n===freshN?" is-fresh":""}"></span>`).join("")}</div>`
-    :"";
-  let disclosure="";
-  if(done.length>=FOCUS_FOLD_MIN){
-    const span=open?done.slice(0,done.length-FOCUS_FOLD_KEEP):hidden;
-    const from=span[0],to=span.at(-1);
-    disclosure=`<button type="button" class="ledger__more"${peek?dead()
-      :` data-fold="${esc(ex.id)}" aria-controls="ledger_${esc(ex.id)}"`} aria-expanded="${open?"true":"false"}">`+
-      `<span>${esc(t(open?"focus.ledger.hide":"focus.ledger.show",{from,to}))}</span>`+
-      `<span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`}
-  return top(summary+head())+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
+  const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
+    `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span>`+
+    `<span class="fx-col">${effortMode?(peek?esc(t("log.effort")):term("Effort")):(peek?"RIR":term("RIR"))}</span></span></div>`;
+  const rows=[];
+  for(let n=1;n<=ex.sets;n++){
+    const key=`${ex.id}_${n}`;
+    const done=committed.has(key)&&n!==editN;
+    const open=n===active;
+    const vals=focusRowVals(ex,n,r,draft,prev,effortMode);
+    const prevLine=focusPrevLine(prev.find(x=>x.set===n),effortMode);
+    const touched=open||done?shelfTouched(ex.id,n):{};
+    const soft=field=>!done&&!(field==="rir"?touched.effort:touched[field])?" is-soft":"";
+    const rirText=open||done?vals.eff:focusTargetEffort(ex);
+    const idx=done?`<span class="fx-check" aria-hidden="true"></span>`
+      :!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:n;
+    const cells=`<span class="ledgerline__idx">${idx}</span>`+
+      `<span class="ledgerline__vals"><span class="fx-col${open||done?soft("load"):" is-soft"}" data-lv="load">${esc(vals.load||"—")}</span>`+
+      `<span class="fx-col${open||done?soft("reps"):" is-soft"}" data-lv="reps">${esc(vals.reps)}</span>`+
+      `<span class="fx-col${open||done?soft("rir"):" is-soft"}" data-lv="rir">${esc(rirText)}</span></span>`+
+      (prevLine?`<small class="ledgerline__prev">${esc(prevLine)}</small>`:"");
+    const cls=`ledgerline${prevLine?" ledgerline--two":""}${open?" ledgerline--open":""}${n===freshN?" is-fresh":""}`;
+    if(done)rows.push(`<button type="button" class="${cls}"${peek?dead()
+      :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}</button>`);
+    else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}</div>`)}
+  return head+`<div id="ledger_${esc(ex.id)}">${rows.join("")}</div>`}
 
-/** One value cell of the well: label, big value, hairline, and its steppers.
- *  `extra` rides along out of flow — the effort explainer, which floats over
- *  the card rather than taking a caption slot below the steppers. */
-function focusCell(label,inner,{accent=false,steps="",extra="",cls=""}={}){
-  return `<div class="curset__cell${accent?" is-load is-active":""}${cls?` ${cls}`:""}">`+
-    `<div class="curset__cell-lab${accent?" is-accent":""}">${label}</div>${inner}`+
-    `<span class="curset__underline" aria-hidden="true"></span>`+
-    (steps?`<div class="curset__steps">${steps}</div>`:"")+extra+`</div>`}
-const stepBtn=(target,dir,label,attr="data-step",peek=false)=>
-  `<button type="button" class="stepbtn"${peek?"":` ${attr}="${esc(target)}" data-dir="${dir}" aria-label="${esc(label)}"`} tabindex="-1">${dir>0?"+":"−"}</button>`;
+/** The line under the exercise name: sets and reps, the effort window, and the
+ *  name of the strategy that sets the target. Read off the program's own
+ *  envelope; a slot with none is the range it always was. */
+function focusExMeta(ex){
+  const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
+  const sets=+p.workingSets||+ex.sets||1;
+  const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
+  const names={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
+    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff"),
+    manual:t("program.progression.strategy.manual")};
+  const name=names[id]||t("program.progression.strategy.unsupported");
+  let line;
+  if(id==="rep_goal")line=t("focus.exmeta.goal",{sets,goal:p.repGoal,rmin,rmax});
+  else if(id==="effort_target")line=t("focus.exmeta.effort",{sets,reps:p.targetReps,rmin,rmax});
+  else if(id==="anchor_backoff")line=t("focus.exmeta.anchor",{amin:p.anchorRepMin,amax:p.anchorRepMax,n:p.backoffSets,bmin:p.backoffRepMin,bmax:p.backoffRepMax});
+  else if(id==="manual"||!names[id])line=t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max});
+  else line=t("focus.exmeta.range",{sets,min:p.repMin!=null?p.repMin:ex.min,max:p.repMax!=null?p.repMax:ex.max,rmin,rmax});
+  return `${line} · ${name}`}
 
-/** The set being worked on — three columns of numbers (or two plus effort). */
-function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
-  const{key,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
-  const effortMode=isEffortMode();
-  const repsLab=esc(t("log.reps"));
-  const unit=unitLabel();
-  // The static copy shows a dash where the live field shows its placeholder.
-  const val=(v,attrs,live=v)=>peek
-    ?`<div class="curset__val curset__val--static">${esc(String(v))}</div>`
-    :`<input class="curset__val" ${attrs} value="${esc(String(live))}">`;
-  // The unit sits on the Load label so three-digit loads still fit the figure.
-  const loadCell=focusCell(loadHeadHtml(),
-    val(kgVal||"—",`data-k="${ex.id}_${n}_load" size="4" type="text" inputmode="decimal" enterkeyhint="next" placeholder="—" aria-label="${esc(t("log.set_unit_aria",{n,unit}))}"`,kgVal),
-    {accent:true,steps:stepBtn(`${ex.id}_${n}_load`,-1,t("log.set_decrease_aria",{n,unit}),"data-step",peek)+stepBtn(`${ex.id}_${n}_load`,1,t("log.set_increase_aria",{n,unit}),"data-step",peek)});
-  const repsCell=focusCell(repsLab,
-    val(repsVal,`data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}"`),
-    {steps:stepBtn(`${ex.id}_${n}_reps`,-1,t("log.set_decrease_aria",{n,unit:repsLab}),"data-step",peek)+stepBtn(`${ex.id}_${n}_reps`,1,t("log.set_increase_aria",{n,unit:repsLab}),"data-step",peek)});
-  // Effort is a word, so its column is a spinner over the three steps rather
-  // than a free number — same geometry as RIR, same two nudge buttons.
-  const effCell=(()=>{
-    const i=Math.max(0,EFFORT_STEPS.indexOf(effortVal));
-    const body=peek
-      ?`<div class="curset__val curset__val--static curset__val--word">${esc(effortLabel(effortVal))}</div>`
-      :`<div class="curset__val curset__val--word" role="spinbutton" tabindex="0" data-effspin="${esc(key)}" data-e="${esc(effortVal)}"`+
-        ` aria-label="${esc(t("log.set_effort_aria",{n}))}" aria-describedby="effpop_${esc(key)}"`+
-        ` aria-valuemin="1" aria-valuemax="${EFFORT_STEPS.length}"`+
-        ` aria-valuenow="${i+1}" aria-valuetext="${esc(effortLabel(effortVal))}">${esc(effortLabel(effortVal))}</div>`;
-    return focusCell(peek?esc(t("log.effort")):term("Effort"),body,{cls:"is-effort",extra:peek?"":effortPopHtml(key,effortVal),
-      steps:stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep",peek)+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep",peek)})})();
-  const rirCell=focusCell(peek?"RIR":term("RIR"),
-    val(rirVal,`data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}"`),
-    {steps:stepBtn(`${ex.id}_${n}_rir`,-1,t("log.set_decrease_aria",{n,unit:"RIR"}),"data-step",peek)+stepBtn(`${ex.id}_${n}_rir`,1,t("log.set_increase_aria",{n,unit:"RIR"}),"data-step",peek)});
-  return `<div class="curset" data-set="${esc(key)}"><div class="curset__grid">`+
-    loadCell+repsCell+(effortMode?effCell:rirCell)+`</div></div>`}
+/* ---- The shelf ----
+   The shelf is a presentation over the DraftV2 commands. It holds nothing of its own that is saved: the three fields show
+   the values of the active set, the pads nudge the selected one through the
+   `.stepbtn` handler, a typed value goes through the same input handler as
+   ever, and the one action is the `.saveset` handler. Which field is selected,
+   and whether it is a live input, is this transient state alone. */
+let shelfUi={key:"",field:"reps",editing:false};
+const shelfFor=key=>shelfUi.key===key?shelfUi:{key,field:"reps",editing:false};
+const shelfSelect=(key,field,editing=false)=>{shelfUi={key,field,editing}};
+/** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
+const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):String(raw??"")};
+/** The load step the pads move by, in the unit the lifter sees. */
+function shelfLoadStep(){
+  const kg=parseDec(state.settings.minJump)||2.5;
+  return fmt(Math.round(toDisplay(kg)*10)/10)}
 
-/** The attached lower area: cue, inputs and the single action that commits. */
-function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
+function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
+  const key=`${ex.id}_${n}`,sel=ui.field===id;
+  const effortField=id==="rir"&&effortMode;
+  const live=sel&&ui.editing&&!effortField&&!peek;
+  const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps")
+    :effortField?t("log.effort"):t("stats.table.rir");
+  const name=`${label}, ${t("focus.set_label",{n})}`;
+  const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.rirVal;
+  const shown=effortField?effortLabel(vals.effortVal):id==="reps"?String(vals.repsVal??""):shelfText(raw);
+  const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
+  const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
+  const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
+  if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`;
+  const hooks=effortField
+    ?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" aria-describedby="effpop_${esc(key)}"`:"";
+  const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}>${face}</button>`;
+  // The input is always in the document, so the draft handlers and validation
+  // have one element to read and flag; it only takes the field's place on a
+  // second tap, and stays out of the tab order and the accessibility tree until then.
+  const input=effortField?"":`<input class="shelf__input" data-k="${esc(key)}_${id}" type="text" inputmode="${id==="reps"?"numeric":"decimal"}" `+
+    `enterkeyhint="${id==="rir"?"done":"next"}" aria-label="${esc(name)}" autocomplete="off" value="${esc(String(raw??""))}"`+
+    `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
+  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(label)}</span>`:"";
+  return `<div class="${cls}" data-field="${id}" data-set="${esc(key)}">${button}${input}${caption}${effortField?effortPopHtml(key,vals.effortVal):""}</div>`}
+
+function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
+  const key=`${ex.id}_${n}`,id=ui.field;
+  const pad=(dir,text,{attrs="",off=false}={})=>`<button type="button" class="stepbtn shelf__pad"${peek?dead()
+    :`${attrs} data-dir="${dir}"${off?" disabled":""}`}>${esc(text)}</button>`;
+  const sign=dir=>dir>0?"+":"−";
+  if(id==="rir"&&effortMode){
+    const at=Math.max(0,EFFORT_STEPS.indexOf(vals.effortVal));
+    return [-1,1].map(dir=>{const to=EFFORT_STEPS[at+dir],word=effortLabel(to||vals.effortVal);
+      return pad(dir,t("focus.shelf.pad_effort",{sign:sign(dir),effort:word}),{attrs:` data-effstep="${esc(key)}"`,off:!to})}).join("")}
+  const attrs=` data-step="${esc(key)}_${id}"`;
+  return [-1,1].map(dir=>pad(dir,id==="load"?t("focus.shelf.pad_load",{sign:sign(dir),step:shelfLoadStep(),unit:unitLabel()})
+    :id==="reps"?t("focus.shelf.pad_reps",{sign:sign(dir)}):t("focus.shelf.pad_rir",{sign:sign(dir)}),{attrs})).join("")}
+
+/** The pad row: the rest controls while a rest runs and no field has been tapped, else the pads for the selected field. */
+function focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing}){
+  const rest=restPadsOn(editing);
+  return `<div class="shelf__pads${rest?" shelf__pads--rest":""}" data-pads="${rest?"rest":"field"}"${rest?` role="group" aria-label="${esc(t("rest.inline.label"))}"`:""}>`+
+    (rest?restPadsHtml(peek):shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}))+`</div>`}
+
+/** The shelf: the fields of the active set, the pads for the selected one and
+ *  the single action that commits it — or, once the exercise is complete, the
+ *  step the lifter takes next. */
+function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const n=focusActiveSet(ex);
-  const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
-  // The well re-arms on the set that just landed: the cue and the numbers of
-  // the next set settle in, or — on the last set — the completion mark does.
-  const fresh=focusIsFresh(ex,peek)?" is-fresh":"";
   if(!n){
     const done=focusDoneSets(ex).length;
     const title=allDone?t("focus.wo_done_title"):t("focus.ex_done_title");
     const sub=allDone
       ?t("focus.wo_done_sub",{n:focusList().length,lifts:tp(focusList().length,"lift")})
       :t("focus.ex_done_sets",{n:done,sets:tp(done,"logged set")});
+    // L4: the render that completes the exercise lets its actions rise in.
+    // The class is on for that render alone; the button is live throughout.
+    const rise=focusIsFresh(ex,peek)&&beatsOn()?" motion-rise":"";
     const cta=allDone||!hasNext
-      ?`<button type="button" class="btn btn--cta btn--noarrow"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
-      :`<button type="button" class="btn btn--cta"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
-    return `<div class="focus-well is-done${fresh}">`+
-      `<div class="focus-done"><span class="focus-done__mark" aria-hidden="true"></span>`+
-      `<div class="focus-done__text"><p class="focus-done__title">${esc(title)}</p>`+
-      `<p class="focus-done__sub">${esc(sub)}</p></div></div>`+
-      cta+`</div>`}
-  const cue=focusCue(ex,n,r,draft,prev,editing);
-  const key=`${ex.id}_${n}`;
-  const commit=(label)=>`<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button>`;
-  const action=editing
-    ?`<button type="button" class="focus-well__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`+
-      commit(t("focus.save_edit"))
-    :commit(t("today.log_set"));
-  return `<div class="focus-well${editing?" is-editing":""}${fresh}">`+
-    `<p class="focus-cue is-${cue.kind}"><span class="focus-cue__bolt" aria-hidden="true"></span>`+
-    `<b class="focus-cue__lab">${esc(cue.label)}</b><span class="focus-cue__sep" aria-hidden="true">·</span>`+
-    `<span class="focus-cue__text">${esc(cue.text)}</span></p>`+
-    cursetHtml(ex,n,r,draft,prev,{peek})+action+`</div>`}
+      ?`<button type="button" class="btn btn--cta btn--noarrow${rise}"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
+      :`<button type="button" class="btn btn--cta${rise}"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
+    return `<div class="focus-shelf workshelf is-done" role="region" aria-label="${esc(title)}">`+
+      `<div class="focus-done${rise}"><p class="focus-done__title">${esc(title)}</p><p class="focus-done__sub">${esc(sub)}</p></div>`+cta+`</div>`}
+  const effortMode=isEffortMode();
+  const key=`${ex.id}_${n}`,ui=shelfFor(key);
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id);
+  const vals=setFieldVals(ex,n,r,draft,prev);
+  const touched=shelfTouched(ex.id,n);
+  const label=editing?t("log.save_set_aria",{n}):t("focus.shelf.log_set",{n});
+  const fields=["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
+  return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
+    `<div class="shelf__fields">${fields}</div>`+
+    focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing})+
+    `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`}
+
+/** Rebuild the live card's shelf after the selection, an edit or an effort step
+ *  changed what it shows, then put focus where the lifter was. The ledger and
+ *  the cue above it are untouched, so nothing scrolls or replays. */
+function refreshShelf({focus=null}={}){
+  const card=focusCard();if(!card||!activeWorkoutDraft)return false;
+  const base=prog.find(card.dataset.ex);if(!base)return false;
+  const ex=sessionExercise(base),draft=hydrateWorkoutDraft(),fl=focusList();
+  const at=Math.max(0,fl.findIndex(e=>e.id===ex.id));
+  const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
+  const old=card.querySelector(".focus-shelf");if(!old)return false;
+  const padsBefore=old.querySelector(".shelf__pads");
+  const padsFrom=padsBefore?{mode:padsBefore.dataset.pads,html:liveHtml(padsBefore),cls:padsBefore.className}:null;
+  // T1: where the selection outline is drawn now — or, if one is still in
+  // flight, where it is on screen — so the next travel starts from there.
+  const prevSel=old.querySelector(".shelf__field.is-sel"),liveRing=old.querySelector(".shelf__ring");
+  const prevField=prevSel?.dataset.field,prevSet=prevSel?.dataset.set;
+  const fromRect=(liveRing||prevSel)?.getBoundingClientRect();
+  const heldFocus=!focus&&old.contains(document.activeElement)?workoutFocusKey(document.activeElement):null;
+  old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
+  bindWorkout();
+  // The ledger's open row was not rebuilt: bring it to the values still waiting for their acknowledgement.
+  for(const [k,held] of pendingFields){
+    if(k.endsWith("_effort")){const setKey=k.slice(0,-7);if(liveEffortField(setKey))setEffortPick(setKey,held.value)}
+    else{const input=liveShelfInput(k);if(input)syncShelfField(input)}}
+  {const padsNow=card.querySelector(".focus-shelf .shelf__pads");
+    if(padsFrom&&padsNow&&padsNow.dataset.pads!==padsFrom.mode)crossfadeIn(padsNow,padsFrom.html,padsFrom.cls)}
+  const nowSel=card.querySelector(".focus-shelf .shelf__field.is-sel");
+  if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||nowSel.dataset.field!==prevField))
+    travelOutline(nowSel,fromRect,"shelf");
+  syncFocusFloor();
+  // The first-set cue points at the shelf's action; the rebuilt action is the same control.
+  if(activeGuideId&&activeGuideAnchor&&!activeGuideAnchor.isConnected){
+    const anchor=guideAnchor(guideDefinition(activeGuideId));if(anchor)activeGuideAnchor=anchor}
+  if(focus){
+    const shelf=card.querySelector(".focus-shelf");
+    const el=focus.startsWith("pad:")?shelf?.querySelector(`.shelf__pad[data-dir="${focus.slice(4)}"]`)
+      :shelf?.querySelector(`.shelf__field.is-editing .shelf__input[data-k$="_${focus}"]`)||shelf?.querySelector(`[data-shelf-field="${focus}"]`);
+    if(el){try{el.focus({preventScroll:true})}catch{}if(el.matches("input"))el.select()}}
+  else if(heldFocus)restoreWorkoutFocus(heldFocus);
+  return true}
+
+/* ---- Focus across a rebuild (Plan 064 rule 12, R7 J-03) ----
+   The shelf and the card are rebuilt from markup, so the control the lifter pressed is
+   a new node afterwards and focus would fall to <body>. `workoutFocusKey` names the
+   focused control by the stable keys it carries (never by reference); `restoreWorkoutFocus`
+   asks the new markup for the equivalent control. Where the control is gone (Log set
+   moves the shelf to the next set, Edit turns a row into the open one) the handler names
+   the next control with `focusWorkoutHandoff`. */
+function workoutFocusKey(el){
+  if(!(el instanceof HTMLElement)||el.closest(".is-peek")||!el.closest("#workout"))return null;
+  const q=value=>CSS.escape(value);
+  const d=el.dataset;
+  if(el.matches(".shelf__input")&&d.k)return{sel:`.focus-shelf .shelf__input[data-k="${q(d.k)}"]`,start:el.selectionStart,end:el.selectionEnd};
+  if(d.shelfField&&d.set)return{sel:`.focus-shelf [data-shelf-field="${q(d.shelfField)}"][data-set="${q(d.set)}"]`};
+  if(el.matches(".shelf__pad")&&d.dir)return{sel:`.focus-shelf .shelf__pad[data-dir="${q(d.dir)}"]`};
+  if(d.restAct)return{sel:`.focus-shelf [data-rest-act="${q(d.restAct)}"]`};
+  if(el.matches(".saveset"))return{sel:".focus-shelf .saveset"};
+  if(d.editex&&d.editn)return{sel:`.ledgerline[data-editex="${q(d.editex)}"][data-editn="${q(d.editn)}"]`};
+  for(const name of["fcancel","fnext","ffinish","fnextrow"])if(name in d||el.hasAttribute(`data-${name}`))return{sel:`[data-${name}]`};
+  if(d.exopen)return{sel:`.ex__namebtn[data-exopen="${q(d.exopen)}"]`};
+  return null}
+/* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
+   focus ring the tap never asked for (and the orange budget has no place for one). Whoever last used a key still
+   gets the ring. */
+let workoutInputModality="pointer";
+document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
+document.addEventListener("keydown",()=>{workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
+function focusWorkoutControl(el){
+  try{el.focus({preventScroll:true})}catch{return false}
+  if(workoutInputModality==="pointer"){
+    el.setAttribute("data-quiet-focus","");
+    el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})}
+  return document.activeElement===el}
+function restoreWorkoutFocus(key){
+  const card=focusCard();if(!key||!card)return false;
+  const el=card.querySelector(key.sel);
+  if(!(el instanceof HTMLElement)||!canTakeFocus(el))return false;
+  if(!focusWorkoutControl(el))return false;
+  if(key.start!=null&&typeof el.setSelectionRange==="function"){try{el.setSelectionRange(key.start,key.end??key.start)}catch{}}
+  return document.activeElement===el}
+/** Name the control that follows an action whose own control is gone after the rebuild. `next`: the field the new
+ *  active set opens on, or the shelf's action once the exercise is done; `cta`: the shelf's action; `row`: a logged
+ *  row, falling back to the action. */
+function focusWorkoutHandoff(kind,{exId=null,n=0}={}){
+  const card=focusCard();if(!card)return false;
+  const shelf=card.querySelector(".focus-shelf");
+  const cta=shelf?.querySelector(".btn--cta")||null;
+  let target=null;
+  if(kind==="row")target=card.querySelector(`.ledgerline[data-editex="${CSS.escape(String(exId))}"][data-editn="${n}"]`);
+  else if(kind==="next")target=shelf?.querySelector(".shelf__field.is-sel [data-shelf-field]")||shelf?.querySelector("[data-shelf-field]")||null;
+  const next=resolveReturnFocus(target)||cta;
+  if(!next)return false;
+  if(!next.matches(ROUTE_NATIVE_FOCUS))next.setAttribute("tabindex","-1");
+  return focusWorkoutControl(next)}
+
+/** The control standing for a draft field in the live card now. A rebuild replaces the node an edit began on, so
+ *  anything that outlives an await asks for the control again by its stable key instead of keeping the old node. */
+function liveShelfInput(key){return $w(".shelf__input").find(el=>el.dataset.k===key)||null}
+function liveEffortField(setKey){return $w("[data-effspin]").find(el=>el.dataset.effspin===setKey)?.closest(".shelf__field")||null}
+
+/** Keep the shelf and the open ledger row reading what a field now holds. */
+function syncShelfField(input,padDir=0){
+  const field=input.closest(".shelf__field");if(!field)return;
+  const id=field.dataset.field;
+  const text=id==="reps"?String(input.value||""):shelfText(input.value);
+  const val=field.querySelector(".shelf__val");
+  if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
+  field.classList.remove("is-untouched");
+  const cell=input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`);
+  if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
+
+/** A field the draft flags must be seen, not just focused: bring its input into the shelf. */
+function shelfReveal(input){
+  if(!input?.matches?.(".shelf__input"))return input;
+  const field=input.closest(".shelf__field");
+  if(!field||field.classList.contains("is-editing"))return input;
+  shelfSelect(field.dataset.set,field.dataset.field,true);
+  if(!refreshShelf())return input;
+  return $(`#workout .shelf__input[data-k="${CSS.escape(input.dataset.k)}"]`)||input}
 
 /** A whole focus card. `peek` renders the inert copy that rides in from the
  *  side during a swipe: the same card, down to every control and the space it
@@ -6653,43 +7673,32 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
  *  tab stop — and no `data-k` field, which would duplicate the draft keys the
  *  live card owns. */
 function focusCardHtml(ex,r,draft,prev,opts){
-  const{peek=false,hasNext=true,allDone=false,showSkip=true}=opts;
+  const{peek=false,hasNext=true,allDone=false,nextName=""}=opts;
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
-  const deltaText=deltaPreviewFor(ex,draft);
-  const perf=substituted.get(ex.id);
-  const name=perf||ex.name;
-  const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
+  const name=exerciseDisplayName(ex);
+  /* The heading is named by the exercise; the button inside it keeps its own
+     "Open … stats and history" name, which would otherwise become the heading's (R7 J-23). */
+  const nameHtml=`<h3 class="focus-ex__name"${peek?"":` aria-label="${esc(name)}"`}><button type="button" class="ex__name ex__namebtn"`+
     `${peek?dead():` data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}"`}>${esc(name)}</button></h3>`;
-  const setNo=n||ex.sets;
-  // The counter only ticks when it actually moved: the last set of an exercise
-  // leaves it on the total it already read.
-  const setofFresh=n&&focusIsFresh(ex,peek)?" is-fresh":"";
   const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
-  const tools=`<div class="focus-ex__tools">`+
-    `<button type="button" class="focus-tool${noteVal?" has-note":""}"`+
-    `${peek?dead():` data-exnote-open="${esc(ex.id)}" aria-label="${esc(t("focus.note_aria",{name}))}"`}>`+
-    `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
-    `<button type="button" class="focus-tool"`+
-    `${peek?dead():` data-exactions-open="${esc(ex.id)}" aria-label="${esc(t("focus.actions_aria",{name}))}"`}>`+
-    `<span class="icon-mask icon-mask--sm icon-mask--overflow" aria-hidden="true"></span></button>`+
-    (showSkip?`<button type="button" class="focus-tool ex__skip"`+
-      `${peek?dead():` data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name}))}"`}>`+
-      `<span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`:"")+
-    `</div>`;
+  const note=noteVal?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(noteVal)}</span></p>`:"";
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
+  const cue=n?focusCue(ex,n,r,draft,prev,editing):null;
+  // The cue slot holds the cue, or while a rest runs the inline rest in its place (L3 swaps the one for the other).
+  const slotHtml=cue?focusSlotHtml(ex,n,r,cue,{peek,name,draft,editing}):"";
+  const nextRow=hasNext&&nextName
+    ?`<button type="button" class="fx-next"${peek?dead():" data-fnextrow"}><span>${esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(nextName)}</b>`)}</span>`+
+      `<span class="icon-mask icon-mask--sm icon-mask--chev-down fx-next__chev" aria-hidden="true"></span></button>`:"";
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
-    `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}"><div class="fcard__head"><div class="focus-ex__eyebrow">`+
-    `<span class="focus-ex__muscle">${esc(muscleListLabel(ex.primary))}</span>`+
-    `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
-    `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
-    `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
-    (r.status!=="new"||inSessionNote(ex,draft)?`<button type="button" class="text-link focus-ex__why"`+
-      `${peek?dead():` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"")+
-    `</div>${tools}</div></div>`+
-    `<div class="fcard__ledger"><p class="delta-prev${deltaText?"":" hidden"}" aria-live="polite">${esc(deltaText)}</p>`+
-    `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div></div>`+
-    focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
+    `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}">`+
+    `<div class="fx-head">${exerciseThumb(exerciseRefEntry(ex),{size:"sm"})}<div class="fx-head__text">${nameHtml}`+
+    `<p class="focus-ex__meta">${esc(focusExMeta(ex))}</p></div></div>`+
+    slotHtml+note+
+    `<div class="fcard__ledger">`+
+    `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+nextRow+`</div>`+
+    focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
  *  screen in its own slot. Dragging — or tapping through — moves all three
@@ -6697,18 +7706,25 @@ function focusCardHtml(ex,r,draft,prev,opts){
 function focusDeckHtml(ex,r,draft,prev,{fl,at}){
   const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
-  // A neighbour is rendered exactly as it will be once it lands: same well,
-  // same tools, same skip — the swipe is a move, not a rebuild.
+  const nameAt=i=>fl[i]?exerciseDisplayName(sessionExercise(fl[i])):"";
+  // A neighbour is rendered exactly as it will be once it lands: same ledger,
+  // same shelf — the swipe is a move, not a rebuild.
   const peek=(i,side)=>fl[i]
     ? (()=>{const active=sessionExercise(fl[i]);return slot(focusCardHtml(active,recommendation(active),draft,last(active),
-        {peek:true,hasNext:i<fl.length-1,allDone,showSkip:i<fl.length-1}),side)
+        {peek:true,hasNext:i<fl.length-1,allDone,nextName:nameAt(i+1)}),side)
       })()
     : "";
   return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(t("focus.deck_aria"))}"><div class="deck__track" id="focusTrack">`+
     peek(at-1,"prev")+
-    slot(focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,showSkip:at<fl.length-1}))+
+    slot(focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,nextName:nameAt(at+1)}))+
     peek(at+1,"next")+
     `</div></div>`}
+/** The ledger's open row in the live card — or the outline already travelling to
+ *  it, so an advance during a travel starts from where the outline is on screen. */
+function focusOpenRow(){
+  const card=focusCard(),ledger=card?.querySelector(".fcard__ledger");
+  const open=ledger?.querySelector(".ledgerline--open");if(!open)return null;
+  return{exId:card.dataset.ex,n:+open.dataset.lrow,rect:(ledger.querySelector(".ledgerline__ring")||open).getBoundingClientRect()}}
 function renderWorkout(){
   if(!workoutActive){focusLogged=null;updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
@@ -6721,22 +7737,62 @@ function renderWorkout(){
   const at=fl.length?Math.min(focusIndex,fl.length-1):0;
   const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.add("is-focus");
   const current=fl[at] ? sessionExercise(fl[at]) : null;
+  // L2: where the ledger's open-row outline is drawn before this render moves it.
+  const openRow=focusMotion()?focusOpenRow():null;
+  // L3: the cue slot and pad row as they stand, so a change of job arrives from them.
+  const restBefore=focusMotion()?captureRestSlot():null;
+  restRenderPending=false;
+  // Focus survives the rebuild when the lifter is still on the same exercise: the control is asked for again by its keys.
+  const heldFocus=focusCard()?.contains(document.activeElement)?{ex:focusCard().dataset.ex,key:workoutFocusKey(document.activeElement)}:null;
   wk.innerHTML=banner+(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
   // The landing animation belongs to this render alone: the markup that plays
   // it has been written, so the next render draws the same card at rest.
   focusLogged=null;
   bindWorkout();
+  if(heldFocus&&focusCard()?.dataset.ex===heldFocus.ex)restoreWorkoutFocus(heldFocus.key);
+  updateWorkoutHeader(fl,at);
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
   updateSessionBanner();
   updateFocusChrome();
   sizeFocusDeck();
+  settleBeats(wk);
+  if(openRow){
+    const card=focusCard(),open=card?.querySelector(".fcard__ledger .ledgerline--open");
+    if(open&&card.dataset.ex===openRow.exId&&+open.dataset.lrow!==openRow.n)travelOutline(open,openRow.rect,"ledgerline")}
+  restSlotArrive(restBefore);
   // These two guides own concrete Focus controls. Queue them only after the
   // current Log action/header projection exists; the guide layer will defer a
   // hidden anchor rather than navigating to another surface.
   queueMicrotask(()=>maybeShowContextualGuides(["first-set"]));
   queueMicrotask(()=>maybeShowContextualGuides(["focus-utilities"]));
 }
+/** The header's centre: which day, and where in it. The week the day belongs to
+ *  is Today's to say, so the line carries no second clause. */
+function updateWorkoutHeader(fl,at){
+  const title=$("#woDayTitle");
+  if(title)title.textContent=fl.length?t("focus.head.day_ex",{day:dayLabel(day),n:at+1,m:fl.length}):dayLabel(day);
+  syncWorkoutMore()}
+/** ⋯ is the current exercise's actions. Where the device offers voice input and
+ *  the lifter has turned it on, the same button opens a short menu that holds
+ *  both; the button says which it is. */
+function workoutMoreIsMenu(){const voice=$("#voiceBtn");return !!voice&&!voice.classList.contains("hidden")}
+function syncWorkoutMore(){
+  const b=$("#woOverflowBtn");if(!b)return;
+  if(workoutMoreIsMenu()){
+    b.setAttribute("aria-haspopup","true");b.setAttribute("aria-controls","woOverflow");
+    if(!b.hasAttribute("aria-expanded"))b.setAttribute("aria-expanded","false")}
+  else{b.setAttribute("aria-haspopup","dialog");b.setAttribute("aria-controls","exActionsSheet");b.removeAttribute("aria-expanded")}}
+function openWorkoutMore(){
+  if(workoutMoreIsMenu()){
+    const menu=$("#woOverflow");
+    if(menu&&!$("#woExActions")){
+      const item=document.createElement("button");
+      item.type="button";item.id="woExActions";item.className="wo-overflow__item";item.textContent=t("ex.actions.title");
+      item.onclick=()=>{closeWorkoutOverflow();const card=focusCard();if(card)openExActionsSheet(card.dataset.ex)};
+      menu.prepend(item)}
+    toggleWorkoutOverflow();return}
+  const card=focusCard();if(card)openExActionsSheet(card.dataset.ex)}
 /** After a render, bring every card in the deck to the row that matters — the
  *  peeks included, so a neighbour rides in already showing what it will show
  *  once it lands. The card's own height comes from the layout, so nothing is
@@ -6744,36 +7800,63 @@ function renderWorkout(){
 function sizeFocusDeck(){
   const cards=$$("#focusDeck .exercise--focus");
   if(cards.length)cards.forEach(sizeFocusCard);
-  else sizeFocusCard(focusCard())}
+  else sizeFocusCard(focusCard());
+  syncFocusFloor()}
+/** The shelf keeps its fields, pads and action whole at every text size, and its height depends on the text, so the
+ *  layout cannot know it. This publishes the height the shell has to keep (the rigid chrome, the progress bar, the
+ *  context region's floor and the shelf) as `--focus-floor` and `--focus-form-floor`; the stylesheet lets banners and
+ *  guides above the deck give way to it. Watching the header and the shelf republishes it when a timer widens a chip
+ *  or an edit rebuilds the shelf. */
+let focusFloorWatch=null,focusFloorWatched=[];
+function syncFocusFloor(){
+  const card=focusCard(),shell=$("#workoutShell"),shelf=card?.querySelector(".focus-shelf"),head=shell?.querySelector(".wo-head");
+  if(!card||!shell||!shelf||!head)return;
+  const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
+  const context=card.querySelector(".fcard__context");
+  const least=context?getComputedStyle(context):null;
+  let form=tall($("#woProgress"))+tall(shelf)+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
+  for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
+  // A guide gives way to everything but its own padding, border and margins.
+  const guideLeast=el=>{
+    if(!el?.getClientRects().length)return 0;
+    const s=getComputedStyle(el);
+    return["paddingTop","paddingBottom","borderTopWidth","borderBottomWidth","marginTop","marginBottom"].reduce((n,k)=>n+(parseFloat(s[k])||0),0)};
+  form+=guideLeast(card.querySelector(":scope > .guide-cue"));
+  const shellGuide=guideLeast(shell.querySelector(":scope > .guide-cue"));
+  shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
+  shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head)+shellGuide)}px`);
+  if(typeof ResizeObserver!=="function")return;
+  // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
+  const watched=[head,shelf,$("#woProgress")].filter(Boolean);
+  if(focusFloorWatched.length===watched.length&&watched.every((el,i)=>el===focusFloorWatched[i]))return;
+  focusFloorWatch??=new ResizeObserver(()=>syncFocusFloor());
+  focusFloorWatch.disconnect();
+  watched.forEach(el=>focusFloorWatch.observe(el));
+  focusFloorWatched=watched}
 function sizeFocusCard(card){
   if(!card)return;
   const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
   card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
-  const ledger=card.querySelector(".fcard__ledger");if(!ledger)return;
-  const scrolls=ledger.scrollHeight>ledger.clientHeight+1;
-  ledger.classList.toggle("is-scrollable",scrolls);
-  // The newest logged row is the one worth showing; before the first set lands
-  // the top of the ledger is where last session reads from.
-  if(!scrolls)return;
-  const rows=ledger.querySelectorAll(".ledger__row:not(.is-past)");
-  const anchor=ledger.querySelector(".ledger__row.is-editing")
-    ||(rows.length?ledger.lastElementChild:null);
-  if(!anchor){ledger.scrollTop=0;return}
-  const gap=anchor.getBoundingClientRect().bottom-ledger.getBoundingClientRect().bottom;
-  if(gap>0||anchor.getBoundingClientRect().top<ledger.getBoundingClientRect().top)
-    ledger.scrollTop=Math.max(0,ledger.scrollTop+gap+8)}
+  // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
+  // logged and the shelf already shows the set, so the card opens at its top with the exercise's name; later the row
+  // scrolls into view, but when the window cannot hold both it never scrolls past a rest that is running or has just
+  // ended, which sits under the name.
+  const context=card.querySelector(".fcard__context");
+  const open=context?.querySelector(".ledgerline--open");if(!open)return;
+  if(+open.dataset.lrow<=1&&context.scrollTop===0)return;
+  const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
+  if(row.bottom>box.bottom){
+    const slot=context.querySelector(".fx-slot"),
+      resting=!!slot&&slot.dataset.rest&&slot.dataset.rest!=="none"&&context.clientHeight<slot.offsetHeight+row.height+24;
+    const keep=resting?slot.getBoundingClientRect().top:NaN;
+    const room=Number.isFinite(keep)?Math.max(0,keep-box.top):Infinity;
+    context.scrollTop+=Math.min(row.bottom-box.bottom+8,room)}
+  else if(row.top<box.top)context.scrollTop=Math.max(0,context.scrollTop-(box.top-row.top)-8)}
 
 async function refreshAfterCommittedEdit(row){
   if(!row?.dataset.set||!committed.has(row.dataset.set))return{status:"unchanged"};
   const exId=row.closest(".exercise")?.dataset.ex;
   return exId?refreshSuggestions(exId):{status:"unchanged"}}
-
-function updateExerciseDeltaPreview(exId){
-  const card=$(`#workout .exercise.is-current[data-ex="${CSS.escape(exId)}"]`);
-  const ex=sessionExercise(prog.find(exId)),el=card?.querySelector(".delta-prev");
-  if(!ex||!el)return;
-  const text=deltaPreviewFor(ex,WorkoutSession.projection());
-  el.textContent=text;el.classList.toggle("hidden",!text)}
 
 // Latest note the lifter left on this exercise, so machine setup carries into the next session.
 function lastExerciseNote(ex){const match=matchLift(ex);
@@ -6786,7 +7869,7 @@ function clearFieldInvalid(root){
 function applyFieldError(res){
   if(!res||res.ok)return false;
   const el=res.el;
-  if(el){el.setAttribute("aria-invalid","true");try{el.focus()}catch{}}
+  if(el){const live=shelfReveal(el)||el;live.setAttribute("aria-invalid","true");try{live.focus()}catch{}}
   toast(t(res.error?.key||"validation.load"));
   return true}
 function applyDraftIssue(issues){
@@ -6811,16 +7894,26 @@ function applyDraftIssue(issues){
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
-  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".curset"),target=draftTargetFromKey(i.dataset.k);
+  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".shelf__field"),target=draftTargetFromKey(i.dataset.k);
+    const padDir=padTap.get(i)||0;padTap.delete(i);
     if(!activeWorkoutDraft||!target?.field)return;
     row?.classList.remove("is-suggested");
-    const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
+    // The write may wait on the lock while the lifter moves on and the shelf is rebuilt: the value is held for
+    // those rebuilds, and the acknowledgement is applied to the control that is on screen then, not to this node.
+    const key=i.dataset.k,token=holdPendingField(key,i.value);
+    let result;
+    try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+      setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
+    finally{releasePendingField(key,token)}
     if(result.status!=="applied")return;
-    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);await refreshAfterCommittedEdit(row)};
+    const live=liveShelfInput(key);
+    if(!live)return;
+    syncShelfField(live,padDir);
+    updateSaveMeta();await refreshAfterCommittedEdit(live.closest(".shelf__field"))};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
+  $w("[data-rest-act]").forEach(b=>b.onclick=()=>restAct(b.dataset.restAct));
   $w(".saveset").forEach(b=>b.onclick=async()=>{const key=b.dataset.save,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
     const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
@@ -6834,12 +7927,14 @@ function bindWorkout(){
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
       if(editing&&nowDone){focusEdit=null;toast(t("toast.set_updated"))}
-      if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;startRest();armUnfinishedWatch()}
+      if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;restRenderPending=true;startRest();armUnfinishedWatch()}
       if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
         if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}
-      renderWorkout()
-    }finally{if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
+      renderWorkout();
+      // The action's own button is rebuilt: a corrected set returns to its row, a logged one hands on to the next set.
+      if(nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
+    }finally{restRenderPending=false;if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
   $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
     const result=await WorkoutSession.dispatch(warmups.has(key)?"markWorking":"markWarmup",
@@ -6855,44 +7950,62 @@ function bindWorkout(){
         nextKg=Math.max(0,Math.round((curKg+incKg*dir)/incKg)*incKg);
       inp.value=fmtPlain(toDisplay(nextKg));
     }
+    padTap.set(inp,dir);
     await inp.oninput?.()});
-  $w(".ex__skip").forEach(b=>b.onclick=()=>applySkipToggle(b.dataset.skip));
   const stepEffort=async(key,dir)=>{
     const el=$(`[data-effspin="${key}"]`);if(!el)return;
     const i=Math.max(0,EFFORT_STEPS.indexOf(el.dataset.e));
     const next=EFFORT_STEPS[Math.min(EFFORT_STEPS.length-1,Math.max(0,i+dir))];
     if(next===el.dataset.e)return;
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
-    setEffortPick(key,next);
-    const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
-    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);refreshAfterCommittedEdit(el.closest(".curset"))};
+    setEffortPick(key,next,dir);
+    const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next);
+    let result;
+    try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+      setId:target.setId,field:"effort",value:next})}
+    finally{releasePendingField(pendingKey,token)}
+    if(result.status!=="applied")return;
+    updateSaveMeta();
+    const live=liveEffortField(key);
+    if(live)refreshAfterCommittedEdit(live)};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
   $w("[data-effspin]").forEach(el=>{
-    // Tapping the word asks what it means; the ± buttons beside it change it.
-    el.onclick=()=>toggleEffortPop(el.dataset.effspin);
+    // The tap belongs to the field handler (select, then explain); the arrow
+    // keys step the word the way the pads do.
     el.onkeydown=e=>{
-      if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){e.preventDefault();toggleEffortPop(el.dataset.effspin);return}
       if(e.key==="Escape"){closeEffortPop();return}
       const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
       const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
       if(!step&&jump==null)return;
       e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
+  $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
+    const key=b.dataset.set,id=b.dataset.shelfField,ui=shelfFor(key);
+    const effortField=id==="rir"&&isEffortMode();
+    // A tap on any field brings the field pads back for the rest of this rest.
+    const fromRest=restPadsOn(false);
+    if(fromRest)restPadsBack=true;
+    // A second tap on the selected field opens it: a typed value, or the word's explainer.
+    if(ui.field===id&&effortField){toggleEffortPop(key);if(fromRest)restInlineSync();return}
+    if(ui.field===id&&!ui.editing){shelfSelect(key,id,true);refreshShelf({focus:id});return}
+    closeEffortPop();shelfSelect(key,id,false);refreshShelf({focus:id})});
   $w(".ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
   {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
     if(progEl){progEl.classList.remove("hidden");
-      progEl.innerHTML=`<div class="wo-progress__top">`+
-        `<button type="button" class="focusnav" id="woPrev" aria-label="${esc(t("focus.prev_ex"))}"${at<=0?" disabled":""}>‹</button>`+
-        `<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
-        `<button type="button" class="focusnav" id="woNext" aria-label="${esc(t("focus.next_ex"))}"${at>=fl.length-1?" disabled":""}>›</button></div>`+
-        `<div class="segbar segbar--ex" data-progress-dimension="exercise-set" data-progress-scope="workout-exercise-order">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
-      $("#woPrev").onclick=()=>focusAnimateTo(-1);
-      $("#woNext").onclick=()=>focusAnimateTo(1)}
+      // The segments are the visible route between exercises (with the Next row
+      // and the swipe); the live region still says which exercise this is.
+      progEl.innerHTML=`<span class="visually-hidden">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</span>`+
+        `<div class="segbar segbar--ex" data-progress-dimension="exercise-set" data-progress-scope="workout-exercise-order">`+
+        fl.map((_,i)=>i===at
+          // The current exercise is where the lifter already is: its segment is a mark, not a control.
+          ?`<span class="segbar__seg is-current" data-focusgo="${i}" aria-hidden="true"><span class="segbar__bar"></span></span>`
+          :`<button type="button" class="segbar__seg${i<at?" is-done":""}" data-focusgo="${i}" `+
+            `aria-label="${esc(t("today.exercise_of",{n:i+1,m:fl.length}))}"><span class="segbar__bar" aria-hidden="true"></span></button>`).join("")+`</div>`;
+      progEl.querySelectorAll("button[data-focusgo]").forEach(b=>b.onclick=()=>focusJump(+b.dataset.focusgo))}
     const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
-    $w("[data-fnext]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
-    // Tap a logged row to reopen that set in the well, with a way back out.
+    $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
+    // Tap a logged row to reopen that set in the shelf, with a way back out.
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
@@ -6900,7 +8013,8 @@ function bindWorkout(){
         completedAt:activeWorkoutDraft.exercises[exId].sets[target.setId].completion?.completedAt}};
       const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
       if(result.status!=="applied"){focusEdit=null;return}
-      renderWorkout()});
+      renderWorkout();
+      focusWorkoutHandoff("cta")});
     $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
       if(!focusEdit)return;
       const{exId,n,snap}=focusEdit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
@@ -6909,13 +8023,8 @@ function bindWorkout(){
         if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
       const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
-      if(restored.status!=="applied")return;focusEdit=null;renderWorkout()});
-    $w("[data-fold]").forEach(b=>b.onclick=()=>{
-      const id=b.dataset.fold;
-      focusUnfolded.has(id)?focusUnfolded.delete(id):focusUnfolded.add(id);
-      renderWorkout()});
-    $w("[data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen));
-    $w("[data-exactions-open]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.exactionsOpen))}
+      if(restored.status!=="applied")return;focusEdit=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
+    }
   updateFocusChrome();
 }
 
@@ -6926,7 +8035,7 @@ function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=re
     if(lab)lab.textContent=hot?t("top.gauge.hot",{n:hot}):t("top.gauge.forge");
     g.classList.toggle("is-hot",hot>0);
     g.style.cursor=hot?"pointer":"default";
-    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){first.scrollIntoView({behavior:"smooth",block:"center"})}}:null}
+    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){first.scrollIntoView({behavior:scrollBehavior(),block:"center"})}}:null}
 }
 
 function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercises();
@@ -6977,7 +8086,7 @@ function sessionPRs(rows,prevLog){
   const out=[];
   for(const[k,mine]of mineBy){
     const pr=liftPR(mine,past.get(k)||[]);
-    if(pr)out.push({...pr,name:displayName(mine[0])})}
+    if(pr)out.push({...pr,name:displayName(mine[0]),liftKey:k})}
   // Heaviest claim first: a load record outranks reps at the old load, which
   // outranks an e1RM that no single set actually lifted.
   const rank={load:0,reps:1,e1rm:2};
@@ -6997,16 +8106,11 @@ function sessionMuscleWork(rows){
   return[...m].map(([name,v])=>({name,sets:v.d+v.p,direct:v.d})).filter(x=>x.sets>0)
     .sort((a,b)=>b.sets-a.sets||b.direct-a.direct||a.name.localeCompare(b.name))}
 
-/** Everything the finished session earns the right to say about itself. */
-function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
-  // Test-only fault seam for the post-commit boundary. The completion owner
-  // has already returned a settled durable result before this derivation runs.
-  if(window.__repforgeSummaryFault==="canonical"){
-    delete window.__repforgeSummaryFault;
-    throw new Error("summary canonical derivation fault")}
+/** What a set of saved rows says about each lift it touched: the canonical outcome state (read from the evidence
+ *  projection, never derived here), the sets performed, the record it set when `prs` carries one, and the engine's
+ *  next target. The session summary and Today's finished day both read their lift groups from here. */
+function sessionOutcomeGroups(rows,prs=[]){
   const work=workingRows(rows);
-  const meso=mesocycleWeek(),week=weeklySnapshot(date);
-  const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
   // The session is already durable when this runs. Read the single canonical
   // evidence projection and keep only the lifts this completion actually
   // touched; summary presentation never derives a second outcome heuristic.
@@ -7023,12 +8127,41 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
         kind:sufficient?"outcome":baseline?"baseline":"insufficient",
         evidenceState:record.evidenceState,evidenceCount:record.evidenceCount,
         reason:record.reason??null,...(sufficient?{outcome:record.outcome}:{})}});
-  const outcomes=evidence.filter(item=>item.kind==="outcome")
-    .map(({exerciseId,outcome,name})=>({exerciseId,outcome,name}));
   // The first-session sentence is valid only when every lift in this completion
   // is genuinely a first observation. A prior-but-insufficient record must not
   // disappear into the old \"no outcome\" fallback.
   const showBaseline=evidence.length>0&&evidence.every(item=>item.kind==="baseline");
+  // One group per lift: its outcome state, the sets it performed, the record it set and the engine's
+  // next target. The state reads the canonical evidence above; the target is recommendation() on the log
+  // that now holds this session. Nothing is derived here.
+  const byLift=new Map();
+  for(const row of work){const key=liftKey(row);if(!byLift.has(key))byLift.set(key,{liftKey:key,name:displayName(row),rows:[]});byLift.get(key).rows.push(row)}
+  const liftGroups=[...byLift.values()].map(group=>{
+    const item=evidence.find(entry=>entry.exerciseId===group.liftKey),slot=currentExerciseForLiftKey(group.liftKey);
+    const rec=slot?recommendation(slot):null,line=slot&&rec&&rec.status!=="manual"?setsTargetLine(slot,rec):"";
+    // The session the lift was last logged in: the one its outcome word describes when a day holds two.
+    const latest=group.rows.reduce((a,b)=>compareLogChronology(a,b)<=0?b:a);
+    return{liftKey:group.liftKey,exerciseId:slot?.id??null,name:group.name,session:latest.session??null,
+      sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
+      state:item?.kind==="outcome"?{kind:"outcome",outcome:item.outcome}:item?.kind==="baseline"?{kind:"baseline"}:{kind:"insufficient",reason:item?.reason??null},
+      pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,
+      next:line?{glyph:rxVerdict(rec),line}:null}});
+  return{evidence,showBaseline,liftGroups}}
+
+/** Everything the finished session earns the right to say about itself. */
+function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
+  // Test-only fault seam for the post-commit boundary. The completion owner
+  // has already returned a settled durable result before this derivation runs.
+  if(window.__repforgeSummaryFault==="canonical"){
+    delete window.__repforgeSummaryFault;
+    throw new Error("summary canonical derivation fault")}
+  const work=workingRows(rows);
+  const meso=mesocycleWeek(),week=weeklySnapshot(date);
+  const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  const prs=sessionPRs(rows,prevLog);
+  const{evidence,showBaseline,liftGroups}=sessionOutcomeGroups(rows,prs);
+  const outcomes=evidence.filter(item=>item.kind==="outcome")
+    .map(({exerciseId,outcome,name})=>({exerciseId,outcome,name}));
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
@@ -7037,7 +8170,8 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
     volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),
     lifts:new Set(work.map(liftKey)).size,
     minutes:mins>=1&&mins<=480?mins:null,
-    prs:sessionPRs(rows,prevLog),
+    prs,
+    liftGroups,
     outcomes,
     evidence,
     showBaseline,
@@ -7175,35 +8309,46 @@ async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefa
     if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
     saving=false}}
 
-/** Records worth a line of their own before the rest become a count. */
-const SUMMARY_PR_MAX=3;
-/** One PR line: what kind of record, on what lift, and by how much. The kind
- *  badge is only drawn when the block holds more than one kind — see the caller.
- *  The sentence under the name names the kind either way. */
-function sessionPRHtml(p,withBadge){
-  const unit=unitLabel();
-  const badge=p.kind==="load"?t("stats.pr_filter.load")
-    :p.kind==="reps"?t("stats.pr_filter.reps"):t("stats.pr_filter.e1rm");
-  const over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
+/* ---- Session summary (Direction D, spec 4.4) ----
+   One group per lift: its outcome word, the sets it performed, a record line when it set one, and the
+   engine's next target as the strongest line. The word is the canonical session outcome (the
+   compareExerciseSession rule in CONTEXT.md, read through the evidence record); the target is recommendation(). */
+const SUMMARY_MUSCLES_SHOWN=6;
+/** One PR line: a record mark and how far past the best it went. The sentence names the kind. */
+function sessionPRHtml(p){
+  const unit=unitLabel(),over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
     :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
     :t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
-  return `<li class="sum-pr">`+(withBadge?`<span class="sum-pr__badge">${esc(badge)}</span>`:"")+
-    `<span class="sum-pr__text"><span class="sum-pr__name">${esc(p.name)}</span>`+
-    `<span class="sum-pr__over">${esc(over)}</span></span>`+
-    `<span class="sum-pr__val">${esc(t("summary.pr.value",{load:fmtLoad(p.load),unit,reps:fmt(p.reps)}))}</span></li>`}
+  return `<p class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("summary.pr.label"))}</span>`+
+    `<span class="sum-pr__over">${esc(over)}</span></p>`}
+/** The lift's outcome word. Only a canonical outcome carries the .sum-outcome role. */
+function summaryWordHtml(lift,session,{mark=true}={}){
+  const st=lift.state,parity=lift.exerciseId?` data-parity-outcome="${esc(lift.exerciseId)}" data-parity-session="${esc(session)}"`:"";
+  if(st.kind==="outcome"){
+    const variant={improved:"up",maintained:"maintained",declined:"down"}[st.outcome];
+    // Today's finished day says the word alone: its glyph rides the next target below (OG-6 `today/done`).
+    if(!mark)return `<span class="sum-outcome" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`;
+    return `<span class="sum-outcome verdictmark verdictmark--${variant}" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>`+
+      `<span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`}
+  if(st.kind==="baseline")return `<span class="sum-word">${esc(t("stats.outcome_short.single_observation"))}</span>`;
+  if(st.reason==="missing-effort")return `<span class="sum-word">${esc(t("stats.outcome_short.missing_effort"))}</span>`;
+  const key=st.reason==="changed-load"?"delta.changed_load.label":"delta.not_comparable.label";
+  return `<span class="sum-word"${parity}>${esc(t(key))}</span>`}
+/** `compact` is Today's finished day: the name and its word, then the next target, without the sets or the record line. */
+function summaryGroupHtml(lift,s,{compact=false}={}){
+  const session=compact?lift.session??s.session:s.session;
+  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>${s.showBaseline?"":summaryWordHtml(lift,session,{mark:!compact})}</div>`+
+    (compact?"":`<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`)+
+    (lift.pr&&!compact?sessionPRHtml(lift.pr):"")+
+    (lift.next?`<p class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>${verdictMarkHtml(lift.next.glyph)}`+
+      `<span>${esc(t("summary.next_target",{target:lift.next.line}))}</span></p>`:"")+`</div>`}
 
 function sessionSummaryHtml(s){
   const unit=unitLabel(),out=[];
-  out.push(`<div class="sum-crest" aria-hidden="true"><span class="sum-crest__mark"></span></div>`);
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
-  const sub=[];
-  if(s.meso.current!=null)sub.push(t("today.week_short",{n:s.meso.current}));
-  sub.push(formatLongDate(s.date));
-  out.push(`<p class="sum-sub">${esc(sub.join(" · "))}</p>`);
-  // What the work itself was — sets, load moved, lifts touched — plus the clock
-  // when it measured this session rather than a draft left open overnight.
-  // `data-ramp` carries the finished number so the row can spin up to it.
+  out.push(`<p class="sum-sub">${esc(s.meso.current!=null?t("summary.saved_week",{date:formatLongDate(s.date),n:s.meso.current}):formatLongDate(s.date))}</p>`);
+  // What the work itself was: sets, load moved, lifts touched, plus the clock when it measured this session.
   const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val" data-ramp="${esc(n)}"`+
     `${k?' data-kfmt="1"':""}>${esc(k?kfmt(n):fmt(n))}</div>`+
     `<div class="statrow__cap">${esc(cap)}</div></div>`;
@@ -7212,99 +8357,91 @@ function sessionSummaryHtml(s){
     cell(s.lifts,tp(s.lifts,"lift"))];
   if(s.minutes!=null)cells.push(cell(s.minutes,tp(s.minutes,"minute")));
   out.push(`<div class="statrow${cells.length>3?" statrow--4":""} sum-stats">${cells.join("")}</div>`);
-  // Records first: they are the one thing a lifter came back for. A week where
-  // everything moves would bury the best of them in its own list, so only the
-  // strongest few get a line and the rest are counted.
-  if(s.prs.length){
-    const shown=s.prs.slice(0,SUMMARY_PR_MAX),rest=s.prs.length-shown.length;
-    // A badge that reads the same on every line is a rubber stamp: it spends a
-    // column to repeat what the sentence under each name already says. It earns
-    // that column only where it tells one record apart from the next.
-    const kinds=new Set(shown.map(p=>p.kind)),withBadge=kinds.size>1;
-    out.push(`<p class="section-label section-label--accent">${esc(t("summary.prs.title"))}</p>`+
-      `<ul class="sum-prs${withBadge?"":" sum-prs--onekind"}">`+
-      shown.map(p=>sessionPRHtml(p,withBadge)).join("")+`</ul>`+
-      (rest?`<p class="sum-more">${esc(t("summary.prs.more",{n:rest}))}</p>`:""))}
-  // Nothing in this session had a past to be read against, so counting "1 new
-  // lift" would be the whole story told as arithmetic. Say what it is instead —
-  // but only when there was working weight to call a baseline in the first
-  // place, since a session of nothing but warmups is not a first attempt.
-  const noHistory=s.showBaseline===true;
-  if(noHistory)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
-  else if(s.outcomes.length)
-    out.push(`<p class="section-label">${esc(t("summary.outcomes.title"))}</p>`+
-      `<ul class="sum-outcomes">${s.outcomes.map(outcome=>`<li class="sum-outcome" data-exercise-id="${esc(outcome.exerciseId)}" data-outcome="${esc(outcome.outcome)}">`+
-        `<span class="sum-outcome__name">${esc(outcome.name)}</span>`+
-        `<span class="sum-outcome__state sum-outcome__state--${esc(outcome.outcome)}"><span class="sum-outcome__glyph" aria-hidden="true">${esc(EVIDENCE_OUTCOME_GLYPHS[outcome.outcome]||"")}</span> ${esc(t(EVIDENCE_OUTCOME_KEYS[outcome.outcome]))}</span></li>`).join("")}</ul>`);
+  // A session whose lifts have no past says so, instead of grading itself against nothing.
+  if(s.showBaseline===true)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
+  if(s.liftGroups.length)
+    out.push(`<h3 class="sum-sec">${esc(t("summary.outcome_head"))}</h3><div class="sum-grps">${s.liftGroups.map(lift=>summaryGroupHtml(lift,s)).join("")}</div>`);
   if(s.muscles.length){
-    const top=s.muscles.slice(0,4);
-    out.push(`<p class="section-label">${esc(t("summary.muscles.title"))}</p>`+
+    const shown=s.muscles.slice(0,SUMMARY_MUSCLES_SHOWN),rest=s.muscles.slice(SUMMARY_MUSCLES_SHOWN);
+    out.push(`<h3 class="sum-sec">${esc(t("summary.muscles.title"))}</h3>`+
       `<p class="sum-muscles__note">${esc(t("summary.muscles.note"))}</p>`+
-      `<div class="volume sum-muscles">`+top.map(m=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
-        `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span>`+
-        `</div>`).join("")+
-      `</div>`)}
-  // Where the session leaves the week — the reason to come back on Thursday.
-  if(s.week.planned){
+      `<div class="volume sum-muscles">`+
+      [...shown.map(m=>[m,false]),...rest.map(m=>[m,true])].map(([m,extra])=>
+        `<div class="vrow${extra?" hidden":""}"${extra?" data-muscle-extra":""}><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
+        `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span></div>`).join("")+`</div>`+
+      (rest.length?`<button type="button" class="sum-muscles__more" id="sumMuscles" aria-expanded="false" data-total="${s.muscles.length}">${esc(t("summary.muscles_all",{n:s.muscles.length}))}</button>`:""))}
+  // Where the session leaves the week, and what comes next.
+  if(s.week.planned||s.next){
     const segs=Math.max(s.week.planned,s.week.done,1),done=Math.min(s.week.done,segs);
-    out.push(`<p class="section-label">${esc(t("summary.week.title"))}</p>`+
-      `<p class="sum-week">${esc(t("today.sessions_done",{done:s.week.done,planned:s.week.planned}))}</p>`+
-      `<div class="segbar sum-segbar" data-progress-dimension="week" data-progress-scope="completed-session-week" aria-hidden="true">`+
-      Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`)}
-  if(s.next)
-    out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
-      `<span class="sum-next__day">${esc(dayLabel(s.next.day))}</span>`+
-      `<span class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</span></div>`);
-  // The detour comes before the door. Done is the last block on purpose: it is
-  // the one control the sheet pins, so a report that runs past the fold still
-  // shows the way out, and the way out is not carrying a second link with it.
-  out.push(`<div class="sum-secondary"><button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
-  out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
+    out.push(`<div class="sum-split">`+
+      (s.week.planned?`<div class="sum-split__cell"><p class="sum-split__k">${esc(t("summary.week.title"))}</p>`+
+        `<p class="sum-week">${esc(t("today.sessions_done",{done:s.week.done,planned:s.week.planned}))}</p>`+
+        `<div class="segbar sum-segbar" data-progress-dimension="week" data-progress-scope="completed-session-week" aria-hidden="true">`+
+        Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div></div>`:"")+
+      (s.next?`<div class="sum-next sum-split__cell"><p class="sum-split__k sum-next__lab">${esc(t("summary.next"))}</p>`+
+        `<p class="sum-next__day">${esc(dayLabel(s.next.day))}</p>`+
+        `<p class="sum-next__meta">${esc(tOne("today.exercise_count",s.next.exercises))}</p></div>`:"")+`</div>`)}
+  // The detour beside the door, both pinned: the report scrolls under them.
+  out.push(`<div class="sum-actions"><button type="button" class="btn btn--steel" id="sumSee">${esc(t("summary.see_session"))}</button>`+
+    `<button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
   return out.join("")}
 
-/** The stat row spins up to its numbers instead of printing them. They are the
- *  reward, so they are the one thing on the screen that moves by itself — and
- *  the ramp always lands on exactly the figure the markup already rendered, so
- *  a reader who never sees the motion reads the same page. */
-function rampSessionStats(root,delayMs=0){
+/** The summary's totals count up to their figures over 600 ms (motion amendment M2, owner decision on #295).
+ *  They are the reward, so they are the one thing on the screen that moves by itself, and nothing else on
+ *  the page does: no row stagger, no overshoot, no odometer digits. The ramp always lands on exactly the
+ *  figure the markup already rendered, so a reader who never sees the motion reads the same page. The
+ *  motion layer owns the reduced-motion decision: under it, or in a tab with no screen to animate onto,
+ *  the finished figures the markup carries stay put and nothing is repainted. */
+const SUMMARY_RAMP_MS=600;
+let summaryRamp=null;
+function stopSummaryRamp(){
+  if(!summaryRamp)return;
+  cancelAnimationFrame(summaryRamp.raf);clearTimeout(summaryRamp.land);summaryRamp=null}
+function rampSessionStats(root){
+  stopSummaryRamp();
   const cells=[...(root?.querySelectorAll("[data-ramp]")||[])];
   if(!cells.length)return;
+  const reduced=window.RepForgeMotion?.reducedMotion?.()??!!window.matchMedia?.("(prefers-reduced-motion:reduce)").matches;
+  if(reduced||document.hidden)return;
   const targets=cells.map(el=>({el,to:+el.dataset.ramp||0,k:el.dataset.kfmt==="1"}));
   const paint=e=>{for(const{el,to,k}of targets)el.textContent=k?kfmt(to*e):fmt(Math.round(to*e))};
-  // Reduced motion — or a tab with no screen to animate onto — keeps the
-  // finished numbers the markup already carries.
-  if(document.hidden||window.matchMedia?.("(prefers-reduced-motion:reduce)").matches)return;
+  const run={raf:0,land:0};summaryRamp=run;
+  const finish=()=>{if(summaryRamp!==run)return;cancelAnimationFrame(run.raf);clearTimeout(run.land);summaryRamp=null;paint(1)};
   paint(0);
-  const dur=520,start=performance.now()+delayMs;
-  // rAF stops in a backgrounded tab. This timer is what guarantees the numbers
-  // are never left sitting at zero for a lifter who looks back at the screen.
-  const land=setTimeout(()=>paint(1),delayMs+dur+400);
+  // rAF stops in a backgrounded tab. This timer is what guarantees the figures are never left short of
+  // their final value for a lifter who looks back at the screen.
+  run.land=setTimeout(finish,SUMMARY_RAMP_MS+400);
+  const start=performance.now();
   const step=now=>{
-    if(now<start)return requestAnimationFrame(step);
-    const p=Math.min(1,(now-start)/dur);
+    if(summaryRamp!==run)return;
+    // A frame timestamp can predate the moment the ramp started; clamp so a figure never dips below zero.
+    const p=Math.min(1,Math.max(0,(now-start)/SUMMARY_RAMP_MS));
+    if(p>=1)return finish();
     paint(1-Math.pow(1-p,3));
-    if(p<1)requestAnimationFrame(step);
-    else clearTimeout(land)};
-  requestAnimationFrame(step)}
+    run.raf=requestAnimationFrame(step)};
+  run.raf=requestAnimationFrame(step)}
 
 let sessionSummaryCurrent=null;
 function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
+  stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
-  // Each block carries its reading position, so the stylesheet can stagger
-  // however many blocks this particular session earned.
-  [...body.children].forEach((el,i)=>el.style.setProperty("--i",i));
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
+  const more=$("#sumMuscles");if(more)more.onclick=()=>{
+    const open=more.getAttribute("aria-expanded")!=="true";
+    more.setAttribute("aria-expanded",open?"true":"false");
+    more.textContent=t(open?"summary.muscles_fewer":"summary.muscles_all",{n:more.dataset.total});
+    $$("#sessionSummary [data-muscle-extra]").forEach(row=>row.classList.toggle("hidden",!open))};
   const see=$("#sumSee");if(see)see.onclick=()=>{
     HistoryUi.startReading(s.session);
     closeSessionSummary({nav:"history"})}}
 
 function clearSessionSummaryView(){
   sessionSummaryCurrent=null;
+  stopSummaryRamp();
   const el=$("#sessionSummary");
   if(el&&activeModal?.el===el)closeModal(el);
   $("#sessionSummaryBody")?.replaceChildren();
-  el?.classList.remove("is-played");
 }
 
 /** The screen the lifter earns by finishing. It opens over the workout, so
@@ -7313,19 +8450,11 @@ function openSessionSummary(s){
   const el=$("#sessionSummary");if(!el)return false;
   sessionSummaryCurrent=s;
   renderSessionSummary(s);
-  el.classList.remove("is-played");
   const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
   if(!ok){sessionSummaryCurrent=null;return false}
-  // One beat, played on the frame after the panel is up so the strike is seen
-  // rather than missed. `prefers-reduced-motion` turns every step of it off.
-  requestAnimationFrame(()=>{
-    if(activeModal?.el!==el)return;
-    el.classList.add("is-played");
-    // The numbers wait for their own block to arrive before they start. The
-    // stylesheet owns the stagger, so the delay is read off it rather than
-    // duplicated here.
-    const stats=el.querySelector(".sum-stats");
-    rampSessionStats(stats,stats?parseFloat(getComputedStyle(stats).animationDelay)*1000||0:0)});
+  // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
+  // before the first paint, so the finished figures are never seen and then reset to zero.
+  rampSessionStats(el.querySelector(".sum-stats"));
   el.scrollTop=0;
   captureEvent("session_summary_viewed",{});
   return true}
@@ -7333,8 +8462,8 @@ function openSessionSummary(s){
 function closeSessionSummary(opts={}){
   const el=$("#sessionSummary");
   sessionSummaryCurrent=null;
+  stopSummaryRamp();
   if(el&&activeModal?.el===el)closeModal(el);
-  el?.classList.remove("is-played");
   // Finishing a session ends it: the shell steps back to Today either way.
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");
   if(opts.nav)navTo(opts.nav);
@@ -7378,11 +8507,59 @@ window.__repforgeProgression={
   sessionsFor:ex=>sessionsFor(ex),
   programSlot:id=>{const slot=prog.find(id);return slot?sessionExercise(slot):null}};
 
+/* ---- Progress: overview and Strength (Plan 064 R3i) ----
+   Every figure and word below is a model output read back. The series and its
+   points come from progress-model.js through strengthProjection(); an outcome
+   word is the compareExerciseSession label the summary and History read; an
+   attention target is recommendation(). Nothing is derived in this layer. */
+function sparklineSvg(values,w=60,h=22){
+  const nums=values.map(Number).filter(Number.isFinite);
+  if(!nums.length)return"";
+  const min=Math.min(...nums),span=Math.max(...nums)-min||1;
+  const pts=nums.length===1?[[w/2,h/2]]:nums.map((v,i)=>[2+i*(w-4)/(nums.length-1),h-3-(v-min)/span*(h-6)]);
+  const line=pts.length>1?`<path class="spark__line" d="${pts.map((q,i)=>`${i?"L":"M"}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" ")}"/>`:"";
+  const last=pts.at(-1);
+  return`<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">${line}<circle class="spark__dot" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="${pts.length>1?2.4:3}"/></svg>`}
+const STRENGTH_KIND_KEYS={snapshot:"stats.evidence.snapshot",comparison:"stats.evidence.comparison",trend:"stats.evidence.trend"};
+/** "Tendência, 4 sessões": the evidence kind and how many sessions back it. */
+function strengthKindText(series){
+  if(series.presentation==="empty"||!STRENGTH_KIND_KEYS[series.presentation])return t("stats.evidence.empty");
+  const n=series.evidenceCount;
+  return t(n===1?"stats.overview.evidence.one":"stats.overview.evidence.other",{kind:t(STRENGTH_KIND_KEYS[series.presentation]),n})}
+/** `a→b kg`: the scope's first and latest top load, both the model's points. */
+function strengthFigure(series){
+  const pts=series.points;if(!pts.length)return"—";
+  const last=fmtLoad(pts.at(-1).value);
+  return pts.length>1?`${fmtLoad(pts[0].value)}→${last} ${unitLabel()}`:`${last} ${unitLabel()}`}
+function strengthSessionRows(key,sessionId){
+  return state.log.filter(r=>isWork(r)&&liftKey(r)===key&&String(r.session??r.date)===String(sessionId))}
+/** The word under a lift's name. With a sufficient outcome it is the label of
+ *  compareExerciseSession for the latest session, marked for the parity check;
+ *  otherwise it is the short reason the model gave (no outcome is invented). */
+function strengthOutcomeWord(key,series,latest){
+  if(!latest)return{html:esc(t("stats.evidence.baseline")),soft:true,status:""};
+  const rows=strengthSessionRows(key,latest.session),slot=currentExerciseForLiftKey(key);
+  const cmp=rows.length?compareExerciseSession(slot||exerciseIdentityFromRow(rows[0]),rows):null;
+  const parity=slot?` data-parity-outcome="${esc(slot.id)}" data-parity-session="${esc(latest.session)}"`:"";
+  const word=label=>`<span class="evword"${parity}>${esc(label)}</span>`;
+  if(series.outcome&&cmp)return{html:word(cmp.label),soft:false,status:series.outcome};
+  const reason=series.reason;
+  if(reason==="single-observation")return{html:esc(t("stats.outcome_short.single_observation")),soft:true,status:""};
+  if(reason==="missing-effort")return{html:esc(t("stats.outcome_short.missing_effort")),soft:true,status:""};
+  if((reason==="changed-load"||reason==="incompatible-exposure")&&cmp)return{html:word(cmp.label),soft:true,status:""};
+  return{html:esc(t("stats.evidence.baseline")),soft:true,status:""}}
+/** The two-point change, `+2,5 kg (+2,63%)`. A rep-only improvement moved no
+ *  load, so its zero change is not printed and the row reads the word alone. */
+function strengthChangeText(series){
+  const comparison=series.comparison;
+  if(!comparison||!comparison.absolute)return"";
+  return t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${fmt(toDisplay(comparison.absolute))} ${unitLabel()}`,
+    percentage:`${comparison.percentage>0?"+":""}${fmt(comparison.percentage)}`})}
 function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   const scopeSeg=$("#strengthScopeSeg");
   if(scopeSeg)$$("#strengthScopeSeg button").forEach(b=>{const on=b.dataset.scope===strengthScope;
-    b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
     b.onclick=()=>{strengthScope=b.dataset.scope;renderStrengthDash()}});
   if(!Model){legacyStrengthTable(el);return}
   const projection=strengthProjection(strengthScope),dash=projection.dashboard;
@@ -7392,55 +8569,79 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   for(const ex of prog.exercises){const k=exerciseLiftKey(ex)||`slot:${ex.id}`;if(!keys.has(k))keys.add(k)}
   if(!keys.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const nameOf=k=>dash.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
-  el.innerHTML=[...keys].sort((a,b)=>nameOf(a).localeCompare(nameOf(b),locTag())).map(k=>{
-    const series=projection.series.get(k);
-    const label=t(`stats.evidence.${series.presentation}`);
-    const outcome=series.outcome&&EVIDENCE_OUTCOME_KEYS[series.outcome]?` · ${t(EVIDENCE_OUTCOME_KEYS[series.outcome])}`:"";
-    const reason=!series.outcome&&series.reason&&series.presentation!=="empty"?` · ${t(`stats.evidence.reason.${series.reason}`)}`:"";
-    const baseline=series.presentation==="empty"?` · ${t("stats.evidence.baseline")}`:"";
-    const value=series.latest?`${fmtLoad(series.latest.value)}×${series.latest.reps}`:"—";
-    const comparison=series.comparison;
-    const change=comparison?` · ${t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${fmt(toDisplay(comparison.absolute))} ${unitLabel()}`,percentage:`${comparison.percentage>0?"+":""}${fmt(comparison.percentage)}`})}`:"";
-    const detail=strengthDetailTable(k,projection);
-    return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
-      `<div class="listrow__main"><div class="listrow__title">${esc(nameOf(k))}</div>`+
-      `<div class="listrow__sub">${esc(label)}${esc(outcome||reason||baseline)}${esc(change)}</div></div>`+
-      `<span class="evrow__val">${esc(value)}</span><span class="chevron" aria-hidden="true"></span></button>`+
-      `<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`}).join("");
+  const shownName=k=>liftDisplayName(nameOf(k),k);
+  el.innerHTML=[...keys].sort((a,b)=>shownName(a).localeCompare(shownName(b),locTag())).map(k=>{
+    const series=projection.series.get(k),detail=strengthDetailTable(k,projection);
+    const panel=`<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`;
+    // A slot with no history in this scope keeps its shipped row: nothing is drawn for it.
+    if(series.presentation==="empty")
+      return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
+        `<div class="listrow__main"><div class="listrow__title">${esc(liftDisplayName(nameOf(k),k))}</div>`+
+        `<div class="listrow__sub">${esc(t("stats.evidence.empty"))}${esc(` · ${t("stats.evidence.baseline")}`)}</div></div>`+
+        `<span class="evrow__val">—</span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
+    const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
+    return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
+      `<b class="evrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
+      `<span class="evrow__fig"><span class="evrow__val">${esc(strengthFigure(series))}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
+      `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
+      `<span class="evrow__kind">${esc(strengthKindText(series))}</span>`+
+      `<span class="evrow__spark">${sparklineSvg(series.points.map(point=>point.value))}</span></button>${panel}`}).join("");
   $$("#strengthDash [data-evkey]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-evdetail="${b.dataset.evkey}"]`);if(!detail)return;
-    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
+    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");b.classList.toggle("is-open",open);
+    const chev=b.querySelector(".chevron.is-down, .chevron.is-up");if(chev){chev.classList.toggle("is-down",!open);chev.classList.toggle("is-up",open)}})}
+/** The rows opened under a lift: why there is no outcome when there is none,
+ *  the scope's date range, and one line per session. */
 function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
   const sess=projection.sessions.filter(x=>x.liftKey===k);
   if(!sess.length)return `<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`;
-  const u=unitLabel();
-  return `<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`+
-    table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[t("stats.table.top")]:fmtLoad(s.top),[t("stats.table.reps")]:s.topReps,
-      [t("stats.table.e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)})))}
+  const series=projection.series.get(k),u=unitLabel();
+  const reason=series&&!series.outcome&&series.reason?`<p class="lede">${esc(t(`stats.evidence.reason.${series.reason}`))}</p>`:"";
+  const range=sess.length>1?`<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`:"";
+  return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[t("stats.table.top")]:fmtLoad(s.top),[t("stats.table.reps")]:s.topReps,
+      [t("stats.table.e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
 function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
-  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
+  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:liftDisplayName(r.exercise,r.key),[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
     [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
 
-// The week reads as a headline: the arithmetic the model computed, a session bar so
-// "3 of 4" is legible without reading, and the baseline tally. Every number comes
+// The week reads as two totals and a line (Plan 064 R3i). Every number comes
 // from the same evidence model the lists below render, so none of them disagree.
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return;
-  const w=Model.buildWeekStatus(prog.toJSON(),progressEvidenceMeta(),state.log,today());
+  const meta=progressEvidenceMeta(),w=Model.buildWeekStatus(prog.toJSON(),meta,state.log,today());
   const records=strengthEvidenceRecords("current-block"),baselineN=records.filter(r=>r.evidenceState==="insufficient").length;
-  const segs=Math.max(w.plannedSessions,w.completedSessions,1),done=Math.min(w.completedSessions,segs);
-  el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.in_progress"))}</div>`+
-    `<div class="ov-week-line">${esc(t("stats.this_week.progress",{sessions:`${w.completedSessions} / ${w.plannedSessions}`,sets:`${w.completedWorkingSets} / ${w.plannedWorkingSets}`}))}</div>`+
-    `<div class="ov-week-bar" data-progress-dimension="week" data-progress-scope="current-week-sessions" aria-hidden="true">`+
-    Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
-    `<div class="statrow">`+
-    `<div class="statrow__cell" data-week-metric="sessions"><div class="statrow__val">${w.completedSessions}</div><div class="statrow__cap">${esc(t("stats.this_week.sessions"))}</div></div>`+
-    `<div class="statrow__cell" data-week-metric="sets"><div class="statrow__val">${w.completedWorkingSets}</div><div class="statrow__cap">${esc(t("stats.this_week.working_sets"))}</div></div>`+
-    `<div class="statrow__cell" data-week-metric="baseline"><div class="statrow__val">${baselineN}</div><div class="statrow__cap">${esc(t("stats.this_week.baseline"))}</div></div>`+
-    `</div>`}
+  const weekLine=w.status==="in-progress"&&w.week?t("stats.overview.week",{n:w.week,total:meta.mesocycleLengthWeeks}):t("stats.this_week.in_progress");
+  const cell=(metric,done,planned,caption)=>`<div class="ovtotal" data-week-metric="${metric}"><b class="ovtotal__val"><span class="ovtotal__n">${done}</span>`+
+    `${planned>0?`<i class="ovtotal__of">/${planned}</i>`:""}</b><span class="ovtotal__cap">${esc(caption)}</span></div>`;
+  el.innerHTML=`<div class="ovtotals${baselineN>0?" ovtotals--3":""}">`+
+    cell("sessions",w.completedSessions,w.plannedSessions,t("stats.this_week.sessions"))+
+    cell("sets",w.completedWorkingSets,w.plannedWorkingSets,t("stats.this_week.working_sets"))+
+    (baselineN>0?cell("baseline",baselineN,0,t("stats.this_week.baseline")):"")+`</div>`+
+    `<p class="ovweekline">${esc(weekLine)}</p>`}
+/** Strength this block: a row per lift that has a session, in program order. A
+ *  row with two or more sessions opens that lift's chart; one session is a dot
+ *  with no chart behind it. */
+function renderOverviewStrength(){const el=$("#overviewStrength");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model){el.innerHTML="";return}
+  const projection=strengthProjection("current-block"),order=prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`);
+  const keys=[...projection.series.keys()].filter(k=>projection.series.get(k).evidenceCount>0)
+    .sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return(ia<0?1e6:ia)-(ib<0?1e6:ib)});
+  if(!keys.length){el.innerHTML="";return}
+  const nameOf=k=>projection.dashboard.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
+  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.strength"))}</h3><span class="ovsec__meta">${esc(t("stats.metric.top_load"))}</span></div>`+
+    keys.map(k=>{
+      const series=projection.series.get(k),latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest);
+      const body=`<span class="strrow__main"><b class="strrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
+        `<span class="strrow__sub${word.soft?" is-soft":""}">${word.html}${latest?esc(` · ${shortDate(latest.date)}`):""}</span></span>`+
+        `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig">${esc(strengthFigure(series))}</span>`;
+      return series.evidenceCount>1
+        ?`<button type="button" class="strrow" data-ovkey="${esc(k)}">${body}</button>`
+        :`<div class="strrow strrow--snap" data-ovkey="${esc(k)}">${body}</div>`}).join("");
+  $$("#overviewStrength button[data-ovkey]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ovkey,"stats"))}
 function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
 function volumeStatusKey(planned,completed){
   if(!planned)return completed>0?"high":"on-target";
@@ -7472,33 +8673,6 @@ function overviewVolumeProjection(){
     if(ra!==rb)return ra-rb;
     return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
 function overviewVolumeSorted(){return overviewVolumeProjection()}
-function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
-  const rows=overviewVolumeSorted(),shown=rows.slice(0,8),more=rows.length-shown.length;
-  el.innerHTML=rows.length?shown.map(row=>{
-    const fillClass=row.statusKey==="high"?" is-high":row.statusKey==="on-target"?" is-on":"";
-    const statusClass=row.statusKey==="on-target"?" is-on":"";
-    return `<button type="button" class="vrow" data-muscle="${esc(row.muscle)}"><span class="vrow__name">${esc(muscleLabel(row.muscle))}</span>`+
-      `<span class="vrow__bar" data-progress-dimension="week" data-progress-scope="current-week-muscle-sets"><span class="vrow__fill${fillClass}" style="width:${row.pct}%"></span></span>`+
-      `<span class="vrow__num">${fmt(row.completed7)} / ${fmt(row.planned)}</span>`+
-      `<span class="vrow__status${statusClass}">${esc(row.status)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+
-      (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
-    :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;
-  $$("#overviewVolume [data-muscle]").forEach(button=>button.onclick=()=>{volumeDrillMuscle=button.dataset.muscle;setEvidenceView("volume")});
-  const moreBtn=$("#overviewVolumeMore");if(moreBtn)moreBtn.onclick=()=>setStatsSeg("volume")}
-function recentDeltaRows(){const sessMap=new Map();
-  for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created});
-    mergeLogChronology(sessMap.get(x.session),x)}
-  const recent=[...sessMap.values()].sort((a,b)=>compareLogChronology(b,a)).slice(0,10);
-  const out=[];
-  for(const sess of recent){const byLift=new Map();
-    for(const r of state.log.filter(x=>x.session===sess.session)){const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
-    for(const rows of byLift.values()){if(!workingRows(rows).length)continue;
-      const ex=currentExerciseForLiftKey(liftKey(rows[0]))||exerciseIdentityFromRow(rows[0]);
-      const cmp=compareExerciseSession(ex,rows);if(cmp.status==="not_comparable")continue;
-      const m=cmp.metrics?.current||exerciseSessionMetrics(rows);
-      out.push({[t("stats.table.date")]:shortDate(sess.date),[t("stats.table.exercise")]:displayName(rows[0]),[t("stats.table.status")]:cmp.label,[t("stats.table.load")]:fmtLoad(m.topLoad),[t("stats.table.reps")]:m.totalReps,
-        [t("stats.table.e1rm")]:fmt(Math.round(toDisplay(m.bestE1rm))),[t("stats.table.delta")]:cmp.status==="new"?"—":formatDelta(cmp)||"—"})}}
-  return out}
 
 function renderStats(){
   // First run: point at the Log tab instead of an all-zero dashboard.
@@ -7509,53 +8683,10 @@ function renderStats(){
       `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
       `<button type="button" class="btn btn--cta" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
     const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
-    for(const sel of["#thisWeek","#attention","#metrics","#statsDeep","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
+    for(const sel of["#thisWeek","#attention","#overviewStrength"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
   renderThisWeek();
-  renderOverviewVolume();
-  // Stat exercise options: the label and identity both follow what was actually
-  // performed, so reusing a program slot cannot merge two different movements.
-  const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
-  const keyLabel=k=>{const rows=state.log.filter(r=>liftKey(r)===k);
-    const latest=[...rows].sort((a,b)=>compareLogChronology(b,a))[0];
-    return latest?displayName(latest):k};
-  const sums=summaries();
-  const totalVol=sum(state.log.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
-  const bestE=state.log.length?Math.max(...state.log.filter(isWork).map(x=>e1rm(+x.load,+x.reps))):0;
-  const lc=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
-  const tiles=[
-    {label:lc(t("stats.metric.sessions")),val:new Set(state.log.map(x=>x.session)).size},
-    {label:lc(t("stats.metric.sets_logged")),val:state.log.length},
-    {label:lc(t("stats.metric.volume")),val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
-    {label:lc(t("stats.metric.best_e1rm")),val:fmt(Math.round(toDisplay(bestE))),unit:unitLabel(),hot:bestE>0},
-  ];
-  $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div><div class="metric__label">${t.label}</div></div>`).join("");
-
-  const old=$("#statExercise").value;
-  $("#statExercise").innerHTML=keys.map(k=>`<option value="${esc(k)}">${esc(keyLabel(k))}</option>`).join("")||`<option>${esc(t("stats.table.no_data"))}</option>`;
-  if(keys.includes(old))$("#statExercise").value=old;
-  else if(keys.length)$("#statExercise").value=keys[0];
-  const sel=$("#statExercise").value,rows=sums.filter(x=>x.liftKey===sel);
-  draw(rows);
-
-  if(rows.length){const first=rows[0].top,latest=rows.at(-1).top,delta=latest-first,be=Math.max(...rows.map(r=>r.e1rm));
-    const dir=delta>0?"up":delta<0?"down":"";const arrow=delta>0?"▲":delta<0?"▼":"·";
-    // Two figures, not one sentence: what the top set did, and the best estimate
-    // behind it. The movement over sessions belongs to the first of them, so it
-    // sits on that line rather than wrapping into the second.
-    $("#trend").innerHTML=`<p class="trend__fig"><span>${t("stats.trend.top_load",{a:fmtLoad(first),b:fmtLoad(latest),unit:unitLabel()})}</span>`+
-      `<span class="trend__delta ${dir}">${arrow} ${esc(t("stats.trend.over_sessions",{signed:fmt(toDisplay(Math.abs(delta))),unit:unitLabel(),sessions:`${rows.length} ${tp(rows.length,"session")}`}))}</span></p>`+
-      `<p class="trend__fig"><span>${t("stats.trend.best_e1rm",{top:fmt(Math.round(toDisplay(be))),unit:unitLabel()})}</span></p>`;
-  }else $("#trend").innerHTML="";
-
-  $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.top")]:fmtLoad(x.top),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir),[t("stats.table.e1rm")]:fmt(Math.round(toDisplay(x.e1rm))),[t("stats.table.vol")]:kfmt(toDisplay(x.volume))})));
-  const rd=$("#recentDeltas");if(rd)rd.innerHTML=table(recentDeltaRows());
-  const topByLift=new Map();
-  for(const x of state.log){if(!isWork(x))continue;const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
-    if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:displayName(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
-  const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({[t("stats.table.exercise")]:r.Exercise,[unitLabel()]:fmtLoad(r.load),[t("stats.table.reps")]:r.reps,[t("stats.table.rir")]:fmt(r.rir),[t("stats.table.date")]:r.date}));
-  $("#tops").innerHTML=table(progRows);
-  renderPRs();renderAttention();renderCompleted();renderReview();
+  renderAttention();renderOverviewStrength();renderReview();
   if(statsSeg==="review")renderReview();
   renderEvidenceView();
   if($("#stats")?.classList.contains("active")&&!evidenceView)
@@ -8607,7 +9738,7 @@ async function applyCommandText(text){
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
   return true}
 window.__repforgeApplyCommandText=applyCommandText;
-function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled));syncWorkoutMore()}
 function startVoiceInput(){
   if(!SR)return;const rec=new SR();rec.lang=I18N?I18N.speechLang():"en-US";rec.interimResults=false;rec.maxAlternatives=1;
   rec.onresult=e=>{const said=e.results[0]?.[0]?.transcript;if(said)applyCommandText(said)};
@@ -8625,7 +9756,7 @@ function prTimeline(filter){
 window.__repforgePrTimeline=prTimeline;
 
 function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
-  $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+  $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
     b.onclick=()=>{prFilter=b.dataset.prf;renderPRTimeline()}});
   const events=prTimeline(prFilter);
   if(!events.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_pr_filter"))}</div>`;return}
@@ -8637,7 +9768,7 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   el.innerHTML=events.map((ev,i)=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
     const d=delta(ev);
     return `<button type="button" class="prtl__row" data-prrow="${i}" aria-expanded="false"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
-      `<span class="prtl__ex">${esc(ev.exerciseName)}</span>`+
+      `<span class="prtl__ex">${esc(liftDisplayName(ev.exerciseName,ev.liftKey))}</span>`+
       `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
       `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
       (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`<span class="chevron" aria-hidden="true"></span></button>`+
@@ -8646,23 +9777,6 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
-
-function renderPRs(){const el=$("#prLedger");if(!el)return;
-  const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>ev.liftKey===sel);
-  if(!events.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.log_prs"))}</div>`;return}
-  // No e1RM column: the figures above the ledger name the best estimate, and the
-  // chart below it is that estimate over time under a caption saying so. Three
-  // printings of one number were what pushed the seventh column off the card.
-  el.innerHTML=`<table><thead><tr><th>${esc(t("stats.table.date"))}</th><th>${esc(t("stats.table.kind"))}</th><th>${esc(t("stats.table.load"))}</th><th>${esc(t("stats.table.reps"))}</th><th>${esc(t("stats.table.rir"))}</th><th>${esc(t("stats.table.delta_vs_prev"))}</th></tr></thead><tbody>${
-    events.map(ev=>{const kindCls=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
-      const kindLabel=ev.kind==="e1rm"?t("stats.pr.e1rm"):ev.kind==="reps"?t("stats.pr.reps"):t("stats.pr.load");
-      const delta=ev.kind==="e1rm"?(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}`:"—")
-        :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"—")
-        :(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}`:"—");
-      return `<tr class="pr-row"><td>${esc(ev.date)}</td><td><span class="pr-kind ${kindCls}">${esc(kindLabel)}</span></td>`+
-        `<td>${esc(fmtLoad(ev.load))}</td><td>${esc(ev.reps)}</td><td>${esc(fmt(ev.rir))}</td>`+
-        `<td>${esc(delta)}</td></tr>`}).join("")
-  }</tbody></table>`}
 
 // Needs action is derived only from canonical sufficient evidence records.
 function attentionGroups(){
@@ -8682,19 +9796,45 @@ window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir
 window.__repforgeAttention=attentionGroups;
 // Lifts on the Attention board — everything the board lists, so the "attention" cell in
 // the weekly stat row and the "ATTENTION · n" heading always report the same lifts.
-function attentionCount(groups){return(groups||attentionGroups()).reduce((n,g)=>n+g.items.length,0)}
+/** The glyph column of an attention row, from the engine's recommendation for the
+ *  lift. Only up and down draw a glyph; hold and recover keep the column and carry
+ *  their variant class, which the shared mark gives a glyph. */
+function attentionVerdict(rec){
+  if(!rec||rec.status==="manual"||rec.status==="new")return"hold";
+  if(rec.status==="add"||rec.status==="add2")return"up";
+  if(rec.status==="reduce")return rec.stalled?"recover":"down";
+  return rec.reason==="recover"?"recover":"hold"}
+function attentionMarkHtml(move){
+  return move==="up"||move==="down"
+    ?`<span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`
+    :`<span class="verdictmark verdictmark--${move}" aria-hidden="true"></span>`}
+/** Needs attention: the action-queue lifts whose recommendation changes the load
+ *  (add, add2, reduce). A hold, a recover and a stalled lift stay out of this
+ *  section only; the queue and every model output are unchanged. The mark, label and
+ *  reason are the engine's recommendation for the lift, the evidence line is the
+ *  model's, and the whole row opens that lift's chart. */
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const groups=attentionGroups(),count=attentionCount(groups);
-  el.innerHTML=`<p class="section-label">${esc(t("stats.needs_action"))}<span class="section-label__count">${esc(t("stats.section_count",{n:count}))}</span></p>`+
-    // The recommendation *is* the group here, so it is stated once as the lead.
-    // Each row keeps it in its own accessible name, so a chip still answers
-    // "why" on its own without printing the same sentence beside every lift.
-    (groups.length?groups.map(group=>`<div class="attn__grp attn--${esc(group.cls)}"><span class="attn__lead">${esc(group.lead)}</span>`+
-      group.items.map(({ex,item,why})=>`<button type="button" class="attn__chip" data-action-lift="${esc(item.destinationId)}" data-attn="${esc(ex.id)}" data-attngo="${esc(group.key)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-        `<div class="listrow__sub visually-hidden">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("")
-      :`<p class="lede">${esc(t("stats.needs_action.none"))}</p>`);
-  $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>{strengthScope="current-block";setEvidenceView("strength");
-    const row=$(`#strengthDash [data-evkey="${CSS.escape(button.dataset.actionLift)}"]`);row?.focus();row?.scrollIntoView({block:"center"})})}
+  const groups=attentionGroups(),projection=strengthProjection("current-block");
+  const rows=groups.flatMap(group=>group.items.map(entry=>{
+    const slot=currentExerciseForLiftKey(entry.item.destinationId);
+    return{...entry,group,slot,rec:slot?recommendation(slot):null}}))
+    .filter(row=>{const move=attentionVerdict(row.rec);return move==="up"||move==="down"});
+  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.attention",{n:rows.length}))}</h3></div>`+
+    (rows.length?rows.map(({ex,item,group,slot,rec})=>{
+      const series=projection.series.get(item.destinationId),last=series?.latest?.value,target=rec&&rec.load!=null?rec.load:null;
+      const figure=target!=null
+        ?(last!=null&&!sameLoad(last,target)?`${fmtLoad(last)}→${fmtLoad(target)} ${unitLabel()}`:`${fmtLoad(target)} ${unitLabel()}`)
+        :last!=null?`${fmtLoad(last)} ${unitLabel()}`:"";
+      const parity=target!=null&&slot?` data-parity-target="${esc(slot.id)}"`:"";
+      const verdict=rec&&rec.label?`<span class="attnrow__label">${esc(rec.label)}</span><span class="attnrow__reason">${esc(rec.text)}</span>`:`<span class="attnrow__reason">${esc(group.lead)}</span>`;
+      return `<button type="button" class="attn__chip attnrow" data-action-lift="${esc(item.destinationId)}" data-attn="${esc(ex.id)}" data-attngo="${esc(group.key)}">`+
+        `<span class="attnrow__mark">${attentionMarkHtml(attentionVerdict(rec))}</span>`+
+        `<b class="attnrow__name">${esc(exerciseDisplayName(ex))}</b>`+
+        `<span class="attnrow__fig"><span${parity}>${esc(figure)}</span><span class="chevron" aria-hidden="true"></span></span>`+
+        `<span class="attnrow__verdict">${verdict}</span>`+
+        `<small class="attnrow__evidence">${esc(series?strengthKindText(series):"")}</small></button>`}).join("")
+      :`<p class="ovnone">${esc(t("stats.needs_action.none"))}</p>`);
+  $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>openExerciseView(button.dataset.actionLift,"stats"))}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
@@ -8820,7 +9960,7 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   const scopeSeg=$("#volumeScopeSeg");
   if(scopeSeg)$$("#volumeScopeSeg button").forEach(b=>{const on=b.dataset.vscope===volumeScope;
-    b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
     b.onclick=()=>{volumeScope=b.dataset.vscope;renderVolumeDash()}});
   const periodEl=$("#volumePeriod");
   if(!Model){legacyVolumeTable(el);if(periodEl)periodEl.textContent="";return}
@@ -8856,7 +9996,7 @@ function volumeDetailTable(muscle,ev){
   for(const row of ev.completedRows||[]){
     const ms=rowMuscles(row);let weight=0;
     if(muscles(ms.primary).includes(muscle))weight=1;else if(muscles(ms.secondary).includes(muscle))weight=.5;
-    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{session:row.session,date:row.date,created:row.created,name:displayName(row)};mergeLogChronology(current,row);current.sets=(current.sets||0)+weight;groups.set(key,current)}
+    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{session:row.session,date:row.date,created:row.created,name:exerciseDisplayName(row)};mergeLogChronology(current,row);current.sets=(current.sets||0)+weight;groups.set(key,current)}
   const rows=[...groups.values()].sort((a,b)=>compareLogChronology(b,a));
   return rows.length?table(rows.map(row=>({[t("stats.table.date")]:shortDate(row.date),[t("stats.table.exercise")]:row.name,[t("stats.table.sets")]:fmt(row.sets)})))
     :`<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`}
@@ -8920,13 +10060,6 @@ function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
 function legacyVolumeTable(el){
   const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:muscleLabel(r.muscle),[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
   el.innerHTML=table(rows)}
-function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
-  const arr=[...m.entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff),max=Math.max(...arr.map(x=>x.eff),1);
-  el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(x.name))}</span>`+
-    `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
-    `<span class="vrow__num"><b>${fmt(x.eff)}</b> ${esc(tp(x.eff,"set"))}</span></div>`).join(""):`<div class="table"><div class="empty">${esc(t("stats.empty.no_hard_sets",{n:volWindow}))}</div></div>`;
-  $$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});}
-
 function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
 window.__repforgeChartLabelDecimals=chartLabelDecimals;
 function chartPalette(){
@@ -9001,18 +10134,34 @@ function draw(rows,sel="#chart"){
 
 function redrawChart(){
   if($("#exercise")?.classList.contains("active")&&exView){draw(summaries().filter(x=>x.liftKey===exView.key),"#exChart");return}
-  if(!$("#stats").classList.contains("active")||statsSeg!=="overview"||evidenceView!=null)return;
-  const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
+}
 
 // @ci-domain history
 function adoptHistoryDurableHead(head){
   if(!head)return;
   state=cloneSnapshot(head);prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
   resetPersistenceBase(state);dropMemo.clear();baselineMemo.clear()}
+/** The block bounds History groups and counts by: where the running block started,
+ *  how long it is, how many training days a week it plans, and the archived
+ *  blocks before it. Read from the program, never stored for History. */
+function historyBlockContext(){
+  const meta=state.programMeta||{};
+  return{started:meta.started||null,weeks:+meta.mesocycleLengthWeeks||6,planned:prog.days().length,
+    today:today(),name:meta.name||"",
+    archived:(state.programHistory||[]).map(entry=>({
+      name:entry?.meta?.name||"",start:entry?.meta?.started||null,
+      end:entry?.completedAt?String(entry.completedAt).slice(0,10):null,
+      planned:new Set((entry?.program||[]).map(ex=>ex?.day).filter(Boolean)).size}))}}
+/** A lift's outcome in one saved session: the comparison the summary and Progress
+ *  read (CONTEXT.md, Session outcome), against what the program calls the lift today. */
+function historySessionOutcome(rows){
+  const ex=currentExerciseForLiftKey(liftKey(rows[0]))||exerciseIdentityFromRow(rows[0]);
+  return compareExerciseSession(ex,rows)}
 const HistoryUi=window.RepForgeHistoryUi.create({
+  locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
-  displayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
+  displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
   weekdayLetters, table, today, uid, readRevision,
@@ -9039,26 +10188,41 @@ function exerciseSessionsDetail(key){const m=new Map();
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
-  exView={key:movement?exerciseLiftKey(movement):key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
+  exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
+  chartView={scope:"current-block",metric:"top",pt:null};
+  const settle=routePushBegin("in",{pushed:$("#exercise"),under:routeViewEl(exView.from)});
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercise"));
   document.body.classList.add("is-exercise");document.body.classList.remove("is-settings","is-onboarding","is-workout");
-  window.scrollTo({top:0});renderExerciseView()}
-function closeExerciseView(){const back=exView?.from||"log";exView=null;
+  window.scrollTo({top:0});renderExerciseView();
+  focusRoute(routeHeading("exercise")||$("#exercise .exview-head__title"));
+  settle?.()}
+function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.openKey;exView=null;
+  const settle=routePushBegin("out",{pushed:$("#exercise"),under:routeViewEl(back)});
   document.body.classList.remove("is-exercise");
-  if(back==="settings"){showSettings();return}
+  if(back==="settings"){showSettings();settle?.();return}
   $$("nav button").forEach(x=>{const on=x.dataset.view===back;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id===back));
-  window.scrollTo({top:0});render()}
+  window.scrollTo({top:0});render();
+  // Back puts focus on the row that opened the page (found again by its key: the render replaced it).
+  const sel=openKey?[`data-exopen`,`data-ovkey`,`data-action-lift`].map(a=>`#${back} [${a}="${CSS.escape(openKey)}"]`).join(","):null;
+  focusRoute((sel&&$(sel))||routeHeading(back));
+  settle?.()}
 function openSettingsView(){showSettings()}
 
 function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const key=exView.key,tmpl=currentExerciseForLiftKey(key)||exView.exercise||null,sessions=exerciseSessionsDetail(key);
   const latest=sessions.at(-1)?.rows.at(-1);
-  const name=latest?displayName(latest):(tmpl?.name||key);
+  const name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
   const exRef=tmpl||(latest?exerciseIdentityFromRow(latest):null);
   const backKey=exView.from==="stats"?"nav.stats":exView.from==="program"?"nav.program":exView.from==="history"?"nav.history":"nav.log";
   const back=$("#exBack");if(back)back.textContent=`‹ ${t(backKey)}`;
+  // Reached from Progress, the page is the lift's chart: the step series, the
+  // scope and metric toggles, a plot that snaps to a session, and its table.
+  $("#exercise")?.classList.toggle("exview--chart",exView.from==="stats");
+  if(exView.from==="stats"){
+    if(back)back.innerHTML=`<span class="chevron" aria-hidden="true"></span>${esc(t(backKey))}`;
+    return renderExerciseChart(el,key,sessions,tmpl)}
 
   /* Unlike a list thumbnail this drawing is the only place the lifter can see
      how the movement is set up, so it gets a describing alt and no lazy hint —
@@ -9120,6 +10284,276 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
+/* ---- Progress: the exercise chart (Plan 064 R3i) ----
+   One honest series: the shipped Strength metric (top load), drawn as the step
+   itself with a tick where the load went up, and best e1RM as the second
+   metric. Points, scope and block membership come from strengthProjection(); the
+   plot, the readout and every table row select the same session, and the table is
+   the accessible alternative. Nothing explains a past load change: the app does
+   not store one. */
+const CHART_W=328,CHART_H=190;
+const CHART_PAD={padL:42,padR:12,padT:20,padB:24};
+function chartModel(key){
+  const{scope,metric}=chartView;
+  const projection=strengthProjection(scope);
+  const current=scope==="all-history"?new Set((strengthProjection("current-block").series.get(key)?.points||[]).map(point=>point.sessionKey)):null;
+  const pts=projection.sessions.filter(x=>x.liftKey===key).map(x=>({date:x.date,top:x.top,reps:x.topReps,e1rm:x.e1rm,
+    sessionKey:x.sessionKey,block:current?current.has(x.sessionKey):true}));
+  const value=p=>metric==="top"?toDisplay(p.top):Math.round(toDisplay(p.e1rm)*10)/10;
+  const vals=pts.map(value);
+  const sel=chartView.pt==null||chartView.pt>=pts.length?pts.length-1:chartView.pt;
+  return{pts,vals,sel,metric,scope,value}}
+const chartNum=(v,metric)=>metric==="top"?fmt(v):fmt(Math.round(v*10)/10);
+/** Where the axis runs and where each session sits on it. */
+function chartGeometry(model){
+  const{pts,vals}=model,{padL,padR,padT,padB}=CHART_PAD,W=CHART_W,H=CHART_H;
+  let lo=Math.min(...vals),hi=Math.max(...vals);
+  const step=hi-lo>12?5:2.5;
+  lo=Math.floor((lo-step*.6)/step)*step;hi=Math.ceil((hi+step*.6)/step)*step;
+  const x=i=>padL+(pts.length===1?(W-padL-padR)/2:i*(W-padL-padR)/(pts.length-1));
+  const y=v=>padT+(1-(v-lo)/(hi-lo))*(H-padT-padB);
+  return{lo,hi,step,x,y}}
+/** One entry per session: where it is drawn and how it reads. The plot is drawn from these, so
+ *  a frame of the scope change (C2) is the same drawing with moved coordinates and some fades. */
+function chartItems(model,geo){
+  return model.pts.map((z,i)=>({i,key:z.sessionKey,x:geo.x(i),y:geo.y(model.vals[i]),
+    tick:model.metric==="top"&&i>0&&z.top>model.pts[i-1].top,old:!z.block,sel:i===model.sel,alpha:1}))}
+/** The axes: grid, tick labels, the block rule and the two end dates. They belong to the scope and metric. */
+function chartAxesSvg(model,geo){
+  const{pts}=model,{padL,padR,padT,padB}=CHART_PAD,W=CHART_W,H=CHART_H,{lo,hi,step,x,y}=geo;
+  let g="";const ticks=[];
+  for(let v=lo;v<=hi+1e-6&&ticks.length<40;v+=step)ticks.push(v);
+  const every=ticks.length>5?2:1;
+  ticks.forEach((v,i)=>{
+    g+=`<line x1="${padL}" x2="${W-padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="ch-grid"/>`;
+    if(i%every===0)g+=`<text x="${padL-6}" y="${(y(v)+3.5).toFixed(1)}" class="ch-ax" text-anchor="end">${esc(fmt(v))}</text>`});
+  const first=pts.findIndex(z=>z.block);
+  if(first>0){const bx=(x(first-1)+x(first))/2;
+    g+=`<line x1="${bx.toFixed(1)}" x2="${bx.toFixed(1)}" y1="${padT-12}" y2="${H-padB}" class="ch-block"/>`;
+    g+=`<text x="${(bx+4).toFixed(1)}" y="${padT-4}" class="ch-ax ch-ax--l">${esc(t("stats.scope.current_block"))}</text>`}
+  g+=`<text x="${padL}" y="${H-6}" class="ch-ax">${esc(shortDate(pts[0].date))}</text>`+
+    `<text x="${W-padR}" y="${H-6}" class="ch-ax" text-anchor="end">${esc(shortDate(pts.at(-1).date))}</text>`;
+  return g}
+/** The series: the cursor, then the line with its ticks and points. `reveal` is the index of the first
+ *  item the clip wipe (C1) covers, 0 for the whole line; the line before it is drawn at rest. An item
+ *  with an `alpha` below 1 is entering or leaving (C2) and its stretch of the line fades with it. */
+function chartSeriesSvg(items,metric,{reveal=null}={}){
+  const{padT,padB}=CHART_PAD,H=CHART_H,n=items.length,sel=items.find(it=>it.sel);
+  const stepPath=list=>list.map((q,i)=>metric==="top"
+    ?(i?`H${q.x.toFixed(1)} V${q.y.toFixed(1)}`:`M${q.x.toFixed(1)} ${q.y.toFixed(1)}`)
+    :`${i?"L":"M"}${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(" ");
+  const lines=(from,to)=>{
+    const list=items.slice(from,to),runs=[];
+    list.forEach((q,i)=>{const faded=q.alpha<1,last=runs.at(-1);
+      if(last&&last.faded===faded){last.to=i}else runs.push({faded,from:i,to:i,alpha:q.alpha})});
+    return runs.map(r=>{
+      const part=r.faded?list.slice(Math.max(0,r.from-1),Math.min(list.length,r.to+2)):list.slice(r.from,r.to+1);
+      return `<path d="${stepPath(part)}" class="ch-line"${r.faded?` opacity="${r.alpha.toFixed(2)}"`:""}/>`}).join("")};
+  const points=(from,to)=>items.slice(from,to).map(z=>{
+    const fade=z.alpha<1?` opacity="${z.alpha.toFixed(2)}"`:"";
+    return (z.tick?`<path d="M${(z.x-4).toFixed(1)} ${(H-padB-6).toFixed(1)} l4 -6 l4 6 z" class="ex-tick"${fade}/>`:"")+
+      `<circle cx="${z.x.toFixed(1)}" cy="${z.y.toFixed(1)}" r="${z.sel?5:3}" class="ex-pt${z.sel?" ex-pt--sel":z.old?" ex-pt--old":""}"${z.i==null?"":` data-i="${z.i}"`}${fade}/>`}).join("");
+  const trace=(cls,lineFrom,lineTo,pointFrom,pointTo)=>`<g class="ch-trace${cls}">${lines(lineFrom,lineTo)}${points(pointFrom,pointTo)}</g>`;
+  // The cursor sits under the series and its points, never across a dot.
+  let g=sel?`<line x1="${sel.x.toFixed(1)}" x2="${sel.x.toFixed(1)}" y1="${padT-6}" y2="${H-padB}" class="ex-cursor"/>`:"";
+  if(reveal==null)g+=trace("",0,n,0,n);
+  else if(reveal<=0)g+=trace(" motion-clip-reveal",0,n,0,n);
+  else g+=trace("",0,reveal,0,reveal)+trace(" motion-clip-reveal",reveal-1,n,reveal,n);
+  return g}
+function chartSvg(model,{reveal=null}={}){
+  const geo=chartGeometry(model),items=chartItems(model,geo);
+  const xs=model.pts.map((_,i)=>geo.x(i));
+  return{svg:`<svg class="exchart__svg" viewBox="0 0 ${CHART_W} ${CHART_H}" aria-hidden="true">`+
+    `<g class="ch-axes">${chartAxesSvg(model,geo)}</g><g class="ch-series">${chartSeriesSvg(items,model.metric,{reveal})}</g></svg>`,
+    xs,geo,items}}
+function chartReadout(model){
+  const p=model.pts[model.sel],label=model.metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm");
+  return t("exercise.chart.readout",{date:esc(shortDate(p.date)),metric:esc(label),unit:esc(unitLabel()),
+    value:`<b class="exchart__mono">${esc(chartNum(model.value(p),model.metric))}</b>`,
+    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</b>`})}
+function chartRowHtml(model,i){
+  const p=model.pts[i],prev=model.pts[i-1],v=model.value(p),pv=prev?model.value(prev):null;
+  const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
+  return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
+    `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span>`+
+    `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
+function renderExerciseChart(el,key,sessions,tmpl){
+  const latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
+  const model=chartModel(key),{metric,scope}=chartView;
+  const head=`<h2 class="exdet__name exchart__title">${esc(name)}</h2>`;
+  const prev=chartLive&&chartLive.view===exView&&chartLive.key===key?chartLive:null;
+  if(!model.pts.length){
+    chartLive=null;
+    el.innerHTML=head+chartTogglesHtml(scope,metric)+`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
+    bindChartToggles();return}
+  // What this render hands to the motion is decided before the page is rewritten.
+  const intent=beatsOn()?chartMotionIntent(prev,model):null;
+  const ghost=intent&&(intent.kind==="metric"||intent.kind==="scope")?chartGhost(el.querySelector(".exchart__svg"),intent.kind):null;
+  const plot=chartSvg(model,{reveal:intent?.kind==="open"?0:intent?.kind==="extend"?intent.from:null});
+  const live=chartLive={key,view:exView,model,scope,metric,geo:plot.geo,items:plot.items,
+    keys:model.pts.map(p=>p.sessionKey),drawn:new Map(plot.items.map(it=>[it.key,[it.x,it.y]]))};
+  const vals=model.vals,change=vals.at(-1)-vals[0];
+  const figs=[[chartNum(Math.max(...vals),metric),t(metric==="top"?"exercise.chart.fig.top":"exercise.chart.fig.e1rm",{unit:unitLabel()})],
+    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,t("exercise.chart.fig.change",{unit:unitLabel()})],
+    [String(vals.length),t(vals.length===1?"plural.session.one":"plural.session.other")]];
+  const metricLabel=metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm");
+  el.innerHTML=head+chartTogglesHtml(scope,metric)+
+    `<div class="exchart__figs">${figs.map(([v,l])=>`<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
+    `<div class="exchart__plot" role="img" aria-label="${esc(t("exercise.chart.aria",{metric:metricLabel,name}))}" data-xs="${plot.xs.map(v=>v.toFixed(1)).join(",")}" data-w="${CHART_W}">${plot.svg}</div>`+
+    `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p>`+
+    `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}</span><span>${esc(t("stats.table.e1rm"))}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
+    model.pts.map((_,i)=>i).reverse().map(i=>chartRowHtml(model,i)).join("");
+  bindChartToggles();
+  const surface=$("#exDetail .exchart__plot");
+  const pick=e=>{const r=surface.getBoundingClientRect();if(!r.width)return;
+    const at=(e.clientX-r.left)/r.width*CHART_W,xs=plot.xs;let best=0;
+    xs.forEach((v,i)=>{if(Math.abs(v-at)<Math.abs(xs[best]-at))best=i});
+    selectChartPoint(best)};
+  surface.addEventListener("pointerdown",e=>{pick(e);try{surface.setPointerCapture(e.pointerId)}catch{}});
+  surface.addEventListener("pointermove",e=>{if(e.buttons)pick(e)});
+  $$("#exDetail .exrow").forEach(b=>b.onclick=()=>selectChartPoint(+b.dataset.pt));
+  if(intent)chartMotionPlay(el,surface,intent,prev,live,ghost)}
+
+/* ---- Progress chart motion (Plan 064 rule 11: owner picks C1, C2 and D4) ----
+   The table, the readout and the figures are the accessible alternative and are
+   written at once, whatever the plot is doing. Everything drawn here is the end
+   state first: the page is rendered at rest, then the plot is carried from where
+   it was. Under reduced motion (or without the runtime) none of it runs and the
+   rest drawing is all there is. */
+/** What a render of the chart should play, if anything. A render of the same chart as before
+ *  (a language or unit change, a repaint) plays nothing. */
+function chartMotionIntent(prev,model){
+  if(!prev)return{kind:"open"};
+  // Two different quantities on two different axes: they crossfade, they never travel.
+  if(prev.metric!==model.metric)return{kind:"metric"};
+  if(prev.scope!==model.scope)return{kind:"scope"};
+  const was=prev.keys,now=model.pts.map(p=>p.sessionKey);
+  if(now.length>was.length&&was.every((k,i)=>now[i]===k))return{kind:"extend",from:was.length};
+  return null}
+/** Run one stylesheet beat once and put the element back at rest. The timer is only for an element
+ *  that never animated (a hidden page), so nothing is left on the plot. */
+function settleBeat(el,cls,remove=false){
+  if(!el)return;
+  let over=false,timer=0;
+  const end=e=>{if(over||(e&&e.target!==el))return;over=true;clearTimeout(timer);if(remove)el.remove();else el.classList.remove(cls)};
+  timer=setTimeout(end,700);
+  el.addEventListener("animationend",end);el.addEventListener("animationcancel",end)}
+/** The drawing as it stood, kept to fade out over the new one. It is not `.exchart__svg`, and for a
+ *  scope change it keeps only the axes, so a selector for the live plot finds one copy of anything. */
+function chartGhost(svg,kind){
+  if(!svg)return null;
+  const ghost=svg.cloneNode(true);
+  ghost.setAttribute("class","exchart__ghost");ghost.setAttribute("aria-hidden","true");
+  if(kind==="scope")ghost.querySelector(".ch-series")?.remove();
+  ghost.querySelectorAll(".motion-clip-reveal,.motion-fade-in").forEach(n=>n.classList.remove("motion-clip-reveal","motion-fade-in"));
+  ghost.querySelectorAll("[data-i]").forEach(n=>n.removeAttribute("data-i"));
+  return ghost}
+function chartMotionPlay(el,host,intent,prev,live,ghost){
+  const svg=host.querySelector(".exchart__svg");
+  if(!svg)return;
+  if(intent.kind==="open"||intent.kind==="extend"){
+    // C1: the line wipes in on open; on extension only the stretch to the new session does.
+    settleBeat(svg.querySelector(".ch-trace.motion-clip-reveal"),"motion-clip-reveal");return}
+  if(intent.kind==="metric"){
+    // The old drawing fades out over the new one, which fades in; no point travels.
+    if(!ghost)return;
+    ghost.classList.add("motion-fade-out");host.append(ghost);
+    svg.classList.add("motion-fade-in");
+    settleBeat(svg,"motion-fade-in");settleBeat(ghost,"motion-fade-out",true);return}
+  if(intent.kind==="scope")chartScopeTravel(el,host,svg,prev,live,ghost)}
+/** C2: the sessions both scopes have travel to their new coordinates; the ones only one scope has
+ *  fade in or out; the axes, which belong to the scope, crossfade. The path is rebuilt on every frame
+ *  from the interpolated points (`animateCoordinates`), so the step stays a step all the way. */
+function chartScopeTravel(el,host,svg,prev,live,ghost){
+  if(ghost){
+    const axes=svg.querySelector(".ch-axes");
+    ghost.classList.add("motion-fade-out");host.append(ghost);settleBeat(ghost,"motion-fade-out",true);
+    if(axes){axes.classList.add("motion-fade-in");settleBeat(axes,"motion-fade-in")}}
+  const m=focusMotion();
+  if(!m||!prev)return;
+  const was=prev.keys,now=live.keys,known=new Set(was);
+  const shared=now.filter(k=>known.has(k));
+  // One scope sits inside the other: the block inside all history.
+  if(!shared.length||shared.length!==Math.min(was.length,now.length))return;
+  const from=[],to=[];
+  for(const k of shared){
+    const a=prev.drawn.get(k),b=live.drawn.get(k);
+    if(!a||!b)return;
+    from.push(a[0],a[1]);to.push(b[0],b[1])}
+  const rest=new Map(live.drawn),entering=now.length>=was.length;
+  const base=entering?live.items:prev.items,current=new Map(live.items.map(it=>[it.key,it]));
+  const index=new Map(shared.map((k,i)=>[k,i]));
+  const series=svg.querySelector(".ch-series");
+  m.animateCoordinates(el,from,to,(vals,progress)=>{
+    if(chartLive!==live||!series.isConnected)return;
+    const items=base.map(it=>{
+      const at=index.get(it.key),own=current.get(it.key);
+      if(at!=null){
+        const x=vals[2*at],y=vals[2*at+1];live.drawn.set(it.key,[x,y]);
+        return{...own,x,y,sel:own.i===live.model.sel,alpha:1}}
+      const place=entering?[it.x,it.y]:(prev.drawn.get(it.key)||[it.x,it.y]);
+      return{...it,i:entering?it.i:null,x:place[0],y:place[1],sel:false,alpha:entering?progress:1-progress}});
+    series.innerHTML=chartSeriesSvg(items,live.metric)
+  }).then(arrived=>{
+    if(!arrived||chartLive!==live||!series.isConnected)return;
+    live.drawn=rest;
+    series.innerHTML=chartSeriesSvg(chartItems(live.model,live.geo),live.metric)})}
+function chartTogglesHtml(scope,metric){
+  const seg=(attr,label,options)=>`<div class="segpill" role="group" aria-label="${esc(label)}">`+
+    options.map(([value,text,on])=>`<button type="button" ${attr}="${value}" aria-pressed="${on}">${esc(text)}</button>`).join("")+`</div>`;
+  return `<div class="exchart__toggles">`+
+    seg("data-scope",t("stats.scope_aria"),[["current-block",t("stats.scope.current_block"),scope==="current-block"],["all-history",t("stats.scope.all_history"),scope==="all-history"]])+
+    seg("data-metric",t("stats.metric.top_load"),[["top",t("stats.metric.top_load"),metric==="top"],["e1rm",t("stats.metric.best_e1rm"),metric==="e1rm"]])+`</div>`}
+function bindChartToggles(){
+  // The page is rebuilt for every choice, so the pressed toggle is a new node: focus goes back to its equivalent by key (R7 J-10).
+  const keep=(attr,value)=>{const el=$(`#exDetail [${attr}="${CSS.escape(value)}"]`);if(el)focusRoute(el)};
+  $$("#exDetail [data-scope]").forEach(b=>b.onclick=()=>{const value=b.dataset.scope;chartView.scope=value;chartView.pt=null;renderExerciseView();keep("data-scope",value)});
+  $$("#exDetail [data-metric]").forEach(b=>b.onclick=()=>{const value=b.dataset.metric;chartView.metric=value;renderExerciseView();keep("data-metric",value)})}
+/** Moves the selection in place, so the plot, the readout and the table agree and nothing loses focus. */
+function selectChartPoint(i){
+  if(!chartLive)return;
+  const model=chartLive.model;if(i<0||i>=model.pts.length)return;
+  const was=model.sel;
+  chartView.pt=i;model.sel=i;
+  const plot=$("#exDetail .exchart__plot"),readout=$("#exDetail .exchart__readout");
+  if(plot&&i!==was)moveChartMarker(plot,model,was,i);
+  if(readout)readout.innerHTML=chartReadout(model);
+  $$("#exDetail .exrow").forEach(b=>{const on=+b.dataset.pt===i;b.classList.toggle("is-sel",on);b.setAttribute("aria-pressed",on?"true":"false")})}
+/** D4: the marker snaps to the session and, when the layer can animate, travels there. The selection
+ *  itself (the points, the cursor, the readout, the table) changes in the same call; the travelling
+ *  marker is a separate pair of elements over the plot, so scrubbing never waits for it and a
+ *  second snap mid-flight starts from where the marker is on screen. */
+const chartMarkers=new WeakMap();
+function moveChartMarker(plot,model,from,to){
+  const svg=plot.querySelector(".exchart__svg");if(!svg)return;
+  const dot=n=>svg.querySelector(`.ex-pt[data-i="${n}"]`),cursor=svg.querySelector(".ex-cursor");
+  const m=focusMotion(),before=m&&dot(from)?dot(from).getBoundingClientRect():null;
+  const cursorBox=()=>{const r=cursor.getBoundingClientRect();return{left:r.left-.5,top:r.top,width:1,height:r.height}};
+  const cursorBefore=m&&cursor?cursorBox():null;
+  svg.querySelectorAll(".ex-pt[data-i]").forEach(c=>{
+    const n=+c.dataset.i,on=n===to;
+    c.setAttribute("r",on?"5":"3");c.classList.toggle("ex-pt--sel",on);
+    c.classList.toggle("ex-pt--old",!on&&!model.pts[n]?.block)});
+  const target=dot(to);
+  if(cursor&&target){const x=target.getAttribute("cx");cursor.setAttribute("x1",x);cursor.setAttribute("x2",x)}
+  if(!m||!before||!cursorBefore||!target||!cursor)return;
+  const box=plot.getBoundingClientRect();
+  let pair=chartMarkers.get(plot);
+  if(!pair){
+    pair={dot:document.createElement("span"),line:document.createElement("span")};
+    pair.dot.className="exchart__marker";pair.line.className="exchart__scrub";
+    for(const n of [pair.line,pair.dot]){n.setAttribute("aria-hidden","true");plot.append(n)}
+    chartMarkers.set(plot,pair);plot.classList.add("is-marker-travel")}
+  const place=(node,r)=>{node.style.left=`${r.left-box.left}px`;node.style.top=`${r.top-box.top}px`;
+    node.style.width=`${r.width}px`;node.style.height=`${r.height}px`};
+  const toDot=target.getBoundingClientRect(),toLine=cursorBox();
+  place(pair.dot,toDot);place(pair.line,toLine);
+  const token=pair.token={};
+  const done=()=>{
+    if(pair.token!==token)return;
+    pair.dot.remove();pair.line.remove();chartMarkers.delete(plot);plot.classList.remove("is-marker-travel")};
+  Promise.all([m.animateIndicator(pair.line,cursorBefore),m.animateIndicator(pair.dot,before)]).then(done,done)}
+
 function editorDocumentFromSnapshot(snapshot){
   return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),
     customExercises:cloneSnapshot(snapshot?.customExercises||[])}
@@ -9137,7 +10571,7 @@ function editorAdapterTranslate(key,vars,fallback){
 function editorChooseExercise(request){
   return new Promise(resolve=>{
     const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternates"?t("picker.title_alternates"):t("picker.add_to",{day:dayLabel(request?.day)}),
-      subtitle:request?.exercise?.name||"",exclude:request?.exclude||[],onPick:async entry=>{
+      subtitle:request?.exercise?exerciseDisplayName(request.exercise):"",exclude:request?.exclude||[],onPick:async entry=>{
         // Share repair applies as soon as the picker has handed back a valid
         // replacement. Wait for the picker's own close transition first: the
         // modal controller still owns it while choosePicked awaits onPick, and
@@ -9415,12 +10849,14 @@ function createInstalledProgramEditorAdapter(){
     dayAddPlacement:()=>"outside",
     exerciseEntry:(id)=>libraryEntry(id),
     exerciseLabel:(exercise)=>exercise?.name,
+    exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
     context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
     status:()=>"",
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
     reducedMotion:()=>reducedMotion(),
-    announce:(message)=>toast(message),
+    announce:announceEditorChange,
+    afterModal:afterModalSettles,
   }
 }
 window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:cloneSnapshot(installedEditorSession),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
@@ -9442,12 +10878,14 @@ function createOnboardingProgramEditorAdapter(){
     dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
     exerciseEntry:(id)=>libraryEntry(id),
     exerciseLabel:(exercise)=>exercise?.name,
+    exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
     context:()=>"",
     status:()=>editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved"),
     confirm:()=>true,
     reducedMotion:()=>reducedMotion(),
-    announce:(message)=>toast(message),
+    announce:announceEditorChange,
+    afterModal:afterModalSettles,
   }
 }
 function updateOnboardingEditorActions(){
@@ -9456,10 +10894,11 @@ function updateOnboardingEditorActions(){
   if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
   const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
   const progression=issues.some(issue=>issue.startsWith("progression_incompatible:"));
-  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:")).map(issue=>
+  /* Named the way the day rows name them (dayLabel), never as the stored "Day N". */
+  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:")).map(issue=>dayLabel(
     entryState.result?.preview?.programStructure?.days
       ?.find(day=>day.dayId===issue.slice("day_empty:".length))?.label
-      ||issue.slice("day_empty:".length));
+      ||issue.slice("day_empty:".length)));
   const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
     issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
@@ -9676,7 +11115,7 @@ function renderProgram(){
   if(nav)nav.dataset.elevation="floating";
   if(blank)blank.classList.toggle("hidden",!noProgram);
   if(noProgram){
-    programReadyView=false;
+    $("#program")?.classList.remove("program-ledger");
     setProgramMetadataHidden(true,{inert:true});
     for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
       const el=$(sel);if(el)el.classList.add("hidden")}
@@ -9689,12 +11128,12 @@ function renderProgram(){
   renderProgramOverview();
   const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle");
   view?.classList.toggle("program-editor-installed",programEditMode);
+  view?.classList.toggle("program-ledger",!programEditMode);
   if(ov)ov.classList.toggle("is-hidden",programEditMode);
   if(ed)ed.classList.toggle("is-hidden",!programEditMode);
-  // The overview's readiness list must not expose stale metadata controls. The
-  // installed editor keeps the existing metadata DOM for its production edit
+  // The installed editor keeps the existing metadata DOM for its production edit
   // seam, but leaves it out of the visual layout like the prior editor did.
-  setProgramMetadataHidden(programEditMode||programReadyView,{inert:programReadyView});
+  setProgramMetadataHidden(programEditMode);
   if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
   // Advanced remains part of the installed editor. It is inside the editor
@@ -9720,52 +11159,49 @@ function focusEntryEditorStatus(){
   entryEditorStatusFocusPending=false;
   try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
   return true}
-function programReadyExercises(){const ready=[];
-  for(const dayName of prog.days())for(const exercise of prog.forDay(dayName)){
-    const status=recommendation(exercise).status;
-    if(status==="add"||status==="add2")ready.push({id:exercise.id,day:dayName,exercise,status})}
-  return ready}
-function renderProgramReadyView(el,ready){
-  el.innerHTML=`<div class="program-ready__head"><button type="button" class="back-link" id="programReadyBack" data-action-role="navigation">${esc(t("program.ready.back"))}</button>`+
-    `<h3 class="program-ready__title">${esc(t("program.ready.title"))}</h3></div>`+
-    `<div class="program-ready__list">${ready.map(item=>`<button type="button" class="listrow program-ready__row" data-ready-ex="${esc(item.id)}" data-action-role="navigation" aria-label="${esc(t("log.open_exercise_aria",{name:item.exercise.name}))}">`+
-      `<div class="listrow__main"><div class="listrow__title">${esc(item.exercise.name)}</div><div class="listrow__sub">${esc(dayLabel(item.day))}</div></div>`+
-      `<span class="chevron" aria-hidden="true"></span></button>`).join("")}</div>`;
-  $("#programReadyBack")?.addEventListener("click",()=>{programReadyView=false;renderProgram();window.scrollTo({top:0})});
-  $$("#programOverview [data-ready-ex]").forEach(button=>button.addEventListener("click",()=>openExerciseView(button.dataset.readyEx,"program")))}
+/** The strategy that sets an exercise's next load, as the lifter names it. */
+function programStrategyName(ex){
+  const id=strategyIdFor(ex);
+  const names={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
+    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff"),
+    manual:t("program.progression.strategy.manual")};
+  return names[id]||t("program.progression.strategy.unsupported")}
+/** Names as a spoken list: each name keeps its own element and the separators are decoration. */
+function programNameList(items){
+  return items.map((value,i)=>(i?`<span aria-hidden="true"> · </span>`:"")+`<span>${esc(value)}</span>`).join("")}
+/** One ledger row of the Program overview: the exercise and its strategy, sets x range, and the load
+ *  `recommendation()` says comes next with the verdict mark. A manual row, or one with no history, has no
+ *  load to show: the program carries no authored load yet. */
+function programRowHtml(e){
+  const rec=recommendation(e),move=rec.status==="add"||rec.status==="add2"?"up":rec.status==="reduce"?"down":"",
+    showLoad=rec.status!=="manual"&&rec.load!=null&&Number.isFinite(+rec.load);
+  const mark=move?`<span class="rxrow__mark" aria-hidden="true"><span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph"></span></span></span>`:"";
+  const word=move==="up"?t("rec.add.label"):move==="down"?t("rec.reduce.label"):"";
+  return `<button type="button" class="rxrow" data-exopen="${esc(e.id)}" data-action-role="navigation">`+
+    `<span class="rxrow__name">${esc(exerciseDisplayName(e))}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
+    `<span class="rxrow__target">${e.sets} × ${e.min}–${e.max}</span>`+
+    `<span class="rxrow__load"${showLoad?` data-parity-target="${esc(e.id)}"`:""}>${showLoad?mark+(word?`<span class="visually-hidden">${esc(word)} </span>`:"")+esc(fmtLoad(rec.load)):""}</span></button>`}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
-  const ready=programReadyExercises();
-  if(programReadyView){
-    if(ready.length){renderProgramReadyView(el,ready);return}
-    programReadyView=false}
-  const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
+  const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth();
   const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
   const segs=mc.total||6,cur=mc.current||0;
-  const started=meta.started?(()=>{const d=new Date(`${meta.started}T12:00:00`);return t("program.started_on",{date:`${d.getDate()} ${t("month_short."+d.getMonth())}`})})():"";
-  let daysHtml=`<p class="section-label">${esc(t("program.training_days"))}</p>`;
-  // A saved array — including an empty one — means the user picked; only an absent pref falls back to the first day.
-  const saved=Array.isArray(uiPrefs.overviewOpenDays)?uiPrefs.overviewOpenDays.filter(x=>typeof x==="string"):null;
-  const openDays=new Set(saved||(ds.length?[ds[0]]:[]));
-  for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
-    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" data-action-role="expansion" aria-expanded="${open?"true":"false"}"><div>`+
-      `<div class="prog-day__title">${esc(dayLabel(d))}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.map(muscleLabel).join(" · "))}</div>`:""}</div>`+
-      `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
-    if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}" data-action-role="navigation" aria-label="${esc(t("log.open_exercise_aria",{name:e.name}))}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
-      `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}" data-action-role="navigation"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
-    daysHtml+=`</div>`}
+  const plainWeek=!mc.isComplete&&!mc.isFinalWeek&&mc.current!=null;
+  const lede=goal&&plainWeek?t("program.overview.lede",{goal,days:ds.length,n:mc.current,total:mc.total})
+    :[goal,tOne("program.days_per_week",ds.length)].filter(Boolean).join(" · ");
+  let daysHtml="";
+  ds.forEach((d,i)=>{const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d).map(muscleLabel);
+    daysHtml+=`<section class="prog-day" aria-labelledby="progDay${i}"><div class="prog-day__head"><h4 class="prog-day__title" id="progDay${i}">${esc(dayLabel(d))}</h4>`+
+      `<p class="prog-day__meta">${mus.length?programNameList(mus)+`<span aria-hidden="true"> · </span>`:""}<span>${esc(sets===1?t("history.sets.one",{n:sets}):t("entry.catalogue.sets_exact",{n:sets}))}</span></p></div>`+
+      `<div class="prog-cols" aria-hidden="true"><span>${esc(t("stats.exercise"))}</span><span>${esc(t("ledger.col.sets_range"))}</span><span>${esc(t("ledger.col.next",{unit:unitLabel()}))}</span></div>`+
+      (i===0?`<p class="prog-legend">${esc(t("program.overview.legend"))}</p>`:"")+
+      exs.map(programRowHtml).join("")+`</section>`});
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
-  el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
-    `<div class="prog-overview__meta">${[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ")}</div>`+
-    (mc.current!=null||mc.isComplete?`<div class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</div>`+
-      `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
-    (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
-    `<div class="statrow">`+
-    `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.days_7d"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${vol?Math.round(vol.ratio*100)+"%":"—"}</div><div class="statrow__cap">${esc(t("program.stat.volume"))}</div></div>`+
-    `</div>${daysHtml}`+
-    (ready.length
-      ? `<button type="button" class="listrow program-ready-link" id="programReadyLink" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.ready_to_add",{n:ready.length}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`
-      : "")+
+  el.innerHTML=`<h3 class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</h3>`+
+    `<p class="prog-overview__meta">${esc(lede)}</p>`+
+    (!(goal&&plainWeek)&&(mc.current!=null||mc.isComplete)?`<p class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</p>`:"")+
+    (mc.current!=null||mc.isComplete?`<div class="segbar" aria-hidden="true" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i+1<Math.min(cur,segs)||mc.isComplete?" is-done":i+1===cur?" is-current":""}"></span>`).join("")}</div>`:"")+
+    `<p class="prog-overview__status">${esc(t("program.overview.status",{status:programStatusLabel(ad,health),n:ad.logged,m:ad.total}))}</p>`+
+    daysHtml+
     `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
     `<button type="button" class="listrow" id="seeVolumeAudit" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
     `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
@@ -9775,21 +11211,11 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     (ds.length?`<button type="button" class="listrow" id="shareProgramSetup" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
       `<div class="listrow__sub">${esc(t("program.share_setup_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
     `<button type="button" class="listrow" id="reviewBlockLink" data-action-role="navigation" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
-  $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
-    const cur=new Set(openDays);
-    cur.has(b.dataset.ovday)?cur.delete(b.dataset.ovday):cur.add(b.dataset.ovday);
-    setUiPref("overviewOpenDays",[...cur].filter(x=>ds.includes(x)));renderProgramOverview()});
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
-  $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
-  const readyLink=$("#programReadyLink");if(readyLink)readyLink.onclick=()=>{captureEvent("program_readiness_navigated",{ready_count_bucket:coarseCountBucket(ready.length)});programReadyView=true;renderProgram();window.scrollTo({top:0})};
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram()};
   const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
-
-function openDayInEditor(d){if(!d||!prog.days().includes(d))return;
-  setDayCollapsed(d,false);programEditMode=true;renderProgram();
-  $(`#programEditor .pday[data-day="${CSS.escape(d)}"]`)?.scrollIntoView({behavior:"smooth",block:"start"})}
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
@@ -9803,7 +11229,6 @@ function renderProgramChips(){
 
 function renderProgramHeader(){
   const el=$("#programMeta");if(!el)return;
-  if(programReadyView){setProgramMetadataHidden(true,{inert:true});return}
   setProgramMetadataHidden(false);
   if(!setupEditorOpen&&document.activeElement?.closest("#programMeta"))return;
   if(setupEditorOpen){
@@ -9813,8 +11238,8 @@ function renderProgramHeader(){
       entryUiNotice==="save_failed"?t("entry.save_failed.body"):null;
     const progressionError=issues.some(issue=>issue.startsWith("progression_incompatible:"));
     const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"))
-      .map(issue=>entryState.result?.preview?.programStructure?.days
-        ?.find(item=>item.dayId===issue.slice("day_empty:".length))?.label||issue.slice("day_empty:".length));
+      .map(issue=>dayLabel(entryState.result?.preview?.programStructure?.days
+        ?.find(item=>item.dayId===issue.slice("day_empty:".length))?.label||issue.slice("day_empty:".length)));
     const issueStatus=issues.some(issue=>issue.startsWith("progression_incompatible:"))
       ?t("entry.editor.progression_invalid")
       :issues.some(issue=>issue.startsWith("exercise_invalid:"))
@@ -9899,7 +11324,7 @@ function dayCard(d){
   return `<div class="pday${isCollapsed?" is-collapsed":""}" data-day="${esc(d)}">`+
     `<div class="pday__head">`+
       `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(dayLabel(d))}" aria-label="${esc(t("program.day.name_aria"))}">`+
-      `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets}))}</span>`+
+      `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets:countText("sets",sets)}))}</span>`+
       `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
       `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
     `</div>`+
@@ -9973,7 +11398,7 @@ function exCard(e,i,n){
   return `<div class="pex" data-id="${esc(e.id)}">`+
     `<div class="pex__head">`+
       `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="${esc(t("program.exercise.name_placeholder"))}" aria-label="${esc(t(linked?"program.exercise.alias_aria":"program.exercise.name_aria"))}">`+
-      `<button class="iconbtn pex__swap${linked?"":" is-unlinked"}" type="button" data-act="changeEx" data-id="${esc(e.id)}" title="${esc(t("program.exercise.change_title"))}" aria-label="${esc(t("program.exercise.change_aria",{name:e.name}))}"><span class="icon-mask icon-mask--sm icon-mask--search" aria-hidden="true"></span></button>`+
+      `<button class="iconbtn pex__swap${linked?"":" is-unlinked"}" type="button" data-act="changeEx" data-id="${esc(e.id)}" title="${esc(t("program.exercise.change_title"))}" aria-label="${esc(t("program.exercise.change_aria",{name:exerciseDisplayName(e)}))}"><span class="icon-mask icon-mask--sm icon-mask--search" aria-hidden="true"></span></button>`+
       `<div class="pex__move">`+
         `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="${esc(t("program.exercise.move_up"))}">▲</button>`+
         `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="${esc(t("program.exercise.move_down"))}">▼</button>`+
@@ -10188,7 +11613,7 @@ async function editorAction(act,ds){
         if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
   else if(act==="changeEx"){
     const ex=programEditorProgram().find(ds.id);if(!ex)return;
-    openExercisePicker({title:t("picker.title_change"),subtitle:ex.name,
+    openExercisePicker({title:t("picker.title_change"),subtitle:exerciseDisplayName(ex),
       exclude:programEditorProgram().forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
         const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
@@ -10198,7 +11623,7 @@ async function editorAction(act,ds){
         if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
   else if(act==="detachEx"){
     const ex=programEditorProgram().find(ds.id);if(!ex)return;
-    if(!confirm(t("confirm.detach_exercise",{name:ex.name})))return;
+    if(!confirm(t("confirm.detach_exercise",{name:exerciseDisplayName(ex)})))return;
     const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     if(!nextProgram.detachExercise(ds.id))return;
     proposal.program=nextProgram.toJSON();
@@ -10215,7 +11640,7 @@ async function editorAction(act,ds){
       const hit=byName.get(foldSearch(n));
       if(hit){preselected.push(hit);continue}
       const extra=nameOnlyEntry(n);extras.push(extra);preselected.push(extra.id)}
-    openExercisePicker({title:t("picker.title_alternates"),subtitle:ex.name,mode:"multi",
+    openExercisePicker({title:t("picker.title_alternates"),subtitle:exerciseDisplayName(ex),mode:"multi",
       selected:preselected,extras,exclude:[ex.libraryId].filter(Boolean),
       onPick:async entries=>{
         const result=await commitEditorField(ds.id,"alternates",entries.map(libraryName).join(", "));
@@ -10628,7 +12053,7 @@ function programText(){
   for(const d of ds){
     const mus=dayMuscles(d).map(muscleLabel);
     lines.push("",`${up(d)}${mus.length?`: ${mus.join(" · ")}`:""}`);
-    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name}: ${e.sets}× ${programTextReps(e)}`))}
+    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${exerciseDisplayName(e)}: ${e.sets}× ${programTextReps(e)}`))}
   const data=programTextData(meta,prog.toJSON());
   if(data)lines.push("",PROGRAM_TEXT_DATA_MARKER,JSON.stringify(data));
   return lines.join("\n")}
@@ -11124,6 +12549,7 @@ function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=f
   setCustomExercisePhase(customState,"editing");
   customReturn=document.activeElement;
   if(name)name.value=entry?.name||"";
+  setCustomNameError(null);
   const notes=$("#exCustomNotes");if(notes)notes.value=entry?.notes||"";
   const del=$("#exCustomDelete");
   if(del){const action=inUse?"custom.archive":"custom.delete";
@@ -11290,17 +12716,33 @@ async function finishCustomExerciseMutation(active,{operation,entry}){
     operation==="edit"?"toast.custom_saved":
     operation==="archive"?"toast.custom_archived":"toast.custom_deleted";
   toast(t(message));
+  if(operation==="create")customCreatedToastAt=performance.now();
   if(operation==="delete"||operation==="archive"){
     if(libFlow)renderLibrary();else if(pickerState)renderPickerList();
     return}
   if(active.onSave&&entry)await active.onSave(entry);
   else if(pickerState)renderPickerList()}
 
+/** The name field carries its own error (R7 J-21): focus, aria-invalid and a note linked by aria-describedby, not a toast alone. */
+const CUSTOM_NAME_ERROR_ID="exCustomNameError";
+function setCustomNameError(message){
+  const input=$("#exCustomName");if(!input)return;
+  let note=document.getElementById(CUSTOM_NAME_ERROR_ID);
+  if(!message){
+    input.removeAttribute("aria-invalid");
+    if(input.getAttribute("aria-describedby")===CUSTOM_NAME_ERROR_ID)input.removeAttribute("aria-describedby");
+    note?.remove();return}
+  if(!note){
+    note=document.createElement("p");note.id=CUSTOM_NAME_ERROR_ID;note.className="custom__error";note.setAttribute("role","alert");
+    (input.closest("label")||input).after(note)}
+  note.textContent=message;
+  input.setAttribute("aria-invalid","true");input.setAttribute("aria-describedby",CUSTOM_NAME_ERROR_ID);
+  try{input.focus()}catch{}}
 async function saveCustomExerciseSheet(){
   const active=customState;
   if(!active||active.phase!=="editing")return;
   const name=String($("#exCustomName")?.value||"").trim();
-  if(!name){toast(t("toast.custom_needs_name"));return}
+  if(!name){setCustomNameError(t("toast.custom_needs_name"));return}
   if(!active.id){
     const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
     if(twin&&twin.id!==active.duplicateAcknowledgedId){
@@ -11814,27 +13256,39 @@ function libraryResumeOptions(){
   return{day:libFlow.day,tab:libFlow.tab,query:libFlow.query,muscle:libFlow.muscle,
     equipment:libFlow.equipment,step:libFlow.step,editorScope:libFlow.editorScope,
     selected:[...libFlow.selected.entries()].map(cloneSnapshot)}}
-function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null,editorScope=false}={}){
+function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null,editorScope=false,returnTo=null}={}){
   libFlow={day:dayName,tab:LIB_PAGE_TABS.includes(tab)?tab:"browse",query:String(query||""),muscle,equipment,step,
     editorScope:!!editorScope,selected:librarySelectionMap(selected)};
-  libReturn=document.activeElement;
+  // Reached through the picker, the control that was pressed is the picker's own and it is gone by now: the caller
+  // names the control that opened the picker instead (R7 J-19).
+  libReturn=returnTo||document.activeElement;
+  const settle=routePushBegin("in",{pushed:$("#library"),under:routeViewEl(currentViewId())});
   document.body.classList.add("is-library");
   document.body.classList.remove("is-preview");
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));
   window.scrollTo({top:0});
   const search=$("#libSearch");if(search)search.value=libFlow.query;
   renderLibrary();
-  search?.focus({preventScroll:true})}
+  search?.focus({preventScroll:true});
+  settle?.()}
 
 function closeLibrary({toProgram=true}={}){
   const returnToOnboarding=!!libFlow?.editorScope&&setupEditorOpen;
   libFlow=null;
+  const settle=toProgram?routePushBegin("out",{pushed:$("#library"),under:routeViewEl(returnToOnboarding?"onboarding":"program")}):null;
   document.body.classList.remove("is-library","is-preview");
-  const back=resolveReturnFocus(libReturn);libReturn=null;
+  let back=resolveReturnFocus(libReturn);
+  // The editor may have redrawn its Add control since: ask for its equivalent by day.
+  if(!back&&libReturn instanceof Element&&libReturn.dataset?.role==="add-exercise")
+    back=resolveReturnFocus($$(`[data-role="add-exercise"][data-day="${CSS.escape(libReturn.dataset.day||"")}"]`).find(canTakeFocus));
+  if(back===document.body||back===document.documentElement)back=null;
+  libReturn=null;
   if(toProgram){
     if(returnToOnboarding){showOnboardingView();renderOnboarding()}
     else returnToTab("program")}
-  if(back)try{back.focus({preventScroll:true})}catch{}}
+  // Back lands on the control that opened the library, or else on the heading of the page it returns to.
+  if(!(back&&focusRoute(back)))focusRoute(routeHeading(returnToOnboarding?"onboarding":"program"));
+  settle?.()}
 
 function renderLibrary(){
   if(!libFlow)return;
@@ -11950,7 +13404,7 @@ function renderLibraryConfigure(){
   const rows=libraryConfigureRows();
   const count=$("#libConfigureCount");
   if(count)count.textContent=t("library.configure_count",
-    {n:rows.length,sets:rows.reduce((a,r)=>a+r.cfg.sets,0)});
+    {exercises:countText("exercises",rows.length),sets:countText("sets",rows.reduce((a,r)=>a+r.cfg.sets,0))});
   el.innerHTML=rows.map(r=>
     `<div class="libcfg" data-cfg="${esc(r.id)}">`+
       exerciseThumb(r.entry,{size:"md"})+
@@ -12013,7 +13467,7 @@ async function commitLibrarySelection(){
     onboardingProgramEditor?.discard?.();
     updateOnboardingEditorActions();
   }else render();
-  toast(t("toast.exercises_added",{n}));
+  toast(tOne("toast.exercises_added",n));
   return result}
 
 /* ---- exercise preview ---- */
@@ -12021,19 +13475,23 @@ async function commitLibrarySelection(){
 function openExercisePreview(id){
   const entry=libraryEntry(id);if(!entry)return;
   previewState={id,from:libFlow?"library":"picker",returnId:id};
+  const settle=routePushBegin("in",{pushed:$("#exercisePreview"),under:routeViewEl(currentViewId())});
   document.body.classList.add("is-preview");
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercisePreview"));
   window.scrollTo({top:0});
   renderExercisePreview();
-  $("#previewBack")?.focus({preventScroll:true})}
+  $("#previewBack")?.focus({preventScroll:true});
+  settle?.()}
 
 function closeExercisePreview(){
   const back=previewState?.from,returnId=previewState?.returnId;
   previewState=null;
+  const settle=routePushBegin("out",{pushed:$("#exercisePreview"),under:routeViewEl(back==="library"&&libFlow?"library":"program")});
   document.body.classList.remove("is-preview");
   if(back==="library"&&libFlow){$$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));renderLibrary();
     requestAnimationFrame(()=>{const target=$(`[data-lib-preview="${CSS.escape(returnId||"")}"]`);if(target)target.focus({preventScroll:true})})}
-  else{document.body.classList.remove("is-library");returnToTab("program")}}
+  else{document.body.classList.remove("is-library");returnToTab("program")}
+  settle?.()}
 
 function renderExercisePreview(){
   const el=$("#previewBody");if(!el||!previewState)return;
@@ -12109,10 +13567,20 @@ function renderImportReview(){
     $$("#importRows [data-imp-act]").forEach(b=>
       b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey,b.dataset.impIdx));
   }
-  const commit=$("#importCommit");
+  /* The one primary lives in the pinned region. While rows still need a
+     decision it is disabled, drops its arrow, and the count says why directly
+     above it, the same way every route's pinned action does. */
+  const commit=$("#importCommit"),reason=$("#importCommitReason");
   if(commit){
-    commit.disabled=counts.review>0;
-    commit.textContent=counts.review>0?t("import.commit_blocked",{n:counts.review}):t("entry.preview.review")}
+    const blocked=counts.review>0;
+    commit.disabled=blocked;
+    commit.textContent=t("entry.preview.review");
+    commit.classList.toggle("btn--noarrow",blocked);
+    if(blocked)commit.setAttribute("aria-describedby","importCommitReason");
+    else commit.removeAttribute("aria-describedby");
+    if(reason){
+      reason.hidden=!blocked;
+      reason.textContent=blocked?t("import.commit_blocked",{n:counts.review}):""}}
 }
 
 function importRowHtml(row){
@@ -12221,6 +13689,8 @@ function openImportReview(draft){
   document.body.classList.add("is-import");
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="importReview"));
   window.scrollTo({top:0});
+  // The review is its own scroll container, like the route it belongs to.
+  const reviewView=$("#importReview");if(reviewView)reviewView.scrollTop=0;
   renderImportReview();
   const counts=importCounts(draft),target=counts.review
     ?$("#importRows .improw.is-open [data-imp-act]")
@@ -12939,7 +14409,7 @@ function renderFreeformGapsStep(){
     notImportedHtml+
     (entryFreeformGapErrors.size?`<p class="entry__notice entry__notice--warn" role="alert">${esc(t("entry.freeform.gap_error"))}</p>`:"")+
     `<div class="entry__gaps-list">${gapRows}</div>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryFreeformSubmitGaps">${esc(t("entry.freeform.gaps_submit"))}</button>`+
+    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryFreeformSubmitGaps">${esc(t("entry.freeform.gaps_submit"))}</button>`+
     `<button type="button" class="btn btn--steel" id="entryFreeformBackToReply">${esc(t("entry.freeform.back_to_reply"))}</button></div>`;
 }
 
@@ -12995,7 +14465,7 @@ function openImportChoice(ctx){const d=$("#importChoice");
     if(importBusy)return;importBusy=true;
     const discardDraftRaw=readDraftRaw();
     try{const result=await replaceImportedState(ctx.s,io,{discardDraftRaw});
-      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();leaveSetupGates();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))}}
+      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();leaveSetupGates();render();toast(tOne("toast.imported_sessions",ctx.inSessions,{sessions:ctx.inSessions}))}}
     finally{importBusy=false}};
   $("#importMerge").onclick=async()=>{
     if(importBusy)return;importBusy=true;
@@ -13015,6 +14485,15 @@ const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
 let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
+/* Entry presentation state: the confirm dialog on screen ("restart", "replace";
+   "cancel" is `entryUiNotice` because other flows already ask for it), and the
+   route-help panel on the hub. None of it is part of the draft. */
+let entryDialog=null,entryHelpOpen=false,entryHelp={q1:null,q2:null},entryChange=null,entryGoalFromHub=false;
+/* Review-time UI that is never part of the draft: whether the "about" screen's
+   goal question is open, the answer editor open under its chip (with a private
+   copy of the answers it edits), and the program the lifter just left, for the
+   change statement when the same walk comes back to a result. */
+let entryGoalOpen=false,entryEditor=null,entryEditorSwap=false,entryEditorRerender=false,entryLastPreview=null,entryReviewError=null;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
 let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
@@ -13225,6 +14704,7 @@ function disarmEntryHistory(){
 function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
+  entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
   $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor","is-settings");
@@ -13238,10 +14718,26 @@ function reportEntryRoute(route){
   entryEngaged=true;
   captureEvent("program_path_selected",{route});
   if(route==="recommend"||route==="custom")captureEvent("generator_started",{mode:"baseline"})}
+/* Where an entry flow was started from, so cancelling it returns there and puts
+   focus back on the control that opened it. The landing is the one start that
+   cannot be returned to: it is the boot surface, closed for good once the lifter
+   leaves it, so cancelling lands on Today's no-program state. Activation always
+   ends on Today. */
+let entryReturnTo=null;
+function captureEntryReturn(){
+  if($("#onboarding")?.classList.contains("active"))return;
+  const view=currentViewId();
+  entryReturnTo={view:["stats","history","program","settings"].includes(view)?view:"log",control:routeInvokerControl()}}
+function returnFromEntry(back){
+  const view=back?.view||"log";
+  if(view==="settings")showSettings();
+  else if(view!=="log")returnToTab(view);
+  focusRoute(back?.control||routeHeading(view))}
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
+  captureEntryReturn();
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
+  entryEngaged=false;entryOwnOpen=false;entryDialog=null;entryHelpOpen=false;entryHelp={q1:null,q2:null};entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   if(opts.forceFresh||opts.resume===false){
@@ -13304,11 +14800,11 @@ function isGuidedRepairSetupDraft(envelope){
   }
   return false;
 }
+/** The chooser never opens by itself before onboarding: the landing is the boot
+ *  surface and leads to it. An onboarded device still resumes a guided repair
+ *  draft straight into the editor. */
 function maybeShowOnboarding(){
-  if(!state.programMeta?.onboarded&&state.log.length===0){
-    startOnboarding("first-run",{userInitiated:false});
-    return;
-  }
+  if(!state.programMeta?.onboarded&&state.log.length===0)return;
   const record=readSetupDraftRecord();
   if(record.ok&&record.envelope&&isGuidedRepairSetupDraft(record.envelope)){
     startOnboarding("settings",{userInitiated:false});
@@ -13317,9 +14813,12 @@ function maybeShowOnboarding(){
 }
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
-  onboardingOrigin=null;closeOnboarding()}
+  onboardingOrigin=null;
+  const back=entryReturnTo;entryReturnTo=null;
+  closeOnboarding();returnFromEntry(back)}
 function requestEntryCancel(){
   if(!entryState)return cancelOnboarding();
+  entryDialogOpener=entryOpenerToken();
   entryUiNotice="cancel";
   persistSetupDraft(entryState);
   renderOnboarding()}
@@ -13334,6 +14833,7 @@ async function discardEntryDraftAndCancel(){
   cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
   entryState=next;
+  if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
   syncEntryHistory();
   if(persist)persistSetupDraft(entryState);
@@ -13353,7 +14853,7 @@ function collapseSingleCustomShape(){
   entryState=advanced.state;
   persistSetupDraft(entryState);
   return true}
-function entrySelectRoute(route){
+function entrySelectRoute(route,{goal=null}={}){
   if(!ProgramEntry||!entryState)return;
   reportEntryRoute(route);
   entryPinnedVersionsExecutable=false;
@@ -13364,24 +14864,43 @@ function entrySelectRoute(route){
     const splits=entryServices()?.splitChoices(selected.answers)||{choices:[]};
     if(splits.choices.length===1)selected=ProgramEntry.setAnswers(selected,{splitPreference:splits.choices[0].id});
   }
-  entryOwnOpen=false;
-  entrySetState(selected)}
+  /* The hub's featured block is Recommend's first question (Q627): one tap
+     chooses the route, answers the goal and moves on. It is the same three
+     commands the goal screen would have run, composed into one transition so
+     the draft is written once, after the goal exists. */
+  if(route==="recommend"&&goal){
+    const answered=ProgramEntry.setAnswers(selected,{desiredResult:goal});
+    const advanced=ProgramEntry.advance(answered);
+    selected=advanced.ok?advanced.state:answered}
+  entryOwnOpen=false;entryHelpOpen=false;entryHelp={q1:null,q2:null};
+  entrySetState(selected);
+  // Back from the first screen after a goal tap returns to the hub the goal was
+  // asked on, not to a second goal screen.
+  entryGoalFromHub=route==="recommend"&&!!goal&&selected.step==="background"}
 function entryPatchAnswers(patch){
   if(!ProgramEntry||!entryState)return;
+  // An open answer editor edits its own copy: nothing is persisted or rendered until Update program.
+  if(entryEditorSwap){entryState=ProgramEntry.setAnswers(entryState,patch);entryEditorRerender=true;return}
   entryPinnedVersionsExecutable=false;
   entrySetState(ProgramEntry.setAnswers(entryState,patch))}
+/* The questionnaire's sections, as the lifter counts them. Goal and background
+   share one section (Q627): the semantic steps stay separate, and a UI adapter
+   may group closely related questions on one screen. Browse's list is the
+   result of its two questions, not a third. */
+function entrySections(route){
+  const sections={
+    recommend:[["desired_result","background"],["schedule"],["environment"],["priorities"]],
+    custom:[["desired_result","background"],["schedule"],["environment"],["priorities"],["exercise_preferences"],["custom_shape"]],
+    browse:[["schedule"],["environment"]]}[route]||[];
+  return route==="custom"&&!entryCustomShapeRequired()?sections.filter(group=>group[0]!=="custom_shape"):sections}
 function entryProgressSections(route){
   if(!route)return{n:0,total:1,show:false};
-  const steps=ProgramEntry.ROUTE_STEPS[route]||[];
-  const semantic=steps.filter(step=>!["result","preview","editor","activation_conflict"].includes(step)&&
-    !(route==="custom"&&step==="custom_shape"&&!entryCustomShapeRequired()));
-  const semanticIndex=semantic.indexOf(entryState.step);
-  const n=semanticIndex>=0?semanticIndex+1:semantic.length;
+  const sections=entrySections(route);
+  const index=sections.findIndex(group=>group.includes(entryState.step));
   /* A meter is only informative while the user is moving through questions and
      there is more than one of them. On a review, a result or a single-question
      route it either lies (pinned full) or says nothing ("1 of 1"). */
-  const show=semantic.length>1&&semanticIndex>=0;
-  return{n:Math.min(n,semantic.length||1),total:Math.max(semantic.length,1),show}}
+  return{n:index>=0?index+1:sections.length,total:Math.max(sections.length,1),show:sections.length>1&&index>=0}}
 function entryRouteLabel(route){
   const labels={recommend:t("entry.route.recommend"),custom:t("entry.route.custom"),browse:t("entry.route.browse"),
     build:t("entry.route.build"),import:t("entry.route.import"),shared:t("entry.route.shared")};
@@ -13396,68 +14915,144 @@ function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,ro
     (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
     `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
     `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
-/* Compact uppercase section metadata, optionally led by a copper glyph. */
-function entryGroupLab(text,icon,attrs=""){
-  return `<p class="entry__group-lab${icon?" entry__group-lab--ico":""}"${attrs}>`+
-    (icon?`<span class="entry__group-lab-ico icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
-    `<span>${esc(text)}</span></p>`}
+/* A question, set as a sentence in ink. The glyph argument is kept so callers
+   read the same, but a question is not a column head and carries no icon. */
+function entryGroupLab(text,_icon,attrs=""){
+  return `<p class="entry__group-lab entry__question"${attrs}><span>${esc(text)}</span></p>`}
 function entryHeading(title){
   return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
 function entryLegacyBanner(){
   if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
   return `<p class="entry__legacy" role="note">${esc(t("entry.legacy.hint"))}</p>`}
+/* A door is a flat row: what it asks of the lifter, then what they get. The
+   copy states the cost of each way in so the choice is made on facts. */
+function entryDoor(route,{icon,title,ask,get,id="",kind="secondary",nested=false}){
+  return `<button type="button" class="entry-card entry-card--${kind}${nested?" entry-card--nested":""}"${id?` id="${id}"`:""}${route?` data-entry-route="${route}"`:""}>`+
+    `<span class="entry-card__icon icon-mask icon-mask--${icon}" aria-hidden="true"></span>`+
+    `<span class="entry-card__body"><span class="entry-card__title">${esc(title)}</span>`+
+    `<span class="entry-card__line"><span class="entry-card__k">${esc(t("entry.hub.you_do"))}</span> ${esc(ask)}</span>`+
+    `<span class="entry-card__line"><span class="entry-card__k">${esc(t("entry.hub.you_get"))}</span> ${esc(get)}</span></span>`+
+    `<span class="entry-card__go chevron" aria-hidden="true"></span></button>`}
+/* The resume card sits on the hub (Q633), above doors that stay inert until the
+   lifter chooses Resume or Start over: any door tap would otherwise overwrite
+   the saved draft on its next persist. */
+function renderEntryResumeCard(){
+  const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
+  const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
+  const where=[entryState?.route?entryRouteLabel(entryState.route):"",
+    entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
+  const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
+  return `<section class="entry__resume" aria-labelledby="entryResumeTitle">`+
+    `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
+    `<div class="entry__resume-copy"><h3 id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</h3><p>${esc(t("entry.resume.body"))}</p></div></div>`+
+    (detail?`<div class="entry__resume-loc"><span class="entry__resume-ico icon-mask icon-mask--pin" aria-hidden="true"></span><p>${esc(detail)}</p></div>`:"")+
+    `<p class="entry__resume-note">${esc(t("entry.resume.doors_note"))}</p>`+
+    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
+    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart" aria-haspopup="dialog">${esc(t("entry.resume.restart"))}</button></div></section>`}
+/* "Not sure which one?" asks two short questions and ends in the same route
+   call the doors make, so it reaches all five jobs without a sixth route. */
+function renderEntryHelp(){
+  const opt=(q,val,label)=>{
+    const on=entryHelp[q]===val;
+    return `<button type="button" class="entry-help__opt${on?" is-selected":""}" role="radio" aria-checked="${on}" data-entry-help="${q}" data-entry-help-val="${val}">${esc(label)}</button>`};
+  const q2=entryHelp.q1==="no"?{label:t("entry.help.q2_no"),opts:["recommend","custom","browse"]}
+    :entryHelp.q1==="yes"?{label:t("entry.help.q2_yes"),opts:["import","build"]}:null;
+  const target=q2&&q2.opts.includes(entryHelp.q2)?entryHelp.q2:null;
+  const q2Labels={recommend:t("entry.help.q2.recommend"),custom:t("entry.help.q2.custom"),browse:t("entry.help.q2.browse"),import:t("entry.help.q2.import"),build:t("entry.help.q2.build")};
+  return `<div class="entry-help" id="entryHelp" role="group" aria-labelledby="entryHelpToggle">`+
+    `<p class="entry-help__q" id="entryHelpQ1">${esc(t("entry.help.q1"))}</p>`+
+    `<div class="entry-help__opts" role="radiogroup" aria-labelledby="entryHelpQ1">${opt("q1","no",t("entry.help.q1_no"))}${opt("q1","yes",t("entry.help.q1_yes"))}</div>`+
+    (q2?`<p class="entry-help__q" id="entryHelpQ2">${esc(q2.label)}</p>`+
+      `<div class="entry-help__opts" role="radiogroup" aria-labelledby="entryHelpQ2">${q2.opts.map(o=>opt("q2",o,q2Labels[o])).join("")}</div>`:"")+
+    (target?`<button type="button" class="btn btn--cta btn--noarrow entry-help__go" id="entryHelpGo" data-entry-help-go="${target}">${esc(t("entry.help.go",{route:entryRouteLabel(target)}))}</button>`:"")+
+    `</div>`}
 function renderEntryHub(){
   // Keep the semantic body heading for focus and assistive technology. The
   // shell title is visually suppressed on this hub so it is not repeated.
+  const resuming=entryUiNotice==="resume";
+  const active=hasActiveProgram();
+  const goals=["muscle_growth","balanced","strength"].map(goal=>
+    `<button type="button" class="entry-card entry-card--primary entry-goal" data-entry-route="recommend" data-entry-goal="${goal}">`+
+    `<span class="entry-card__icon icon-mask icon-mask--${ENTRY_DESIRED_ICONS[goal]}" aria-hidden="true"></span>`+
+    `<span class="entry-card__body"><span class="entry-card__title">${esc(t(`entry.desired_result.${goal}.label`))}</span>`+
+    `<span class="entry-card__cap">${esc(t(`entry.desired_result.${goal}.sub`))}</span></span>`+
+    `<span class="entry-card__go chevron" aria-hidden="true"></span></button>`).join("");
+  const group=(label,labelId,inner)=>`<div class="entry-hubgroup" role="group" aria-labelledby="${labelId}"><p class="entry__group-lab" id="${labelId}">${esc(label)}</p>${inner}</div>`;
   return entryHeading(t("entry.hub.title"))+
-    `<p class="onb__explain entry-hub__lede">${esc(t("entry.hub.lede"))}</p>`+
-    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<p class="onb__explain entry-hub__lede">${esc(t(active?"entry.hub.lede_existing":"entry.hub.lede"))}</p>`+
+    (active?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     entryLegacyBanner()+
-    `<div class="entry__hub entry__hub--routes">`+
-      `<p class="entry__group-lab">${esc(t("entry.hub.group.written"))}</p>`+
-      `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__icon icon-mask icon-mask--wand" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<button type="button" class="entry-card entry-card--secondary entry-card--subordinate" data-entry-route="custom"><span class="entry-card__icon icon-mask icon-mask--sliders" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<p class="entry__group-lab">${esc(t("entry.hub.group.browse"))}</p>`+
-      `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__icon icon-mask icon-mask--search" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<p class="entry__group-lab">${esc(t("entry.hub.group.own"))}</p>`+
+    (resuming?renderEntryResumeCard():"")+
+    `<div class="entry__hub entry__hub--routes"${resuming?" inert":""}>`+
+      `<div class="entry-helpblock"><button type="button" class="entry-help__toggle" id="entryHelpToggle" aria-expanded="${entryHelpOpen?"true":"false"}" aria-controls="entryHelp">${esc(t("entry.help.toggle"))}</button>${entryHelpOpen?renderEntryHelp():""}</div>`+
+      `<section class="entry-feature" aria-labelledby="entryGoalQ">`+
+        `<p class="entry-feature__eyebrow">${esc(t("entry.hub.recommend.title"))}</p>`+
+        `<h3 class="entry-feature__q" id="entryGoalQ">${esc(t("entry.desired_result.title"))}</h3>`+
+        `<p class="entry-feature__facts">${esc(t("entry.hub.recommend.facts",{n:entrySections("recommend").length}))}</p>`+
+        `<div class="entry-feature__goals" role="group" aria-labelledby="entryGoalQ">${goals}</div></section>`+
+      group(t("entry.hub.group.written"),"entryGroupCustom",
+        entryDoor("custom",{icon:"sliders",title:t("entry.hub.custom.title"),kind:"secondary entry-card--subordinate",
+          ask:t("entry.hub.cost.custom",{n:6}),get:t("entry.hub.get.custom")}))+
+      group(t("entry.hub.group.browse"),"entryGroupBrowse",
+        entryDoor("browse",{icon:"search",title:t("entry.hub.browse.title"),
+          ask:t("entry.hub.cost.browse",{n:entrySections("browse").length}),get:t("entry.hub.get.browse")}))+
+      `<div class="entry-hubgroup" role="group" aria-labelledby="entryGroupOwn"><p class="entry__group-lab" id="entryGroupOwn">${esc(t("entry.hub.group.own"))}</p>`+
       `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-expanded="${entryOwnOpen?"true":"false"}" aria-controls="entryOwnChoices"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
       (entryOwnOpen?`<div class="entry__own" id="entryOwnChoices">`+
-        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="build"><span class="entry-card__icon icon-mask icon-mask--pencil" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        entryDoor("build",{icon:"pencil",title:t("entry.hub.build.title"),nested:true,ask:t("entry.hub.cost.build"),get:t("entry.hub.get.build")})+
         /* The free-form door is the same import route by its other side, so it
            carries an id rather than a second `data-entry-route="import"`: one
            route, one selector, two ways in. */
-        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" id="entryFreeformStart"><span class="entry-card__icon icon-mask icon-mask--clipboard" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.freeform.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.freeform.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="import"><span class="entry-card__icon icon-mask icon-mask--download" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `</div>`:"")+
+        entryDoor("",{icon:"clipboard",title:t("entry.hub.freeform.title"),id:"entryFreeformStart",nested:true,ask:t("entry.hub.cost.paste"),get:t("entry.hub.get.import")})+
+        entryDoor("import",{icon:"download",title:t("entry.hub.import.title"),nested:true,ask:t("entry.hub.cost.file"),get:t("entry.hub.get.import")})+
+      `</div>`:"")+`</div>`+
     `</div>`}
 const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
 const ENTRY_ENV_ICONS={commercial_gym:"building",basic_gym:"house",limited_home:"kettlebell",full_home:"rack",other:"dumbbell"};
-function renderDesiredResultStep(){
-  return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.desired_result.title"))}">`+
+/* Each question's controls are a body of their own, so the step screen and the
+   review's answer editor draw the same thing from the same answers. */
+function entryGoalGroup(){
+  return `<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.desired_result.title"))}">`+
     ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`),{icon:ENTRY_DESIRED_ICONS[v]})).join("")+`</div>`}
-function renderBackgroundStep(){
-  return entryHeading(t("entry.background.title"))+`<p class="onb__explain">${esc(t("entry.background.lede"))}</p>${entryLegacyBanner()}`+
-    entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
+function renderDesiredResultStep(){
+  return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}`+entryGoalGroup()}
+function entryBackgroundGroups(){
+  return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
     ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
     entryGroupLab(t("entry.background.consistency.label"),"cal",` id="entryConLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryConLab">`+
     ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
-function renderScheduleStep(){
-  const browse=entryState.route==="browse";
+/* The "about" screen: the goal the hub already asked is carried as a band with
+   a Change control; with no goal yet, or after Change, the question is open. */
+function entryAboutGoal(){
+  const goal=entryState.answers.desiredResult;
+  if(goal&&!entryGoalOpen)
+    return `<div class="entry__carried"><div class="entry__carried-text"><span class="entry__carried-k">${esc(t("entry.about.goal"))}</span>`+
+      `<span class="entry__carried-v">${esc(t(`entry.desired_result.${goal}.label`))}</span></div>`+
+      `<button type="button" class="btn btn--steel entry__carried-change" id="entryGoalChange" aria-label="${esc(t("entry.about.goal_change"))}">${esc(t("entry.about.change"))}</button></div>`;
+  return entryGroupLab(t("entry.desired_result.lede"),"",` id="entryGoalLab"`)+entryGoalGroup()}
+function renderBackgroundStep(){
+  return entryHeading(t("entry.background.title"))+`<p class="onb__explain">${esc(t("entry.background.lede"))}</p>${entryLegacyBanner()}`+
+    entryAboutGoal()+entryBackgroundGroups()}
+/* Schedule values are numbers, so they are set as numbers: a Mono value over its
+   unit, in a grid of equal cards with no radio mark. Nothing is preselected. */
+function entryScheduleGroups({browse=false}={}){
   const minuteUnit=n=>t(`entry.schedule.minutes.${n}`).replace(/^[\d+]+\s*/,"").trim()||t(`entry.schedule.minutes.${n}`);
-  return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
-    entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__seg" role="radiogroup" aria-labelledby="entryDaysLab">`+
+  return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
-    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__seg" role="radiogroup" aria-labelledby="entryMinLab">`+
+    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
     [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`+
     (browse?"":entryGroupLab(t("entry.schedule.rest.label"),"timer",` id="entryRestLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryRestLab">`+
       entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
       [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
+function renderScheduleStep(){
+  return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
+    entryScheduleGroups({browse:entryState.route==="browse"})}
 function entryEnvironmentValue(){
   const env=entryState?.answers?.environment;
   if(!env?.kind)return null;
   if(Array.isArray(env.equipment)||Array.isArray(env.capabilities))return env;
   return ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||{kind:env.kind,equipment:[],capabilities:[]}}
-function renderEnvironmentStep(){
+function entryEnvironmentBody(){
   const env=entryEnvironmentValue();
   const equipment=new Set(env?.equipment||[]);
   const capabilities=new Set(env?.capabilities||[]);
@@ -13468,8 +15063,10 @@ function renderEnvironmentStep(){
     `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
     ENTRY_CAPABILITIES.map(token=>entryOpt("environmentCapabilities",token,t(`entry.cap.${token}`)||token,"",{multi:true,selected:capabilities.has(token),role:"checkbox"})).join("")+`</div>`+
     `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div></details>`:"";
-  return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
+  return `<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
     ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>${correction}`}
+function renderEnvironmentStep(){
+  return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}`+entryEnvironmentBody()}
 function entryMuscleBlocked(key,muscle){
   const a=entryState?.answers||{};
   const primary=new Set(a.primaryMuscles||[]);
@@ -13579,7 +15176,7 @@ function entryExerciseMatches(query){
   const pool=pickableExercises().filter(entry=>!included.has(entry.id)&&!avoided.has(entry.id)&&entry.id!==entryPendingAvoid);
   if(!q)return pool.slice(0,8);
   return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
-function renderExercisePreferencesStep(){
+function entryExercisePreferencesBody(){
   const included=entryState?.answers?.mustHaveExercises||[];
   const constraints=entryState?.answers?.exerciseConstraints||[];
   const matches=entryExerciseMatches(entryExerciseQuery);
@@ -13608,40 +15205,45 @@ function renderExercisePreferencesStep(){
       ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${item.exerciseId}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:item.reason===reason})).join("")+`</div></li>`}).join("")+`</ul>`:
     `<p class="entry__hint entry__exercise-empty">${esc(t("entry.exercise_preferences.avoid_none"))}</p>`;
   const hasPain=constraints.some(item=>item.reason==="pain");
-  return entryHeading(t("entry.exercise_preferences.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
-    `<p class="onb__explain">${esc(t("entry.exercise_preferences.lede"))}</p>`+
-    `<label class="entry__field entry__field--search"><span>${esc(t("entry.exercise_preferences.search"))}</span>`+
+  return `<label class="entry__field entry__field--search"><span>${esc(t("entry.exercise_preferences.search"))}</span>`+
     `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
     `<input id="entryExerciseSearch" type="search" autocomplete="off" value="${esc(entryExerciseQuery)}" placeholder="${esc(t("entry.exercise_preferences.search"))}"></label>`+
     `<div class="entry__exercise-results" role="list" aria-label="${esc(t("entry.exercise_preferences.results"))}">${resultRows}</div>`+
     `<section class="entry__exercise-selected-group" aria-labelledby="entryIncludeListLabel"><p class="entry__group-lab" id="entryIncludeListLabel">${esc(t("entry.exercise_preferences.include_list"))}</p>${includeList}</section>`+
     `<section class="entry__exercise-selected-group" aria-labelledby="entryAvoidListLabel"><p class="entry__group-lab" id="entryAvoidListLabel">${esc(t("entry.exercise_preferences.avoid_list"))}</p>${pending}${avoidList}</section>`+
     (hasPain?`<p class="entry__pain" role="note"><span class="entry__pain-ico icon-mask icon-mask--shield" aria-hidden="true"></span><span>${esc(t("entry.priorities.pain_note"))}</span></p>`:"")}
-function renderPrioritiesStep(){
+function renderExercisePreferencesStep(){
+  return entryHeading(t("entry.exercise_preferences.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t("entry.exercise_preferences.lede"))}</p>`+entryExercisePreferencesBody()}
+/* The optional section is empty while nothing in it has been chosen: no muscle,
+   no movement, no avoided exercise (and no half-made avoidance). */
+function entryPrioritiesEmpty(){
+  const a=entryState?.answers||{};
+  return !(a.primaryMuscles||[]).length&&!(a.priorityMovements||[]).length&&!(a.exerciseConstraints||[]).length&&!entryPendingAvoid}
+function entryPrioritiesBody(){
   const a=entryState.answers||{},custom=entryState.route==="custom";
   if(custom){
-    return entryHeading(t("entry.priorities.custom_title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
-      `<p class="onb__explain">${esc(t("entry.priorities.custom_lede"))}</p>`+
-      renderCustomMusclePriorities()+
+    return renderCustomMusclePriorities()+
       `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
       ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
   const primary=a.primaryMuscles||[];
-  return entryHeading(t("entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
-    `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+
-    `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
+  return `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
+    (primary.length>=2?`<p class="entry__hint entry__limit" id="entryPrimaryLimit">${esc(t("entry.priorities.limit"))}</p>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
     renderAvoidanceSection()}
-function renderCustomShapeStep(){
-  const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
-  if(!splits.choices.length)return entryHeading(t("entry.custom_shape.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.custom_shape.none_title"))}</strong><p>${esc(t("entry.custom_shape.none_body"))}</p>`+
-    `<button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
+function renderPrioritiesStep(){
+  const custom=entryState.route==="custom";
+  /* Recommend's optional section can be skipped while it is empty, so Skip never
+     discards a constraint the lifter chose. */
+  const skip=!custom&&entryPrioritiesEmpty()?`<button type="button" class="btn btn--steel entry__skip" id="entrySkip">${esc(t("entry.priorities.skip"))}</button>`:"";
+  return entryHeading(t(custom?"entry.priorities.custom_title":"entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t(custom?"entry.priorities.custom_lede":"entry.priorities.lede_optional"))}</p>`+skip+entryPrioritiesBody()}
+function entryCustomShapeBody(splits){
   const sole=splits.choices.length===1;
-  return entryHeading(t(sole?"entry.custom_shape.title_sole":"entry.custom_shape.title"))+
-    `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+
-    `<p class="entry__group-lab">${esc(t(sole?"entry.custom_shape.split_sole":"entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
+  return `<p class="entry__group-lab">${esc(t(sole?"entry.custom_shape.split_sole":"entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
     splits.choices.map(choice=>{
       const name=isPt()?choice.namePt||choice.name:choice.name;
       const label=t("entry.custom_shape.choice",{name,days:choice.frequency});
@@ -13650,11 +15252,18 @@ function renderCustomShapeStep(){
         days:choice.frequency,min:Math.min(...estimates),max:Math.max(...estimates)}):"";
       const reason=choice.default?t("entry.custom_shape.default_reason"):t("entry.custom_shape.compatible_reason");
       return entryOpt("splitPreference",choice.id,label,`${reason}${summary?` ${summary}`:""}`)}).join("")+`</div>`}
-function compileGeneratorCandidate(){
+function renderCustomShapeStep(){
+  const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
+  if(!splits.choices.length)return entryHeading(t("entry.custom_shape.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.custom_shape.none_title"))}</strong><p>${esc(t("entry.custom_shape.none_body"))}</p>`+
+    `<button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
+  const sole=splits.choices.length===1;
+  return entryHeading(t(sole?"entry.custom_shape.title_sole":"entry.custom_shape.title"))+
+    `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+entryCustomShapeBody(splits)}
+function compileGeneratorCandidate(from=entryState){
   const services=entryServices();
-  if(!services||!entryState)return null;
+  if(!services||!from)return null;
   let compiled;
-  try{compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()})}
+  try{compiled=services.compile({mode:from.route,answers:from.answers,versions:entryVersions()})}
   catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program candidate rebuild failed",error);return null}
   if(!compiled.ok){entryCompileError=compiled;return null}
   const candidate=compiled.candidate||{};
@@ -13669,6 +15278,11 @@ function compileGeneratorCandidate(){
     telemetry:compiled.telemetry,
     explanation:compiled.explanation};
 }
+/** O3: the generation whose program has not been drawn yet. Only a compile
+ *  arms it (a saved draft that is reopened, and every later render of a result
+ *  that already exists, never do), and the first render of that result takes it,
+ *  so the build plays once per generation. In memory only. */
+let entryBuildArmed=null;
 function ensureGeneratorResult({force=false}={}){
   const services=entryServices();
   if(!services||!entryState)return null;
@@ -13677,6 +15291,7 @@ function ensureGeneratorResult({force=false}={}){
   if(!result)return null;
   entryCompileError=null;
   entryState=ProgramEntry.setResult(entryState,result);
+  entryBuildArmed={draftId:entryState.draftId,fingerprint:result.fingerprint};
   persistSetupDraft(entryState);
   reportGeneratorCompleted(result);
   return result}
@@ -13942,9 +15557,305 @@ function entryPreviewProgressionCopy(preview, progressionIssue){
   return"entry.preview.progression_body"}
 function entryExerciseCountLabel(n){return t("entry.preview.exercises",{n,exercise:tp(n,"exercise")})}
 window.__repforgeEntryExerciseCountLabel=entryExerciseCountLabel;
+/* Copy for every code the compiler, the entry model and the app can hand the
+   interface. Each code maps to a catalog key; a code with no entry is a drift,
+   never a raw string on screen: it logs loudly and shows the generic sentence.
+   test/program-entry-browser.mjs reads the compiler and entry sources and fails
+   when one of them emits a code this table does not know. */
+const ENTRY_CODE_COPY=Object.freeze({
+  limitation:Object.freeze({
+    "home.pull_capability_unavailable":"entry.adjusted.limit.home_pull",
+    conditional_slot_unresolved:"entry.adjusted.limit.conditional_slot_unresolved",
+    optional_slot_unresolved:"entry.adjusted.limit.optional_slot_unresolved",
+    deemphasized_optional_omitted:"entry.adjusted.limit.deemphasized_optional_omitted",
+    ignored_direct_work_omitted:"entry.adjusted.limit.ignored_direct_work_omitted"}),
+  reduction:Object.freeze({
+    remove_optional:"entry.adjusted.reduce.remove_optional",
+    efficient_two_set:"entry.adjusted.reduce.efficient_two_set",
+    trim_reducible_assistance:"entry.adjusted.reduce.trim_reducible_assistance"}),
+  failure:Object.freeze({
+    family_unresolved:"entry.issue.compile",incomplete_answers:"entry.issue.compile",invalid_context:"entry.issue.compile",
+    compiler_conflict:"entry.issue.compile",unsupported_blueprint:"entry.issue.compile",invalid_instance:"entry.issue.compile",
+    invalid_customization:"entry.issue.compile",unknown_slot:"entry.issue.compile",substitution_unknown:"entry.issue.compile",
+    substitution_incompatible:"entry.issue.compile",substitution_prescription_incompatible:"entry.issue.compile",
+    rebuild_failed:"entry.issue.compile",build_failed:"entry.issue.compile",compile_threw:"entry.issue.compile",
+    build_setup_incomplete:"entry.issue.program_name",
+    time_ceiling_conflict:"entry.issue.time_ceiling",ignored_muscle_required:"entry.issue.ignored_required",
+    required_slot_unresolved:"entry.issue.required_slot",
+    exercise_preference_conflict:"entry.issue.include_avoid",must_have_avoided:"entry.issue.include_avoid",
+    must_have_unavailable:"entry.result.must_unavailable_title"}),
+  readiness:Object.freeze({
+    live_revision_required:"entry.issue.generic",active_program_changed:"entry.conflict.body",
+    preview_not_ready:"entry.issue.review_first",candidate_incomplete:"entry.editor.incomplete",
+    rules_changed_rebuild_required:"entry.rules_changed.body_rebuild",
+    progression_incompatible:"entry.preview.activation_blocked",program_exercises_required:"entry.editor.incomplete",
+    program_days_required:"entry.editor.incomplete",exercise_invalid:"entry.editor.exercise_invalid",day_empty:"entry.editor.incomplete"})});
+function entryCodeKey(kind,code){
+  const table=ENTRY_CODE_COPY[kind]||{},text=String(code??"");
+  return table[text]||table[text.split(":")[0]]||null}
+function entryCodeText(kind,code){
+  const key=entryCodeKey(kind,code);
+  if(!key){console.error(`program entry: no copy for ${kind} code "${code}"`);return t("entry.issue.generic")}
+  return t(key)}
+window.__repforgeEntryCodeCopy={table:ENTRY_CODE_COPY,key:entryCodeKey,text:entryCodeText};
+/* A compile failure as sentences: each conflict the compiler named, else the
+   failure's own code. Never the code itself. */
+function entryFailureText(failure){
+  const codes=[];
+  const conflicts=Array.isArray(failure?.conflicts)?failure.conflicts:[];
+  if(failure?.code==="must_have_unavailable"||failure?.code==="exercise_preference_conflict"||!conflicts.length)codes.push(failure?.code||failure);
+  else for(const conflict of conflicts)codes.push(conflict?.code);
+  return[...new Set(codes.map(code=>entryCodeText("failure",code)))].join(" ")}
+/* What the last edit did, as the review states it. `labels` renames the
+   Before / Now pair when the comparison is not before and after (for example
+   the program without and with an avoided exercise). */
+function entryChangeKey(state=entryState){
+  const result=state?.result;
+  return result?[state.draftId,state.route,result.answersFingerprint||"",result.fingerprint||""].join("|"):""}
+function entryFactsText(preview){
+  const facts=entryPreviewFacts(preview);
+  return t("entry.change.facts",{ex:entryExerciseCountLabel(facts.exercises),sets:t("entry.preview.sets",{n:facts.sets})})}
+/* The rows of `after` that `before` did not have, counted as a multiset so a
+   duplicated movement is added only as often as it was added. Every changed row
+   is marked, including when a correction replaces all of them (Q637, SPEC-04):
+   the statement counts them as changed, so each carries the tag and accent edge. */
+function entryAddedRowIds(before,after){
+  const identity=ProgramEntryAdapter?.exerciseIdentity;
+  if(!identity)return[];
+  const left=new Map();
+  for(const row of before?.program||[]){const key=identity(row);left.set(key,(left.get(key)||0)+1)}
+  const added=[];
+  for(const row of after?.program||[]){
+    const key=identity(row);
+    if(left.get(key)>0)left.set(key,left.get(key)-1);else added.push(row.id)}
+  return added}
+function entryBuildChange(beforePreview,afterPreview,state,{lead,beforeLabel="",afterLabel=""}={}){
+  const diff=ProgramEntryAdapter?.identityDiff?.(beforePreview,afterPreview)||{n:0,total:(afterPreview?.program||[]).length};
+  return{key:entryChangeKey(state),lead,beforeLabel,afterLabel,before:entryFactsText(beforePreview),after:entryFactsText(afterPreview),
+    changed:diff.n,total:diff.total,added:entryAddedRowIds(beforePreview,afterPreview)}}
+function entryChangeNow(){return entryChange&&entryChange.key&&entryChange.key===entryChangeKey()?entryChange:null}
+/* After a change the statement is the first thing the lifter should see: the top
+   of the review when name, facts and statement fit above the pinned region,
+   otherwise the statement itself just below the top edge. */
+function entryShowChange(){
+  const statement=$("#entryChange");
+  if(!statement)return;
+  const scroller=$("#onboarding");
+  if(scroller){
+    const pinned=$("#onbBody .entry__pinned");
+    const top=statement.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop;
+    const limit=scroller.clientHeight-(pinned?pinned.offsetHeight:0);
+    const target=top+statement.offsetHeight<=limit-8?0:Math.max(0,top-16);
+    scroller.scrollTo?.({top:target,left:0,behavior:"auto"});
+    scroller.scrollTop=target}
+  try{statement.focus({preventScroll:true})}catch{}}
+/* The answers behind the review, each one a control that opens its own editor. */
+const ENTRY_CHIP_KIND={goal:"desired_result",exp:"background",cons:"background",days:"schedule",minutes:"schedule",rest:"schedule",
+  env:"environment",prio:"priorities",avoid:"priorities",emph:"priorities",prefs:"exercise_preferences",shape:"custom_shape"};
+const ENTRY_EDITOR_TITLE={desired_result:"goal",background:"background",schedule:"schedule",environment:"environment",
+  priorities:"priorities",exercise_preferences:"exercises",custom_shape:"shape"};
+function entryNames(ids){return ids.map(id=>{const entry=libraryEntry(id);return entry?libraryName(entry):id}).join(", ")}
+function entrySameSet(left,right){return JSON.stringify([...(left||[])].sort())===JSON.stringify([...(right||[])].sort())}
+function entryChipList(){
+  const a=entryState.answers||{},custom=entryState.route==="custom",out=[];
+  const add=(chip,text)=>out.push({chip,text,what:t(`entry.chip.what.${chip}`)});
+  if(a.desiredResult)add("goal",t(`entry.chip.goal.${a.desiredResult}`));
+  if(a.structuredExperience)add("exp",t(`entry.background.experience.${a.structuredExperience}`));
+  if(a.recentConsistency)add("cons",t(`entry.chip.cons.${a.recentConsistency}`));
+  if(a.daysPerWeek)add("days",t("entry.chip.days",{n:a.daysPerWeek}));
+  if(a.sessionMinutes)add("minutes",a.sessionMinutes>=90?t("entry.chip.minutes_90"):t("entry.chip.minutes",{n:a.sessionMinutes}));
+  if(Object.prototype.hasOwnProperty.call(a,"preferredRestSeconds"))add("rest",t(`entry.chip.rest.${a.preferredRestSeconds===null?"auto":a.preferredRestSeconds}`));
+  if(a.environment?.kind){
+    const base=ProgramEntryAdapter?.defaultEnvironment?.(a.environment.kind),env=entryEnvironmentValue();
+    const same=base&&env&&entrySameSet(base.equipment,env.equipment)&&entrySameSet(base.capabilities,env.capabilities);
+    const label=t(`entry.environment.${a.environment.kind}`);
+    add("env",same?label:t("entry.chip.env_adjusted",{env:label}))}
+  const avoided=(a.exerciseConstraints||[]).map(item=>item.exerciseId);
+  const priorities=entryPriorityLabel(a),none=t("entry.preview.priorities_none");
+  if(!custom){
+    add("prio",priorities!==none?t("entry.chip.prio",{list:priorities}):t("entry.chip.prio_none"));
+    if(avoided.length)add("avoid",t("entry.chip.avoid",{list:entryNames(avoided)}))}
+  else{
+    add("emph",priorities!==none?t("entry.chip.emph",{list:priorities}):t("entry.chip.emph_none"));
+    const included=a.mustHaveExercises||[];
+    add("prefs",[included.length?t("entry.chip.include",{list:entryNames(included)}):"",avoided.length?t("entry.chip.avoid",{list:entryNames(avoided)}):""]
+      .filter(Boolean).join(" · ")||t("entry.chip.prefs_none"));
+    const splits=entryCustomSplitChoices(a);
+    const choice=splits.choices.length>=2?splits.choices.find(item=>item.id===a.splitPreference):null;
+    if(choice)add("shape",t("entry.chip.shape",{name:t("entry.custom_shape.choice",{name:isPt()?choice.namePt||choice.name:choice.name,days:choice.frequency})}))}
+  return out}
+function entryEditorTitleText(kind){
+  const custom=entryState.route==="custom";
+  const which=kind==="priorities"&&custom?"emphasis":ENTRY_EDITOR_TITLE[kind];
+  return t(`entry.chip.fact.${which}`)}
+/* The editor draws the very controls the question screens do, from its own copy
+   of the answers; the committed answers are put back before anything else runs. */
+function entryEditorBody(kind){
+  switch(kind){
+    case "desired_result":return entryGoalGroup();
+    case "background":return entryBackgroundGroups();
+    case "schedule":return entryScheduleGroups();
+    case "environment":return entryEnvironmentBody();
+    case "priorities":return entryPrioritiesBody();
+    case "exercise_preferences":return entryExercisePreferencesBody();
+    case "custom_shape":{
+      const splits=entryCustomSplitChoices(entryState.answers);
+      return splits.choices.length?entryCustomShapeBody(splits):`<p class="entry__hint">${esc(t("entry.custom_shape.none_body"))}</p>`}
+    default:return""}}
+function renderEntryEditor(){
+  const editor=entryEditor,committed=entryState;
+  let body="";
+  entryState=editor.draft;
+  try{body=entryEditorBody(editor.kind)}finally{entryState=committed}
+  const pending=!!entryPendingAvoid;
+  return `<section class="entry-editor" id="entryEditor" aria-labelledby="entryEditorTitle">`+
+    `<h3 class="entry-editor__title" id="entryEditorTitle" tabindex="-1">${esc(entryEditorTitleText(editor.kind))}</h3>`+
+    (editor.error?`<div class="entry__notice entry__notice--error" id="entryEditorError" role="alert"><p>${esc(editor.error)}</p></div>`:"")+
+    `<div class="entry-editor__body">${body}</div>`+
+    `<div class="entry-editor__acts"><button type="button" class="btn btn--cta btn--noarrow" id="entryChipApply"${pending?` disabled aria-describedby="entryPendingAvoidNote"`:""}>${esc(t("entry.chip.apply"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryChipKeep">${esc(t("entry.chip.keep"))}</button></div></section>`}
+function renderEntryChips(){
+  const open=entryEditor?.chip||null;
+  return `<section class="entry__answers" aria-labelledby="entryChipsLabel"><h2 class="entry__section-head" id="entryChipsLabel">${esc(t("entry.chips.title"))}</h2>`+
+    `<p class="entry__hint">${esc(t("entry.chips.hint"))}</p><div class="entry-chips">`+
+    entryChipList().map(chip=>`<button type="button" class="entry-chip${open===chip.chip?" is-open":""}" data-entry-chip="${chip.chip}" aria-expanded="${open===chip.chip?"true":"false"}"`+
+      `${open===chip.chip?` aria-controls="entryEditor"`:""} aria-label="${esc(t("entry.chip.aria",{what:chip.what,value:chip.text}))}">`+
+      `<span class="entry-chip__text">${esc(chip.text)}</span><span class="entry-chip__edit icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span></button>`).join("")+
+    `</div>${entryEditor?renderEntryEditor():""}</section>`}
+function entryResetEditorFields(){entryPendingAvoid=null;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery=""}
+function openEntryEditor(chip){
+  if(!entryState?.result)return;
+  if(entryEditor?.chip===chip){closeEntryEditor();return}
+  entryResetEditorFields();
+  entryEditor={chip,kind:ENTRY_CHIP_KIND[chip],draftId:entryState.draftId,draft:{...entryState,answers:cloneSnapshot(entryState.answers)},error:null};
+  entryReviewError=null;
+  renderOnboarding();
+  const title=$("#entryEditorTitle"),editor=$("#entryEditor"),scroller=$("#onboarding");
+  try{title?.focus({preventScroll:true})}catch{}
+  /* The editor opens in flow, below its chip. Bring its top into view; if its
+     update control would still sit below the fold, bring that up instead. */
+  if(editor&&scroller){
+    const box=scroller.getBoundingClientRect(),top=editor.getBoundingClientRect().top-box.top+scroller.scrollTop;
+    const apply=$("#entryChipApply"),bottom=apply?apply.getBoundingClientRect().bottom-box.top+scroller.scrollTop:top;
+    const target=bottom-top+24<=scroller.clientHeight?Math.max(0,top-12):Math.max(0,bottom-scroller.clientHeight+16);
+    scroller.scrollTo?.({top:target,left:0,behavior:"auto"});scroller.scrollTop=target}}
+function closeEntryEditor({refocus=true}={}){
+  const chip=entryEditor?.chip;
+  entryEditor=null;entryResetEditorFields();
+  renderOnboarding();
+  if(refocus&&chip)try{$(`[data-entry-chip="${chip}"]`)?.focus({preventScroll:true})}catch{}}
+/* Run a handler the question screens already own against the editor's copy of
+   the answers. The committed state is back in place before anything renders. */
+function entryEditorRun(handler,context,args){
+  if(!entryEditor)return handler.apply(context,args);
+  const committed=entryState;
+  entryState=entryEditor.draft;entryEditorSwap=true;
+  try{return handler.apply(context,args)}
+  finally{
+    entryEditor.draft=entryState;entryState=committed;entryEditorSwap=false;
+    entryEditor.error=null;
+    if(entryEditorRerender){entryEditorRerender=false;renderOnboarding()}}}
+function entryCanon(value){
+  if(Array.isArray(value))return`[${value.map(entryCanon).join(",")}]`;
+  if(value&&typeof value==="object")return`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${entryCanon(value[key])}`).join(",")}}`;
+  return JSON.stringify(value===undefined?null:value)}
+/* ONE transition. The patched answers, the program they compile to and the
+   result stamped for those answers become the next state together, and the
+   draft is written once. The committed state is never left with answers that
+   have no result, so nothing between the two is ever persisted or resumed. */
+function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
+  if(!ProgramEntry||!entryState?.result?.preview)return{ok:false};
+  const route=entryState.route;
+  if(route!=="recommend"&&route!=="custom")return{ok:false};
+  const before=entryState.result;
+  let next=ProgramEntry.setAnswers(entryState,patch);
+  if(route==="custom"){
+    const choices=entryCustomSplitChoices(next.answers).choices;
+    if(choices.length&&!choices.some(choice=>choice.id===next.answers.splitPreference))
+      next=ProgramEntry.setAnswers(next,{splitPreference:(choices.find(choice=>choice.default)||choices[0]).id})}
+  const priorError=entryCompileError;
+  const compiled=compileGeneratorCandidate(next);
+  const failure=entryCompileError;
+  entryCompileError=priorError;
+  if(!compiled)return{ok:false,failure};
+  // The completion event belongs to the walk, not to each rebuild.
+  if(before.telemetry?.completed===true&&compiled.telemetry)compiled.telemetry={...compiled.telemetry,completed:true};
+  const final=ProgramEntry.setResult(next,compiled);
+  entryChange=entryBuildChange(before.preview,compiled.preview,final,{lead,beforeLabel,afterLabel});
+  entryEditor=null;entryResetEditorFields();entryReviewError=null;
+  entryPinnedVersionsExecutable=false;
+  entrySetState(final);
+  entryShowChange();
+  return{ok:true}}
+function applyEntryEditor(){
+  const editor=entryEditor;
+  if(!editor||entryPendingAvoid)return;
+  const base=entryState.answers,draft=editor.draft.answers,patch={};
+  for(const key of Object.keys(draft))if(entryCanon(base[key])!==entryCanon(draft[key]))patch[key]=draft[key];
+  if(!Object.keys(patch).length){closeEntryEditor();return}
+  const outcome=applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")});
+  if(outcome.ok)return;
+  editor.error=entryFailureText(outcome.failure)||t("entry.issue.compile");
+  renderOnboarding();
+  try{$("#entryEditorTitle")?.focus({preventScroll:true})}catch{}}
+function restoreEntryConstraint(exerciseId){
+  const kept=(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId);
+  const outcome=applyEntryAnswerEdit({exerciseConstraints:kept},{lead:t("entry.change.lead.restore")});
+  if(outcome.ok)return;
+  entryReviewError=entryFailureText(outcome.failure)||t("entry.issue.compile");
+  renderOnboarding();
+  try{$("#entryReviewError")?.focus({preventScroll:true})}catch{}}
+/* The first result of a walk says something only when it is true and meaningful:
+   the answers changed the program the lifter just left, or constraints reshaped
+   it (stated against the program without them). */
+function entryNoteFirstResult(result){
+  const left=entryLastPreview&&entryLastPreview.draftId===entryState.draftId?entryLastPreview.preview:null;
+  entryLastPreview=null;
+  const key=entryChangeKey();
+  if(left){
+    const change=entryBuildChange(left,result.preview,entryState,{lead:t("entry.change.lead.answers")});
+    if(change.changed>0){entryChange=change;return}}
+  const constraints=entryState.answers.exerciseConstraints||[];
+  if(constraints.length){
+    const priorError=entryCompileError;
+    const without=compileGeneratorCandidate({...entryState,answers:{...entryState.answers,exerciseConstraints:[]}});
+    entryCompileError=priorError;
+    if(without){
+      entryChange=entryBuildChange(without.preview,result.preview,entryState,{lead:t("entry.change.lead.constraints"),
+        beforeLabel:t("entry.change.without"),afterLabel:t("entry.change.with")});
+      return}}
+  if(entryChange&&entryChange.key!==key)entryChange=null}
+function renderEntryConstraints(){
+  const a=entryState.answers||{},rows=[];
+  for(const id of a.mustHaveExercises||[]){
+    const entry=libraryEntry(id);
+    if(entry)rows.push(`<li class="entry__row entry__constraint"><span class="entry__row-ico icon-mask icon-mask--check" aria-hidden="true"></span><span class="entry__row-body">${esc(t("entry.constraints.include",{exercise:libraryName(entry)}))}</span></li>`)}
+  for(const item of a.exerciseConstraints||[]){
+    const entry=libraryEntry(item.exerciseId);
+    if(!entry)continue;
+    const exercise=libraryName(entry);
+    rows.push(`<li class="entry__row entry__constraint"><span class="entry__row-ico icon-mask icon-mask--shield" aria-hidden="true"></span>`+
+      `<span class="entry__row-body">${esc(t("entry.constraints.avoid",{exercise,reason:t(`entry.priorities.reason.${item.reason}`).toLowerCase()}))}</span>`+
+      `<button type="button" class="btn btn--steel entry__restore" data-entry-restore="${esc(item.exerciseId)}" aria-label="${esc(t("entry.constraints.restore_aria",{exercise}))}">${esc(t("entry.constraints.restore"))}</button></li>`)}
+  if(!rows.length)return"";
+  return `<section class="entry__constraints" aria-labelledby="entryConstraintsLab"><h2 class="entry__section-head" id="entryConstraintsLab">${esc(t("entry.constraints.title"))}</h2>`+
+    (entryReviewError?`<div class="entry__notice entry__notice--error" id="entryReviewError" role="alert" tabindex="-1"><p>${esc(entryReviewError)}</p></div>`:"")+
+    `<ul class="entry__rows">${rows.join("")}</ul></section>`}
+function renderEntryAdjusted(preview){
+  const rows=[];
+  for(const item of preview.limitations||[])rows.push(entryCodeText("limitation",item.code));
+  for(const item of preview.reductions||[])rows.push(entryCodeText("reduction",item.step));
+  if(!rows.length)return"";
+  return `<section class="entry__adjusted" aria-labelledby="entryAdjustedLab"><h2 class="entry__section-head" id="entryAdjustedLab">${esc(t("entry.adjusted.title"))}</h2>`+
+    `<ul class="entry__rows">${rows.map(text=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--scale" aria-hidden="true"></span><span class="entry__row-body">${esc(text)}</span></li>`).join("")}</ul></section>`}
+/* A generated route's result is the review: the program first (name, four
+   facts, what just changed, the week), then the answers it was built from, why
+   it fits, what was adjusted and the constraints the lifter set. */
 function renderResultStep(){
   const custom=entryState?.route==="custom";
   const resultTitle=custom?t("entry.result.custom_title"):t("entry.result.title");
+  if(entryEditor&&entryEditor.draftId!==entryState.draftId)entryEditor=null;
+  const had=!!entryState.result?.preview;
   const result=ensureGeneratorResult();
   if(!result){
     const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
@@ -13952,10 +15863,9 @@ function renderResultStep(){
     if(unavailable.length)return entryHeading(resultTitle)+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.result.must_unavailable_title"))}</strong>`+
       `<p>${esc(t("entry.result.must_unavailable_body",{exercises:unavailable.map(libraryName).join(", ")}))}</p>`+
       `<button type="button" class="btn btn--cta" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_preferences"))}</button></div>`;
-    const code=failure?.code||entryCompileError;
-    return entryHeading(resultTitle)+`<p class="lede" role="alert">${esc(t("entry.error.summary"))}${code?` (${esc(code)})`:""}</p>`}
-  const primary=result.selected||(result.candidates||[])[0];
-  const explanation=result.explanation||{},preview=result.preview||{};
+    return entryHeading(t("entry.result.error_title"))+`<div class="entry__notice entry__notice--error" role="alert"><p>${esc(entryFailureText(failure||entryCompileError)||t("entry.issue.compile"))}</p></div>`}
+  if(!had)entryNoteFirstResult(result);
+  const preview=result.preview||{},explanation=result.explanation||{};
   const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
   const days=explanation.daysPerWeek||preview.frequency||"";
   const minutes=explanation.sessionMinutes||"";
@@ -13974,30 +15884,31 @@ function renderResultStep(){
     explanation.recentConsistency==="about_half"&&preview.programStructure?.weekPrescriptions?.length
       ?{icon:"clock",text:t("entry.result.why_interrupted")}:null,
   ].filter(Boolean);
-  const duration=entryDurationLabel(preview);
-  const daysBadge=primary?t("entry.catalogue.days_badge",{days:primary.daysPerWeek}):"";
-  const alternative=result.alternative?.fingerprint&&result.alternative?.preview&&result.alternative?.reason
-    ?result.alternative:null;
-  const action=!primary?"":`<div class="entry__confirm"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
-  const alternativeAction=!alternative?"":`<div class="entry__alternative"><p class="entry__group-lab">${esc(t("entry.result.alternative"))}</p>`+
+  const alternative=result.alternative?.fingerprint&&result.alternative?.preview&&result.alternative?.reason?result.alternative:null;
+  const alternativeBlock=!alternative?"":`<section class="entry__alternative" aria-labelledby="entryAlternativeLab"><h2 class="entry__section-head" id="entryAlternativeLab">${esc(t("entry.result.alternative"))}</h2>`+
     `<button type="button" class="btn btn--steel" data-entry-select-alternative>`+
     `${esc(isPt()?alternative.namePt||alternative.name:alternative.name)} · ${esc(t("entry.catalogue.days_badge",{days:alternative.daysPerWeek}))}</button>`+
-    `<p>${esc(t("entry.result.alternative_reason.compatible_split_variation"))}</p></div>`;
-  return entryHeading(resultTitle)+
-    `<div class="entry__payoff"><p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
-    `<span class="entry__payoff-badge" aria-hidden="true"><span class="icon-mask icon-mask--rosette"></span></span></div>`+
-    `<div class="entry__recommend"><div class="entry__ident"><h3>${esc(entryResultName(result))}</h3>`+
-    (primary?`<div class="entry__metrics">`+
-      (daysBadge?`<span class="entry__metric"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span>${esc(daysBadge)}</span>`:"")+
-      (duration?`<span class="entry__metric"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(duration)}</span>`:"")+
-      `</div>`:"")+`</div>`+
-    `<p class="entry__group-lab entry__group-lab--accent">${esc(t("entry.result.why"))}</p>`+
-    `<ul class="entry__rows entry__rows--reasons">`+whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")+`</ul>`+
-    action+
-    alternativeAction+
-    (custom?`<div class="entry__custom-actions"><button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_priorities"))}</button>`+
-      `<button type="button" class="btn btn--steel" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_exercise_preferences"))}</button></div>`:"")+`</div>`+
-    `<section id="entryCandidateReview" aria-labelledby="entryCandidateReviewTitle">`+renderPreviewStep({merged:true})+`</section>`}
+    `<p class="entry__hint">${esc(t("entry.result.alternative_reason.compatible_split_variation"))}</p></section>`;
+  const progressionIssue=entryPreviewHasProgressionIssue(preview);
+  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
+    `<p class="entry__eyebrow">${esc(resultTitle)}</p>`+
+    `<h2 class="onb__q entry__progname" id="entryHeading" tabindex="-1">${esc(entryResultName(result)||t("untitled_program"))}</h2>`+
+    `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
+    renderEntryFactsStrip(preview)+
+    renderEntryChangeStatement(entryChange)+
+    (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<h2 class="entry__section-head" id="entryWeekLab">${esc(t("entry.preview.days"))}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
+    renderEntryChips()+
+    `<section class="entry__why" aria-labelledby="entryWhyLab"><h2 class="entry__section-head" id="entryWhyLab">${esc(t("entry.result.why"))}</h2>`+
+    `<ul class="entry__rows entry__rows--reasons">${whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")}</ul>`+
+    `<p class="entry__hint">${esc(t("entry.result.lede"))}</p>`+
+    `<p class="entry__hint">${esc(t(entryPreviewProgressionCopy(preview,progressionIssue)))}</p></section>`+
+    renderEntryAdjusted(preview)+
+    renderEntryConstraints()+
+    alternativeBlock+
+    renderEntryMore()+
+    (entryEditor?"":renderEntryPinned({progressionIssue}))+
+    `</section>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
   const purposeLabels={
@@ -14037,7 +15948,7 @@ function renderCatalogueStep(){
       `<span class="entry-prog__days">${esc(t("entry.catalogue.days_badge",{days:card.daysPerWeek}))}</span>`+
       `<span class="entry-prog__go chevron" aria-hidden="true"></span></span>`+
       (purposeLabels[card.purpose]?`<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose])}</span>`:"")+
-      `<span class="entry-prog__facts">${minutes?`<span>${esc(minutes)}</span>`:""}${structure?`<span>${esc(structure)}</span>`:""}</span>`+
+      `<span class="entry-prog__facts">${minutes?`<span>${monoNums(minutes)}</span>`:""}${structure?`<span>${monoNums(structure)}</span>`:""}</span>`+
       (progression?`<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`:"")+
       (equipment?`<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`:"")+
       (mismatch?`<span class="entry-prog__warn">${esc(mismatch)}</span>`:"")+
@@ -14045,7 +15956,8 @@ function renderCatalogueStep(){
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
     `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
-    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${esc(fact.text)}</span>`).join("")}</div>`+
+    `<div class="entry__context"><div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${monoNums(fact.text)}</span>`).join("")}</div>`+
+    `<button type="button" class="btn btn--steel entry__carried-change" data-entry-action="change-schedule" aria-label="${esc(t("entry.catalogue.change_aria"))}">${esc(t("entry.about.change"))}</button></div>`+
     /* Every family is released at every frequency, so a flat list is twenty
        near-identical rows. Split the ones that match the answered schedule from
        the rest, which is the comparison the reader is actually making. */
@@ -14064,8 +15976,8 @@ function renderBuildSetupStep(){
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<label class="entry__field"><span>${esc(t("entry.build_setup.name"))}</span>`+
     `<input id="entryProgramName" type="text" maxlength="80" value="${esc(name)}" placeholder="${esc(t("entry.build_setup.name_placeholder"))}"></label>`+
-    `<p class="entry__group-lab">${esc(t("entry.build_setup.days"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
-    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,t("entry.catalogue.days_badge",{days:n}),"")).join("")+`</div>`}
+    entryGroupLab(t("entry.build_setup.days"),"cal",` id="entryBuildDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryBuildDaysLab">`+
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`}
 /* One route, two doors. A Taurifer file is one shape of "I already have a
    program"; a coach's message pasted as text is the other, and the lifter
    arriving with the second should not have to recognise the first. */
@@ -14075,7 +15987,27 @@ function renderImportFileStep(){
   return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`+
-    `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformSwitch">${esc(t("entry.import_source.to_freeform"))}</button></p>`}
+    `<div class="entry__switch entry__switch--doors"><button type="button" class="btn btn--ghost" id="entryFreeformSwitch">${esc(t("entry.import_source.to_freeform"))}</button>`+
+    entryWriteOwnLink()+`</div>`}
+/* The quiet way out of the import route. A lifter who has a program in their
+   head rather than in a file or a message can write it themselves in Build.
+   It is a route change, not a request: nothing is sent and nothing is read. */
+function entryWriteOwnLink(){
+  return `<button type="button" class="btn btn--ghost entry__write-own" id="entryWriteOwn">${esc(t("entry.import_source.write_own"))}</button>`}
+/* The import route's own controls (Plan 064 R4c). wireEntryDom makes one call
+   to this, so the shared handler list stays R4a's and R4b's. */
+function wireEntryImportControls(root){
+  const writeOwn=root?.querySelector("#entryWriteOwn");
+  if(writeOwn)writeOwn.onclick=()=>{
+    /* A sixth exit from the paste door, after the five in ADR 0014. The pasted
+       program belongs to this flow, so it is dropped before Build opens. */
+    /* Owner decision (#295, 2026-10-01): ask first when text was pasted, as
+       the switch to the file door does. */
+    /* ADR 0014: ask whenever text was pasted. There is no length exception
+       (SPEC-02): a short coach note such as "3x10 curls" is still the lifter's. */
+    if((entryFreeformInput.trim().length>0||entryFreeformReply.trim().length>0)&&!confirm(t("entry.freeform.confirm_write_own")))return;
+    resetFreeformImport();
+    entrySelectRoute("build")}}
 function freeformAppLink(app){
   const program=freeformProgram();
   const spec=FREEFORM_APPS[app];
@@ -14173,7 +16105,8 @@ function renderFreeformSourceStep(){
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     summaryHtml+
     `<div class="entry__freeform ph-no-capture">${bodyHtml}</div>`+
-    `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformFile">${esc(t("entry.freeform.to_file"))}</button></p>`}
+    `<div class="entry__switch entry__switch--doors"><button type="button" class="btn btn--ghost" id="entryFreeformFile">${esc(t("entry.freeform.to_file"))}</button>`+
+    entryWriteOwnLink()+`</div>`}
 /* Typing must not cost the caret or the field: the links, the counter and the
    empty-state note are refreshed in place rather than through a re-render. */
 function refreshFreeformControls(){
@@ -14194,7 +16127,7 @@ window.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible"&&entryFreeformStage===3){
     const out=$("#entryFreeformOut");
     if(out){
-      out.scrollIntoView?.({behavior:"smooth",block:"nearest"});
+      out.scrollIntoView?.({behavior:scrollBehavior(),block:"nearest"});
       out.classList.add("is-returned");
       setTimeout(()=>out.classList.remove("is-returned"),2000);
     }
@@ -14203,24 +16136,41 @@ window.addEventListener("visibilitychange",()=>{
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
   return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
     (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
+/* The facts strip: four Mono values, each with its unit beneath (days, minutes
+   a session, exercises, working sets). The sentence the catalog always read is
+   kept as the strip's accessible text, so meaning is unchanged. */
+function renderEntryFactsStrip(preview){
+  const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
+  const days=(preview.days||[]).length;
+  const cells=[
+    [String(days),t(days===1?"entry.facts.day_one":"entry.facts.days")],
+    facts.minMinutes?[facts.minMinutes===facts.maxMinutes?String(facts.minMinutes):`${facts.minMinutes}–${facts.maxMinutes}`,t("entry.facts.minutes")]:null,
+    [String(facts.exercises),tp(facts.exercises,"exercise")],
+    [String(facts.sets),t("entry.facts.sets")]].filter(Boolean);
+  return `<p class="visually-hidden">${esc([entryExerciseCountLabel(facts.exercises),t("entry.preview.sets",{n:facts.sets}),duration].filter(Boolean).join(" · "))}</p>`+
+    `<div class="entry__strip" aria-hidden="true">${cells.map(([value,unit])=>
+      `<div class="entry__strip-cell"><span class="entry__strip-value">${esc(value)}</span><span class="entry__strip-unit">${esc(unit)}</span></div>`).join("")}</div>`}
+/* What a change did to the program, in one sentence and a Before / Now pair.
+   Every review has the slot; the Recommend and Custom reviews fill it when an
+   answer changes. `change` is `{lead, before, after, changed, total}`. */
+function renderEntryChangeStatement(change){
+  if(!change||!change.key||change.key!==entryChangeKey())return"";
+  const sentence=!change.changed?t("entry.change.none"):change.changed===1
+    ?t("entry.change.one",{total:change.total}):t("entry.change.many",{n:change.changed,total:change.total});
+  return `<div class="entry__change" id="entryChange" tabindex="-1" role="status" aria-live="polite" data-change-statement data-changed="${change.changed}" data-total="${change.total}">`+
+    `<p class="entry__change-line">${esc([change.lead,sentence].filter(Boolean).join(" "))}</p>`+
+    (change.before&&change.after&&(change.changed||change.before!==change.after)?
+      `<dl class="entry__change-grid"><dt>${esc(change.beforeLabel||t("entry.change.before"))}</dt><dd>${monoNums(change.before)}</dd><dt>${esc(change.afterLabel||t("entry.change.after"))}</dt><dd>${monoNums(change.after)}</dd></dl>`:"")+
+    `</div>`}
 function renderPreviewStep({merged=false}={}){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
   const previewAnswers=entryPreviewAnswers(preview);
-  const days=(preview.days||[]).map((day,index)=>{
-    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
-    const dayName=previewDayLabel(day,index,preview.programStructure);
-    return `<details class="onb__day"><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
-    `<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
-    (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
-    (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
-    `</details>`});
-  const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
+  const days=renderEntryWeek(preview);
   const progressionIssue=entryPreviewHasProgressionIssue(preview);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
   const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
   const custom=entryState?.route==="custom";
-  const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
   const reviewRows=[
     {icon:"target",lab:t("entry.preview.priorities"),text:entryPriorityLabel(previewAnswers)},
     ...(custom?[{icon:"dumbbell",lab:t("entry.preview.exercise_preferences"),text:entryExercisePreferenceLabel(previewAnswers)}]:[]),
@@ -14228,47 +16178,49 @@ function renderPreviewStep({merged=false}={}){
     {icon:"trend",lab:t("entry.preview.progression"),text:t(entryPreviewProgressionCopy(preview,progressionIssue))},
     {icon:"scale",lab:t("entry.preview.compromises"),text:compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none")},
   ];
-  return (merged?`<h2 id="entryCandidateReviewTitle" class="entry__group-lab">${esc(t("entry.preview.title"))}</h2>`:entryHeading(t("entry.preview.title")))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
+  return (merged?`<h2 id="entryCandidateReviewTitle" class="entry__group-lab entry__section-head">${esc(t("entry.preview.title"))}</h2>`:entryHeading(t("entry.preview.title")))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
     (hasActiveProgram()&&!entryUiNotice&&entryState?.step!=="activation_conflict"
       ?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<div class="entry__decision"><div class="entry__ident--boxed"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p></div>`+
-    `<div class="entry__metrics entry__metrics--boxed">`+
-    `<span class="entry__metric"><span class="icon-mask icon-mask--dumbbell" aria-hidden="true"></span>${esc(entryExerciseCountLabel(facts.exercises))}</span>`+
-    `<span class="entry__metric"><span class="icon-mask icon-mask--target" aria-hidden="true"></span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>`+
-    (duration?`<span class="entry__metric"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(duration)}</span>`:"")+
-    `</div>`+
+    renderEntryFactsStrip(preview)+
+    renderEntryChangeStatement(entryChange)+
+    `<p class="entry__group-lab entry__section-head">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`+
     /* Each facet keeps its heading element: the review's heading outline is how
        a screen-reader user jumps between Priorities, Equipment, Progression and
        Compromises, so the redesign restyles `h4` rather than demoting it. */
     `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
-    (progressionIssue?`<p id="entryActivationStatus" class="entry__notice" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
-    /* The confirm action used to sit after the whole weekly structure, off the
-       bottom of every phone. It is the point of the screen: keep it above the
-       detail, and pin it so a long program cannot scroll it away. */
-    `<div class="entry__confirm"><button type="button" id="entryActivate" class="btn btn--cta"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button>`+
+    renderEntryMore()+renderEntryPinned({progressionIssue})}
+/* The week is a stack of hairline bands. The first day is open, so the first
+   exercise is on the first screen (K-32); the others fold away, except a day
+   that holds an exercise the last change added. */
+function renderEntryWeek(preview){
+  const added=new Set(entryChangeNow()?.added||[]);
+  return (preview.days||[]).map((day,index)=>{
+    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
+    const dayName=previewDayLabel(day,index,preview.programStructure);
+    const open=index===0||exercises.some(exercise=>added.has(exercise.id));
+    return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
+    `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`)}</span></summary>`+
+    exercises.map(ex=>{const isNew=added.has(ex.id);
+      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
+    (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
+    `</details>`})}
+function renderEntryMore(){
+  return `<section class="entry__more" aria-labelledby="entryMoreLab"><p class="entry__group-lab entry__section-head" id="entryMoreLab">${esc(t("entry.preview.more"))}</p>`+
     `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`+
-    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></div>`+
-    `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`}
+    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive" aria-haspopup="dialog"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></section>`}
+/* The confirm action is the point of the screen, so it is pinned: a long
+   program cannot scroll it away, and a blocked one says why directly above. */
+function renderEntryPinned({progressionIssue=false}={}){
+  const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+  return `<div class="entry__pinned">`+
+    (progressionIssue?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
+    `<button type="button" id="entryActivate" class="btn btn--cta${progressionIssue?" btn--noarrow":""}"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
-  if(entryUiNotice==="cancel")return `<div class="entry__notice" role="region" aria-labelledby="entryCancelTitle"><strong id="entryCancelTitle" tabindex="-1">${esc(t("entry.cancel_confirm.title"))}</strong><p>${esc(t("entry.cancel_confirm.body"))}</p>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryCancelKeep">${esc(t("entry.cancel_confirm.keep"))}</button>`+
-    `<button type="button" class="btn btn--steel" id="entryCancelDiscard">${esc(t("entry.cancel_confirm.discard"))}</button>`+
-    `<button type="button" class="btn btn--steel" id="entryCancelContinue">${esc(t("entry.cancel_confirm.continue"))}</button></div></div>`;
-  if(entryUiNotice==="resume"){
-    const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
-    const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
-    const where=[entryState?.route?entryRouteLabel(entryState.route):"",
-      entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
-    const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
-    return `<div class="entry__resume" role="status">`+
-    `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
-    `<div class="entry__resume-copy"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p></div></div>`+
-    (detail?`<div class="entry__resume-loc"><span class="entry__resume-ico icon-mask icon-mask--pin" aria-hidden="true"></span><p>${esc(detail)}</p></div>`:"")+
-    `</div>`+
-    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
-    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div>`}
+  // Cancel is a dialog and Resume is a card on the hub; neither is a notice.
+  if(entryUiNotice==="cancel"||entryUiNotice==="resume")return"";
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
   if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
@@ -14287,6 +16239,115 @@ function renderEntryNotice(){
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
   return""}
+/* Entry dialogs. Cancel, replace and start over each ask one question that the
+   lifter must answer before the screen behind them changes, so they share one
+   native <dialog>: Escape dismisses it, Tab stays inside it, and focus returns
+   to the control that opened it (K-26). It is built at body level on first use
+   because `openModal` makes every other body child inert. */
+let entryReplaceResolve=null,entryDialogOpener=null;
+function entryDialogKind(){return entryUiNotice==="cancel"?"cancel":entryDialog}
+function entryDialogElement(){
+  let el=$("#entryDialog");
+  if(el)return el;
+  el=document.createElement("dialog");
+  el.id="entryDialog";el.className="entry-dialog";el.setAttribute("aria-modal","true");
+  el.innerHTML=`<h2 class="entry-dialog__title" tabindex="-1"></h2><p class="entry-dialog__body"></p><div class="entry-dialog__actions"></div>`;
+  document.body.append(el);
+  // Some engines close a modal <dialog> on Escape before a capture listener
+  // runs; the cancel event routes that to the same dismissal.
+  el.addEventListener("cancel",event=>{event.preventDefault();dismissEntryDialog()});
+  return el}
+function entryDialogSpec(kind){
+  if(kind==="cancel")return{titleId:"entryCancelTitle",title:t("entry.cancel_confirm.title"),body:t("entry.cancel_confirm.body"),actions:[
+    {id:"entryCancelKeep",cls:"btn btn--cta btn--noarrow",label:t("entry.cancel_confirm.keep"),run:()=>keepEntryDraftAndCancel()},
+    {id:"entryCancelDiscard",cls:"btn btn--steel",label:t("entry.cancel_confirm.discard"),run:()=>discardEntryDraftAndCancel()},
+    {id:"entryCancelContinue",cls:"btn btn--steel",label:t("entry.cancel_confirm.continue"),run:()=>dismissEntryDialog()}]};
+  if(kind==="replace"){
+    const current=String(state?.programMeta?.name||"").trim()||t("untitled_program");
+    const next=String(entryResultName()||entryState?.answers?.programName||"").trim()||t("untitled_program");
+    return{titleId:"entryReplaceTitle",title:t("entry.replace_confirm.title"),
+      body:t("entry.replace_confirm.body",{current,next}),actions:[
+      {id:"entryReplaceConfirm",cls:"btn btn--cta btn--noarrow",label:t("entry.replace_confirm.confirm",{next}),run:()=>resolveEntryReplace(true)},
+      {id:"entryReplaceCancel",cls:"btn btn--steel",label:t("entry.replace_confirm.cancel",{current}),run:()=>resolveEntryReplace(false)}]}}
+  const resuming=entryUiNotice==="resume";
+  const shared=!resuming&&entryState?.route==="shared";
+  return{titleId:"entryRestartTitle",
+    title:t(resuming?"entry.resume.discard_title":"entry.restart_confirm.title"),
+    body:t(resuming?"entry.resume.discard_body":shared?"entry.restart_confirm.body_shared":"entry.restart_confirm.body"),actions:[
+    {id:"entryRestartConfirm",cls:"btn btn--steel btn--destructive",label:t(resuming?"entry.resume.discard_confirm":"entry.restart_confirm.confirm"),run:()=>confirmEntryStartOver()},
+    {id:"entryRestartCancel",cls:"btn btn--steel",label:t(resuming?"entry.resume.discard_cancel":"entry.restart_confirm.cancel"),run:()=>dismissEntryDialog()}]}}
+/* Where focus returns: the control that was focused when the dialog opened,
+   found again after any re-render, else the heading of whatever is showing. */
+function entryOpenerToken(){
+  const el=document.activeElement;
+  if(!el||el===document.body||el.closest?.("#entryDialog"))return null;
+  if(el.id)return{kind:"id",value:el.id};
+  return entryFocusToken()}
+function entryOpenerElement(){
+  const token=entryDialogOpener;
+  let el=null;
+  if(token?.kind==="id")el=$("#"+CSS.escape(token.value));
+  else if(token?.kind==="pick")el=$(`[data-entry-pick="${CSS.escape(token.key)}"][data-entry-val="${CSS.escape(token.val)}"]`);
+  else if(token?.kind==="goal")el=$(`[data-entry-goal="${CSS.escape(token.value)}"]`);
+  else if(token?.kind==="route")el=$(`[data-entry-route="${CSS.escape(token.value)}"]`);
+  else if(token?.kind==="help")el=$(`[data-entry-help="${CSS.escape(token.key)}"][data-entry-help-val="${CSS.escape(token.val)}"]`);
+  else if(token?.kind==="catalogue")el=$(`[data-entry-catalogue="${CSS.escape(token.value)}"]`);
+  return el&&!el.disabled?el:($("#entryHeading")||$("#onbCancel"))}
+/* Show, keep or remove the dialog for the current state. Called at the end of
+   every render so the markup behind it and the dialog never disagree. */
+function syncEntryDialog(){
+  const kind=entryDialogKind();
+  const el=$("#entryDialog");
+  if(!kind){if(el?.open)closeModal(el);return}
+  const dialog=el||entryDialogElement();
+  if(dialog.open&&dialog.dataset.kind===kind)return;
+  const spec=entryDialogSpec(kind);
+  dialog.dataset.kind=kind;
+  const title=dialog.querySelector(".entry-dialog__title");
+  title.id=spec.titleId;title.textContent=spec.title;
+  dialog.setAttribute("aria-labelledby",spec.titleId);
+  dialog.querySelector(".entry-dialog__body").textContent=spec.body;
+  const actions=dialog.querySelector(".entry-dialog__actions");
+  actions.innerHTML=spec.actions.map(action=>`<button type="button" id="${action.id}" class="${action.cls}">${esc(action.label)}</button>`).join("");
+  for(const action of spec.actions)actions.querySelector("#"+action.id).onclick=action.run;
+  // The opener was noted before the render that replaced it; a dialog reached
+  // some other way (browser Back) falls back to the heading.
+  const opened=openModal(dialog,{returnFocus:()=>entryOpenerElement(),initialFocus:title,onEscape:()=>dismissEntryDialog()});
+  if(!opened&&!dialog.open)try{dialog.showModal()}catch{}}
+function closeEntryDialog(){
+  const el=$("#entryDialog");
+  if(!el?.open)return;
+  closeModal(el);
+  if(el.open)try{el.close()}catch{}
+  entryDialogOpener=null}
+function dismissEntryDialog(){
+  const resolve=entryReplaceResolve;
+  entryReplaceResolve=null;
+  if(entryUiNotice==="cancel")entryUiNotice=null;
+  entryDialog=null;
+  closeEntryDialog();
+  if(resolve)resolve(false);
+  renderOnboarding()}
+function resolveEntryReplace(confirmed){
+  const resolve=entryReplaceResolve;
+  entryReplaceResolve=null;entryDialog=null;
+  closeEntryDialog();
+  // Confirming goes straight on to the activation, which renders its own outcome.
+  if(!confirmed)renderOnboarding();
+  resolve?.(confirmed)}
+/* Replacing the active program asks first and says what happens to it. */
+function entryConfirmReplaceIfNeeded(){
+  if(!hasActiveProgram())return Promise.resolve(true);
+  return new Promise(resolve=>{
+    entryReplaceResolve?.(false);
+    entryDialogOpener=entryOpenerToken();
+    entryReplaceResolve=resolve;entryDialog="replace";renderOnboarding()})}
+/* Start over discards the draft, so it is confirmed wherever it is offered. */
+function requestEntryStartOver(){entryDialogOpener=entryOpenerToken();entryDialog="restart";renderOnboarding()}
+function confirmEntryStartOver(){
+  entryDialog=null;
+  closeEntryDialog();
+  entryStartOver()}
 /* Rerendering a step must not strand keyboard users at the top of the page.
    Keep a small semantic token for the control that caused the update and restore
    that control after the HTML is replaced; a step transition intentionally moves
@@ -14296,12 +16357,15 @@ function entryFocusToken(){
   if(!el||!el.closest("#onbBody"))return null;
   if(el.id)return{kind:"id",value:el.id};
   if(el.dataset.entryPick)return{kind:"pick",key:el.dataset.entryPick,val:el.dataset.entryVal};
+  if(el.dataset.entryGoal)return{kind:"goal",value:el.dataset.entryGoal};
   if(el.dataset.entryRoute)return{kind:"route",value:el.dataset.entryRoute};
   if(el.dataset.entryCatalogue)return{kind:"catalogue",value:el.dataset.entryCatalogue};
+  if(el.dataset.entryHelp)return{kind:"help",key:el.dataset.entryHelp,val:el.dataset.entryHelpVal};
   return null;
 }
 function entryScreenKey(){
-  const notice=entryUiNotice||
+  // The cancel dialog sits over the screen it interrupts; it is not a screen.
+  const notice=(entryUiNotice==="cancel"?null:entryUiNotice)||
     (entryValidationNotice?"validation":entryCompileError?(entryCompileError.code||"compile-error"):"");
   return [notice,entryState?.route||"",entryState?.step||""].join("|")}
 function restoreEntryFocus(token){
@@ -14309,8 +16373,10 @@ function restoreEntryFocus(token){
   let el=null;
   if(token.kind==="id")el=$("#"+CSS.escape(token.value));
   else if(token.kind==="pick")el=$(`[data-entry-pick="${CSS.escape(token.key)}"][data-entry-val="${CSS.escape(token.val)}"]`);
+  else if(token.kind==="goal")el=$(`[data-entry-goal="${CSS.escape(token.value)}"]`);
   else if(token.kind==="route")el=$(`[data-entry-route="${CSS.escape(token.value)}"]`);
   else if(token.kind==="catalogue")el=$(`[data-entry-catalogue="${CSS.escape(token.value)}"]`);
+  else if(token.kind==="help")el=$(`[data-entry-help="${CSS.escape(token.key)}"][data-entry-help-val="${CSS.escape(token.val)}"]`);
   if(!el||el.disabled)return false;
   try{el.focus({preventScroll:true});return true}catch{try{el.focus();return true}catch{return false}}
 }
@@ -14335,23 +16401,62 @@ function setupEntryRovingFocus(){
     });
   }
 }
+/* The hub is also what a resumable draft opens on (Q633): the saved route and
+   step are named on a card there, and nothing behind it is chosen until the
+   lifter resumes or starts over. */
+function entryHubMode(){
+  return !entryState?.route||entryState.step==="entry"||entryUiNotice==="resume"}
+/* Earlier answers, each one tap from being changed (G's answer rail). Question
+   screens only: on a review a changed answer must recompile, which is not a
+   jump, so the review has no rail. Browse's two questions need none. */
+/* The about screen carries its goal as a band with Change, so it has no rail of its own. */
+const ENTRY_RAIL_STEPS=["desired_result","schedule","environment","priorities","exercise_preferences","custom_shape"];
+function renderEntryRail(){
+  const route=entryState?.route,stepId=entryState?.step;
+  if(!route||route==="browse"||!ENTRY_RAIL_STEPS.includes(stepId))return"";
+  const steps=ProgramEntry.ROUTE_STEPS[route]||[];
+  const index=steps.indexOf(stepId);
+  const a=entryState.answers||{};
+  const chips=[];
+  const add=(target,what,text)=>{
+    if(!text||steps.indexOf(target)<0||steps.indexOf(target)>=index)return;
+    chips.push(`<button type="button" class="entry-rail__chip" data-entry-rail="${target}" aria-label="${esc(t("entry.rail.edit",{what}))}: ${esc(text)}">`+
+      `<span class="entry-rail__text">${esc(text)}</span><span class="entry-rail__edit icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span></button>`)};
+  if(a.desiredResult)add("desired_result",t("entry.rail.what.goal"),t(`entry.desired_result.${a.desiredResult}.label`));
+  if(a.structuredExperience)add("background",t("entry.rail.what.background"),t(`entry.background.experience.${a.structuredExperience}`));
+  if(a.daysPerWeek&&a.sessionMinutes)add("schedule",t("entry.rail.what.schedule"),
+    t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>=90?"90+":a.sessionMinutes}));
+  if(a.environment?.kind)add("environment",t("entry.rail.what.environment"),entryEnvironmentLabel());
+  return chips.length?`<div class="entry-rail" role="group" aria-label="${esc(t("entry.rail.label"))}">${chips.join("")}</div>`:""}
+/* The rail sits under the screen's title and lede, never above it: the title keeps its place at every
+   width and text size, and the rail is the answers-so-far line that leads into the question. */
+function entryRailAfterTitle(stepHtml,rail){
+  if(!rail)return stepHtml;
+  const head=stepHtml.match(/^<h[12][^>]*>[\s\S]*?<\/h[12]>(?:<p class="onb__explain">[\s\S]*?<\/p>)?/);
+  return head?head[0]+rail+stepHtml.slice(head[0].length):rail+stepHtml}
 function renderOnboarding(){
+  if(entryEditorSwap){entryEditorRerender=true;return}
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
   collapseSingleCustomShape();
   const focusToken=entryFocusToken();
+  const headerFocus=document.activeElement?.closest?.(".onb__bar")?document.activeElement.id:"";
   const onboarding=$("#onboarding");
   const screenKey=entryScreenKey();
-  const environmentCorrectionOpen=screenKey===entryVisibleScreenKey&&body.querySelector(".entry__correct")?.open===true;
-  if(onboarding&&screenKey!==entryVisibleScreenKey){
+  const sameScreen=screenKey===entryVisibleScreenKey;
+  const environmentCorrectionOpen=sameScreen&&body.querySelector(".entry__correct")?.open===true;
+  if(onboarding&&!sameScreen){
     onboarding.scrollTo?.({top:0,left:0,behavior:"auto"});
     onboarding.scrollTop=0;onboarding.scrollLeft=0;
   }
   entryVisibleScreenKey=screenKey;
-  const route=entryState.route,stepId=entryState.step;
-  const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
-  const isEditor=setupEditorOpen&&!noticeOwnsSurface&&!!entryState?.result?.preview;
-  onboarding?.classList.toggle("entry-hub-active",!route||stepId==="entry");
+  const hub=entryHubMode();
+  const resuming=entryUiNotice==="resume";
+  const route=hub?null:entryState.route,stepId=hub?"entry":entryState.step;
+  const dialogOpen=!!entryDialogKind();
+  const isEditor=setupEditorOpen&&!hub&&!!entryState?.result?.preview;
+  const wasEditor=!!onboarding?.classList.contains("program-editor-onboarding");
+  onboarding?.classList.toggle("entry-hub-active",hub);
   onboarding?.classList.toggle("program-editor-onboarding",isEditor);
   document.body.classList.toggle("is-entry-editor",isEditor);
   /* On a single-step route the chrome eyebrow and the page heading are the
@@ -14366,41 +16471,48 @@ function renderOnboarding(){
   const editorTitle=$("#onbEditorTitle");
   if(editorTitle){editorTitle.textContent=isEditor?titleText:"";editorTitle.hidden=!isEditor}
   const progress=entryProgressSections(route);
-  const showProgress=Boolean(route)&&progress.show&&!noticeOwnsSurface;
-  if(step){step.textContent=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
+  const showProgress=Boolean(route)&&progress.show;
+  /* #onbStepLabel is a live region: rewriting it with the same text re-announces it
+     on every answer, so it is written only when the section changes (R7 J-12). */
+  if(step){const stepText=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
+    if(step.textContent!==stepText)step.textContent=stepText;
     step.classList.toggle("hidden",!showProgress)}
   const seg=$("#onbSegbar");
   if(seg){const total=showProgress?progress.total:0,current=progress.n-1;
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
     seg.classList.toggle("hidden",!showProgress)}
   const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
-  const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface||isEditor);
-  const atTerminal=["preview","editor","result","catalogue"].includes(stepId);
-  if(back){back.classList.toggle("hidden",!route||stepId==="entry"||isEditor);back.setAttribute("aria-label",t("entry.back"))}
+  /* The pinned region holds the one primary action. It is out of the way while
+     the hub is up, an editor owns the screen, or a dialog is asking something. */
+  const hideNext=hub||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
+  const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",hideNext||isEditor||dialogOpen);
+  if(back){back.classList.toggle("hidden",hub||isEditor);back.textContent=t("entry.back");back.setAttribute("aria-label",t("entry.back"))}
+  const reason=$("#onbNextReason");
   if(next){
-    const hideNext=!route||stepId==="entry"||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
     next.classList.toggle("hidden",hideNext||isEditor);
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
     const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
-    next.disabled=!!pendingReason||(!hideNext&&!isEditor&&ProgramEntry.validationIssues(entryState).length>0);
+    const blocked=!hideNext&&!isEditor&&ProgramEntry.validationIssues(entryState).length>0;
+    next.disabled=!!pendingReason||blocked;
+    /* A blocked primary says why, in text above it, and drops its arrow. */
+    const showReason=blocked&&!pendingReason;
+    if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":"entry.pinned.reason"):""}
+    next.classList.toggle("btn--noarrow",next.disabled);
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
+    else if(showReason)next.setAttribute("aria-describedby","onbNextReason");
     else next.removeAttribute("aria-describedby")}
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
-  if(noticeOwnsSurface){
-    body.innerHTML=html;wireEntryDom();
-    const noticeTitle=$(entryUiNotice==="cancel"?"#entryCancelTitle":"#entryResumeTitle");
-    if(noticeTitle)try{noticeTitle.focus()}catch{}
-    return}
-  if(stepId==="entry"||!route)html+=renderEntryHub();
-  else if(stepId==="desired_result")html+=renderDesiredResultStep();
-  else if(stepId==="background")html+=renderBackgroundStep();
-  else if(stepId==="schedule")html+=renderScheduleStep();
-  else if(stepId==="environment")html+=renderEnvironmentStep();
-  else if(stepId==="priorities")html+=renderPrioritiesStep();
-  else if(stepId==="exercise_preferences")html+=renderExercisePreferencesStep();
-  else if(stepId==="custom_shape")html+=renderCustomShapeStep();
+  const rail=!hub&&!isEditor?renderEntryRail():"";
+  if(hub)html+=renderEntryHub();
+  else if(stepId==="desired_result")html+=entryRailAfterTitle(renderDesiredResultStep(),rail);
+  else if(stepId==="background")html+=entryRailAfterTitle(renderBackgroundStep(),rail);
+  else if(stepId==="schedule")html+=entryRailAfterTitle(renderScheduleStep(),rail);
+  else if(stepId==="environment")html+=entryRailAfterTitle(renderEnvironmentStep(),rail);
+  else if(stepId==="priorities")html+=entryRailAfterTitle(renderPrioritiesStep(),rail);
+  else if(stepId==="exercise_preferences")html+=entryRailAfterTitle(renderExercisePreferencesStep(),rail);
+  else if(stepId==="custom_shape")html+=entryRailAfterTitle(renderCustomShapeStep(),rail);
   else if(stepId==="result"&&!isEditor)html+=renderResultStep();
   else if(stepId==="catalogue")html+=renderCatalogueStep();
   else if(stepId==="build_setup")html+=renderBuildSetupStep();
@@ -14414,6 +16526,7 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
+  if(stepId==="result"&&!isEditor)playEntryBuild(body);
   const environmentCorrection=body.querySelector(".entry__correct");
   if(environmentCorrectionOpen&&environmentCorrection)environmentCorrection.open=true;
   const validation=$("#entryValidation");
@@ -14428,27 +16541,85 @@ function renderOnboarding(){
     updateOnboardingEditorActions();
   }
   setupEntryRovingFocus();
-  if(!restoreEntryFocus(focusToken)){
-    const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
-    const target=initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
-    if(target)try{target.focus({preventScroll:true})}catch{}}
-  if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}
+  if(!dialogOpen){
+    if(!restoreEntryFocus(focusToken)){
+      const header=headerFocus&&sameScreen?$("#"+CSS.escape(headerFocus)):null;
+      if(header&&!header.classList.contains("hidden")&&canTakeFocus(header))try{header.focus({preventScroll:true})}catch{}
+      else{
+        const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
+        const target=resuming?$("#entryResumeTitle"):initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
+        if(target)try{target.focus({preventScroll:true})}catch{}
+        // The editor has no #entryHeading: on the render that opens it, focus takes its title (R7 J-05).
+        else if(isEditor&&!wasEditor)focusRoute($("#onbEditorTitle"))}}
+    if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
   // The "entry" guide explains the five-job chooser, so it shows here rather
-  // than on the landing that opens it.
-  if(!route||stepId==="entry")queueMicrotask(()=>maybeShowContextualGuides(["entry"]));}
+  // than on the landing that opens it. Not while a saved draft is asking first.
+  if(hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
+  syncEntryDialog()}
+/** O3: draw the generated program in reading order, one block every 55ms
+ *  (`.motion-build > .motion-build-item`, `--build-i` counting from zero): the
+ *  name, where it came from, the four facts, what just changed, the week's
+ *  heading and then each day. The answers, the reasons and every control stay
+ *  out of it, so nothing a lifter can press is held back or disabled. The
+ *  classes come off when the last block lands, and a render that follows draws
+ *  the program at rest. Reduced motion draws it all at once with no classes. */
+function playEntryBuild(body){
+  const armed=entryBuildArmed;entryBuildArmed=null;
+  const result=entryState?.result;
+  if(!armed||!result?.fingerprint||armed.draftId!==entryState.draftId||armed.fingerprint!==result.fingerprint||!beatsOn())return;
+  const review=body.querySelector("#entryCandidateReview"),week=review?.querySelector(":scope > .onb__review");
+  if(!review||!week)return;
+  const lead=[...review.children].filter(el=>el.matches(".entry__progname,.entry__source,.entry__strip,#entryChange,#entryWeekLab"));
+  const items=[...lead,...week.children];
+  items.forEach((el,i)=>{el.classList.add("motion-build-item");el.style.setProperty("--build-i",String(i))});
+  const hosts=[review,week].filter(el=>el.querySelector(":scope > .motion-build-item"));
+  hosts.forEach(el=>el.classList.add("motion-build"));
+  let left=items.length;
+  const settle=()=>{if(--left>0)return;
+    hosts.forEach(el=>el.classList.remove("motion-build"));
+    items.forEach(el=>{el.classList.remove("motion-build-item");el.style.removeProperty("--build-i")})};
+  items.forEach(el=>{el.addEventListener("animationend",settle,{once:true});el.addEventListener("animationcancel",settle,{once:true})});
+  // A block the page never animates (hidden at this width) would never report back.
+  setTimeout(()=>{left=1;settle()},55*items.length+1000)}
 function wireEntryDom(){
-  $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
-  const own=$("#entryOwnToggle");if(own)own.onclick=()=>{entryOwnOpen=!entryOwnOpen;renderOnboarding()};
+  /* While a saved draft is waiting on Resume or Start over, the doors are
+     inert. The markup already carries `inert`; this keeps a synthetic click
+     from reaching a handler that would overwrite the draft. */
+  const doorsWait=()=>entryUiNotice==="resume";
+  wireEntryImportControls($("#onbBody"));
+  $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>{
+    if(doorsWait())return;
+    entrySelectRoute(btn.dataset.entryRoute,{goal:btn.dataset.entryGoal||null})});
+  const own=$("#entryOwnToggle");if(own)own.onclick=()=>{if(doorsWait())return;entryOwnOpen=!entryOwnOpen;renderOnboarding()};
+  const helpToggle=$("#entryHelpToggle");if(helpToggle)helpToggle.onclick=()=>{
+    if(doorsWait())return;
+    entryHelpOpen=!entryHelpOpen;if(!entryHelpOpen)entryHelp={q1:null,q2:null};
+    renderOnboarding()};
+  $$("[data-entry-help]").forEach(btn=>btn.onclick=()=>{
+    if(doorsWait())return;
+    const q=btn.dataset.entryHelp,val=btn.dataset.entryHelpVal;
+    entryHelp=q==="q1"?{q1:val,q2:null}:{...entryHelp,q2:val};
+    renderOnboarding()});
+  const helpGo=$("#entryHelpGo");if(helpGo)helpGo.onclick=()=>{
+    if(doorsWait())return;
+    const target=helpGo.dataset.entryHelpGo;
+    if(target==="import"){
+      setImportSourceMode("freeform",{render:false});
+      captureEvent("program_import_started",{source:"freeform"})}
+    entrySelectRoute(target)};
+  $$("[data-entry-rail]").forEach(btn=>btn.onclick=()=>entrySetState({...entryState,step:btn.dataset.entryRail}));
   /* Both hub cards enter the same route and each names its own door, so the
      card the lifter read is the screen they land on. The remembered mode is
      for a resumed draft, which arrives at the step without a card. */
   const freeformStart=$("#entryFreeformStart");
   if(freeformStart)freeformStart.onclick=()=>{
+    if(doorsWait())return;
     setImportSourceMode("freeform",{render:false});
     captureEvent("program_import_started",{source:"freeform"});
     entrySelectRoute("import")};
   const importCard=$('[data-entry-route="import"]');
   if(importCard)importCard.onclick=()=>{
+    if(doorsWait())return;
     setImportSourceMode("file",{render:false});
     captureEvent("program_import_started",{source:"file"});
     entrySelectRoute("import")};
@@ -14637,25 +16808,6 @@ function wireEntryDom(){
   const changeSchedule=$("[data-entry-action='change-schedule']");if(changeSchedule)changeSchedule.onclick=()=>{
     const answers={...entryState.answers};delete answers.splitPreference;
     entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
-  $$("[data-entry-select-candidate]").forEach(btn=>btn.onclick=()=>{
-    if(entryState?.step==="result"&&(entryState.route==="recommend"||entryState.route==="custom")){
-      $("#entryCandidateReview")?.scrollIntoView?.({behavior:reducedMotion()?"auto":"smooth",block:"start"});
-      return}
-    const id=btn.dataset.entrySelectCandidate;
-    const selected=(entryState.result?.candidates||[]).find(c=>c.id===id)||entryState.result?.selected;
-    if(!selected||!entryState.result)return;
-    const next=ProgramEntry.setResult(entryState,{
-      fingerprint:entryState.result.fingerprint,
-      name:entryState.result.name,
-      namePt:entryState.result.namePt,
-      selected:{...selected},
-      candidates:(entryState.result.candidates||[]).map(c=>({...c})),
-      alternative:null,
-      preview:entryState.result.preview,
-      telemetry:entryState.result.telemetry,
-      explanation:entryState.result.explanation});
-    entryPinnedVersionsExecutable=false;
-    entrySetState(ProgramEntry.advance(next).state)});
   const chooseAlternative=$("[data-entry-select-alternative]");if(chooseAlternative)chooseAlternative.onclick=()=>{
     const alternative=entryState?.result?.alternative;
     if(!alternative)return;
@@ -14715,14 +16867,11 @@ function wireEntryDom(){
   };
   const editorActivate=$("#entryEditorActivate");if(editorActivate)editorActivate.onclick=()=>activateEntryPreview();
   const edit=$("#entryEdit");if(edit)edit.onclick=()=>openEntryDraftEditor();
-  const restart=$("#entryRestart");if(restart)restart.onclick=()=>entryStartOver();
+  const restart=$("#entryRestart");if(restart)restart.onclick=()=>requestEntryStartOver();
   const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{
     entryUiNotice=null;
     if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding()};
-  const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>entryStartOver();
-  const cancelContinue=$("#entryCancelContinue");if(cancelContinue)cancelContinue.onclick=()=>{entryUiNotice=null;renderOnboarding()};
-  const cancelKeep=$("#entryCancelKeep");if(cancelKeep)cancelKeep.onclick=()=>keepEntryDraftAndCancel();
-  const cancelDiscard=$("#entryCancelDiscard");if(cancelDiscard)cancelDiscard.onclick=()=>discardEntryDraftAndCancel();
+  const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>requestEntryStartOver();
   const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>rebuildEntryForCurrentRules();
   const keepPinned=$("#entryKeepPinned");if(keepPinned)keepPinned.onclick=()=>{
     if(!entryPinnedPreviewCanActivate())return;
@@ -14745,10 +16894,41 @@ function wireEntryDom(){
     const recovered=await recoverEntryDurableConflict();
     entryDurableConflictNeedsReload=!recovered.ok;
     entryUiNotice=recovered.ok?"conflict":"durable_conflict";
-    renderOnboarding()}}
-function entryConfirmReplaceIfNeeded(){
-  if(!hasActiveProgram())return true;
-  return confirm(t("entry.confirm.replace"))}
+    renderOnboarding()};
+  wireEntryAnswerControls()}
+/* Recommend, Custom and Browse answer controls: the answer chips and their
+   editors, Restore, Skip and the "about" screen's goal. Everything here is bound
+   after the shared handlers, so an editor's controls can be wrapped. */
+function wireEntryAnswerControls(){
+  if(!entryState)return;
+  if(entryState.step!=="background")entryGoalOpen=false;
+  if(entryEditor&&(entryState.step!=="result"||entryEditor.draftId!==entryState.draftId))entryEditor=null;
+  $$("[data-entry-chip]").forEach(btn=>btn.onclick=()=>openEntryEditor(btn.dataset.entryChip));
+  $$("[data-entry-restore]").forEach(btn=>btn.onclick=()=>restoreEntryConstraint(btn.dataset.entryRestore));
+  const apply=$("#entryChipApply");if(apply)apply.onclick=()=>applyEntryEditor();
+  const keep=$("#entryChipKeep");if(keep)keep.onclick=()=>closeEntryEditor();
+  const editor=$("#entryEditor");
+  if(editor&&entryEditor){
+    // The editor's controls are the question screens' own; they act on the editor's copy.
+    editor.querySelectorAll("*").forEach(el=>{
+      for(const prop of ["onclick","oninput","onchange"]){
+        const handler=el[prop];
+        if(typeof handler==="function")el[prop]=function(...args){return entryEditorRun(handler,this,args)}}});
+    editor.onkeydown=event=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();closeEntryEditor()}};
+    if(apply)apply.onclick=()=>applyEntryEditor();
+    if(keep)keep.onclick=()=>closeEntryEditor()}
+  const goalChange=$("#entryGoalChange");
+  if(goalChange)goalChange.onclick=()=>{
+    entryGoalOpen=true;renderOnboarding();
+    try{($('[data-entry-pick="desiredResult"][aria-checked="true"]')||$('[data-entry-pick="desiredResult"]'))?.focus({preventScroll:true})}catch{}};
+  const skip=$("#entrySkip");
+  if(skip)skip.onclick=()=>{
+    if(!entryPrioritiesEmpty())return;
+    entryState=ProgramEntry.setAnswers(entryState,{primaryMuscles:[],priorityMovements:[],exerciseConstraints:[]});
+    entryAdvance()};
+  // Recommend's last question hands over to the program itself.
+  const next=$("#onbNext");
+  if(next&&entryState.route==="recommend"&&entryState.step==="priorities")next.textContent=t("entry.priorities.show")}
 function entryStartOver(){
   const restarted=ProgramEntry.startOver({
     draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
@@ -14779,6 +16959,7 @@ async function surfaceEntryDurableConflict(){
 }
 function entryAdvance(){
   if(!ProgramEntry||!entryState)return;
+  entryGoalOpen=false;
   if(entryState.step==="build_setup"){
     const nameInput=$("#entryProgramName");
     if(nameInput)entryState=ProgramEntry.setAnswers(entryState,{programName:nameInput.value.trim()});
@@ -14816,9 +16997,17 @@ function entryAdvance(){
   if(nextState.step==="result")ensureGeneratorResult()}
 function entryBack(){
   if(!ProgramEntry||!entryState)return;
-  if(entryUiNotice==="cancel"){entryUiNotice=null;renderOnboarding();return}
+  if(entryDialog||entryUiNotice==="cancel"){dismissEntryDialog();return}
   if(setupEditorOpen){requestEntryCancel();return}
   if(entryUiNotice==="resume"||entryState.step==="entry"||!entryState.route){requestEntryCancel();return}
+  // An open answer editor closes first; Back then leaves the review as before.
+  if(entryEditor){closeEntryEditor();return}
+  entryGoalOpen=false;
+  if(entryState.step==="result"&&entryState.result?.preview)entryLastPreview={draftId:entryState.draftId,preview:entryState.result.preview};
+  if(entryGoalFromHub&&entryState.route==="recommend"&&entryState.step==="background"){
+    entryGoalFromHub=false;
+    entrySetState(ProgramEntry.back(ProgramEntry.back(entryState)));
+    return}
   let previous=ProgramEntry.back(entryState);
   if(entryState.route==="custom"&&previous.step==="custom_shape"&&!entryCustomShapeRequired())
     previous={...previous,step:"exercise_preferences"};
@@ -14875,7 +17064,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
       else {renderOnboarding();$("#entryActivationStatus")?.focus?.()}
       return readiness}
     renderOnboarding();return}
-  if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};
+  if(!skipReplaceConfirm&&!(await entryConfirmReplaceIfNeeded()))return{cancelled:true};
   const preview=entryState.result?.preview;
   let exercises=manualBuild||entryState.route==="build"
     ?(entryState.result?.preview?.program||[])
@@ -15040,8 +17229,9 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
     document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
-    render();toast(t("toast.tweak_program"));return result}
+    render();toast(t("toast.tweak_program"));focusRoute(routeHeading("program"));return result}
   render();toast(t("toast.onboarding_saved"));
+  focusRoute(routeHeading("log"));
   maybeShowInstallBanner();
   return result}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
@@ -15264,10 +17454,9 @@ function showInstallTransferDivergenceDialog(onConfirm){
     dialog.setAttribute("aria-modal","true");
     dialog.setAttribute("aria-labelledby","divergenceTitle");
     dialog.innerHTML=`
-      <div class="sheet__head">
-        <div class="sheet__titles">
-          <p class="sheet__title" id="divergenceTitle">${esc(t("install.transfer.divergence_title")||"Permanent Divergence Warning")}</p>
-        </div>
+      <div class="sheetband">
+        <span class="sheetband__handle" aria-hidden="true"></span>
+        <h2 class="sheetband__title" id="divergenceTitle">${esc(t("install.transfer.divergence_title")||"Permanent Divergence Warning")}</h2>
       </div>
       <div style="padding:16px;">
         <p id="divergenceBody">${esc(t("install.transfer.divergence_body")||"If you resume in browser, future changes here and in the installed app will not merge and will develop separate workout histories.")}</p>
@@ -15427,12 +17616,41 @@ function renderFirstRunInstall(){
  *  screen is only the program question, and "Continue in browser" would be an
  *  answer to a question nobody asked. */
 function setFirstRunOffer(offer){
-  const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
-  const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
-  if(headline)headline.textContent=t(shared?"landing.shared.headline":invalid?"landing.shared.invalid_headline":"landing.headline");
-  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.body");
+  renderFirstRunHeroCopy();
   $("#firstRunContinue")?.classList.toggle("hidden",!offer);
 }
+/** The hero's headline and lede follow the landing in view: a shared link, a
+ *  link that cannot be used, a return to an un-onboarded device, or the first visit. */
+function renderFirstRunHeroCopy(){
+  const shared=sharedSetupReady(),invalid=sharedSetupInvalid(),back=landingReturning();
+  const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
+  if(headline)headline.textContent=t(shared?"landing.shared.headline":invalid?"landing.shared.invalid_headline":back?"landing.returning.headline":"landing.headline");
+  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":back?"landing.returning.sub":"landing.hero.sub");
+}
+/* ---- The returning landing (owner decision on #295, comment 5941692606) ----
+   The generic landing is marked data-entry-visit="returning" by openFirstRun when
+   the lifter has seen the full page before; a setup left half done also marks
+   data-entry-draft with its route. Both are read from the marks, never from
+   storage, so a re-render cannot turn a first visit into a return. */
+const LANDING_RESUME_ROUTES=["recommend","custom","browse","build","import","shared"];
+function landingReturning(){
+  const root=$("#firstRun");
+  return!!root&&root.dataset.entryVisit==="returning"&&!sharedSetupReady()&&!sharedSetupInvalid()}
+/** The saved route, when the returning landing has a setup to continue. */
+function landingResumeRoute(){
+  return landingReturning()?String($("#firstRun").dataset.entryDraft||""):""}
+function landingResumeLabel(route){
+  return LANDING_RESUME_ROUTES.includes(route)?t(`landing.returning.resume.${route}`):t("landing.returning.resume.generic")}
+/** With a saved setup, the landing's one creation action says so: the hero, the
+ *  persistent control and the closing action all name the saved route instead of
+ *  Build. They stay the same control and open the same chooser, whose resume card
+ *  takes it from there; it does not jump to the saved step. */
+function renderLandingResume(){
+  const route=landingResumeRoute(),label=route?landingResumeLabel(route):t("landing.build");
+  for(const name of["firstRunCreate","firstRunCreateClose","firstRunCreateDock"]){
+    const button=$("#"+name),text=$(`#${name}Label`);
+    if(text)text.textContent=label;
+    if(button){if(route)button.dataset.entryResume=route;else delete button.dataset.entryResume}}}
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
 function closeFirstRunInstall(){
@@ -15441,6 +17659,390 @@ function closeFirstRunInstall(){
   installPresentedDecision=null;
   setFirstRunOffer(false);
 }
+/* ---- Landing page: engine-true numbers, filled copy and the proof ----
+   Every number the page shows is produced here at render time and poured into an
+   i18n template, never typed into markup or a catalog value. The three outcome
+   cases go through the real progression engine with the app's default settings;
+   the chart's figures come from the Progress model over the same four-session
+   history the chart image is captured from (owner decision L-2). The inputs
+   below are the only authored numbers: what the example lifter logged. */
+const LANDING_UNIT="kg";
+const LANDING_CASES={
+  add:{ex:"pr_bb",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
+  hold:{ex:"sq_bb",sets:3,repMin:5,repMax:8,logged:[[100,8,1],[100,7,0],[100,6,0]]},
+  reduce:{ex:"pr_bb",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
+/** The squat history behind the chart image: four sessions, one rung up each week. */
+const LANDING_CHART={exerciseId:"ex-squat",libraryId:"sq_bb",started:"2026-08-03",
+  dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
+  ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5,
+  /* the capture size per language (the Portuguese figure captions wrap, so it is taller), from tools/capture-landing-proof.mjs */
+  dims:{en:[584,728],pt:[584,766]}};
+function landingChartRows(){
+  const c=LANDING_CHART,rows=[];
+  c.dates.forEach((date,week)=>{
+    for(let set=1;set<=c.sets;set++)rows.push({session:`${date}_landing`,date,exerciseId:c.exerciseId,set,
+      load:c.ladder[week],reps:Math.max(c.min,c.reps[week]-(set-1)),
+      rir:Math.max(0,c.rir[week]-(set-1)),created:`${date}T18:${10+set}:00.000Z`})});
+  return rows}
+/** The proof's screens (dark only, EN and PT) and where the lens reads on each:
+ *  [centre x, centre y, width, height] as percentages of the screen. The numbers
+ *  are measured from the live app by tools/capture-landing-proof.mjs. */
+const LANDING_SCENES=["focus","rest","actions","note"];
+const LANDING_SPOTS={
+  focus:{cue:[50,32.46,91.79,6.59],log:[50,90.88,91.79,6.4],last:[50,48.85,91.79,11.98]},
+  rest:{dial:[50,32.66,91.79,6.98]},
+  actions:{swap:[50,52.38,91.79,6.16]},
+  note:{text:[50,64.93,91.28,2.94]}};
+/** How the lens reads each element: magnification, shape, padding (px at 390 wide)
+ *  and, for a button read edge to edge, the app's corner radius. */
+const LANDING_READ={
+  cue:{scene:"focus",m:1.95,shape:"pill",pad:10},
+  log:{scene:"focus",m:1.5,shape:"rect",pad:0,r:14},
+  dial:{scene:"rest",m:1.3,shape:"pill",pad:6},
+  swap:{scene:"actions",m:1.5,shape:"rect",pad:0,r:14},
+  text:{scene:"note",m:1.4,shape:"pill",pad:8},
+  last:{scene:"focus",m:1.55,shape:"rect",pad:10}};
+/** The import-review capture: its size per language, the counts its screen shows
+ *  (they differ by language: the sample's names classify differently) and the
+ *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
+ *  into assets/brand/landing-proof-spots.json, which test/landing-variants.mjs compares. */
+const LANDING_PASTE_SHOT={dims:{en:[780,1242],pt:[780,1242]},counts:{en:{linked:1,review:3},pt:{linked:0,review:4}},exercise:"pr_bb"};
+const landingLang=()=>I18N?.getLang?.()==="pt"?"pt":"en";
+const landingNum=v=>{const s=fmtPlain(v);return landingLang()==="pt"?s.replace(".",","):s};
+const landingKg=v=>`${landingNum(v)} ${LANDING_UNIT}`;
+const landingExerciseName=id=>{const e=LIBRARY_BY_ID.get(id);return e?(landingLang()==="pt"&&e.namePt)||e.name:""};
+/** "7, 6 and 6" / "7, 6 e 6": the list pattern comes from the language, not from code. */
+function landingList(values){
+  const items=values.map(landingNum);
+  try{return new Intl.ListFormat(landingLang()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(items)}
+  catch{return items.join(", ")}}
+function landingEvaluate(c){
+  const engine=typeof RepForgeProgression!=="undefined"?RepForgeProgression:null;
+  if(!engine)return null;
+  const raw=+DEFAULTS.minJump;
+  const result=engine.evaluateProgression({engineVersion:1,
+    prescription:{schemaVersion:1,strategy:{id:"range",version:1,params:{workingSets:c.sets,repMin:c.repMin,repMax:c.repMax}},modifiers:[]},
+    relation:null,modifiers:[],
+    settings:{minLoadIncrement:Number.isFinite(raw)&&raw>0?raw:2.5,jumpPercent:+DEFAULTS.jumpPct||0,hardRir:+DEFAULTS.hardRir||4},
+    history:[{sessionId:"landing-case",date:"2026-09-01",sets:c.logged.map(([load,reps,rir])=>({load,reps,rir}))}],
+    currentSession:[],
+    context:{weekNumber:1,blockLength:defaultProgramMeta().mesocycleLengthWeeks,blockStart:null}});
+  if(result?.kind!=="recommendation")return null;
+  return{status:result.status,load:result.facts.targetLoad,reps:result.facts.targetReps}}
+/** Strength-trend figures for the chart, from the Progress model. */
+function landingChartFigures(){
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model)return null;
+  const series=Model.buildStrengthEvidence("all-history",LANDING_CHART.exerciseId,landingChartRows(),{started:LANDING_CHART.started});
+  if(!series?.points?.length)return null;
+  return{from:series.points[0].value,to:series.points.at(-1).value,sessions:series.evidenceCount}}
+/** A catalog template as markup: the template is escaped, then each {name} becomes
+ *  escaped text or, for an app control's label, the bold interface term. */
+function landingRich(key,text,terms={}){
+  return esc(t(key)).replace(/\{(\w+)\}/g,(whole,name)=>
+    name in terms?`<b class="firstrun-ui">${esc(terms[name])}</b>`:name in text?esc(text[name]):whole)}
+function landingCue(status,c){
+  const move=status==="advance"?"up":status==="reduce"?"down":"hold";
+  return`${t(`focus.cue.${move}`,{load:landingNum(c.load),unit:LANDING_UNIT})} · ${t("focus.cue.reps",{reps:landingNum(c.reps)})}`}
+function landingSceneAlt(scene,add){
+  const c=LANDING_CASES.add,first=c.logged[0];
+  if(scene==="focus")return t("landing.demo.alt.focus",{exercise:landingExerciseName(c.ex),sets:landingNum(c.sets),
+    min:landingNum(c.repMin),max:landingNum(c.repMax),load:landingKg(first[0]),reps:landingNum(first[1]),rir:landingNum(first[2]),
+    cue:add?landingCue(add.status,add):"",action:t("today.log_set")});
+  if(scene==="actions")return t("landing.demo.alt.actions",{action:t("ex.actions.substitute")});
+  return scene==="rest"?t("landing.demo.alt.rest"):t("landing.demo.alt.note")}
+/** The read of one step as a crop: the spot grown by the lens padding (a share of
+ *  a 390 by 844 screen), as the five numbers the static card's CSS needs. */
+function landingCropBox(scene,reads){
+  const name=reads[reads.length-1],spot=LANDING_SPOTS[scene]?.[name],read=LANDING_READ[name];
+  if(!spot||!read)return null;
+  const padW=2*read.pad/390*100,padH=2*read.pad/844*100;
+  return{x:spot[0],y:spot[1],w:Math.min(100,spot[2]+padW),h:Math.min(100,spot[3]+padH)}}
+function renderLandingProof(add){
+  const root=$("#firstRun");if(!root)return;
+  const lang=landingLang();
+  const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
+  const text=(key,value)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.textContent=value};
+  const c=LANDING_CASES.add,first=c.logged[0];
+  text("s2",t("landing.demo.s2.text"));
+  text("s3",t("landing.demo.s3.title",{action:t("today.log_set")}));
+  fill("s5",landingRich("landing.demo.s5.text",{},{action:t("ex.actions.substitute")}));
+  if(add){
+    text("s7.value",t("landing.outcomes.target",{load:landingKg(add.load),reps:landingNum(add.reps)}));
+    text("s7.sets",t("landing.demo.s7.sets",{sets:landingNum(c.sets)}));
+    text("s7",t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
+      min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)}))}
+  const seen=new Set();
+  root.querySelectorAll("[data-landing-step]").forEach(step=>{
+    const scene=step.dataset.scene,reads=(step.dataset.read||"").split(" ").filter(Boolean);
+    const crop=step.querySelector(".firstrun-step__crop"),img=step.querySelector("[data-landing-crop]");
+    if(img){
+      img.src=`assets/brand/wt-${scene}-${lang}-dark.webp`;
+      img.alt=seen.has(scene)?"":landingSceneAlt(scene,add)}
+    seen.add(scene);
+    const box=reads.length?landingCropBox(scene,reads):null;
+    if(crop){
+      for(const [name,value] of [["sx",box?.x],["sy",box?.y],["sw",box?.w],["sh",box?.h]]){
+        if(value==null)crop.style.removeProperty(`--firstrun-${name}`);
+        else crop.style.setProperty(`--firstrun-${name}`,String(Math.round(value*100)/100))}}});
+}
+function renderLandingOutcomes(results){
+  const root=$("#firstRun");if(!root)return;
+  for(const [id,c] of Object.entries(LANDING_CASES)){
+    const node=root.querySelector(`[data-landing-outcome="${id}"]`),got=results[id];
+    if(!node||!got)continue;
+    const reps=c.logged.map(set=>set[1]),same=reps.every(r=>r===reps[0]);
+    const did=same
+      ?t("landing.outcomes.did_same",{reps:landingNum(reps[0]),load:landingKg(c.logged[0][0]),sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax)})
+      :t("landing.outcomes.did_mixed",{list:landingList(reps),load:landingKg(c.logged[0][0]),min:landingNum(c.repMin),max:landingNum(c.repMax)});
+    const rule=id==="add"?t("rec.add.text"):id==="hold"?t("rec.hold_add_reps.text"):t("rec.reduce.text",{min:landingNum(c.repMin)});
+    node.querySelector("[data-landing-next]").textContent=t("landing.outcomes.target",{load:landingKg(got.load),reps:landingNum(got.reps)});
+    node.querySelector("[data-landing-exercise]").textContent=landingExerciseName(c.ex);
+    node.querySelector("[data-landing-explain]").textContent=`${did} ${rule}`}}
+function renderLandingChart(){
+  const root=$("#firstRun");if(!root)return;
+  const figure=root.querySelector("[data-landing-chart]"),fig=landingChartFigures();
+  if(!figure||!fig)return;
+  const vars={exercise:landingExerciseName(LANDING_CHART.libraryId),from:landingNum(fig.from),to:landingKg(fig.to),sessions:landingNum(fig.sessions),metric:t("stats.metric.best_e1rm")};
+  const img=figure.querySelector("img");
+  if(img){
+    const dims=LANDING_CHART.dims[landingLang()];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);
+    img.alt=t("landing.chart.alt",vars)}
+  const caption=figure.querySelector("figcaption");if(caption)caption.textContent=t("landing.chart.caption",vars)}
+function renderLandingWays(){
+  const root=$("#firstRun");if(!root)return;
+  const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
+  fill("ways.written",esc(t("landing.ways.written.body",{weeks:landingNum(defaultProgramMeta().mesocycleLengthWeeks)})));
+  fill("ways.where",landingRich("landing.ways.paste.where",{},{track:t("landing.track"),hub:t("entry.hub.title"),
+    own:t("entry.hub.own.title"),paste:t("entry.hub.freeform.title")}));
+  fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
+  fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
+  fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
+  const lang=landingLang(),shot=LANDING_PASTE_SHOT,img=root.querySelector('[data-shot="paste-review"]');
+  if(img){
+    const dims=shot.dims[lang];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);
+    const typed=String(t("landing.ways.paste.message")).split("\n")[1]?.replace(/\s+\d+x[\d-]+\s*$/,"")||"";
+    img.alt=t("landing.ways.paste.alt",{screen:t("import.heading"),linked:landingNum(shot.counts[lang].linked),review:landingNum(shot.counts[lang].review),
+      typed,exercise:landingExerciseName(shot.exercise),status:t("import.status.probable")})}}
+/** Everything on the landing that is a number or is built from one. */
+function renderLandingContent(){
+  const results={};
+  for(const [id,c] of Object.entries(LANDING_CASES)){const got=landingEvaluate(c);if(got)results[id]=got}
+  renderLandingProof(results.add||null);
+  renderLandingOutcomes(results);
+  renderLandingChart();
+  renderLandingWays()}
+
+/* The proof controller. One object per open landing: it adds the pinned stage
+   (phone, lens, rail) only when motion is welcome and the screen can hold it,
+   keeps the persistent Build control in step with the hero action, and wires the
+   two in-page controls. Everything it starts is recorded and removed by
+   dispose(), which suspendFirstRun runs, so no listener, observer, timer or frame
+   outlives the gate and the static cards remain once it is gone. */
+let landingController=null;
+function createLandingController(root){
+  const reg={offs:[],obs:[],timers:new Set(),frames:new Set(),nodes:[]};
+  const clamp=(x,lo,hi)=>x<lo?lo:x>hi?hi:x;
+  const on=(target,type,fn,opts)=>{target.addEventListener(type,fn,opts);reg.offs.push(()=>target.removeEventListener(type,fn,opts))};
+  const later=(fn,ms)=>{const id=setTimeout(()=>{reg.timers.delete(id);fn()},ms);reg.timers.add(id);return id};
+  const motionQuery=window.matchMedia?.("(prefers-reduced-motion: reduce)")||null;
+  const reduced=()=>window.RepForgeMotion?.reducedMotion?.()??!!motionQuery?.matches;
+  const track=root.querySelector("#firstRunProofTrack"),stage=root.querySelector("#firstRunProofStage"),list=root.querySelector("#firstRunProofSteps");
+  const steps=[...root.querySelectorAll("[data-landing-step]")];
+  const ticks=new Set();
+  let pin=null,pinOffs=[],tickPending=false,seq=null;
+  const requestTick=()=>{
+    if(tickPending)return;tickPending=true;
+    const id=requestAnimationFrame(()=>{reg.frames.delete(id);tickPending=false;ticks.forEach(fn=>fn())});
+    reg.frames.add(id)};
+  /* ---- pinned stage ---- */
+  const shouldPin=()=>{
+    if(!track||!stage||!list||!steps.length||reduced()||landingReturning())return false;
+    const font=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
+    return root.clientHeight>=600&&font<=20};
+  function unpin(){
+    if(!pin)return;
+    if(seq){clearTimeout(seq);reg.timers.delete(seq);seq=null}
+    ticks.delete(pin.tick);
+    pinOffs.forEach(off=>off());pinOffs=[];
+    pin.nodes.forEach(node=>node.remove());
+    track.classList.remove("is-pinned","is-ready");track.style.removeProperty("--firstrun-steps");
+    steps.forEach(step=>{step.classList.remove("is-current");step.removeAttribute("aria-current")});
+    pin=null}
+  function lensTo(name){
+    const read=LANDING_READ[name],spot=LANDING_SPOTS[read.scene][name];
+    const img=pin.imgs[read.scene],phone=pin.phone,glass=pin.glass,lens=pin.lens;
+    const pw=phone.clientWidth,gw=glass.clientWidth,gh=glass.clientHeight,gx=glass.offsetLeft,gy=glass.offsetTop;
+    if(!pw||!gw||!gh)return;
+    const tw=spot[2]/100*gw,th=spot[3]/100*gh;
+    const m=Math.min(read.m,(pw-16-2*read.pad)/tw);
+    let lw=tw*m+2*read.pad,lh=th*m+2*read.pad;
+    if(read.shape==="round")lw=lh=Math.max(lw,lh);
+    const cx=clamp(gx+spot[0]/100*gw,lw/2+8,pw-lw/2-8),cy=gy+spot[1]/100*gh;
+    lens.style.setProperty("--firstrun-lens-w",`${lw}px`);lens.style.setProperty("--firstrun-lens-h",`${lh}px`);
+    lens.style.setProperty("--firstrun-lens-radius",read.shape==="round"?"50%":read.shape==="pill"?`${Math.min(lh/2,22)}px`:`${read.r?read.r*gw/390*m:14}px`);
+    lens.style.left=`${cx}px`;lens.style.top=`${cy}px`;
+    lens.style.backgroundImage=`url("${img.currentSrc||img.src}")`;
+    lens.style.backgroundSize=`${gw*m}px ${gh*m}px`;
+    lens.style.backgroundPosition=`${lw/2-spot[0]/100*gw*m}px ${lh/2-spot[1]/100*gh*m}px`;
+    lens.dataset.read=name;lens.classList.add("is-on")}
+  function frame(index){
+    const step=steps[index],reads=(step.dataset.read||"").split(" ").filter(Boolean);
+    LANDING_SCENES.forEach(scene=>{
+      const shown=scene===step.dataset.scene;
+      pin.imgs[scene].classList.toggle("is-on",shown);
+      pin.imgs[scene].setAttribute("aria-hidden",shown?"false":"true")});
+    if(seq){clearTimeout(seq);reg.timers.delete(seq);seq=null}
+    pin.phone.classList.toggle("is-reading",reads.length>0);
+    if(!reads.length){pin.lens.classList.remove("is-on");delete pin.lens.dataset.read;return}
+    lensTo(reads[0]);
+    if(reads.length>1)seq=later(()=>{seq=null;if(pin)lensTo(reads[reads.length-1])},1500)}
+  function setStep(index,force){
+    if(!pin||(index===pin.current&&!force))return;
+    pin.current=index;
+    steps.forEach((step,j)=>{
+      step.classList.toggle("is-current",j===index);
+      if(j===index)step.setAttribute("aria-current","step");else step.removeAttribute("aria-current")});
+    pin.rail.forEach((button,j)=>{
+      button.classList.toggle("is-done",j<index);
+      if(j===index)button.setAttribute("aria-current","step");else button.removeAttribute("aria-current")});
+    frame(index)}
+  function pinStage(){
+    if(pin)return;
+    const lang=landingLang();
+    const loaded=()=>{if(pin)setStep(pin.current,true)};
+    const element=(tag,cls,attrs={})=>{const node=document.createElement(tag);if(cls)node.className=cls;for(const [k,v] of Object.entries(attrs))node.setAttribute(k,v);return node};
+    const phone=element("div","firstrun-proof__phone"),glass=element("div","firstrun-proof__glass");
+    const screen=element("div","firstrun-proof__screen"),imgs={};
+    LANDING_SCENES.forEach(scene=>{
+      const source=steps.map(step=>step.querySelector("[data-landing-crop]")).find(node=>node?.src.includes(`wt-${scene}-`));
+      const img=element("img","",{width:"780",height:"1688",decoding:"async",loading:"lazy",
+        src:`assets/brand/wt-${scene}-${lang}-dark.webp`,alt:source?.alt||""});
+      imgs[scene]=img;screen.append(img);
+      img.addEventListener("load",loaded);pinOffs.push(()=>img.removeEventListener("load",loaded))});
+    glass.append(screen);
+    const lens=element("span","firstrun-proof__lens",{"aria-hidden":"true"});
+    phone.append(glass,lens);
+    const railNav=element("div","firstrun-proof__rail",{role:"group","aria-label":t("landing.demo.steps_aria")});
+    const rail=steps.map((step,j)=>{
+      const button=element("button","",{type:"button","data-go":String(j),
+        "aria-label":t("landing.demo.step_aria",{n:landingNum(j+1),total:landingNum(steps.length)})});
+      const go=()=>{
+        const span=track.offsetHeight-stage.offsetHeight;
+        const top=track.getBoundingClientRect().top-root.getBoundingClientRect().top+root.scrollTop+span*(j+.5)/steps.length;
+        root.scrollTo({top,behavior:reduced()?"auto":"smooth"})};
+      button.addEventListener("click",go);pinOffs.push(()=>button.removeEventListener("click",go));
+      railNav.append(button);return button});
+    stage.insertBefore(phone,list);stage.insertBefore(railNav,list);
+    track.classList.add("is-pinned");track.style.setProperty("--firstrun-steps",String(steps.length));
+    const tick=()=>{
+      if(!pin)return;
+      const span=track.offsetHeight-stage.offsetHeight;if(span<=0)return;
+      if(!shouldPin()){layout();return}
+      const progress=clamp((root.getBoundingClientRect().top-track.getBoundingClientRect().top)/span,0,1);
+      setStep(Math.min(steps.length-1,Math.floor(progress*steps.length*.999+.0001)))};
+    pin={phone,glass,lens,imgs,rail,nodes:[phone,railNav],current:-1,tick};
+    ticks.add(tick);
+    setStep(0);
+    /* the steps fade only once the first state is painted, so none flashes on entry */
+    const id=requestAnimationFrame(()=>{reg.frames.delete(id);if(pin)track.classList.add("is-ready")});
+    reg.frames.add(id)}
+  /* ---- the stepped reveal (O1) ----
+     When the proof is the static cards (motion is welcome but the stage cannot
+     pin), each card arrives with `.motion-step` > `.is-in` as it scrolls into
+     view. The class that hides a step is `.motion-steps-ready` on the list and
+     is added here, after the first observation, so without JavaScript every step
+     is simply shown, a card already in view is never hidden and shown again, and
+     the pinned stage (which has its own crossfade) and reduced motion never get
+     it. Nothing about the stage or its steps changes: this only adds and removes
+     classes, and dispose() takes them all off. */
+  let reveal=null;
+  function stopReveal(){
+    if(!reveal)return;
+    reveal.io.disconnect();const k=reg.obs.indexOf(reveal.io);if(k>=0)reg.obs.splice(k,1);
+    list.classList.remove("motion-steps-ready");
+    steps.forEach(step=>step.classList.remove("motion-step","is-in"));reveal=null}
+  function syncReveal(){
+    const want=!!list&&steps.length>0&&!pin&&!reduced()&&!landingReturning()&&typeof IntersectionObserver!=="undefined";
+    if(!want){stopReveal();return}
+    if(reveal)return;
+    const state={io:null,armed:false};
+    state.io=new IntersectionObserver(entries=>{
+      if(reveal!==state)return;
+      for(const entry of entries)if(entry.isIntersecting){entry.target.classList.add("is-in");state.io.unobserve(entry.target)}
+      if(!state.armed){state.armed=true;list.classList.add("motion-steps-ready")}},{root,threshold:.15});
+    reveal=state;reg.obs.push(state.io);
+    steps.forEach(step=>{step.classList.add("motion-step");state.io.observe(step)})}
+  function layout(){
+    if(shouldPin()){if(pin)setStep(pin.current,true);else pinStage()}else unpin();
+    syncReveal();
+    requestTick()}
+  /* ---- the persistent Build control ---- */
+  function mountDock(){
+    const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
+    if(!dock||!hero||!close||sharedSetupReady()||typeof IntersectionObserver==="undefined")return;
+    let gone=false,closing=false;
+    const paint=()=>dock.classList.toggle("is-on",gone&&!closing);
+    const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
+    watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
+    watch(close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
+    /* the first painted ground beneath the control's resting place decides its ink */
+    const luminance=(x,y)=>{
+      for(const hit of document.elementsFromPoint(x,y)){
+        if(dock.contains(hit))continue;
+        for(let node=hit;node&&node!==document.documentElement;node=node.parentElement){
+          const m=/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(getComputedStyle(node).backgroundColor);
+          if(m&&(m[4]===undefined||+m[4]>.5))return(.2126*m[1]+.7152*m[2]+.0722*m[3])/255}}
+      return 1};
+    ticks.add(()=>{
+      const box=dock.getBoundingClientRect();
+      const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
+      dock.dataset.ground=luminance(window.innerWidth/2,y)<.4?"dark":"light"});
+    reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground})}
+  /* ---- in-page controls ---- */
+  function mountControls(){
+    const hand=root.querySelector("#firstRunHandBtn"),body=root.querySelector("#firstRunHand");
+    if(hand&&body){
+      on(hand,"click",()=>{const open=hand.getAttribute("aria-expanded")!=="true";hand.setAttribute("aria-expanded",String(open));body.hidden=!open});
+      reg.nodes.push(()=>{hand.setAttribute("aria-expanded","false");body.hidden=true})}
+    const link=root.querySelector("#firstRunFooterPrivacy"),data=root.querySelector("#firstRunData");
+    if(link&&data)on(link,"click",event=>{
+      event.preventDefault();
+      data.scrollIntoView({block:"start",behavior:reduced()?"auto":"smooth"});
+      try{data.focus({preventScroll:true})}catch{}})}
+  /* ---- lifecycle ---- */
+  function mount(){
+    mountControls();mountDock();
+    on(root,"scroll",requestTick,{passive:true});
+    on(window,"resize",layout);
+    if(motionQuery?.addEventListener)on(motionQuery,"change",layout);
+    layout()}
+  function dispose(){
+    unpin();stopReveal();
+    reg.offs.forEach(off=>off());reg.offs.length=0;
+    reg.obs.forEach(io=>io.disconnect());reg.obs.length=0;
+    reg.timers.forEach(clearTimeout);reg.timers.clear();
+    reg.frames.forEach(cancelAnimationFrame);reg.frames.clear();
+    reg.nodes.forEach(fn=>fn());reg.nodes.length=0;
+    ticks.clear();tickPending=false}
+  const live=()=>({listeners:reg.offs.length+pinOffs.length,observers:reg.obs.length,timers:reg.timers.size,frames:reg.frames.size,
+    pinned:!!pin,step:pin?pin.current:null,ticks:ticks.size});
+  return{mount,dispose,live}}
+function mountLandingController(){
+  disposeLandingController();
+  const root=$("#firstRun");if(!root)return;
+  // openFirstRun marks the landing first or returning after it renders, so the
+  // marks are applied to the hero here, before the controller reads it.
+  renderFirstRunHeroCopy();renderLandingResume();
+  landingController=createLandingController(root);
+  landingController.mount()}
+function disposeLandingController(){
+  if(!landingController)return;
+  landingController.dispose();landingController=null}
+/** Test hook: what the open landing's controller is holding (nothing once closed). */
+window.__repforgeLandingProof=()=>landingController?{open:true,...landingController.live()}:{open:false,listeners:0,observers:0,timers:0,frames:0,pinned:false,step:null,ticks:0};
+/** Real-app captures that follow the chosen appearance: swap the file on
+ *  <html data-theme>, never on prefers-color-scheme, so the page and the app agree. */
 function renderLandingDevice(){
   const lang=I18N?.getLang?.()==="pt"?"pt":"en";
   const theme=document.documentElement.dataset.theme==="dark"?"dark":"light";
@@ -15451,6 +18053,7 @@ function renderLandingDevice(){
 function renderFirstRun(){
   renderFirstRunProgramMode();
   renderLandingDevice();
+  renderLandingContent();
   const decision=installPolicyDecision(),mode=installMode();
   setFirstRunOffer(decision.eligible||mode==="safari"&&decision.state==="unsupported");
   const label=$("#firstRunContinueLabel");
@@ -15466,12 +18069,21 @@ function openFirstRun(kind=currentEntryLanding()){
   firstRunActive=true;
   renderFirstRun();
   el.dataset.entryLanding=kind;
+  // The generic landing tells a first visit from a return, and names the setup
+  // the lifter left half done, so the returning landing can lead with it.
+  const returning=kind==="generic"&&uiPrefs.entryLandingSeen===true;
+  el.dataset.entryVisit=returning?"returning":"first";
+  const draft=returning?readSetupDraftRecord():null;
+  const draftRoute=draft?.ok&&draft.envelope&&!isGuidedRepairSetupDraft(draft.envelope)?String(draft.envelope.state?.route||""):"";
+  if(draftRoute)el.dataset.entryDraft=draftRoute;else delete el.dataset.entryDraft;
   el.classList.remove("hidden");
   document.body.classList.add("is-firstrun");
   window.scrollTo({top:0});
+  el.scrollTop=0;
   // The screen itself takes focus, not its first choice: a ring drawn around
   // Create before the lifter has touched anything reads as a recommendation.
   try{el.focus({preventScroll:true})}catch{}
+  mountLandingController();
   // No guide is presented here. This screen's whole job is the proposition,
   // and every cue that could anchor to it explains a control the screen has
   // already named: the two entry actions carry their own labels, the install
@@ -15483,9 +18095,16 @@ function openFirstRun(kind=currentEntryLanding()){
   // purpose is not self-evident and where replay reaches them.
   if(kind==="generic"&&uiPrefs.entryLandingSeen!==true)setUiPref("entryLandingSeen",true);
   return true}
+/** The landing's tab stops: the modal set plus the questions' <summary> controls. */
+function firstRunFocusables(root){
+  const sel='a[href],button:not([disabled]),summary,input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  return [...root.querySelectorAll(sel)].filter(el=>{
+    if(el.hasAttribute("hidden")||el.closest("[hidden]"))return false;
+    const st=getComputedStyle(el);
+    return st.display!=="none"&&st.visibility!=="hidden"&&el.getClientRects().length>0})}
 function trapFirstRunTab(event){
   if(event.key!=="Tab"||!firstRunOpen())return;
-  const root=$("#firstRun"),focusable=modalFocusables(root);
+  const root=$("#firstRun"),focusable=firstRunFocusables(root);
   if(!focusable.length){event.preventDefault();root?.focus();return}
   const current=focusable.indexOf(document.activeElement);
   if(event.shiftKey&&(current<=0)){
@@ -15496,19 +18115,24 @@ function trapFirstRunTab(event){
  *  shell underneath, so it needs the overlay out of the way while it decides. */
 function suspendFirstRun(){
   const el=$("#firstRun");if(!el)return;
+  disposeLandingController();
   el.classList.add("hidden");document.body.classList.remove("is-firstrun")}
 function closeFirstRun(){
   firstRunActive=false;installPresentedDecision=null;suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
 /** Resolve the landing before ordinary navigation. A valid or invalid shared
- *  handoff always gets its complete fail-closed surface. Otherwise an empty
- *  device sees the generic landing once, then returns to Today's no-program
- *  state on later launches. */
+ *  handoff always gets its complete fail-closed surface. Otherwise the landing
+ *  is the boot surface until the device is onboarded (owner decision on #295,
+ *  amending G-47/L-08 and Q633): the full landing on the first visit, the
+ *  returning landing on later ones; the chooser is reached from it. */
 function maybeShowFirstRun(){
   if(sharedSetupDraft.status==="existing")return false;
   if(!firstRunPending())return false;
   const kind=currentEntryLanding();
-  if(kind==="generic"&&uiPrefs.entryLandingSeen===true)return false;
+  // A restored or migrated program with the flag unset is real content
+  // (hasProgramContent, as Today and Program read it): the generic landing never
+  // covers it. A shared link's own gate still decides for itself.
+  if(kind==="generic"&&hasProgramContent())return false;
   return openFirstRun(kind)}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
@@ -15527,19 +18151,212 @@ function openWhySheet(exId,opener){
   const slot=prog.find(exId);if(!slot)return;
   const ex=sessionExercise(slot);if(!ex)return;
   openWhySheetFor(ex,opener)}
+/* ---- Why this weight (Direction D, spec 4.3) ----
+   Sentences first, each under a bold lead, then the working behind "See the working"
+   and the evidence footer. Every sentence is a row of explainRecommendation(), the
+   producer above, and every figure is a fact the engine attached; this model only
+   orders them, gives each its lead, and lays out the working. */
+const WHY_LEADS={
+  top:["top","why.lead.top"],hold:["hold","why.lead.hold"],stalled:["stalled","why.lead.stalled"],
+  recover:["recover","why.lead.recover"],rule:["rule","why.lead.rule"]};
+const WHY_RANGE_LEAD={top:"top",cap_top:"top",cap_top2:"top",hold:"hold",push_reps:"hold",below_range:"rule",stalled:"stalled",recover:"recover"};
+const whyList=items=>{const a=items.map(String);
+  try{return new Intl.ListFormat(I18N?.getLang?.()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(a)}
+  catch{return a.join(", ")}};
+/** The first sentence of the first block: what was performed, and the RIR (or effort) it used. */
+function whyPerformedText(prev,u){
+  const rows=prev.filter(x=>+x.load>0&&+x.reps>0);if(!rows.length)return"";
+  // One sentence per run of sets at the same load, so a backoff set never borrows the first set's load.
+  const runs=[];
+  for(const x of rows){const run=runs.at(-1);if(run&&sameLoad(+run.load,+x.load))run.sets.push(x);else runs.push({load:x.load,sets:[x]})}
+  const effort=isEffortMode();
+  return runs.map(run=>{
+    const reps=whyList(run.sets.map(x=>x.reps)),load=fmtLoad(run.load);
+    if(effort)return t("why.performed_effort",{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
+    return t("why.performed",{reps,load,unit:u,
+      rirs:whyList(run.sets.map(x=>x.rir==null||x.rir===""?t("why.effort.missing"):fmt(x.rir)))})}).join(" ")}
+/** "102.5 kg × 8" / "137.5 kg × 5 + 117.5 kg × 8, 8": the sets the engine asks for, grouped by load. */
+function setsTargetLine(ex,rec){
+  const u=unitLabel();let sets=rec.engineSets;
+  if(!sets?.length){
+    if(rec.load==null)return"";
+    const first=setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1));
+    sets=[{load:rec.load,reps:first.reps??ex.min}]}
+  const groups=[];
+  for(const s of sets){const g=groups.at(-1);if(g&&sameLoad(+g.load,+s.load))g.reps.push(s.reps);else groups.push({load:s.load,reps:[s.reps]})}
+  return groups.map(g=>`${fmtLoad(g.load)} ${u} × ${g.reps.join(", ")}`).join(" + ")}
+/** "100 − 2.5 → 97.5": the load arithmetic in the direction the engine took. The engine's target is the nearest
+ *  step, so when rounding moved the exact result that figure is shown first ("130 + 2.5% ≈ 133.25 → 132.5"). */
+function whyLoadMove(from,to,{pct=null,step=null}){
+  const sign=to<from?-1:1,size=pct!=null?from*pct/100:step,exact=from+sign*size;
+  return `${fmtLoad(from)} ${sign<0?"\u2212":"+"} ${pct!=null?`${fmt(pct)}%`:fmtLoad(step)}`+
+    `${Math.abs(exact-to)>1e-6?` \u2248 ${fmtLoad(exact)}`:""} \u2192 ${fmtLoad(to)}`}
+/** The rep target's arithmetic as the engine did it: the capacity at the load, minus the usual RIR, rounded and then
+ *  held inside the range. A target the range moved says which end moved it, so "about 4 − 1 = 3" never reads "= 4". */
+function whyRepTarget({capacity,pred,rir,reps,min,max}){
+  const r=+rir||0,rounded=Math.round(capacity-r);
+  let shown=pred,raw=pred-r;
+  const vars=()=>({pred:fmt(shown),rir:fmt(r),raw:fmt(raw),reps,min,max});
+  if(rounded<reps)return t("why.calc.rep_target_floor",vars());
+  if(rounded>reps)return t("why.calc.rep_target_top",vars());
+  if(Math.abs(raw-reps)>1e-9){
+    shown=Math.round(capacity*10)/10;raw=Math.round((capacity-r)*10)/10;
+    if(Math.abs(raw-reps)>1e-9)return t("why.calc.rep_target_rounded",vars())}
+  return t("why.calc.rep_target_v",vars())}
+/** The headline of the sheet: the cue Focus shows. From the Focus card it is the cue of the set the shelf is on, from the
+ *  same draft and `setSuggestion`, so a session that moved the target moves the headline with it (RT-05). The exercise
+ *  page, and a card with no set left, show the base recommendation's own cue, as they always did. `inSession` says the
+ *  target is no longer the one the previous session produced. */
+function whyHeadline(ex,rec,surface){
+  const u=unitLabel(),verdict=rxVerdict(rec);
+  const n=surface==="exercise"?0:whyCueSet(ex);
+  if(n){
+    const draft=loadDraft(),prev=last(ex),cue=focusCue(ex,n,rec,draft,prev,false);
+    const sg=cue.kind==="now"?setSuggestion(ex,n,rec,draft,prev.find(x=>x.set===n)):null;
+    // Until the session moves the target, the base recommendation's cue (every set of a strategy) is the headline.
+    if(sg&&(sg.src!=="base"||sg.tempered))
+      return{target:`${t(`focus.cue.${cue.move}`,{load:cue.loadText,unit:u})}, ${t("focus.cue.reps",{reps:cue.reps})}`,
+        glyph:cue.move,inSession:true,set:{n,load:sg.load,reps:cue.reps}}}
+  const cueReps=rec.engineSets?.length?rec.engineSets.map(x=>x.reps).join(", ")
+    :rec.load!=null?setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min:null;
+  const cueKey=verdict==="up"?"focus.cue.up":verdict==="down"?"focus.cue.down":"focus.cue.hold";
+  return{target:rec.load!=null?`${t(cueKey,{load:fmtLoad(rec.load),unit:u})}, ${t("focus.cue.reps",{reps:cueReps})}`:"",
+    glyph:verdict,inSession:false}}
+/** The set the Focus cue speaks for: the first one not logged. The draft reopens a set while it is corrected, so that set
+ *  is the one the headline and the "Set n target" in the same sheet both name. */
+function whyCueSet(ex){
+  for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
+  return 0}
+function whySheetModel(ex,surface="focus"){
+  const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
+  const head=whyHeadline(ex,rec,surface),glyph=head.glyph;
+  // Once the session has moved the target, the previous session's decision is said as that, never as today's verdict.
+  const model={target:head.target,
+    decision:head.inSession&&rec.label?t("why.decision_before",{label:rec.label}):rec.label,glyph,blocks:[],calc:[],evidence:""};
+  const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
+  const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
+  if(rec.status==="manual"){block("manual",t("why.lead.manual"),t("why.manual"));return model}
+  const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
+  const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
+  const lastGroup=()=>{if(prev.length){calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});setRows(prev)}};
+  const todayRow=()=>{const line=setsTargetLine(ex,rec);if(line)calc.push({sum:!head.inSession,k:t("nav.log"),v:line})};
+  // Once the session has moved the target, the working ends on the set the headline speaks for; the base target above it stays labelled Today.
+  const setRow=()=>{if(head.inSession&&head.set)calc.push({sum:true,k:t("why.calc.set",{n:head.set.n}),v:`${fmtLoad(head.set.load)} ${u} × ${head.set.reps}`})};
+  if(prev.length)model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)});
+  const isRange=!rec.strategy||rec.strategy==="range";
+  // The first unlogged working set, as the in-session note names it.
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
+  let nextSet=null;
+  for(let n=1;n<=ex.sets&&nextSet==null;n++){const key=`${ex.id}_${n}`;if(!done.has(key)&&!warm.has(key))nextSet=n}
+  const session=completedCurrentSets(ex,ex.sets+1,draft);
+  if(isRange&&rec.status!=="new"&&session.length&&nextSet!=null){
+    // In-session: the capacity the set showed comes before the prediction for the next one, never the reverse.
+    const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,last(ex).find(x=>+x.set===nextSet)),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
+    block("set1",t("why.lead.set1",{n:session.length}),isEffortMode()
+      ?t("why.set1_effort",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,effort:effortLabel(effortForRir(seen.rir))})
+      :t("why.set1",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,rir:fmt(seen.rir)}),t("why.session"));
+    const predicted=sg.src==="session-hold"&&sg.pred!=null?t("why.set2",{pred:fmt(sg.pred),rir:fmt(sg.typ),reps:sg.reps}):"";
+    block("set2",t("why.lead.set2",{n:nextSet}),[note?.text,predicted].filter(Boolean).join(" "));
+    calc.push({group:t("why.session")});
+    session.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
+    calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:observed,load:fmtLoad(seen.load),unit:u})});
+    if(predicted)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:sg.capacity,pred:sg.pred,rir:sg.typ,reps:sg.reps,min:ex.min,max:ex.max})});
+    calc.push({sum:true,k:t("why.calc.set",{n:nextSet}),v:`${fmtLoad(sg.load)} ${u} × ${sg.reps}`});
+    model.evidence=t("why.evidence",{n:1,date:shortDate(today())});
+  }
+  else if(isRange&&rec.status!=="new"){
+    const rule=take("rule"),load=take("load"),reps=take("reps"),showed=take("showed");
+    const lead=WHY_LEADS[WHY_RANGE_LEAD[rec.reason]||"rule"];
+    if(rule)block(lead[0],t(lead[1]),[performed,rule.text].filter(Boolean).join(" "));
+    const n=reps?.facts?.reps??setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min;
+    if(rec.reenterReps&&load&&reps){
+      block(sameLoad(rec.load,rec.lastLoad)?"load_hold":"load",t(sameLoad(rec.load,rec.lastLoad)?"why.lead.load_hold":"why.lead.load"),load.text);
+      block("reps",t("why.lead.reps",{n}),reps.text)}
+    else block("reps",t("why.lead.reps",{n}),[load?.text,reps?.text].filter(Boolean).join(" "));
+    lastGroup();
+    calc.push({group:t("why.calc.working")});
+    if(rec.cr!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u}),sub:showed?.text});
+    const params=progressionForExercise(ex)?.strategy?.params||{},max=params.repMax??ex.max,min=params.repMin??ex.min;
+    if(["top","cap_top","cap_top2"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_top",{max})});
+    else if(["hold","push_reps"].includes(rec.reason))calc.push({k:t("why.calc.rule"),v:t("why.calc.rule_hold",{min,max})});
+    if(!sameLoad(rec.load,rec.lastLoad)&&load?.facts)calc.push({k:t("why.calc.new_load"),v:whyLoadMove(load.facts.from,load.facts.to,load.facts.raw?{pct:load.facts.pctValue}:{step:load.facts.stepValue})});
+    if(rec.reenterReps&&reps?.facts)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:reps.facts.capacity,pred:reps.facts.pred,rir:reps.facts.rirValue,reps:reps.facts.reps,min:reps.facts.min,max:reps.facts.max})});
+    const blockRow=take("block");if(blockRow)calc.push({k:t("why.calc.block"),v:blockRow.text,text:true});
+    todayRow();setRow();
+  }
+  else if(rec.strategy==="rep_goal"){
+    const total=take("rg-total"),effort=take("rg-effort"),rebuild=take("rg-rebuild");
+    if(total)block("goal",t("why.lead.goal"),[performed,total.text].filter(Boolean).join(" "));
+    if(effort)block("effort",t("why.lead.effort"),effort.text);
+    const sets=rec.engineSets||[];
+    if(rebuild)block("spread",t("why.lead.spread"),rebuild.text);
+    else if(sets.length)block("spread",t("why.lead.spread"),t("why.split",{total:sum(sets.map(s=>s.reps)),reps:whyList(sets.map(s=>s.reps))}));
+    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts;
+    lastGroup();
+    calc.push({group:t("why.calc.working")});
+    if(f.performedTotal!=null)calc.push({k:t("why.calc.goal"),v:`${f.performedTotal} / ${f.repGoal}`});
+    if(sets.length)calc.push({k:t("why.calc.split"),v:`${sets.map(s=>s.reps).join(" + ")} = ${sum(sets.map(s=>s.reps))}`});
+    todayRow();setRow();
+  }
+  else if(rec.strategy==="anchor_backoff"){
+    const top=take("an-top"),topRir=take("an-toprir"),backoff=take("an-backoff"),text=take("text");
+    if(top)block("anchor",t("why.lead.anchor"),[top.text,topRir?.text].filter(Boolean).join(" "));
+    if(text)block("rule",t("why.lead.rule"),text.text);
+    if(backoff)block("backoff",t("rec.anchor.session.label"),backoff.text);
+    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts,params=progressionForExercise(ex)?.strategy?.params||{};
+    lastGroup();
+    calc.push({group:t("why.calc.working")});
+    if(f.capacityReps!=null&&f.anchorLoad!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(f.capacityReps),load:fmtLoad(f.anchorLoad),unit:u})});
+    if(f.targetLoad!=null&&f.anchorLoad!=null&&!sameLoad(f.targetLoad,f.anchorLoad))calc.push({k:t("why.calc.new_load"),v:whyLoadMove(f.anchorLoad,f.targetLoad,{pct:+params.jumpPercent})});
+    if(f.backoffLoad!=null&&params.backoffPercent!=null)calc.push({k:t("rec.anchor.session.label"),v:`${fmtLoad(f.targetLoad??f.anchorLoad)} × ${fmt(Math.round(params.backoffPercent*100))}% → ${fmtLoad(f.backoffLoad)}`});
+    todayRow();setRow();
+  }
+  else if(rec.strategy==="effort_target"){
+    const evidence=take("ef-evidence"),target=take("ef-target"),grid=take("ef-grid"),text=take("text");
+    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts;
+    if(evidence)block("effort",t("why.lead.effort"),[evidence.text,text?.text].filter(Boolean).join(" "));
+    if(target)block("reps",t("why.lead.reps",{n:f.targetReps}),target.text);
+    if(grid)block("load",t("why.lead.load"),grid.text);
+    lastGroup();
+    todayRow();setRow();
+  }
+  // Rows that are not placed as a sentence stay readable in the working, so nothing the producer says is lost.
+  const note=pick("session");
+  if(note&&!placed.has(note)&&session.length){placed.add(note);block("session","",note.text,note.label)}
+  for(const row of rows)if(!placed.has(row))calc.push({text:true,k:row.label||"",v:row.text});
+  return model}
+function whyCalcHtml(calc){
+  return calc.map(c=>c.group?`<p class="whycalc__group">${esc(c.group)}</p>`
+    :c.text?`<p class="whycalc__text">${c.k?`<span class="whycalc__k">${esc(c.k)}</span> `:""}${esc(c.v)}</p>`
+    :`<div class="whycalc__row${c.sum?" whycalc__row--sum":""}"><span class="whycalc__k">${esc(c.k)}</span>`+
+      `<span class="whycalc__v">${esc(c.v)}${c.rir?`<em>${esc(c.rir)}</em>`:""}</span>`+
+      `${c.sub?`<small class="whycalc__sub">${esc(c.sub)}</small>`:""}</div>`).join("")}
+function renderWhySheet(model){
+  const target=$("#whyTarget");if(target){target.innerHTML=model.target?`${verdictMarkHtml(model.glyph)}<span>${esc(model.target)}</span>`:"";target.classList.toggle("hidden",!model.target)}
+  const decision=$("#whyDecision");if(decision)decision.textContent=model.decision;
+  const body=$("#whyBody");
+  if(body){
+    body.innerHTML=model.blocks.map(b=>
+      `<div class="whysheet__block" data-lead="${esc(b.leadKey)}">${b.label?`<p class="whysheet__lab">${esc(b.label)}</p>`:""}`+
+      `${b.lead?`<b class="whysheet__lead">${esc(b.lead)}</b>`:""}<p class="whysheet__text">${esc(b.text)}</p></div>`).join("")+
+      (model.calc.length
+        ?`<button type="button" class="whysheet__disc" data-why-calc aria-expanded="false" aria-controls="whyCalc"><span>${esc(t("why.calc"))}</span><span class="chevron is-down" aria-hidden="true"></span></button>`+
+         `<div class="whycalc" id="whyCalc" aria-hidden="true">${whyCalcHtml(model.calc)}</div>`:"");
+    const disc=body.querySelector("[data-why-calc]"),panel=body.querySelector("#whyCalc");
+    if(disc&&panel)disc.onclick=()=>{
+      const open=disc.getAttribute("aria-expanded")!=="true";
+      setDisclosure(disc,panel,open);
+      disc.querySelector("span").textContent=t(open?"why.calc_hide":"why.calc");
+      const chev=disc.querySelector(".chevron");if(chev)chev.classList.toggle("is-down",!open)}}
+  const evidence=$("#whyEvidence");if(evidence){evidence.textContent=model.evidence;evidence.classList.toggle("hidden",!model.evidence)}}
+
 function openWhySheetFor(ex,opener){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
   // Focus is the only workout-logging surface; the exercise page is the other opener.
   captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
-  const rec=recommendation(ex);
-  const decision=$("#whyDecision");if(decision)decision.textContent=rec.label;
-  const target=$("#whyTarget");
-  if(target)target.textContent=rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label;
-  const body=$("#whyBody");
-  if(body)body.innerHTML=explainRecommendation(ex).map(row=>
-    `<div class="whysheet__row">${row.label?`<span class="whysheet__lab">${esc(row.label)}</span>`:""}`+
-    `<p>${esc(row.text)}</p></div>`).join("");
+  renderWhySheet(whySheetModel(ex,opener?.closest?.("#exDetail")?"exercise":"focus"));
+  const okBtn=$("#whyOk");if(okBtn)okBtn.onclick=()=>closeWhySheet();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
     delayHide:reducedMotion()?0:280});
@@ -15555,7 +18372,22 @@ function closeWhySheet(){
    points at Safari's own control. The bar it draws is an illustration of
    Safari, and the only third-party UI Taurifer ever draws — Chrome's install
    prompt is Chrome's to render, and we only ever ask for it. */
-let installTransferVisibleState="manual",privacyReturnsToTransfer=false;
+let installTransferVisibleState="manual",privacyReturnsToTransfer=false,privacyTransferOpener=null;
+/** Where focus starts in each install-sheet state: the Done button of the
+ *  instructions, the explanation's primary action, or the heading of every state
+ *  that has nothing to choose yet. */
+function installSheetInitialControl(stateName){
+  return stateName==="eligible"?$("#installTransferStart"):stateName==="manual"?$("#iosInstallDone"):$("#iosInstallTitle")}
+/** A state change hides the control that held focus (Start becomes a transfer in
+ *  progress, "Install without transferring" becomes the instructions). Focus does
+ *  not follow a hidden control, it drops to the page behind the dialog, so the
+ *  sheet hands it to the new state's own starting point. */
+function installSheetKeepFocus(sheet,stateName){
+  if(activeModal?.el!==sheet)return;
+  const held=document.activeElement;
+  if(held&&sheet.contains(held)&&canTakeFocus(held))return;
+  const target=installSheetInitialControl(stateName);
+  try{target?.focus({preventScroll:true})}catch{}}
 function installTransferTime(expiresAt){
   const date=new Date(expiresAt);
   if(Number.isNaN(date.valueOf()))return"";
@@ -15588,7 +18420,7 @@ function installTransferRenderState(stateName,detail={}){
   const def=definitions[stateName]||definitions.interrupted;
   installTransferVisibleState=stateName;
   sheet.dataset.transferState=stateName;
-  const title=$("#iosInstallTitle"),sub=sheet.querySelector(".installsheet__sub"),body=$("#installTransferBody"),status=$("#installTransferStatus");
+  const title=$("#iosInstallTitle"),sub=sheet.querySelector(".sheetband__sub"),body=$("#installTransferBody"),status=$("#installTransferStatus");
   if(title){title.textContent=t(def[0]);title.tabIndex=-1}
   if(sub)sub.textContent=t(def[1]);
   if(body)body.textContent=stateName==="eligible"&&def[2]?t(def[2]):"";
@@ -15615,10 +18447,11 @@ function installTransferRenderState(stateName,detail={}){
   if(cont)cont.onclick=()=>["eligible","retryable"].includes(stateName)?installTransferContinueWithoutTransfer()
     :["unknown","claimed-expired"].includes(stateName)?installTransferRequestDivergence()
     :closeIosInstallSheet();
+  installSheetKeepFocus(sheet,stateName);
   if(["ready","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName))
     queueMicrotask(()=>{try{title?.focus({preventScroll:true})}catch{}});
   return true}
-function openIosInstallSheet(stateName){
+function openIosInstallSheet(stateName,{returnFocus}={}){
   const sheet=$("#iosInstallSheet"),scrim=$("#iosInstallScrim");
   if(!sheet)return;
   const selected=stateName||((!isStandalone()&&installTransferMeaningful(state))?"eligible":"manual");
@@ -15626,9 +18459,9 @@ function openIosInstallSheet(stateName){
   const host=$("#iosInstallHost");
   if(host)host.textContent=location.hostname||"";
   document.body.classList.add("is-sheet-open");
-  const initial=selected==="eligible"?$("#installTransferStart"):selected==="manual"?$("#iosInstallDone"):$("#iosInstallTitle");
+  const initial=installSheetInitialControl(selected);
   const dismissable=!["creating","claiming","importing","interrupted","unknown","claimed-expired"].includes(selected);
-  openModal(sheet,{initialFocus:initial,onEscape:dismissable?closeIosInstallSheet:undefined,scrim,
+  openModal(sheet,{initialFocus:initial,onEscape:dismissable?closeIosInstallSheet:undefined,scrim,returnFocus,
     delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 function closeIosInstallSheet(){
@@ -15639,14 +18472,18 @@ function closeIosInstallSheet(){
 function openPrivacySheet({fromTransfer=false}={}){
   const sheet=$("#privacySheet"),scrim=$("#privacyScrim");if(!sheet)return;
   privacyReturnsToTransfer=fromTransfer;
+  // The transfer sheet is hidden while Privacy is up; whoever opened it is still
+  // owed focus when it closes, and Privacy's own opener is only a hop in between.
+  privacyTransferOpener=fromTransfer&&activeModal?.el===$("#iosInstallSheet")?activeModal.returnFocus:null;
   openModal(sheet,{scrim,handoff:fromTransfer,initialFocus:$("#privacyClose"),onEscape:closePrivacySheet,
     returnFocus:fromTransfer?$("#installTransferPrivacy"):document.activeElement,delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 async function closePrivacySheet(){
-  const returns=privacyReturnsToTransfer;privacyReturnsToTransfer=false;
+  const returns=privacyReturnsToTransfer,opener=privacyTransferOpener;
+  privacyReturnsToTransfer=false;privacyTransferOpener=null;
   await closeModal($("#privacySheet"));
   if(returns){
-    openIosInstallSheet(installTransferVisibleState);
+    openIosInstallSheet(installTransferVisibleState,{returnFocus:opener});
     queueMicrotask(()=>$("#installTransferPrivacy")?.focus({preventScroll:true}));
   }}
 async function installTransferRequestDivergence(){
@@ -15670,7 +18507,9 @@ function saveGuideTransition(id,status){
   const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
   return replaceUiPrefs({...next})}
 function removeContextualGuide(){
-  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null}
+  const hadCue=!!activeGuideCue;
+  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null;
+  if(hadCue)syncFocusFloor()}
 function dismissContextualGuide({restoreFocus=false}={}){
   if(!activeGuideId)return false;
   const target=activeGuideReturnFocus||activeGuideAnchor;
@@ -15701,10 +18540,12 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   // the cue is a flex sibling with no room and collapses into a vertical
   // sliver of one word per line. Focus's own controls likewise need the whole
   // owning surface as their insertion point so a cue never joins a fixed row.
-  const placement=anchor.closest(".focus-well")||anchor.closest(".wo-head")||
-    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||
+  const shelf=anchor.closest(".focus-shelf");
+  const placement=shelf||anchor.closest(".wo-head")||
+    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry-feature")||
     anchor.closest("#statsSeg")||anchor;
-  placement.insertAdjacentElement("afterend",cue);
+  placement.insertAdjacentElement(shelf?"beforebegin":"afterend",cue);
+  syncFocusFloor();
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
   activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
   const stored=guideStored(id);
@@ -15748,6 +18589,8 @@ function showSettings(){
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
   workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
+  // Settings opens on its heading (R7 J-09); Back, below, returns to the control that opened it.
+  focusRoute(routeHeading("settings"));
   queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]))}
 /* Returns to a bottom-nav destination from a stacked view. navTo cannot do it:
    it skips the click when the nav button is already marked active, which it
@@ -15860,11 +18703,15 @@ function init(){
   const openFirstRunCreate=()=>{closeFirstRun();startOnboarding("first-run")};
   $("#firstRunCreate").onclick=openFirstRunCreate;
   $("#firstRunCreateClose").onclick=openFirstRunCreate;
+  $("#firstRunCreateDock").onclick=openFirstRunCreate;
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
   // Copy and paste is the primary BYOP door, with the file door one tap away.
   const openFirstRunImport=()=>{
     closeFirstRun();
+    // A saved setup is resumed or discarded only on the chooser's resume card
+    // (Q-A): Track must never start a fresh import over it.
+    if(readSetupDraftRecord().raw!==null){startOnboarding("first-run");return}
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
     setImportSourceMode("freeform",{render:false});
     entrySelectRoute("import")};
@@ -15899,7 +18746,6 @@ function init(){
   const restScrim=$("#restSheetScrim");if(restScrim)restScrim.onclick=closeRestSheet;
   const restMinus=$("#restMinus");if(restMinus)restMinus.onclick=()=>nudgeRest(-REST_NUDGE);
   const restPlus=$("#restPlus");if(restPlus)restPlus.onclick=()=>nudgeRest(REST_NUDGE);
-  const restPlay=$("#restPlayPause");if(restPlay)restPlay.onclick=toggleRestHold;
   const restReset=$("#restReset");if(restReset)restReset.onclick=resetRest;
   const restStop=$("#restStop");if(restStop)restStop.onclick=endRestFromSheet;
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
@@ -15948,6 +18794,7 @@ function init(){
   const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;
+  const cuName=$("#exCustomName");if(cuName)cuName.addEventListener("input",()=>{if(cuName.getAttribute("aria-invalid")==="true")setCustomNameError(null)});
   const cuDelete=$("#exCustomDelete");if(cuDelete)cuDelete.onclick=deleteCustomExerciseSheet;
   const cuRecoveryRetry=$("#exCustomRecoveryRetry");if(cuRecoveryRetry)cuRecoveryRetry.onclick=retryCustomExerciseRecovery;
   const cuRecoveryReload=$("#exCustomRecoveryReload");if(cuRecoveryReload)cuRecoveryReload.onclick=()=>location.reload();
@@ -15981,9 +18828,9 @@ function init(){
   const previewBack=$("#previewBack");if(previewBack)previewBack.onclick=closeExercisePreview;
   const pkFull=$("#exPickFull");
   if(pkFull)pkFull.onclick=()=>{
-    const resume=pickerResumeOptions(),target=pickerState?.day||day;
+    const resume=pickerResumeOptions(),target=pickerState?.day||day,opener=pickerReturn;
     closeExercisePicker().then(()=>openLibrary({day:target,query:resume?.query||"",muscle:resume?.muscle||null,
-      equipment:resume?.equipment||null,editorScope:setupEditorOpen}))};
+      equipment:resume?.equipment||null,editorScope:setupEditorOpen,returnTo:opener}))};
   const impBack=$("#importBack");if(impBack)impBack.onclick=()=>closeImportReview();
   const impCancel=$("#importReviewCancel");
   if(impCancel)impCancel.onclick=()=>{closeImportReview();toast(t("toast.program_import_cancelled"))};
@@ -15994,22 +18841,15 @@ function init(){
   blockZoomGestures();
   // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
-  const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
+  const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>{navTo("log");focusRoute("#openSettings")};
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({});
-  const previewToday=$("#previewSession");if(previewToday)previewToday.onclick=()=>openPreviewSessionSheet();
-  const previewClose=$("#previewSessionClose");if(previewClose)previewClose.onclick=()=>closePreviewSessionSheet();
-  const previewScrim=$("#previewSessionScrim");if(previewScrim)previewScrim.onclick=()=>closePreviewSessionSheet();
-  const previewStart=document.querySelector("[data-preview-start]");if(previewStart)previewStart.onclick=async()=>{
-    const p=closePreviewSessionSheet(); if(p && typeof p.then==="function") await p;
-    await enterWorkout({});
-  };
   const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
   const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();
   // Training twice in a day is the lifter's call, never Today's suggestion, so it
   // opens the day that follows the one already done rather than repeating it.
   const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
-  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();toggleWorkoutOverflow()};
+  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();openWorkoutMore()};
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
   // iOS does not reliably bubble click to document, so touchstart backs it up.
   const dismissOverflow=e=>{
@@ -16065,12 +18905,15 @@ function init(){
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
     earlyBtn.classList.add("hidden");
+    // The pressed control is now hidden: the lifter lands on the choice it asks for.
+    focusRoute("#sessionEarlyConfirm");
   };
 
   const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
     sessionEarlyRevision=null;
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
     const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
+    focusRoute("#sessionEarlyFinish");
   };
 
   const exActionRepeat=$("#exActionRepeatBtn");
@@ -16168,7 +19011,6 @@ function init(){
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>HistoryUi.setQuery(histSearch.value);
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>HistoryUi.clearSearch();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
-  const gotoVol=$("#gotoVolume");if(gotoVol)gotoVol.onclick=()=>setStatsSeg("volume");
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
   const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
@@ -16193,9 +19035,12 @@ function init(){
   const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>requestEntryCancel();
   window.addEventListener("popstate",onEntryPopState);
   document.addEventListener("visibilitychange",onAppVisible);
-  $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
+  $("#glossary .glossary__close").onclick=()=>closeGlossary();
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
-    if(!g.contains(e.target)&&!e.target.closest("[data-term]"))g.classList.add("hidden")});
+    if(!g.contains(e.target)&&!e.target.closest("[data-term]"))closeGlossary({restore:false})});
+  document.addEventListener("keydown",e=>{
+    if(e.key!=="Escape"||e.defaultPrevented)return;
+    if(closeGlossary())e.preventDefault()});
   // Comma decimals from locale keypads: rewrite digit-comma-digit to a period
   // as the user types so steppers, drafts, and saves all see a parseable value.
   document.addEventListener("input",e=>{
@@ -16206,13 +19051,11 @@ function init(){
     const s=t.selectionStart,en=t.selectionEnd;t.value=next;
     if(s!=null)try{t.setSelectionRange(s,en)}catch{}});
   $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
-  $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
   applyDraftContextToDom();
   updateBodyweightField();
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});
-  $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
   // Unsaved JSON now outlives a render, so collapsing Advanced is the way to
   // throw a scratch edit away — including one too broken to save.
@@ -16239,9 +19082,7 @@ function init(){
   const ne=$("#notifyEnabled");
   if(ne)ne.onchange=()=>setNotificationsEnabled(!!ne.checked);
   ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=commitChangedSettings});
-  $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
-  $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
-  $$("#statsEvidence button").forEach(b=>b.onclick=()=>setEvidenceView(b.dataset.seg));
+  wireStatsTabs();
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=async()=>{
@@ -16298,8 +19139,8 @@ function applyGotoParam(){
 function recoveryCopyLabel(side){return t(side==="local"?"dialog.storage_recovery.copy_a":"dialog.storage_recovery.copy_b")}
 function recoverySummaryText(parsed){
   const sum=snapshotSummary(parsed),name=sum.name||t("dialog.storage_recovery.unnamed");
-  if(sum.lastDate)return t("dialog.storage_recovery.summary",{name,sessions:sum.sessions,sets:sum.sets,date:sum.lastDate});
-  return t("dialog.storage_recovery.summary_empty",{name,sessions:sum.sessions,sets:sum.sets})}
+  if(sum.lastDate)return t("dialog.storage_recovery.summary",{name,sessions:countText("sessions",sum.sessions),sets:countText("sets",sum.sets),date:sum.lastDate});
+  return t("dialog.storage_recovery.summary_empty",{name,sessions:countText("sessions",sum.sessions),sets:countText("sets",sum.sets)})}
 function recoveryStatusText(read){
   if(read.status==="valid")return recoverySummaryText(read.parsed);
   if(read.status==="invalid")return t("dialog.storage_recovery.invalid_copy");

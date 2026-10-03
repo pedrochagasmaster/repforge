@@ -747,7 +747,7 @@ async function main() {
     }));
     assert(!/^entry\.freeform\./m.test(portuguese.body) && portuguese.body.includes("ChatGPT"),
       "the screen is translated rather than rendering raw keys");
-    assert(/JSON/.test(portuguese.prompt) && /programa/i.test(portuguese.prompt),
+    assert(/JSON/.test(portuguese.prompt) && /treino/i.test(portuguese.prompt),
       "the prompt is written in the reader's language", portuguese.prompt.slice(0, 90));
 
     /* ---------- Import from clipboard ----------
@@ -1032,6 +1032,137 @@ async function main() {
     assert(!afterDoor.review && afterDoor.onFileDoor,
       "a stale clipboard result cannot act after switching to file import", JSON.stringify(afterDoor));
 
+    /* ---------- Writing from scratch is a sixth exit (Plan 064 R4c, Q632) ----------
+       The import route offers a quiet way out to Build. The pasted text is
+       tab-scoped to the free-form flow, so leaving for Build has to drop it
+       exactly as the five older exits do. */
+    console.log("\nWriting it from scratch leaves the paste door");
+    // Everything from opening the door to leaving it is watched: rendering the
+    // door and its links, typing, and the exit itself make no request.
+    const outbound = [];
+    const onRequest = (request) => {
+      if (!/^(data|blob):/.test(request.url()) && new URL(request.url()).origin !== new URL(BASE).origin) outbound.push(request.url());
+    };
+    page.on("request", onRequest);
+    await toStage3(page);
+    await page.fill("#entryFreeformOut", COMPLETE);
+    const beforeScratch = await page.evaluate(() => sessionStorage.getItem("repforge_freeform_session_v1"));
+    assert(/Overhead press/.test(beforeScratch || ""),
+      "the pasted program is held in the tab session before the exit", String(beforeScratch).slice(0, 80));
+    assert(await page.locator("#entryWriteOwn").isVisible(),
+      "the paste door offers a way to write the program from scratch", "no #entryWriteOwn");
+    const readsBefore = await clipReads(page);
+    assert(readsBefore === 0, "rendering the door and its links reads no clipboard before a tap", String(readsBefore));
+    // Owner decision (#295): with text pasted, the link asks first. Declining
+    // keeps the paste door and the pasted text exactly as they were.
+    dialogAction = "dismiss"; lastDialog = null;
+    await page.click("#entryWriteOwn");
+    await settle(page, 200);
+    const kept = await page.evaluate(() => ({
+      session: sessionStorage.getItem("repforge_freeform_session_v1"),
+      step: window.__repforgeEntryState?.()?.step || null,
+    }));
+    const confirmCopy = await page.evaluate(() => window.RepForgeI18n?.t?.("entry.freeform.confirm_write_own") || "");
+    assert(confirmCopy.length > 0 && lastDialog?.type === "confirm" && lastDialog?.message === confirmCopy,
+      "writing from scratch asks before discarding pasted text", JSON.stringify(lastDialog));
+    assert(/Overhead press/.test(kept.session || "") && await page.locator("#entryFreeformOut").isVisible(),
+      "declining keeps the pasted text and the paste door", JSON.stringify(kept).slice(0, 120));
+    dialogAction = "accept";
+    await page.click("#entryWriteOwn");
+    await settle(page, 300);
+    page.off("request", onRequest);
+    const scratch = await page.evaluate(() => ({
+      session: sessionStorage.getItem("repforge_freeform_session_v1"),
+      entry: window.__repforgeEntryState?.() || null,
+      onBuild: !!document.querySelector("#entryProgramName"),
+      text: document.querySelector("#onbBody")?.innerText || "",
+    }));
+    assert(scratch.session === null,
+      "writing from scratch clears the pasted text from the tab session", String(scratch.session).slice(0, 80));
+    assert(scratch.entry?.route === "build" && scratch.entry?.step === "build_setup" && scratch.onBuild,
+      "the link goes to Build's first question", JSON.stringify({ route: scratch.entry?.route, step: scratch.entry?.step }));
+    assert(!/Overhead press|Coach split|Pull A/.test(JSON.stringify(scratch.entry) + scratch.text),
+      "nothing pasted survives in the entry state or the screen", JSON.stringify(scratch.entry).slice(0, 120));
+    assert(outbound.length === 0 && (await clipReads(page)) === readsBefore,
+      "the exit makes no request and reads no clipboard", JSON.stringify({ outbound, reads: (await clipReads(page)) - readsBefore }));
+    await page.click("#onbBack");
+    await settle(page, 200);
+    await page.click("#entryOwnToggle");
+    await page.click("#entryFreeformStart");
+    await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
+    assert((await page.inputValue("#entryFreeformIn")) === "",
+      "coming back to the paste door finds it empty", await page.inputValue("#entryFreeformIn"));
+    await page.click("#entryFreeformFile");
+    await page.waitForSelector("#entryImportPick", { timeout: 20000 });
+    assert(await page.locator("#entryWriteOwn").isVisible(),
+      "the file door offers the same way out", "no #entryWriteOwn on the file door");
+    await toStage3(page);
+    await page.fill("#entryFreeformOut", GAPPED);
+    await page.click("#entryFreeformReview");
+    await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 20000 });
+    assert((await page.locator("#entryWriteOwn").count()) === 0,
+      "gap repair does not offer to leave: the lifter is mid-repair", "#entryWriteOwn present on the gaps step");
+
+    /* SPEC-02: ADR 0014 asks whenever text was pasted. There is no length
+       exception, so a note as short as "3x10 curls" (or one character) is
+       protected exactly like a long message. Source and reply are measured
+       separately at 1, 10 and 11 characters, each declined and then accepted;
+       nothing pasted is the only case that leaves without asking. */
+    console.log("\nWriting from scratch asks for any pasted text (SPEC-02)");
+    const SESSION = "repforge_freeform_session_v1";
+    const scratchTry = async (label, len, prepare, expectAsk) => {
+      await reset(page);
+      await openFreeform(page);
+      await prepare(len);
+      await page.waitForSelector("#entryWriteOwn", { timeout: 20000 });
+      dialogAction = "dismiss"; lastDialog = null;
+      await page.click("#entryWriteOwn");
+      await settle(page, 200);
+      const declined = await page.evaluate((k) => ({
+        session: sessionStorage.getItem(k),
+        step: window.__repforgeEntryState?.()?.step || null,
+        route: window.__repforgeEntryState?.()?.route || null,
+      }), SESSION);
+      if (expectAsk) {
+        assert(lastDialog?.type === "confirm" && /scratch|discard/i.test(lastDialog.message || ""),
+          `SPEC-02: ${label} of ${len} character(s) asks before writing from scratch`, JSON.stringify(lastDialog));
+        assert(declined.session && declined.route === "import" && (await page.locator("#entryFreeformIn, #entryFreeformOut").first().isVisible()),
+          `SPEC-02: cancelling the ${label} confirmation keeps the text and the paste door (${len})`, JSON.stringify(declined));
+        dialogAction = "accept"; lastDialog = null;
+        await page.click("#entryWriteOwn");
+        await settle(page, 300);
+        assert(lastDialog?.type === "confirm", `SPEC-02: confirming the ${label} prompt is a real confirm (${len})`, JSON.stringify(lastDialog));
+      } else {
+        assert(lastDialog === null, `SPEC-02: nothing pasted leaves without asking (${label}, ${len})`, JSON.stringify(lastDialog));
+      }
+      dialogAction = "accept";
+      const left = await page.evaluate((k) => ({
+        session: sessionStorage.getItem(k),
+        route: window.__repforgeEntryState?.()?.route || null,
+        step: window.__repforgeEntryState?.()?.step || null,
+      }), SESSION);
+      assert(left.route === "build" && left.step === "build_setup" && left.session === null,
+        `SPEC-02: after the ${label} exit (${len}) Build opens and the tab copy is cleared`, JSON.stringify(left));
+    };
+    const pasteSource = async (len) => { await page.fill("#entryFreeformIn", "x".repeat(len)); };
+    // A reply with no source is reachable only from a restored tab session.
+    const restoreReplyOnly = async (len) => {
+      await page.click("#entryFreeformFile");
+      await page.waitForSelector("#entryFreeformSwitch", { timeout: 20000 });
+      await page.evaluate(({ k, reply }) => sessionStorage.setItem(k, JSON.stringify({ source: "", reply, stage: 3, lastProvider: null, copiedApps: [] })),
+        { k: SESSION, reply: "y".repeat(len) });
+      await page.click("#entryFreeformSwitch");
+      await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
+      assert((await page.inputValue("#entryFreeformIn").catch(() => "")) === "" && (await page.inputValue("#entryFreeformOut")) === "y".repeat(len),
+        `SPEC-02: the reply-only state of ${len} character(s) is set up`, "");
+    };
+    for (const len of [1, 10, 11]) {
+      await scratchTry("pasted source", len, pasteSource, true);
+      await scratchTry("AI reply", len, restoreReplyOnly, true);
+    }
+    await scratchTry("empty paste door", 0, async () => {}, false);
+    dialogAction = "accept"; lastDialog = null;
+
     // Portuguese copy exists for every clipboard string.
     const ptClipboard = await page.evaluate(() => {
       const keys = ["clipboard_import", "clipboard_busy", "clipboard_or",
@@ -1040,6 +1171,12 @@ async function main() {
     });
     assert(ptClipboard.every((v) => v && !/^entry\.freeform\./.test(v)),
       "every clipboard string is translated for Portuguese", JSON.stringify(ptClipboard));
+
+    // The repair notices are Brazilian Portuguese (Plan 064 R4c), not European.
+    const ptRepair = await page.evaluate(() => ["gap_error", "not_imported_notice"]
+      .map((k) => window.RepForgeI18n.t("entry.freeform." + k, { items: "x" }, "pt")));
+    assert(ptRepair.every((v) => v && !/\b(Introduza|regista|assinalados?)\b/i.test(v)),
+      "the gap and not-imported notices read as Brazilian Portuguese", JSON.stringify(ptRepair));
   } finally {
     await context.close();
     await browser.close();

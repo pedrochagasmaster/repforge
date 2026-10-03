@@ -64,7 +64,7 @@
   <button id="restBar" type="button" class="restbar hidden" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer. Tap to open.">
     <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
   </button>
-  <button id="heatGauge" type="button" class="visually-hidden" data-i18n-title="top.heat_title" title="Number of lifts ready for more load" tabindex="-1">
+  <button id="heatGauge" type="button" class="visually-hidden" hidden aria-hidden="true" data-i18n-title="top.heat_title" title="Number of lifts ready for more load" tabindex="-1">
     <span class="gauge__fill"></span>
     <span class="gauge__label" data-i18n="top.gauge.forge">steady</span>
   </button>
@@ -97,7 +97,6 @@
         <p class="section-label" id="todaySessionLabel" data-i18n="today.session_label">Today's session</p>
         <div id="todaySession" class="today-session"></div>
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
-        <button type="button" class="btn btn--steel today-otherday" id="previewSession" data-i18n="today.preview">Preview session</button>
         <button type="button" class="btn btn--steel today-otherday" id="chooseAnotherDay" data-i18n="today.choose_day">Choose another day</button>
         <button type="button" class="btn btn--steel hidden" id="reviewTodaySession"><span data-i18n="today.done_review">View today's session</span><span class="chevron" aria-hidden="true"></span></button>
         <button type="button" class="text-link text-link--center hidden" id="logAnotherSession" data-i18n="today.done_another">Log another session</button>
@@ -132,7 +131,7 @@
         <div class="wo-head">
           <button type="button" class="icon-btn icon-btn--ghost" id="leaveWorkout" data-i18n-aria="today.leave_workout_aria" aria-label="Back to Today"><span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>
           <div class="wo-head__center">
-            <div class="wo-head__title" id="woDayTitle"></div>
+            <div class="wo-head__title" id="woDayTitle" role="heading" aria-level="2"></div>
             <div class="wo-head__sub" id="woDaySub"></div>
           </div>
           <div class="wo-head__end">
@@ -141,14 +140,14 @@
               <span class="icon-mask icon-mask--sm icon-mask--timer wo-rest__icon" aria-hidden="true"></span>
               <span class="wo-rest__time" aria-hidden="true"></span>
             </button>
-            <button type="button" class="icon-btn icon-btn--ghost" id="sessionSheetBtn" aria-label="Session details" data-i18n-aria="session.sheet.btn_aria"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span></button>
-            <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="woOverflow"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>
+            <button type="button" class="icon-btn icon-btn--ghost" id="sessionSheetBtn" aria-label="Show as table" data-i18n-aria="focus.session_sheet"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span></button>
+            <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="Exercise actions" data-i18n-aria="ex.actions.title" aria-haspopup="dialog" aria-controls="exActionsSheet"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>
             <div id="woOverflow" class="wo-overflow hidden">
               <button type="button" id="voiceBtn" class="wo-overflow__item hidden" data-i18n="log.command.voice">Voice input</button>
             </div>
           </div>
         </div>
-        <div id="dayTabs" class="seg" role="tablist" data-i18n-aria="log.training_day_aria" aria-label="Training day"></div>
+        <div id="dayTabs" class="seg" role="group" data-i18n-aria="log.training_day_aria" aria-label="Training day"></div>
         <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
         <div id="fatigue" class="fatigue hidden"></div>
         <form id="logForm" class="ph-no-capture">
@@ -169,79 +168,46 @@
         </div>
         <div class="pagehead__actions"></div>
       </div>
-      <div id="statsSeg" class="seg seg--stats" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
-        <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true" data-i18n="stats.overview">Overview</button>
-        <button type="button" role="tab" data-seg="review" aria-selected="false" data-i18n="stats.review">Review</button>
+      <div id="statsSeg" class="tabrow" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
+        <button type="button" role="tab" class="tabrow__tab active" data-seg="overview" aria-selected="true" aria-controls="segOverview" tabindex="0" data-i18n="stats.overview">Overview</button>
+        <button type="button" role="tab" class="tabrow__tab" data-seg="strength" aria-selected="false" aria-controls="segStrength" tabindex="-1" data-i18n="stats.strength">Strength</button>
+        <button type="button" role="tab" class="tabrow__tab" data-seg="volume" aria-selected="false" aria-controls="segVolume" tabindex="-1" data-i18n="stats.volume">Volume</button>
+        <button type="button" role="tab" class="tabrow__tab" data-seg="prs" aria-selected="false" aria-controls="segPRs" tabindex="-1" data-i18n="stats.prs">PRs</button>
+        <button type="button" role="tab" class="tabrow__tab" data-seg="review" aria-selected="false" aria-controls="segReview" tabindex="-1" data-i18n="stats.review">Review</button>
       </div>
-      <div id="statsEvidence" class="seg seg--stats seg--evidence" role="tablist" data-i18n-aria="stats.evidence_aria" aria-label="Evidence">
-        <button type="button" role="tab" data-seg="strength" aria-selected="false" data-i18n="stats.strength">Strength</button>
-        <button type="button" role="tab" data-seg="volume" aria-selected="false" data-i18n="stats.volume">Volume</button>
-        <button type="button" role="tab" data-seg="prs" aria-selected="false" data-i18n="stats.prs">PRs</button>
-      </div>
-      <div id="segOverview" class="stats-seg active">
+      <div id="segOverview" role="tabpanel" class="stats-seg active">
         <div id="statsIntro" class="emptystate hidden"></div>
-        <p class="section-label" data-i18n="today.this_week">This week</p>
-        <div id="thisWeek" class="thisweek card card--plain"></div>
+        <div id="thisWeek" class="ovweek"></div>
         <div id="attention" class="attention"></div>
-        <div id="metrics" class="metrics"></div>
-        <p class="section-label section-label--row">
-          <span data-i18n="stats.strength_trend">Strength trend</span>
-        </p>
-        <div class="card chartcard">
-          <label class="field strength-pick"><span class="visually-hidden" data-i18n="stats.exercise">Exercise</span><select id="statExercise"></select></label>
-          <div id="trend" class="trend"></div>
-          <div id="prLedger" class="prledger"></div>
-          <p class="lede chartcard__cap" data-i18n="stats.e1rm_caption">Estimated e1RM</p>
-          <div class="chart-wrap">
-            <canvas id="chart" height="240" data-i18n-aria="stats.chart_aria" aria-label="Top load over time"></canvas>
-          </div>
-        </div>
-        <p class="section-label section-label--row">
-          <span data-i18n="stats.volume_7d">Volume · 7 days</span>
-          <button type="button" class="link-accent" id="gotoVolume" data-i18n="stats.see_volume">See volume ›</button>
-        </p>
-        <div id="overviewVolume" class="volume"></div>
-        <details class="advanced" id="statsDeep">
-          <summary data-i18n="stats.deep.summary">Charts and tables</summary>
-          <h3 class="subhead" data-i18n="stats.completed_hard_sets">Completed hard sets</h3>
-          <p class="lede" id="statsHardSetLede">This section groups logged sets within your RIR ceiling by muscle. It does not include planned sets.</p>
-          <div id="volWindow" class="seg seg--window" role="tablist" data-i18n-aria="stats.volume_window_aria" aria-label="Volume window">
-            <button type="button" data-win="7" class="active" role="tab" aria-selected="true" data-i18n="stats.window.7_days">7 days</button>
-            <button type="button" data-win="28" role="tab" aria-selected="false" data-i18n="stats.window.28_days">28 days</button>
-          </div>
-          <div id="completedVolume" class="volume"></div>
-          <h3 class="subhead" data-i18n="stats.recent_performance">Recent performance</h3><div id="recent" class="table"></div>
-          <h3 class="subhead" data-i18n="stats.recent_session_deltas">Recent session deltas</h3><div id="recentDeltas" class="table"></div>
-          <h3 class="subhead" data-i18n="stats.top_loads_by_exercise">Top loads by exercise</h3><div id="tops" class="table"></div>
-        </details>
+        <div id="overviewStrength" class="ovstrength"></div>
       </div>
-      <div id="segStrength" class="stats-seg">
-        <div id="strengthScopeSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.scope_aria" aria-label="Strength scope">
-          <button type="button" data-scope="current-block" class="active" role="tab" aria-selected="true" data-i18n="stats.scope.current_block">Current block</button>
-          <button type="button" data-scope="all-history" role="tab" aria-selected="false" data-i18n="stats.scope.all_history">All history</button>
+      <div id="segStrength" role="tabpanel" class="stats-seg">
+        <div id="strengthScopeSeg" class="seg seg--window" role="group" data-i18n-aria="stats.scope_aria" aria-label="Strength scope">
+          <button type="button" data-scope="current-block" class="active" aria-pressed="true" data-i18n="stats.scope.current_block">Current block</button>
+          <button type="button" data-scope="all-history" aria-pressed="false" data-i18n="stats.scope.all_history">All history</button>
         </div>
-        <h3 class="subhead" data-i18n="stats.strength">Strength</h3><div id="strengthDash"></div></div>
-      <div id="segVolume" class="stats-seg">
-        <div id="volumeScopeSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.volume_scope_aria" aria-label="Volume period">
-          <button type="button" data-vscope="this-week" class="active" role="tab" aria-selected="true" data-i18n="stats.volume.scope.this_week">This week</button>
-          <button type="button" data-vscope="block-to-date" role="tab" aria-selected="false" data-i18n="stats.volume.scope.block_to_date">Block to date</button>
+        <div class="ovsec"><h3 class="ovsec__title" data-i18n="stats.strength">Strength</h3><span class="ovsec__meta" data-i18n="stats.metric.top_load">Top load</span></div><div id="strengthDash"></div></div>
+      <div id="segVolume" role="tabpanel" class="stats-seg">
+        <div id="volumeScopeSeg" class="seg seg--window" role="group" data-i18n-aria="stats.volume_scope_aria" aria-label="Volume period">
+          <button type="button" data-vscope="this-week" class="active" aria-pressed="true" data-i18n="stats.volume.scope.this_week">This week</button>
+          <button type="button" data-vscope="block-to-date" aria-pressed="false" data-i18n="stats.volume.scope.block_to_date">Block to date</button>
         </div>
         <h3 class="subhead" data-i18n="stats.volume">Volume</h3>
         <div id="volumePeriod" class="lede" role="text"></div>
         <div id="volumeDash"></div>
       </div>
-      <div id="segPRs" class="stats-seg">
+      <div id="segPRs" role="tabpanel" class="stats-seg">
         <p class="lede" data-i18n="stats.prs.lede">Your load, rep, and estimated one-rep-max records.</p>
-        <div id="prFilterSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.pr_filter_aria" aria-label="PR kind filter">
-          <button type="button" data-prf="all" class="active" role="tab" aria-selected="true" data-i18n="stats.pr_filter.all">All</button>
-          <button type="button" data-prf="load" role="tab" aria-selected="false" data-i18n="stats.pr_filter.load">Load</button>
-          <button type="button" data-prf="reps" role="tab" aria-selected="false" data-i18n="stats.pr_filter.reps">Reps</button>
-          <button type="button" data-prf="e1rm" role="tab" aria-selected="false" data-i18n="stats.pr_filter.e1rm">e1RM</button>
-          <button type="button" data-prf="program" role="tab" aria-selected="false" data-i18n="stats.pr_filter.program">Program</button>
+        <div id="prFilterSeg" class="seg seg--window" role="group" data-i18n-aria="stats.pr_filter_aria" aria-label="PR kind filter">
+          <button type="button" data-prf="all" class="active" aria-pressed="true" data-i18n="stats.pr_filter.all">All</button>
+          <button type="button" data-prf="load" aria-pressed="false" data-i18n="stats.pr_filter.load">Load</button>
+          <button type="button" data-prf="reps" aria-pressed="false" data-i18n="stats.pr_filter.reps">Reps</button>
+          <button type="button" data-prf="e1rm" aria-pressed="false" data-i18n="stats.pr_filter.e1rm">e1RM</button>
+          <button type="button" data-prf="program" aria-pressed="false" data-i18n="stats.pr_filter.program">Program</button>
         </div>
         <div id="prTimeline" class="prtimeline"></div>
       </div>
-      <div id="segReview" class="stats-seg"><h3 class="subhead" data-i18n="stats.review">Review</h3><div id="reviewPanel"></div></div>
+      <div id="segReview" role="tabpanel" class="stats-seg"><h3 class="subhead" data-i18n="stats.review">Review</h3><div id="reviewPanel"></div></div>
     </section>
 
     <section id="history" class="view" data-i18n-aria="history.aria" aria-label="History">
@@ -251,6 +217,7 @@
         </div>
         <div class="pagehead__actions">
           <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search" aria-expanded="false" aria-controls="historySearchWrap"><span class="icon-mask icon-mask--search" aria-hidden="true"></span></button>
+          <button type="button" class="icon-btn icon-btn--ghost" id="historyCalBtn" data-i18n-aria="history.calendar" aria-label="Open the calendar" aria-haspopup="dialog" aria-expanded="false" aria-controls="historyCalSheet"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span></button>
           <button type="button" class="icon-btn icon-btn--ghost" id="historyExportBtn" data-i18n-aria="history.export_aria" aria-label="Export CSV"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span></button>
         </div>
       </div>
@@ -259,8 +226,8 @@
         <button type="button" id="historySearchClear" class="link-accent" data-i18n="history.search_clear">Clear</button>
       </div>
       <div id="historySelection" class="history-selection hidden" aria-live="polite"></div>
-      <div id="historyCalendar" class="cal"></div>
-      <p id="historyRecentLabel" class="section-label" data-i18n="history.recent">Recent</p>
+      <section id="historyFreq" class="histfreq hidden" aria-labelledby="historyFreqTitle"></section>
+      <h2 id="historyRecentLabel" class="visually-hidden" tabindex="-1" data-i18n="history.sessions">Sessions</h2>
       <div id="sessions" class="sessions ph-no-capture"></div>
       <details class="advanced">
         <summary data-i18n="history.every_set">Every set</summary>
@@ -355,22 +322,30 @@
     </section>
 
     <section id="importReview" class="view ph-no-capture" data-i18n-aria="import.aria" aria-label="Review imported program">
-      <div class="exview-head">
-        <button type="button" class="back-link" id="importBack" data-i18n="import.back">‹ Back</button>
-        <h1 class="exview-head__title" data-i18n="import.title">Import program</h1>
-        <div class="exview-head__right"></div>
-      </div>
-      <div class="impreview">
-        <p class="impreview__file" id="importFile"></p>
-        <div id="importNotImported"></div>
-        <h2 class="impreview__head" data-i18n="import.heading">Review the exercises</h2>
-        <p class="lede" data-i18n="import.lede">Link the names to the library or keep them as they are.</p>
-        <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
-        <div id="importRows"></div>
-        <div id="importOriginalText"></div>
-        <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
-        <button type="button" class="btn btn--cta" id="importCommit" data-i18n="import.commit">Import program</button>
-        <button type="button" class="text-link text-link--center" id="importReviewCancel" data-i18n="import.cancel">Cancel this import</button>
+      <div class="onb impreview-route">
+        <div class="onb__head">
+          <div class="onb__bar">
+            <button type="button" class="back-link onb__back" id="importBack" data-i18n="onb.back">Back</button>
+            <button type="button" class="back-link onb__cancel" id="importReviewCancel" data-i18n="onb.cancel">Cancel</button>
+          </div>
+          <div class="onb__where">
+            <div class="onb__title" id="importWhere" data-i18n="entry.route.import">Import a program</div>
+          </div>
+        </div>
+        <div class="impreview">
+          <h1 class="onb__q impreview__head" id="importHeading" tabindex="-1" data-i18n="import.heading">Review the exercises</h1>
+          <p class="onb__explain" data-i18n="import.lede">Link the names to the library or keep them as they are.</p>
+          <p class="impreview__file" id="importFile"></p>
+          <div id="importNotImported"></div>
+          <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
+          <div id="importRows"></div>
+          <div id="importOriginalText"></div>
+          <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
+        </div>
+        <div class="onb__nav impreview__nav">
+          <p class="onb__reason" id="importCommitReason" hidden></p>
+          <button type="button" class="btn btn--cta" id="importCommit" data-i18n="entry.preview.review">Review draft</button>
+        </div>
       </div>
     </section>
 
@@ -450,7 +425,7 @@
         <div class="settings-row" style="cursor:default">
           <span class="settings-row__label" data-i18n="settings.voice_enable">Enable voice input</span>
           <button type="button" class="toggle" id="voiceToggle" aria-pressed="false" data-i18n-aria="settings.voice_enable"></button>
-          <input type="checkbox" id="voiceInputEnabled" class="visually-hidden">
+          <input type="checkbox" id="voiceInputEnabled" class="visually-hidden" tabindex="-1" aria-hidden="true">
         </div>
         <p class="lede" data-i18n="settings.voice_lede">Your browser controls whether voice input is available. When you enable it, the workout ⋯ menu shows Voice input. Your browser provider may process what you say.</p>
         <div class="settings-row" style="cursor:default">
@@ -459,7 +434,7 @@
             <span class="settings-row__cap" data-i18n="settings.notifications.caption">Timer, today's session and unfinished workout</span>
           </span>
           <button type="button" class="toggle" id="notifyToggle" aria-pressed="false" data-i18n-aria="settings.notifications.toggle_aria" aria-label="Notifications"></button>
-          <input type="checkbox" id="notifyEnabled" class="visually-hidden">
+          <input type="checkbox" id="notifyEnabled" class="visually-hidden" tabindex="-1" aria-hidden="true">
         </div>
         <button type="button" class="settings-row" id="notifyConfigRow" aria-expanded="false" aria-controls="notifyTypes">
           <span class="settings-row__label" data-i18n="settings.notifications.configure">Configure reminders</span>
@@ -555,17 +530,21 @@
     <section id="onboarding" class="view onboarding hidden ph-no-capture" data-i18n-aria="onb.aria" aria-label="Create a program">
       <div class="onb">
         <div class="onb__head">
-          <button type="button" class="back-link onb__cancel" id="onbCancel" data-i18n="onb.cancel">Cancel</button>
+          <div class="onb__bar">
+            <button type="button" class="back-link onb__back" id="onbBack" data-i18n="onb.back">Back</button>
+            <button type="button" class="back-link onb__cancel" id="onbCancel" data-i18n="onb.cancel">Cancel</button>
+          </div>
           <h1 id="onbEditorTitle" class="onb__editor-title" hidden>Build a program</h1>
-          <div class="onb__title" id="onbEyebrow" data-i18n="entry.eyebrow">Create a program</div>
-          <div></div>
-          <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
-          <div id="onbSegbar" class="segbar" data-progress-dimension="task" data-progress-scope="entry-route-step" style="grid-column:1/-1"></div>
+          <div class="onb__where">
+            <div class="onb__title" id="onbEyebrow" data-i18n="entry.eyebrow">Create a program</div>
+            <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
+          </div>
+          <div id="onbSegbar" class="segbar" data-progress-dimension="task" data-progress-scope="entry-route-step"></div>
         </div>
-        <h2 id="onbTitle" class="visually-hidden">Create a program</h2>
+        <h2 id="onbTitle" class="visually-hidden" aria-hidden="true">Create a program</h2>
         <div id="onbBody" class="onb__body"></div>
         <div class="onb__nav">
-          <button type="button" id="onbBack" class="btn btn--steel" data-i18n="onb.back">Back</button>
+          <p class="onb__reason" id="onbNextReason" hidden></p>
           <button type="button" id="onbNext" class="btn btn--cta" data-i18n="onb.next">Continue</button>
         </div>
       </div>
@@ -579,10 +558,10 @@
     <button data-view="program" data-telemetry-action="nav_program"><span class="nav__icon" data-i="program"></span><span data-i18n="nav.program">Program</span></button>
   </nav>
 
-  <div id="glossary" class="glossary hidden" role="dialog" data-i18n-aria="dialog.glossary.aria" aria-label="Definition">
+  <div id="glossary" class="glossary hidden" role="dialog" tabindex="-1" data-i18n-aria="dialog.glossary.aria" aria-label="Definition" aria-labelledby="glossaryTerm" aria-describedby="glossaryBody">
     <button type="button" class="glossary__close" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
-    <p class="glossary__term"></p>
-    <p class="glossary__body"></p>
+    <p class="glossary__term" id="glossaryTerm"></p>
+    <p class="glossary__body" id="glossaryBody"></p>
   </div>
   <dialog id="importChoice" class="importchoice" data-i18n-aria="dialog.import.aria" aria-label="Import backup">
     <p class="importchoice__title" data-i18n="dialog.import.title">Import backup</p>
@@ -595,144 +574,261 @@
     </div>
   </dialog>
   <!-- One-time entry landing. Shared links adapt this surface before any
-       proposal is stored; every product render has a localized equivalent. -->
+       proposal is stored; every product render has a localized equivalent.
+       Plan 064 R2: the final page's bands. Number-bearing copy is filled by
+       renderFirstRun* in app.js from the engine and the i18n templates; the
+       proof's pinned stage is built and torn down by the proof controller, so
+       the seven steps below read as static cards without it. -->
   <div id="firstRun" class="firstrun hidden ph-no-capture" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
     <div class="firstrun__inner">
-      <header class="firstrun__header">
-        <div class="firstrun__brand">
-          <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
-          <span class="firstrun__wordmark">Taurifer</span>
-        </div>
-        <div class="firstrun__utility">
-          <button type="button" class="firstrun__utility-action hidden" id="firstRunInstallLink">
-            <span class="firstrun__install-icon" aria-hidden="true"></span>
-            <span data-i18n="landing.install">Install app</span>
-          </button>
-          <button type="button" class="firstrun__utility-action" id="firstRunPrivacy" data-i18n="privacy.title">Privacy</button>
-        </div>
-      </header>
+      <section class="firstrun-band firstrun-band--night firstrun-hero" data-landing-section="hero" aria-labelledby="firstRunHeadline">
+        <div class="firstrun-wrap">
+          <header class="firstrun__header">
+            <div class="firstrun__brand">
+              <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
+              <span class="firstrun__wordmark">Taurifer</span>
+            </div>
+            <div class="firstrun__utility">
+              <button type="button" class="firstrun__utility-action hidden" id="firstRunInstallLink">
+                <span class="firstrun__install-icon" aria-hidden="true"></span>
+                <span data-i18n="landing.install">Install app</span>
+              </button>
+              <button type="button" class="firstrun__utility-action" id="firstRunPrivacy" data-i18n="privacy.title">Privacy</button>
+            </div>
+          </header>
 
-      <section class="firstrun-hero">
-        <div class="firstrun-hero__copy">
-          <p class="firstrun__eyebrow firstrun__shared-only" data-i18n="landing.shared.eyebrow">Program received</p>
-          <h1 class="firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Walk into the gym knowing exactly what to do.</h1>
-          <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.body">Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.</p>
+          <div class="firstrun-hero__copy">
+            <p class="firstrun__eyebrow firstrun__shared-only" data-i18n="landing.shared.eyebrow">Program received</p>
+            <h1 class="firstrun-h1 firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Walk into the gym knowing exactly what to do.</h1>
+            <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.hero.sub">You log each set in seconds. Taurifer looks at what you did and tells you the weight and reps for next time, with the reason spelled out. A spreadsheet only stores numbers; Taurifer tells you what to do with them.</p>
 
-          <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
-          <div id="firstRunStandardProgram" class="firstrun__actions">
-            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunCreate">
-              <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
-            <button type="button" class="firstrun__cta firstrun__cta--secondary" id="firstRunImport">
-              <span data-i18n="landing.track">Track my current program</span><span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
+            <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
+            <div id="firstRunStandardProgram" class="firstrun__actions">
+              <button type="button" class="firstrun__cta" id="firstRunCreate">
+                <span id="firstRunCreateLabel" data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="firstrun__link" id="firstRunImport" data-i18n="landing.track">Track my current program</button>
+            </div>
+            <div id="firstRunSharedProgram" class="firstrun__actions hidden">
+              <button type="button" class="firstrun__cta" id="firstRunSharedStart">
+                <span class="firstrun-row__text">
+                  <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
+                  <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
+                </span>
+                <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
+                <span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
+            </div>
+            <ul class="firstrun-chips" data-i18n-aria="landing.hero.chips_aria" aria-label="At a glance">
+              <li data-i18n="landing.hero.chip.account">No account</li>
+              <li data-i18n="landing.hero.chip.offline">Works offline once opened</li>
+              <li data-i18n="landing.hero.chip.free">Free to build and log</li>
+            </ul>
           </div>
-          <div id="firstRunSharedProgram" class="firstrun__actions hidden">
-            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunSharedStart">
-              <span class="firstrun-row__text">
-                <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
-                <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
-              </span>
-              <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
-              <span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
-          </div>
         </div>
-
-        <figure class="firstrun-hero__figure">
-          <img class="firstrun-shot" data-shot="today-ready" src="assets/brand/today-ready-en-light.webp"
-               width="903" height="1832" fetchpriority="high" decoding="async"
-               data-i18n-alt="landing.shot.today_ready.alt"
-               alt="The Today screen: Full body, week 5 of 6, zero of three sessions completed. Today's session is Day 1, with five exercises and a Start workout button.">
-        </figure>
       </section>
 
-      <div class="firstrun-beats">
-        <section class="firstrun-beat">
-          <div class="firstrun-beat__copy">
-            <p class="firstrun-beat__index"><b>01</b><span data-i18n="landing.program.index"> / Getting started</span></p>
-            <h2 class="firstrun-beat__title" data-i18n="landing.program.title">Answer five questions, or paste what you already run.</h2>
-            <p class="firstrun-beat__body" data-i18n="landing.program.body">Either way, Taurifer turns it into a full program: six weeks, split across the days you train, with every set editable before you start.</p>
-            <ul class="firstrun-facts">
-              <li><dfn data-i18n="landing.program.fact1.label">Recommend</dfn><b data-i18n="landing.program.fact1.value">5 questions → a program</b></li>
-              <li><dfn data-i18n="landing.program.fact2.label">Bring your own</dfn><b data-i18n="landing.program.fact2.value">Paste text or import a file</b></li>
-              <li><dfn data-i18n="landing.program.fact3.label">This week</dfn><b data-i18n="landing.program.fact3.value">Week 5 of 6 · 3 days · 15 sets</b></li>
-            </ul>
+      <section class="firstrun-band firstrun-band--raised firstrun-proof" id="firstRunProof" data-landing-section="proof" aria-labelledby="firstRunProofTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunProofTitle" data-i18n="landing.demo.title">See it in practice.</h2>
+          <p class="firstrun-sub" data-i18n="landing.demo.sub">This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does.</p>
+        </div>
+        <div class="firstrun-proof__track" id="firstRunProofTrack">
+          <div class="firstrun-wrap firstrun-proof__stage" id="firstRunProofStage">
+            <ol class="firstrun-steps" id="firstRunProofSteps">
+              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="">
+                <div class="firstrun-step__crop firstrun-step__crop--screen"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s1.title">One screen per exercise.</h3>
+                <p class="firstrun-step__text" data-i18n="landing.demo.s1.text">Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps.</p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="cue">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s2.title">Already filled in.</h3>
+                <p class="firstrun-step__text" data-landing-fill="s2"></p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="log">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-landing-fill="s3"></h3>
+                <p class="firstrun-step__text" data-i18n="landing.demo.s3.text">One tap logs the set. With rest time on, the timer starts counting.</p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="rest" data-read="dial">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-rest-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s4.title">Rest.</h3>
+                <p class="firstrun-step__text" data-i18n="landing.demo.s4.text">The timer counts your rest. With notifications on, it tells you when it's up.</p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="actions" data-read="swap">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-actions-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s5.title">Swap.</h3>
+                <p class="firstrun-step__text" data-landing-fill="s5"></p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="note" data-read="text">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-note-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s6.title">Notes.</h3>
+                <p class="firstrun-step__text" data-i18n="landing.demo.s6.text">Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise.</p>
+              </li>
+              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="last cue">
+                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
+                <h3 class="firstrun-step__title" data-i18n="landing.demo.s7.title">Next session</h3>
+                <p class="firstrun-step__result"><span class="firstrun-step__value" data-landing-fill="s7.value"></span><span class="firstrun-step__unit" data-landing-fill="s7.sets"></span></p>
+                <p class="firstrun-step__text" data-landing-fill="s7"></p>
+              </li>
+            </ol>
           </div>
-          <figure class="firstrun-beat__figure">
-            <div class="firstrun-stage firstrun-stage--pair">
-              <img class="firstrun-shot firstrun-stage__back" data-shot="recommend-result" src="assets/brand/recommend-result-en-light.webp" width="903" height="1832" loading="lazy" decoding="async" data-i18n-alt="landing.shot.recommend_result.alt" alt="The recommended program screen: Build Muscle, three days, about 55 to 59 minutes, with the reasons the program fits.">
-              <img class="firstrun-shot firstrun-stage__front" data-shot="entry-hub" src="assets/brand/entry-hub-en-light.webp" width="903" height="1832" loading="lazy" decoding="async" data-i18n-alt="landing.shot.entry_hub.alt" alt="The Create a program screen offering routes to recommend, customize, browse, paste, or import a program.">
+        </div>
+      </section>
+
+      <section class="firstrun-band firstrun-ways" data-landing-section="ways" aria-labelledby="firstRunWaysTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunWaysTitle" data-i18n="landing.ways.title">Three ways to start your program.</h2>
+        </div>
+        <ol class="firstrun-ways__list">
+          <li class="firstrun-way firstrun-way--field">
+            <div class="firstrun-wrap">
+              <h3 class="firstrun-way__title" data-i18n="landing.ways.written.title">Taurifer builds your program</h3>
+              <p data-landing-fill="ways.written"></p>
             </div>
+          </li>
+          <li class="firstrun-way firstrun-way--surface">
+            <div class="firstrun-wrap">
+              <h3 class="firstrun-way__title" data-i18n="landing.ways.browse.title">Choose a ready-made program</h3>
+              <p data-i18n="landing.ways.browse.body">Complete Taurifer programs, sorted by goal and by how many days a week you train.</p>
+            </div>
+          </li>
+          <li class="firstrun-way firstrun-way--ink">
+            <div class="firstrun-wrap">
+              <h3 class="firstrun-way__title" data-i18n="landing.ways.own.title">Bring or build your own</h3>
+              <p data-i18n="landing.ways.own.body">Start with empty days, paste your current program, or import a Taurifer file.</p>
+              <button type="button" class="firstrun-disclosure" id="firstRunHandBtn" aria-expanded="false" aria-controls="firstRunHand">
+                <span data-i18n="landing.ways.paste.toggle">See how pasting a program works</span><i aria-hidden="true"></i>
+              </button>
+              <div class="firstrun-hand" id="firstRunHand" hidden>
+                <div class="firstrun-msg">
+                  <div class="firstrun-msg__who"><b data-i18n="landing.ways.paste.coach">Message from your coach</b><span data-i18n="landing.ways.paste.time">7:42 AM</span></div>
+                  <pre data-i18n="landing.ways.paste.message">DAY A · chest and triceps
+Bench press 3x8-10
+Incline DB press 3x10-12
+Cable fly 3x12-15
+Triceps pushdown 3x12-15</pre>
+                </div>
+                <p data-i18n="landing.ways.paste.prompt">You copy Taurifer's prompt, paste it into ChatGPT or Claude along with your program, and bring the reply back. Before anything is saved, you check every exercise.</p>
+                <p class="firstrun-seeing" data-i18n="landing.ways.paste.seeing">Below, the app screen where you check the exercises.</p>
+                <figure class="firstrun-shot-figure"><img class="firstrun-shot" data-shot="paste-review" data-landing-shot width="780" height="1242" src="assets/brand/paste-review-en-light.webp" alt="" loading="lazy" decoding="async"></figure>
+                <p class="firstrun-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span data-i18n="entry.freeform.privacy">What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.</span></p>
+                <p data-landing-fill="ways.where"></p>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="firstrun-band firstrun-track" data-landing-section="track" aria-labelledby="firstRunTrackTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunTrackTitle" data-i18n="landing.outcomes.title">Your next target follows what you did.</h2>
+          <p class="firstrun-sub" data-i18n="landing.outcomes.sub">The weight doesn't always go up. These are examples of what Taurifer says after a session.</p>
+          <ul class="firstrun-outcomes">
+            <li data-landing-outcome="add">
+              <div class="firstrun-oc"><span class="verdictmark verdictmark--up"><span class="verdictmark__glyph" aria-hidden="true"></span><span data-i18n="rec.add.label">Add load</span></span><span class="firstrun-oc__n"><span class="visually-hidden" data-i18n="landing.outcomes.next_label">Next session</span> <span data-landing-next></span></span></div>
+              <div class="firstrun-oc__ex" data-landing-exercise></div>
+              <p data-landing-explain></p>
+            </li>
+            <li data-landing-outcome="hold">
+              <div class="firstrun-oc"><span class="verdictmark verdictmark--maintained"><span class="verdictmark__glyph" aria-hidden="true"></span><span data-i18n="rec.hold_add_reps.label">Hold · add reps</span></span><span class="firstrun-oc__n"><span class="visually-hidden" data-i18n="landing.outcomes.next_label">Next session</span> <span data-landing-next></span></span></div>
+              <div class="firstrun-oc__ex" data-landing-exercise></div>
+              <p data-landing-explain></p>
+            </li>
+            <li data-landing-outcome="reduce">
+              <div class="firstrun-oc"><span class="verdictmark verdictmark--down"><span class="verdictmark__glyph" aria-hidden="true"></span><span data-i18n="rec.reduce.label">Back off</span></span><span class="firstrun-oc__n"><span class="visually-hidden" data-i18n="landing.outcomes.next_label">Next session</span> <span data-landing-next></span></span></div>
+              <div class="firstrun-oc__ex" data-landing-exercise></div>
+              <p data-landing-explain></p>
+            </li>
+          </ul>
+          <figure class="firstrun-chart" data-landing-chart>
+            <img class="firstrun-chart__img" data-shot="exercise-chart" data-landing-shot width="584" height="728" src="assets/brand/exercise-chart-en-light.webp" alt="" loading="lazy" decoding="async">
+            <figcaption data-landing-fill="chart.caption"></figcaption>
           </figure>
-        </section>
-
-        <section class="firstrun-signature">
-          <div class="firstrun-signature__copy">
-            <p class="firstrun-beat__index"><b>02</b><span data-i18n="landing.system.index"> / What happens after you log a set</span></p>
-            <h2 class="firstrun-signature__title" data-i18n="landing.system.title">Log the work. Taurifer decides what's next.</h2>
-            <p class="firstrun-beat__body" data-i18n="landing.system.body">Every set logs load, reps and effort. Taurifer reads them against the rule for this exercise, shows you why, and the next target is already set before you get there.</p>
-
-            <div class="firstrun-loop">
-              <p class="firstrun-loop__step"><dfn data-i18n="landing.system.step1.label">Target</dfn><b data-i18n="landing.system.step1.value">5–8 reps · RIR 0–2</b></p>
-              <span class="firstrun-loop__arrow" aria-hidden="true"></span>
-              <p class="firstrun-loop__step"><dfn data-i18n="landing.system.step2.label">You logged</dfn><b data-i18n="landing.system.step2.value">100 kg × 8 · RIR 1</b></p>
-            </div>
-
-            <blockquote class="firstrun-quote">
-              <p data-i18n="landing.system.quote">The range still has room, so the load stays while reps climb.</p>
-              <cite data-i18n="landing.system.cite">Taurifer · Why this weight</cite>
-            </blockquote>
-
-            <p class="firstrun-verdict">
-              <span class="firstrun-verdict__label" data-i18n="landing.system.verdict.label">Next session</span>
-              <b class="firstrun-verdict__value" data-i18n="landing.system.verdict.value">Hold 100 kg</b>
-            </p>
-
-            <ul class="firstrun-facts">
-              <li><dfn data-i18n="landing.system.fact1.label">Session</dfn><b data-i18n="landing.system.fact1.value">15 sets · 8,123 kg</b></li>
-              <li><dfn data-i18n="landing.system.fact2.label">Lifts</dfn><b data-i18n="landing.system.fact2.value">5 improved</b></li>
-            </ul>
-          </div>
-
-          <figure class="firstrun-signature__figure">
-            <div class="firstrun-stage firstrun-stage--signature">
-              <img class="firstrun-shot" data-shot="focus" src="assets/brand/focus-en-light.webp" width="903" height="1832" loading="lazy" decoding="async" data-i18n-alt="landing.shot.focus.alt" alt="The focused set view for barbell back squat, set 1 of 3, with the target, prior sets, recommendation, load, reps, RIR, and Log set button.">
-            </div>
-            <div class="firstrun-stage firstrun-stage--signature-crop">
-              <img class="firstrun-shot" data-shot="why-this-weight" src="assets/brand/why-this-weight-en-light.webp" width="903" height="1832" loading="lazy" decoding="async" data-i18n-alt="landing.shot.why_this_weight.alt" alt="A Why this weight sheet explaining the Hold 100 kg recommendation from the last session's sets, the rep-range rule, and the four-session strength trend.">
-            </div>
-          </figure>
-
-          <div class="firstrun-pull firstrun-pull--climax">
-            <p class="firstrun-pull__value">92.5<i class="firstrun-pull__arrow" aria-hidden="true"></i><span class="visually-hidden" data-i18n="landing.system.pull_to">to </span>100<span class="firstrun-pull__unit">kg</span></p>
-            <p class="firstrun-pull__caption" data-i18n="landing.system.caption">Top load on the back squat, up 7.5 kg across four sessions. Best estimated 1RM: 127 kg.</p>
-          </div>
-        </section>
-      </div>
-
-      <footer class="firstrun-close">
-        <div class="firstrun-close__copy">
-          <h2 class="firstrun-close__title" data-i18n="landing.closing.title">Start where you are.</h2>
-          <p class="firstrun-close__body" data-i18n="landing.closing.body">Build a program from scratch, or bring the one you already run. Either way, your next set is already decided.</p>
+          <p class="firstrun-tip" data-i18n="landing.outcomes.tip">Every working set you log goes into your next target. Warm-up sets are left out.</p>
         </div>
-        <div class="firstrun-close__actions">
-          <div class="firstrun__actions">
-            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunCreateClose">
-              <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
-            <button type="button" class="firstrun__cta firstrun__cta--secondary" id="firstRunImportClose">
-              <span data-i18n="landing.track">Track my current program</span><span class="firstrun-row__go" aria-hidden="true"></span>
-            </button>
+      </section>
+
+      <section class="firstrun-band firstrun-band--ink firstrun-data" id="firstRunData" tabindex="-1" data-landing-section="data" aria-labelledby="firstRunDataTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunDataTitle" data-i18n="landing.data.title">Your history stays on your phone.</h2>
+          <ul class="firstrun-rows">
+            <li><h3 data-i18n="landing.data.row1.title">You don't need to create an account.</h3><p data-i18n="landing.data.row1.text">Your program, sessions and settings are saved on your phone.</p></li>
+            <li><h3 data-i18n="landing.data.row2.title">A copy is yours whenever you want.</h3><p data-i18n="landing.data.row2.text">To keep a backup, or take your program and history somewhere else, export as JSON, CSV (opens in spreadsheet apps) or text.</p></li>
+            <li><h3 data-i18n="landing.data.row3.title">Works without a connection.</h3><p data-i18n="landing.data.row3.text">Once it has been opened, logging sets and seeing the next target don't need a signal.</p></li>
+          </ul>
+          <p class="firstrun-seeing" data-landing-fill="data.pointer"></p>
+        </div>
+      </section>
+
+      <section class="firstrun-band firstrun-faq" data-landing-section="faq" aria-labelledby="firstRunFaqTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h2" id="firstRunFaqTitle" data-i18n="landing.faq.title">Questions</h2>
+          <div class="firstrun-faqs">
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.free.q">Is it free?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a"><p data-i18n="landing.faq.free.a">Building your program, logging sessions and getting the next target are free, with no account and no sign-up.</p></div>
+            </details>
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.store.q">Do I need an app store?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a">
+                <p data-i18n="landing.faq.store.intro">No. Taurifer opens in the browser. To put its icon on your home screen:</p>
+                <p><b data-i18n="landing.faq.store.ios">iPhone, in Safari</b></p>
+                <ol>
+                  <li data-i18n="install.ios.step1" data-i18n-html>Tap ••• at the right of the address bar, then choose <b>Share</b>.</li>
+                  <li data-i18n="install.ios.step2" data-i18n-html>In the share sheet, tap <b>View More</b> at the end of the actions row.</li>
+                  <li data-i18n="install.ios.step3" data-i18n-html>Choose <b>Add to Home Screen</b>.</li>
+                  <li data-i18n="install.ios.step4" data-i18n-html>Leave <b>Open as Web App</b> on and tap <b>Add</b>.</li>
+                </ol>
+                <p><b data-i18n="landing.faq.store.android">Android, in Chrome</b></p>
+                <p data-i18n="install.browser_instructions" data-i18n-html>Open your browser menu and choose <b>Install app</b> or <b>Add to Home Screen</b>.</p>
+                <p data-i18n="landing.faq.store.transfer">If you already logged sessions in the browser, you can move that data into the installed app. The transfer only happens if you ask for it, and it expires within an hour.</p>
+              </div>
+            </details>
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.rir.q">What is RIR?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a"><p data-i18n="glossary.RIR">RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more.</p></div>
+            </details>
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.coach.q">Can my coach send me a program?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a">
+                <p data-landing-fill="faq.coach.a1"></p>
+                <div class="firstrun-share">
+                  <div class="firstrun-share__row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7.3l3-3a4 4 0 0 0-5.7-5.6l-1.2 1.1"/><path d="M14 10a4 4 0 0 0-5.7-.3l-3 3a4 4 0 0 0 5.7 5.6l1.2-1.1"/></svg><span data-i18n="program.share_setup">Share setup link</span></div>
+                  <div class="firstrun-share__cols">
+                    <div><span class="firstrun-label" data-i18n="landing.faq.coach.in_link">In the link</span><ul><li data-i18n="landing.faq.coach.item.program">Program</li><li data-i18n="landing.faq.coach.item.settings">Settings</li><li data-i18n="landing.faq.coach.item.language">Language</li></ul></div>
+                    <div><span class="firstrun-label" data-i18n="landing.faq.coach.not_in_link">Not in the link</span><ul><li data-i18n="landing.faq.coach.item.sessions">Logged sessions</li><li data-i18n="landing.faq.coach.item.loads">Loads and reps you did</li></ul></div>
+                  </div>
+                </div>
+                <p data-i18n="landing.faq.coach.a2">The link isn't encrypted: anyone who gets it can read your program.</p>
+              </div>
+            </details>
+            <details class="firstrun-qa">
+              <summary><span data-i18n="landing.faq.data.q">Does Taurifer collect any data?</span><i aria-hidden="true"></i></summary>
+              <div class="firstrun-qa__a">
+                <p data-i18n="landing.faq.data.a1">It collects usage data, and that option starts switched on: pseudonymous usage events and screen recordings with all content masked. Logged loads and reps, exercise names, notes, free text, setup links and backups are left out.</p>
+                <p data-landing-fill="faq.data.a2"></p>
+              </div>
+            </details>
           </div>
         </div>
-        <div class="firstrun-ethos">
-          <p data-i18n="landing.ethos">Plan.
-Lift.
-Progress.</p>
-          <small data-i18n="landing.privacy">Works offline. No account required. Your training history is stored on this device and never leaves it.</small>
+      </section>
+
+      <section class="firstrun-band firstrun-band--orange firstrun-close" data-landing-section="close" aria-labelledby="firstRunCloseTitle">
+        <div class="firstrun-wrap">
+          <h2 class="firstrun-h1 firstrun-close__title" id="firstRunCloseTitle" data-i18n="landing.closing.title">Start where you are.</h2>
+          <p class="firstrun-sub firstrun-close__body" data-i18n="landing.closing.sub">One tap per set. Taurifer works out the next one.</p>
+          <div class="firstrun-close__actions">
+            <div class="firstrun__actions">
+              <button type="button" class="firstrun__cta" id="firstRunCreateClose">
+                <span id="firstRunCreateCloseLabel" data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="firstrun__link" id="firstRunImportClose" data-i18n="landing.track">Track my current program</button>
+            </div>
+          </div>
         </div>
-      </footer>
+      </section>
 
       <section id="firstRunInstall" class="firstrun__section hidden" aria-labelledby="firstRunInstallLabel">
         <p class="firstrun__eyebrow" id="firstRunInstallLabel" data-i18n="setup.install_label">Install</p>
@@ -743,6 +839,19 @@ Progress.</p>
         <span id="firstRunContinueLabel" data-i18n="setup.continue_browser">Continue in browser</span>
         <span class="firstrun-row__go" aria-hidden="true"></span>
       </button>
+
+      <footer class="firstrun-band firstrun-band--night firstrun-footer" data-landing-section="footer">
+        <div class="firstrun-wrap">
+          <span>Taurifer</span>
+          <div class="firstrun-footer__links" role="navigation" data-i18n-aria="landing.footer.aria" aria-label="Footer"><a href="#firstRunData" id="firstRunFooterPrivacy" data-i18n="privacy.title">Privacy</a></div>
+        </div>
+      </footer>
+
+      <div class="firstrun-dock" id="firstRunDock">
+        <button type="button" class="firstrun__cta" id="firstRunCreateDock">
+          <span id="firstRunCreateDockLabel" data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+        </button>
+      </div>
     </div>
   </div>
   <!-- "Why this weight?" — the sanctioned place the engine may show its
@@ -750,15 +859,17 @@ Progress.</p>
        maths; this sheet answers only when the lifter taps to ask. -->
   <div id="whyScrim" class="sheet-scrim hidden"></div>
   <div id="whySheet" class="sheet sheet--why hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="whyTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="whyTitle" data-i18n="why.title">Why this weight</h2>
+      <button type="button" class="sheetband__close" id="whyClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
     <div class="whysheet">
-      <div class="whysheet__head">
-        <h2 class="whysheet__title" id="whyTitle" data-i18n="why.title">Why this weight</h2>
-        <button type="button" class="whysheet__close" id="whyClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
-      </div>
       <p class="whysheet__target" id="whyTarget"></p>
       <p id="whyDecision"></p>
       <div class="whysheet__body" id="whyBody"></div>
+      <p class="whysheet__evidence hidden" id="whyEvidence"></p>
+      <button type="button" class="btn btn--steel" id="whyOk" data-i18n="why.ok">Got it</button>
     </div>
   </div>
   <!-- Safari has no install event to call, so this is the one place Taurifer
@@ -767,14 +878,13 @@ Progress.</p>
        drawn here — it is Chrome's, and we only ask for it. -->
   <div id="privacyScrim" class="sheet-scrim hidden"></div>
   <div id="privacySheet" class="sheet sheet--privacy hidden" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="privacyTitle" data-i18n="privacy.title">Privacy</h2>
+      <button type="button" class="sheetband__close" id="privacyClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" data-i18n="privacy.local_first">Your training data stays on this device except when you explicitly create an install transfer.</p>
+    </div>
     <div class="privacy-sheet">
-      <div class="sheet__head">
-        <div class="sheet__titles">
-          <h2 class="sheet__title" id="privacyTitle" data-i18n="privacy.title">Privacy</h2>
-          <p class="sheet__sub" data-i18n="privacy.local_first">Your training data stays on this device except when you explicitly create an install transfer.</p>
-        </div>
-        <button type="button" class="whysheet__close" id="privacyClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
-      </div>
       <div class="privacy-sheet__body">
         <section aria-labelledby="privacySetupTitle">
           <h3 id="privacySetupTitle" data-i18n="privacy.setup.title">Program setup links</h3>
@@ -808,16 +918,13 @@ Progress.</p>
   </div>
   <div id="iosInstallScrim" class="sheet-scrim hidden"></div>
   <div id="iosInstallSheet" class="sheet sheet--install hidden" role="dialog" aria-modal="true" aria-labelledby="iosInstallTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="iosInstallTitle" data-catalog-layout data-i18n="install.ios.title">Install on iPhone</h2>
+      <button type="button" class="sheetband__close" id="iosInstallClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" data-i18n="install.ios.sub">Add Taurifer to your Home Screen.</p>
+    </div>
     <div class="installsheet">
-      <div class="installsheet__head">
-        <span class="installsheet__mark" aria-hidden="true"></span>
-        <div class="installsheet__titles">
-          <p class="installsheet__title" id="iosInstallTitle" data-catalog-layout data-i18n="install.ios.title">Install on iPhone</p>
-          <p class="installsheet__sub" data-i18n="install.ios.sub">Add Taurifer to your Home Screen.</p>
-        </div>
-        <button type="button" class="whysheet__close installsheet__close" id="iosInstallClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
-      </div>
       <div id="installTransferIntro" class="install-transfer__intro hidden">
         <p class="install-transfer__body" id="installTransferBody"></p>
         <div class="install-transfer__disclosure" id="installTransferDisclosure">
@@ -866,132 +973,114 @@ Progress.</p>
     <button type="button" class="btn btn--cta installbanner__action hidden" id="installBannerAction" data-i18n="install.action">Install</button>
   </div>
   <div id="exNoteScrim" class="sheet-scrim hidden"></div>
-  <div id="exNoteSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="exNoteTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="exNoteCancel" data-i18n="dialog.cancel">Cancel</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="exNoteTitle" data-i18n="focus.note.title">Exercise note</p>
-        <p class="sheet__sub" id="exNoteFor"></p>
+  <div id="exNoteSheet" class="sheet sheet--note hidden" role="dialog" aria-modal="true" aria-labelledby="exNoteTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="exNoteTitle" data-i18n="focus.note.title">Exercise note</h2>
+      <p class="sheetband__sub" id="exNoteFor"></p>
+    </div>
+    <div class="sheetbody sheetbody--note">
+      <div class="sheetfield sheetfield--area sheetfield--open">
+        <textarea id="exNoteText" class="sheetfield__input" rows="6" data-i18n-placeholder="log.note.placeholder" placeholder="Machine setup, seat height, grip. Shown next session" data-i18n-aria="focus.note.title" aria-label="Exercise note"></textarea>
       </div>
-      <button type="button" class="sheet__act sheet__act--accent" id="exNoteSave" data-i18n="dialog.save">Save</button>
+      <p class="sheetbody__hint" data-i18n="focus.note.carry">Visible in your next session</p>
     </div>
-    <div class="sheet__body">
-      <textarea id="exNoteText" class="sheet__text" data-i18n-placeholder="log.note.placeholder" placeholder="Machine setup, seat height, grip. Shown next session" data-i18n-aria="focus.note.title" aria-label="Exercise note"></textarea>
-    </div>
-    <p class="sheet__foot" data-i18n="focus.note.carry">Visible in your next session</p>
-  </div>
-  <div id="previewSessionScrim" class="sheet-scrim hidden"></div>
-  <div id="previewSessionSheet" class="sheet sheet--preview hidden" role="dialog" aria-modal="true" aria-labelledby="previewSessionTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head sheet__head--stack">
-      <div class="sheet__titles">
-        <p class="sheet__title" id="previewSessionTitle" data-i18n="preview.session.title">Session preview</p>
-        <p class="sheet__sub" data-preview-day data-i18n="preview.session.subtitle">Today's planned session</p>
-      </div>
-    </div>
-    <div class="sheet__body preview__body">
-      <div id="previewSessionList" class="preview__list" role="group" aria-labelledby="previewSessionTitle"></div>
-    </div>
-    <div class="sheet__foot sheet__foot--stack">
-      <button type="button" class="btn btn--cta btn--noarrow" data-preview-start data-i18n="today.start">Start workout</button>
-      <button type="button" class="text-link text-link--center" id="previewSessionClose" data-i18n="dialog.close">Close</button>
+    <div class="sheetfoot sheetfoot--pair">
+      <button type="button" id="exNoteCancel" data-i18n="dialog.cancel">Cancel</button>
+      <button type="button" id="exNoteSave" data-i18n="dialog.save">Save</button>
     </div>
   </div>
   <div id="sessionSheetScrim" class="sheet-scrim hidden"></div>
   <div id="sessionSheet" class="sheet sheet--session hidden" role="dialog" aria-modal="true" aria-labelledby="sessionSheetTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head sheet__head--stack">
-      <div class="sheet__titles">
-        <p class="sheet__title" id="sessionSheetTitle" data-i18n="session.sheet.title">Session details</p>
-        <p class="sheet__sub" id="sessionSheetSub" data-i18n="session.sheet.subtitle">Overview and workout notes</p>
-      </div>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="sessionSheetTitle" data-i18n="session.sheet.title">Session details</h2>
+      <button type="button" class="sheetband__close" id="sessionSheetClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="sessionSheetSub" data-i18n="session.sheet.subtitle">Overview and workout notes</p>
     </div>
-    <div class="sheet__body session-sheet__body">
-      <div class="session-sheet__meta">
-        <label class="field"><span data-i18n="log.date">Date</span>
-          <input id="sessionDate" type="date">
-        </label>
-        <label class="field" id="sessionBodyweightLabel"><span data-i18n="log.bodyweight">Bodyweight (optional)</span>
-          <input id="sessionBodyweight" type="text" inputmode="decimal" enterkeyhint="done" placeholder="kg">
-        </label>
-        <label class="field"><span data-i18n="log.notes">Session notes</span>
-          <textarea id="sessionNotes" rows="3" data-i18n-placeholder="log.notes.placeholder" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
-        </label>
-      </div>
+    <div class="session-sheet__body">
       <div class="session-sheet__overview">
-        <p class="section-label" data-i18n="session.sheet.overview_label">Session map</p>
+        <h3 class="sheetgroup__head" data-i18n="session.sheet.overview_label">Session map</h3>
         <div id="sessionMap" class="session-map" role="group" aria-labelledby="sessionSheetTitle"></div>
       </div>
-      <div class="session-sheet__early-section" id="sessionEarlySection">
-        <button type="button" class="btn btn--steel session-early-btn" id="sessionEarlyFinish" data-i18n="session.sheet.early_finish">Finish session early</button>
-        <div id="sessionEarlyPrompt" class="session-early-prompt hidden" aria-live="polite">
-          <p class="session-early-msg" id="sessionEarlyMsg" data-i18n="session.sheet.early_prompt">Unlogged sets will be omitted.</p>
-          <ul id="sessionEarlyOmissions"></ul>
-          <div class="session-early-actions">
-            <button type="button" class="btn btn--cta session-early-confirm" id="sessionEarlyConfirm" data-i18n="session.sheet.early_confirm">Confirm early finish</button>
-            <button type="button" class="btn btn--steel" id="sessionEarlyCancel" data-i18n="dialog.cancel">Cancel</button>
-          </div>
-        </div>
+      <div class="session-sheet__meta">
+        <label class="sheetfield"><span class="sheetfield__cap" data-i18n="log.date">Date</span>
+          <input id="sessionDate" class="sheetfield__input" type="date">
+        </label>
+        <label class="sheetfield" id="sessionBodyweightLabel"><span class="sheetfield__cap" data-i18n="log.bodyweight">Bodyweight (optional)</span>
+          <input id="sessionBodyweight" class="sheetfield__input sheetfield__input--mono" type="text" inputmode="decimal" enterkeyhint="done" placeholder="kg">
+        </label>
+        <label class="sheetfield sheetfield--area"><span class="sheetfield__cap" data-i18n="log.notes">Session notes</span>
+          <textarea id="sessionNotes" class="sheetfield__input" rows="3" data-i18n-placeholder="log.notes.placeholder" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
+        </label>
       </div>
     </div>
-    <div class="sheet__foot sheet__foot--stack">
-      <button type="button" class="text-link text-link--center" id="sessionSheetClose" data-i18n="dialog.close">Close</button>
+    <div class="sheetfoot session-sheet__early-section" id="sessionEarlySection">
+      <button type="button" class="session-early-btn" id="sessionEarlyFinish" data-i18n="session.sheet.early_finish">Finish session early</button>
+      <div id="sessionEarlyPrompt" class="session-early-prompt hidden" aria-live="polite">
+        <p class="session-early-msg" id="sessionEarlyMsg" data-i18n="session.sheet.early_prompt">Unlogged sets will be omitted.</p>
+        <ul id="sessionEarlyOmissions"></ul>
+        <div class="session-early-actions">
+          <button type="button" class="session-early-confirm" id="sessionEarlyConfirm" data-i18n="session.sheet.early_confirm">Confirm early finish</button>
+          <button type="button" id="sessionEarlyCancel" data-i18n="dialog.cancel">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <div id="exActionsScrim" class="sheet-scrim hidden"></div>
   <div id="exActionsSheet" class="sheet sheet--exactions hidden" role="dialog" aria-modal="true" aria-labelledby="exActionsTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head sheet__head--stack">
-      <div class="sheet__titles">
-        <p class="sheet__title" id="exActionsTitle" data-i18n="ex.actions.title">Exercise actions</p>
-        <p class="sheet__sub" id="exActionsSub"></p>
-      </div>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="exActionsTitle"><span class="exactions__eyebrow" data-i18n="ex.actions.title">Exercise actions</span><span class="exactions__name" id="exActionsName"></span></h2>
+      <button type="button" class="sheetband__close" id="exActionsClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="exActionsSub"></p>
     </div>
-    <div class="sheet__body exactions-sheet__body">
-      <div class="exactions__section" id="exActionsSetupSection">
-        <p class="section-label" data-i18n="ex.actions.setup_notes">Programmed setup notes</p>
+    <div class="exactions-sheet__body">
+      <section class="exactions__section" id="exActionsSetupSection">
+        <h3 class="sheetgroup__head" data-i18n="ex.actions.setup_notes">Programmed setup notes</h3>
         <p class="exactions__setup-text" id="exActionsSetupText"></p>
-      </div>
-      <div class="exactions__section" id="exActionsRepeatSection">
-        <p class="section-label" data-i18n="ex.actions.history_title">Previous session values</p>
-        <button type="button" class="btn btn--steel exactions__btn" id="exActionRepeatBtn" data-i18n="ex.actions.repeat_last">Repeat last session</button>
-        <p class="exactions__hint" id="exActionRepeatHint"></p>
-      </div>
-      <div class="exactions__section" id="exActionsSubstSection">
-        <p class="section-label" data-i18n="ex.actions.subst_title">Exercise substitution</p>
-        <div class="exactions__actions">
-          <button type="button" class="btn btn--steel exactions__btn" id="exActionSubstBtn" data-i18n="ex.actions.substitute">Substitute exercise</button>
-          <button type="button" class="btn btn--steel exactions__btn hidden" id="exActionRestoreOrigBtn" data-i18n="ex.actions.restore_original">Restore original exercise</button>
+      </section>
+      <section class="exactions__section" id="exActionsRepeatSection">
+        <h3 class="sheetgroup__head" data-i18n="ex.actions.history_title">Previous session values</h3>
+        <div class="exactions__rows">
+          <button type="button" class="exactions__act" id="exActionRepeatBtn"><span class="icon-mask icon-mask--history" aria-hidden="true"></span><span class="exactions__act-text"><span data-i18n="ex.actions.repeat_last">Repeat last session</span><small id="exActionRepeatHint"></small></span></button>
         </div>
-      </div>
-      <div class="exactions__section" id="exActionsWarmupSection">
-        <p class="section-label" data-i18n="ex.actions.warmup_title">Warm-up sets</p>
+      </section>
+      <section class="exactions__section" id="exActionsSubstSection">
+        <h3 class="sheetgroup__head" data-i18n="ex.actions.subst_title">Exercise substitution</h3>
+        <div class="exactions__rows">
+          <button type="button" class="exactions__act" id="exActionSubstBtn"><span class="icon-mask icon-mask--reset" aria-hidden="true"></span><span class="exactions__act-text"><span data-i18n="ex.actions.substitute">Substitute exercise</span></span></button>
+          <button type="button" class="exactions__act hidden" id="exActionRestoreOrigBtn"><span class="icon-mask icon-mask--reset" aria-hidden="true"></span><span class="exactions__act-text"><span data-i18n="ex.actions.restore_original">Restore original exercise</span></span></button>
+        </div>
+      </section>
+      <section class="exactions__section" id="exActionsWarmupSection">
+        <h3 class="sheetgroup__head" data-i18n="ex.actions.warmup_title">Warm-up sets</h3>
         <div class="exactions__warmup-list" id="exActionsWarmupList" role="group"></div>
-      </div>
-      <div class="exactions__section" id="exActionsSkipSection">
-        <p class="section-label" data-i18n="ex.actions.skip_title">Exercise status</p>
-        <button type="button" class="btn btn--steel exactions__btn" id="exActionSkipBtn" data-i18n="ex.actions.skip">Skip exercise</button>
-      </div>
-      <div class="exactions__section" id="exActionsNotesSection">
-        <p class="section-label" data-i18n="ex.actions.notes_title">Exercise notes</p>
-        <button type="button" class="btn btn--steel exactions__btn" id="exActionNotesBtn" data-i18n="ex.actions.open_notes">Edit exercise notes</button>
-      </div>
-    </div>
-    <div class="sheet__foot sheet__foot--stack">
-      <button type="button" class="text-link text-link--center" id="exActionsClose" data-i18n="dialog.close">Close</button>
+      </section>
+      <section class="exactions__section" id="exActionsSkipSection">
+        <h3 class="sheetgroup__head" data-i18n="ex.actions.skip_title">Exercise status</h3>
+        <p class="exactions__status hidden" id="exActionsStatus" data-i18n="log.skipped">Skipped</p>
+        <div class="exactions__rows">
+          <button type="button" class="exactions__act" id="exActionSkipBtn"><span class="icon-mask icon-mask--skip" aria-hidden="true"></span><span class="exactions__act-text"><span id="exActionSkipLabel" data-i18n="ex.actions.skip">Skip exercise</span></span></button>
+        </div>
+      </section>
+      <section class="exactions__section" id="exActionsNotesSection">
+        <h3 class="sheetgroup__head" data-i18n="ex.actions.notes_title">Exercise notes</h3>
+        <div class="exactions__rows">
+          <button type="button" class="exactions__act" id="exActionNotesBtn"><span class="icon-mask icon-mask--note" aria-hidden="true"></span><span class="exactions__act-text"><span data-i18n="ex.actions.open_notes">Edit exercise notes</span></span></button>
+        </div>
+      </section>
     </div>
   </div>
 
   <div id="dayPickScrim" class="sheet-scrim hidden"></div>
   <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head sheet__head--stack">
-      <div class="sheet__titles">
-        <p class="sheet__title" id="dayPickTitle" data-i18n="today.choose_day_title">Choose another day</p>
-        <p class="sheet__sub" data-i18n="today.choose_day_sub">Pick which day of your program to train today.</p>
-      </div>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="dayPickTitle" data-i18n="today.choose_day_title">Choose another day</h2>
+      <button type="button" class="sheetband__close" data-daypick-close data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" data-i18n="today.choose_day_sub">Pick which day of your program to train today.</p>
     </div>
     <div class="sheet__body daypick__body">
       <div id="dayPickList" class="daypick__list" role="group" aria-labelledby="dayPickTitle"></div>
@@ -1001,34 +1090,42 @@ Progress.</p>
       <button type="button" class="text-link text-link--center" id="dayPickCancel" data-i18n="dialog.cancel">Cancel</button>
     </div>
   </div>
+  <div id="historyCalScrim" class="sheet-scrim hidden"></div>
+  <div id="historyCalSheet" class="sheet sheet--histcal hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="historyCalTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="historyCalTitle"></h2>
+      <p class="sheetband__sub" id="historyCalSub"></p>
+      <button type="button" class="sheetband__close" id="historyCalClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
+    <div class="histcal__body">
+      <div id="historyCalendar" class="cal"></div>
+      <p class="histcal__hint" data-i18n="history.cal_hint">Days with a session are marked.</p>
+    </div>
+  </div>
   <div id="programTextScrim" class="sheet-scrim hidden"></div>
   <div id="programTextSheet" class="sheet hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="programTextTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="programTextClose" data-i18n="dialog.close">Close</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="programTextTitle" data-i18n="program.export_text.title">Program as text</p>
-        <p class="sheet__sub" id="programTextFor"></p>
-      </div>
-      <button type="button" class="sheet__act sheet__act--accent" id="programTextCopy" data-i18n="program.export_text.copy">Copy</button>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="programTextTitle" data-i18n="program.export_text.title">Program as text</h2>
+      <button type="button" class="sheetband__close" id="programTextClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="programTextFor"></p>
     </div>
     <div class="sheet__body">
       <pre id="programTextOut" class="sheet__pre" tabindex="0" data-i18n-aria="program.export_text.title" aria-label="Program as text"></pre>
     </div>
     <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--steel" id="programTextCopy" data-i18n="program.export_text.copy">Copy</button>
       <button type="button" class="btn btn--steel" id="programTextShare" data-i18n="program.export_text.share">Share or save</button>
     </div>
   </div>
   <div id="shareSetupScrim" class="sheet-scrim hidden"></div>
   <div id="shareSetupSheet" class="sheet sheet--setup hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="shareSetupTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="shareSetupClose" data-i18n="dialog.close">Close</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="shareSetupTitle" data-i18n="program.share_setup_title">Share program setup</p>
-        <p class="sheet__sub" id="shareSetupFor"></p>
-      </div>
-      <span class="sheet__spacer" aria-hidden="true"></span>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="shareSetupTitle" data-i18n="program.share_setup_title">Share program setup</h2>
+      <button type="button" class="sheetband__close" id="shareSetupClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="shareSetupFor"></p>
     </div>
     <div class="sheet__body share-setup">
       <p id="shareSetupBody" data-i18n="program.share_setup_body">Create a setup link for this program. Copy the link or open the system Share sheet.</p>
@@ -1044,14 +1141,11 @@ Progress.</p>
   </div>
   <div id="exPickScrim" class="sheet-scrim hidden"></div>
   <div id="exPickSheet" class="sheet sheet--pick hidden" role="dialog" aria-modal="true" aria-labelledby="exPickTitle" tabindex="-1" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="exPickCancel" data-i18n="dialog.cancel">Cancel</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="exPickTitle" data-i18n="picker.title">Choose exercise</p>
-        <p class="sheet__sub" id="exPickFor"></p>
-      </div>
-      <button type="button" class="sheet__act sheet__act--accent hidden" id="exPickDone" data-i18n="dialog.done">Done</button>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="exPickTitle" data-i18n="picker.title">Choose exercise</h2>
+      <button type="button" class="sheetband__close" id="exPickCancel" data-i18n-aria="dialog.cancel" aria-label="Cancel"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="exPickFor"></p>
     </div>
     <div class="pick__tools">
       <input id="exPickSearch" type="search" class="pick__search" data-i18n-placeholder="picker.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search exercises…" aria-label="Search exercises" autocomplete="off" enterkeyhint="search">
@@ -1062,19 +1156,17 @@ Progress.</p>
       <div id="exPickList" class="pick__list"></div>
     </div>
     <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--cta btn--noarrow hidden" id="exPickDone" data-i18n="dialog.done">Done</button>
       <button type="button" class="text-link" id="exPickFull" data-i18n="picker.open_library">Open full library ›</button>
       <button type="button" class="btn btn--steel" id="exPickCustom" data-i18n="picker.create_custom">+ Create custom exercise</button>
     </div>
   </div>
   <div id="exCustomScrim" class="sheet-scrim hidden"></div>
   <div id="exCustomSheet" class="sheet sheet--custom hidden" role="dialog" aria-modal="true" aria-labelledby="exCustomTitle" hidden>
-    <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="exCustomCancel" data-i18n="dialog.cancel">Cancel</button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="exCustomTitle" data-i18n="custom.title">Custom exercise</p>
-      </div>
-      <button type="button" class="sheet__act sheet__act--accent" id="exCustomSave" data-i18n="dialog.save">Save</button>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="exCustomTitle" data-i18n="custom.title">Custom exercise</h2>
+      <button type="button" class="sheetband__close" id="exCustomCancel" data-i18n-aria="dialog.cancel" aria-label="Cancel"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
     </div>
     <div class="sheet__body pick__body">
       <div class="custom__form">
@@ -1099,6 +1191,9 @@ Progress.</p>
         <button type="button" class="text-link" id="exCustomRecoveryReload" data-i18n="custom.recovery.reload">Reload</button>
       </div>
     </div>
+    <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--cta btn--noarrow" id="exCustomSave" data-i18n="dialog.save">Save</button>
+    </div>
   </div>
   <div id="restSheetScrim" class="sheet-scrim hidden"></div>
   <div id="restSheet" class="sheet sheet--rest hidden" role="dialog" aria-modal="true" aria-labelledby="restSheetTitle" hidden>
@@ -1111,13 +1206,6 @@ Progress.</p>
       <button type="button" class="sheet__act sheet__act--icon" id="restSheetClose" data-i18n-aria="rest.sheet.close_aria" aria-label="Close rest timer"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
     </div>
     <div class="sheet__body restsheet">
-      <div class="restdial">
-        <svg class="restdial__svg" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
-          <circle class="restdial__track" cx="60" cy="60" r="54"></circle>
-          <circle class="restdial__arc" id="restDialArc" cx="60" cy="60" r="54"></circle>
-        </svg>
-        <p class="restdial__clock" id="restSheetClock" role="timer">0:00</p>
-      </div>
       <div class="restsheet__presets" id="restPresets" role="group" data-i18n-aria="rest.sheet.presets_aria" aria-label="Rest length"></div>
       <div class="restsheet__controls">
         <button type="button" class="restctl" id="restMinus" data-i18n-aria="rest.sheet.minus_aria" aria-label="Take 30 seconds off">
@@ -1127,10 +1215,6 @@ Progress.</p>
         <button type="button" class="restctl" id="restPlus" data-i18n-aria="rest.sheet.plus_aria" aria-label="Add 30 seconds">
           <span class="icon-mask icon-mask--plus" aria-hidden="true"></span>
           <span class="restctl__label" data-i18n="rest.sheet.plus">+30s</span>
-        </button>
-        <button type="button" class="restctl restctl--primary" id="restPlayPause" data-i18n-aria="rest.sheet.start_aria" aria-label="Start rest">
-          <span class="icon-mask icon-mask--play restctl__play" aria-hidden="true"></span>
-          <span class="icon-mask icon-mask--pause restctl__pause" aria-hidden="true"></span>
         </button>
         <button type="button" class="restctl" id="restReset" data-i18n-aria="rest.sheet.reset_aria" aria-label="Restart rest">
           <span class="icon-mask icon-mask--reset" aria-hidden="true"></span>
@@ -1187,11 +1271,11 @@ Progress.</p>
   <script src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"></script>
   <script src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=307"></script>
+  <script src="motion-layer.js?v=311"></script>
   <script src="program-compiler.js?v=307"></script>
   <script src="program-entry.js?v=307"></script>
-  <script src="program-entry-adapter.js?v=307"></script>
-  <script src="program-editor.js?v=307"></script>
+  <script src="program-entry-adapter.js?v=308"></script>
+  <script src="program-editor.js?v=310"></script>
   <script src="shared-setup.js?v=307"></script>
   <script src="workout-draft.js?v=307"></script>
   <script src="program-transition.js?v=307"></script>
@@ -1201,7 +1285,7 @@ Progress.</p>
   <script src="guide-registry.js?v=307"></script>
   <script src="durable-state.js?v=309"></script>
   <script src="progress-model.js?v=308"></script>
-  <script src="history-ui.js?v=308"></script>
-  <script src="app.js?v=317"></script>
+  <script src="history-ui.js?v=313"></script>
+  <script src="app.js?v=350"></script>
 </body>
 </html>

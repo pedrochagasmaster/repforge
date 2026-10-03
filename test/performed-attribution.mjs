@@ -115,8 +115,8 @@ async function main() {
     await page.waitForSelector("#workout .exercise", { timeout: 5000 });
     await settle(page, 150);
     const beforeSwap = await page.evaluate((id) => ({
-      prev: document.querySelector(`.exercise[data-ex="${id}"] .fcard__ledger`)?.textContent || "",
-      meta: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__muscle`)?.textContent || "",
+      prev: [...document.querySelectorAll(`.exercise[data-ex="${id}"] .ledgerline__prev`)].map((line) => line.textContent).join(" "),
+      name: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__name`)?.textContent || "",
     }), slot.id);
     assert(beforeSwap.prev.includes("200"), "the slot initially reads the quad movement's own history", JSON.stringify(beforeSwap));
 
@@ -128,12 +128,13 @@ async function main() {
     await settle(page);
     assert(swapped, "swapped the quad slot to Lat pulldown");
     const swappedUi = await page.evaluate((id) => ({
-      prev: document.querySelector(`.exercise[data-ex="${id}"] .fcard__ledger`)?.textContent || "",
-      meta: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__muscle`)?.textContent || "",
-      rec: document.querySelector(`.exercise[data-ex="${id}"] .focus-cue`)?.textContent || "",
+      prev: [...document.querySelectorAll(`.exercise[data-ex="${id}"] .ledgerline__prev`)].map((line) => line.textContent).join(" "),
+      name: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__name`)?.textContent || "",
+      rec: document.querySelector(`.exercise[data-ex="${id}"] .fx-cue`)?.textContent || "",
     }), slot.id);
-    assert(/Lats/i.test(swappedUi.meta) && !/Quads/i.test(swappedUi.meta),
-      "the swapped card shows the performed movement's muscle", JSON.stringify(swappedUi));
+    // The D card header names the movement and its programme line; the muscle is recorded on the row (checked below).
+    assert(/Lat pulldown/i.test(swappedUi.name),
+      "the swapped card shows the performed movement", JSON.stringify(swappedUi));
     assert(swappedUi.prev.includes("60") && !swappedUi.prev.includes("200"),
       "previous sets and recommendations switch to the performed movement", JSON.stringify(swappedUi));
     assert(swappedUi.rec.trim() && !swappedUi.rec.includes("200"), "the quad load cannot leak into the pulldown recommendation", swappedUi.rec);

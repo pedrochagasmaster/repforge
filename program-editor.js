@@ -26,6 +26,12 @@
     dayCount: ({ n }) => `${n} exercise${n === 1 ? "" : "s"}`,
     exercises: ({ n }) => `${n} exercise${n === 1 ? "" : "s"}`,
     sets: "SETS",
+    setsDecrease: "Decrease sets",
+    setsIncrease: "Increase sets",
+    expandExercise: ({ name }) => `Expand ${name}`,
+    collapseExercise: ({ name }) => `Collapse ${name}`,
+    expandDay: ({ day }) => `Expand ${day}`,
+    collapseDay: ({ day }) => `Collapse ${day}`,
     repRange: "REP RANGE",
     min: "MIN",
     max: "MAX",
@@ -48,6 +54,9 @@
     dragDropped: ({ name, index, count, day }) => `Dropped ${name} at position ${index} of ${count} in ${day}.`,
     dragCancelled: ({ name }) => `Reordering cancelled. ${name} stayed where it was.`,
     moved: "Exercise moved",
+    exerciseAdded: "Exercise added.",
+    exerciseChanged: "Exercise changed.",
+    exerciseRemoved: "Exercise removed.",
     undo: "Undo",
     invalid: "Fix the highlighted values before continuing.",
     saved: "Draft saved",
@@ -59,13 +68,16 @@
   const I18N_KEYS = Object.freeze({
     programName: "program.editor.program_name", namePlaceholder: "program.editor.name_placeholder",
     dayName: "program.editor.day_name", dayCount: "program.editor.day_count", exercises: "program.editor.day_count",
-    sets: "program.editor.sets", repRange: "program.editor.rep_range", min: "program.editor.min", max: "program.editor.max",
+    sets: "program.editor.sets", setsDecrease: "program.editor.sets_decrease", setsIncrease: "program.editor.sets_increase",
+    expandExercise: "program.editor.expand_exercise", collapseExercise: "program.editor.collapse_exercise",
+    expandDay: "program.day.expand", collapseDay: "program.day.collapse", repRange: "program.editor.rep_range", min: "program.editor.min", max: "program.editor.max",
     addExercise: "program.editor.add_exercise", replaceExercise: "program.editor.replace_exercise",
     removeExercise: "program.editor.remove_exercise", removeDay: "program.editor.remove_day",
     details: "program.editor.details", notes: "program.editor.notes", primary: "program.editor.primary",
     secondary: "program.editor.secondary", alternates: "program.editor.alternates", chooseAlternates: "program.editor.choose_alternates",
     move: "program.editor.move", moveUp: "program.editor.move_up", moveDown: "program.editor.move_down",
     moveOther: "program.editor.move_other", moved: "program.editor.moved", undo: "program.editor.undo",
+    exerciseAdded: "toast.exercise_added", exerciseChanged: "toast.exercise_changed", exerciseRemoved: "toast.exercise_removed",
     dragInstructions: "program.editor.drag.instructions", dragPickedUp: "program.editor.drag.picked_up",
     dragOver: "program.editor.drag.over", dragDropped: "program.editor.drag.dropped",
     dragCancelled: "program.editor.drag.cancelled",
@@ -170,6 +182,15 @@
       if (value) return value;
     } catch { /* stored name is authoritative for the editor */ }
     return String(exercise?.name || "Exercise");
+  }
+  /* The read-only label for an exercise (aria-labels, drag announcements): the host may
+     localise a stored library name for display. The editable name field keeps the stored text. */
+  function exerciseDisplayLabel(adapter, exercise) {
+    try {
+      const value = adapter?.exerciseDisplayLabel?.(exercise);
+      if (value) return value;
+    } catch { /* fall back to the stored name */ }
+    return exerciseName(adapter, exercise);
   }
   function exerciseEntry(adapter, id) {
     try { return adapter?.exerciseEntry?.(id) || null; } catch { return null; }
@@ -308,6 +329,7 @@
     let reorderMode = false;
     let settleMoveId = null;
     let settleTimer = null;
+    let pendingFocus = null;
     let renderQueued = false;
     let statusTimer = null;
 
@@ -390,11 +412,34 @@
       try { return Promise.resolve(adapter.chooseExercise?.(request)); }
       catch (error) { setStatus(error?.message || label("invalid"), { error: true }); return Promise.resolve(null); }
     };
+    /* A commit that rebuilds the list leaves nothing focused: the row that changed (or, after a remove, the day's
+       Add control) takes focus once the rebuild has drawn, and the change is announced once through the host. */
+    const announceChange = key => { try { adapter.announce?.(label(key), { change: true }); } catch { /* the focus move still says it */ } };
+    const applyPendingFocus = () => {
+      const want = pendingFocus; pendingFocus = null;
+      if (!want) return;
+      const find = selector => host.querySelector(selector);
+      const target = want.id
+        ? (want.roles || ["toggle-exercise"]).map(role => find(`[data-role="${role}"][data-id="${cssEscape(want.id)}"]`)).find(Boolean)
+        : find(`[data-role="add-exercise"][data-day="${cssEscape(want.day)}"]`);
+      try { target?.focus(); } catch { /* a control that cannot take focus is left alone */ }
+    };
+    // The picker that returned the choice is still open when the list redraws, and everything behind it is inert:
+    // the host says when it has closed, and focus lands then.
+    const schedulePendingFocus = () => {
+      if (!pendingFocus) return;
+      const run = () => { if (!destroyed) applyPendingFocus(); };
+      if (typeof adapter.afterModal === "function") adapter.afterModal(run); else run();
+    };
     const addForDay = day => chooseExercise({ mode: "add", day, exclude: exercisesFor(document, day).map(item => item.libraryId).filter(Boolean) }).then(entry => {
       if (!entry) return null;
       const next = clone(document), exercise = addExercise(next, day, entry);
       collapsedDays.delete(day); expandedExercises.add(exercise.id);
-      return stage(next, { kind: "exercise_add", targetDay: day, targetId: exercise.id, libraryId: entry.id, exercise: exercise });
+      pendingFocus = { id: exercise.id };
+      return stage(next, { kind: "exercise_add", targetDay: day, targetId: exercise.id, libraryId: entry.id, exercise: exercise }).then(value => {
+        if (value?.ok !== false) announceChange("exerciseAdded");
+        return value;
+      });
     });
     const replaceForExercise = (id, { repair = false } = {}) => {
       const current = document.program?.find(item => item.id === id);
@@ -413,14 +458,22 @@
         }
         if (!replaceExercise(next, id, entry)) return null;
         const replacement = next.program?.find(item => item.id === id);
-        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement, ...(customExercise ? { customExercise } : {}) });
+        pendingFocus = { id, roles: ["replace", "toggle-exercise"] };
+        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement, ...(customExercise ? { customExercise } : {}) }).then(value => {
+          if (value?.ok !== false) announceChange("exerciseChanged");
+          return value;
+        });
       });
     };
     const removeExercise = id => {
       const exercise = document.program?.find(item => item.id === id);
       if (!exercise) return Promise.resolve(null);
       const next = clone(document); next.program = (next.program || []).filter(item => item.id !== id); normalizeOrders(next);
-      return stage(next, { kind: "exercise_remove", targetId: id, sourceDay: exercise.day });
+      pendingFocus = { day: exercise.day };
+      return stage(next, { kind: "exercise_remove", targetId: id, sourceDay: exercise.day }).then(value => {
+        if (value?.ok !== false) announceChange("exerciseRemoved");
+        return value;
+      });
     };
     const renameDay = (oldDay, value) => {
       const next = clone(document);
@@ -546,14 +599,15 @@
       const open = expandedExercises.has(exercise.id);
       const linked = exerciseEntry(adapter, exercise.libraryId);
       const name = exerciseName(adapter, exercise);
+      const shownName = exerciseDisplayLabel(adapter, exercise);
       const min = number(exercise.min), max = number(exercise.max);
       const details = open ? `<div class="program-editor__exercise-body pex__body">
           <div class="program-editor__sets" data-role="sets-control" aria-label="${esc(label("sets"))}">
             <span class="program-editor__field-label">${esc(label("sets"))}</span>
             <div class="program-editor__stepper">
-              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="-1" aria-label="Decrease sets">−</button>
+              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="-1" aria-label="${esc(label("setsDecrease"))}">−</button>
               <output data-role="sets-value">${esc(format(adapter, exercise.sets))}</output>
-              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="1" aria-label="Increase sets">+</button>
+              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="1" aria-label="${esc(label("setsIncrease"))}">+</button>
             </div>
           </div>
           <div class="program-editor__rep-rule" aria-hidden="true"></div>
@@ -578,8 +632,8 @@
         <header class="program-editor__exercise-head pex__head">
           <input class="program-editor__exercise-name pex__name" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" value="${esc(name)}" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">
           <span class="program-editor__summary" data-role="exercise-summary">${esc(summary(exercise))}</span>
-          <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${name}`))}" title="${esc(label("move"))}">≡</button>
-          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(name)}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${shownName}`))}" title="${esc(label("move"))}">≡</button>
+          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(label(open ? "collapseExercise" : "expandExercise", { name: shownName }))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
           <button type="button" class="program-editor__exercise-menu" data-role="exercise-menu" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
         </header>${details}
         <div class="program-editor__menu" data-role="move-menu" data-id="${esc(exercise.id)}" hidden role="menu">
@@ -605,7 +659,7 @@
           <input class="program-editor__day-name pday__name" data-role="day-name" data-day="${esc(day)}" value="${esc(titleFor(day, index))}" aria-label="${esc(label("dayName"))}">
           <span class="program-editor__day-count pday__count">${esc(dayCount(list.length))}</span>
           <button type="button" class="program-editor__day-menu" data-role="day-menu" data-action-role="expansion" data-day="${esc(day)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
-          <button type="button" class="program-editor__day-toggle pday__caret" data-role="toggle-day" data-action-role="expansion" data-day="${esc(day)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(titleFor(day, index))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__day-toggle pday__caret" data-role="toggle-day" data-action-role="expansion" data-day="${esc(day)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(label(open ? "collapseDay" : "expandDay", { day: titleFor(day, index) }))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
         </header>
         <div class="program-editor__day-menu-panel" data-role="day-menu-panel" data-day="${esc(day)}" hidden role="menu">
           <button type="button" role="menuitem" data-role="toggle-reorder">${esc(label("reorder", undefined, "Reorder exercises"))}</button>
@@ -634,6 +688,8 @@
         days.slice(1).forEach(day => collapsedDays.add(day));
         collapsedDaysInitialized = true;
       }
+      // The glyph is drawn here; a host string that already starts with a plus ("+ Add day") would double it.
+      const addDayText = String(t(adapter, "program.add_day", undefined, "Add day")).replace(/^\s*[+＋]\s*/, "");
       host.innerHTML = `<div class="program-editor${reorderMode ? " is-reorder-mode" : ""}" data-role="editor" aria-label="${esc(t(adapter, "program.editor.aria", undefined, "Program editor"))}">
         <div class="program-editor__meta" data-role="meta">
           <label class="program-editor__program-name"><span>${esc(label("programName"))}</span><input data-role="program-name" value="${esc(document.programMeta?.name || "")}" placeholder="${esc(label("namePlaceholder"))}" maxlength="80" aria-label="${esc(label("programName"))}"></label>
@@ -641,9 +697,10 @@
           <p class="program-editor__status" data-role="editor-status" role="status" aria-live="polite" tabindex="-1"${adapter.status?.(document) ? "" : " hidden"}>${esc(adapter.status?.(document) || "")}</p>
         </div>
         <div class="program-editor__days" data-role="days">${days.map((day, index) => renderDay(day, index)).join("") || `<p class="program-editor__empty">${esc(label("emptyDays"))}</p>`}</div>
-        <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(t(adapter, "program.add_day", undefined, "Add day"))}</span></button>
+        <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(addDayText)}</span></button>
       </div>`;
       bind();
+      schedulePendingFocus();
     }
     function bind() {
       if (destroyed) return;
@@ -772,7 +829,8 @@
         const source = operation?.source;
         const sortable = source?.sortable || source;
         const day = String(sortable?.group ?? "");
-        const name = document.program?.find(item => item.id === source?.id)?.name || "";
+        const item = document.program?.find(candidate => candidate.id === source?.id);
+        const name = item ? exerciseDisplayLabel(adapter, item) : "";
         return { name, day: titleForDay(day), index: (sortable?.index ?? 0) + 1, count: exercisesFor(document, day).length };
       };
       const say = (key, operation) => label(key, place(operation));

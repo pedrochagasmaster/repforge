@@ -435,7 +435,63 @@
       "id": "first-run",
       "flow": "onboarding-start",
       "label": "One-time landing",
-      "scenario": "First empty visit. Hero, getting-started/program chapter, the signature progression system, and a closing chapter, with early Build and Track actions, Privacy, and device-local seen state.",
+      "scenario": "First empty visit. The hero: headline, subtitle, the Build pill, the Track link, three chips and Privacy, with the device-local seen state. The bands below it have their own scrolled states.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "first-run-proof",
+      "flow": "onboarding-start",
+      "label": "One-time landing — proof",
+      "scenario": "Scrolled to the proof: seven steps over the real workout screen with the pinned phone, lens and rail, and the persistent Build control.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-ways",
+      "flow": "onboarding-start",
+      "label": "One-time landing — three ways",
+      "scenario": "Scrolled to the three ways to start your training: the orange, surface and ink stripes, with the paste hand-off closed.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-track",
+      "flow": "onboarding-start",
+      "label": "One-time landing — outcomes",
+      "scenario": "Scrolled to the three engine outcomes (add, hold, back off) with their next targets, and the strength-trend chart.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-data",
+      "flow": "onboarding-start",
+      "label": "One-time landing — your data",
+      "scenario": "Scrolled to the ink band: the history stays on the phone, in three rows.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-faq-open",
+      "flow": "onboarding-start",
+      "label": "One-time landing — questions",
+      "scenario": "Scrolled to the questions with the RIR answer open.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-close",
+      "flow": "onboarding-start",
+      "label": "One-time landing — close",
+      "scenario": "Scrolled to the closing orange band with the Build pill and the Track link; the persistent Build control has stepped aside.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-returning",
+      "flow": "onboarding-start",
+      "label": "Returning landing",
+      "scenario": "A later visit to a device with no program and no log, with nothing saved. The welcome-back headline and its line, the Build pill, the Track link and Privacy lead; the chips, the proof and the outcomes are left out, and the ways, the data promise, the questions and the closing band follow.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "first-run-returning-resume",
+      "flow": "onboarding-start",
+      "label": "Returning landing — setup saved",
+      "scenario": "A later visit with a half-finished Recommend setup saved. The lead action names it (Continue choosing your program) in the hero and the closing band; tapping it opens the chooser's resume card.",
       "variants": "accessibility"
     },
     {
@@ -460,6 +516,13 @@
       "variants": "localized"
     },
     {
+      "id": "hub-help",
+      "flow": "onboarding-start",
+      "label": "Entry hub — route help open",
+      "scenario": "The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs.",
+      "variants": "localized"
+    },
+    {
       "id": "desired-result",
       "flow": "onboarding-recommend",
       "label": "Recommend 1 — desired result",
@@ -470,7 +533,7 @@
       "id": "background",
       "flow": "onboarding-recommend",
       "label": "Recommend 2 — training background",
-      "scenario": "Structured-program experience and recent six-week consistency.",
+      "scenario": "The carried goal with Change, then structured-program experience and recent six-week consistency.",
       "variants": "localized"
     },
     {
@@ -512,7 +575,7 @@
       "id": "result",
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation and review",
-      "scenario": "One candidate surface with rationale, editable program facts, and explicit activation.",
+      "scenario": "The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation.",
       "variants": "demandingText"
     },
     {
@@ -520,6 +583,27 @@
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation with a program active",
       "scenario": "The merged candidate surface while the current program remains untouched.",
+      "variants": "localized"
+    },
+    {
+      "id": "chip-editor-open",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — answer editor open",
+      "scenario": "The review with the days-per-week chip open on its inline editor: the same numeric cards as the question, an Update program action, and the pinned activation set aside.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-corrected",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — after a changed answer",
+      "scenario": "A changed answer rebuilt the program in place: the change statement with Before and Now, an added exercise tagged new, and its day open.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-avoided",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — after avoiding an exercise",
+      "scenario": "An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore.",
       "variants": "localized"
     },
     {
@@ -579,10 +663,17 @@
       "variants": "customAccessibility"
     },
     {
+      "id": "shape",
+      "flow": "onboarding-custom",
+      "label": "Custom 6b — weekly structure",
+      "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers.",
+      "variants": "customAccessibility"
+    },
+    {
       "id": "result",
       "flow": "onboarding-custom",
       "label": "Custom — generated program and review",
-      "scenario": "The custom candidate, rationale, editable facts, and explicit activation on one surface.",
+      "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation.",
       "variants": "customAccessibility"
     },
     {
@@ -747,6 +838,20 @@
       "variants": "accessibility"
     },
     {
+      "id": "cancel-confirm",
+      "flow": "onboarding-recovery",
+      "label": "Cancel setup — keep or discard",
+      "scenario": "Cancel pressed mid-flow. A dialog over the current step asks whether to keep the draft or discard it; Escape or Continue setup returns to the step.",
+      "variants": "localized"
+    },
+    {
+      "id": "restart-confirm",
+      "flow": "onboarding-recovery",
+      "label": "Start over — confirm",
+      "scenario": "Start over pressed on a review. A dialog asks before the answers and the unused program are discarded; the active program does not change.",
+      "variants": "localized"
+    },
+    {
       "id": "no-program",
       "flow": "today",
       "label": "Today — no program",
@@ -757,7 +862,14 @@
       "id": "ready",
       "flow": "today",
       "label": "Today — ready to start",
-      "scenario": "A seeded program with recent max-rep evidence makes the readiness shortcut visible.",
+      "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it.",
+      "variants": "demandingDockText"
+    },
+    {
+      "id": "mixed-strategies",
+      "flow": "today",
+      "label": "Today — mixed strategies",
+      "scenario": "The Direction D mixed day: anchor and back-off, rep goal, fixed effort, a manual slot in soft ink with no mark, a custom exercise and a lift with a set logged without RIR.",
       "variants": "demandingDockText"
     },
     {
@@ -817,17 +929,17 @@
       "variants": "demandingText"
     },
     {
-      "id": "rest-timer",
+      "id": "rest-running",
       "flow": "workout",
-      "label": "Workout — rest timer",
-      "scenario": "The rest timer sheet.",
+      "label": "Workout — rest running",
+      "scenario": "A logged set has started the rest: the clock, the drain bar and the next set's cue take the cue slot, and the rest controls take the shelf's pad row.",
       "variants": "demandingText"
     },
     {
-      "id": "rest-timer-paused",
+      "id": "rest-done",
       "flow": "workout",
-      "label": "Workout — paused rest timer",
-      "scenario": "The rest timer sheet with its countdown held.",
+      "label": "Workout — rest done",
+      "scenario": "The rest has run out: the clock collapses to one line that counts the overrun up, the cue returns and the field pads come back.",
       "variants": "demandingText"
     },
     {
@@ -841,35 +953,70 @@
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
-      "scenario": "The recommendation inspector.",
+      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-in-session",
+      "flow": "workout",
+      "label": "Workout — why this weight, mid-session",
+      "scenario": "Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-rep-goal",
+      "flow": "workout",
+      "label": "Workout — why this weight, rep goal",
+      "scenario": "Rep goal: the total, the effort gate and how the reps split.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-anchor",
+      "flow": "workout",
+      "label": "Workout — why this weight, anchor and back-off",
+      "scenario": "Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-manual",
+      "flow": "workout",
+      "label": "Workout — why this weight, manual",
+      "scenario": "Manual: one sentence; the program sets the load and the engine does not change it.",
       "variants": "demandingText"
     },
     {
       "id": "summary",
       "flow": "session",
       "label": "Session summary",
-      "scenario": "The summary shown after Save workout.",
-      "variants": "standard"
+      "scenario": "The Direction D lifter's Day 1 summary: an outcome word per lift, the sets, records in green and the next target as the strongest line.",
+      "variants": "demandingText"
     },
     {
       "id": "summary-maintained",
       "flow": "session",
       "label": "Session summary — maintained",
-      "scenario": "The finished session reports maintained performance alongside its next-step context.",
+      "scenario": "A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and a record.",
       "variants": "demandingText"
     },
     {
       "id": "summary-declined",
       "flow": "session",
       "label": "Session summary — declined",
-      "scenario": "The finished session reports declined performance without turning the result into a prescription.",
+      "scenario": "A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription.",
       "variants": "demandingText"
     },
     {
       "id": "summary-mixed",
       "flow": "session",
-      "label": "Session summary — mixed outcomes",
-      "scenario": "The finished session keeps maintained and declined lift outcomes distinct in one summary.",
+      "label": "Session summary — mixed strategies",
+      "scenario": "The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-first",
+      "flow": "session",
+      "label": "Session summary — first session",
+      "scenario": "Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine.",
       "variants": "demandingText"
     },
     {
@@ -877,7 +1024,7 @@
       "flow": "progress",
       "label": "Progress — overview",
       "scenario": "The Progress landing tab.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "overview-baseline",
@@ -891,35 +1038,35 @@
       "flow": "progress",
       "label": "Progress — actionable overview",
       "scenario": "Sufficient evidence produces linked program-wide action items.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "exercise-chart",
       "flow": "progress",
       "label": "Progress — exercise chart",
       "scenario": "A single lift's strength chart.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "strength",
       "flow": "progress",
       "label": "Progress — Strength",
       "scenario": "The Strength sub-tab.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "strength-current-block",
       "flow": "progress",
       "label": "Progress — Strength current block",
       "scenario": "Current-block values, outcomes, and drill-in share one scope.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "strength-all-history",
       "flow": "progress",
       "label": "Progress — Strength all history",
       "scenario": "All-history scope explicitly includes archived observations.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "strength-comparison",
@@ -1073,7 +1220,7 @@
       "flow": "history",
       "label": "History",
       "scenario": "The logged session list.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "session",
@@ -1157,7 +1304,7 @@
       "flow": "program",
       "label": "Program",
       "scenario": "The current program and its days.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "progression-editor",
@@ -1235,13 +1382,6 @@
       "label": "Program — share link ready",
       "scenario": "A valid setup link is ready for copy or system sharing.",
       "variants": "demandingText"
-    },
-    {
-      "id": "readiness",
-      "flow": "program",
-      "label": "Program — ready exercises",
-      "scenario": "The recommendation-owned readiness list, with metadata hidden and inert while the list is open.",
-      "variants": "accessibility"
     },
     {
       "id": "text-export",
@@ -1395,13 +1535,6 @@
       "flow": "install",
       "label": "Install transfer — claimed then expired",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "preview",
-      "flow": "today",
-      "label": "Read-only session preview",
-      "scenario": "Read-only session preview through production controls.",
       "variants": "demandingText"
     },
     {

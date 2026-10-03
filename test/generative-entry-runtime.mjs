@@ -37,8 +37,9 @@ async function open(browser) {
 
 async function recommend(page, days) {
   await page.evaluate(() => window.startOnboarding("settings"));
-  await page.click('[data-entry-route="recommend"]');
-  for (const [key, value] of [["desiredResult", "muscle_growth"], ["structuredExperience", "6_to_24m"], ["recentConsistency", "most"]]) {
+  // The hub's goal tap answers Recommend's first question and opens the background step.
+  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  for (const [key, value] of [["structuredExperience", "6_to_24m"], ["recentConsistency", "most"]]) {
     await page.click(`[data-entry-pick="${key}"][data-entry-val="${value}"]`);
     if (key !== "structuredExperience") await page.click("#onbNext");
   }
@@ -99,6 +100,8 @@ try {
       const review = await page.evaluate((key) => localStorage.getItem(key), KEY);
       assert.equal(review, before, `${route}: review/edit changed active bytes before activation`);
       await page.click(route === "build" ? "#entryEditorActivate" : "#entryActivate");
+      // Replacing the active program asks first; the dialog names what is archived.
+      await page.click("#entryReplaceConfirm");
       await page.waitForTimeout(500);
       const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
       assert.notEqual(JSON.stringify(after), before, `${route}: explicit activation commits a durable replacement`);
@@ -107,5 +110,64 @@ try {
       assert.equal(archived.length, 1, `${route}: activation archives the outgoing program exactly once`);
     } finally { await context.close(); }
   }), { numRuns: 2, seed: 201 + routes.indexOf(route) });
+  // Editing an answer chip recompiles in place. Whatever the edit, no persisted
+  // draft is ever a result-less result step or a result bound to other answers.
+  const EDITS = [
+    { chip: "days", key: "daysPerWeek", values: [2, 3, 4, 5] },
+    { chip: "minutes", key: "sessionMinutes", values: [45, 60, 75] },
+    { chip: "rest", key: "preferredRestSeconds", values: ["auto", 60, 180] },
+    { chip: "goal", key: "desiredResult", values: ["muscle_growth", "balanced", "strength"] },
+  ];
+  await fc.assert(fc.asyncProperty(fc.record({
+    days: fc.integer({ min: 2, max: 4 }),
+    edits: fc.array(fc.record({ which: fc.integer({ min: 0, max: EDITS.length - 1 }), pick: fc.integer({ min: 0, max: 3 }) }), { minLength: 1, maxLength: 2 }),
+  }), async ({ days, edits }) => {
+    const { context, page } = await open(browser);
+    try {
+      await recommend(page, days);
+      await page.waitForFunction((key) => !!JSON.parse(localStorage.getItem(key) || "{}").state?.result, "repforge_program_setup_draft_v1", { timeout: 10000 });
+      await page.evaluate(() => {
+        window.__writes = [];
+        const original = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (name, value) {
+          if (name === "repforge_program_setup_draft_v1") {
+            const state = JSON.parse(value).state || {};
+            window.__writes.push({ step: state.step, hasResult: !!state.result });
+          }
+          return original.apply(this, arguments);
+        };
+      });
+      for (const edit of edits) {
+        const spec = EDITS[edit.which];
+        const value = spec.values[edit.pick % spec.values.length];
+        const writesBefore = await page.evaluate(() => window.__writes.length);
+        await page.click(`[data-entry-chip="${spec.chip}"]`);
+        await page.waitForSelector("#entryEditor");
+        await page.click(`#entryEditor [data-entry-pick="${spec.key}"][data-entry-val="${value}"]`);
+        const open = await page.evaluate(() => window.__repforgeEntryState());
+        assert.ok(open.result && open.step === "result", "an open editor leaves the committed result in place");
+        await page.click("#entryChipApply").catch(() => {});
+        await page.waitForSelector("#entryEditor", { state: "detached" });
+        await page.waitForTimeout(250);
+        const settled = await page.evaluate(() => {
+          const state = window.__repforgeEntryState();
+          const stored = JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}").state || {};
+          const fingerprint = (candidate) => window.RepForgeProgramEntry.setResult({ ...candidate, result: null }, { fingerprint: "probe" }).result.answersFingerprint;
+          return {
+            step: state.step, hasResult: !!state.result, bound: !!state.result && state.result.answersFingerprint === fingerprint(state),
+            storedBound: !!stored.result && stored.result.answersFingerprint === fingerprint(stored),
+            storedAnswers: JSON.stringify(stored.answers) === JSON.stringify(state.answers),
+            writes: window.__writes.slice(),
+          };
+        });
+        assert.equal(settled.step, "result", `${spec.chip}: the edit stays on the result step`);
+        assert.ok(settled.hasResult && settled.bound, `${spec.chip}: the live result is bound to the live answers`);
+        assert.ok(settled.storedBound && settled.storedAnswers, `${spec.chip}: the stored draft is the live answers with the result built from them`);
+        assert.ok(settled.writes.every((write) => write.step === "result" && write.hasResult), `${spec.chip}: no result-less draft was ever written`);
+        assert.ok(settled.writes.length - writesBefore <= 1, `${spec.chip}: one persist per edit`);
+      }
+    } finally { await context.close(); }
+  }), { numRuns: 3, seed: 311 });
+  console.log("generative entry runtime: edit-in-place never leaves a stale persisted result");
   console.log("generative entry runtime: 6 production Build/Import/preview activation journeys pass");
 } finally { await browser.close(); }

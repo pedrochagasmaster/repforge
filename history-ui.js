@@ -1,4 +1,71 @@
 (function historyUiModule(root){
+  /* ---- Pure helpers: counts and grouping come from the saved log and the
+     block bounds alone. Nothing here reads or writes stored state. ---- */
+  const DAY_MS=86400000;
+  // Whole days since 1970-01-01 for an ISO date, or null. UTC arithmetic keeps
+  // a daylight-saving change from moving a session into the neighbouring week.
+  function isoDayNumber(iso){
+    const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso??""));
+    return m?Math.floor(Date.UTC(+m[1],+m[2]-1,+m[3])/DAY_MS):null}
+  const isoFromDayNumber=n=>new Date(n*DAY_MS).toISOString().slice(0,10);
+  // 1970-01-01 was a Thursday, so day number 0 is index 3 of a Monday-first week.
+  const mondayIndex=n=>(((n+3)%7)+7)%7;
+
+  /** Sessions saved per week of the block and per weekday, for the History counts.
+   *  One session counts once; weeks not yet reached carry no count; no intensity,
+   *  streak or missed-day field exists. Returns null when no block is running. */
+  function historyFrequency({sessions=[],started=null,weeks=0,planned=0,today=null}={}){
+    const start=isoDayNumber(started),now0=isoDayNumber(today),total=Math.floor(+weeks);
+    if(start==null||now0==null||!(total>0)||!(+planned>0))return null;
+    // A block that has not started yet reads as week 1, as the lifecycle does.
+    const elapsed=Math.max(1,Math.floor((now0-start)/7)+1),now=Math.min(elapsed,total);
+    const perWeek=Array.from({length:total},(_,i)=>({week:i+1,count:0,reached:i+1<=now,current:i+1===now}));
+    const perDay=Array.from({length:7},(_,i)=>({index:i,count:0}));
+    const seen=new Set();
+    let done=0;
+    for(const s of sessions||[]){
+      const d=isoDayNumber(s?.date);if(d==null)continue;
+      if(s.session!=null){const id=String(s.session);if(seen.has(id))continue;seen.add(id)}
+      const week=Math.floor((d-start)/7)+1;
+      if(week<1||week>now)continue;
+      perWeek[week-1].count++;perDay[mondayIndex(d)].count++;done++}
+    const planNum=+planned;
+    return{weeks:perWeek,weekdays:perDay,done,planned:planNum,plannedTotal:planNum*total,now,total,
+      weekScale:Math.max(planNum,1,...perWeek.map(w=>w.count)),
+      weekdayScale:Math.max(now,1,...perDay.map(d=>d.count))}}
+
+  /** The list's structure: sessions grouped by block, then by week. `blocks` lists
+   *  the current block first, then archived ones, each with an ISO start and an
+   *  optional end. A session inside a block lands in that block's numbered week;
+   *  anything else falls into calendar weeks (Monday first). `done` counts every
+   *  session saved that week, so a search narrows the rows but not the tally. */
+  function historyWeekGroups({sessions=[],shown=null,blocks=[]}={}){
+    const usable=(blocks||[]).filter(b=>b&&isoDayNumber(b.start)!=null&&+b.planned>0);
+    const place=date=>{
+      const d=isoDayNumber(date);if(d==null)return{block:null,key:"w:?",week:null,monday:null};
+      for(const block of usable){
+        const start=isoDayNumber(block.start),end=block.end?isoDayNumber(block.end):null;
+        if(d>=start&&(end==null||d<=end)){
+          const week=Math.floor((d-start)/7)+1;
+          return{block,key:`b:${block.key}:${week}`,week,monday:null}}}
+      const monday=isoFromDayNumber(d-mondayIndex(d));
+      return{block:null,key:`o:${monday}`,week:null,monday}};
+    const done=new Map();
+    for(const s of sessions||[]){const p=place(s?.date);done.set(p.key,(done.get(p.key)||0)+1)}
+    const groups=[];
+    let blockGroup=null,weekGroup=null;
+    for(const s of shown||sessions||[]){
+      const p=place(s?.date),blockKey=p.block?p.block.key:"open";
+      if(!blockGroup||blockGroup.key!==blockKey){
+        blockGroup={key:blockKey,kind:p.block?p.block.kind:"open",name:p.block?String(p.block.name||""):"",weeks:[]};
+        groups.push(blockGroup);weekGroup=null}
+      if(!weekGroup||weekGroup.key!==p.key){
+        weekGroup={key:p.key,week:p.week,monday:p.monday,done:done.get(p.key)||0,
+          planned:p.block?+p.block.planned:0,sessions:[]};
+        blockGroup.weeks.push(weekGroup)}
+      weekGroup.sessions.push(s)}
+    return groups}
+
   function createHistoryUi(deps){
     const {
       $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
@@ -10,6 +77,9 @@
       readDurableState, settleHistoryAlreadyCommitted, settlePendingJournal, getState,
       renderApp, captureEvent,
     } = deps;
+    /* What a row's lift reads as on screen: the host may show a library movement's name in the
+       lifter's language. Grouping, sorting and searching keep using displayName (the stored name). */
+    const shownName=typeof deps.exerciseDisplayName==="function"?deps.exerciseDisplayName:displayName;
     const state=new Proxy({}, {get(_target,key){return getState()?.[key]}});
     const render=()=>renderApp();
     const emptyHistorySelection=()=>({mode:"calendar",sessionId:null,originalFingerprint:"",
@@ -102,7 +172,9 @@ function historyIndexFor(log){
 function searchHistoryIndex(index,query){
   const q=String(query||"").trim().toLowerCase(),sessions=index?.sessions||[];
   if(!q)return sessions.slice();
-  return sessions.filter(s=>String(s.searchText||"").includes(q))}
+  // The stored name stays searchable; the name the lifter reads on screen widens it (RF-10).
+  return sessions.filter(s=>String(s.searchText||"").includes(q)||
+    (s.rows||[]).some(r=>String(shownName(r)||"").toLowerCase().includes(q)))}
 function renderHistoryWithSource(source){renderHistory(source)}
 function isHistorySearchOpen(){return!$("#historySearchWrap")?.classList.contains("hidden")}
 function setHistorySearchOpen(open){
@@ -159,9 +231,49 @@ function historyFocusFailure(mode){
   return historyFocus($('[data-history-operation="'+CSS.escape(mode)+'"] h3'))}
 function historyFocusEditing(){
   return historyFocus($("[data-history-editing-heading]"))}
-function historyBackToCalendar(){
+// ---- The discard question (Plan 064 R3j2) ----
+// Leaving an edit with unsaved changes asks in a sheet, not the native confirm:
+// "Keep editing" is the first and default choice, and Escape, the scrim and a
+// downward swipe all mean it. The page behind the sheet is inert while it is open.
+let historyDiscardAsk=null;
+function historyDiscardParts(){
+  let sheet=$("#historyDiscardSheet"),scrim=$("#historyDiscardScrim");
+  if(sheet&&scrim)return{sheet,scrim};
+  scrim=document.createElement("div");scrim.id="historyDiscardScrim";scrim.className="sheet-scrim hidden";
+  sheet=document.createElement("div");sheet.id="historyDiscardSheet";sheet.className="sheet sheet--discard hidden";
+  sheet.setAttribute("role","dialog");sheet.setAttribute("aria-modal","true");sheet.setAttribute("aria-labelledby","historyDiscardTitle");sheet.hidden=true;
+  sheet.innerHTML='<div class="sheetband"><span class="sheetband__handle" aria-hidden="true"></span><h2 class="sheetband__title" id="historyDiscardTitle"></h2></div>'+
+    '<div class="sheetfoot"><button type="button" id="historyDiscardKeep"></button><button type="button" id="historyDiscardDrop"></button></div>';
+  document.body.append(scrim,sheet);
+  return{sheet,scrim}}
+/** Resolves true to discard, false to keep editing. One question at a time. */
+function historyConfirmDiscard(){
+  if(historyDiscardAsk)return historyDiscardAsk;
+  if(typeof deps.openModal!=="function"||typeof deps.closeModal!=="function")return Promise.resolve(false);
+  const {sheet,scrim}=historyDiscardParts();
+  $("#historyDiscardTitle").textContent=t("history.confirm.discard_changes");
+  const keep=$("#historyDiscardKeep"),drop=$("#historyDiscardDrop");
+  keep.textContent=t("history.edit.keep_editing");drop.textContent=t("history.edit.discard_changes");
+  historyDiscardAsk=new Promise(resolve=>{
+    let settled=false;
+    const finish=async discard=>{
+      if(settled)return;settled=true;
+      await deps.closeModal(sheet);
+      historyDiscardAsk=null;resolve(discard)};
+    keep.onclick=()=>finish(false);drop.onclick=()=>finish(true);scrim.onclick=()=>finish(false);
+    const reduced=typeof deps.reducedMotion==="function"&&deps.reducedMotion();
+    document.body.classList.add("is-sheet-open");
+    const opened=deps.openModal(sheet,{onEscape:()=>finish(false),scrim,returnFocus:document.activeElement,initialFocus:keep,delayHide:reduced?0:280});
+    if(opened===false){document.body.classList.remove("is-sheet-open");settled=true;historyDiscardAsk=null;resolve(false);return}
+    requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
+  return historyDiscardAsk}
+/** True when the lifter agreed to drop the unsaved changes of this session. */
+async function historyDiscardAgreed(sid){
+  const agreed=await historyConfirmDiscard();
+  return agreed&&String(historySelection.sessionId)===String(sid)}
+async function historyBackToCalendar(){
   const sid=historySelection.sessionId;
-  if(historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
+  if(historySelection.dirty&&!await historyDiscardAgreed(sid))return false;
   historySetSelection(emptyHistorySelection());
   renderHistory();
   historyFocus(historyCalendarAction(sid)||$("#historyRecentLabel"));historyOutcome("cancel","success");
@@ -175,7 +287,10 @@ function historyStartEditing(){
   historySetSelection({mode:"editing",sessionId:String(sid),originalFingerprint:historySelection.originalFingerprint,
     desiredFingerprint:null,workingCopy:cloneSnapshot(rows),removedRowIndices:[],dirty:false,validation:null,
     operation:null,operationId:null});
-  renderHistory();historyFocusEditing();return true}
+  renderHistory();
+  // The editor is a new page: it opens at its top, whatever the read page was scrolled to, so the heading focus lands in view (R7 J-06).
+  try{root.scrollTo?.(0,0)}catch{}
+  historyFocusEditing();return true}
 function historySessionFromWorkingCopy(card){
   const selection=historySelection,source=selection.workingCopy||historySessionRows(state.log,selection.sessionId),out=[];
   const dateEl=card?.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
@@ -191,19 +306,40 @@ function historySessionFromWorkingCopy(card){
     const next=cloneSnapshot(src);next.load=loadP.value;next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
 }
+// An invalid value keeps its reason on the page (Plan 064 R3j2): the field takes the
+// error boundary and the reason sits under its row until the value is fixed or the row
+// is removed. It is announced once as an alert; a toast would fade before it was read.
+const HISTORY_ERROR_ID="histedit-error";
+function historyClearErrors(card){
+  clearFieldInvalid(card);
+  card.querySelectorAll("[data-histedit-error]").forEach(note=>note.remove());
+  card.querySelectorAll('[aria-describedby="'+HISTORY_ERROR_ID+'"]').forEach(el=>el.removeAttribute("aria-describedby"))}
 function historyMarkValidation(card,error){
-  clearFieldInvalid(card);if(error?.field){error.field.setAttribute("aria-invalid","true");try{error.field.focus()}catch{}}
-  if(error?.key)toast(t(error.key));return false}
+  historyClearErrors(card);
+  const field=error?.field;
+  if(field){
+    field.setAttribute("aria-invalid","true");
+    if(error.key){
+      const host=field.closest(".edrow")||field.closest(".histedit__date")||field,
+        note=document.createElement("p");
+      note.className="histedit__error";note.id=HISTORY_ERROR_ID;note.setAttribute("role","alert");
+      note.setAttribute("data-histedit-error","");note.textContent=t(error.key);
+      host.after(note);field.setAttribute("aria-describedby",HISTORY_ERROR_ID)}
+    try{field.focus()}catch{}}
+  return false}
 function historyApplyWorkingInput(event){
   const target=event.target,card=target.closest(".session--edit");if(!card||historySelection.mode!=="editing")return;
+  // The reason under a field goes when that field holds a usable value again.
+  const fixed=()=>{if(target.getAttribute("aria-invalid")==="true")historyClearErrors(card)};
   const row=target.closest(".edrow[data-edidx]");if(row){const i=Number(row.dataset.edidx),key=String(target.dataset.ek||"").split("|")[0];
     const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value):key==="rir"?parseRirValue(target.value):null;
+    if(parsed&&!parsed.field)fixed();
     if(historySelection.workingCopy?.[i]&&key&&parsed&&!parsed.field){historySelection.workingCopy[i][key]=parsed.value;
       // A valid RIR entry is the user's explicit correction, so it is measured evidence.
       if(key==="rir")historySelection.workingCopy[i].rirMeasured=true}}
   if(target.matches('[data-ed="date"]')){
     const parsed=parseCalendarDate(target.value);
-    if(!parsed.field)for(const row of historySelection.workingCopy||[])row.date=parsed.value}
+    if(!parsed.field){fixed();for(const row of historySelection.workingCopy||[])row.date=parsed.value}}
   historySelection.dirty=true}
 function historyResultMessage(result,successKey,operation,operationId){
   const action=operation==="edit"?"edit_save":"delete";
@@ -307,9 +443,11 @@ async function historyRetryEdit(){
   const result=await historyEditCommit(sid,proposed,original);
   await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result?.committed===true&&result?.settled===true}
-function historyBeginDelete(sid){
+async function historyBeginDelete(sid){
   const rows=historySessionRows(state.log,sid);if(!rows.length)return false;
-  if(historySelection.mode==="editing"&&historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
+  if(historySelection.mode==="editing"&&historySelection.dirty){
+    const editing=historySelection.sessionId;
+    if(!await historyDiscardAgreed(editing))return false}
   const selected=String(historySelection.sessionId)===String(sid)&&typeof historySelection.originalFingerprint==="string"&&historySelection.originalFingerprint;
   historySetSelection({mode:"deleting",sessionId:String(sid),originalFingerprint:selected||historySessionFingerprint(rows),
     desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
@@ -336,18 +474,70 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
   const result=await commitProposedState(proposal,{preflight});
   await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
   return result}
+// ---- The session as a page (Plan 064 R3j) ----
+// Read mode: totals, then one group per lift with its outcome, the previous
+// exposure and the numbered sets. Outcomes come from the same comparison the
+// summary and Progress read; nothing here derives a second one.
+function historyWeekOf(date){
+  const d=isoDayNumber(date);if(d==null)return null;
+  for(const block of historyBlocks(historyContext())){
+    const start=isoDayNumber(block.start),end=block.end?isoDayNumber(block.end):null;
+    if(d>=start&&(end==null||d<=end))return Math.floor((d-start)/7)+1}
+  return null}
+/** "100 × 8, 8, 8" when one load, otherwise one "load × reps" per set. */
+function historySetsLine(rows){
+  const work=rows.filter(r=>isWork(r)&&+r.load>0&&+r.reps>0).sort((a,b)=>Number(a.set)-Number(b.set));
+  if(!work.length)return"";
+  const same=work.every(r=>+r.load===+work[0].load);
+  return same?`${fmtLoad(work[0].load)} × ${work.map(r=>r.reps).join(", ")}`
+    :work.map(r=>`${fmtLoad(r.load)} × ${r.reps}`).join(", ")}
+function historyOutcomeMark(group,sid){
+  const cmp=typeof deps.sessionOutcome==="function"?deps.sessionOutcome(group.rows):null;
+  if(!cmp)return"";
+  const kind={improved:" verdictmark--up",flat:" verdictmark--maintained",regressed:" verdictmark--down"}[cmp.status];
+  const exerciseId=group.rows[0]?.exerciseId;
+  const parity=exerciseId?` data-parity-outcome="${esc(exerciseId)}" data-parity-session="${esc(sid)}"`:"";
+  return`<span class="verdictmark${kind||" is-insufficient"}"${parity}>`+
+    (kind?`<span class="verdictmark__glyph" aria-hidden="true"></span>`:"")+`${esc(cmp.label)}</span>`}
 function historyReadingView(s,rows){
-  const setRows=rows.map(row=>`<div class="history-read__row"><span class="history-read__name">${esc(displayName(row))}</span>`+
-    `<span class="history-read__set">#${esc(row.set)}</span><span>${esc(fmtLoad(row.load))}</span>`+
-    `<span>${esc(String(row.reps??"—"))}</span><span>${esc(fmt(row.rir))}</span></div>`).join("");
+  const sid=String(s.session),index=historyIndexFor(state.log);
   const volume=sum(rows.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
-  return`<article class="session session--read" data-reading="${esc(s.session)}" data-sess="${esc(s.session)}">`+
-    `<div class="history-read__title"><div><div class="session__day">${esc(dayLabel(s.day))}</div>`+
-    `<p class="session__sub">${esc(t("history.session_meta",{sets:rows.length,vol:kfmt(toDisplay(volume)),unit:unitLabel()}))}</p></div></div>`+
-    `<div class="history-read__head"><span>${esc(t("history.exercise"))}</span><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span></div>`+
-    `<div class="history-read__rows">${setRows}</div>`+
-    `<div class="history-read__actions"><button type="button" class="btn btn--cta" data-history-edit="${esc(s.session)}">${esc(t("history.session.edit"))}</button>`+
-    `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`}
+  const prLifts=historyPrLifts(index).get(sid)||new Set();
+  const groups=[],byLift=new Map();
+  for(const row of rows){
+    const key=liftKey(row);
+    if(!byLift.has(key)){const g={key,rows:[]};byLift.set(key,g);groups.push(g)}
+    byLift.get(key).rows.push(row)}
+  const setCount=rows.length;
+  const lifts=groups.map(g=>{
+    const pred=index.liftPred.get(`${sid}|${g.key}`)||[];
+    const before=pred.length?t("history.before",{date:historyShortDate(pred[0].date),sets:historySetsLine(pred)}):"";
+    const record=prLifts.has(g.key)
+      ?`<span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("history.pr"))}</span>`:"";
+    const setRows=g.rows.map(row=>`<div class="ledgerline"><span class="ledgerline__idx">${esc(row.warmup?"W"+row.set:row.set)}</span>`+
+      `<span class="ledgerline__vals"><span class="fx-col">${esc(fmtLoad(row.load))}</span>`+
+      `<span class="fx-col">${esc(row.reps==null||row.reps===""?"–":row.reps)}</span>`+
+      `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span></span></div>`).join("");
+    return`<section class="histlift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>`+
+      `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
+      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
+  const total=(value,label)=>`<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
+  return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
+    `<div class="histpage__totals">`+
+    total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
+    total(historyInt(toDisplay(volume)),t("summary.stat.moved",{unit:unitLabel()}))+
+    total(historyInt(prLifts.size),t("stats.metric.prs"))+`</div>`+
+    `<div class="ledgerline__head histpage__cols"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
+    `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span></span></div>`+
+    lifts+
+    `<div class="histpage__actions"><button type="button" class="btn btn--steel" data-history-edit="${esc(sid)}"><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span>${esc(t("history.session.edit"))}</button>`+
+    `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
+/** Back, the day's name as the page title, and the date with its block week. */
+function historySessionHead(record){
+  const longDate=formatLongDate(String(record.date||"")),week=historyWeekOf(record.date);
+  return`<div class="histpage__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
+    `<h2 class="page-title histpage__title" data-history-selection-heading tabindex="-1">${esc(dayLabel(record.day))}</h2>`+
+    `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}</p></div>`}
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
     '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
@@ -371,6 +561,8 @@ function bindHistoryEditRows(){
       if(left.length<=1){toast(t("history.edit.keep_one"));return}
       removed.add(index);historySelection.removedRowIndices=[...removed].sort((a,c)=>a-c);
       row.classList.add("is-removed");setEdrowRmState(b,true);
+      // A removed row is not saved, so a reason about its values goes with them.
+      if(row.querySelector('.edrow__in[aria-invalid="true"]'))historyClearErrors(card);
       row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")});
       historySelection.dirty=true}
     else{removed.delete(index);historySelection.removedRowIndices=[...removed].sort((a,c)=>a-c);
@@ -378,9 +570,9 @@ function bindHistoryEditRows(){
       row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false);historySelection.dirty=true}});
   $(".session--edit")?.addEventListener("input",historyApplyWorkingInput);
 }
-function historyCancelOperation(){
+async function historyCancelOperation(){
   const sid=historySelection.sessionId;
-  if(historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
+  if(historySelection.dirty&&!await historyDiscardAgreed(sid))return false;
   const next=historySelectionFor(historySelection.sessionId);
   historySetSelection(next||emptyHistorySelection());
   renderHistory();
@@ -400,14 +592,192 @@ function bindHistorySelection(){
   $$("[data-history-retry]").forEach(b=>b.addEventListener("click",historyRetryEdit));
   bindHistoryEditRows()}
 
+// ---- The list: blocks, weeks and sessions (Plan 064 R3j) ----
+// Everything shown here derives from the saved log and the block bounds. The
+// counts, the week tallies and the PR marks are read, never stored.
+const historyPrCache=new WeakMap();
+/** Session id -> the lifts that broke a record in it. Only an event that beat an
+ *  earlier best carries a delta, so a lift's first appearance is not a record. */
+function historyPrLifts(index){
+  let found=historyPrCache.get(index);if(found)return found;
+  found=new Map();
+  for(const ev of index.prEvents||[]){
+    if(ev.deltaLoad==null&&ev.deltaReps==null&&ev.deltaE1rm==null)continue;
+    const sid=String(ev.session);if(!found.has(sid))found.set(sid,new Set());
+    found.get(sid).add(ev.liftKey)}
+  historyPrCache.set(index,found);return found}
+const historyContext=()=>(typeof deps.blockContext==="function"?deps.blockContext():null)||{};
+/** The current block first, then archived ones, newest first. */
+function historyBlocks(ctx){
+  const out=[];
+  if(ctx.started&&+ctx.planned>0)out.push({key:"current",kind:"current",name:ctx.name||"",start:ctx.started,end:null,planned:+ctx.planned});
+  const archived=(ctx.archived||[]).filter(b=>b&&b.start&&+b.planned>0)
+    .sort((a,b)=>String(b.start).localeCompare(String(a.start)));
+  archived.forEach((b,i)=>out.push({key:`archive:${i}`,kind:"archived",name:b.name||"",start:b.start,end:b.end||null,planned:+b.planned}));
+  return out}
+const historyLocale=()=>typeof deps.locTag==="function"?deps.locTag():"en-US";
+function historyInt(value){
+  const n=Math.round(Number(value)||0);
+  try{return n.toLocaleString(historyLocale())}catch{return String(n)}}
+function historyShortDate(iso){
+  const d=new Date(`${iso}T12:00:00`);
+  return Number.isNaN(+d)?String(iso||""):`${d.getDate()} ${t("month_short."+d.getMonth())}`}
+function historyMonthName(m){const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s}
+/** Names as a spoken list. The separators are decoration, so they stay out of
+ *  the accessibility tree and every name keeps its own element. */
+function historyNameList(items){
+  if(!items.length)return"";
+  let parts=null;
+  try{parts=new Intl.ListFormat(historyLocale(),{style:"long",type:"conjunction"}).formatToParts(items)}catch{}
+  if(!parts)parts=items.flatMap((value,i)=>i?[{type:"literal",value:" · "},{type:"element",value}]:[{type:"element",value}]);
+  return parts.map(p=>p.type==="element"?`<span>${esc(p.value)}</span>`:`<span aria-hidden="true">${esc(p.value)}</span>`).join("")}
+const historySetsText=n=>n===1?t("history.sets.one",{n}):t("entry.catalogue.sets_exact",{n});
+/** "1 session" / "2 sessions": the count catalog keeps a `_one` form for exactly 1 (R7 V-14). */
+const historyCountText=(kind,n)=>t(n===1?`count.${kind}_one`:`count.${kind}`,{n});
+const historyPrText=n=>n===1?t("history.prs",{n}):t("history.prs_many",{n});
+
+function historyMonthHeading(index,date){
+  const ym=String(date||"").slice(0,7),bucket=index.months?.get(ym);
+  if(!bucket)return"";
+  const d=new Date(`${date}T12:00:00`);
+  return`<h3 class="hist-month"><b>${esc(t("history.month_title",{month:historyMonthName(d.getMonth()),year:d.getFullYear()}))}</b>`+
+    `<span>${esc(t("history.month_summary",{sessions:historyCountText("sessions",bucket.sessions.size),sets:historyCountText("sets",bucket.sets)}))}</span></h3>`}
+
+function historyRowHtml(s,prLifts){
+  const sets=s.rows,work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
+  const d=new Date(`${s.date}T12:00:00`),valid=!Number.isNaN(+d);
+  const muscles=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3).map(muscleLabel);
+  const prs=prLifts.get(String(s.session))?.size||0;
+  // The card is the way in: one control per row, and it opens the session.
+  return`<article class="hist-row session" data-sess="${esc(s.session)}">`+
+    `<button type="button" class="session__open" data-edit="${esc(s.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(s.day)}))}">`+
+    `<span class="hist-sess__d">${valid?`<small>${esc(t("weekday."+d.getDay()))}</small><b>${d.getDate()}</b>`:""}</span>`+
+    `<span class="hist-sess__m"><b>${esc(dayLabel(s.day))}</b>${muscles.length?`<small>${historyNameList(muscles)}</small>`:""}</span>`+
+    `<span class="hist-sess__n"><span>${esc(historySetsText(sets.length))}</span>`+
+    `<span><b>${esc(historyInt(toDisplay(vol)))}</b> ${esc(unitLabel())}</span>`+
+    (prs?`<span class="hist-sess__pr">${esc(historyPrText(prs))}</span>`:"")+`</span></button></article>`}
+
+function historyListHtml(index,shown){
+  const groups=historyWeekGroups({sessions:index.sessions,shown,blocks:historyBlocks(historyContext())});
+  const prLifts=historyPrLifts(index);
+  let out="",lastMonth="";
+  const month=date=>{const key=String(date||"").slice(0,7);if(key===lastMonth)return"";lastMonth=key;return historyMonthHeading(index,date)};
+  for(const group of groups){
+    if(group.kind==="archived"){out+=`<h3 class="hist-block">${esc(group.name||t("untitled_program"))}</h3>`;lastMonth=""}
+    for(const week of group.weeks){
+      out+=month(week.sessions[0].date);
+      out+=`<h3 class="hist-week">${esc(week.week!=null
+        ?t("history.week",{n:week.week,done:week.done,planned:week.planned})
+        :t("history.week_of",{date:historyShortDate(week.monday)}))}</h3>`;
+      for(const s of week.sessions)out+=month(s.date)+historyRowHtml(s,prLifts)}}
+  return out}
+
+// ---- Frequency counts: two small tallies above the list ----
+function historyFreqBar({count,share,label,now=false,show=true}){
+  return`<span class="freqcount__bar${now?" freqcount__bar--now":""}"><span class="freqcount__n">${show&&count!=null?count:""}</span>`+
+    `<span class="freqcount__track"><span class="freqcount__fill" style="--freq-share:${share}"></span></span>`+
+    `<span class="freqcount__label">${esc(label)}</span></span>`}
+function renderHistoryFrequency(index){
+  const el=$("#historyFreq");if(!el)return;
+  const ctx=historyContext();
+  const freq=historyFrequency({sessions:index.sessions,started:ctx.started,weeks:ctx.weeks,planned:ctx.planned,today:ctx.today});
+  if(!freq){el.classList.add("hidden");el.innerHTML="";return}
+  el.classList.remove("hidden");
+  // Many weeks leave no room for every label, so a long block names every fourth.
+  const thin=freq.total>16;
+  const weekBars=freq.weeks.map(w=>historyFreqBar({
+    count:w.reached?w.count:null,share:w.reached?Math.min(1,w.count/freq.weekScale):0,now:w.current,
+    label:!thin||w.week%4===1?t("history.freq.wk",{n:w.week}):" "})).join("");
+  const letters=weekdayLetters();
+  const dayBars=freq.weekdays.map(d=>historyFreqBar({
+    count:d.count||null,share:Math.min(1,d.count/freq.weekdayScale),label:letters[d.index]})).join("");
+  const plan=Math.min(1,freq.planned/freq.weekScale);
+  el.innerHTML=`<h3 class="histfreq__title" id="historyFreqTitle">${esc(t("history.freq.title"))}</h3>`+
+    `<div class="histfreq__plots${freq.total>6?" histfreq__plots--stack":""}" role="img" `+
+    `aria-label="${esc(t("history.freq.total",{done:freq.done,planned:freq.plannedTotal,n:freq.now,total:freq.total}))}">`+
+    `<div class="histfreq__col" aria-hidden="true"><p class="histfreq__cap">${esc(t("history.freq.per_week"))}</p>`+
+    `<div class="freqcount freqcount--planned" style="--freq-plan:${plan}">${weekBars}</div></div>`+
+    `<div class="histfreq__col" aria-hidden="true"><p class="histfreq__cap">${esc(t("history.freq.per_weekday"))}</p>`+
+    `<div class="freqcount">${dayBars}</div></div></div>`}
+
+// ---- The calendar sheet ----
+function historyCalendarOpen(){const sheet=$("#historyCalSheet");return!!sheet&&!sheet.hidden}
+function openHistoryCalendar(){
+  const sheet=$("#historyCalSheet"),scrim=$("#historyCalScrim");
+  if(!sheet||historyCalendarOpen()||typeof deps.openModal!=="function")return false;
+  if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
+  renderHistoryCalendar(historyIndexFor(state.log));
+  document.body.classList.add("is-sheet-open");
+  const reduced=typeof deps.reducedMotion==="function"&&deps.reducedMotion();
+  deps.openModal(sheet,{onEscape:closeHistoryCalendar,scrim,returnFocus:$("#historyCalBtn"),delayHide:reduced?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
+  $("#historyCalBtn")?.setAttribute("aria-expanded","true");
+  return true}
+function closeHistoryCalendar(){
+  const sheet=$("#historyCalSheet");
+  $("#historyCalBtn")?.setAttribute("aria-expanded","false");
+  if(!sheet||sheet.hidden||typeof deps.closeModal!=="function")return Promise.resolve(false);
+  return deps.closeModal(sheet)}
+/** The chrome that outlives a render: the calendar button, the sheet's close and
+ *  scrim, and a tap on a trained day. Assigned as properties, so repeats are harmless. */
+function bindHistoryChrome(){
+  const open=$("#historyCalBtn");if(open)open.onclick=openHistoryCalendar;
+  const close=$("#historyCalClose");if(close)close.onclick=closeHistoryCalendar;
+  const scrim=$("#historyCalScrim");if(scrim)scrim.onclick=closeHistoryCalendar;
+  const cal=$("#historyCalendar");
+  if(cal)cal.onclick=event=>{
+    const day=event.target instanceof Element?event.target.closest("[data-cal-session]"):null;
+    if(!day)return;
+    const sid=day.dataset.calSession;
+    // Wait for the sheet to hand the page back, or the heading cannot take focus.
+    closeHistoryCalendar().then(()=>historyStartReading(sid))}}
+
+function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)return;
+  if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
+  const {y,m}=histMonth,first=new Date(y,m,1),startDow=(first.getDay()+6)%7;
+  const daysInMonth=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate();
+  const ym=`${y}-${String(m+1).padStart(2,"0")}`;
+  const month=index?.months?.get(ym)||{sessions:new Set(),sets:0,byDay:new Map()};
+  const sessCount=month.sessions.size,setCount=month.sets;
+  // The newest session of each trained day is the one a tap opens.
+  const opens=new Map();
+  for(const s of index?.sessions||[]){
+    if(String(s.date||"").slice(0,7)!==ym)continue;
+    const dayNum=+String(s.date).slice(8,10);if(!opens.has(dayNum))opens.set(dayNum,s)}
+  const letters=weekdayLetters();
+  // Monday-start letters already match weekdayLetters
+  let cells=letters.map(l=>`<div class="cal-grid__dow">${esc(l)}</div>`).join("");
+  for(let i=0;i<42;i++){let dayNum,out=false,iso;
+    if(i<startDow){dayNum=prevDays-startDow+i+1;out=true;const pm=m===0?11:m-1,py=m===0?y-1:y;iso=`${py}-${String(pm+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
+    else if(i-startDow>=daysInMonth){dayNum=i-startDow-daysInMonth+1;out=true;const nm=m===11?0:m+1,ny=m===11?y+1:y;iso=`${ny}-${String(nm+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
+    else{dayNum=i-startDow+1;iso=`${y}-${String(m+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
+    const trained=!out&&opens.get(dayNum),isToday=iso===today();
+    const cls=`cal-grid__day${out?" is-out":""}${trained?" is-on":""}${isToday&&!out?" is-today":""}`;
+    cells+=trained
+      ?`<button type="button" class="${cls}" data-cal-session="${esc(trained.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(trained.day)}))}">${dayNum}</button>`
+      :`<div class="${cls}">${dayNum}</div>`;
+    if(i===41)break;if(i>=startDow+daysInMonth-1&&(i+1)%7===0)break}
+  const title=$("#historyCalTitle"),sub=$("#historyCalSub");
+  if(title)title.textContent=t("history.month_title",{month:historyMonthName(m),year:y});
+  if(sub)sub.textContent=t("history.month_summary",{sessions:historyCountText("sessions",sessCount),sets:historyCountText("sets",setCount)});
+  el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="${esc(t("history.calendar_prev_aria"))}"><span class="chevron cal-head__prev" aria-hidden="true"></span></button>`+
+    `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="${esc(t("history.calendar_next_aria"))}"><span class="chevron" aria-hidden="true"></span></button></div>`+
+    `<div class="cal-grid">${cells}</div>`;
+  $("#calPrev").onclick=()=>{if(histMonth.m===0){histMonth={y:histMonth.y-1,m:11}}else histMonth={y:histMonth.y,m:histMonth.m-1};renderHistoryCalendar(index)};
+  $("#calNext").onclick=()=>{if(histMonth.m===11){histMonth={y:histMonth.y+1,m:0}}else histMonth={y:histMonth.y,m:histMonth.m+1};renderHistoryCalendar(index)}}
+
 function renderHistory(source=state.log){
   const selected=historySelection.mode!=="calendar";
-  const selectionEl=$("#historySelection"),calendar=$("#historyCalendar"),recent=$("#historyRecentLabel"),tableDetails=$("#historyTable")?.closest("details");
+  const selectionEl=$("#historySelection"),freqEl=$("#historyFreq"),recent=$("#historyRecentLabel"),tableDetails=$("#historyTable")?.closest("details");
+  const listControls=[$("#historySearchBtn"),$("#historyCalBtn"),$("#historyExportBtn")];
+  bindHistoryChrome();
   if(selected){
     const record=historySelectedRecord(source);
     if(!record){historySetSelection(emptyHistorySelection());return renderHistory(source)}
-    calendar?.classList.add("hidden");recent?.classList.add("hidden");tableDetails?.classList.add("hidden");
-    $("#historySearchWrap")?.classList.add("hidden");$("#historySearchBtn")?.classList.add("hidden");$("#historyExportBtn")?.classList.add("hidden");
+    // A session page never sits under the calendar sheet.
+    closeHistoryCalendar();
+    freqEl?.classList.add("hidden");recent?.classList.add("hidden");tableDetails?.classList.add("hidden");
+    $("#historySearchWrap")?.classList.add("hidden");listControls.forEach(b=>b?.classList.add("hidden"));
     selectionEl?.classList.remove("hidden");
     const mode=historySelection.mode,copy=historySelection.workingCopy||record.rows;
     const longDate=formatLongDate(String(record.date||""));
@@ -416,75 +786,36 @@ function renderHistory(source=state.log){
     else if(mode==="editing")body=sessionEditor(record,copy);
     else if(mode==="deleting")body=historyDeleteView(record);
     else body=historyConflictView(record,mode,historySelection.operation);
-    selectionEl.innerHTML=`<div class="history-selection__head"><button type="button" class="back-link" data-history-back>‹ ${esc(t("history.back_calendar"))}</button>`+
+    // The session page owns the whole top of the view; the edit, delete and
+    // conflict states keep the head they have always had.
+    $("#history")?.classList.toggle("is-session-page",mode==="reading");
+    $("#history")?.classList.toggle("is-session-edit",mode==="editing");
+    selectionEl.innerHTML=mode==="reading"?historySessionHead(record):mode==="editing"?historyEditHead()
+      :`<div class="history-selection__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
       `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3 data-history-selection-heading tabindex="-1">${esc(longDate)}</h3></div></div>`;
     $("#sessions").innerHTML=body;$("#historyTable").innerHTML="";
     bindHistorySelection();return}
-  calendar?.classList.remove("hidden");recent?.classList.remove("hidden");tableDetails?.classList.remove("hidden");
-  $("#historySearchBtn")?.classList.remove("hidden");$("#historyExportBtn")?.classList.remove("hidden");selectionEl?.classList.add("hidden");selectionEl&&(selectionEl.innerHTML="");
+  $("#history")?.classList.remove("is-session-page","is-session-edit");
+  recent?.classList.remove("hidden");tableDetails?.classList.remove("hidden");
+  listControls.forEach(b=>b?.classList.remove("hidden"));selectionEl?.classList.add("hidden");selectionEl&&(selectionEl.innerHTML="");
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
   const focusedToggle=document.activeElement?.matches?.("#sessions .session__open")?document.activeElement:null;
   const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
   const index=historyIndexFor(source);
+  renderHistoryFrequency(index);
   renderHistoryCalendar(index);
   const q=histQuery.trim();
   const sessions=searchHistoryIndex(index,q);
   syncHistorySearchChrome();
-  let lastMonth="";
-  $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
-    const sets=s.rows;
-    const work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
-    const delta=s.delta||{improved:0,flat:0,regressed:0,new:0},deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
-    const mus=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3);
-    const d=new Date(`${s.date}T12:00:00`);
-    const monthKey=`${d.getFullYear()}-${d.getMonth()}`;
-    let monthHdr="";
-    if(monthKey!==lastMonth){lastMonth=monthKey;monthHdr=`<p class="section-label">${esc(t("month."+d.getMonth()).toUpperCase())}</p>`}
-    const eyebrow=esc(t("history.session_eyebrow",{weekday:t("weekday."+d.getDay()),day:d.getDate(),month:t("month_short."+d.getMonth())}));
-    // The card is the way in. It used to be a disclosure whose panel held one
-    // link to the session — a tap to reveal a tap — and the panel was drawn on
-    // every row regardless, because `display:flex` outranks the `hidden` it
-    // carried. Deleting a session already moved inside the session, so nothing
-    // is left for a row to reveal and the whole card opens it.
-    return monthHdr+`<article class="hist-row session" data-sess="${esc(s.session)}">`+
-      `<button type="button" class="session__open" data-edit="${esc(s.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(s.day)}))}">`+
-      `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(dayLabel(s.day))}</div>`+
-      (mus.length?`<div class="session__sub">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
-      `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
-      `</div><span class="chevron" aria-hidden="true"></span></button></article>`;
-  }).join(""):`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
+  $("#sessions").innerHTML=sessions.length?historyListHtml(index,sessions)
+    :`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
   if(focusedSession){
     const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();historyStartReading(b.dataset.edit)});
-  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
+  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:shownName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
-function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)return;
-  const {y,m}=histMonth,first=new Date(y,m,1),startDow=(first.getDay()+6)%7;
-  const daysInMonth=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate();
-  const ym=`${y}-${String(m+1).padStart(2,"0")}`;
-  const month=index?.months?.get(ym)||{sessions:new Set(),sets:0,byDay:new Map()};
-  const byDay=month.byDay;
-  const sessCount=month.sessions.size,setCount=month.sets;
-  const letters=weekdayLetters();
-  // Monday-start letters already match weekdayLetters
-  let cells=letters.map(l=>`<div class="cal-grid__dow">${esc(l)}</div>`).join("");
-  for(let i=0;i<42;i++){let dayNum,out=false,iso;
-    if(i<startDow){dayNum=prevDays-startDow+i+1;out=true;const pm=m===0?11:m-1,py=m===0?y-1:y;iso=`${py}-${String(pm+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
-    else if(i-startDow>=daysInMonth){dayNum=i-startDow-daysInMonth+1;out=true;const nm=m===11?0:m+1,ny=m===11?y+1:y;iso=`${ny}-${String(nm+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
-    else{dayNum=i-startDow+1;iso=`${y}-${String(m+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
-    const info=!out&&byDay.get(dayNum),isToday=iso===today();
-    let mark="";if(info?.pr)mark=`<span class="cal-grid__mark is-pr"></span>`;else if(info)mark=`<span class="cal-grid__mark is-check">✓</span>`;else if(isToday)mark=`<span class="cal-grid__mark is-today"></span>`;
-    cells+=`<div class="cal-grid__day${out?" is-out":""}">${dayNum}${mark}</div>`;
-    if(i===41)break;if(i>=startDow+daysInMonth-1&&(i+1)%7===0)break}
-  el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="${esc(t("history.calendar_prev_aria"))}">‹</button>`+
-    `<div class="cal-head__title">${esc(t("history.month_title",{month:(()=>{const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s})(),year:y}))}</div>`+
-    `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="${esc(t("history.calendar_next_aria"))}">›</button></div>`+
-    `<div class="cal-summary">${esc(t("history.month_summary",{sessions:sessCount,sets:setCount}))}</div>`+
-    `<div class="cal-grid">${cells}</div>`;
-  $("#calPrev").onclick=()=>{if(histMonth.m===0){histMonth={y:histMonth.y-1,m:11}}else histMonth={y:histMonth.y,m:histMonth.m-1};renderHistory()};
-  $("#calNext").onclick=()=>{if(histMonth.m===11){histMonth={y:histMonth.y+1,m:0}}else histMonth={y:histMonth.y,m:histMonth.m+1};renderHistory()}}
 
 
 const EDROW_RM_GLYPH={remove:"×",undo:"↺"};
@@ -496,24 +827,43 @@ function setEdrowRmState(btn,removed){
   const glyph=btn.querySelector(".edrow__rm-glyph")||btn;
   glyph.textContent=removed?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}
 
+// The editor is the session page turned into a form (Plan 064 R3j2): the lift's name once
+// per group, one ledger row per set with load, reps and RIR inputs and a quiet remove, the
+// date as a field, and Cancel and Save pinned on a shelf with the dock hidden. A removed
+// row stays on the page, struck through, until Undo or Save.
+function historyEditHead(){
+  return`<div class="histpage__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button></div>`}
 function sessionEditor(s,sets){
   const removed=new Set((historySelection.removedRowIndices||[]).map(Number));
-  const rows=sets.map((r,i)=>{
-    const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set");
-    return `<div class="edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}"${disabled}>`+
-      `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}"${disabled}>`+
-      `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}"${disabled}>`+
-      `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
-  return `<div class="session session--edit" data-editing="${esc(s.session)}" data-history-state="editing">`+
-    `<h4 class="history-editing__heading" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</h4>`+
-    `<p class="history-editing__status" data-history-editing-status role="status" aria-live="polite">${esc(t("history.editing_status"))}</p>`+
-    `<div class="edhead"><div class="session__day">${esc(dayLabel(s.day))}</div>`+
-    `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(sets[0]?.date||s.date)}"></label></div>`+
-    `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
-    `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
-    `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div>`+
-    `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></div>`;
+  const groups=[];
+  // Consecutive sets of one lift share a group, so the DOM keeps the working copy's order.
+  sets.forEach((r,i)=>{
+    const key=liftKey(r),last=groups[groups.length-1];
+    if(last&&last.key===key)last.rows.push({r,i});else groups.push({key,rows:[{r,i}]})});
+  const lifts=groups.map(g=>{
+    const name=shownName(g.rows[0].r);
+    const rows=g.rows.map(({r,i})=>{
+      const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set"),
+        mark=r.warmup?"W"+r.set:r.set,aria=`${esc(shownName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
+      return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
+        `<span class="ledgerline__vals edrow__vals">`+
+        `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
+        `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${aria} ${esc(t("log.reps"))}"${disabled}>`+
+        `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("glossary.term.RIR"))}"${disabled}></span>`+
+        `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
+    return`<section class="histlift histedit__lift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name edgroup__name">${esc(name)}</h3></div>${rows}</section>`}).join("");
+  return`<div class="session session--edit histedit" data-editing="${esc(s.session)}" data-history-state="editing">`+
+    `<p class="histedit__eyebrow" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</p>`+
+    `<h2 class="page-title histpage__title">${esc(dayLabel(s.day))}</h2>`+
+    `<p class="histpage__lede" data-history-editing-status role="status" aria-live="polite">${esc(t("history.editing_status"))}</p>`+
+    `<div class="histedit__date"><label class="sheetfield"><span class="sheetfield__cap">${esc(t("stats.table.date"))}</span>`+
+    `<input class="sheetfield__input" data-ed="date" type="date" value="${esc(sets[0]?.date||s.date)}"></label></div>`+
+    `<div class="ledgerline__head histedit__cols"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals edrow__vals">`+
+    `<span class="fx-col">${unitLabel()}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span></span><span></span></div>`+
+    lifts+
+    `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div>`+
+    `<div class="histedit__bar workshelf"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
+    `<button type="button" class="btn btn--cta btn--noarrow" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div></div>`;
 }
 
 // The editor is a volatile projection. Its commit path validates the exact
@@ -564,5 +914,5 @@ async function saveSessionEdit(sid){
       query:()=>histQuery,
     };
   }
-  root.RepForgeHistoryUi={create:createHistoryUi};
+  root.RepForgeHistoryUi={create:createHistoryUi,frequency:historyFrequency,weekGroups:historyWeekGroups};
 })(typeof globalThis!=="undefined"?globalThis:this);

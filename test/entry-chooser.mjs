@@ -52,12 +52,14 @@ function assert(condition, name, detail) {
  * DOM landmarks for each of the five entry jobs, independent of production constants.
  */
 const INDEPENDENT_ROUTE_ORACLE = Object.freeze({
+  // Recommend's first question is the chooser's featured block (Q627): a goal
+  // tap answers it, so the first screen the lifter sees is the background step.
   recommend: Object.freeze({
     route: "recommend",
-    initialStep: "desired_result",
+    initialStep: "background",
     stepRole: "radiogroup",
-    stepSelector: '[data-entry-pick="desiredResult"]',
-    headingKeywords: ["goal", "desired", "primary", "training"],
+    stepSelector: '[data-entry-pick="structuredExperience"]',
+    headingKeywords: ["background", "training", "experience", "recent"],
   }),
   custom: Object.freeze({
     route: "custom",
@@ -197,6 +199,7 @@ async function inspectChooserStructure(page) {
         btn.dataset.entryCardRole === "subordinate";
 
       const route = btn.dataset.entryRoute || null;
+      const goal = btn.dataset.entryGoal || null;
       const text = btn.textContent.trim().replace(/\s+/g, " ");
       const id = btn.id || null;
 
@@ -215,6 +218,7 @@ async function inspectChooserStructure(page) {
         tag: btn.tagName.toLowerCase(),
         id,
         route,
+        goal,
         isPrimary,
         isSubordinate,
         groupLabel,
@@ -227,14 +231,16 @@ async function inspectChooserStructure(page) {
     });
 
     const primaryCards = cards.filter((c) => c.isPrimary);
+    const primaryRoutes = [...new Set(primaryCards.map((c) => c.route))];
     const recommendCard = cards.find((c) => c.route === "recommend");
     const customCard = cards.find((c) => c.route === "custom");
     const browseCard = cards.find((c) => c.route === "browse");
 
     // Check for Bring-or-build disclosure trigger:
-    // Semantic disclosure uses <details><summary> or button[aria-expanded]
-    const disclosureEl = document.querySelector(
-      "#onbBody details.entry__disclosure, #onbBody details, #onbBody button[aria-expanded], #onbBody #entryOwnToggle"
+    // Semantic disclosure uses <details><summary> or button[aria-expanded].
+    // The route helper's toggle is also a disclosure, so name the own-program one.
+    const disclosureEl = document.querySelector("#onbBody #entryOwnToggle") || document.querySelector(
+      "#onbBody details.entry__disclosure, #onbBody details, #onbBody button[aria-expanded]"
     );
 
     let disclosureInfo = null;
@@ -267,6 +273,7 @@ async function inspectChooserStructure(page) {
       ok: true,
       cardCount: cards.length,
       primaryCards,
+      primaryRoutes,
       recommendCard,
       customCard,
       browseCard,
@@ -364,18 +371,26 @@ try {
       const structure = await inspectChooserStructure(page);
       assert(structure.ok, "entry chooser hub rendered in DOM", structure.error);
 
+      // The featured block is Recommend's goal question: its three goal buttons
+      // are the one primary job, each starting the same route (Q627).
       assert(
-        structure.primaryCards.length === 1,
-        "exactly one primary card is presented in the chooser",
-        `Observed ${structure.primaryCards.length} primary cards: [${structure.primaryCards.map((c) => `${c.route || c.id || c.text}`).join(", ")}]`
+        structure.primaryRoutes.length === 1,
+        "exactly one primary job is presented in the chooser",
+        `Observed primary routes: [${structure.primaryRoutes.join(", ")}] on ${structure.primaryCards.length} cards`
       );
 
-      const isRecommendPrimary = structure.primaryCards.length === 1 &&
-        structure.primaryCards[0].route === "recommend";
+      const isRecommendPrimary = structure.primaryRoutes.length === 1 &&
+        structure.primaryRoutes[0] === "recommend";
       assert(
         isRecommendPrimary,
-        "Recommend is the sole primary card in the chooser",
+        "Recommend is the sole primary job in the chooser",
         `Primary card routes: [${structure.primaryCards.map((c) => c.route).join(", ")}]`
+      );
+
+      assert(
+        JSON.stringify(structure.primaryCards.map((c) => c.goal)) === JSON.stringify(["muscle_growth", "balanced", "strength"]),
+        "the primary job offers the three goals as its first question",
+        `Observed goals: [${structure.primaryCards.map((c) => c.goal).join(", ")}]`
       );
     } finally {
       await context.close();
@@ -480,7 +495,7 @@ try {
       if (disc?.isDetails) {
         await page.click("#onbBody details summary");
       } else {
-        await page.click("#onbBody #entryOwnToggle, #onbBody button[aria-expanded]");
+        await page.click("#onbBody #entryOwnToggle");
       }
 
       // Check expanded state and actions
@@ -523,7 +538,7 @@ try {
     try {
       if (routeKey === "build" || routeKey === "import") {
         // Must expand Bring-or-build disclosure first
-        const disclosureTrigger = page.locator("#onbBody details summary, #onbBody button[aria-expanded], #onbBody #entryOwnToggle");
+        const disclosureTrigger = page.locator("#onbBody #entryOwnToggle");
         await disclosureTrigger.waitFor({ timeout: 5000 });
         await disclosureTrigger.click();
       }
@@ -533,7 +548,8 @@ try {
         continue;
       }
 
-      const card = page.locator(`[data-entry-route="${routeKey}"]`);
+      // Recommend is offered as three goal buttons; the first starts the route.
+      const card = page.locator(`[data-entry-route="${routeKey}"]`).first();
       await card.waitFor({ timeout: 5000 });
       await card.click();
 
@@ -564,7 +580,7 @@ try {
     try {
       if (routeKey === "build" || routeKey === "import") {
         // Expand disclosure via keyboard
-        const disclosureTrigger = page.locator("#onbBody details summary, #onbBody button[aria-expanded], #onbBody #entryOwnToggle");
+        const disclosureTrigger = page.locator("#onbBody #entryOwnToggle");
         await disclosureTrigger.waitFor({ timeout: 5000 });
         await disclosureTrigger.focus();
         await page.keyboard.press("Enter");
@@ -575,7 +591,7 @@ try {
         continue;
       }
 
-      const card = page.locator(`[data-entry-route="${routeKey}"]`);
+      const card = page.locator(`[data-entry-route="${routeKey}"]`).first();
       await card.waitFor({ timeout: 5000 });
       await card.focus();
       await page.keyboard.press("Enter");

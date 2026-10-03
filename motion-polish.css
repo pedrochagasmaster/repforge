@@ -15,59 +15,14 @@
 .btn{transition-duration:.1s,.18s,.18s,.18s}
 .btn:active{transform:translateY(1px) scale(.975)}
 nav button:active{transform:scale(.975)}
-.curset__val--word[data-effspin]:active{transform:scale(.97)}
 
 /* ---- Set completion: acknowledgement, not ceremony ----
    A lifter can trigger this dozens of times in one session. Keep the state
    change legible, but finish the whole beat inside ~160ms and never grow an
-   element from a tiny scale. Exercise completion remains the larger beat. */
-.ledger__row.is-fresh{
-  animation:taurifer-setland-row .16s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-row{
-  from{opacity:.68;transform:translateY(4px)}
-  to{opacity:1;transform:none}
-}
-.ledger__row.is-fresh .ledger__check{
-  animation:taurifer-setland-check .16s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-check{
-  0%{opacity:.7;transform:scale(.96);background-color:var(--accent)}
-  100%{opacity:1;transform:scale(1);background-color:var(--ink)}
-}
-.ledger__tick.is-fresh{
-  animation:taurifer-setland-tick .15s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-tick{
-  from{opacity:.72;transform:scale(.96)}
-  to{opacity:1;transform:scale(1)}
-}
-.focus-ex__setof.is-fresh b{
-  animation:taurifer-setland-count .14s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-count{
-  from{opacity:.72;transform:translateY(-3px)}
-  to{opacity:1;transform:none}
-}
-.focus-well.is-fresh .focus-cue,
-.focus-well.is-fresh .curset{
-  animation:taurifer-setland-arm .14s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-setland-arm{
-  from{opacity:.72;transform:translateY(3px)}
-  to{opacity:1;transform:none}
-}
-.focus-well.is-fresh.is-done .focus-done__mark{
-  animation:taurifer-exercise-done .28s cubic-bezier(.2,.85,.25,1) both;
-}
-.focus-well.is-fresh.is-done .focus-done__text{
-  animation:taurifer-setland-arm .18s .04s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes taurifer-exercise-done{
-  0%{opacity:.55;transform:scale(.92)}
-  65%{opacity:1;transform:scale(1.04)}
-  100%{opacity:1;transform:scale(1)}
-}
+   element from a tiny scale. Exercise completion is the shelf's actions rising
+   in (.motion-rise below), not a larger celebration. The ledger row's own beat is
+   `.ledgerline.is-fresh` (styles.css, setland-row); the rules that named the retired
+   ledger and set-count markup are gone. */
 
 /* ---- Effort explainer: emerge from the value without growing from nothing ---- */
 .effortpop{
@@ -192,30 +147,14 @@ nav button:active{transform:scale(.975)}
   transform-origin:left center;
 }
 
-/* ---- Session completion: keep the milestone, reduce the launch scale ---- */
-.sumsheet.is-played .sum-crest__mark{
-  animation:taurifer-sum-strike .34s cubic-bezier(.2,.85,.25,1) both;
-}
-.sumsheet.is-played .sum-crest__mark::before{
-  animation:sum-ring .65s .06s cubic-bezier(.2,.7,.2,1) both;
-}
-@keyframes taurifer-sum-strike{
-  0%{opacity:.45;transform:scale(.92)}
-  60%{opacity:1;transform:scale(1.035)}
-  100%{opacity:1;transform:scale(1)}
-}
-/* The existing 55ms reading-order stagger remains intentionally unchanged. */
-
 /* ---- Hover belongs to devices that can actually hover ----
    The base sheet keeps its fine-pointer hover language. On coarse/no-hover
    pointers, restore each affected control to its resting state so taps do not
    leave behind a sticky desktop affordance. */
 @media (hover:none), (pointer:coarse){
   .icon-btn:hover{color:var(--ink-soft)}
-  .focus-well .btn--cta.saveset:hover{color:var(--cta-ink);border-color:transparent}
   .saveset:hover{color:var(--ink-soft);border-color:var(--rule)}
   .stepbtn:hover{color:var(--ink-soft)}
-  .curset__steps .stepbtn:hover{color:var(--ink);background:transparent}
   .pday__head .iconbtn--del:hover{border-color:var(--rule)}
   .iconbtn:hover:not(:disabled){color:var(--ink-soft);border-color:var(--rule)}
   .iconbtn--del:hover:not(:disabled){color:var(--danger);border-color:var(--rule);background:var(--surface)}
@@ -236,7 +175,7 @@ nav button:active{transform:scale(.975)}
   .entry-body .entry-card:hover{background:transparent}
   .entry-body .entry-card[data-entry-route="recommend"]:hover{background:var(--entry-tint)}
   .entry-body .radio-card:not(.is-selected):hover{border-color:var(--rule)}
-  .entry-body .radio-card.is-selected:hover{border-color:var(--accent)}
+  .entry-body .radio-card.is-selected:hover{border-color:var(--boundary-selected-quiet)}
   .entry__muscle-state:not(.is-selected):hover{border-color:var(--rule);color:var(--ink-soft)}
   .entry__muscle-state.is-selected:hover{border-color:var(--accent);color:var(--accent-deep)}
   .entry__exercise-action:hover{background:var(--entry-tint);color:var(--accent-deep)}
@@ -248,26 +187,194 @@ nav button:active{transform:scale(.975)}
   .entry__remove:hover{text-decoration:none}
 }
 
+/* ---- Short fixed beats (Plan 064 section 8, rule 11) ----
+   Each consumer adds the class from its own render and is named in the
+   interaction runtime audit. The Focus shelf's rise and value beats are
+   consumed by app.js (L4, M1), the slot crossfade by the inline rest (L3) and
+   the Progress chart (the clip wipe for C1, the same crossfade for a metric
+   change and for the axes of a scope change); the rest wait for their slice. Every beat is
+   transform, opacity or clip, finishes inside the budget named here, and has a
+   reduced-motion entry below that leaves the end state on the first frame. */
+
+/* The shelf changing job, and the completion actions arriving: a rise of at
+   most 12px while fading in, inside 160ms. */
+.motion-rise{
+  animation:taurifer-rise .16s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes taurifer-rise{
+  from{opacity:0;transform:translateY(12px)}
+  to{opacity:1;transform:none}
+}
+
+/* The selected field's value changing: the new value arrives 6px from the side
+   it moved toward, inside 120ms. Where that reads as busy at logging frequency
+   the crossfade class replaces it (80ms, no travel). */
+.motion-value-up{
+  animation:taurifer-value-up .12s cubic-bezier(.2,.7,.2,1) both;
+}
+.motion-value-down{
+  animation:taurifer-value-down .12s cubic-bezier(.2,.7,.2,1) both;
+}
+.motion-value-fade{
+  animation:taurifer-value-fade .08s linear both;
+}
+@keyframes taurifer-value-up{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:none}
+}
+@keyframes taurifer-value-down{
+  from{opacity:0;transform:translateY(-6px)}
+  to{opacity:1;transform:none}
+}
+@keyframes taurifer-value-fade{
+  from{opacity:0}
+  to{opacity:1}
+}
+
+/* The Focus cue slot and the shelf's pad row trading one job for another (L3,
+   inline rest): the incoming content fades in while the outgoing copy, held
+   over it as an inert layer, fades out, inside 160ms. The slot's own height run
+   is `animateSlot`; this is only the crossfade. */
+.motion-fade-in{
+  animation:taurifer-fade-in .16s linear both;
+}
+.motion-fade-out{
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  pointer-events:none;
+  animation:taurifer-fade-out .16s linear both;
+}
+@keyframes taurifer-fade-in{
+  from{opacity:0}
+  to{opacity:1}
+}
+@keyframes taurifer-fade-out{
+  from{opacity:1}
+  to{opacity:0}
+}
+
+/* A chart line drawing in from the left, or only the segment that was added (C1, the Progress
+   exercise chart: `.ch-trace` in `app.js`, which takes the class off when the beat ends). It is
+   a clip on the trace's own stroke box and nothing else; the axes, the cursor and the table are
+   never covered by it. */
+.motion-clip-reveal{
+  animation:taurifer-clip-reveal .36s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes taurifer-clip-reveal{
+  from{clip-path:inset(0 100% 0 0)}
+  to{clip-path:inset(0 0 0 0)}
+}
+
+/* A stepped reveal on entry. The hidden state only exists once a script has
+   marked the group ready, so without JavaScript every step is simply shown. */
+.motion-steps-ready .motion-step{
+  opacity:0;
+  transform:translateY(8px);
+  transition:opacity .2s cubic-bezier(.2,.7,.2,1),
+             transform .2s cubic-bezier(.2,.7,.2,1);
+}
+.motion-steps-ready .motion-step.is-in{
+  opacity:1;
+  transform:none;
+}
+
+/* A generated list arriving in reading order, one item every 55ms. The caller
+   sets --build-i on each item, counting from zero, once per generation. */
+.motion-build > .motion-build-item{
+  animation:taurifer-build-in .2s cubic-bezier(.2,.7,.2,1) both;
+  animation-delay:calc(var(--build-i,0) * 55ms);
+}
+@keyframes taurifer-build-in{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:none}
+}
+
+/* An indeterminate hairline: a sweep along a 1px rule that runs only while
+   .is-pending is on the host, so it is never a loop at rest. Under reduced
+   motion the sweep is gone and the label states the same thing. */
+.motion-hairline{
+  position:relative;
+  overflow:hidden;
+}
+.motion-hairline__label{display:none}
+.motion-hairline.is-pending::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--ink-faint),transparent);
+  transform:translateX(-100%);
+  animation:taurifer-hairline 1.1s linear infinite;
+}
+@keyframes taurifer-hairline{
+  from{transform:translateX(-100%)}
+  to{transform:translateX(100%)}
+}
+
 /* Reduced motion is a semantic alternate state, not a slower animation. */
 @media (prefers-reduced-motion:reduce){
   .view,
-  .ledger__row.is-fresh,
-  .ledger__row.is-fresh .ledger__check,
-  .ledger__tick.is-fresh,
-  .focus-ex__setof.is-fresh b,
-  .focus-well.is-fresh .focus-cue,
-  .focus-well.is-fresh .curset,
-  .focus-well.is-fresh.is-done .focus-done__mark,
-  .focus-well.is-fresh.is-done .focus-done__text,
   .effortpop.is-open,
   .effortpop.is-closing,
   .effortpop.is-open .effortpop__arrow,
   .effortpop.is-bump .effortpop__hint,
-  .sumsheet.is-played .sum-crest__mark,
-  .sumsheet.is-played .sum-crest__mark::before{animation:none}
   .toast,.tour,.installbanner,.toggle::after{transition:none}
+  .motion-rise,
+  .motion-value-up,
+  .motion-value-down,
+  .motion-value-fade,
+  .motion-fade-in,
+  .motion-fade-out,
+  .motion-clip-reveal,
+  .motion-build > .motion-build-item{animation:none}
+  .motion-steps-ready .motion-step{opacity:1;transform:none;transition:none}
+  .motion-hairline.is-pending::after{animation:none;content:none}
+  .motion-hairline.is-pending .motion-hairline__label{display:block}
   .toggle:active::after{transform:none}
   .toggle[aria-checked="true"]:active::after,
   .toggle[aria-pressed="true"]:active::after,
   .toggle.is-on:active::after{transform:translateX(20px)}
 }
+
+/* ---- Page push (N4 drill-downs, N5 Today to Focus) ----
+   For the length of a push both pages are mounted: the page being entered or
+   left rides above (`is-push-over`, the one that moves) and the other sits under
+   it, still (`is-push-under`). Both are pinned to the screen so they overlap
+   instead of stacking, and the page under is held at the scroll offset it had
+   (`--push-top`). Transform only; no new elevation, so the edge is the page's own.
+   The class names are written and removed by `app.js` (`pushRoute`) and never
+   exist under reduced motion, where the route simply changes. */
+.is-push-under,.is-push-over{
+  position:fixed;left:max(0px,calc(50% - var(--maxw) / 2));right:max(0px,calc(50% - var(--maxw) / 2));
+  box-sizing:border-box;overflow:hidden;animation:none;
+  padding-top:calc(12px + env(safe-area-inset-top));
+}
+.view.is-push-under,.view.is-push-over{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.view.is-push-under,.view.is-push-over{display:block}
+.hidden.is-push-under,.hidden.is-push-over{display:block!important}
+.is-push-under{top:var(--push-top,0px);z-index:1;pointer-events:none}
+.is-push-over{top:0;bottom:0;z-index:2;background:var(--bg)}
+/* Focus sits in a main with no side padding and the same top inset, so it rides in the same box it will rest in. */
+#workoutShell.is-push-over{top:calc(12px + env(safe-area-inset-top));bottom:env(safe-area-inset-bottom);padding:0}
+/* The pages a push can leave by an edge swipe take the horizontal drag themselves
+   (RepForgeMotion.registerEdgeSwipeBack); the browser keeps the vertical pan. */
+#exercise,#library,#exercisePreview,#importReview,#history.is-session-page{touch-action:pan-y}
+/* Focus lays itself out from the body classes `is-workout is-focus-wo`, which are
+   gone by the time Back carries it off. While it rides out it keeps its own layout. */
+#workoutShell.is-push-over,
+#workoutShell.is-push-over #logForm,
+#workoutShell.is-push-over #workout{display:flex;flex-direction:column;flex:1;min-height:0}
+#workoutShell.is-push-over > :not(#logForm),
+#workoutShell.is-push-over #logForm > :not(#workout),
+#workoutShell.is-push-over #workout > :not(.deck){
+  margin-left:max(var(--gut),env(safe-area-inset-left));margin-right:max(var(--gut),env(safe-area-inset-right));
+}
+#workoutShell.is-push-over .deck{flex:1;min-height:0}
+#workoutShell.is-push-over #dayTabs,
+#workoutShell.is-push-over #logForm > .field,
+#workoutShell.is-push-over #logForm > .btn--save{display:none!important}
+#workoutShell.hidden.is-push-over{display:flex!important}

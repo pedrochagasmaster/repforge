@@ -13,8 +13,9 @@ This plan defines scope, authority, sequence, delegation, proof and gates.
 
 - **Plan number:** 064
 - **Phase:** post-058 candidate construction, before Plan 059
-- **Status:** PLANNED — awaiting owner approval of this specification; no
-  implementation has started
+- **Status:** IN PROGRESS — specification approved by the owner through #290
+  (merged 2026-10-01); the §11.1 standalone workfronts are merged and the
+  workfront is open as PR #295 from `main` `c1d6432`
 - **Owner approval state:** the unified topology (one production PR instead of
   three) is an owner decision recorded 2026-09-30 and codified here. Open owner
   gates are listed in §6; the onboarding direction is not selected.
@@ -186,6 +187,23 @@ the dependent slice.
 | L-15 | No executable unsupported workout grammar; #255 is measurement only. | Backlog, clearance non-goals |
 | L-16 | No Pro, payment, entitlement, managed AI, native shell, package manager, backend platform, or fake door. | ADR 0010, ADR 0011, plans README guardrails |
 | L-17 | Free one-off sessions (#257) and historical migration (#258) are outside this workfront. | §15, §16 |
+
+**Dated note, 2026-10-02 (amends G-47 and L-08).** Owner decision on #295
+(comment 5941692606): "Landing appears once" is replaced by "the landing is the
+boot surface on every launch until the device is onboarded". The first visit
+stays the full landing; a return opens the condensed returning landing, which
+leads with a welcome back and the entry actions and, when a setup draft is
+saved, a resume action naming its route that opens the chooser and its Q633
+resume card (no deep link). The chooser no longer opens by itself before
+onboarding; an onboarded device never boots into the landing; a shared-setup
+handoff keeps its own landing. The rest of L-08 stands. Recorded in the
+[decision register](../docs/product-grilling-decision-register.md) beside Q633.
+
+**Dated note, 2026-10-02 (amends L-06).** Owner decision on #295 (comment
+5933076242): "Write from scratch" on the paste door asks before it discards
+pasted text, and it is a sixth exit that clears the tab-scoped draft. L-06's
+"cleared at the five exits" reads "cleared at the six exits"; ADR 0014 and
+`AGENTS.md` carry the six (`47206d7`). The rest of L-06 stands.
 
 ### 5.2 Inherited (already specified; applied as written unless a reconcilable row says otherwise)
 
@@ -368,12 +386,39 @@ contract review R0 records for Direction D's new content jobs.
     Recommendation copy uses "target/meta" and "weight/peso" as I-05 and C-04
     set; RIR is explained where it first appears on each surface; "Pause",
     never "Hold", for the timer.
-11. **Motion.** Everything through `motion-layer.js`; reduced motion removes
-    all of it; new motion limited to the shelf crossfade (≤160 ms), the drain
-    bar transform, disclosure height, and the landing's scroll-linked proof
-    section only if it degrades to static bands without JavaScript and under
-    reduced motion. Nothing animates to celebrate. Record each addition in
-    `docs/design/interaction-runtime-audit.md`.
+11. **Motion.** Everything goes through `motion-layer.js`. Reduced motion
+    removes all of it and leaves the state change and its information
+    identical. Nothing animates to celebrate, and orange is spent only within
+    the §8.8 budget. New motion is limited to the following, each recorded in
+    `docs/design/interaction-runtime-audit.md` with its owner and reduced-motion
+    path:
+    - **Training loop:** the drain bar transform; the rest block entering and
+      leaving the cue slot as a measured height change with a crossfade
+      (≤200 ms); the shelf changing job with a crossfade and a ≤12 px rise
+      (≤160 ms); the shelf field outline and the ledger open-row outline
+      travelling with `layoutShift`; the selected field's value changing
+      direction-aware by ≤6 px (≤120 ms). None of these may delay or disable
+      the shelf CTA.
+    - **Navigation:** the dock lens and the Progress tab underline travelling
+      with `layoutShift`; drill-downs and Today → Focus as an interruptible
+      push on the new `navPush` spring; an interactive edge swipe back on
+      pushed pages outside Focus, owned by `motion-layer.js`. The top-level
+      view fade stays as it is.
+    - **Progress chart:** the selected-session marker travelling between
+      discrete sessions; a clip reveal of the line on open and of only the new
+      segment when a session is added; shared sessions travelling on a scope
+      change. A metric change only crossfades.
+    - **Disclosure and system states:** disclosure height on Why, the summary
+      muscle list, the persist-retry banner and the restored-draft notice; an
+      indeterminate hairline only while a durable write is in flight.
+    - **Public and first run:** the landing proof's stepped reveal, static
+      without JavaScript and under reduced motion; the generated program's
+      reading-order build once per generation, subject to OG-1.
+    Amended by owner decision on 2026-10-01 (#295, comment 5941747309); the
+    owner's per-case picks, vocabulary, constraints and slice mapping are in
+    [`docs/design/motion-rule-11-amendment.md`](../docs/design/motion-rule-11-amendment.md)
+    (copied from #297 at `4317edc`). The summary keeps its count ramp; its row
+    stagger stays removed.
 12. **Accessibility.** 44 × 44 targets at 360 in PT and EN; focus order and
     restoration per surface; `aria-pressed` on shelf fields; sheets never
     trap focus; charts and counts are labeled with text alternatives;
@@ -635,7 +680,8 @@ names are R0–R7; sub-slices carry letters.
 - **Owns:** transition glue in `app.js` (route focus, announcement, scroll
   reset), guide anchors moved by earlier slices, journey tests.
 - **Consumes:** everything above.
-- **Unchanged:** G-47 landing once; G-62 guides once; install cadence; the
+- **Unchanged:** G-47 as amended on 2026-10-02 (§5.1 note: the landing is the
+  boot surface until onboarding); G-62 guides once; install cadence; the
   first-run gate's `modal` interaction semantics.
 - **Prerequisite:** R2, R3b, R3c, R4.
 - **Parallelism:** two workers: journeys into the app; journeys out to

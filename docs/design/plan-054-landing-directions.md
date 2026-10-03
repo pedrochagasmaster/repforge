@@ -140,7 +140,7 @@ no such licensed file existed in the repository, so the first implementation
 pass built the composition on flat paper and recorded the photograph as
 reference-only. The owner then supplied the photograph itself.
 
-Production asset: `assets/brand/landing-hero.webp` (941×1672, ~88 kB).
+Production asset: `assets/brand/landing-hero.webp` (941×1672, ~88 kB). *Retired: removed from the landing on 2026-09-15 and deleted from the repository in Plan 064 R6d.*
 
 SHA-256 of the supplied source PNG:
 `3c66655225cb75bb35c041532b19e017af6735c59f567ce697767468182fe43b`
@@ -164,7 +164,7 @@ implementation drew that phone in CSS with the loop as live text. The owner
 judged the result too far from the target and supplied a device render to use
 instead.
 
-Production asset: `assets/brand/landing-device.webp` (541×1058 with alpha, ~33 kB).
+Production asset: `assets/brand/landing-device.webp` (541×1058 with alpha, ~33 kB). *Retired: removed from the landing on 2026-09-15 and deleted from the repository in Plan 064 R6d.*
 
 SHA-256 of the supplied source PNG:
 `8f2411895e8611a7b84f2046273310eb4ba15bfe9eca8bd88587de45d82c9598`
@@ -336,8 +336,10 @@ surface derives from the active theme tokens rather than fixed colors.
 All eight scenes have English and Portuguese, light and dark renders. Only the
 four hero variants are precached; the remaining renders load lazily so a
 one-time landing does not add roughly 2.2 MB to every install. The prototype,
-asset-generation notes and browser oracles remain in
-`docs/design/plan-054-landing-prototype/` and `tools/landing-prototype/`.
+asset-generation notes remain in
+`docs/design/plan-054-landing-prototype/` (its capture, render and audit tools
+under `tools/landing-prototype/` were removed in Plan 064 R6d; only the chart
+history fixture stays).
 
 This integration is still a Plan 054 candidate. Automated responsive and
 accessibility evidence does not replace the pending physical iOS and Android

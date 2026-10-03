@@ -75,15 +75,32 @@ async function openHub(page, { existing = false } = {}) {
     page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 }));
 }
 
-async function route(page, name, { existing = false } = {}) {
+async function route(page, name, { existing = false, goal = "muscle_growth" } = {}) {
   await openHub(page, { existing });
   if (name === "build" || name === "import") await page.click("#entryOwnToggle");
+  // Recommend's first question is the hub's featured block: one tap chooses
+  // the route and answers the goal, so the next screen is the background step.
+  if (name === "recommend") {
+    await page.click(`[data-entry-route="recommend"][data-entry-goal="${goal}"]`);
+    return;
+  }
   await page.click(`[data-entry-route="${name}"]`);
 }
 
-/** The five generator questions shared by Recommend and Custom. */
-async function answerGenerator(page, { days = "3", desired = "muscle_growth", rest = "120" } = {}) {
-  await pick(page, "desiredResult", desired); await next(page);
+/** The helper's last step: "No, I need one" then "Let Taurifer decide" reaches
+ * Recommend without answering the goal, so the goal screen itself is shown. */
+async function recommendViaHelp(page) {
+  await openHub(page);
+  await page.click("#entryHelpToggle");
+  await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
+  await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
+  await page.click("#entryHelpGo");
+}
+
+/** The generator questions shared by Recommend and Custom. Recommend's goal is
+ * answered on the hub, so it starts at the background step; Custom asks it. */
+async function answerGenerator(page, { days = "3", desired = "muscle_growth", rest = "120", goalAsked = false } = {}) {
+  if (goalAsked) { await pick(page, "desiredResult", desired); await next(page); }
   await pick(page, "structuredExperience", "6_to_24m");
   await pick(page, "recentConsistency", "most"); await next(page);
   await pick(page, "daysPerWeek", days);
@@ -93,7 +110,7 @@ async function answerGenerator(page, { days = "3", desired = "muscle_growth", re
 }
 
 async function recommendTo(page, { result = false, existing = false, desired = "muscle_growth" } = {}) {
-  await route(page, "recommend", { existing });
+  await route(page, "recommend", { existing, goal: desired });
   await answerGenerator(page, { desired });
   if (result) {
     await next(page);
@@ -116,6 +133,25 @@ async function selectCandidate(page) {
  */
 async function customTo(page, step) {
   await route(page, "custom");
+  if (step === "shape") {
+    // A split with two compatible structures is rare in the released rules, so the
+    // catalog offers the second one through the same override the entry tests use.
+    await page.evaluate(() => {
+      const base = window.__repforgeOnboarding.services();
+      window.__repforgeProgramEntryServicesOverride = {
+        ...base,
+        splitChoices: (answers) => {
+          const result = base.splitChoices(answers);
+          if (result.choices.length !== 1) return result;
+          const first = result.choices[0];
+          return { ...result, choices: [first, {
+            ...first, id: `${first.id}-alternate`, blueprintId: `${first.blueprintId}-alternate`, default: false,
+            name: `${first.name} alternate`, namePt: `${first.namePt} alternativa`,
+          }] };
+        },
+      };
+    });
+  }
   if (step === "desired-result") return;
   await pick(page, "desiredResult", "balanced"); await next(page);
   if (step === "background") return;
@@ -135,8 +171,20 @@ async function customTo(page, step) {
     if (step === "exercise-preferences") return;
   }
   await next(page);
+  if (step === "shape") {
+    await page.waitForSelector('[data-entry-pick="splitPreference"]', { timeout: 20000 });
+    return;
+  }
   await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 20000 });
   if (step === "result") return;
+}
+
+/** A generated review with the answer chip for `chip` open on its editor. */
+async function reviewWithEditor(page, chip) {
+  await recommendTo(page, { result: true, desired: "balanced" });
+  await selectCandidate(page);
+  await page.click(`[data-entry-chip="${chip}"]`);
+  await page.waitForSelector("#entryEditor", { timeout: 20000 });
 }
 
 /** Keep the preference screens representative: the empty state is useful for
@@ -192,9 +240,17 @@ async function buildTo(page, step) {
     await page.locator("#exPickList .pickrow").first().click();
     await page.waitForTimeout(220);
   };
+  // Each pick is announced ("Exercise added.", R7 J-08). The frame is the editor at rest, so the
+  // announcement's ordinary lifetime ends before capture rather than racing the settle pass.
+  const settleAnnouncement = () => page.waitForFunction(
+    () => document.querySelector("#toast")?.classList.contains("hidden") !== false,
+    undefined,
+    { timeout: 15000 }
+  );
   await addExercise(0);
-  if (step === "editor-partial") return;
+  if (step === "editor-partial") return settleAnnouncement();
   for (let day = 1; day < 3; day++) await addExercise(day);
+  await settleAnnouncement();
   await page.waitForFunction(
     () => !document.querySelector("#entryEditorActivate")?.disabled,
     undefined,
@@ -211,7 +267,7 @@ async function importTo(page, step) {
   const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
   if (step === "review") {
     const program = {
-      meta: { name: portuguese ? "Programa de catálogo importado" : "Imported catalog program" },
+      meta: { name: portuguese ? "Treino de catálogo importado" : "Imported catalog program" },
       exercises: [
         {
           id: "bench1", day: portuguese ? "Dia 1" : "Day 1",
@@ -248,7 +304,7 @@ async function importTo(page, step) {
     return;
   }
   const program = {
-    meta: { name: portuguese ? "Programa de catálogo importado" : "Imported catalog program" },
+    meta: { name: portuguese ? "Treino de catálogo importado" : "Imported catalog program" },
     exercises: [{
       id: "bench", day: portuguese ? "Dia 1" : "Day 1",
       name: portuguese ? "Supino reto com barra" : "Barbell bench press",
@@ -308,7 +364,19 @@ async function freeformTo(page, step) {
     undefined,
     { timeout: 5000 }
   );
-  if (step === "stage3") return;
+  if (step === "stage3") {
+    // Stage 3 is photographed with its "Prompt copied" confirmation. The toast
+    // hides itself 2.4 s after it appears, so whether a frame caught it raced
+    // the settle step (and the machine's speed). Holding it open makes the
+    // frame deterministic; nothing else in the state changes.
+    const held = await page.evaluate(() => {
+      if (typeof window.announce !== "function") return false;
+      clearTimeout(window.announce._t);
+      return !document.querySelector("#toast")?.classList.contains("hidden");
+    });
+    if (!held) throw new Error("freeform stage 3: the copy confirmation toast could not be held open");
+    return;
+  }
   await page.waitForFunction(
     () => document.querySelector("#toast")?.classList.contains("hidden") === true,
     undefined,
@@ -371,7 +439,7 @@ function sharedPayloadFor(portuguese) {
     ...MINIMAL_PAYLOAD,
     program: {
       ...MINIMAL_PAYLOAD.program,
-      meta: { ...MINIMAL_PAYLOAD.program.meta, name: "Programa do treinador" },
+      meta: { ...MINIMAL_PAYLOAD.program.meta, name: "Treino do treinador" },
     },
     settings: { ...MINIMAL_PAYLOAD.settings, lang: "pt" },
   };
@@ -476,7 +544,8 @@ async function activationConflict(page) {
     await page.click("#entryResumeContinue");
   }
   await page.waitForSelector("#entryActivate", { timeout: 25000 });
-  page.once("dialog", (dialog) => dialog.dismiss());
+  // Readiness is checked before the replace dialog, so a stale setup meets the
+  // conflict notice first and never asks to replace anything.
   await page.click("#entryActivate");
   await page.waitForSelector(".entry__notice[role=alert]", { timeout: 25000 });
   const step = await page.evaluate(() => window.__repforgeEntryState?.()?.step);
@@ -487,15 +556,76 @@ async function activationConflict(page) {
 
 /** Bring the frame's subject into view for surfaces taller than the viewport. */
 const FOCUS_SELECTOR = {
+  // The landing is one scrolling page inside #firstRun; each scrolled state brings its band to the middle of the frame.
+  "onboarding-start/first-run-ways": ".firstrun-way--surface",
+  "onboarding-start/first-run-track": '[data-landing-outcome="hold"]',
+  "onboarding-start/first-run-data": ".firstrun-rows",
+  "onboarding-start/first-run-faq-open": ".firstrun-qa[open]",
+  "onboarding-start/first-run-close": ".firstrun-close__actions",
   "onboarding-start/hub-own-open": "#entryOwnToggle",
   "onboarding-recommend/avoidance-pain": ".entry__pain",
+  "onboarding-recommend/chip-editor-open": ".entry-chips",
+  "onboarding-recommend/result-avoided": ".entry__constraints",
   "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",
   "onboarding-build/editor-ready": "#entryEditorActivate",
 };
 
+/**
+ * The landing's proof is pinned: one phone, one lens, seven steps. Its frame is the
+ * middle of step 4 (the rest timer), where the lens, the rail and the persistent Build
+ * control are all in view. The scroll is the track's own geometry, not a pixel offset.
+ */
+const FOCUS_PROOF_STEP = { "onboarding-start/first-run-proof": 3 };
+
+/**
+ * The landing in its first-visit form. A seeded empty device boots straight into
+ * it, and that boot is what marks the device as having seen it: opening it a
+ * second time would draw the returning form. So the boot's own landing is the
+ * frame, and one is opened only if the boot did not.
+ */
+async function openLanding(page) {
+  const first = '#firstRun:not(.hidden)[data-entry-visit="first"]';
+  if (!(await page.locator(first).count())) await page.evaluate(() => window.openFirstRun());
+  await step("first-visit landing did not open", () => page.waitForSelector(first, { timeout: 20000 }));
+}
+
+/**
+ * A return to the same empty device. The first visit has marked the landing
+ * seen, so the next boot opens the returning landing; with `draft`, a setup the
+ * lifter left half done (Recommend, answered to its last step) is named on it.
+ */
+async function returnToLanding(page, { draft = false } = {}) {
+  if (draft) {
+    await recommendTo(page);
+    await step("setup draft was not saved", () => page.waitForFunction((draftKey) => {
+      try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "priorities"; }
+      catch { return false; }
+    }, SETUP_DRAFT, { timeout: 25000 }));
+  }
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const mark = draft ? '[data-entry-draft="recommend"]' : ":not([data-entry-draft])";
+  await step("returning landing did not open", () => page.waitForSelector(
+    `#firstRun:not(.hidden)[data-entry-visit="returning"]${mark}`, { timeout: 20000 }));
+}
+
+async function openLandingQuestion(page) {
+  await openLanding(page);
+  await page.click('[data-landing-section="faq"] details:nth-of-type(3) summary');
+  await page.waitForSelector(".firstrun-qa[open]", { timeout: 10000 });
+}
+
 export const ONBOARDING_SCENARIOS = {
-  "onboarding-start/first-run": (page) => page.evaluate(() => window.openFirstRun()),
+  "onboarding-start/first-run": openLanding,
+  "onboarding-start/first-run-proof": openLanding,
+  "onboarding-start/first-run-ways": openLanding,
+  "onboarding-start/first-run-track": openLanding,
+  "onboarding-start/first-run-data": openLanding,
+  "onboarding-start/first-run-faq-open": openLandingQuestion,
+  "onboarding-start/first-run-close": openLanding,
+  "onboarding-start/first-run-returning": (page) => returnToLanding(page),
+  "onboarding-start/first-run-returning-resume": (page) => returnToLanding(page, { draft: true }),
   "onboarding-start/hub": (page) => openHub(page),
   "onboarding-start/hub-own-open": async (page) => {
     await openHub(page);
@@ -503,22 +633,23 @@ export const ONBOARDING_SCENARIOS = {
     await page.waitForSelector('.entry__own [data-entry-route="build"]', { timeout: 20000 });
   },
   "onboarding-start/hub-existing": (page) => openHub(page, { existing: true }),
-
-  "onboarding-recommend/desired-result": (page) => route(page, "recommend"),
-  "onboarding-recommend/background": async (page) => {
-    await route(page, "recommend");
-    await pick(page, "desiredResult", "muscle_growth");
-    await next(page);
+  "onboarding-start/hub-help": async (page) => {
+    await openHub(page);
+    await page.click("#entryHelpToggle");
+    await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
+    await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
+    await page.waitForSelector("#entryHelpGo", { timeout: 20000 });
   },
+
+  "onboarding-recommend/desired-result": recommendViaHelp,
+  "onboarding-recommend/background": (page) => route(page, "recommend"),
   "onboarding-recommend/schedule": async (page) => {
     await route(page, "recommend");
-    await pick(page, "desiredResult", "muscle_growth"); await next(page);
     await pick(page, "structuredExperience", "6_to_24m");
     await pick(page, "recentConsistency", "most"); await next(page);
   },
   "onboarding-recommend/environment": async (page) => {
     await route(page, "recommend");
-    await pick(page, "desiredResult", "muscle_growth"); await next(page);
     await pick(page, "structuredExperience", "6_to_24m");
     await pick(page, "recentConsistency", "most"); await next(page);
     await pick(page, "daysPerWeek", "3");
@@ -545,9 +676,38 @@ export const ONBOARDING_SCENARIOS = {
   },
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
   "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
+  "onboarding-recommend/chip-editor-open": (page) => reviewWithEditor(page, "days"),
+  "onboarding-recommend/result-corrected": async (page) => {
+    await reviewWithEditor(page, "days");
+    await pick(page, "daysPerWeek", "4");
+    await page.click("#entryChipApply");
+    await page.waitForSelector("#entryChange", { timeout: 25000 });
+  },
+  "onboarding-recommend/result-avoided": async (page) => {
+    await reviewWithEditor(page, "prio");
+    const search = page.locator("#entryAvoidSearch");
+    // Avoid an exercise the program contains, so the statement is about a real change.
+    const first = await page.evaluate(() => (window.__repforgeEntryState().result.preview.program[0] || {}).libraryId);
+    // The search matches the localized library name, so search with the name the lifter sees.
+    const name = await page.evaluate((id) => {
+      const entry = window.__repforgeLibraryEntry?.(id);
+      if (!entry) return "";
+      // app.js's libraryName(): the PT name when the page is PT, else the English one.
+      return (document.documentElement.lang === "pt-BR" && entry.namePt) || entry.name;
+    }, first);
+    if (!name) throw new Error("result-avoided: the program's first exercise has no library name");
+    await search.fill(name);
+    await page.waitForTimeout(150);
+    await page.locator(`[data-entry-avoid-add="${first}"]`).click();
+    await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${first}|dislike"]`);
+    await page.click("#entryChipApply");
+    await page.waitForSelector("#entryChange", { timeout: 25000 });
+  },
   "onboarding-recommend/replacement-confirm": async (page) => {
     await recommendTo(page, { result: true, existing: true });
     await selectCandidate(page);
+    await page.click("#entryActivate");
+    await page.waitForSelector("#entryReplaceConfirm", { timeout: 20000 });
   },
   "onboarding-recommend/activation-conflict": activationConflict,
 
@@ -557,6 +717,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-custom/environment": (page) => customTo(page, "environment"),
   "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
   "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
+  "onboarding-custom/shape": (page) => customTo(page, "shape"),
   "onboarding-custom/result": (page) => customTo(page, "result"),
 
   "onboarding-browse/schedule": (page) => browseTo(page, "schedule"),
@@ -586,6 +747,20 @@ export const ONBOARDING_SCENARIOS = {
 
   "onboarding-recovery/resume": resume,
   "onboarding-recovery/rules-drift": rulesDrift,
+  "onboarding-recovery/cancel-confirm": async (page) => {
+    // Cancel is offered from every screen; the schedule step shows the dialog
+    // over a screen with answers in progress.
+    await ONBOARDING_SCENARIOS["onboarding-recommend/schedule"](page);
+    await pick(page, "daysPerWeek", "3");
+    await page.click("#onbCancel");
+    await page.waitForSelector("#entryCancelKeep", { timeout: 20000 });
+  },
+  "onboarding-recovery/restart-confirm": async (page) => {
+    await recommendTo(page, { result: true });
+    await selectCandidate(page);
+    await page.click("#entryRestart");
+    await page.waitForSelector("#entryRestartConfirm", { timeout: 20000 });
+  },
 };
 
 export async function focusOnboardingSubject(page, key) {
@@ -607,5 +782,16 @@ export async function focusOnboardingSubject(page, key) {
     }
     if (sel) document.querySelector(sel)?.scrollIntoView({ block: "center", inline: "nearest" });
   }, FOCUS_SELECTOR[key] || null);
+  if (FOCUS_PROOF_STEP[key] !== undefined) {
+    await page.evaluate((index) => {
+      const root = document.querySelector("#firstRun");
+      const track = document.querySelector("#firstRunProofTrack");
+      const stage = document.querySelector("#firstRunProofStage");
+      if (!root || !track || !stage) return;
+      const span = track.offsetHeight - stage.offsetHeight;
+      root.scrollTo({ top: track.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + span * (index + 0.5) / 7, behavior: "auto" });
+    }, FOCUS_PROOF_STEP[key]);
+    await sleep(page, 400);
+  }
   await sleep(page, 200);
 }

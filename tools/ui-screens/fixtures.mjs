@@ -12,6 +12,7 @@
  * drift gate would fail on any day but the one the evidence was captured.
  */
 import { CAPTURE_NOW } from "./session.mjs";
+import { DIRECTION_D_DATA } from "./direction-d-fixture.generated.mjs";
 
 function isoDaysAgo(n) {
   const d = new Date(Date.parse(CAPTURE_NOW));
@@ -78,6 +79,37 @@ export function catalogState() {
   };
 }
 
+/**
+ * The Direction D lifter: the one the review page draws, so an owner can hold a
+ * capture next to its drawing (Direction D spec section 11). The data is the
+ * committed output of `tools/generate-direction-d-fixture.mjs`, converted from
+ * the review page's data layer at a pinned commit with every date shifted by
+ * -21 days, so the review page's "today" (Monday 21 Sep 2026) is CAPTURE_NOW
+ * (Monday 31 Aug 2026). Edit the generator, never the generated module.
+ *
+ * Only D-owned catalog states use this. Every other state keeps
+ * `catalogState()`, so rules-only frames do not change because of it.
+ */
+export function directionDState() {
+  const { scenario, programName, settings, program, customExercises, log } = structuredClone(DIRECTION_D_DATA);
+  return {
+    settings: {
+      ...catalogState().settings,
+      jumpPct: settings.jumpPct, minJump: settings.minJump, rirHigh: settings.rirHigh, hardRir: settings.hardRir,
+    },
+    programMeta: {
+      id: "direction-d-program", name: programName, started: scenario.blockStart,
+      created: `${scenario.blockStart}T00:00:00.000Z`, updated: `${scenario.blockStart}T00:00:00.000Z`,
+      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: scenario.blockWeeks,
+      // The review page fixes the goal ("Build muscle"), three days a week and a
+      // full-body split; it says nothing about experience, equipment or session length.
+      goal: "hypertrophy", experience: null, daysPerWeek: 3,
+      splitType: "full_body", equipment: [], priorityMuscles: [], sessionLength: null, completedAt: null,
+    },
+    program, log, programHistory: [], customExercises, _storageRevision: 40,
+  };
+}
+
 export function emptyFirstRunState() {
   return {
     settings: catalogState().settings,
@@ -122,7 +154,7 @@ export function activeEntryState(lang = "en") {
     ...base,
     programMeta: {
       ...base.programMeta,
-      id: "catalog-active", name: lang === "pt" ? "Programa atual" : "Current program",
+      id: "catalog-active", name: lang === "pt" ? "Treino atual" : "Current program",
       started: "2026-08-01", created: "2026-08-01T00:00:00.000Z",
       updated: "2026-08-01T00:00:00.000Z", onboarded: true, daysPerWeek: 3,
       splitType: "full_body", equipment: ["machines"], goal: "hypertrophy",

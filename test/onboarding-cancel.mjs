@@ -75,9 +75,9 @@ async function todayView(page) {
 
 /** Drive the Recommend route through activation, as `test/simulation.mjs` does. */
 async function completeOnboarding(page) {
-  await page.click('[data-entry-route="recommend"]');
-  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-  await page.click("#onbNext");
+  // The hub's featured block asks Recommend's goal: one tap chooses the route,
+  // answers the goal and opens the background step.
+  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
   await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");

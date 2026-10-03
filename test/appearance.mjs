@@ -340,14 +340,15 @@ async function runChartRepaint(browser) {
   console.log("\n5. The canvas chart is repainted, not left on the old palette");
   const { context, page } = await freshPage(browser, "light");
   try {
-    await page.click('nav button[data-view="stats"]');
-    await page.waitForSelector("#stats.view.active");
+    // The exercise page owns the canvas chart (the overview carries none).
+    await page.evaluate(() => openExerciseView("library:sq_bb", "log"));
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
     await page.waitForFunction(() => {
-      const c = document.querySelector("#chart");
+      const c = document.querySelector("#exChart");
       return c && c.width > 0;
     }, { timeout: 5000 });
 
-    const shot = () => page.evaluate(() => document.querySelector("#chart").toDataURL());
+    const shot = () => page.evaluate(() => document.querySelector("#exChart").toDataURL());
     const before = await shot();
     await page.evaluate(() => window.__repforgeUi.setTheme("dark"));
     await page.waitForFunction(() => document.documentElement.dataset.theme === "dark", { timeout: 3000 });

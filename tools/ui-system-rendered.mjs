@@ -101,6 +101,41 @@ export async function measureRenderedRoles(input) {
     const result = sample(rect, children);
     return result ? { rgb: [...result, 1] } : null;
   };
+  /* A control in a fixed layer that paints nothing of its own (the landing's sticky
+     dock) floats over whatever scrolls beneath it, and that band is not in its DOM
+     ancestry: walking the ancestors' backgrounds would measure against the document
+     behind the layer instead of the colour the lifter sees around the control. */
+  const floatsOverUnrelatedGround = (node) => {
+    for (let current = node; current && current !== document.documentElement; current = current.parentElement) {
+      const style = getComputedStyle(current);
+      if (current !== node && (color(style.backgroundColor)?.[3] ?? 0) > 0) return false;
+      if (style.position === "fixed") return true;
+    }
+    return false;
+  };
+  /* The rendered ground in a thin band just outside an outline: the median of points
+     on the rectangle 3px beyond the outline's outer edge. */
+  const outlineGround = (node, style) => {
+    if (!pixels) return null;
+    const rect = node.getBoundingClientRect();
+    const reach = Math.max(0, parseFloat(style.outlineOffset) || 0) + (parseFloat(style.outlineWidth) || 0) + 3;
+    const left = rect.left - reach, right = rect.right + reach, top = rect.top - reach, bottom = rect.bottom + reach;
+    const points = [];
+    for (let x = left; x <= right; x += 4) points.push([x, top], [x, bottom]);
+    for (let y = top; y <= bottom; y += 4) points.push([left, y], [right, y]);
+    // The screenshot is in device pixels; the rectangle is in CSS pixels.
+    const scale = pixels.width / (window.innerWidth || pixels.width);
+    const channels = [[], [], []];
+    for (const [px, py] of points) {
+      const x = Math.round(px * scale), y = Math.round(py * scale);
+      if (x < 0 || y < 0 || x >= pixels.width || y >= pixels.height) continue;
+      const offset = (y * pixels.width + x) * 4;
+      if (pixels.data[offset + 3] < 240) continue;
+      for (let channel = 0; channel < 3; channel++) channels[channel].push(pixels.data[offset + channel]);
+    }
+    if (channels.some((values) => values.length < 8)) return null;
+    return { rgb: [...channels.map((values) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)]), 1] };
+  };
   const adjacentSurface = (node) => {
     for (let current = node.parentElement; current && current !== document.documentElement; current = current.parentElement) {
       const rect = current.getBoundingClientRect();
@@ -205,6 +240,7 @@ export async function measureRenderedRoles(input) {
     let measuredBackground = inside.rgb;
     if (kind === "focus") {
       let outside = background(node.parentElement || document.documentElement);
+      if ((parseFloat(style.outlineOffset) || 0) >= 0 && floatsOverUnrelatedGround(node)) outside = outlineGround(node, style) || outside;
       if (outside.unsupported && pixels) {
         const offset = parseFloat(style.outlineOffset) || 0;
         outside = (offset < 0 ? elementSurface(node) : adjacentSurface(node)) || outside;
@@ -371,6 +407,23 @@ export async function measureRenderedRoles(input) {
         if (marker) results.push(measurePseudoMark(node, `${item.selector}:${label(node)}${marker}`, marker));
         else if (item.roles?.boundary !== "required") results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
       }
+      // One primary label size: the contract's `control` role (R7 V-17, owner decision #295 comment 5965828337), whichever
+      // surface draws it. The featured entry card is a card, not a label, and has its own recipe.
+      if (!disabled && item.roles?.control === "primary" && item.variant !== "featured-entry-action") {
+        const labelSize = Number.parseFloat(getComputedStyle(node).fontSize);
+        const sizeProbe = document.createElement("span");
+        sizeProbe.style.cssText = "position:absolute;visibility:hidden;font-size:var(--font-size-control)";
+        document.body.append(sizeProbe);
+        const controlSize = Number.parseFloat(getComputedStyle(sizeProbe).fontSize);
+        sizeProbe.remove();
+        results.push({ selector: `${item.selector}:${label(node)}`, kind: "primary-label-size", status: labelSize === controlSize ? "pass" : "fail",
+          reason: labelSize === controlSize ? undefined : `${labelSize}px, the control role is ${controlSize}px` });
+        // The trailing arrow is a mark on the button's own ground and holds the 3:1 mark contrast (R7 V-01).
+        const arrow = getComputedStyle(node, "::after");
+        if (arrow.content !== "none" && arrow.content !== "normal" && arrow.display !== "none" && (color(arrow.backgroundColor)?.[3] || 0) > 0) {
+          results.push(measurePseudoMark(node, `${item.selector}:${label(node)}::after`, "::after"));
+        }
+      }
       if (!disabled && item.roles?.control === "selection" && node.matches(".toggle")) {
         const track = getComputedStyle(node, "::before"), knob = getComputedStyle(node, "::after");
         const trackColor = color(track.backgroundColor), knobColor = color(knob.backgroundColor);
@@ -448,4 +501,25 @@ export async function measureRenderedRoles(input) {
 export function renderedRoleProblems(key, measurements) {
   return measurements.filter((item) => !["pass", "exempt"].includes(item.status)).map((item) =>
     `${key}: rendered ${item.kind} ${item.selector} ${item.status}${item.ratio === undefined ? "" : ` ${item.ratio}:1 < ${item.threshold}:1`}${item.reason ? ` (${item.reason})` : ""}`);
+}
+
+/**
+ * A heading is read whole. A line clamp that actually cuts a heading short (the text is taller than the box that
+ * shows it) hides part of a name the lifter needs, so the audit fails it; a clamp that only reserves room for a
+ * longer title than this one is not a defect. Serialized into Chromium, so it owns its helpers; the findings go
+ * through `renderedRoleProblems` like every other rendered measurement.
+ */
+export function measureClampedHeadings() {
+  const label = (node) => node.id ? `#${node.id}` : `${node.tagName.toLowerCase()}${node.className && typeof node.className === "string" ? `.${node.className.trim().split(/\s+/)[0]}` : ""}`;
+  const results = [];
+  for (const node of document.querySelectorAll("h1,h2,h3,h4,h5,h6,[role='heading']")) {
+    const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+    if (rect.width <= 0 || rect.height <= 0 || style.display === "none" || style.visibility === "hidden" || node.closest("[inert],.visually-hidden")) continue;
+    const clamp = style.webkitLineClamp;
+    if (!clamp || clamp === "none") continue;
+    const cut = node.scrollHeight > node.clientHeight + 1;
+    results.push({ selector: `${label(node)}:${(node.textContent || "").trim().slice(0, 40)}`, kind: "heading-clamp", status: cut ? "fail" : "pass",
+      reason: cut ? `-webkit-line-clamp ${clamp} cuts the heading short (${node.scrollHeight}px of text in ${node.clientHeight}px)` : undefined });
+  }
+  return results;
 }

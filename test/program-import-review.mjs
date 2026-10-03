@@ -111,6 +111,9 @@ async function stageReviewedImport(page) {
 async function activateStagedImport(page) {
   const before = await page.evaluate((key) => localStorage.getItem(key), KEY);
   await page.click("#entryActivate");
+  // Replacing an active program asks first; the dialog stands where the native confirm did.
+  const replace = page.locator("#entryReplaceConfirm");
+  if (await replace.waitFor({ state: "visible", timeout: 1500 }).then(() => true, () => false)) await replace.click();
   try {
     await page.waitForFunction(({ key, before }) => localStorage.getItem(key) !== before,
       { key: KEY, before }, { timeout: 10000 });

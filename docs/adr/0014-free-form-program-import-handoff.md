@@ -62,8 +62,10 @@ protect lifters on mobile whose browser tab may be suspended
 or evicted during the handoff switch, the active source, reply, stage, and last
 provider are held in tab-scoped `sessionStorage` (`repforge_freeform_session_v1`)
 for the duration of the flow. That storage is strictly ephemeral and is cleared
-at all five flow exits: successful transition to review, explicit cancel, start
-over, switching doors to file import, and completed program activation. The
+at all six flow exits: successful transition to review, explicit cancel, start
+over, switching doors to file import, writing the program from scratch in Build
+(added by Plan 064 R4c, 2026-10-01; it asks first when text was pasted), and
+completed program activation. The
 preference for which door was used last remains in device-only UI prefs
 (`repforge_ui_v1`, key `importSourceMode`). Both input fields carry
 `ph-no-capture`.

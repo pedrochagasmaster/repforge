@@ -119,12 +119,12 @@ async function setSetCount(page, i, sets) {
 /** Commit `n` sets on the focused exercise through the real UI path. */
 async function logSets(page, n, { load = 100, reps = 4 } = {}) {
   for (let i = 0; i < n; i++) {
-    const loadInput = page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_load']");
+    const loadInput = page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_load']");
     if (!(await loadInput.count())) break;
     await loadInput.first().fill(String(load));
-    const repsInput = page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']");
+    const repsInput = page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']");
     if (await repsInput.count()) await repsInput.first().fill(String(reps));
-    await page.locator("#workout .exercise.is-current .focus-well .saveset").first().click();
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").first().click();
     await page.waitForTimeout(140);
   }
 }
@@ -220,13 +220,14 @@ async function main() {
 
   // 06 — editing a previously logged set
   await logSets(page, 1);
-  await page.locator(".ledger__row[data-editn]").nth(1).click();
+  await page.locator(".ledgerline[data-editn]").nth(1).click();
   await shot(page, "06-editing-set");
-  const cancel = page.locator("#workout .exercise.is-current .focus-well__cancel");
+  const cancel = page.locator("#workout .exercise.is-current [data-fcancel]");
   if (await cancel.count()) await cancel.click();
 
   // 08 — note editor sheet
-  await page.locator("[data-exnote-open]").first().click();
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
   await page.fill("#exNoteText", "Pés firmes. Manter a lombar apoiada.");
   await shot(page, "08-note-editor");
@@ -239,7 +240,7 @@ async function main() {
   await logSets(page, 4, { load: 7.5, reps: 4 });
   await shot(page, "04-effort-mode");
   // 04b — the effort explainer, popped open off the word it explains
-  await page.locator(".exercise.is-current .focus-well [data-effspin]").click();
+  await page.locator(".exercise.is-current .focus-shelf [data-effspin]").click();
   await page.waitForTimeout(420);
   await shot(page, "04b-effort-explainer");
   await page.locator(".exercise.is-current .focus-ex__muscle").click();

@@ -11,7 +11,47 @@
     "onboarding-start/first-run": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "First empty visit. Hero, getting-started/program chapter, the signature progression system, and a closing chapter, with early Build and Track actions, Privacy, and device-local seen state."
+      "scenario": "First empty visit. The hero with its headline, subtitle, Build, Track and chips, Privacy, and the device-local seen state; the bands below it are catalogued by the scrolled first-run states."
+    },
+    "onboarding-start/first-run-proof": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the proof band: seven steps over the real workout screen, with the pinned phone, lens and rail, and the persistent Build control."
+    },
+    "onboarding-start/first-run-ways": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the three ways to start, with the paste hand-off closed."
+    },
+    "onboarding-start/first-run-track": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the three engine outcomes and the strength-trend chart."
+    },
+    "onboarding-start/first-run-data": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the ink data band and its three rows."
+    },
+    "onboarding-start/first-run-faq-open": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the questions with the RIR answer open."
+    },
+    "onboarding-start/first-run-close": {
+      "owner": "plan-064/r2",
+      "content": "flat",
+      "scenario": "The landing scrolled to the closing orange band; the persistent Build control has stepped aside."
+    },
+    "onboarding-start/first-run-returning": {
+      "owner": "plan-064/r4",
+      "content": "flat",
+      "scenario": "A later visit to an empty device with nothing saved: the returning landing leads with a welcome back and the Build and Track actions, and condenses the page below."
+    },
+    "onboarding-start/first-run-returning-resume": {
+      "owner": "plan-064/r4",
+      "content": "flat",
+      "scenario": "A later visit with a half-finished Recommend setup saved: the lead action names the saved route and opens the chooser's resume card."
     },
     "onboarding-start/hub": {
       "owner": "plan-054",
@@ -28,6 +68,11 @@
       "content": "flat",
       "scenario": "Opened from Settings while a program is active, so replacement consequences are in view."
     },
+    "onboarding-start/hub-help": {
+      "owner": "plan-064/r4a",
+      "content": "flat",
+      "scenario": "The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs."
+    },
     "onboarding-recommend/desired-result": {
       "owner": "plan-054",
       "content": "flat",
@@ -36,7 +81,7 @@
     "onboarding-recommend/background": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "Structured-program experience and recent six-week consistency."
+      "scenario": "The carried goal with Change, then structured-program experience and recent six-week consistency."
     },
     "onboarding-recommend/schedule": {
       "owner": "plan-054",
@@ -66,7 +111,7 @@
     "onboarding-recommend/result": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "One candidate surface with rationale, editable program facts, and explicit activation."
+      "scenario": "The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation."
     },
     "onboarding-recommend/result-existing": {
       "owner": "plan-054",
@@ -116,7 +161,7 @@
     "onboarding-custom/result": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "The custom candidate, rationale, editable facts, and explicit activation on one surface."
+      "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation."
     },
     "onboarding-browse/schedule": {
       "owner": "plan-054",
@@ -233,15 +278,30 @@
       "content": "flat",
       "scenario": "A draft whose compiler rules are stale. Rebuild is required before activation."
     },
+    "onboarding-recovery/cancel-confirm": {
+      "owner": "plan-064/r4a",
+      "content": "flat",
+      "scenario": "Cancel pressed mid-flow. A dialog over the current step asks whether to keep the draft or discard it; Escape or Continue setup returns to the step."
+    },
+    "onboarding-recovery/restart-confirm": {
+      "owner": "plan-064/r4a",
+      "content": "flat",
+      "scenario": "Start over pressed on a review. A dialog asks before the answers and the unused program are discarded; the active program does not change."
+    },
     "today/no-program": {
       "owner": "plan-057",
       "content": "flat",
       "scenario": "A fresh device after leaving setup, with no program or workout controls."
     },
     "today/ready": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3b",
       "content": "flat",
-      "scenario": "A seeded program with recent max-rep evidence makes the Today readiness shortcut visible."
+      "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
+    },
+    "today/mixed-strategies": {
+      "owner": "plan-064/r3b",
+      "content": "flat",
+      "scenario": "The Direction D mixed day: anchor and back-off, rep goal, fixed effort, a manual slot in soft ink with no mark, a custom exercise and a lift with a set logged without RIR."
     },
     "today/rest-bar": {
       "owner": "plan-058",
@@ -254,9 +314,9 @@
       "scenario": "The day picker sheet open."
     },
     "today/done": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3x",
       "content": "flat",
-      "scenario": "The state after the day's session is logged."
+      "scenario": "The Direction D lifter's finished Monday: totals, the record line, each lift's outcome and next target, View today's session as the primary control."
     },
     "workout/focus": {
       "owner": "plan-055",
@@ -283,15 +343,15 @@
       "content": "flat",
       "scenario": "An unreadable local draft remains untouched and offers a non-destructive copy action."
     },
-    "workout/rest-timer": {
-      "owner": "plan-055",
+    "workout/rest-running": {
+      "owner": "plan-064/r3f",
       "content": "flat",
-      "scenario": "The rest timer sheet."
+      "scenario": "A logged set has started the rest: the clock on the rest-clock role, the orange drain bar and the next set's cue take the cue slot, and the rest controls take the shelf's pad row."
     },
-    "workout/rest-timer-paused": {
-      "owner": "plan-058",
+    "workout/rest-done": {
+      "owner": "plan-064/r3f",
       "content": "flat",
-      "scenario": "The rest timer sheet with its countdown held."
+      "scenario": "The rest has run out: the clock collapses to one line that counts the overrun up in soft ink, the cue returns and the field pads come back."
     },
     "workout/exercise-note": {
       "owner": "plan-055",
@@ -299,29 +359,54 @@
       "scenario": "The per-exercise note sheet."
     },
     "workout/why-this-weight": {
-      "owner": "plan-055",
+      "owner": "plan-064/r3g",
       "content": "flat",
-      "scenario": "The recommendation inspector."
+      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer."
+    },
+    "workout/why-in-session": {
+      "owner": "plan-064/r3g",
+      "content": "flat",
+      "scenario": "Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set."
+    },
+    "workout/why-rep-goal": {
+      "owner": "plan-064/r3g",
+      "content": "flat",
+      "scenario": "Rep goal: the total, the effort gate and how the reps split."
+    },
+    "workout/why-anchor": {
+      "owner": "plan-064/r3g",
+      "content": "flat",
+      "scenario": "Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets."
+    },
+    "workout/why-manual": {
+      "owner": "plan-064/r3g",
+      "content": "flat",
+      "scenario": "Manual: one sentence; the program sets the load and the engine does not change it."
     },
     "session/summary": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The summary shown after Save workout."
+      "scenario": "The Direction D lifter's Day 1: maintained, improved and declined words, records in green, and each lift ending on its next target."
     },
     "session/summary-maintained": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The finished session reports maintained performance alongside its next-step context."
+      "scenario": "A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and a record."
     },
     "session/summary-declined": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The finished session reports declined performance without turning the result into a prescription."
+      "scenario": "A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription."
+    },
+    "session/summary-first": {
+      "owner": "plan-064/r3h",
+      "content": "flat",
+      "scenario": "Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine."
     },
     "session/summary-mixed": {
-      "owner": "plan-057",
+      "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The finished session keeps maintained and declined lift outcomes distinct in one summary."
+      "scenario": "The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records."
     },
     "progress/overview": {
       "owner": "plan-056",
@@ -583,11 +668,6 @@
       "content": "flat",
       "scenario": "A valid setup link is ready for copy or system sharing."
     },
-    "program/readiness": {
-      "owner": "plan-057",
-      "content": "flat",
-      "scenario": "The recommendation-owned readiness list, with metadata hidden and inert while the list is open."
-    },
     "program/text-export": {
       "owner": "plan-057",
       "content": "flat",
@@ -698,11 +778,6 @@
       "content": "flat",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation."
     },
-    "today/preview": {
-      "owner": "plan-057",
-      "content": "flat",
-      "scenario": "Read-only session preview through production controls."
-    },
     "workout/session": {
       "owner": "plan-055",
       "content": "flat",
@@ -747,6 +822,26 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "workout/substituted-actions"
+    },
+    "onboarding-recommend/chip-editor-open": {
+      "owner": "plan-064/r4b",
+      "content": "flat",
+      "scenario": "The review with the days-per-week chip open on its inline editor: the same numeric cards as the question, an Update program action, and the pinned activation set aside."
+    },
+    "onboarding-recommend/result-corrected": {
+      "owner": "plan-064/r4b",
+      "content": "flat",
+      "scenario": "A changed answer rebuilt the program in place: the change statement with Before and Now, an added exercise tagged new, and its day open."
+    },
+    "onboarding-recommend/result-avoided": {
+      "owner": "plan-064/r4b",
+      "content": "flat",
+      "scenario": "An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore."
+    },
+    "onboarding-custom/shape": {
+      "owner": "plan-064/r4b",
+      "content": "flat",
+      "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers."
     }
   },
   "components": [
@@ -765,11 +860,13 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Steps the calendar sheet's month without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
         "history/list"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "calprev",
@@ -786,11 +883,13 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Steps the calendar sheet's month without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
         "history/list"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "chooseanotherday",
@@ -814,7 +913,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -1066,7 +1166,9 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected"
       ]
     },
     {
@@ -1140,7 +1242,10 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected"
       ]
     },
     {
@@ -1379,6 +1484,32 @@
       ]
     },
     {
+      "id": "entrywriteown",
+      "selector": "#entryWriteOwn",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Leaves the import route for Build, where the lifter writes the program from scratch. A route change only: it makes no request, reads no clipboard, and drops any pasted text from the tab session.",
+      "owner": "plan-064/r4c",
+      "catalogStates": [
+        "onboarding-import/source",
+        "onboarding-import/freeform-empty",
+        "onboarding-import/freeform-filled",
+        "onboarding-import/freeform-stage2",
+        "onboarding-import/freeform-stage3",
+        "onboarding-import/freeform-unreadable"
+      ]
+    },
+    {
       "id": "entryfreeformin",
       "selector": "#entryFreeformIn",
       "roles": {
@@ -1601,8 +1732,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-start/hub-help"
       ]
     },
     {
@@ -1674,7 +1806,10 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected"
       ]
     },
     {
@@ -1848,7 +1983,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -1856,7 +1993,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the shared sheet band's close on the exercise actions sheet.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/exercise-actions",
@@ -1924,7 +2061,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
-        "library/exercise-detail-glossary"
+        "library/exercise-detail-glossary",
+        "progress/exercise-chart"
       ]
     },
     {
@@ -1934,7 +2072,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -2113,7 +2253,7 @@
       "id": "exnotecancel",
       "selector": "#exNoteCancel",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary"
       },
       "variant": null,
       "facets": [],
@@ -2124,7 +2264,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: the drawn secondary button beside the primary confirmation (OG-6 round 1), which leaves the sheet and commits nothing.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/exercise-note"
@@ -2215,7 +2355,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -2412,7 +2554,15 @@
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-shared/preview",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
@@ -2422,7 +2572,7 @@
         "control": "primary",
         "boundary": "decorative"
       },
-      "variant": "landing-accent-primary",
+      "variant": "landing-ink-primary",
       "facets": [],
       "states": [
         "default",
@@ -2432,11 +2582,19 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Opens the main first-run creation route without saving a program; the approved landing gives this primary action an accent fill.",
-      "owner": "plan-058",
+      "rationale": "Opens the main first-run creation route without saving a program; the final page draws it as the ink pill with its arrow (parchment on the night band).",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
@@ -2446,7 +2604,7 @@
         "control": "primary",
         "boundary": "decorative"
       },
-      "variant": "landing-accent-primary",
+      "variant": "landing-ink-primary",
       "facets": [],
       "states": [
         "default",
@@ -2456,21 +2614,28 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Repeats the same main first-run creation route at the closing chapter with the same accent-filled primary treatment.",
-      "owner": "plan-058",
+      "rationale": "Repeats the same creation route at the closing band as the ink pill on the orange field, with its orange arrow.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
       "id": "firstrunimport",
       "selector": "#firstRunImport",
       "roles": {
-        "control": "quiet-navigation",
-        "boundary": "required"
+        "control": "quiet-navigation"
       },
-      "variant": "landing-bordered-navigation",
+      "variant": "landing-text-link",
       "facets": [],
       "states": [
         "default",
@@ -2479,21 +2644,28 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Opens the import route without committing training state; the approved opaque landing button needs its accent boundary to remain identifiable.",
-      "owner": "plan-058",
+      "rationale": "Opens the import route without committing training state; the final page draws it as an underlined text link under the creation pill.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
       "id": "firstrunimportclose",
       "selector": "#firstRunImportClose",
       "roles": {
-        "control": "quiet-navigation",
-        "boundary": "required"
+        "control": "quiet-navigation"
       },
-      "variant": "landing-bordered-navigation",
+      "variant": "landing-text-link",
       "facets": [],
       "states": [
         "default",
@@ -2502,11 +2674,19 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Repeats the same import route at the closing chapter without committing training state and keeps the same required accent boundary.",
-      "owner": "plan-058",
+      "rationale": "Repeats the same import route at the closing band as an underlined text link, with no boundary of its own.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
@@ -2529,7 +2709,15 @@
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
@@ -2539,7 +2727,7 @@
         "control": "primary",
         "boundary": "decorative"
       },
-      "variant": "landing-accent-primary",
+      "variant": "landing-ink-primary",
       "facets": [],
       "states": [
         "default",
@@ -2549,10 +2737,130 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the received-program first-run gate into review; its existing accent fill shares the exact first-run primary recipe.",
-      "owner": "plan-058",
+      "rationale": "Advances the received-program first-run gate into review; it takes the same ink-pill recipe as the other creation actions on the night band.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate"
+      ]
+    },
+    {
+      "id": "firstruncreatedock",
+      "selector": "#firstRunCreateDock",
+      "roles": {
+        "control": "primary",
+        "boundary": "decorative",
+        "elevation": "floating"
+      },
+      "variant": "landing-sticky-build",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "The landing's persistent Build control: the same creation route as the hero action, floating once the hero action has scrolled away and stepping aside at the closing action. It is the one floating surface outside the dock, the workout shelf and the sheets, and it never exists on the received-program gate.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
+      "id": "firstrunproofrail",
+      "selector": ".firstrun-proof__rail button",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "landing-proof-rail",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "One of seven detents under the pinned proof: it scrolls the landing to its step without committing any state. The bar is the button's own bottom edge and the current step is marked by aria-current.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
+      "id": "firstrunhandbtn",
+      "selector": "#firstRunHandBtn",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Opens the paste hand-off inside the third way, in place; aria-expanded and aria-controls carry the state.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
+      ]
+    },
+    {
+      "id": "firstrunfooterprivacy",
+      "selector": "#firstRunFooterPrivacy",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to the data band on the same page; the header Privacy action stays the single opener of the privacy sheet.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
@@ -2593,30 +2901,6 @@
       "catalogStates": [
         "workout/focus-glossary",
         "library/exercise-detail-glossary"
-      ]
-    },
-    {
-      "id": "gotovolume",
-      "selector": "#gotoVolume",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
       ]
     },
     {
@@ -2945,7 +3229,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -3099,7 +3385,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -3385,7 +3673,11 @@
         "onboarding-recommend/result-existing",
         "onboarding-recommend/schedule",
         "onboarding-recovery/rules-drift",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected",
+        "onboarding-custom/shape"
       ]
     },
     {
@@ -3406,47 +3698,52 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/catalogue",
-        "onboarding-browse/environment",
-        "onboarding-browse/preview",
-        "onboarding-browse/schedule",
-        "onboarding-build/editor-empty",
-        "onboarding-build/editor-partial",
-        "onboarding-build/editor-ready",
-        "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/result",
-        "onboarding-custom/schedule",
-        "onboarding-import/freeform-empty",
-        "onboarding-import/freeform-filled",
-        "onboarding-import/freeform-gaps",
-        "onboarding-import/freeform-gaps-invalid",
-        "onboarding-import/freeform-stage2",
-        "onboarding-import/freeform-stage3",
-        "onboarding-import/freeform-unreadable",
-        "onboarding-import/preview",
-        "onboarding-import/source",
-        "onboarding-recommend/activation-conflict",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/background",
+        "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-help",
         "onboarding-recommend/desired-result",
+        "onboarding-recommend/background",
+        "onboarding-recommend/schedule",
         "onboarding-recommend/environment",
         "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
-        "onboarding-recommend/replacement-confirm",
+        "onboarding-recommend/avoidance-pain",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-recommend/schedule",
+        "onboarding-recommend/replacement-confirm",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-custom/desired-result",
+        "onboarding-custom/background",
+        "onboarding-custom/schedule",
+        "onboarding-custom/environment",
+        "onboarding-custom/priorities",
+        "onboarding-custom/exercise-preferences",
+        "onboarding-custom/result",
+        "onboarding-browse/schedule",
+        "onboarding-browse/environment",
+        "onboarding-browse/catalogue",
+        "onboarding-browse/preview",
+        "onboarding-build/setup",
+        "onboarding-build/editor-empty",
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "onboarding-import/source",
+        "onboarding-import/freeform-empty",
+        "onboarding-import/freeform-filled",
+        "onboarding-import/freeform-stage2",
+        "onboarding-import/freeform-stage3",
+        "onboarding-import/freeform-gaps",
+        "onboarding-import/freeform-gaps-invalid",
+        "onboarding-import/freeform-unreadable",
+        "onboarding-import/preview",
+        "onboarding-shared/preview",
         "onboarding-recovery/resume",
         "onboarding-recovery/rules-drift",
-        "onboarding-shared/preview",
-        "onboarding-start/hub",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected",
+        "onboarding-custom/shape"
       ]
     },
     {
@@ -3486,7 +3783,8 @@
         "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
         "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift"
+        "onboarding-recovery/rules-drift",
+        "onboarding-custom/shape"
       ]
     },
     {
@@ -3546,7 +3844,8 @@
         "onboarding-recovery/rules-drift",
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-custom/shape"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -3578,58 +3877,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
-      ]
-    },
-    {
-      "id": "overviewvolume-vrow-bar",
-      "selector": "#overviewVolume .vrow__bar",
-      "roles": {
-        "progress": "week",
-        "boundary": "required"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "current",
-        "complete",
-        "insufficient"
-      ],
-      "rationale": "Progress dimension week; scope: muscle sets against this-week plan.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
-      ],
-      "progressScopes": {
-        "current-week-muscle-sets": "week"
-      }
-    },
-    {
-      "id": "overviewvolumemore",
-      "selector": "#overviewVolumeMore",
-      "roles": {
-        "control": "disclosure"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -3676,93 +3925,15 @@
       ]
     },
     {
-      "id": "previewsession",
-      "selector": "#previewSession",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "install/banner",
-        "today/draft-resume",
-        "today/ready",
-        "today/rest-bar",
-        "workout/invalid-draft"
-      ]
-    },
-    {
-      "id": "previewsessionclose",
-      "selector": "#previewSessionClose",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/preview"
-      ]
-    },
-    {
-      "id": "previewsessionscrim",
-      "selector": "#previewSessionScrim",
-      "roles": {
-        "elevation": "modal"
-      },
-      "variant": "scrim",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Scrim suppresses the page behind its blocking sheet.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/preview"
-      ]
-    },
-    {
-      "id": "previewsessionsheet",
-      "selector": "#previewSessionSheet",
-      "roles": {
-        "elevation": "modal"
-      },
-      "variant": "bottom-sheet",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/preview"
-      ]
-    },
-    {
       "id": "privacyclose",
       "selector": "#privacyClose",
       "roles": {
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -3855,8 +4026,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/overview",
-        "program/progression-editor",
-        "program/readiness"
+        "program/progression-editor"
       ]
     },
     {
@@ -3931,7 +4101,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "program/share-one-blocker",
         "program/share-ready",
         "program/share-repair-return",
@@ -3941,27 +4110,6 @@
       "progressScopes": {
         "active-program-week": "block"
       }
-    },
-    {
-      "id": "programreadyback",
-      "selector": "#programReadyBack",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/readiness"
-      ]
     },
     {
       "id": "programsetupprogram",
@@ -4015,7 +4163,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -4176,6 +4326,29 @@
       ]
     },
     {
+      "id": "resthold",
+      "selector": "#restHold",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Holds or releases the running rest clock from the presets sheet, a reversible supporting action with a text label (Pausar, Retomar); the inline pad row offers the same hold while it is on screen.",
+      "owner": "plan-064/fix-a",
+      "catalogStates": [
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
+    },
+    {
       "id": "restminus",
       "selector": "#restMinus",
       "roles": {
@@ -4193,34 +4366,10 @@
       "rationale": "Changes a numeric training or timer value through repeatable increments; it does not choose an option.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
-    },
-    {
-      "id": "restplaypause",
-      "selector": "#restPlayPause",
-      "roles": {
-        "control": "selection"
-      },
-      "variant": null,
-      "facets": [
-        "icon-only"
+        "workout/rest-running"
       ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "selected"
-      ],
-      "rationale": "Switches the ephemeral countdown between running and paused.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restplus",
@@ -4240,9 +4389,10 @@
       "rationale": "Changes a numeric training or timer value through repeatable increments; it does not choose an option.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restreset",
@@ -4263,9 +4413,10 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restsecrow",
@@ -4307,9 +4458,10 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restsheetclose",
@@ -4331,9 +4483,10 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "restsheetscrim",
@@ -4349,9 +4502,10 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "reststop",
@@ -4372,9 +4526,10 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "reviewblocklink",
@@ -4398,32 +4553,10 @@
       ]
     },
     {
-      "id": "readyline",
-      "selector": "#readyLine",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Opens Focus on the first lift with an add-load recommendation, starting or resuming its reversible workout draft as a supporting action.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/ready",
-        "today/rest-bar"
-      ]
-    },
-    {
       "id": "reviewtodaysession",
       "selector": "#reviewTodaySession",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "primary"
       },
       "variant": null,
       "facets": [],
@@ -4432,10 +4565,11 @@
         "hover",
         "pressed",
         "focus-visible",
-        "disabled"
+        "disabled",
+        "loading"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
+      "rationale": "Advances the current task with the strongest action weight.",
+      "owner": "plan-064/r3x",
       "catalogStates": [
         "today/done"
       ]
@@ -4561,7 +4695,7 @@
       "id": "sessionearlycancel",
       "selector": "#sessionEarlyCancel",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "secondary"
       },
       "variant": null,
       "facets": [],
@@ -4572,7 +4706,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: the drawn secondary button beside the primary confirmation (OG-6 round 1), which leaves the sheet and commits nothing.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/early-finish"
@@ -4690,7 +4824,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -4700,7 +4836,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -4708,7 +4846,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the shared sheet band's close on the session sheet.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/early-finish",
@@ -4752,7 +4890,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -4775,7 +4914,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ],
       "progressScopes": {
         "completed-session-week": "week"
@@ -4799,7 +4939,8 @@
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -4855,7 +4996,9 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [],
+      "facets": [
+        "icon-only"
+      ],
       "states": [
         "default",
         "hover",
@@ -4979,37 +5122,13 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
-      "id": "statexercise",
-      "selector": "#statExercise",
-      "roles": {
-        "control": "selection"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "selected",
-        "disabled"
-      ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
-      ]
-    },
-    {
-      "id": "stats-button-role-tab",
-      "selector": "#stats button[role=\"tab\"]",
+      "id": "stats-button-aria-pressed",
+      "selector": "#stats button[aria-pressed]:not(.tabrow__tab)",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -5028,7 +5147,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes the visible evidence panel or scope without committing data.",
+      "rationale": "Changes the visible evidence panel or scope without committing data. The five section tabs are the shared tab row (.tabrow__tab); this row covers the remaining in-panel scope and filter controls, which are toggle buttons (aria-pressed) in a group, not tabs (R7 J-20).",
       "owner": "plan-058",
       "catalogStates": [
         "progress/exercise-chart",
@@ -5083,7 +5202,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -5107,7 +5227,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -5165,56 +5286,6 @@
       ]
     },
     {
-      "id": "thisweek-ov-week-bar",
-      "selector": "#thisWeek .ov-week-bar",
-      "roles": {
-        "progress": "week",
-        "boundary": "required"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "current",
-        "complete",
-        "insufficient"
-      ],
-      "rationale": "Progress dimension week; scope: completed sessions in current week.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/guided-repair",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline",
-        "progress/prs",
-        "progress/prs-drill-in",
-        "progress/recovery-active",
-        "progress/recovery-ineligible",
-        "progress/recovery-preview",
-        "progress/recovery-questions",
-        "progress/recovery-reassessment",
-        "progress/review",
-        "progress/review-active",
-        "progress/review-complete",
-        "progress/review-insufficient",
-        "progress/schedule-diagnosis",
-        "progress/sibling-lower-frequency",
-        "progress/sibling-shorter-session",
-        "progress/strength",
-        "progress/strength-all-history",
-        "progress/strength-comparison",
-        "progress/strength-current-block",
-        "progress/strength-sparse",
-        "progress/volume",
-        "progress/volume-block",
-        "progress/volume-drill-in",
-        "progress/volume-reduction-preview"
-      ],
-      "progressScopes": {
-        "current-week-sessions": "week"
-      }
-    },
-    {
       "id": "toast",
       "selector": "#toast",
       "roles": {
@@ -5229,32 +5300,6 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/freeform-stage3"
-      ]
-    },
-    {
-      "id": "todayexmore",
-      "selector": "#todayExMore",
-      "roles": {
-        "control": "disclosure"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "install/banner",
-        "today/draft-resume",
-        "today/ready",
-        "today/rest-bar",
-        "workout/invalid-draft"
       ]
     },
     {
@@ -5279,10 +5324,10 @@
         "today/done",
         "today/draft-resume",
         "today/no-program",
-        "today/preview",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -5329,13 +5374,12 @@
       "catalogStates": [
         "install/banner",
         "today/day-picker",
-        "today/done",
         "today/draft-resume",
         "today/no-program",
-        "today/preview",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -5390,7 +5434,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -5471,7 +5516,11 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
@@ -5488,7 +5537,11 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
@@ -5505,39 +5558,18 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/why-this-weight"
-      ]
-    },
-    {
-      "id": "wonext",
-      "selector": "#woNext",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
       "id": "wooverflowbtn",
       "selector": "#woOverflowBtn",
       "roles": {
-        "control": "disclosure"
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [
@@ -5548,44 +5580,18 @@
         "hover",
         "pressed",
         "focus-visible",
-        "disabled",
-        "expanded"
+        "disabled"
       ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
+      "rationale": "Opens the current exercise's actions sheet without committing training state; where voice input is on, the same button opens a short menu, which the catalog never shows.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
-    {
-      "id": "woprev",
-      "selector": "#woPrev",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [
-        "disabled"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -5614,14 +5620,18 @@
         "workout/invalid-draft",
         "workout/persist-retry",
         "workout/reorder",
-        "workout/rest-timer",
-        "workout/rest-timer-paused",
         "workout/session",
         "workout/skipped-actions",
         "workout/stale-draft",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual",
+        "workout/rest-running",
+        "workout/rest-done"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -5652,7 +5662,9 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -5673,7 +5685,6 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "progress/exercise-chart",
         "progress/overview",
         "progress/overview-action"
       ]
@@ -5763,12 +5774,13 @@
         "progress/sibling-lower-frequency",
         "progress/sibling-shorter-session",
         "progress/volume-reduction-preview",
-        "today/preview",
         "workout/correction",
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -5836,53 +5848,10 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
-      ]
-    },
-    {
-      "id": "card-chartcard",
-      "selector": ".card.chartcard",
-      "roles": {
-        "elevation": "flat"
-      },
-      "variant": "evidence-chart",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Chart grouping remains ordinary flat content despite its bounded fill.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
-      ]
-    },
-    {
-      "id": "curset-val-not-id",
-      "selector": ".curset__val:not([id])",
-      "roles": {
-        "control": "field"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "validation-error"
-      ],
-      "rationale": "Accepts or edits an explicit value.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/warmup-actions",
+        "onboarding-recommend/result-avoided",
+        "onboarding-browse/catalogue",
+        "history/session"
       ]
     },
     {
@@ -5951,8 +5920,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Deletes or discards user-controlled work and needs destructive treatment.",
-      "owner": "plan-058",
+      "rationale": "Stages the removal of one set from the editor's working copy; nothing is written until Save. Drawn as a quiet ink × with an Undo in place (OG-6 round 2). The role is by meaning: it removes user-entered work.",
+      "owner": "plan-064/r3j2",
       "catalogStates": [
         "history/edit-dirty",
         "history/edit-invalid"
@@ -5980,8 +5949,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-start/hub-help"
       ]
     },
     {
@@ -6003,8 +5973,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-start/hub-help"
       ]
     },
     {
@@ -6170,103 +6141,32 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
       "id": "exercise-focus",
       "selector": ".exercise--focus",
       "roles": {
-        "elevation": "floating"
-      },
-      "variant": "movable-focus-card",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "The active exercise moves as one layer; inner training sections remain flat.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
-    {
-      "id": "focus-tool-ex-skip-not-id",
-      "selector": ".focus-tool.ex__skip:not([id])",
-      "roles": {
-        "control": "selection"
-      },
-      "variant": "focus-icon",
-      "facets": [
-        "icon-only"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
-    {
-      "id": "focus-tool-not-ex-skip-not-id",
-      "selector": ".focus-tool:not(.ex__skip):not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": "focus-icon",
-      "facets": [
-        "icon-only"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
-    {
-      "id": "focus-well-cancel-not-id",
-      "selector": ".focus-well__cancel:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
+        "elevation": "flat"
       },
       "variant": null,
       "facets": [],
       "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
+        "default"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "The active exercise is flat paper that moves as one layer when swiped; its ledger and cue are flat content and only the shelf below floats.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/correction"
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -6288,20 +6188,27 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
-        "onboarding-start/hub-existing",
         "onboarding-start/hub-own-open",
-        "progress/exercise-chart",
-        "progress/guided-repair",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-help",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/stale-draft",
+        "workout/persist-retry",
         "progress/overview",
-        "progress/overview-action",
         "progress/overview-baseline",
+        "progress/overview-action",
+        "progress/exercise-chart",
+        "progress/strength",
+        "progress/strength-current-block",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
         "progress/prs",
         "progress/prs-drill-in",
-        "progress/recovery-active",
-        "progress/recovery-ineligible",
-        "progress/recovery-preview",
-        "progress/recovery-questions",
-        "progress/recovery-reassessment",
         "progress/review",
         "progress/review-active",
         "progress/review-complete",
@@ -6309,25 +6216,21 @@
         "progress/schedule-diagnosis",
         "progress/sibling-lower-frequency",
         "progress/sibling-shorter-session",
-        "progress/strength",
-        "progress/strength-all-history",
-        "progress/strength-comparison",
-        "progress/strength-current-block",
-        "progress/strength-sparse",
-        "progress/volume",
-        "progress/volume-block",
-        "progress/volume-drill-in",
+        "progress/guided-repair",
         "progress/volume-reduction-preview",
+        "progress/recovery-ineligible",
+        "progress/recovery-questions",
+        "progress/recovery-preview",
+        "progress/recovery-active",
+        "progress/recovery-reassessment",
+        "settings/main",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
-        "settings/main",
         "settings/privacy",
         "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -6370,28 +6273,6 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/review"
-      ]
-    },
-    {
-      "id": "ledger-row-is-editing-not-id",
-      "selector": ".ledger__row.is-editing:not([id])",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "workout/correction"
       ]
     },
     {
@@ -6457,55 +6338,14 @@
         "hover",
         "pressed",
         "focus-visible",
+        "expanded",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. A glossary term opens its definition popover and says so with aria-expanded (R7 J-15).",
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
         "library/exercise-detail-glossary"
-      ]
-    },
-    {
-      "id": "link-row-cta-not-id",
-      "selector": ".link-row-cta:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/overview"
-      ]
-    },
-    {
-      "id": "listrow-program-ready-row-not-id",
-      "selector": ".listrow.program-ready__row:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/readiness"
       ]
     },
     {
@@ -6591,50 +6431,6 @@
       "catalogStates": [
         "library/list",
         "library/list-selected"
-      ]
-    },
-    {
-      "id": "prog-day-head-not-id",
-      "selector": ".prog-day__head:not([id])",
-      "roles": {
-        "control": "disclosure",
-        "boundary": "decorative"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/overview"
-      ]
-    },
-    {
-      "id": "prog-ex-not-id",
-      "selector": ".prog-ex:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "program/overview"
       ]
     },
     {
@@ -6921,7 +6717,9 @@
         "onboarding-recommend/priorities",
         "onboarding-recommend/schedule",
         "onboarding-recovery/rules-drift",
-        "progress/schedule-diagnosis"
+        "progress/schedule-diagnosis",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-custom/shape"
       ]
     },
     {
@@ -6944,9 +6742,10 @@
       "rationale": "Chooses the countdown duration; the chosen preset stays selected.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ]
+        "workout/rest-running"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
     },
     {
       "id": "session-map-jump-not-id",
@@ -7085,7 +6884,8 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-done"
       ]
     },
     {
@@ -7105,7 +6905,8 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -7121,16 +6922,19 @@
         "hover",
         "pressed",
         "focus-visible",
+        "expanded",
         "disabled"
       ],
-      "rationale": "Opens the RIR definition without changing the workout value.",
+      "rationale": "Opens the RIR definition without changing the workout value. The term says its definition popover is open with aria-expanded (R7 J-15).",
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7155,7 +6959,30 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
+      ]
+    },
+    {
+      "id": "text-link-fx-cue-cancel-not-id",
+      "selector": ".text-link.fx-cue__cancel:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "owner": "plan-064/r3c",
+      "catalogStates": [
+        "workout/correction"
       ]
     },
     {
@@ -7181,31 +7008,6 @@
       ]
     },
     {
-      "id": "today-ex-not-id",
-      "selector": ".today-ex:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "install/banner",
-        "today/draft-resume",
-        "today/ready",
-        "today/rest-bar",
-        "workout/invalid-draft"
-      ]
-    },
-    {
       "id": "vrow-evrow-not-id",
       "selector": ".vrow.evrow:not([id])",
       "roles": {
@@ -7227,51 +7029,6 @@
         "progress/volume",
         "progress/volume-block",
         "progress/volume-drill-in"
-      ]
-    },
-    {
-      "id": "preview-row-not-id",
-      "selector": "button.preview__row:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "A Today preview row opens exercise detail; its chevron denotes navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/preview"
-      ]
-    },
-    {
-      "id": "vrow-not-evrow-not-id",
-      "selector": "button.vrow:not(.evrow):not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "A volume row drills into muscle evidence; its chevron denotes navigation.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "progress/exercise-chart",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline"
       ]
     },
     {
@@ -7367,7 +7124,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "progress/exercise-chart",
         "progress/guided-repair",
         "progress/overview",
@@ -7401,7 +7157,69 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
+      ]
+    },
+    {
+      "id": "dock-lens",
+      "selector": ".dock-lens",
+      "roles": {
+        "elevation": "selected"
+      },
+      "variant": "navigation-dock-lens",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The one lens the script mounts in the dock (N1): it is the selected destination's pill, sits behind the buttons and travels between them. It is aria-hidden and takes no input; the destination button stays the control and keeps the selected state. In the Program edit bar the button keeps painting its own selected paint at rest and the lens is visible only while it travels.",
+      "owner": "plan-064/r6",
+      "catalogStates": [
+        "history/conflict",
+        "history/delete-confirm",
+        "history/edit-dirty",
+        "history/edit-invalid",
+        "history/list",
+        "history/session",
+        "install/banner",
+        "program/no-program",
+        "program/overview",
+        "program/progression-editor",
+        "progress/exercise-chart",
+        "progress/guided-repair",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/recovery-active",
+        "progress/recovery-ineligible",
+        "progress/recovery-preview",
+        "progress/recovery-questions",
+        "progress/recovery-reassessment",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/volume-reduction-preview",
+        "today/done",
+        "today/draft-resume",
+        "today/no-program",
+        "today/ready",
+        "today/rest-bar",
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -7437,7 +7255,6 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "progress/exercise-chart",
         "progress/guided-repair",
         "progress/overview",
@@ -7471,7 +7288,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -7504,63 +7322,1529 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
         "onboarding-shared/preview",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
         "program/progression-editor",
-        "progress/exercise-chart",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-corrected",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
+      ]
+    },
+    {
+      "id": "verdictmark",
+      "selector": ".verdictmark",
+      "roles": {
+        "elevation": "flat",
+        "typography": "body-small"
+      },
+      "variant": "verdict-mark",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink; hold draws \"=\" and recover a return arrow, both in ink (owner decision on #295, 2026-10-01), while stalled and new stay word-only. The session outcome \"Maintained\" draws the same ink \"=\" as hold (one meaning per glyph, #295 comment 5940349337), so the summary, History session page and Progress Strength rows carry the glyph on every outcome word; the Focus cue draws hold and recover through it too. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; the session summary (R3h) renders it for each lift's outcome word, its record line and the next target. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text. Progress renders it too (R3i): the attention rows' mark from the engine's recommendation for each lift whose load changes. The Focus cue draws it too (hold \"=\", up and down arrows) on every Focus state whose cue moves or holds the load.",
+      "owner": "plan-064/r1a",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "today/draft-resume",
+        "today/ready",
+        "history/session",
+        "program/overview",
+        "today/mixed-strategies",
+        "today/rest-bar",
+        "today/day-picker",
+        "install/banner",
+        "workout/invalid-draft",
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "session/summary",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-mixed",
+        "session/summary-first",
         "progress/overview",
         "progress/overview-action",
-        "progress/overview-baseline"
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/session",
+        "workout/early-finish",
+        "workout/exercise-actions",
+        "workout/skipped-actions",
+        "workout/warmup-actions",
+        "workout/reorder",
+        "workout/stale-draft",
+        "workout/persist-retry",
+        "workout/exercise-note",
+        "workout/substituted-actions",
+        "workout/rest-running",
+        "workout/rest-done",
+        "today/done"
+      ]
+    },
+    {
+      "id": "sheetband",
+      "selector": ".sheetband",
+      "roles": {
+        "elevation": "modal",
+        "typography": "section-title"
+      },
+      "variant": "sheet-header-band",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The one header band for every sheet: handle, section-title title, optional body-small line and a 44px close reserve, inside the sheet's modal layer. First rendered by the workout sheets (Plan 064 R3d); the note sheet has no close button because its Cancel is the dismiss.",
+      "owner": "plan-064/r1a",
+      "catalogStates": [
+        "install/ios-sheet",
+        "install/transfer-claimed-expired",
+        "install/transfer-claiming",
+        "install/transfer-cleanup",
+        "install/transfer-creating",
+        "install/transfer-destination",
+        "install/transfer-eligible",
+        "install/transfer-importing",
+        "install/transfer-interrupted",
+        "install/transfer-ready",
+        "install/transfer-retryable",
+        "install/transfer-success",
+        "install/transfer-terminal",
+        "install/transfer-unknown",
+        "program/custom-exercise",
+        "program/custom-exercise-archiving",
+        "program/custom-exercise-deleting",
+        "program/custom-exercise-recovery",
+        "program/custom-exercise-saving",
+        "program/exercise-picker",
+        "program/share-one-blocker",
+        "program/share-ready",
+        "program/share-repair-return",
+        "program/share-setup",
+        "program/text-export",
+        "settings/privacy-disclosure",
+        "today/day-picker",
+        "workout/early-finish",
+        "workout/exercise-actions",
+        "workout/exercise-note",
+        "workout/reorder",
+        "workout/session",
+        "workout/skipped-actions",
+        "workout/substituted-actions",
+        "workout/warmup-actions",
+        "workout/why-anchor",
+        "workout/why-in-session",
+        "workout/why-manual",
+        "workout/why-rep-goal",
+        "workout/why-this-weight"
+      ]
+    },
+    {
+      "id": "sheetband-close-not-id",
+      "selector": ".sheetband__close:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "sheet-header-band",
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "owner": "plan-064/r1a",
+      "catalogStates": [
+        "today/day-picker",
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
+      ]
+    },
+    {
+      "id": "ledgerline",
+      "selector": "div.ledgerline:not(.ledgerline--open)",
+      "roles": {
+        "elevation": "flat",
+        "boundary": "decorative"
+      },
+      "variant": "ledger-data",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Ledger sets still to do are flat read-only data on one decorative hairline per break, in soft ink with the previous session's matching set as a second line. A logged set is its own row (ledgerline-done) because tapping it reopens the set; the open or corrected row is ledgerline-open (OG-4). The History editor's set rows sit on the same flat ledger, with the three value inputs and the quiet remove in place of read-only values (R3j2).",
+      "owner": "plan-064/r1a",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "history/session",
+        "workout/rest-running",
+        "workout/rest-done",
+        "history/edit-dirty",
+        "history/edit-invalid"
+      ]
+    },
+    {
+      "id": "rxrow-not-id",
+      "selector": ".rxrow:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "prescription-row",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the whole row opens the exercise. The Program overview renders it first (R3k) as the drawing's three-column form: name with its strategy, sets x range, and the next load with the verdict mark.",
+      "owner": "plan-064/r1a",
+      "catalogStates": [
+        "today/ready",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/draft-resume",
+        "today/mixed-strategies",
+        "workout/invalid-draft",
+        "install/banner",
+        "program/overview"
+      ]
+    },
+    {
+      "id": "ledgerline-open",
+      "selector": ".ledgerline--open",
+      "roles": {
+        "elevation": "selected",
+        "boundary": "required"
+      },
+      "variant": "ledger-open-row",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The open or corrected ledger row is a selected child on the flat ledger: a well ground and a 2px edge in the quiet selected boundary (ink), no outward shadow. The edge is drawn as the row's border so the rendered-role audit can measure it; it reaches 3:1 on the well and on the page ground in both themes (OG-4).",
+      "owner": "plan-064/r1b",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
+      ]
+    },
+    {
+      "id": "tabrow",
+      "selector": ".tabrow",
+      "roles": {
+        "elevation": "flat",
+        "boundary": "decorative"
+      },
+      "variant": "tab-row-ink-indicator",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The row of tabs sits on one decorative hairline; each tab's selected state, not the hairline, carries the required cue. The paper fade drawn while the row overflows is a gradient the rendered-role audit cannot measure, so it is not part of this component. Progress renders it (R3i): one row of five sections above every Progress tab.",
+      "owner": "plan-064/r1b",
+      "catalogStates": [
+        "progress/guided-repair",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/recovery-active",
+        "progress/recovery-ineligible",
+        "progress/recovery-preview",
+        "progress/recovery-questions",
+        "progress/recovery-reassessment",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/volume-reduction-preview"
+      ]
+    },
+    {
+      "id": "tabrow-tab",
+      "selector": ".tabrow__tab",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": "tab-row-ink-indicator",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Changes the visible evidence panel or scope without committing data. The selected tab carries a 2px indicator in the quiet selected boundary (ink), 3:1 or better on the page ground and the surface in both themes (OG-4); the Progress tabs carry runtime ids only so their panels can name them (aria-labelledby, R7 J-20). Progress renders it (R3i): Overview, Strength, Volume, PRs and Review.",
+      "owner": "plan-064/r1b",
+      "catalogStates": [
+        "progress/guided-repair",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/recovery-active",
+        "progress/recovery-ineligible",
+        "progress/recovery-preview",
+        "progress/recovery-questions",
+        "progress/recovery-reassessment",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/volume-reduction-preview"
+      ]
+    },
+    {
+      "id": "freqcount",
+      "selector": ".freqcount",
+      "roles": {
+        "elevation": "flat",
+        "boundary": [
+          "decorative",
+          "required"
+        ]
+      },
+      "variant": "frequency-count",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Frequency counts are flat, non-interactive bars of sessions per week and per weekday: one labelled image for assistive technology, bars in ink, a decorative hairline baseline, and an optional planned marker on the required boundary token, never --rule-strong (OG-4). Progress classification (R3j): the bars are a tally of saved sessions, not workflow progress. The per-week bars sit against the program's planned days per week, but that line is a reference mark, not a completion value: no bar reads as a fraction of a goal, weeks not yet reached draw nothing, and the per-weekday bars have no denominator at all. The block total in the image label (done of planned, week n of N) is the only denominator, and it is text. The counts are therefore neither block, week, exercise-set nor task progress, they are not a progress candidate selector, and no data-progress-dimension is declared on them.",
+      "owner": "plan-064/r1b",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "workshelf",
+      "selector": ".workshelf",
+      "roles": {
+        "elevation": "persistent-action"
+      },
+      "variant": "workout-shelf",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The workout shelf keeps the set-logging actions reachable under Focus: persistent-action with a shallow top edge and the persistent depth, the existing prominent top radius, and no second raised card inside. Within it the field and adjustment roles take the drawn grounds (well and page ground); fields, pads and the primary action are separate rows added by the slice that renders them (OG-4). The History editor pins Cancel and Save on the same shelf with the dock hidden (R3j2).",
+      "owner": "plan-064/r1b",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done",
+        "history/edit-dirty",
+        "history/edit-invalid"
+      ]
+    },
+    {
+      "id": "shelf-fieldbtn-not-id",
+      "selector": ".shelf__fieldbtn:not([id])",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": "workout-shelf-field",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Chooses which field of the active set the pads act on, without committing data. The selected field carries the 2px quiet selected boundary (ink); its ground is the shelf's well (OG-4).",
+      "owner": "plan-064/r3c",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
+      ]
+    },
+    {
+      "id": "shelf-input-not-id",
+      "selector": ".shelf__input:not([id])",
+      "roles": {
+        "control": "field"
+      },
+      "variant": "workout-shelf-field",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Accepts or edits an explicit value: the real input a second tap on the selected shelf field turns it into, under the draft key the input handlers read.",
+      "owner": "plan-064/r3c",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending interaction: the input is invisible and inert until the second tap on a selected field, and no catalog state taps twice. test/focus-mode.mjs opens it and checks it.",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "fx-next-not-id",
+      "selector": ".fx-next:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to the next exercise without committing training state: the visible route beside the exercise bar and the swipe.",
+      "owner": "plan-064/r3c",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
+      ]
+    },
+    {
+      "id": "woprogress-seg-not-id",
+      "selector": "#woProgress button.segbar__seg:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to its exercise without committing training state. The current exercise's segment is a mark, not a control; the bar inside each segment is the exercise-set progress mark.",
+      "owner": "plan-064/r3c",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
+      ]
+    },
+    {
+      "id": "ledgerline-done-not-id",
+      "selector": "button.ledgerline:not([id])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": "ledger-data",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Reopens a logged set for correction: a reversible supporting action, since cancelling puts the set back as it was.",
+      "owner": "plan-064/r3c",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending interaction: a logged row is visible only after a set is logged with no sheet open, and every catalog state that logs a set either opens a sheet over the card or reopens that set for correction.",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done"
+      ]
+    },
+    {
+      "id": "entryhelptoggle",
+      "selector": "#entryHelpToggle",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Expands or collapses the route help; expanded state is separate from navigation.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-start/hub",
+        "onboarding-start/hub-own-open",
+        "onboarding-start/hub-existing",
+        "onboarding-start/hub-help"
+      ]
+    },
+    {
+      "id": "entry-help-opt-not-id",
+      "selector": ".entry-help__opt:not([id])",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Changes a chosen answer in the route help without leaving the hub.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-start/hub-help"
+      ]
+    },
+    {
+      "id": "entryhelpgo",
+      "selector": "#entryHelpGo",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Advances the current task with the strongest action weight.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-start/hub-help"
+      ]
+    },
+    {
+      "id": "entrydialog",
+      "selector": "#entryDialog",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "centered-dialog",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the entry screen behind it with dialog semantics until the lifter answers; Escape dismisses it and focus returns to its opener.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recommend/replacement-confirm",
+        "onboarding-recovery/cancel-confirm",
+        "onboarding-recovery/restart-confirm"
+      ]
+    },
+    {
+      "id": "entrycancelkeep",
+      "selector": "#entryCancelKeep",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Advances the current task with the strongest action weight: keeps the draft and leaves.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/cancel-confirm"
+      ]
+    },
+    {
+      "id": "entrycanceldiscard",
+      "selector": "#entryCancelDiscard",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/cancel-confirm"
+      ]
+    },
+    {
+      "id": "entrycancelcontinue",
+      "selector": "#entryCancelContinue",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: returns to the step.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/cancel-confirm"
+      ]
+    },
+    {
+      "id": "entryreplaceconfirm",
+      "selector": "#entryReplaceConfirm",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Advances the current task with the strongest action weight: archives the active program and uses the new one.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recommend/replacement-confirm"
+      ]
+    },
+    {
+      "id": "entryreplacecancel",
+      "selector": "#entryReplaceCancel",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: keeps the active program.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recommend/replacement-confirm"
+      ]
+    },
+    {
+      "id": "entryrestartconfirm",
+      "selector": "#entryRestartConfirm",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Discards the setup draft and starts the entry flow again.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/restart-confirm"
+      ]
+    },
+    {
+      "id": "entryrestartcancel",
+      "selector": "#entryRestartCancel",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: keeps the draft.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recovery/restart-confirm"
+      ]
+    },
+    {
+      "id": "entry-rail-chip-not-id",
+      "selector": ".entry-rail__chip:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: it returns to an earlier answer.",
+      "owner": "plan-064/r4a",
+      "catalogStates": [
+        "onboarding-recommend/background",
+        "onboarding-recommend/schedule",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/environment-correction",
+        "onboarding-recommend/priorities",
+        "onboarding-recommend/avoidance-pain",
+        "onboarding-custom/background",
+        "onboarding-custom/schedule",
+        "onboarding-custom/environment",
+        "onboarding-custom/priorities",
+        "onboarding-custom/exercise-preferences",
+        "onboarding-custom/shape"
+      ]
+    },
+    {
+      "id": "entry-chip-not-id",
+      "selector": ".entry-chip:not([id])",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Opens the answer editor for one answer under the chip, in place; aria-expanded and aria-controls carry the state, and the open chip is ringed in ink.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-avoided",
+        "onboarding-custom/result"
+      ]
+    },
+    {
+      "id": "entrygoalchange",
+      "selector": "#entryGoalChange",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Reopens the goal question the hub already asked, without leaving the about screen.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/background",
+        "onboarding-custom/background"
+      ]
+    },
+    {
+      "id": "entryskip",
+      "selector": "#entrySkip",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Skips the optional priorities section while nothing in it is chosen; it is offered only when it discards nothing.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/priorities"
+      ]
+    },
+    {
+      "id": "entrychipapply",
+      "selector": "#entryChipApply",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Rebuilds the program from the edited answers in one step and states what changed.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/chip-editor-open"
+      ]
+    },
+    {
+      "id": "entrychipkeep",
+      "selector": "#entryChipKeep",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Closes the answer editor and keeps the program as it was.",
+      "owner": "plan-064/r4b",
+      "catalogStates": [
+        "onboarding-recommend/chip-editor-open"
+      ]
+    },
+    {
+      "id": "historycalbtn",
+      "selector": "#historyCalBtn",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the month calendar as a sheet without committing training state.",
+      "owner": "plan-064/r3j",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "historycalsheet",
+      "selector": "#historyCalSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the underlying route with dialog semantics while the month calendar is open.",
+      "owner": "plan-064/r3j",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "historycalscrim",
+      "selector": "#historyCalScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind the calendar sheet.",
+      "owner": "plan-064/r3j",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "historycalclose",
+      "selector": "#historyCalClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "sheet-header-band",
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "owner": "plan-064/r3j",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "calendar-day-not-id",
+      "selector": ".cal-grid__day:is(button):not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "calendar-day",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "A trained day opens its session; it moves to another view without committing training state.",
+      "owner": "plan-064/r3j",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/list"
+      ]
+    },
+    {
+      "id": "whyok",
+      "selector": "#whyOk",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Closes the sheet; an alternative to the close icon with the weight of a secondary action.",
+      "owner": "plan-064/r3g",
+      "catalogStates": [
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
+      ]
+    },
+    {
+      "id": "whysheet-disc-not-id",
+      "selector": ".whysheet__disc:not([id])",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Expands or collapses information; expanded state is separate from navigation. It opens the working behind the Why sentences.",
+      "owner": "plan-064/r3g",
+      "catalogStates": [
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor"
+      ]
+    },
+    {
+      "id": "summuscles",
+      "selector": "#sumMuscles",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Expands or collapses information; expanded state is separate from navigation. It lists the muscles beyond the top six.",
+      "owner": "plan-064/r3h",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-maintained",
+        "session/summary-declined",
+        "session/summary-mixed",
+        "session/summary-first"
+      ]
+    },
+    {
+      "id": "strrow-not-id",
+      "selector": "button.strrow:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. Strength this block (R3i): a lift with two or more sessions opens its chart; the row carries the outcome word, the sparkline and the top-load change.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "progress/overview",
+        "progress/overview-action"
+      ]
+    },
+    {
+      "id": "segpill-button-not-id",
+      "selector": ".segpill > button:not([id])",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Chooses the chart's scope or metric without committing data. The selected button carries the quiet 2px ink boundary (OG-4), 3:1 or better on the pill ground.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "progress/exercise-chart"
+      ]
+    },
+    {
+      "id": "exrow-not-id",
+      "selector": ".exrow:not([id])",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "A table row that selects one session on the chart: the plot, the readout and the row stay in step. The selected row carries a 3px quiet ink rail on its left edge.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "progress/exercise-chart"
+      ]
+    },
+    {
+      "id": "restpad-adjust-not-id",
+      "selector": ".restpad--adjust:not([id])",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Changes the running rest clock by 30 seconds through a repeatable step; it does not choose an option. The text pad of the shelf's rest row, as #restMinus and #restPlus are in the presets sheet.",
+      "owner": "plan-064/r3f",
+      "catalogStates": [
+        "workout/rest-running"
+      ]
+    },
+    {
+      "id": "restpad-toggle-not-id",
+      "selector": ".restpad--toggle:not([id])",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Switches the ephemeral countdown between running and held, with a text label (Pausar, Retomar) in place of the presets sheet's icon.",
+      "owner": "plan-064/r3f",
+      "catalogStates": [
+        "workout/rest-running"
+      ]
+    },
+    {
+      "id": "restpad-skip-not-id",
+      "selector": ".restpad--skip:not([id])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Ends the rest and counts its overrun up, a reversible supporting action that is not the screen commitment (Pular).",
+      "owner": "plan-064/r3f",
+      "catalogStates": [
+        "workout/rest-running"
+      ]
+    },
+    {
+      "id": "histedit-date",
+      "selector": "[data-ed=\"date\"]",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Accepts or edits an explicit value: the session's date in the History editor, on the shared sheet field.",
+      "owner": "plan-064/r3j2",
+      "catalogStates": [
+        "history/edit-dirty",
+        "history/edit-invalid"
+      ]
+    },
+    {
+      "id": "historydiscardsheet",
+      "selector": "#historyDiscardSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the underlying route with dialog semantics while the discard question is open.",
+      "owner": "plan-064/r3j2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the discard question opens from Cancel, Back or Delete when the History editor holds unsaved changes, and the catalog state history/edit-dirty is the editor with the question closed. The history-edit and accessibility suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/edit-dirty"
+      ]
+    },
+    {
+      "id": "historydiscardscrim",
+      "selector": "#historyDiscardScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind the discard question; a tap on it keeps editing.",
+      "owner": "plan-064/r3j2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the discard question opens from Cancel, Back or Delete when the History editor holds unsaved changes, and the catalog state history/edit-dirty is the editor with the question closed. The history-edit and accessibility suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/edit-dirty"
+      ]
+    },
+    {
+      "id": "historydiscardkeep",
+      "selector": "#historyDiscardKeep",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Keeps the unsaved edit open: the strongest action on the sheet and the one focus starts on.",
+      "owner": "plan-064/r3j2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the discard question opens from Cancel, Back or Delete when the History editor holds unsaved changes, and the catalog state history/edit-dirty is the editor with the question closed. The history-edit and accessibility suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/edit-dirty"
+      ]
+    },
+    {
+      "id": "historydiscarddrop",
+      "selector": "#historyDiscardDrop",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Discards the unsaved changes and returns to the saved session; the confirmation stays explicit.",
+      "owner": "plan-064/r3j2",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the discard question opens from Cancel, Back or Delete when the History editor holds unsaved changes, and the catalog state history/edit-dirty is the editor with the question closed. The history-edit and accessibility suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "history/edit-dirty"
+      ]
+    },
+    {
+      "id": "draftdiscardsheet",
+      "selector": "#draftDiscardSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the underlying route with dialog semantics while the day-change question is open.",
+      "owner": "plan-064/r3x",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "draftdiscardscrim",
+      "selector": "#draftDiscardScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind the day-change question; a tap on it keeps the unfinished session.",
+      "owner": "plan-064/r3x",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "draftdiscardkeep",
+      "selector": "#draftDiscardKeep",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Keeps the unfinished session and the day it belongs to: the strongest action on the sheet and the one focus starts on.",
+      "owner": "plan-064/r3x",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "today/draft-resume"
+      ]
+    },
+    {
+      "id": "draftdiscarddrop",
+      "selector": "#draftDiscardDrop",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Discards the unfinished session so the chosen day can start; the confirmation stays explicit.",
+      "owner": "plan-064/r3x",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "catalogStates": [
+        "today/draft-resume"
       ]
     }
   ],
   "contextualVariants": [
     {
-      "id": "landing-accent-primary",
+      "id": "landing-ink-primary",
       "selector": "#firstRunCreate, #firstRunCreateClose, #firstRunSharedStart",
       "role": "primary",
-      "rationale": "The two creation controls share a route, and received-program Start advances its own gate to review; all three are exact first-run primary actions with the approved accent fill.",
-      "owner": "plan-054/058",
+      "rationale": "The creation controls and received-program Start are one recipe, the ink pill with its arrow: the parchment action on the night band, the near-black action on the orange band, the arrow in the action's own ink on parchment (the prototype's orange arrow measured 2.05:1 there) and the orange band's mark on near-black. Owner decision L-1 on PR #295.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
-      "id": "landing-bordered-navigation",
+      "id": "landing-text-link",
       "selector": "#firstRunImport, #firstRunImportClose",
       "role": "quiet-navigation",
-      "rationale": "The two import controls open the same route without a training-state write; the opaque paper and required accent boundary preserve the approved landing hierarchy.",
-      "owner": "plan-054/058",
+      "rationale": "The two import controls open the same route without a training-state write; they are underlined text links with no boundary, in the ink of the band they sit on. Owner decision L-1 on PR #295.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
+      ]
+    },
+    {
+      "id": "landing-sticky-build",
+      "selector": "#firstRunCreateDock",
+      "role": "primary",
+      "rationale": "The landing's persistent Build control floats with the existing floating elevation and takes the night or orange-band ink that reads against the band beneath it. It is the one floating surface outside the dock, the workout shelf and the sheets, and it is absent on the received-program gate. Owner decision L-1 on PR #295.",
+      "owner": "plan-064/r2",
+      "catalogStates": [
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
       ]
     },
     {
       "id": "landing-device-stage-radius",
-      "selector": ".firstrun-stage",
+      "selector": ".firstrun-proof__glass, .firstrun-step__crop",
       "role": "radius:landing-device-stage",
-      "rationale": "The approved Plan 054 product-render plate uses 24px at normal width, 20px at compact width, and its smaller overlapping crop uses 14px above the compact breakpoint. The later compact rule also gives the crop 20px at 320px.",
-      "owner": "plan-054/058",
+      "rationale": "The proof's phone plate uses 24px at normal width and 20px at compact width, and each static step crop uses 14px: the Plan 054 device-stage geometry, re-pointed from the retired .firstrun-stage to the final page's plate and crop.",
+      "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-start/first-run"
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
       ],
       "radiusRecipes": [
         {
-          "selector": ".firstrun-stage",
+          "selector": ".firstrun-proof__glass",
           "condition": "default",
           "token": "--radius-landing-stage"
         },
         {
-          "selector": ".firstrun-stage--signature-crop",
-          "condition": "min-width:341px",
+          "selector": ".firstrun-step__crop",
+          "condition": "default",
           "token": "--radius-landing-crop"
         },
         {
-          "selector": ".firstrun-stage",
+          "selector": ".firstrun-proof__glass",
           "condition": "max-width:340px",
           "token": "--radius-landing-stage-compact"
         }
@@ -7578,8 +8862,6 @@
         "workout/stale-draft",
         "workout/persist-retry",
         "workout/invalid-draft",
-        "workout/rest-timer",
-        "workout/rest-timer-paused",
         "workout/exercise-note",
         "workout/why-this-weight",
         "workout/session",
@@ -7589,7 +8871,13 @@
         "workout/reorder",
         "workout/correction",
         "workout/skipped-actions",
-        "workout/substituted-actions"
+        "workout/substituted-actions",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -7653,9 +8941,9 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -7684,13 +8972,21 @@
       "id": "full-screen-entry-gate",
       "selector": "#firstRun",
       "role": "modal",
-      "rationale": "The first-run gate blocks the app without a card shadow; its landing composition remains the owner-selected direction.",
+      "rationale": "The first-run gate blocks the app without a card shadow; the final page's bands scroll inside it.",
       "owner": "plan-054/058",
       "catalogStates": [
         "onboarding-start/first-run",
         "onboarding-shared/preview",
         "onboarding-shared/gate",
-        "onboarding-shared/invalid"
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
@@ -7703,7 +8999,8 @@
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed"
+        "session/summary-mixed",
+        "session/summary-first"
       ]
     },
     {
@@ -7721,47 +9018,46 @@
     },
     {
       "id": "landing-headline-scale",
-      "selector": ".firstrun .firstrun-hero__title",
+      "selector": ".firstrun-h1",
       "role": "typography:landing-headline",
-      "rationale": "The approved first-run editorial headline rises above the general display scale and uses a distinct wide layout size.",
-      "owner": "plan-054/058",
+      "rationale": "The hero headline and the closing title are the first-run headline variant: above the general display scale, with a distinct wide size (section 8.1). No landing section takes any other off-scale size.",
+      "owner": "plan-064/r2",
       "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
         "onboarding-start/first-run",
-        "onboarding-shared/preview"
-      ]
-    },
-    {
-      "id": "landing-climax-data",
-      "selector": ".firstrun-pull--climax .firstrun-pull__value",
-      "role": "typography:landing-climax-data",
-      "rationale": "The approved four-session data proof is the largest landing statement and stays Plex Mono.",
-      "owner": "plan-054/058",
-      "catalogStates": [
-        "onboarding-start/first-run"
-      ]
-    },
-    {
-      "id": "summary-hero-scale",
-      "selector": ".sum-hero",
-      "role": "typography:summary-hero",
-      "rationale": "The saved-session summary hero sits between title and display without flattening its completion hierarchy.",
-      "owner": "plan-057/058",
-      "catalogStates": [
-        "session/summary",
-        "session/summary-maintained",
-        "session/summary-declined",
-        "session/summary-mixed"
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ]
     },
     {
       "id": "rest-clock-scale",
-      "selector": ".restdial__clock",
+      "selector": ".restinline__clock",
       "role": "typography:rest-clock",
-      "rationale": "The active rest countdown needs responsive Mono numerals inside a fixed circular dial.",
-      "owner": "plan-057/058",
+      "rationale": "The running rest countdown needs responsive Mono numerals in the Focus cue slot: clamp(2rem,10cqi,2.625rem) through --font-size-rest-clock (OG-4, C-02). Selector-exact: no other surface inherits it by visual resemblance.",
+      "owner": "plan-064/r3f",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
+        "workout/rest-running"
+      ]
+    },
+    {
+      "id": "workout-shelf",
+      "selector": ".workshelf",
+      "role": "persistent-action",
+      "rationale": "The workout shelf is a full-width persistent-action surface under Focus with the existing prominent top radius, a shallow top edge and the persistent depth; its fields sit on the well and its pads on the page ground, scoped to the shelf. Selector-exact: no other surface inherits it by visual resemblance (OG-4).",
+      "owner": "plan-064/r1b",
+      "catalogStates": [
+        "workout/correction",
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft"
       ]
     }
   ],
@@ -7792,13 +9088,21 @@
     {
       "selector": ".firstrun__logo",
       "role": "decorative brand artwork",
-      "rationale": "The ground-free mark restores its paper plate in dark appearance; the plate is not a selectable or elevated card.",
-      "owner": "plan-054/058",
+      "rationale": "The ground-free mark stands on its paper plate in both appearances, because the hero is the night band in both; the plate is not a selectable or elevated card.",
+      "owner": "plan-064/r2",
       "catalogStates": [
-        "onboarding-start/first-run",
-        "onboarding-shared/preview",
         "onboarding-shared/gate",
-        "onboarding-shared/invalid"
+        "onboarding-shared/invalid",
+        "onboarding-shared/preview",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-close",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-returning",
+        "onboarding-start/first-run-returning-resume"
       ],
       "cssLiterals": [
         {
@@ -7808,29 +9112,14 @@
       ]
     },
     {
-      "selector": "#restSheet .restdial__arc",
+      "selector": ".restinline__fill",
       "role": "countdown status, not workflow progress",
-      "rationale": "Elapsed rest time has seconds remaining; assigning block, week, exercise-set or task would falsify its denominator.",
-      "owner": "plan-055/058",
+      "rationale": "The drain bar is the running rest clock drawn as a transform on a 4px track: it measures time left in this rest, so assigning block, week, exercise-set or task would falsify its denominator. Orange on --rule measures 3.05:1 light and 4.80:1 dark, and against --bg 3.57:1 and 6.33:1 (3:1 required). The bar is not a progress candidate selector.",
+      "owner": "plan-064/r3f",
       "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
+        "workout/rest-running"
       ],
       "boundary": "required"
-    },
-    {
-      "selector": "#completedVolume .vrow__bar",
-      "role": "relative data bar, not goal progress",
-      "rationale": "Shows each muscle as a share of the observed maximum, with no planned target or completion value.",
-      "owner": "plan-056/058",
-      "catalogStates": [
-        "progress/volume",
-        "progress/overview",
-        "progress/overview-action",
-        "progress/overview-baseline",
-        "progress/exercise-chart"
-      ],
-      "boundary": "decorative"
     },
     {
       "selector": ".safaribar__side",
@@ -7849,9 +9138,9 @@
       "rationale": "The licensed illustration keeps its sampled mediaBg paper; its reviewed static fallback remains the same warm plate when metadata is absent.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-preview",
         "library/exercise-detail",
-        "library/exercise-detail-glossary"
+        "library/exercise-detail-glossary",
+        "library/exercise-preview"
       ],
       "cssLiterals": [
         {
@@ -7862,23 +9151,6 @@
     }
   ],
   "rootRecipeOwners": [
-    {
-      "id": "focal-data-responsive-input",
-      "token": "--font-size-focal-data-max",
-      "selectors": [
-        ".curset__cell input.curset__val"
-      ],
-      "role": "focal-data",
-      "rationale": "The current-set input is workout focal data. This viewport-fit maximum belongs only to that responsive field; it does not cap the shared focal-data role or any other text role.",
-      "owner": "plan-055/058",
-      "catalogStates": [
-        "workout/correction",
-        "workout/focus",
-        "workout/focus-glossary",
-        "workout/persist-retry",
-        "workout/stale-draft"
-      ]
-    },
     {
       "id": "anchored-popover-elevation",
       "token": "--elevation-popover-shadow",
@@ -7957,18 +9229,19 @@
         "program/text-export",
         "settings/privacy-disclosure",
         "today/day-picker",
-        "today/preview",
         "workout/early-finish",
         "workout/exercise-actions",
         "workout/exercise-note",
         "workout/reorder",
-        "workout/rest-timer",
-        "workout/rest-timer-paused",
         "workout/session",
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-rep-goal",
+        "workout/why-anchor",
+        "workout/why-manual"
       ]
     },
     {
@@ -7995,7 +9268,7 @@
         "nav button.active"
       ],
       "role": "selected",
-      "rationale": "The selected button paints its own lens when :has is unavailable. Its inset sheen and restrained edge keep the selected destination legible without outward elevation.",
+      "rationale": "The selected button paints its own lens wherever the dock lens element is not mounted (before boot or without the script). Its inset sheen and restrained edge keep the selected destination legible without outward elevation.",
       "owner": "plan-057/058",
       "catalogStates": [
         "today/no-program",
@@ -8040,19 +9313,19 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/mixed-strategies"
       ]
     },
     {
       "id": "nav-selected-indicator-elevation",
       "token": "--elevation-nav-indicator-shadow",
       "selectors": [
-        "nav::before"
+        ".dock-lens"
       ],
       "role": "selected",
-      "rationale": "Where :has is supported, the sliding indicator paints the same selected lens behind the buttons. Its slightly adjusted inset opacity compensates for the different paint layer and keeps the approved selection treatment consistent.",
+      "rationale": "Once the script mounts the dock lens, the single lens element paints the selected pill behind the buttons and travels between them. Its slightly adjusted inset opacity compensates for the different paint layer and keeps the approved selection treatment consistent.",
       "owner": "plan-057/058",
       "catalogStates": [
         "today/no-program",
@@ -8097,9 +9370,9 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/mixed-strategies"
       ]
     },
     {
@@ -8134,7 +9407,6 @@
         "onboarding-start/hub-own-open",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
@@ -8157,7 +9429,6 @@
         "onboarding-start/hub-own-open",
         "program/overview",
         "program/progression-editor",
-        "program/readiness",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
@@ -8169,143 +9440,24 @@
       "id": "accent-keyline-required-boundary",
       "token": "--control-accent-keyline-shadow",
       "selectors": [
-        ".entry-card--primary",
-        ".entry-body .radio-card.is-selected"
+        ".entry-card--primary"
       ],
       "role": "required boundary",
       "boundary": "required",
-      "rationale": "One inset keyline reinforces the existing accent boundary on the featured primary card and selected radio choice. Both consumers keep their distinct primary or selection role; the shared token expresses only their common required boundary and does not alter dimensions or add elevation.",
+      "rationale": "One inset keyline reinforces the existing accent boundary on the featured primary card. Entry selections no longer use it: a chosen option takes the quiet ink ring (Q-E, OG-4, --boundary-selected-quiet), so the keyline expresses only the primary role's required boundary and does not alter dimensions or add elevation.",
       "owner": "plan-054/058",
       "catalogStates": [
-        "onboarding-browse/environment",
-        "onboarding-browse/schedule",
-        "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/background",
-        "onboarding-recommend/desired-result",
-        "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift",
         "onboarding-start/hub",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open",
-        "progress/schedule-diagnosis"
+        "onboarding-start/hub-own-open"
       ]
-    },
-    {
-      "id": "grouped-selection-rail",
-      "token": "--control-selection-rail-shadow",
-      "selectors": [
-        ".entry-body .onb__opts.onb__list .radio-card.is-selected"
-      ],
-      "role": "selection",
-      "boundary": "required",
-      "rationale": "A leading inset rail marks the chosen row inside grouped option lists where every row shares one outer surface.",
-      "owner": "plan-054/058",
-      "catalogStates": [
-        "onboarding-browse/environment",
-        "onboarding-browse/schedule",
-        "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/background",
-        "onboarding-recommend/desired-result",
-        "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift",
-        "progress/schedule-diagnosis"
-      ]
-    },
-    {
-      "id": "segmented-selection-underline",
-      "token": "--control-selection-underline-shadow",
-      "selectors": [
-        ".entry-body .onb__opts.onb__seg .radio-card.is-selected"
-      ],
-      "role": "selection",
-      "boundary": "required",
-      "rationale": "A bottom inset underline preserves the selected segment cue inside the bounded numeric choice band.",
-      "owner": "plan-054/058",
-      "catalogStates": [
-        "onboarding-browse/environment",
-        "onboarding-browse/schedule",
-        "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/background",
-        "onboarding-recommend/desired-result",
-        "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift",
-        "progress/schedule-diagnosis"
-      ]
-    },
-    {
-      "id": "rest-overtime-rest-shadow",
-      "token": "--status-restover-shadow-rest",
-      "selectors": [
-        "@keyframes restover-ring",
-        ".wo-rest.is-over",
-        ".restbar.is-over"
-      ],
-      "role": "warning",
-      "rationale": "The zero-shadow animation endpoints make overtime pulse from and return to the stable warning state without leaving an unintended glow.",
-      "owner": "plan-055/058",
-      "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "The canonical timer frame captures a running countdown; overtime occurs only after it passes zero."
-    },
-    {
-      "id": "rest-overtime-alert-shadow",
-      "token": "--status-restover-shadow-alert",
-      "selectors": [
-        "@keyframes restover-ring",
-        ".wo-rest.is-over",
-        ".restbar.is-over"
-      ],
-      "role": "warning",
-      "rationale": "The alert ring is a motion-only overtime cue paired with the danger color and timer text; reduced motion keeps the same status through non-motion signals.",
-      "owner": "plan-055/058",
-      "catalogStates": [
-        "workout/rest-timer",
-        "workout/rest-timer-paused"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "The canonical timer frame captures a running countdown; overtime occurs only after it passes zero."
     }
   ],
   "progressCandidateSelectors": [
     ".segbar",
-    ".ov-week-bar",
     ".week-letters",
     ".libstep",
     ".blockprogress",
-    ".vrow__bar",
-    ".restdial__arc"
+    ".vrow__bar"
   ]
 }

@@ -193,10 +193,14 @@ const eventsNamed = async (page, name) => (await captured(page))
 
 /** Drive Recommend from the entry hub through activation-ready preview. */
 async function driveOnboarding(page, { route = "recommend", foundation = false } = {}) {
-  await page.click(`[data-entry-route="${route}"]`);
-  const desired = foundation ? "muscle_growth" : "muscle_growth";
-  await page.click(`[data-entry-pick="desiredResult"][data-entry-val="${desired}"]`);
-  await page.click("#onbNext");
+  if (route === "recommend") {
+    // Recommend's goal is asked on the hub: the tap answers it and opens the background step.
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  } else {
+    await page.click(`[data-entry-route="${route}"]`);
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+    await page.click("#onbNext");
+  }
   await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${foundation ? "first" : "6_to_24m"}"]`);
   await page.click(`[data-entry-pick="recentConsistency"][data-entry-val="${foundation ? "few" : "most"}"]`);
   await page.click("#onbNext");
@@ -265,12 +269,12 @@ try {
       "an automatic open reports nothing",
       namesOf(events).join(","),
     );
-    await page.click('[data-entry-route="recommend"]');
+    await page.click('[data-entry-route="recommend"][data-entry-goal="balanced"]');
     events = await captured(page);
     assert(countOf(events, "program_path_selected") === 1, "choosing a route selects it once");
     assert(countOf(events, "generator_started") === 1, "recommend starts the generator once");
     assert(propsOf(events, "program_path_selected")?.route === "recommend", "the route is recommend");
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     events = await captured(page);
     assert(
       countOf(events, "program_path_selected") === 1 && countOf(events, "generator_started") === 1,
@@ -340,6 +344,7 @@ try {
     const reached = await driveOnboarding(page, { route: "recommend" });
     assert(reached, "the flow reaches the step that offers Start over");
     await page.click("#entryRestart");
+    await page.click("#entryRestartConfirm");
     await page.click('[data-entry-route="recommend"]');
     const events = await captured(page);
     assert(

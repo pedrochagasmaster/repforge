@@ -130,17 +130,18 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
 {
   const vocabulary = motion.api.vocabulary;
   assert(vocabulary && typeof vocabulary === "object", "one named motion vocabulary is exposed");
-  for (const name of ["gestureSettle", "gestureExit", "layoutShift", "revealIn", "revealOut"]) {
+  for (const name of ["gestureSettle", "gestureExit", "layoutShift", "navPush", "revealIn", "revealOut"]) {
     assert(Object.hasOwn(vocabulary, name), `the vocabulary names ${name}`);
   }
   const values = Object.values(vocabulary);
   const durations = values.filter((v) => Object.hasOwn(v, "duration")).map((v) => v.duration);
   assert(durations.length === 2 && durations.every((d) => Number.isFinite(d) && d <= 0.3), "both tweens stay within 300ms");
   const springs = values.filter((v) => v.type === "spring");
-  assert(springs.length === 3 && springs.every((s) => s.stiffness > 0 && s.damping > 0 && s.mass > 0) && values.every((v) => !Object.hasOwn(v, "visualDuration") && !Object.hasOwn(v, "bounce")), "all springs use physics parameters, not duration or bounce");
+  assert(springs.length === 4 && springs.every((s) => s.stiffness > 0 && s.damping > 0 && s.mass > 0) && values.every((v) => !Object.hasOwn(v, "visualDuration") && !Object.hasOwn(v, "bounce")), "all springs use physics parameters, not duration or bounce");
   const ratios = springs.map((s) => Math.round(s.damping / (2 * Math.sqrt(s.stiffness * s.mass)) * 100) / 100);
   assert(ratios.every((z) => z >= 0.75 && z <= 1.05), "springs are damped between 0.75 and critical", ratios.join(", "));
   assert(springs.every((s) => Number.isFinite(s.restDelta) && s.restDelta > 0), "each spring has a pixel-scale rest threshold");
+  assert(JSON.stringify(vocabulary.navPush) === JSON.stringify(vocabulary.gestureExit), "navPush starts from gestureExit's constants (k 700, c 53, critically damped)");
   const strayLiterals = [...layer.matchAll(/type\s*:\s*["']spring["']/g)].length - springs.length;
   assert(strayLiterals === 0, "no spring literals appear outside the vocabulary");
   assert(!/ease\s*:\s*"?ease-?in"?\s*[,}]/i.test(layer) && !/easeIn[,"']/.test(layer), "nothing enters or exits on ease-in");
@@ -163,13 +164,36 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   motion.query.matches = true;
   assert(motion.api.reducedMotion() === true, "a preference change takes effect live");
   motion.query.matches = false;
-  for (const entry of ["settle(", "dismiss(", "settleFocusDeck(", "animateExerciseReorder(", "animateDisclosure("]) {
+  for (const entry of ["settle(", "dismiss(", "settleFocusDeck(", "animateExerciseReorder(", "animateIndicator(", "animateCoordinates(", "animateDisclosure(", "animateSlot("]) {
     const body = layer.slice(layer.indexOf(`  ${entry}`) >= 0 ? layer.indexOf(`  ${entry}`) : layer.indexOf(entry));
     assert(/reducedMotion\s*\(\s*\)/.test(body.slice(0, 900)), `${entry} has a reduced-motion alternate`);
   }
 }
 assert(!/animateSetCompletion|animateLedger|animate\(.*ledger/i.test(layer), "set completion remains a short CSS acknowledgement");
-assert(polish.includes(".ledger__row.is-fresh") && polish.includes(".sumsheet.is-played"), "CSS still owns frequent surfaces");
+// R7 C-03: the set-landing beat belongs to the live ledger row (`.ledgerline.is-fresh`, which app.js marks); the old
+// `.ledger__row.is-fresh` rules named markup that no longer exists and are gone from motion-polish.css.
+assert(`${styles}\n${polish}`.includes(".ledgerline.is-fresh{animation:") && !/\.ledger__row|\.ledger__tick|\.ledger__check|\.focus-ex__setof/.test(`${styles}\n${polish}`),
+  "CSS still owns frequent surfaces: the set-landing beat is on .ledgerline.is-fresh and no retired ledger selector remains");
+// Motion amendment M2 (owner decision on #295): the session summary keeps its 600 ms count ramp and nothing else
+// moves. No staged class, no row stagger, no crest animation, no overshoot and no odometer digits remain anywhere
+// a stylesheet or the app could start one.
+assert(!/is-played|sum-settle|sum-crest|taurifer-sum-strike|sum-ring/.test(styles + polish),
+  "the session summary has no staged-entry, stagger or crest animation in CSS");
+assert(!/sumsheet[^{]*\{[^}]*animation/.test(styles + polish) && !/\.statrow[^{]*\{[^}]*(animation|transition)/.test(styles + polish),
+  "the summary's blocks and stat row have no CSS animation or transition");
+assert(!/is-played|style\.setProperty\("--i"/.test(app), "the summary sets no staged class and no per-block stagger index in the app");
+{
+  const ramp = app.slice(app.indexOf("function rampSessionStats("), app.indexOf("let sessionSummaryCurrent"));
+  assert(app.includes("const SUMMARY_RAMP_MS=600"), "the summary count ramp lasts 600 ms");
+  assert(/RepForgeMotion\?\.reducedMotion/.test(ramp) && /if\(reduced\|\|document\.hidden\)return/.test(ramp),
+    "the count ramp asks the motion layer for the reduced-motion decision and leaves the final figures untouched under it");
+  assert(/1-Math\.pow\(1-p,3\)/.test(ramp) && /Math\.min\(1,Math\.max\(0,/.test(ramp),
+    "the count ramp eases out to exactly 1 and is clamped, so it neither overshoots nor dips below zero");
+  assert(/setTimeout\(finish/.test(ramp), "a backgrounded tab still lands on the final figures");
+  assert(!/odometer|translateY|transform|toLocaleString|\.animate\(/.test(ramp), "the count ramp rewrites the figure's text only: no odometer digits or transforms");
+  assert(/data-ramp="\$\{esc\(n\)\}"/.test(app) && app.includes("rampSessionStats(el.querySelector(\".sum-stats\"))"),
+    "only the stat row's totals ramp, and only when the summary opens");
+}
 assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(layer), "navigation, toasts and effort explanations remain CSS-owned");
 {
   const sheet = { offsetHeight: 200, style: { removeProperty() {} } };

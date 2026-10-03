@@ -109,12 +109,42 @@ async function main() {
      * 1. Sheet trigger on current Focus card
      * ====================================================================== */
     console.log("\nExercise actions: visible control on Focus card");
-    const actionsTrigger = page.locator("#workout .exercise.is-current [data-exactions-open]");
+    const actionsTrigger = page.locator("#woOverflowBtn");
     assert(await actionsTrigger.count() > 0, "the live Focus card provides an Exercise actions trigger");
     await actionsTrigger.click();
 
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
     assert(await page.locator("#exActionsSheet").isVisible(), "tapping the trigger opens the Exercise actions sheet");
+
+    /* ======================================================================
+     * 1b. The redraw (OG-6 round 2): sentence-case groups, the setup notes, previous values and
+     *     warm-up groups restored, reorder and finish early only on the session sheet, Close as the X.
+     * ====================================================================== */
+    console.log("\nThe redrawn sheet: groups, no session actions, Close is the X");
+    const redraw = await page.evaluate(() => {
+      const t = (key) => window.RepForgeI18n.t(key);
+      const sheet = document.querySelector("#exActionsSheet");
+      const heads = [...sheet.querySelectorAll(".sheetgroup__head")].filter((el) => el.offsetParent !== null);
+      const close = sheet.querySelector("#exActionsClose");
+      const sessionOnly = [...sheet.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down], #sessionEarlyFinish")];
+      const earlyLabel = t("session.sheet.early_finish");
+      const labelled = [...sheet.querySelectorAll("button")].filter((el) => el.textContent.includes(earlyLabel));
+      return {
+        heads: heads.map((el) => el.textContent.trim()),
+        expected: ["ex.actions.setup_notes", "ex.actions.history_title", "ex.actions.subst_title", "ex.actions.warmup_title",
+          "ex.actions.skip_title", "ex.actions.notes_title"].map(t),
+        transforms: heads.map((el) => getComputedStyle(el).textTransform),
+        sessionOnly: sessionOnly.length + labelled.length,
+        closeInBand: !!close?.closest(".sheetband"),
+        closeIsIcon: !!close?.querySelector(".icon-mask--close") && close.textContent.trim() === "",
+        closeName: close?.getAttribute("aria-label") || "",
+      };
+    });
+    assert(redraw.heads.join("|") === redraw.expected.join("|"),
+      "the sheet shows its six groups in order: setup notes, previous values, substitution, warm-up sets, status, notes", JSON.stringify(redraw));
+    assert(redraw.transforms.every((value) => value === "none"), "the group heads are sentence case, not upper case", JSON.stringify(redraw.transforms));
+    assert(redraw.sessionOnly === 0, "reorder and finish early are on the session sheet only, not on the exercise actions", JSON.stringify(redraw));
+    assert(redraw.closeInBand && redraw.closeIsIcon && redraw.closeName.length > 0, "Close is the X in the sheet band, with a name for assistive technology", JSON.stringify(redraw));
 
     /* ======================================================================
      * 2. Programmed setup notes
@@ -161,7 +191,7 @@ async function main() {
     await page.waitForTimeout(300);
 
     // Open Exercise actions for seed-ex-2
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     console.log("\nRepeat-last: honest no-history handling");
@@ -329,7 +359,7 @@ async function main() {
       "substitution record is applied to the active exercise in DraftV2", JSON.stringify(subCheck));
 
     // Open Exercise actions again to verify "Restore original" option appears
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     const restoreOrigBtn = page.locator("#exActionRestoreOrigBtn");
@@ -352,7 +382,7 @@ async function main() {
      * 6. Skip and restore exercise
      * ====================================================================== */
     console.log("\nSkip/restore: single-exercise status control");
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     const skipBtn = page.locator("#exActionSkipBtn");
@@ -375,6 +405,32 @@ async function main() {
     }, skippedExId);
     assert(skipStatus.status === "skipped", "exercise status changed to skipped in DraftV2", JSON.stringify(skipStatus));
     assert(skipStatus.newSelected !== skippedExId, "skipping advances Focus selection to another exercise");
+
+    /* ======================================================================
+     * 7. The subtitle counts sets in the page language (Plan 064 N01)
+     * ====================================================================== */
+    console.log("\nSubtitle: the set count reads in the page language");
+    await page.evaluate(() => {
+      state.settings.lang = "pt";
+      window.RepForgeI18n.setLang("pt");
+      syncLang();
+    });
+    await page.locator("#woOverflowBtn").click();
+    await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
+    const ptSub = (await page.locator("#exActionsSub").innerText()).replace(/\s+/g, " ").trim();
+    assert(/\b\d+ séries\b/.test(ptSub) && !/\bsets?\b/i.test(ptSub),
+      "PT: the actions subtitle counts séries, not the English word sets", ptSub);
+    await page.locator("#exActionsClose").click();
+    await page.locator("#exActionsSheet").waitFor({ state: "hidden" });
+    await page.evaluate(() => {
+      state.settings.lang = "en";
+      window.RepForgeI18n.setLang("en");
+      syncLang();
+    });
+    await page.locator("#woOverflowBtn").click();
+    await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
+    const enSub = (await page.locator("#exActionsSub").innerText()).replace(/\s+/g, " ").trim();
+    assert(/\b\d+ sets\b/.test(enSub) && !/séries/.test(enSub), "EN: the actions subtitle still counts sets", enSub);
 
     assert(pageErrors.length === 0, "exercise actions journey emits no errors", pageErrors.join("\n"));
     console.log("\nAll Exercise-actions assertions passed successfully!");

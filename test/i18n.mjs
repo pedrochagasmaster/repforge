@@ -183,6 +183,11 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("entry.priorities.reason.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.priorities.reason.")) },
   { test: (s) => s.includes("entry.muscle.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.muscle.")) },
   { test: (s) => s.includes("entry.movement.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.movement.")) },
+  { test: (s) => s.includes("entry.chip.what.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.chip.what.")) },
+  { test: (s) => s.includes("entry.chip.goal.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.chip.goal.")) },
+  { test: (s) => s.includes("entry.chip.cons.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.chip.cons.")) },
+  { test: (s) => s.includes("entry.chip.rest.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.chip.rest.")) },
+  { test: (s) => s.includes("entry.chip.fact.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.chip.fact.")) },
   { test: (s) => /entry\.\$\{stepId\}\.title|`entry\.\$\{/.test(s) || s.includes("entry.${stepId}.title"), keys: (en) => Object.keys(en).filter((k) => /^entry\.[^.]+\.title$/.test(k)) },
   { test: (s) => s.includes("glossary.term.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("glossary.term.")) },
   { test: (s) => s.includes("glossary.${termKey}") || s.includes("glossary.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("glossary.") && !k.startsWith("glossary.term.")) },
@@ -200,6 +205,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("focus.cue.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.cue.")) },
   { test: (s) => s.includes("draft.recovery.${kind}.title"), keys: (en) => Object.keys(en).filter((k) => /^draft\.recovery\.[^.]+\.title$/.test(k)) },
   { test: (s) => s.includes("draft.recovery.${kind}.body"), keys: (en) => Object.keys(en).filter((k) => /^draft\.recovery\.[^.]+\.body$/.test(k)) },
+  { test: (s) => s.includes("landing.returning.resume.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("landing.returning.resume.")) },
   { test: (s) => s.includes('"settings.lang."'), keys: () => ["settings.lang.en", "settings.lang.pt"] },
   { test: (s) => s.includes('"settings.appearance."'), keys: () => ["settings.appearance.system", "settings.appearance.light", "settings.appearance.dark"] },
   { test: (s) => s.includes('"month_short."'), keys: () => range(0, 11).map((i) => `month_short.${i}`) },
@@ -330,9 +336,9 @@ async function main() {
       "privacy.setup.body": "A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.",
     },
     pt: {
-      "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
+      "meta.description": "O Taurifer mantém suas sessões, rascunhos e histórico neste dispositivo. Links de configuração compartilham um treino e ajustes selecionados.",
       "guide.privacy.body": "Abra Privacidade para ver os limites exatos de armazenamento local, links, transferência e análise de uso.",
-      "privacy.setup.body": "Um link de configuração leva uma proposta de programa no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de treino nem histórico de programas.",
+      "privacy.setup.body": "Um link de configuração leva uma proposta de treino no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de sessão nem histórico de treinos anteriores.",
     },
   };
   for (const lang of ["en", "pt"]) {
@@ -393,7 +399,6 @@ async function main() {
     "settings.notifications.permission",
     "settings.storage.last_backup",
     "settings.storage.last_backup_never",
-    "delta.preview",
     "toast.workout_pr",
     "toast.command_applied",
   ];

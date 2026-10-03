@@ -37,7 +37,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 3
     },
     "suggestions": {
@@ -171,7 +171,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "reduce",
-      "text": "Most sets fell below 6 reps. Reduce the load until you can complete at least 6 reps per set.",
+      "text": "On most sets you did fewer than 6 reps, the minimum of your target. Lower the weight until you can do at least 6 on every set.",
       "typRir": 0
     },
     "suggestions": {
@@ -310,7 +310,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add2",
-      "text": "You reached the top of the range with reps to spare. Use the larger load increase.",
+      "text": "You reached the most reps in your target with reps to spare. Use the larger weight increase.",
       "typRir": 4
     },
     "suggestions": {
@@ -443,7 +443,7 @@
       "reenterReps": false,
       "stalled": false,
       "status": "hold",
-      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "text": "You left reps in reserve. Train closer to failure before adding weight.",
       "typRir": 3
     },
     "suggestions": {
@@ -549,7 +549,7 @@
         "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 14 at 65 kg."
       },
       {
-        "text": "You reached the top of the range, but strength fell during this block. Use the smallest load increase."
+        "text": "You reached the most reps in your target, but strength fell during this block. Use the smallest weight increase."
       },
       {
         "text": "New load: 65 kg plus one 2.5 kg step: 67.5 kg."
@@ -583,7 +583,7 @@
       "stalled": false,
       "status": "add",
       "temperedBlock": true,
-      "text": "You reached the top of the range, but strength fell during this block. Use the smallest load increase.",
+      "text": "You reached the most reps in your target, but strength fell during this block. Use the smallest weight increase.",
       "typRir": 4
     },
     "suggestions": {
@@ -720,7 +720,7 @@
       "reenterReps": false,
       "stalled": false,
       "status": "hold",
-      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "text": "You left reps in reserve. Train closer to failure before adding weight.",
       "typRir": 2
     },
     "suggestions": {
@@ -853,7 +853,7 @@
       "reenterReps": false,
       "stalled": false,
       "status": "hold",
-      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "text": "You left reps in reserve. Train closer to failure before adding weight.",
       "typRir": 2
     },
     "suggestions": {
@@ -987,7 +987,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 1
     },
     "suggestions": {
@@ -1120,7 +1120,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 1
     },
     "suggestions": {
@@ -1502,7 +1502,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 1
     },
     "suggestions": {
@@ -1639,7 +1639,7 @@
       "reenterReps": false,
       "stalled": false,
       "status": "hold",
-      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "text": "You left reps in reserve. Train closer to failure before adding weight.",
       "typRir": 2
     },
     "suggestions": {
@@ -1772,7 +1772,7 @@
       "reenterReps": false,
       "stalled": false,
       "status": "hold",
-      "text": "Keep the load and add reps within your RIR target.",
+      "text": "Keep the weight and aim for more reps, within your target RIR.",
       "typRir": 1
     },
     "suggestions": {
@@ -1905,7 +1905,7 @@
       "reenterReps": false,
       "stalled": false,
       "status": "hold",
-      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "text": "You left reps in reserve. Train closer to failure before adding weight.",
       "typRir": 2
     },
     "suggestions": {
@@ -2043,7 +2043,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 1
     },
     "suggestions": {
@@ -2258,7 +2258,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "hold",
-      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "text": "You left reps in reserve. Train closer to failure before adding weight.",
       "typRir": 2
     },
     "suggestions": {
@@ -2392,7 +2392,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "reduce",
-      "text": "Most sets fell below 6 reps. Reduce the load until you can complete at least 6 reps per set.",
+      "text": "On most sets you did fewer than 6 reps, the minimum of your target. Lower the weight until you can do at least 6 on every set.",
       "typRir": 0
     },
     "suggestions": {
@@ -2526,7 +2526,7 @@
       "reenterReps": false,
       "stalled": false,
       "status": "hold",
-      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "text": "You left reps in reserve. Train closer to failure before adding weight.",
       "typRir": 2
     },
     "suggestions": {

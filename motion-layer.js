@@ -18,6 +18,11 @@
     gestureSettle: { type: "spring", stiffness: 600, damping: 40, mass: 1, restDelta: 0.5, restSpeed: 10 },
     gestureExit: { type: "spring", stiffness: 700, damping: 53, mass: 1, restDelta: 1, restSpeed: 40 },
     layoutShift: { type: "spring", stiffness: 600, damping: 48, mass: 1, restDelta: 0.5, restSpeed: 20 },
+    /* A tapped or swiped page push. gestureExit's constants on purpose: critically
+       damped, so a page lands without overshoot and a retarget mid-flight (an
+       interrupted push, a back swipe committed from a release velocity) carries
+       its speed. Its own name because no gesture drives a tapped push. */
+    navPush: { type: "spring", stiffness: 700, damping: 53, mass: 1, restDelta: 1, restSpeed: 40 },
     revealIn: { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] },
     revealOut: { duration: 0.15, ease: [0.4, 0, 0.8, 0.2] },
   };
@@ -28,6 +33,19 @@
   const reducedMotion = () => !!reduceQuery?.matches;
   const perSecond = vPerMs => (Number.isFinite(vPerMs) ? vPerMs * 1000 : 0);
   const settled = Promise.resolve(false);
+  /* Motion's playback `then` discards what its callbacks return, and a stopped
+     or replaced run may never settle at all. So "did this run arrive, or was it
+     superseded" is resolved here: from `current()` when the animation finishes,
+     or false at once when the owner calls `abandon()`. */
+  const arrival = (animation, current) => {
+    let abandon = () => {};
+    const promise = new Promise(resolve => {
+      abandon = () => resolve(false);
+      Promise.resolve(animation.then(() => resolve(!!current()), () => resolve(false))).catch(() => resolve(false));
+    });
+    promise.abandon = abandon;
+    return promise;
+  };
 
   function hint(el, value) {
     if (!el) return;
@@ -115,6 +133,75 @@
     };
   }
 
+  /* The presentation value of a pushed page being pulled back by its left edge.
+     Same shape as the sheet tracker: the page follows the thumb, a release
+     either settles it home on `gestureSettle` or commits it off the right edge
+     on `navPush`, seeded with the release velocity. `takeover()` hands the live
+     offset to the next grab without clearing it. */
+  const EDGE_SWIPING = "is-edge-swiping";
+  function trackEdgeSwipe(page, { from = 0 } = {}) {
+    if (!available || !page) return null;
+    const origin = Math.max(0, Number(from) || 0);
+    const width = page.offsetWidth || global.innerWidth || 1;
+    const x = motionValue(origin);
+    const paint = value => {
+      page.style.transform = `translate3d(${Math.max(0, value)}px,0,0)`;
+    };
+    const stopPaint = x.on("change", paint);
+    paint(origin);
+    page.classList.add(EDGE_SWIPING);
+    hint(page, "transform");
+
+    let disposed = false;
+    let commitRun = null;
+    const handOff = () => {
+      page.style.transform = "";
+      page.classList.remove(EDGE_SWIPING);
+      hint(page, null);
+    };
+    const dispose = ({ preserve = false } = {}) => {
+      if (disposed) return;
+      disposed = true;
+      commitRun?.abandon();
+      x.stop();
+      stopPaint();
+      if (!preserve) handOff();
+    };
+
+    return {
+      width,
+      follow(dx) {
+        if (disposed) return;
+        x.set(Math.max(0, origin + (Number(dx) || 0)));
+      },
+      current: () => Math.max(0, x.get()),
+      takeover() {
+        const value = Math.max(0, x.get());
+        dispose({ preserve: true });
+        return value;
+      },
+      settle({ velocity = 0 } = {}) {
+        if (disposed) return settled;
+        if (reducedMotion()) { dispose(); return settled; }
+        return animate(x, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
+          .then(() => { dispose(); return true; }, () => false);
+      },
+      /* Resolves true only if the page reached the edge: a takeover or a cancel
+         that stops the spring first resolves false, and the caller then does
+         not navigate. */
+      commit({ velocity = 0 } = {}) {
+        if (disposed) return settled;
+        if (reducedMotion()) { x.set(width); return Promise.resolve(true); }
+        commitRun = arrival(
+          animate(x, width, { ...VOCABULARY.navPush, velocity: perSecond(velocity) }),
+          () => !disposed
+        );
+        return commitRun;
+      },
+      cancel: dispose,
+    };
+  }
+
   function settleFocusDeck(track, { from = 0, velocity = 0 } = {}) {
     if (!available || !track) return null;
     if (reducedMotion()) {
@@ -165,8 +252,193 @@
     return moved;
   }
 
+  /* One element that travels between two places: the field outline, the ledger
+     open-row outline, the dock lens, the Progress tab underline, the chart
+     marker. The caller moves the element to its new place, then hands over the
+     rect it measured before moving it. A single motion value counts the
+     distance down in pixels, so `layoutShift`'s pixel-scale rest threshold
+     applies, and the transform is derived from it. That makes the run
+     retargetable: a second call while one is in flight starts from where the
+     element is on screen now, not from where the first call began. */
+  const indicatorRuns = new WeakMap();
+  function indicatorRect(run) {
+    const progress = run.distance ? Math.min(1, Math.max(0, run.y.get() / run.distance)) : 0;
+    const mix = key => run.to[key] + (run.from[key] - run.to[key]) * progress;
+    return { left: mix("left"), top: mix("top"), width: mix("width"), height: mix("height") };
+  }
+  function animateIndicator(el, fromRect) {
+    if (!el) return settled;
+    const live = indicatorRuns.get(el);
+    const start = live ? indicatorRect(live) : fromRect;
+    if (live) { indicatorRuns.delete(el); live.y.stop(); live.stopPaint(); live.arrived?.abandon(); }
+    el.style.transform = "";
+    if (!available || reducedMotion()) {
+      el.style.removeProperty("transform-origin");
+      hint(el, null);
+      return settled;
+    }
+    const to = el.getBoundingClientRect();
+    const measured = rect => !!rect && ["left", "top", "width", "height"].every(key => Number.isFinite(rect[key]));
+    if (!measured(start) || !measured(to)) { hint(el, null); return settled; }
+    const dx = start.left - to.left, dy = start.top - to.top;
+    const sx = to.width > 0 ? start.width / to.width : 1;
+    const sy = to.height > 0 ? start.height / to.height : 1;
+    const distance = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(start.width - to.width), Math.abs(start.height - to.height));
+    if (distance < 1) {
+      el.style.removeProperty("transform-origin");
+      hint(el, null);
+      return settled;
+    }
+
+    const y = motionValue(distance);
+    const run = {
+      y, distance, from: { left: start.left, top: start.top, width: start.width, height: start.height },
+      to: { left: to.left, top: to.top, width: to.width, height: to.height },
+    };
+    indicatorRuns.set(el, run);
+    const paint = value => {
+      const progress = Math.min(1, Math.max(0, value / distance));
+      el.style.transform = progress
+        ? `translate3d(${dx * progress}px,${dy * progress}px,0) scale(${1 + (sx - 1) * progress},${1 + (sy - 1) * progress})`
+        : "";
+    };
+    const stopPaint = y.on("change", paint);
+    run.stopPaint = stopPaint;
+    el.style.transformOrigin = "0 0";
+    paint(distance);
+    hint(el, "transform");
+    run.arrived = arrival(animate(y, 0, VOCABULARY.layoutShift), () => indicatorRuns.get(el) === run);
+    return run.arrived.finally(() => {
+      stopPaint();
+      if (indicatorRuns.get(el) !== run) return;
+      indicatorRuns.delete(el);
+      el.style.transform = "";
+      el.style.removeProperty("transform-origin");
+      hint(el, null);
+    });
+  }
+
+  /* Chart coordinate travel (C2): a set of coordinates moving from one layout to
+     another, painted by the caller. The caller owns the drawing (the Progress
+     chart rebuilds its step path from the interpolated points on every frame),
+     this owns the clock. One motion value counts the largest displacement down in
+     pixels, so `layoutShift`'s pixel-scale rest threshold applies, and every
+     coordinate moves by the same eased fraction of its own distance. `host` is
+     the persistent element the run belongs to: a second call while one is in
+     flight supersedes it, and the caller starts the new run from the coordinates
+     it last painted. `paint(values, progress)` is called with the start layout
+     before this returns, on every frame, and with the end layout on arrival; a
+     run that is superseded is never painted again. Without the runtime, or under
+     reduced motion, nothing is painted and the caller's end state stands. */
+  const coordinateRuns = new WeakMap();
+  function animateCoordinates(host, from, to, paint) {
+    const live = host ? coordinateRuns.get(host) : null;
+    if (live) { coordinateRuns.delete(host); live.y.stop(); live.stopPaint(); live.arrived?.abandon(); }
+    if (!available || !host || reducedMotion()) return settled;
+    const numbers = list => Array.isArray(list) && list.every(Number.isFinite);
+    if (!numbers(from) || !numbers(to) || !from.length || from.length !== to.length || typeof paint !== "function") return settled;
+    const distance = from.reduce((far, value, index) => Math.max(far, Math.abs(to[index] - value)), 0);
+    if (!(distance >= 1)) return settled;
+
+    const y = motionValue(distance);
+    const run = { y };
+    coordinateRuns.set(host, run);
+    const frame = value => {
+      const progress = Math.min(1, Math.max(0, 1 - value / distance));
+      paint(from.map((start, index) => start + (to[index] - start) * progress), progress);
+    };
+    run.stopPaint = y.on("change", frame);
+    frame(distance);
+    run.arrived = arrival(animate(y, 0, VOCABULARY.layoutShift), () => coordinateRuns.get(host) === run);
+    return run.arrived.finally(() => {
+      run.stopPaint();
+      if (coordinateRuns.get(host) !== run) return;
+      coordinateRuns.delete(host);
+      paint(to.slice(), 1);
+    });
+  }
+
+  /* A tapped page push (N4 drill-downs, N5 Today to Focus) and its reverse. The
+     page is the one that moves: "in" brings it from the right edge to rest, "out"
+     carries it back off. One motion value is the page's offset in pixels, so
+     `navPush`'s pixel-scale rest threshold applies, and a second call on the same
+     page starts from where that page is on screen now: an interrupted push
+     reverses without a jump, and `velocity` (px/ms) seeds the spring. The caller
+     owns what sits underneath and keeps both pages mounted for the run. The
+     promise resolves true when the page arrived (including at once, under reduced
+     motion or without the runtime, where the page jumps and no transform is ever
+     set) and false when the run was superseded or cancelled. The transform is
+     cleared on arrival either way, before the caller's continuation runs. */
+  const pushRuns = new WeakMap();
+  const trueNow = Promise.resolve(true);
+  function animatePush(page, { direction = "in", velocity = 0 } = {}) {
+    if (!page) return trueNow;
+    const live = pushRuns.get(page);
+    const start = live ? Math.max(0, live.x.get()) : null;
+    if (live) { pushRuns.delete(page); live.x.stop(); live.stopPaint(); live.arrived?.abandon(); }
+    if (!available || reducedMotion()) {
+      page.style.transform = "";
+      hint(page, null);
+      return trueNow;
+    }
+    const out = direction === "out";
+    const width = page.offsetWidth || global.innerWidth || 1;
+    const from = start != null ? Math.min(start, width) : (out ? 0 : width);
+    const to = out ? width : 0;
+    const x = motionValue(from);
+    const run = { x };
+    pushRuns.set(page, run);
+    const paint = value => {
+      page.style.transform = value > 0.01 ? `translate3d(${value}px,0,0)` : "";
+    };
+    run.stopPaint = x.on("change", paint);
+    paint(from);
+    hint(page, "transform");
+    run.arrived = arrival(animate(x, to, { ...VOCABULARY.navPush, velocity: perSecond(velocity) }), () => pushRuns.get(page) === run);
+    const done = run.arrived.finally(() => {
+      run.stopPaint();
+      if (pushRuns.get(page) !== run) return;
+      pushRuns.delete(page);
+      page.style.transform = "";
+      hint(page, null);
+    });
+    done.cancel = () => {
+      if (pushRuns.get(page) !== run) return;
+      pushRuns.delete(page);
+      run.arrived.abandon();
+      x.stop();
+      run.stopPaint();
+      page.style.transform = "";
+      hint(page, null);
+    };
+    return done;
+  }
+
   const disclosureRuns = new WeakMap();
   const COLLAPSING = "is-collapsing";
+  /* The measured-height run shared by a disclosure opening or closing and a slot
+     swapping one content for another. A superseded run must not clear the
+     replacement's inline height, so each run holds a token. */
+  function runMeasuredHeight(panel, from, to, tween) {
+    disclosureRuns.get(panel)?.abandon?.();
+    const token = {};
+    disclosureRuns.set(panel, token);
+    panel.style.overflow = "hidden";
+    hint(panel, "height");
+    const arrived = arrival(
+      animate(panel, { height: [`${from}px`, `${to}px`] }, tween),
+      () => disclosureRuns.get(panel) === token
+    );
+    token.abandon = arrived.abandon;
+    return arrived.finally(() => {
+      if (disclosureRuns.get(panel) !== token) return;
+      disclosureRuns.delete(panel);
+      panel.classList.remove(COLLAPSING);
+      panel.style.height = "";
+      panel.style.overflow = "";
+      hint(panel, null);
+    });
+  }
   function animateDisclosure(panel, open, applyVisualState) {
     const apply = typeof applyVisualState === "function" ? applyVisualState : () => {};
     if (!available || !panel) { apply(); return null; }
@@ -183,23 +455,29 @@
       hint(panel, null);
       return settled;
     }
+    return runMeasuredHeight(panel, from, to, open ? VOCABULARY.revealIn : VOCABULARY.revealOut);
+  }
+  /* A measured slot whose content is swapped for other content, rather than
+     opened or closed: the inline rest block replacing the cue, then the cue
+     replacing it. `swap` runs exactly once, on every path, and the slot grows on
+     `revealIn` and shrinks on `revealOut`. Called again mid-run it measures the
+     live height, so the height reverses from where it is. The slot's own
+     minimum height and the crossfade of the content are the caller's CSS. */
+  function animateSlot(slot, swap) {
+    const apply = typeof swap === "function" ? swap : () => {};
+    if (!available || !slot) { apply(); return null; }
+    if (reducedMotion()) { apply(); return settled; }
 
-    const token = {};
-    disclosureRuns.set(panel, token);
-    panel.style.overflow = "hidden";
-    hint(panel, "height");
-    return animate(
-      panel,
-      { height: [`${from}px`, `${to}px`] },
-      open ? VOCABULARY.revealIn : VOCABULARY.revealOut
-    ).then(() => true, () => false).finally(() => {
-      if (disclosureRuns.get(panel) !== token) return;
-      disclosureRuns.delete(panel);
-      panel.classList.remove(COLLAPSING);
-      panel.style.height = "";
-      panel.style.overflow = "";
-      hint(panel, null);
-    });
+    const from = slot.getBoundingClientRect().height;
+    apply();
+    slot.style.height = "";
+    const to = slot.getBoundingClientRect().height;
+    if (Math.abs(to - from) < 1) {
+      slot.style.overflow = "";
+      hint(slot, null);
+      return settled;
+    }
+    return runMeasuredHeight(slot, from, to, to > from ? VOCABULARY.revealIn : VOCABULARY.revealOut);
   }
 
   /* Independent accessibility signals. They are CSS media queries rather than
@@ -566,6 +844,142 @@
     fluidFocusAnimateTo(choice.dir, { from: gesture.dx });
   }
 
+  /* The third gesture owner: an interactive edge swipe back on a pushed page.
+     It is inert until a page registers itself, so no view is affected by it
+     existing. It never starts in Focus, whose horizontal axis belongs to the
+     deck, and only where `display-mode: standalone` matches: in a Safari tab
+     the left edge belongs to the browser's own history gesture, and the visible
+     back control stays the primary route everywhere. */
+  const EDGE_ZONE = 24;
+  const EDGE_LOCK = 10;
+  const EDGE_STALE_MS = 100;
+  let edgeTarget = null;
+  let edgeGesture = null;
+  let edgeRun = null;
+
+  function standaloneDisplay() {
+    try { return !!global.matchMedia?.("(display-mode: standalone)")?.matches; } catch { return false; }
+  }
+  function edgeBlockedByOverlay() {
+    return document.body.classList.contains("is-sheet-open") || !!document.querySelector("dialog[open]");
+  }
+  function cancelEdgeSwipe() {
+    const gesture = edgeGesture;
+    edgeGesture = null;
+    if (gesture) {
+      try { gesture.page.releasePointerCapture?.(gesture.id); } catch {}
+      gesture.motion?.cancel();
+    }
+    const run = edgeRun;
+    edgeRun = null;
+    run?.cancel();
+  }
+  function registerEdgeSwipeBack({ page, onCommit } = {}) {
+    if (!available || !(page instanceof Element) || typeof onCommit !== "function") return null;
+    cancelEdgeSwipe();
+    const registration = { page, onCommit };
+    edgeTarget = registration;
+    return {
+      dispose() {
+        if (edgeTarget !== registration) return;
+        cancelEdgeSwipe();
+        edgeTarget = null;
+      },
+    };
+  }
+  /* The edge zone is 24px wide but a page sits inside <main>'s own padding, so a
+     finger at x=4 lands on <main>, not on the page. A press counts when it lands
+     on the page, or on something that wraps it, at a height the page occupies
+     (R7 J-11). The dock, a sheet or a sibling page are never ancestors of the
+     page, so none of them can start a swipe this way. */
+  function edgeHitsPage(page, event) {
+    const hit = event.target;
+    if (!(hit instanceof Element)) return false;
+    if (page.contains(hit)) return true;
+    if (!hit.contains(page)) return false;
+    const rect = page.getBoundingClientRect();
+    return event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }
+  function edgePointerDown(event) {
+    const target = edgeTarget;
+    if (!target || edgeGesture) return;
+    if (event.pointerType === "mouse") return;
+    if (!(event.clientX <= EDGE_ZONE)) return;
+    if (focusActive() || !standaloneDisplay() || edgeBlockedByOverlay()) return;
+    const { page } = target;
+    if (!page.isConnected || page.hidden) return;
+    if (!edgeHitsPage(page, event)) return;
+    edgeGesture = {
+      id: event.pointerId, page, target, x: event.clientX, y: event.clientY, dx: 0, live: false,
+      velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(), motion: null,
+    };
+  }
+  function edgePointerMove(event) {
+    const gesture = edgeGesture;
+    if (!gesture || event.pointerId !== gesture.id) return;
+    if (!gesture.page.isConnected || gesture.page.hidden || focusActive()) { cancelEdgeSwipe(); return; }
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (!gesture.live) {
+      if (dx <= -EDGE_LOCK || (Math.abs(dy) >= EDGE_LOCK && Math.abs(dy) >= Math.abs(dx))) {
+        edgeGesture = null; return;
+      }
+      if (dx < EDGE_LOCK) return;
+      gesture.live = true;
+      try { gesture.page.setPointerCapture?.(gesture.id); } catch {}
+      const previous = edgeRun;
+      const from = previous?.takeover?.() || 0;
+      edgeRun = null;
+      gesture.motion = trackEdgeSwipe(gesture.page, { from });
+      if (!gesture.motion) { edgeGesture = null; return; }
+    }
+    const now = event.timeStamp || performance.now();
+    const dt = now - gesture.lastT;
+    if (dt > 0) {
+      gesture.velocity = (event.clientX - gesture.lastX) / dt;
+      gesture.lastX = event.clientX;
+      gesture.lastT = now;
+    }
+    gesture.dx = Math.max(0, dx);
+    gesture.motion.follow(gesture.dx);
+  }
+  function edgePointerEnd(event) {
+    const gesture = edgeGesture;
+    if (!gesture || (event?.pointerId != null && event.pointerId !== gesture.id)) return;
+    edgeGesture = null;
+    if (!gesture.live) return;
+    try { gesture.page.releasePointerCapture?.(gesture.id); } catch {}
+    if (gesture.dx > 8) global.swallowNextClick?.();
+
+    const motion = gesture.motion;
+    if (!motion || !gesture.page.isConnected || gesture.page.hidden) { motion?.cancel(); return; }
+    // `pointercancel` is the browser taking the gesture away, not the lifter
+    // letting go. Nothing was committed, so the page goes home and the velocity
+    // it had is not evidence of intent.
+    const released = event?.type !== "pointercancel";
+    // A thumb that stopped before lifting has no velocity worth carrying: the
+    // last sample is how fast it was going, not how fast it left.
+    const stalled = (event?.timeStamp || performance.now()) - gesture.lastT > EDGE_STALE_MS;
+    const velocity = released && !stalled ? gesture.velocity : 0;
+    const projected = released ? projectMomentum(motion.current(), velocity) : 0;
+    const choice = nearestSnap(projected, [
+      { position: 0, commit: false },
+      { position: motion.width, commit: true },
+    ]);
+    edgeRun = motion;
+    if (released && choice?.commit) {
+      motion.commit({ velocity }).then(arrived => {
+        if (!arrived || edgeRun !== motion) return;
+        edgeRun = null;
+        try { gesture.target.onCommit(); } finally { motion.cancel(); }
+      });
+    } else {
+      motion.settle({ velocity }).finally(() => {
+        if (edgeRun === motion) edgeRun = null;
+      });
+    }
+  }
+
   function cancelSheetRunsThatClosed() {
     for (const [sheet, motion] of sheetRuns) {
       if (sheet.hidden || !sheet.classList.contains("is-open")) {
@@ -575,6 +989,7 @@
     }
     if (sheetGesture && (sheetGesture.sheet.hidden || !sheetGesture.sheet.classList.contains("is-open")))
       clearSheetGesture({ clearRun: true });
+    if (edgeGesture && (!edgeGesture.page.isConnected || edgeGesture.page.hidden)) cancelEdgeSwipe();
   }
   function normalizeInstallBannerSemantics() {
     const banner = document.getElementById("installBanner");
@@ -602,6 +1017,7 @@
       if (focusSlide) cleanupFocusSlide(focusSlide);
       if (focusGesture) focusPointerEnd({pointerId:focusGesture.id,type:"pointercancel"});
       if (sheetGesture) clearSheetGesture({ clearRun: true });
+      cancelEdgeSwipe();
       for (const [sheet, motion] of sheetRuns) {
         if (!sheet.hidden && sheet.classList.contains("is-open")) {
           motion?.cancel();
@@ -641,6 +1057,10 @@
     }
 
     if (useFluid) {
+      document.addEventListener("pointerdown", edgePointerDown);
+      global.addEventListener("pointermove", edgePointerMove, { passive: true });
+      global.addEventListener("pointerup", edgePointerEnd);
+      global.addEventListener("pointercancel", edgePointerEnd);
       document.addEventListener("keydown", onKeyDown, true);
       global.__tauriferFluidControllersInstalled = true;
     }
@@ -656,6 +1076,7 @@
 
         if (focusSlide) cleanupFocusSlide(focusSlide);
         if (sheetGesture) clearSheetGesture({ clearRun: true });
+        cancelEdgeSwipe();
         if (focusGesture) {
           const g = focusGesture;
           focusGesture = null;
@@ -687,6 +1108,10 @@
         }
 
         if (useFluid) {
+          document.removeEventListener("pointerdown", edgePointerDown);
+          global.removeEventListener("pointermove", edgePointerMove);
+          global.removeEventListener("pointerup", edgePointerEnd);
+          global.removeEventListener("pointercancel", edgePointerEnd);
           document.removeEventListener("keydown", onKeyDown, true);
           global.__tauriferFluidControllersInstalled = false;
         }
@@ -714,7 +1139,12 @@
     trackSheetGesture,
     settleFocusDeck,
     animateExerciseReorder,
+    animateIndicator,
+    animateCoordinates,
     animateDisclosure,
+    animateSlot,
+    animatePush,
+    registerEdgeSwipeBack,
     mountGestureController,
   };
 

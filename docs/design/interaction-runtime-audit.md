@@ -70,10 +70,10 @@ stays reachable through the Move controls.
 
 | Interaction | Current implementation | Decision | Technique | Reason |
 | --- | --- | --- | --- | --- |
-| Saving a set (ledger row, tick, check) | `motion-polish.css` keyframes, ~160ms | **CSS retained** | — | Dozens of times a session. PR #231 cut this to one short acknowledgement on purpose; a runtime here would add payload and main-thread work to an interaction that must feel instant |
+| Saving a set (the Focus ledger row, `.ledgerline.is-fresh`) | `styles.css` keyframe `setland-row`, 160ms, a 4px rise while fading in, written into the markup of the one render that logs the set | **CSS retained** | — | Dozens of times a session. PR #231 cut this to one short acknowledgement on purpose; a runtime here would add payload and main-thread work to an interaction that must feel instant. The shelf's first version played it over 340ms from 10px; R3e brought it back inside the budget (see [Focus after the input well](#focus-after-the-input-well)) |
 | Set counter increment | CSS keyframe, 140ms | **CSS retained** | — | Same frequency, same argument |
-| Arming the next set (cue + current-set well) | CSS keyframe, 140ms | **CSS retained** | — | Follows every save; anything richer would be felt as lag |
-| Completing an exercise (`focus-done__mark`) | CSS keyframe, 280ms | **CSS retained** | — | A few times a session. Already the larger beat PR #231 allowed it; there is no physics here, only a curve |
+| Arming the next set (cue + current-set well) | — | **Removed** (R3e) | — | The input well it armed is gone. The next set's cue and shelf are drawn at rest in the render that logs the set, and the only beat on a save is the ledger row above, so nothing follows every save that the lifter has to wait on |
+| Completing an exercise (`focus-done__mark`) | — | **Removed** (R3e) | — | The 280ms mark beat belonged to the input well and went with it; the shelf's completion state is drawn at rest |
 | Effort/RIR explainer popover | CSS keyframes with a trigger-anchored origin | **CSS retained** | — | Frequent, small, and already correct: it emerges from the value rather than growing from nothing |
 | Effort value swap (`is-bump`) | CSS keyframe, 180ms | **CSS retained** | — | High frequency; a keyframe restarting is acceptable because the value it decorates has already changed |
 | Rest-timer dial | 250ms interval writing a CSS-transitioned arc | **Unchanged** | — | A four-times-a-second tick with a transition smoothing it is cheaper than a per-frame animation and kinder to a phone's battery mid-session |
@@ -117,13 +117,13 @@ stays reachable through the Move controls.
 | End-training-block confirm | `div[role="dialog"]`, class-toggled | **Native `<dialog>`** | Same | Same |
 | The scrim behind those three | none — they were the only modals that did not dim the page | **Native `<dialog>`** | `::backdrop` on the shared `--scrim` token | A div has no backdrop to draw, which is the only reason these three were the exception. Moving to the element that has one made the app's modals agree; the sheets, the storage-recovery dialog and the leave-editor dialog were all already drawing it |
 | The nine bottom sheets | `div[role="dialog"]` + a separate scrim element | **Unchanged** | — | Not an appropriate substitute: the top layer would break the sheet/scrim pair, the `--kb` and `--vvh` sizing that keeps a sheet above the software keyboard, and the swipe gesture that dismisses it |
-| Session summary | `div[role="dialog"]`, full-bleed | **Unchanged** | — | A staged celebratory screen whose `is-played` choreography and `delayHide` `transitionend` contract would all need re-verifying, for no behaviour a lifter would notice |
-| First-run gate | `div[role="dialog"]`, full-screen | **Unchanged** | — | A boot gate rather than a dialog over content; its class semantics are what the install-mode matrix is written against |
+| Session summary | `div[role="dialog"]`, full-bleed | **Unchanged** | — | The dialog keeps its element, focus and `delayHide` `transitionend` contract. It no longer plays a staged `is-played` choreography: every block is present and opaque on the first frame (Direction D spec section 8, 2026-10-01 owner decision on #295). The one thing that moves is the totals' count ramp, restored by the owner's motion amendment M2 (next rows) |
+| First-run gate | `div[role="dialog"]`, full-screen | **Unchanged** (the gate); the page inside it adds the motion recorded in [The landing's pinned proof](#the-landings-pinned-proof) | — | A boot gate rather than a dialog over content; its class semantics are what the install-mode matrix is written against |
 | Tour | `div[role="dialog"]` overlay | **Unchanged** | — | A coach mark pinned over live UI, with PR #231's interruptible enter/exit. The top layer would sever it from the page it is pointing at |
 | Install banner | `div[role="dialog"]` | **Unchanged** | — | Not modal at all. Its `role` is arguably wrong, but changing what it announces is a separate decision from this one |
 | Glossary popover | Class toggle with an outside-click listener | **Unchanged** | — | Anchored to the term that opened it and non-modal; `showModal` would be the wrong element and a scrim the wrong behaviour |
-| Session summary number ramp | Hand-rolled `requestAnimationFrame` with an easing and a background-tab fallback | **Unchanged** | — | Motion would replace it with an equivalent. It already handles the case that actually bites — a tab backgrounded mid-ramp — and rewriting working code to use a library is not a reason |
-| Session summary block stagger | CSS `animation-delay: calc(var(--i) * 55ms)` | **CSS retained** | — | PR #231 kept this deliberately; the reading order is the point and a runtime adds nothing |
+| Session summary number ramp | Hand-rolled `requestAnimationFrame` with an easing and a background-tab fallback | **Restored** (was removed on 2026-10-01, then kept by the owner's motion amendment M2, #295 comment 5941747309) | — | The stat row's totals count up over **600 ms** with a cubic ease-out, started as the summary opens, and land on exactly the figure the markup already carries. It rewrites the figure's text only: no overshoot, no odometer digits, no transform, no change of the other blocks. The reduced-motion decision comes from `RepForgeMotion.reducedMotion()`: under it, or in a hidden tab, the final figures are printed and never repainted, and a 1 s timer lands the final figures if rAF is throttled. Closing or re-rendering the summary cancels a running ramp. `test/session-summary.mjs` records every paint and proves the figures count up, never exceed or step back from the final value, take about 600 ms, land and stay stable; with `prefers-reduced-motion: reduce` the first read is the final figures and nothing lower is ever painted. `test/vendor-runtimes.mjs` pins the 600 ms duration, the ease-out and clamp, the reduced-motion path and the text-only rewrite |
+| Session summary block stagger | CSS `animation-delay: calc(var(--i) * 55ms)` | **Removed** | — | Unchanged by M2, which keeps only the count ramp: the blocks do not settle in behind a strike. `.sumsheet.is-played`, the `--i` index, the `sum-settle` keyframes and the dead crest strike rules are deleted; `test/vendor-runtimes.mjs` asserts none remain in CSS or the app, and `test/session-summary.mjs` asserts every block is fully opaque from the first frame and no CSS animation runs on the summary |
 | History list, exercise picker, library list | Re-rendered wholesale | **Unchanged** | — | These re-render on a navigation or a search keystroke. Animating a filtered list either lags the typing or animates the wrong rows; no spatial continuity is lost because the whole surface changed |
 | Focus-mode ledger fold | Full re-render of the workout | **Unchanged** | — | A candidate for a FLIP, but it sits inside the training loop and would put a layout animation on the path of a mid-session tap. Left for evidence that it is wanted |
 | View navigation | CSS keyframe, 140ms | **CSS retained** | — | The highest-frequency transition in the app, already shortened by PR #231 |
@@ -132,9 +132,48 @@ stays reachable through the Move controls.
 
 ---
 
+## The landing's pinned proof
+
+Plan 064 section 8.11 admits one scroll-linked section, "only if it degrades to
+static bands without JavaScript and under reduced motion". The landing's proof is
+that section. It adds no runtime: the vendored Motion bundle is not involved, and
+every transition is CSS on the existing `revealIn` curve (`cubic-bezier(.2,.7,.2,1)`).
+
+| What moves | How | Duration |
+| --- | --- | --- |
+| The step caption and the phone screen change with the scroll position | Opacity crossfade; the transition is only enabled one frame after the first state is painted (`.is-ready`), so no caption flashes on entry | 200ms |
+| The lens glides to the element a step reads, then (last step only) to the second element 1.5s later | `left`, `top`, `width`, `height`, `margin`, `border-radius` and the background crop on one transition; the second reading is one recorded `setTimeout` | 350ms; opacity 200ms |
+| The phone dims while the lens reads | `filter` on the screen layer | 200ms |
+| The persistent Build control appears and steps aside | `transform` plus `visibility`; it is never rendered on the received-program gate | 200ms |
+| The disclosure and question icons open | A 90 degree `transform` of one bar | 200ms |
+
+Not carried from the prototype: the overshoot spring, the arrow nudge on hover and
+press, the hover rotation of the icons, the caption lift, the sheen on the lens and
+the 450ms to 750ms durations. Nothing animates to celebrate. The paste hand-off and
+the questions open and close without animating height: they are state changes.
+
+The position is read from `#firstRun`, not the window: the page scrolls inside the
+fixed dialog. One `requestAnimationFrame`-coalesced passive scroll listener drives
+the pinned steps, the lens and the ground the Build control reads against; two
+`IntersectionObserver`s rooted on `#firstRun` watch the hero action and the closing
+action. All of it, with the resize and motion-preference listeners, the timer and
+the frames, lives in one controller that `openFirstRun` mounts and
+`suspendFirstRun`/`closeFirstRun` dispose; `window.__repforgeLandingProof()` reports
+what it holds and `test/landing-variants.mjs` proves it is nothing once the gate is
+closed.
+
+Reduced motion is an alternate state, not a slower one. The controller reads the
+single decision in `motion-layer.js` (`RepForgeMotion.reducedMotion`, with the media
+query as the fallback) at mount and again when the preference changes, and under
+reduced motion it never builds the phone, lens or rail: the proof is the seven
+static cards, each with its own crop of the screen it reads, and anything that would
+scroll smoothly jumps. The same static cards are shown on a screen shorter than
+600px and under enlarged root text, where a pinned phone would be unreadable. The
+information is identical in every case; nothing depends on the motion to say it.
+
 ## The motion vocabulary
 
-Five named settings in `motion-layer.js`, and nothing else. A spring literal at a
+Six named settings in `motion-layer.js`, and nothing else. A spring literal at a
 call site is how a codebase ends up with four slightly different settles nobody
 chose, so the runtime contract test fails if one appears.
 
@@ -142,7 +181,8 @@ chose, so the runtime contract test fails if one appears.
 | --- | --- | --- |
 | `gestureSettle` | spring, k=600, c=40, ζ≈0.82 | A surface the thumb released, returning to rest |
 | `gestureExit` | spring, k=700, c=53, ζ≈1.0 | A surface leaving because the gesture asked it to |
-| `layoutShift` | spring, k=600, c=48, ζ≈0.98 | Rows trading places with no gesture behind them |
+| `layoutShift` | spring, k=600, c=48, ζ≈0.98 | Rows trading places with no gesture behind them, and one indicator travelling between two places |
+| `navPush` | spring, k=700, c=53, ζ≈1.0 | A page pushed in by a tap, or carried off by a committed back swipe. `gestureExit`'s constants under its own name, because no gesture drives a tapped push |
 | `revealIn` | 200ms `cubic-bezier(.2,.7,.2,1)` | Content measuring itself open |
 | `revealOut` | 150ms `cubic-bezier(.4,0,.8,.2)` | The same content closing — faster, because the system is responding rather than offering |
 
@@ -157,6 +197,192 @@ Two findings shaped these:
   kept a 350px spring running ~200ms after it had visually arrived, which
   delayed the state change waiting on it. Every spring here sets a pixel-scale
   `restDelta` and `restSpeed`.
+
+## Plan 064 rule 11 vocabulary (R1c)
+
+Plan 064 section 8 rule 11 was amended by the owner on 2026-10-01 (#295, comment
+5941747309; the decision record is
+[`motion-rule-11-amendment.md`](motion-rule-11-amendment.md)). R1c builds the
+shared vocabulary and nothing that uses it: every row below has an owner, a
+reduced-motion path and the slice where its first consumer lands, and none has
+a consumer yet. Everything is transform, opacity, clip or a measured height; no
+spring literal is written at a call site; `window.Motion` stays unreachable from
+application code and the vendored entry does not widen.
+
+| Addition | Owner | Trigger | Reduced-motion path | Consumer |
+| --- | --- | --- | --- | --- |
+| One indicator travelling between two places: `RepForgeMotion.animateIndicator(el, fromRect)`, a single-element FLIP on `layoutShift` | `motion-layer.js` | The caller moves the element to its new place, then passes the rect it measured before moving it. A second call mid-run starts from the element's live position, not from where the first began | Clears any run and leaves the element at its end state; no transform, origin or layer hint is set | consumers: T1 field outline and L2 open-row outline landed in R3e (see [Focus after the input well](#focus-after-the-input-well)); N3 Progress tab indicator and D4 chart marker landed in R3 (see [Progress chart and tabs](#progress-chart-and-tabs)); N1 dock lens landed in R6 (see [Dock lens (R6)](#dock-lens-r6)) |
+| Coordinate travel: `RepForgeMotion.animateCoordinates(host, from, to, paint)`, a set of coordinates moving from one layout to another on `layoutShift`, painted by the caller on every frame | `motion-layer.js` | The caller renders the end state, then hands over the layout it came from. One motion value counts the largest displacement down in pixels; every coordinate moves by the same fraction of its own distance. `paint` gets the start layout before the call returns and the end layout on arrival. A second call on the same `host` supersedes the first, which is never painted again; the caller starts the new run from the layout it last painted | Nothing is painted and nothing runs: the caller's end state stands | consumer: C2 chart scope change landed in R3 (see [Progress chart and tabs](#progress-chart-and-tabs)). Added by R3 beside `animateIndicator`; the amendment's section 4 names it as "a small interpolation helper over `layoutShift`" |
+| Page push: `RepForgeMotion.animatePush(page, { direction, velocity })`, the `navPush` spring on one page's offset | `motion-layer.js` | A tapped push (N4 drill-downs, N5 Today to Focus) brings the page in from the right edge to rest, and its reverse carries it back off. A second call on the same page starts from where the page is on screen now, and `velocity` (px/ms) seeds the spring. The edge-swipe commit uses the same spring from inside the layer | Jumps to the end state: no transform is ever set and the promise is already resolved | consumers: N4 drill-downs and N5 Today to Focus landed in R5 (see [Page push and edge swipe](#page-push-and-edge-swipe-r5)) |
+| Edge-swipe back: `RepForgeMotion.registerEdgeSwipeBack({ page, onCommit })`, the third gesture owner in `mountGestureController()` beside the sheet and Focus owners | `motion-layer.js` | A touch or pen pointer that goes down within 24 px of the left edge on a registered page, then moves right past the 10 px lock. Inert until a page registers; never in Focus; only while `display-mode: standalone` matches, since in a browser tab the left edge belongs to the browser and the visible back control stays the primary route. Release picks home or off-screen from `projectMomentum` and `nearestSnap`; home settles on `gestureSettle`, off-screen commits on `navPush` seeded with the release velocity (zeroed if the thumb stopped for 100 ms), then calls `onCommit`. `pointercancel` never commits. Same lifecycle as the other owners: mounting is idempotent, disposal and Escape cancel any run and hand the page back. While it runs the page carries `is-edge-swiping` so its own CSS can stand down; the consuming page must carry `touch-action: pan-y` or the browser may claim the horizontal drag | Dragging still follows the thumb; a settle or a commit jumps to its end state, and `onCommit` runs on release | consumers: the N4 pages landed in R5 (see [Page push and edge swipe](#page-push-and-edge-swipe-r5)) |
+| Measured slot height: `RepForgeMotion.animateSlot(slot, swap)`, the disclosure height run (`revealIn` growing, `revealOut` shrinking) generalised from open and close to swapping one content for another | `motion-layer.js` | `swap` runs exactly once, whichever path is taken; the slot measures its height before and after and animates between them, reversing from the live height if called again mid-run. The slot's minimum height and the content crossfade are the caller's CSS | `swap` runs and the slot is at its new height on the next frame | consumer: L3 inline rest in the cue slot landed in R3f (see [Inline rest](#inline-rest)) |
+| Rise: `.motion-rise`, at most 12 px while fading in, 160 ms | `motion-polish.css` | The class is added when the shelf changes job or the completion actions arrive | `animation: none`; the element is at its end state | consumer: L4 exercise-complete shelf landed in R3e (see [Focus after the input well](#focus-after-the-input-well)); the shelf changing job lands in R3 |
+| Directional value change: `.motion-value-up` and `.motion-value-down`, 6 px in the direction the value moved, 120 ms; `.motion-value-fade`, an 80 ms crossfade with no travel, is the fallback if the travel reads as busy | `motion-polish.css` | The class is set on the selected field's value when it changes. M1 is conditional on a physical phone check at logging frequency, to be recorded in the device matrix | `animation: none` on all three | consumer: M1 shelf value on a pad tap landed in R3e, pending the device check (see [Focus after the input well](#focus-after-the-input-well)) |
+| Clip reveal: `.motion-clip-reveal`, a left-to-right wipe, 360 ms | `motion-polish.css` | Added to the chart line on open, or to only the new segment when a session is added | `animation: none`; the line is fully shown | consumer: C1 chart line landed in R3 (see [Progress chart and tabs](#progress-chart-and-tabs)) |
+| Step reveal: `.motion-steps-ready .motion-step` and `.is-in`, an 8 px rise with a fade, 200 ms on the `revealIn` curve | `motion-polish.css` | A script marks the group `motion-steps-ready` and adds `.is-in` per step. Without the parent class, which is how it renders without JavaScript, every step is simply visible | Steps are shown at once with no transition | consumer: O1 landing proof landed in R3s (see [System and first-run motion](#system-and-first-run-motion)) |
+| Build stagger: `.motion-build > .motion-build-item`, an 8 px rise with a fade, 200 ms, each item delayed by `--build-i` times 55 ms | `motion-polish.css` | Set once per generation by the caller; the summary's removed row stagger used the same arithmetic and stays removed | `animation: none` | consumer: O3 generated program landed in R3s (see [System and first-run motion](#system-and-first-run-motion)) |
+| Indeterminate hairline: `.motion-hairline.is-pending`, a 1 px sweep along the bottom of the host | `motion-polish.css` | Runs only while `.is-pending` is on the host, so it is never a loop at rest; the caller removes the class on settlement or failure. It is the only continuous loop outside the rest timer | The sweep is removed and `.motion-hairline__label` is shown in its place | consumer: S1 persist-retry banner landed in R3s (see [System and first-run motion](#system-and-first-run-motion)) |
+
+Two things in the run helpers are not obvious from the call sites. Motion's own
+`then` discards what its callbacks return, and a stopped or replaced run never
+settles on its own, so "did this run arrive" is resolved by the layer (`false`
+the moment a run is superseded) rather than read back from the animation. And
+`animateIndicator` scales as well as translates, so a bordered indicator changes
+thickness while it travels between different sizes; a consumer that cannot
+accept that draws its indicator as a fill or a hairline.
+
+## Focus after the input well
+
+Plan 064 R3e (Plan 063 P5c) removes the input well that the shelf replaced in
+R3c: `focusWellHtml`, `cursetHtml` and their helpers, every `.focus-well`,
+`.focus-cue` and `.curset` rule, and the well's three motion-polish beats
+(the cue and numbers arming, and the exercise-complete mark with its text). What
+remains of the set-logging loop is recorded here, one row per beat, with the
+rule 11 additions recorded by the later rows of this section.
+
+| Addition | Owner | Trigger | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| Set landing: `.ledgerline.is-fresh`, a 4px rise from 68% opacity, 160ms | `styles.css` (the Focus section) | `app.js` writes `is-fresh` into the one render that logs a set (`focusLogged`); every later render draws the card at rest, and a peek copy never carries it | `animation: none`; the row is at rest on the first frame | Closes RF-11. The shelf's first version played this over 340ms from 10px, outside the training loop's 160ms acknowledgement budget; R3e brought it inside. Nothing in the shelf, the cue or the CTA waits on it |
+| Shelf field, pad and action press: the pressed compression (`--control-pressed-transform`) on `.shelf__fieldbtn`, `.shelf__pad` and `.saveset`, no rebound | `styles.css` (the Focus section) and the shared `.btn` transition in `motion-polish.css` | The control's `:active` state | The compression is a transform on a held press; there is no timed animation to remove | Owner pick T2, in scope of rule 11. Swapping a field for its input on the second tap is a state change, not motion: the shelf is rebuilt at rest. Selecting another field and stepping a value are the T1 and M1 rows below |
+| T1, the shelf field outline travels: `travelOutline(host, fromRect, "shelf")` in `app.js` draws a separate `.shelf__ring` (a 2px inset ring, no fill) in the newly selected `.shelf__field` and hands it to `RepForgeMotion.animateIndicator` | `app.js` (`refreshShelf`) for the trigger and the element; `motion-layer.js` for the spring (`layoutShift`) | The lifter selects a different field on the same set (Carga, Reps, RIR). A selection made while an outline is in flight starts from where that outline is on screen. A second tap on the same field (opening its input) does not travel. A new set rebuilds the whole card and does not travel | `focusMotion()` is null under reduced motion or without the runtime, so no ring is created: the field wears its own outline on the first frame, with the same `aria-pressed` and focus | A ring and a 2px border would scale differently, so the field's own border is never animated: the ring is the traveller, and the destination's outline is set aside (`.is-ring-travel`) only while it is in the air. The ring is `pointer-events: none` and the shelf action is never disabled or delayed by it (`test/motion-integration.mjs`) |
+| L2, the ledger open-row outline travels on advance and on correction: `travelOutline(host, fromRect, "ledgerline")` draws a `.ledgerline__ring` in the new `.ledgerline--open` row | `app.js` (`renderWorkout`, `focusOpenRow`); `motion-layer.js` for the spring | The render after a set is logged (the open row advances) or after a logged row is tapped, saved or cancelled (it goes to the corrected row and back). Same exercise, a different open row; it measures where the outline was drawn, or where an outline still in flight is, before the render replaces the card | As T1: no ring, the open row wears its 2px ring on the first frame | Logging during a travel commits at once and starts the next one from the live position; nothing queues. The ring is a hairline ring without fill so the row's scaling between one-line and two-line heights stays invisible. The open row's well fill and the 160ms `.ledgerline.is-fresh` landing are unchanged |
+| L4, the completion actions rise: `.motion-rise` (12px, 160ms) on the shelf's `.focus-done` block and its action (Next exercise or Finish) | `app.js` (`focusShelfHtml`, `settleBeats`) for the class; `motion-polish.css` for the beat | The one render that logs the last set of an exercise (`focusLogged`); the class comes off when the animation ends, so a later render of the finished exercise is at rest and the action's press compression is not held by the beat's end keyframe | `focusShelfHtml` does not write the class, and the stylesheet sets `animation: none`; the actions are there on the first frame | The action is enabled and takes a tap from the first frame (the animation changes opacity and transform only, never `pointer-events`). A tap during the rise moves to the next exercise |
+| M1, the shelf value on a pad tap: `.motion-value-up` or `.motion-value-down` (6px, 120ms) on the selected `.shelf__val`, in the direction of the tap; `.motion-value-fade` (80ms crossfade, no travel) as the fallback; one switch, `shelfValueBeat` in `app.js` (`window.__repforgeShelfValueBeat("directional" \| "fade" \| "off")`) | `app.js` (`shelfValueMove`, `playBeat`); `motion-polish.css` for the beats | A pad tap that changes the value: `+` and `-` on load and reps (through the same input handler as a typed value), and the effort pads (through `setEffortPick`). A typed value and an unchanged value (a pad at its floor) play nothing | `playBeat` adds no class under reduced motion, and the stylesheet sets `animation: none` for all three beats; the value text changes on the first frame | **Pending device check.** The owner's pick is conditional on a physical phone at logging frequency; if the travel reads as busy after thirty taps, set the switch to "fade". The outcome goes in the device matrix. The class is removed on `animationend`, and thirty taps in a row each land (`test/motion-integration.mjs`) |
+
+## Inline rest
+
+Plan 064 R3f (Plan 063 P6) puts the rest clock in the Focus cue slot and retires
+the `rest-timer` sheet (C-07), with the owner-approved L3 pick: "inline rest in
+the cue slot, B, a measured height push with crossfade" (rule 11 as amended,
+[`motion-rule-11-amendment.md`](motion-rule-11-amendment.md) sections 4 and 5).
+It reads the existing timer (`restEnd`, `restPaused`, `restLength`, the 250ms
+tick): no second clock, no stored state, and neither when a rest starts nor how
+it is announced or notified changes. What moves, one row per beat. The sheet's
+dial arc (`stroke-dashoffset` over 250ms) and its `stroke` colour change retired
+with the sheet.
+
+| Addition | Owner | Trigger | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| L3, the cue slot trades its content in a measured height run: `RepForgeMotion.animateSlot(slot, swap)` on `.fx-slot`, `revealIn` growing and `revealOut` shrinking | `app.js` (`restInlineSync`, `swapRestSlot`, `arriveRestSlot`, `renderWorkout`) for the trigger and the slot; `motion-layer.js` for the height run | The timer changes what the slot shows: a logged set starts a rest (cue to clock and next cue), time runs out or Pular is tapped (clock to the done line above the returned cue), a nudge or a restart brings time back, a rest ends from the presets sheet (back to the cue), and a logged row tapped for correction or saved or cancelled (clock to the edit cue and back). The render that logs a set measures the slot before it replaces the card and carries the new slot from that height; a swap between renders (the clock's own repaint) measures the live slot. A swap called again mid-run starts from the height the slot has | `focusMotion()` is null under reduced motion or without the runtime: `animateSlot` runs the swap and the slot is at its end height on the next frame, and no crossfade layer is made. The card is drawn with the end markup and the same information either way | The shelf and its action are outside the slot and are never disabled, delayed or re-rendered by the swap: a set logged mid-push commits at once and the render it triggers starts from the live height (`test/motion-integration.mjs`). While the rest runs the slot keeps a minimum height of the 24px cue, its 18px line and its Why target, so the ledger below moves once as the clock arrives and once when the cue returns, not twice. The restart marks the swap `restRenderPending` only for the commit handler's window, so the clock's repaint never swaps a card that a render is about to replace |
+| L3, the crossfade: `.motion-fade-out` over `.motion-fade-in`, 160ms linear, on the slot and on the shelf's pad row (`crossfadeIn`) | `app.js` (`crossfadeIn`, `refreshShelf`, `swapRestPads`, `restSlotArrive`) for the layer; `motion-polish.css` for the beat | The same swaps as the row above, and the pad row trading the field pads for the rest controls (a rest starts, time runs out or Pular) and back (a tap on a shelf field brings the field pads back, D spec section 4.2) | No layer is made and the stylesheet sets `animation: none`; the new content is there on the first frame | The outgoing content is held as a copy over the incoming one, `inert` and `aria-hidden`, taken off at `animationend` or `animationcancel` (and by a 320ms timer, so a beat the stylesheet turned off cannot leave it covering the card). It is at most 160ms, inside the training loop's acknowledgement budget. When a control that held focus leaves the pad row (Pular, or time running out under Pause), focus moves to the selected shelf field so it does not fall to the page |
+| The drain bar: `.restinline__fill`, `transform: scaleX(left / length)` on a 4px track, `transition: transform 250ms linear` | `styles.css` (the Focus section) for the transition; `app.js` (`restInlineSync`) writes the scale on every repaint of the clock | The 250ms tick, a nudge, a hold (the scale stops where it is) and a restart. It is a transform, not a width: no layout runs on a tick | `transition: none`; the bar steps with each tick, which says the same thing | The one continuous motion a running timer has. The live region is silent while it runs: it says "Rest started" once and "Rest done" once (`test/focus-mode.mjs` counts the mutations over a window) |
+
+## System and first-run motion
+
+Plan 064 R3s builds the owner-approved S1, O1 and O3 picks (rule 11 as amended,
+[`motion-rule-11-amendment.md`](motion-rule-11-amendment.md) sections 2 to 5) on the
+R1c vocabulary above, and records S2, which R3b2 later built with the unfinished-session band, and O2, which R3b2 built as the quiet outline. Nothing here adds a
+runtime or a spring: S1, O1 and O3 are the stylesheet beats, and the classes are
+written by `app.js` and taken off again, so no state depends on an animation
+finishing. All of it is transform, opacity or a 1px sweep.
+
+| Addition | Owner | Trigger | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| S1, the persist-retry banner's hairline: `.motion-hairline.is-pending` on `#draftRecovery`, a 1px sweep along its bottom edge, with a `.motion-hairline__label` ("Saving…", `custom.saving`) that is hidden while the sweep runs | `app.js` (`retryDraftRecovery`, `paintDraftRetryPending`) for the class and the label; `motion-polish.css` for the sweep; `styles.css` (`.draft-recovery__saving`) for the label's type | A retry whose action is a durable write is in flight: Retry on a failed set, a failed suggestion refresh, a failed finish or a failed workout create. The count goes up when the retry starts and down when its promise settles, applied or not. Re-reading a draft that could not be read (`retryMode` initialize) is not a write and does not sweep | The sweep is removed (`animation: none`, no pseudo-element) and the label is shown in its place. The banner is an assertive live region, so the label is announced as the retry starts | **The only continuous loop outside the rest timer, and the only proof it matters is that it stops.** It reads the retry's own promise and nothing in `durable-state.js`: no persistence, journal or lock logic changed. `test/motion-integration.mjs` holds the storage lock so the write is genuinely in flight, then proves one infinite animation exists, that it animates a transform only, that no control on the banner is disabled, and that after the write is applied, and after it is refused as stale, no class, label or looping animation remains |
+| S2, the restored draft on Today: the "Session in progress" band measures in; the CTA relabels at once | `app.js` (`renderToday`, `renderTodayResume`, `todayResumeHost`, `draftResumeWhere`) for the band and its trigger; `motion-layer.js` (`animateDisclosure`) for the height run; `styles.css` (`.today-resume`) for the band | A render of Today that finds the draft holding logged or filled sets (`draftHasProgress`) and Today in view adds a band to the empty `#todayResume` host: the render that returns from the session, which is the one that finds the band absent. The host is made by `app.js` before Today's session label and is empty (zero height) whenever no band is drawn, so `animateDisclosure(host, true, draw)` measures from nothing to the band's own height on `revealIn` and clears its inline height and overflow when it lands. While the session is open (`workoutActive`) the band is not drawn, so the next return measures in again | `animateDisclosure` draws the band at once under reduced motion or without the runtime: the host is at its natural height on the first frame, with no inline height, overflow or layer hint | The band is `role="status"`: the title (`today.resume.title`) over the Focus header's `focus.head.day_ex` line, read from the draft's exercise order and selected exercise and never written. A render that finds the band there keeps it (the markup is rewritten only when its words change, so the status region does not speak again) and plays nothing. The CTA's `today.continue` label is the same condition in the same render and stays an instant text swap, with no motion of its own. No persistence, journal or lock logic and no stored state changed (`test/motion-integration.mjs`, `S2` phases: absent while the draft holds nothing, measured height on the render that adds the band, the same band on a later render, gone inside the session and measured in again on the next return, and the end state on the first frame under reduced motion) |
+| O1, the landing proof's stepped reveal: `.motion-step` on each of the proof's seven cards and `.motion-steps-ready` on `#firstRunProofSteps`, then `.is-in` per card (8px rise with a fade, 200ms) | `app.js` (`createLandingController`: `syncReveal`, `stopReveal`); `motion-polish.css` for the beat | The proof is the static cards (motion is welcome but the stage cannot pin: a screen shorter than 600px, enlarged text) and a card scrolls into the `#firstRun` scroller (`IntersectionObserver`, threshold 15%). Adding `.motion-steps-ready` waits for the observer's first answer, and a card already in view is marked `.is-in` in the same task, so no card is hidden and shown again | No class is added: reduced motion never pins and never reveals, and every card is shown at once with its crop. Without JavaScript there is no `.motion-steps-ready`, so every card is shown. The pinned stage never carries it (its own 200ms crossfade is unchanged); a resize that pins removes the reveal and one that unpins adds it back | The pinned-proof controller's behaviour, the returning landing (which does not pin and hides the proof) and every landing frame at rest are unchanged. `dispose()` removes the observer and every class, and `window.__repforgeLandingProof().observers` returns to zero (`test/landing-variants.mjs`, `test/motion-integration.mjs`) |
+| O3, the generated program is built in reading order: `.motion-build > .motion-build-item`, an 8px rise with a fade over 200ms, `--build-i` times 55ms apart | `app.js` (`ensureGeneratorResult` arms, `playEntryBuild` plays, called from `renderOnboarding`); `motion-polish.css` for the beat | A fresh generation of a Recommend or Custom result: the first render of the result step after `ensureGeneratorResult` compiled it. The blocks are the name, where it came from, the four facts, the change statement when there is one, the week's heading and then each day | Nothing is armed to play: the whole program is drawn at once with no class. | Once per generation, in memory only. Going back and forward over an existing result, a render after the build, reopening a saved setup draft after a reload and a rebuild from an answer chip all draw the program at rest. The answers, the reasons, the constraints and every button stay out of the build, so Activate is enabled and takes a tap from the first frame, and a day opens on the first press. The classes come off when the last block lands, with a timer for a block the page never animates |
+| O2, onboarding choice cards: the quiet ink outline arrives on the card's own transition. **Outline only: no check beat exists on a choice card, so none is built** | `styles.css` (the entry choice surfaces and the `#onbBody.entry-body` Q-E layer) for the selected recipe and the transition; `motion-polish.css` for the selected card's hover edge | A choice is made in the entry questions: a `.radio-card` gains `.is-selected` (a re-render of the step draws it selected). The card's `box-shadow` is now in the card's existing 150ms transition beside `border-color` and `background-color`, so the 2px inset ink ring (`--elevation-selected-quiet-shadow`, `--boundary-selected-quiet`) fades in and out with the edge and the wash | `transition: none` on `.entry-body .radio-card` (the existing reduced-motion rule): the ring is on the first frame | Owner decision Q-E: every entry selection is the quiet ink ring and the orange budget holds, so a selected card, its mark and its icon paint ink, never the accent: the radio mark is an ink ring with an ink dot, the checkbox mark is an ink box with the tick cut out of it (`--check` mask), the grouped list row and the numeric card take the ring and `--well`, and no copper wash is left. Nothing is lifted or resized (no transform, same border and padding), the pressed feedback is the existing `--control-pressed-transform`, and no check growth, spring or loop is added. `test/motion-integration.mjs` (`O2` phases) proves the ring, the absence of any accent paint on the card, mark and icon, an unchanged box size, the 160ms ceiling, and no transition under reduced motion, in the light and dark themes |
+
+The negative controls the board rejected stay rejected, and none is built here: no
+lifted choice cards, no celebration, no extra loop. O2 (the onboarding choice cards'
+outline) is the last row above, built by R3b2 as the outline alone; the check growth the pick
+names has nothing to grow from on a choice card and is not invented.
+
+## Progress chart and tabs
+
+Plan 064 R3 builds the owner-approved Progress picks of rule 11 as amended
+([`motion-rule-11-amendment.md`](motion-rule-11-amendment.md) sections 3 to 5):
+N3 the tab underline, C1 the chart line, C2 the chart scope change and D4 chart
+scrubbing. Every pick is built only on the R1c vocabulary: `animateIndicator`,
+the new `animateCoordinates` (`layoutShift`, no spring literal at a call site)
+and the stylesheet beats `.motion-clip-reveal`, `.motion-fade-in` and
+`.motion-fade-out`. Transform, opacity and clip only; no overshoot. The data table
+is the accessible alternative: it, the readout and the figures are written at
+once whatever the plot is doing, and no tap waits on any of it. The negative
+controls stay rejected: no full-width tab slide, no metric morph, no inertial
+scrubbing. Under reduced motion the layer's single decision (`focusMotion()`,
+`beatsOn()`) keeps every row below off, and the end state is drawn on the first
+frame with the same information.
+
+| Addition | Owner | Trigger | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| N3, the Progress tab indicator travels: `travelTabIndicator(tab, fromRect)` in `app.js` draws a separate `.tabrow__ring` (the 2px indicator, no fill of its own) in the newly selected `.tabrow__tab` and hands it to `RepForgeMotion.animateIndicator` | `app.js` (`paintStatsTabs`) for the trigger and the element; `motion-layer.js` for the spring (`layoutShift`); `styles.css` (`.tabrow__ring`) for the drawing | A different tab becomes the selected one: a tap, a keyboard activation, or a call to `setStatsSeg` or `setEvidenceView`, while the tab row is on screen. It measures the 2px border along the foot of the tab it left (or, if an indicator is still in the air, where that is on screen, corrected for any scroll the row did to keep the new tab in view) before the new state is painted | `focusMotion()` is null, so no ring is created: the tab wears its own 2px border on the first frame, with the same `aria-selected` and focus | Only the underline moves. The tab change, its panel switch (instant; the existing 140ms view fade is the only fade), focus, ARIA and telemetry are exactly what they were, and the ring is `pointer-events: none`. The ring is a 2px line that only changes width, so the scaling `animateIndicator` applies is invisible. The destination tab sets its own border aside (`.is-ring-travel`) only while the ring is in the air, so there is one indicator on screen |
+| C1, the chart line wipes in on open: `.motion-clip-reveal` on the first `.ch-trace` (the line, its ticks and its points) of `.exchart__svg` | `app.js` (`chartMotionIntent`, `chartSeriesSvg`, `settleBeat`) for the class; `motion-polish.css` for the beat (`clip-path` only, 360ms) | The exercise chart renders for a lift it was not already showing in this open of the page (`exView` identity), that is, when it opens from Progress. Never on a re-render of an unchanged chart (a language, unit or other repaint), on selecting a session, or on a scope or metric change | The class is not written and the stylesheet sets `animation: none`: the line is fully drawn on the first frame | The clip is on the line's own stroke box. The axes, the cursor, the readout and the table are never covered by it. The class comes off when the animation ends (`animationend`, `animationcancel`, or a 700ms timer for a page that never animated) so a later render draws the line at rest |
+| C1, extension: the same beat on only the stretch to a session added while the chart is open | `app.js` (`chartMotionIntent`, `chartSeriesSvg`); `motion-polish.css` | A render of the same chart, scope and metric whose session list is the previous one plus new sessions at the end (`render()` after the log changes while the page is open). The line up to the last known session is drawn at rest in its own `.ch-trace`; the new stretch and its points are a second `.ch-trace` wearing the class | One whole `.ch-trace`, drawn on the first frame | Sessions already known are drawn in their new coordinates at once, since adding a session respaces the axis; only the new stretch reveals |
+| C2, a scope change: sessions in both scopes travel: `RepForgeMotion.animateCoordinates(#exDetail, from, to, paint)` with `paint` rebuilding the series (`chartSeriesSvg`) from the interpolated points on every frame, so the step stays a step all the way | `app.js` (`chartScopeTravel`, `chartItems`) for the drawing and the layouts; `motion-layer.js` for the clock (`layoutShift`) | The Current block and All history toggle. The page is rendered at rest first; the plot is then carried from the coordinates it was last drawn at (the live ones if a previous travel was still in the air) to the new rest layout. One scope must sit inside the other (the block inside all history); otherwise nothing travels | `focusMotion()` is null: every session is at its new place on the first frame | The table, figures, readout and toggles change at once. A scope change while a travel is in the air supersedes it and carries on from where the sessions are drawn. At arrival the series is rebuilt at rest (one line, no faded elements) |
+| C2, sessions entering or leaving, and the axes: the elements for sessions only one scope has fade in (`opacity` 0 to 1) or out, together with their stretch of the line; the old axes (`.exchart__ghost`, a copy of the old drawing without its series) fade out over the new `.ch-axes` fading in, both `.motion-fade-out` / `.motion-fade-in` (160ms linear) | `app.js` (`chartScopeTravel`, `chartGhost`, `settleBeat`); `motion-polish.css` for the crossfade | The same scope change. The fade of the sessions follows the travel's progress | No ghost is made and the stylesheet turns the crossfade off | The ghost is `aria-hidden`, inert, and not `.exchart__svg`, so a selector for the live plot finds one copy of anything; it is removed at the end of its beat |
+| C2, a metric change crossfades and never travels: the old drawing (`.exchart__ghost`, `.motion-fade-out`) over the new `.exchart__svg` (`.motion-fade-in`), 160ms | `app.js` (`chartMotionPlay`, `chartGhost`); `motion-polish.css` | The Top load and Best e1RM toggle (two different quantities on two different axes, Direction D section 1.6). No point moves: the new metric is drawn at its own coordinates from the first frame | No ghost is made and the stylesheet turns the crossfade off | A scope change travels; a metric change never does. Selecting a session is neither |
+| D4, the chart marker snaps to the nearest session and travels: `moveChartMarker` draws a separate `.exchart__marker` dot and a `.exchart__scrub` cursor line over the plot and hands both to `RepForgeMotion.animateIndicator` | `app.js` (`selectChartPoint`, `moveChartMarker`); `motion-layer.js` for the spring (`layoutShift`); `styles.css` (`.exchart__marker`, `.exchart__scrub`) for the drawing | A tap or a drag on the plot (it snaps to the nearest session), or a table row. A second snap while the marker is in the air carries on from where it is on screen, reusing the same two elements. The plot's own selected point and cursor are set aside (`.is-marker-travel`) only until it arrives | `focusMotion()` is null: the selected point and the cursor are on the new session on the first frame | The selection itself (the points, the cursor, the readout, the table row, `aria-pressed`) changes in the same call and updates the plot in place, so scrubbing never waits and a reveal or a travel in the air is not cut short. The marker is critically damped: it never overshoots and never carries on past the session, so scrubbing is not inertial. Both elements are `pointer-events: none` and `aria-hidden` |
+
+Two measurements to keep in mind. The tab indicator and the marker both take
+about 300ms to come fully to rest on `layoutShift`'s pixel-scale threshold,
+though most of the distance is covered in the first 150ms. And on a lift with
+many sessions the scope change repaints the series on every frame by
+replacing one SVG group's markup; the chart's size is bounded by the sessions
+of one lift.
+
+## Page push and edge swipe (R5)
+
+Plan 064 amendment picks N4 (drill-downs: History, a Today row, Program), N5 (Today to
+Focus) and the interactive edge swipe back, built only on the R1c vocabulary:
+`RepForgeMotion.animatePush` (the `navPush` spring), `registerEdgeSwipeBack`
+and the stylesheet classes `is-push-under` / `is-push-over` in `motion-polish.css`.
+The top-level view fade (N2, 140 ms) is untouched and still serves the dock.
+No spring literal exists at a call site. Transform only: no opacity, no new elevation.
+
+A push keeps both pages mounted for its whole run. The page that moves rides above
+(`is-push-over`) and the other is held still beneath it (`is-push-under`); both are
+pinned to the screen so they overlap, and the page under keeps the scroll offset it
+had. `app.js` (`routePushBegin`, `pushRoute`) writes and removes the classes around
+the route change, which has already happened, focus and scroll reset included, when
+the run starts. Back is the same push the other way, on the page being left.
+Interrupting a push reverses the page from where it is on screen. The push is simply
+not played, and the route simply changes, under reduced motion, before boot, without
+the runtime, when the page underneath would be Focus (its layout belongs to body
+classes the route has just changed), and when an edge swipe has already carried the
+page off screen.
+
+| Addition | Owner | Trigger | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| N4, a drill-down pushes in from the right and Back pushes it out: the exercise page (`#exercise`) from a Today prescription row (`#todayExList [data-exopen]`), a Progress strength row or attention lift, and a Program overview row; the library (`#library`) from Program; the exercise preview (`#exercisePreview`) from the library | `app.js` (`openExerciseView`, `closeExerciseView`, `openLibrary`, `closeLibrary`, `openExercisePreview`, `closeExercisePreview`) for the trigger; `motion-layer.js` for the spring (`navPush`); `motion-polish.css` for the layers | The route function changes the active view exactly as before, then hands the two pages to `routePushBegin`. Focus lands on the new page's heading (the exercise page) or its documented target (the library search, the preview Back control); Back puts focus on the row that opened it | The route changes, no class is written, no transform is set | Opened from Focus's exercise name the page changes instantly, as does returning to a Focus that is still open: Focus's layout belongs to body classes the route changes. The import review and Settings are not drill-downs and keep their instant route |
+| N4, History: a session (or a calendar day) opens as a page that pushes in over the list, and its Back carries it out | `app.js` (`watchRouteSurfaces`, the History snapshot) for the trigger; `motion-layer.js` for the spring | History swaps its list for the session page inside one view, so no second page exists to keep mounted. A still copy of the view, taken as the lifter presses the control that changes it (`[data-edit]`, `[data-history-back]`, the calendar sheet), is the page under the session page as it pushes in, and the page that rides out on Back. The copy is inert, `aria-hidden`, has its ids stripped and is removed when the run ends | No copy is used and the route changes | A snapshot older than 1.5 s is discarded, so a Back that waits on the discard sheet simply changes |
+| N5, Today to Focus pushes Focus in like a drill-down, and Back from Focus is the reverse push | `app.js` (`setWorkoutActive`) for the trigger; `motion-layer.js`; `motion-polish.css` (the layers, and Focus keeping its own layout while it rides out) | `setWorkoutActive` flips after boot: Start workout, Up next, Log another session, and Back from Focus. Focus lands on its day title (`#woDayTitle`); Back lands on Today's leading control. The draft is untouched either way (G-43) | The route changes; the old `wo-anim-enter` and `wo-anim-leave` keyframes still play where the runtime is missing and are `animation: none` under reduced motion | Finishing a session clears the draft first, so that exit stays instant; a resumed session at boot is the page itself, not a hand-off |
+| Edge swipe back on the pushed pages: `registerEdgeSwipeBack({ page, onCommit })` for `#exercise`, `#library`, `#exercisePreview` and History's session page (`#history.is-session-page`); `touch-action: pan-y` on each | `app.js` (`syncEdgeSwipe`) registers the one page on screen and disposes it when the page goes; `motion-layer.js` for the gesture | The page is registered while it is the active page and Focus is not open; the layer then needs a touch or pen pointer down within 24 px of the left edge and `display-mode: standalone`. Committing runs the visible Back control's own handler (`#exBack`, `#libBack`, `#previewBack`, `[data-history-back]`), so the route, focus and telemetry are the tap's; the page is already off screen, so the route does not push it again | The pull still follows the thumb; settle and commit jump, and `onCommit` runs on release | While a pull is live the page it returns to is mounted, shown and inert beneath it. History has no page to mount (the list is drawn over the session page), so its pull shows the paper beneath. Focus is never registered |
+
+`registerEdgeSwipeBack` is the third gesture owner in `mountGestureController()`, beside
+the sheet and Focus owners (for `AGENTS.md`, whose gesture paragraph names two): it is
+inert until a page registers, only runs in standalone, never in Focus, binds and
+removes its own listeners, mounts idempotently and is cancelled by disposal and
+`pointercancel`. A page registers by being the page on screen, not by a call in its
+route function.
+
+Measured on `navPush` (390 px page, headless Chromium, 60 Hz frames, five runs): the
+page is half way in at about 78 ms, 90% at about 160 ms, 95% at about 195 ms and 99%
+at about 262 ms, and Motion's rest test (1 px, 40 px/s) hands the page back at about
+360 ms. The "roughly 220 ms feel" is therefore the 95 to 99% band; the last 100 ms is
+a sub-pixel tail the eye does not read. The constants are `gestureExit`'s and were not
+retuned.
+
+## Dock lens (R6)
+
+Plan 064 amendment pick N1 (the selected lens travels, dock structure unchanged),
+built only on the R1c vocabulary: `RepForgeMotion.animateIndicator` (`layoutShift`).
+Transform only; no opacity, no new elevation, no overshoot. The dock itself, its
+four buttons, its handler and the 140 ms view fade (N2) are exactly what they were.
+
+| Addition | Owner | Trigger | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| N1, the dock lens travels: one `aria-hidden` `.dock-lens` element inside `nav`, placed on the active button and handed to `RepForgeMotion.animateIndicator` when the active tab changes | `app.js` (`mountDockLens`) for the element, the placement and the trigger; `motion-layer.js` for the spring (`layoutShift`); `styles.css` (`.dock-lens`, `nav[data-lens]`) for the drawing | A `MutationObserver` on the buttons' `class` and `aria-current`, so the dock handler, `navTo`, `returnToTab` and `showSettings` are not touched. A tab change in a dock that was on screen, whose box is unchanged, measures the lens's rect, moves the lens to the new button and travels it. A second change mid-flight starts from where the lens is on screen | `animateIndicator` jumps: the lens is on the new tab on the first frame, with the same `aria-current` and focus. Without the runtime it jumps the same way | Snaps with no travel: a tab change while the dock is hidden (Focus, Settings, a pushed page, the first-run gate), a resize or orientation change, a text-size change (the two-row dock) and the program editor bar swapping in for the floating dock (a `ResizeObserver` on the dock and its buttons, plus `resize`, re-place it). A snap that lands while a lens is in flight drops that lens and mounts a new one, so there is never more than one |
+| N1, the fallback and the rest paint: what the button paints and what the lens paints | `styles.css` (`nav button.active`, `.dock-lens`, `nav[data-lens]`) | `nav[data-lens]` is set when the lens is first placed; until then (before boot, with the script not run, a dock that has never been on screen) the active button paints the whole lens itself, as it always could. Once it is set the button paints no pill or shadow. Floating dock: the lens is the pill (`--dock-pill`, `--elevation-nav-indicator-shadow`) and the button keeps its own 1px selected ring at rest; while the lens is in the air (`data-lens="travel"`) the ring rides on the lens (`.dock-lens::after`) and the destination button sets its own aside, so there is one ring on screen, as N3 does for its indicator. Program editor bar: the button keeps painting its whole selected paint at rest (fill, `--elevation-selected-shadow` inset ring and 1px border are one box there) and the lens is hidden; the lens (`--control-selection-active-bg`, the inset ring and the 1px selected border) is visible only while it is in the air, and the destination button sets its own aside for that time | n/a: with no travel the button's ring is its own on every frame | Both themes are a token swap. The old `nav::before` pill that slid on a CSS transition (`--dock-i`, `--dock-col`, `--dock-row`) is gone, so the stylesheet no longer moves anything |
+
+The lens is placed on the active button's border box, read from layout (`--lens-x`, `--lens-y`, `--lens-w`,
+`--lens-h`), so it follows the grid at four columns, at two rows (200% text) and in the editor bar alike. A
+pressed button is scaled (`nav button:active`); the placement divides that scale back out so a tap never mounts
+the lens on a shrunken box. The floating dock offsets the lens with `translate`, as the pill was offset with a
+transform, so the pill is painted where it always was (a fractional column is not pixel-snapped the way the
+button's own box is; the editor bar offsets with `left` and `top`, so it snaps as the button did). The proof is the
+`N1` sections of `test/motion-integration.mjs` (`REPFORGE_MOTION_ONLY=dock`).
 
 ## Reduced motion
 
@@ -192,7 +418,7 @@ measured in `test/motion-integration.mjs` against the real runtime.
 ## What is not covered by an automated test
 
 Contract tests cover the pins, the offline shell, the load order, the layer
-boundary, reduced motion, interruption and every reorder path. Three things are
+boundary, reduced motion, interruption and every reorder path. Four things are
 left to a person on a real device:
 
 - Whether the spring settings *feel* right on a low-end Android phone under
@@ -201,6 +427,9 @@ left to a person on a real device:
   edge of a long day list held in one hand.
 - Whether the drop animation reads correctly against a screen reader's own
   pacing when both are running.
+- Whether M1, the shelf value moving with a pad tap, reads as busy after thirty
+  taps on a phone held in one hand (pending device check). If it does, the one
+  switch moves to the 80ms crossfade; record the outcome in the device matrix.
 
 Plan 055 compact-screen correction: the card context (exercise heading and ledger)
 can scroll above the fixed active-set controls. The ledger retains a 112px

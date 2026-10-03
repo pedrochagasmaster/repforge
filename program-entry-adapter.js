@@ -611,6 +611,35 @@
     };
   }
 
+  /* Presentation only: which exercises a change added or removed, for the
+     review's "N of M exercises changed" statement. An exercise is its library
+     id, or its folded name when the row is not linked to the library; the
+     comparison is a multiset, so a duplicated movement counts twice. `n` is the
+     larger side of the difference, capped at the new program's size. */
+  function foldName(value) {
+    return String(value == null ? "" : value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+  }
+  function exerciseIdentity(row) {
+    return row && row.libraryId ? `lib:${row.libraryId}` : `name:${foldName(row && row.name)}`;
+  }
+  function identityDiff(before, after) {
+    const rows = (value) => (Array.isArray(value && value.program) ? value.program : Array.isArray(value) ? value : []);
+    const tally = (list) => {
+      const counts = new Map();
+      for (const row of list) {
+        const key = exerciseIdentity(row);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      return counts;
+    };
+    const was = tally(rows(before)), now = tally(rows(after));
+    let added = 0, removed = 0;
+    for (const [key, count] of now) added += Math.max(0, count - (was.get(key) || 0));
+    for (const [key, count] of was) removed += Math.max(0, count - (now.get(key) || 0));
+    const total = rows(after).length;
+    return { added, removed, n: Math.min(total, Math.max(added, removed)), total };
+  }
+
   function createProductionServices(options) {
     const opts = options && typeof options === "object" ? options : {};
     const Comp = compilerApi(opts.Compiler);
@@ -662,6 +691,8 @@
     buildEmptyProgram,
     sharedMovementId,
     resolveFamilyId,
+    exerciseIdentity,
+    identityDiff,
   });
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -280,6 +280,32 @@ async function runContextualGuideAccessibility(browser) {
     "Contextual Privacy guide is labelled, anchored, and non-modal",
     JSON.stringify(automatic)
   );
+  // Every keyboard stop in Settings is a named, visible control (R7 J-01: two clipped,
+  // unnamed state checkboxes sat in the tab order beside the toggles that own them).
+  const settingsStops = await page.evaluate(() => {
+    const selector = "a[href],button,input,select,textarea,summary,[tabindex]";
+    const bad = [];
+    for (const el of document.querySelectorAll(`#settings ${selector.split(",").join(`,#settings `)}`)) {
+      if (el.disabled || el.tabIndex < 0 || el.closest("[hidden],[inert],[aria-hidden='true']")) continue;
+      const style = getComputedStyle(el), rect = el.getBoundingClientRect();
+      if (!el.getClientRects().length || style.visibility === "hidden") continue;
+      const clipped = style.clip === "rect(0px, 0px, 0px, 0px)" || /inset\(50%/.test(style.clipPath || "") || rect.width < 2 || rect.height < 2;
+      const named = (el.getAttribute("aria-label") || "").trim() || (el.getAttribute("aria-labelledby") || "").trim()
+        || [...(el.labels || [])].some((label) => label.textContent.trim()) || el.textContent.trim() || (el.getAttribute("title") || "").trim();
+      if (clipped || !named) bad.push({ id: el.id || el.className || el.tagName, clipped, named: !!named });
+    }
+    return bad;
+  });
+  assert(settingsStops.length === 0, "Every Settings keyboard stop is a named, visible control", JSON.stringify(settingsStops));
+  // The legacy visually-hidden #heatGauge button (kept as a JS hook) was the first assistive-technology node
+  // on every screen (R7 J-17). Nothing visible or announced may remain of it.
+  const legacyHooks = await page.evaluate(() => {
+    const exposed = (el) => !!el && !el.closest("[hidden],[inert],[aria-hidden='true']")
+      && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden";
+    return ["#heatGauge", "#installBtn"].map((selector) => ({ selector, exposed: exposed(document.querySelector(selector)) }))
+      .filter((entry) => entry.exposed);
+  });
+  assert(legacyHooks.length === 0, "No legacy hook button is exposed to assistive technology", JSON.stringify(legacyHooks));
   await page.locator('[data-guide-cue="privacy"] [data-guide-dismiss]').click();
   await page.locator("#guideReplayToggle").focus();
   await page.keyboard.press("Enter");
@@ -318,7 +344,9 @@ async function runLocalizedHistoryAndGuideChecks(browser) {
     for (const lang of ["en", "pt"]) {
       await seedLangUnit(page, lang, "kg", true);
       await showView(page, "history");
-      await page.waitForSelector("#history.view.active #calPrev");
+      await page.waitForSelector("#history.view.active #historyCalBtn");
+      await page.click("#historyCalBtn");
+      await page.waitForSelector("#historyCalSheet.is-open #calPrev");
       const rendered = await page.evaluate(() => ({
         previous: document.querySelector("#calPrev")?.getAttribute("aria-label") || "",
         next: document.querySelector("#calNext")?.getAttribute("aria-label") || "",
@@ -442,22 +470,25 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     "End block: focus lands on the Review tab and the panel opens", JSON.stringify(route));
   assert(!route.confirmOpen && !route.dialogOpen && route.leaked.length === 0,
     "End block: no competing dialog opens and inertness is untouched", JSON.stringify(route));
-  // Evidence is a secondary tablist with correct tab semantics.
-  const evidenceTabs = await page.evaluate(() => {
-    const group = document.querySelector("#statsEvidence");
+  // Progress is one labelled tablist of five tabs with correct tab semantics.
+  const progressTabs = await page.evaluate(() => {
+    const group = document.querySelector("#statsSeg");
     return {
       role: group?.getAttribute("role"),
-      tabs: [...(group?.querySelectorAll("button") || [])].map((b) => ({ seg: b.dataset.seg, selected: b.getAttribute("aria-selected") })),
+      label: group?.getAttribute("aria-label"),
+      tabs: [...(group?.querySelectorAll("button") || [])].map((b) => ({ seg: b.dataset.seg, role: b.getAttribute("role"), selected: b.getAttribute("aria-selected") })),
     };
   });
-  assert(evidenceTabs.role === "tablist" && evidenceTabs.tabs.length === 3 && evidenceTabs.tabs.every((t) => t.selected === "false"),
-    "Evidence group is a labelled secondary tablist with three unselected tabs", JSON.stringify(evidenceTabs));
-  await page.click('#statsEvidence button[data-seg="volume"]');
+  assert(progressTabs.role === "tablist" && progressTabs.label && progressTabs.tabs.length === 5
+    && progressTabs.tabs.every((t) => t.role === "tab" && t.selected === (t.seg === "review" ? "true" : "false")),
+  "Progress tabs are one labelled tablist of five with only Review selected", JSON.stringify(progressTabs));
+  await page.click('#statsSeg button[data-seg="volume"]');
   const evSel = await page.evaluate(() => ({
-    selected: document.querySelector('#statsEvidence button[data-seg="volume"]')?.getAttribute("aria-selected"),
+    selected: document.querySelector('#statsSeg button[data-seg="volume"]')?.getAttribute("aria-selected"),
+    reviewSelected: document.querySelector('#statsSeg button[data-seg="review"]')?.getAttribute("aria-selected"),
     panel: document.querySelector("#segVolume")?.classList.contains("active"),
   }));
-  assert(evSel.selected === "true" && evSel.panel, "Evidence selection exposes aria-selected and its panel", JSON.stringify(evSel));
+  assert(evSel.selected === "true" && evSel.reviewSelected === "false" && evSel.panel, "Tab selection exposes aria-selected and its panel", JSON.stringify(evSel));
   await context.close();
 }
 
@@ -481,7 +512,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   assert(routed.active && routed.panel && !routed.confirmOpen && !routed.dialogOpen && routed.leaked.length === 0,
     "Block Review route: focus lands on the Review tab, no dialogs, no inertness leak", JSON.stringify(routed));
   // Opening Evidence and returning keeps the keyboard on a real control.
-  await page.click('#statsEvidence button[data-seg="strength"]');
+  await page.click('#statsSeg button[data-seg="strength"]');
   await page.click('#statsSeg button[data-seg="review"]');
   const back = await page.evaluate(() => ({
     panel: document.querySelector("#segReview")?.classList.contains("active"),
@@ -715,9 +746,10 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
-  const noteBtn = page.locator("#workout [data-exnote-open]").first();
-  const noteId = await noteBtn.getAttribute("data-exnote-open");
-  await noteBtn.click();
+  // The note opens from the exercise actions, which the header's three-dot button opens.
+  const noteId = "woOverflowBtn";
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.waitForFunction(() => {
     const s = document.querySelector("#exNoteSheet");
     return s && !s.hidden && !s.classList.contains("hidden");
@@ -734,24 +766,23 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const after = await page.evaluate(() => ({
     hidden: document.querySelector("#exNoteSheet")?.hidden || document.querySelector("#exNoteSheet")?.classList.contains("hidden"),
     leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
-    focusNote: document.activeElement?.getAttribute("data-exnote-open"),
+    focusNote: document.activeElement?.id,
   }));
   assert(after.hidden, "Exercise Note: Escape is Cancel and hides the sheet", JSON.stringify(after));
   assert(after.leaked.length === 0, "Exercise Note: close restores inertness", JSON.stringify(after.leaked));
   assert(after.focusNote === noteId, "Exercise Note: Cancel returns focus to the exact note trigger", JSON.stringify({ noteId, after }));
 
-  await page.evaluate((id) => {
-    [...document.querySelectorAll("#workout [data-exnote-open]")].find((b) => b.dataset.exnoteOpen === id)?.click();
-  }, noteId);
+  await page.locator("#woOverflowBtn").click();
+  await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet:not([hidden])", { timeout: 8000 });
   await page.locator("#exNoteText").fill("Saved focus note");
   await page.locator("#exNoteSave").click();
   await page.waitForFunction((id) => {
     const sheet = document.querySelector("#exNoteSheet");
-    return !!(sheet?.hidden && document.activeElement?.getAttribute("data-exnote-open") === id);
+    return !!(sheet?.hidden && document.activeElement?.id === id);
   }, noteId, { timeout: 8000 });
   const saved = await page.evaluate(() => ({
-    focusNote: document.activeElement?.getAttribute("data-exnote-open"),
+    focusNote: document.activeElement?.id,
     leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(saved.focusNote === noteId, "Exercise Note: Save returns focus after the rerender", JSON.stringify({ noteId, saved }));
@@ -877,7 +908,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await waitForApp(page);
     await page.waitForSelector("#sessionBanner:not(.hidden) .sessionbanner__act", { timeout: 8000 });
     const bannerTarget = await page.evaluate(() => ({
-      beforeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      beforeDay: document.querySelector('#dayTabs button[aria-pressed="true"]')?.dataset?.day,
       dueDay: RepForgeSchedule.mostOverdueDay(state.log, days(), today())?.day || null,
     }));
     await page.locator(".sessionbanner__act").focus();
@@ -885,7 +916,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await page.waitForSelector("#workoutShell:not(.hidden)");
     const afterEnter = await page.evaluate(() => ({
       hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
-      activeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      activeDay: document.querySelector('#dayTabs button[aria-pressed="true"]')?.dataset?.day,
       workoutVisible: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
       dashboardHidden: document.querySelector("#todayDash")?.classList.contains("hidden"),
     }));
@@ -914,7 +945,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await page.waitForSelector("#workoutShell:not(.hidden)");
     const afterSpace = await page.evaluate(() => ({
       hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
-      activeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      activeDay: document.querySelector('#dayTabs button[aria-pressed="true"]')?.dataset?.day,
       dueDay: RepForgeSchedule.mostOverdueDay(state.log, days(), today())?.day || null,
       workoutVisible: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
       dashboardHidden: document.querySelector("#todayDash")?.classList.contains("hidden"),
@@ -1029,7 +1060,10 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
       state.settings.notify = { ...(state.settings.notify || {}), enabled: on, timer: true };
     }, enabled);
     await page.evaluate(() => startRest(1));
-    await page.waitForFunction(() => (document.querySelector("#restAnnounce")?.textContent || "").trim().length > 0, { timeout: 4000 });
+    // The start of a rest is announced once, in its own words; the end is announced once after it.
+    await page.waitForFunction(() => /^Rest started: 0:01\.$/.test(document.querySelector("#restAnnounce")?.textContent || ""), { timeout: 4000 });
+    assert(true, `rest start announces once (notify ${enabled ? "on" : "off"})`);
+    await page.waitForFunction(() => document.querySelector("#restAnnounce")?.textContent === window.RepForgeI18n.t("rest.complete"), { timeout: 4000 });
     const first = await page.evaluate(() => document.querySelector("#restAnnounce")?.textContent);
     await page.evaluate(() => {
       document.dispatchEvent(new Event("visibilitychange"));
@@ -1043,7 +1077,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
       window.__repforgeRest.expire();
       document.dispatchEvent(new Event("visibilitychange"));
     });
-    await page.waitForFunction(() => (document.querySelector("#restAnnounce")?.textContent || "").trim().length > 0, { timeout: 4000 });
+    await page.waitForFunction(() => document.querySelector("#restAnnounce")?.textContent === window.RepForgeI18n.t("rest.complete"), { timeout: 4000 });
     const catchup = await page.evaluate(() => document.querySelector("#restAnnounce")?.textContent);
     assert(!!(catchup || "").trim(), `visibilitychange catch-up announces completion (notify ${enabled ? "on" : "off"})`, catchup);
     const again = await page.evaluate(() => {
@@ -1603,6 +1637,8 @@ async function seedIllustratedProgram(page, lang) {
     const img = document.querySelector(".exdet-art__img");
     return !!img && img.complete && img.naturalWidth > 0;
   }, { timeout: 8000 });
+  // The page rides in on a push (N4): geometry is read once it has come to rest.
+  await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
 }
 
 export async function runExerciseIllustrationAccessibility(browser, check = assert) {
@@ -1691,6 +1727,21 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
   await page.waitForFunction(() => document.querySelectorAll(".cal-grid__day").length >= 28);
 
   const sessionCount = await page.locator("#sessions [data-sess]").count();
+  // The calendar is a sheet now: measure the page behind it first, then the sheet itself.
+  const pageLayout = await page.evaluate(() => {
+    const root = document.documentElement;
+    const history = document.querySelector("#history");
+    const measure = (el) => ({ clientWidth: el?.clientWidth || 0, scrollWidth: el?.scrollWidth || 0 });
+    return { viewport: { innerWidth: window.innerWidth, clientWidth: root.clientWidth }, document: measure(root), history: measure(history) };
+  });
+  await page.click("#historyCalBtn");
+  await page.waitForSelector("#historyCalSheet.is-open .cal-grid__day");
+  await page.waitForFunction(() => {
+    const sheet = document.querySelector("#historyCalSheet");
+    return sheet && Math.abs(sheet.getBoundingClientRect().bottom - window.innerHeight) < 2;
+  });
+  // The sheet is within 2px of its rest position before its entry transition ends; measure the settled sheet.
+  await settleAnimations(page);
   const layout = await page.evaluate(() => {
     const root = document.documentElement;
     const history = document.querySelector("#history");
@@ -1720,14 +1771,14 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
 
   check(sessionCount === 2, "320px History opens with two seeded sessions", `count=${sessionCount}`);
   check(
-    fits(layout.document),
+    fits(pageLayout.document),
     "320px populated History does not overflow the document",
-    JSON.stringify({ viewport: layout.viewport, document: layout.document })
+    JSON.stringify({ viewport: pageLayout.viewport, document: pageLayout.document })
   );
   check(
-    fits(layout.history),
+    fits(pageLayout.history),
     "320px populated History fits its own content box",
-    JSON.stringify(layout.history)
+    JSON.stringify(pageLayout.history)
   );
   check(
     fits(layout.calendar) &&
@@ -1738,6 +1789,90 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
     "320px History calendar keeps seven columns without horizontal overflow",
     JSON.stringify(layout.calendar)
   );
+
+  // The History editor and its discard question at the same width (Plan 064 R3j2), in both languages.
+  for (const lang of ["en", "pt"]) {
+    await seedLangUnit(page, lang, "kg", true);
+    await showView(page, "history");
+    await page.waitForSelector("#sessions [data-sess]");
+    await page.locator("#sessions .session__open").first().click();
+    await page.waitForSelector(".session--read");
+    await page.locator("[data-history-edit]").click();
+    await page.waitForSelector(".session--edit");
+    await settleAnimations(page);
+    const edit = await page.evaluate(() => {
+      const shown = (el) => {
+        const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none";
+      };
+      const name = (el) => el.getAttribute("aria-label") || el.dataset.ek || el.textContent.trim().slice(0, 24) || el.tagName;
+      const controls = [...document.querySelectorAll("#history button, #history input")].filter(shown);
+      const small = controls.filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width + 0.01 < 44 || r.height + 0.01 < 44;
+      }).map((el) => `${name(el)} ${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)}`);
+      const bar = document.querySelector(".histedit__bar").getBoundingClientRect();
+      const root = document.documentElement;
+      const names = [...document.querySelectorAll(".edgroup__name")].map((el) => el.textContent.trim());
+      return {
+        controls: controls.length, small,
+        barBottomGap: Math.round(innerHeight - bar.bottom), barWidth: Math.round(bar.width),
+        overflowX: root.scrollWidth > root.clientWidth,
+        navHidden: getComputedStyle(document.querySelector("nav")).display === "none",
+        names, distinct: new Set(names).size, rowCount: document.querySelectorAll(".session--edit .edrow").length,
+        perRowNames: document.querySelectorAll(".session--edit .edrow__name").length,
+      };
+    });
+    check(edit.controls >= 8 && edit.small.length === 0,
+      `320px History editor controls are all at least 44x44 (${lang})`, JSON.stringify({ controls: edit.controls, small: edit.small }));
+    check(!edit.overflowX && edit.barBottomGap === 0 && edit.barWidth === 320,
+      `320px History editor has no horizontal overflow and Cancel/Save are pinned to the bottom edge (${lang})`, JSON.stringify(edit));
+    check(edit.navHidden, `the dock is hidden while a session is edited (${lang})`);
+    check(edit.names.length > 0 && edit.names.length === edit.distinct && edit.perRowNames === 0,
+      `the History editor heads each lift's group with its name and keeps no per-set name column (${lang})`, JSON.stringify(edit));
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const tail = await page.evaluate(() => ({
+      barTop: Math.round(document.querySelector(".histedit__bar").getBoundingClientRect().top),
+      deleteBottom: Math.round(document.querySelector(".edrisk .session__del").getBoundingClientRect().bottom),
+    }));
+    check(tail.deleteBottom <= tail.barTop, `Delete session stays reachable above the pinned bar at the end of the page (${lang})`, JSON.stringify(tail));
+
+    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("101");
+    await page.locator("[data-edcancel]").click();
+    await page.waitForSelector("#historyDiscardSheet.is-open");
+    await settleAnimations(page);
+    const sheet = await page.evaluate(() => {
+      const el = document.querySelector("#historyDiscardSheet"), r = el.getBoundingClientRect();
+      const buttons = [...el.querySelectorAll("button")].map((b) => b.getBoundingClientRect());
+      return {
+        role: el.getAttribute("role"), modal: el.getAttribute("aria-modal"), label: document.getElementById(el.getAttribute("aria-labelledby"))?.textContent.trim(),
+        top: Math.round(r.top), bottomGap: Math.round(innerHeight - r.bottom), left: Math.round(r.left), width: Math.round(r.width),
+        small: buttons.filter((b) => b.width + 0.01 < 44 || b.height + 0.01 < 44).length, buttons: buttons.length,
+        focus: document.activeElement?.id, pageInert: document.querySelector("main")?.inert === true,
+        overflowX: el.scrollWidth > el.clientWidth,
+      };
+    });
+    check(sheet.role === "dialog" && sheet.modal === "true" && sheet.label && sheet.buttons === 2 && sheet.small === 0,
+      `the discard question is a modal sheet with two 44px choices (${lang})`, JSON.stringify(sheet));
+    check(sheet.top >= 0 && sheet.bottomGap === 0 && sheet.left === 0 && sheet.width === 320 && !sheet.overflowX,
+      `the discard sheet fits the 320px viewport (${lang})`, JSON.stringify(sheet));
+    check(sheet.focus === "historyDiscardKeep" && sheet.pageInert,
+      `the discard sheet starts on Keep editing and the page behind it is inert (${lang})`, JSON.stringify(sheet));
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#historyDiscardSheet", { state: "hidden" });
+    const kept = await page.evaluate(() => ({
+      editing: !!document.querySelector(".session--edit"),
+      value: document.querySelector('.session--edit input[data-ek^="load|"]')?.value,
+      focus: document.activeElement?.matches("[data-edcancel]"),
+    }));
+    check(kept.editing && kept.value === "101" && kept.focus,
+      `Escape on the discard question keeps editing and returns focus to Cancel (${lang})`, JSON.stringify(kept));
+    await page.locator("[data-edcancel]").click();
+    await page.waitForSelector("#historyDiscardSheet.is-open");
+    await page.locator("#historyDiscardDrop").click();
+    await page.waitForSelector(".session--read");
+    await page.waitForSelector("#historyDiscardSheet", { state: "hidden" });
+  }
 
   await context.close();
 }
@@ -1806,7 +1941,7 @@ async function runTouchTarget320Regression(browser) {
     await clearState(page);
     await seedLangUnit(page, "en", "kg", false, mode);
     await page.click("#startWorkout");
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus .exercise.is-current .focus-well");
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus .exercise.is-current .focus-shelf");
     await page.evaluate(() =>
       document.getAnimations().forEach((animation) => animation.finish())
     );
@@ -1940,7 +2075,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)");
 
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator("#exActionsClose").click();
@@ -1949,7 +2084,7 @@ async function runDimmedStateAccessibility(browser) {
     );
     const warmup = await auditEnabledControlText(
       page,
-      "#workout .exercise.is-current .focus-well"
+      "#workout .exercise.is-current .focus-shelf"
     );
     assert(
       warmup.controls.length >= 5,
@@ -1963,7 +2098,7 @@ async function runDimmedStateAccessibility(browser) {
     );
 
     const skippedId=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
@@ -1989,7 +2124,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
     await page.locator("#sessionSheet").waitFor({state:"hidden"});
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     const skip=lang==="pt"?"Pular exercício":"Skip exercise";
     assert(await page.getByRole("button",{name:skip,exact:true}).count()===1,
       `restoring returns the action to Skip semantics (${lang})`);
@@ -2133,8 +2268,8 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   });
   assert(fonts.every((f) => f.px >= 16), "visible editable fields are at least 16px", JSON.stringify(fonts));
   const touch = await page.evaluate(() => {
-    const step = document.querySelector(".stepbtn, .curset__step");
-    const field = document.querySelector("#workout input, #workout .curset__val");
+    const step = document.querySelector(".stepbtn");
+    const field = document.querySelector("#workout input");
     return {
       step: step ? getComputedStyle(step).touchAction : null,
       field: field ? getComputedStyle(field).touchAction : null,
@@ -2145,14 +2280,14 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   await page.waitForSelector("#workout .exercise.is-current");
   const grip = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const ledger = card?.querySelector(".fcard__ledger");
+    const ledger = card?.querySelector(".fcard__context");
     return {
       card: card ? getComputedStyle(card).touchAction : null,
       ledger: ledger ? getComputedStyle(ledger).touchAction : null,
       scrolls: ledger ? ledger.scrollHeight > ledger.clientHeight + 1 : false,
     };
   });
-  const wantLedger = grip.scrolls ? "pan-y" : "none";
+  const wantLedger = "pan-y";
   assert(grip.card === "pan-y" && grip.ledger === wantLedger, "Focus card/ledger take panning only, never a zoom", JSON.stringify(grip));
   await context.close();
 }
@@ -2186,17 +2321,22 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   });
   await page.waitForSelector("#stats.view.active");
   await page.evaluate(() => typeof setStatsSeg === "function" && setStatsSeg("overview"));
-  await page.waitForSelector("#statExercise", { state: "visible" });
+  await page.waitForSelector('#statsSeg button[data-seg="strength"]', { state: "visible" });
+  // Keyboard modality: the row is a roving tablist (R7 J-20), so only the selected tab is a tab stop. Land on the
+  // Overview tab, then arrow to Strength, so :focus-visible applies to the tab the keyboard moved to.
+  await page.focus('#statsSeg button[data-seg="overview"]');
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("ArrowRight");
   const strengthRing = await page.evaluate(() => {
-    const el = document.querySelector("#statExercise");
-    if (!el) return { missing: true };
-    el.focus();
+    const el = document.activeElement;
+    if (!el || el.dataset?.seg !== "strength") return { missing: true, active: el?.id || el?.tagName };
     const st = getComputedStyle(el);
     return { outline: st.outlineStyle, outlineW: parseFloat(st.outlineWidth) || 0, shadow: st.boxShadow, outlineColor: st.outlineColor };
   });
   assert(
     !strengthRing.missing && ((strengthRing.outline !== "none" && strengthRing.outlineW > 0) || (strengthRing.shadow && strengthRing.shadow !== "none")),
-    "Strength select shows a non-zero focus outline/ring",
+    "Progress tab shows a non-zero focus outline/ring",
     JSON.stringify(strengthRing)
   );
   await context.close();
@@ -2266,20 +2406,8 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       });
       await page.waitForSelector("#stats.view.active");
       await page.evaluate(() => {
-        if (typeof redrawChart === "function") redrawChart();
-        const canvas = document.querySelector("#chart");
-        if (canvas) canvas.__fillTexts = [];
-        if (typeof draw === "function") {
-          const rows = (state.log || []).filter((r) => r.exerciseId === (state.program?.[0]?.id)).map((r) => ({ date: r.date, e1rm: r.load * (1 + r.reps / 30), top: r.load }));
-          draw(rows.length ? rows : [], "#chart");
-        }
-      });
-      const chart = await canvasContrast(page, "#chart");
-      assert(chart.fails.length === 0, `#chart canvas text contrast (${lang}, ${populated ? "populated" : "empty"})`, JSON.stringify(chart));
-      assert(!!chart.palette && !!chart.palette.text, "window.__repforgeChartPalette exposes tokenized chart text color", JSON.stringify(chart.palette));
-      await page.evaluate(() => {
         const key = state.program?.[0]?.id;
-        if (key && typeof openExerciseView === "function") openExerciseView(key, "stats");
+        if (key && typeof openExerciseView === "function") openExerciseView(key, "log");
       });
       await page.waitForSelector("#exChart", { timeout: 8000 });
       await page.evaluate((populated) => {
@@ -2292,6 +2420,7 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       }, populated);
       const exChart = await canvasContrast(page, "#exChart");
       assert(exChart.fails.length === 0, `#exChart canvas text contrast (${lang}, ${populated ? "populated" : "empty"})`, JSON.stringify(exChart));
+      assert(!!exChart.palette && !!exChart.palette.text, "window.__repforgeChartPalette exposes tokenized chart text color", JSON.stringify(exChart.palette));
       await page.evaluate(() => {
         document.body.classList.remove("is-exercise");
         if (typeof closeExerciseView === "function") closeExerciseView();

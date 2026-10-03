@@ -40,6 +40,10 @@ const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
 const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
 const OLD_APP = execFileSync("git", ["show", `${OLD_APP_SHA}:app.js`], { encoding: "utf8" });
+// An installed older version runs its own shell with its own app.js, so the legacy
+// writer gets that commit's index.html too (the current shell retired DOM it binds).
+const OLD_INDEX = execFileSync("git", ["show", `${OLD_APP_SHA}:index.html`], { encoding: "utf8" });
+const OLD_DOCUMENT = /\/(?:index\.html)?(?:\?[^/]*)?$/;
 const failures = [];
 let passed = 0;
 
@@ -210,6 +214,15 @@ async function openOldPopup(context, opener, name) {
     return route.fulfill({ status: 200, contentType: "text/javascript", body: OLD_APP });
   };
   await context.route(/\/app\.js(?:\?|$)/, handler);
+  const shellHandler = (route) => {
+    if (route.request().resourceType() !== "document") return route.continue();
+    // A popup's first navigation has no frame yet; only the old popup navigates while this route is installed.
+    let fromCurrent = false;
+    try { fromCurrent = route.request().frame().page() === opener; } catch { fromCurrent = false; }
+    if (fromCurrent) return route.continue();
+    return route.fulfill({ status: 200, contentType: "text/html", body: OLD_INDEX });
+  };
+  await context.route(OLD_DOCUMENT, shellHandler);
   const popup = context.waitForEvent("page");
   await opener.evaluate(({ url, name }) => {
     window.__draftConflictStaleTab = window.open(url, name);
@@ -217,6 +230,7 @@ async function openOldPopup(context, opener, name) {
   const page = await popup;
   await waitForApp(page);
   await context.unroute(/\/app\.js(?:\?|$)/, handler);
+  await context.unroute(OLD_DOCUMENT, shellHandler);
   return page;
 }
 
@@ -657,6 +671,7 @@ async function runNormalProgramImportConflict(browser) {
     await queueNewerDraftLoad(writer, "105");
     await waitForPendingStorageLocks(locker, 1);
     await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
+    await confirmEntryReplace(writer);
     await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
     await releaseStorageLock(locker);
@@ -693,6 +708,12 @@ async function runNormalProgramImportConflict(browser) {
   }
 }
 
+// Replacing an active program asks first; the dialog stands where the native confirm did.
+async function confirmEntryReplace(page) {
+  const replace = page.locator("#entryReplaceConfirm");
+  if (await replace.waitFor({ state: "visible", timeout: 1500 }).then(() => true, () => false)) await replace.click();
+}
+
 async function runOnboardingProgramImportConflict(browser) {
   console.log("\n5. Onboarding program import conflicts with a newer draft");
   const context = await browser.newContext({
@@ -719,6 +740,7 @@ async function runOnboardingProgramImportConflict(browser) {
     await queueNewerDraftLoad(writer, "106.25");
     await waitForPendingStorageLocks(locker, 1);
     await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
+    await confirmEntryReplace(writer);
     await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
     await releaseStorageLock(locker);

@@ -32,7 +32,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { ROOT, capturePath, captureKey, expandCaptures, loadManifest, screenKey, variantSlug } from "./ui-screens/manifest.mjs";
 import { dismissChrome, launchChromium, openPage, settle, setCaptureBase } from "./ui-screens/session.mjs";
-import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, focusOnboardingSubject, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { buildSemanticArtifact, collectProgramEntrySemantics, normalizeSemanticRecords, validateSemanticArtifact } from "./ui-screens/semantics.mjs";
 import { collectCatalogEvidence, configForCapture, validateCatalogEvidence, validateCatalogMetadata } from "./ui-screens/catalog-contract.mjs";
@@ -302,6 +302,7 @@ async function main(options = parseArgs(process.argv.slice(2))) {
       try {
         const opened = await openPage(browser, MANIFEST, capture, stateFor(capture), {
           userAgent: APP_USER_AGENT[key],
+          now: APP_CLOCK[key],
         });
         context = opened.context;
         // The tour and the install banner are drawn over the app and swallow

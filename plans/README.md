@@ -34,8 +34,8 @@ Next work. Plan 059 remains planned and validates the resulting stable
 candidate last. This bounded exception does not pull unrelated Later/Gated
 work forward.
 
-Plan 063 (Direction D) is owner-selected and lives on PR #272's branch until
-Plan 064's R0 slice migrates it; it keeps its number as the main-app
+Plan 063 (Direction D) is owner-selected; Plan 064's R0 slice migrated it from
+PR #272's branch at `2f2fc044` onto the workfront (PR #295); it keeps its number as the main-app
 specification consumed by Plan 064. No other work may use the number 063;
 PR #258's branch-local plan of that number is renumbered when that work
 resumes. The Opus orchestrator's starting brief is
@@ -63,7 +63,7 @@ resumes. The Opus orchestrator's starting brief is
 | Plan | State | Outcome |
 |---|---|---|
 | 063 (on PR #272, `redesign/direction-d`) | **OWNER-SELECTED SPECIFICATION — consumed by 064** | Direction D: the main-app reference for Today, Focus and rest, Why, session summary, Progress, History and Program (ADR 0016). Its P-slices are executed as Plan 064 slice R3. |
-| [064](./064-unified-redesign-convergence.md) | **PLANNED — AWAITING OWNER APPROVAL OF THE SPECIFICATION** | One unified redesign production PR: shared system, landing, Direction D, owner-selected onboarding, cross-surface journeys, full convergence and adversarial review, orchestrated by Opus with Sonnet workers. Precedes #258/#257 integration and Plan 059. |
+| [064](./064-unified-redesign-convergence.md) | **IN PROGRESS — PR #295** | One unified redesign production PR: shared system, landing, Direction D, owner-selected onboarding, cross-surface journeys, full convergence and adversarial review, orchestrated by Opus with Sonnet workers. Precedes #258/#257 integration and Plan 059. |
 
 Phase 2 has three independently mergeable plans because workout data loss,
 program-transition provenance, and temporary backend security have distinct

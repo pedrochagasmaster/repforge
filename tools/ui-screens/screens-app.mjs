@@ -6,7 +6,7 @@
  * page through all 35 screens in order, so a single broken step silently
  * poisoned every frame after it.
  */
-import { catalogState, emptyEntryState, localeState } from "./fixtures.mjs";
+import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, sleep } from "./session.mjs";
 
 export function stabilizeShareUrlForCapture(value) {
@@ -116,7 +116,7 @@ async function assertDockFitsExternalTextScale(page) {
         && label.rect.top < other.rect.bottom - 1 && other.rect.top < label.rect.bottom - 1));
       const lang = root.lang.toLowerCase();
       const expectedLabels = lang.startsWith("pt")
-        ? ["Hoje", "Progresso", "Histórico", "Programa"]
+        ? ["Hoje", "Progresso", "Histórico", "Treino"]
         : ["Today", "Progress", "History", "Program"];
       return {
         rootFontSize: getComputedStyle(root).fontSize,
@@ -141,19 +141,19 @@ async function assertDockFitsExternalTextScale(page) {
 async function assertTodayExerciseFitsExternalTextScale(page) {
   await withExternalTextScale(page, async () => {
     await page.evaluate(() => {
-      const row = document.querySelector(".today-ex");
+      const row = document.querySelector(".rxrow");
       const dock = document.querySelector("nav");
       if (!row || !dock) throw new Error("Today external-scale proof is missing the exercise row or dock");
       const rowBottom = row.getBoundingClientRect().bottom;
       const dockTop = dock.getBoundingClientRect().top;
-      window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
+      window.scrollTo({ top: window.scrollY + Math.max(0, Math.ceil(rowBottom - dockTop + 8)), behavior: "instant" });
     });
     await page.evaluate(() => new Promise(requestAnimationFrame));
     const clearance = await page.evaluate(() => {
       const root = document.documentElement;
-      const row = document.querySelector(".today-ex");
-      const name = row?.querySelector(".today-ex__name");
-      const value = row?.querySelector(".today-ex__value");
+      const row = document.querySelector(".rxrow");
+      const name = row?.querySelector(".rxrow__name");
+      const value = row?.querySelector(".rxrow__target");
       const dock = document.querySelector("nav");
       if (!row || !name || !value || !dock) return { error: "Today row, value, or dock is missing" };
       const style = getComputedStyle(name);
@@ -253,87 +253,94 @@ async function assertLibraryTabsFitExternalTextScale(page) {
   });
 }
 
+/** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
+const D_FIXTURE_STATES = new Set([
+  "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
+  "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
+  "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
+  "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
+  "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
+  "program/overview", // R3k
+  "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
+  "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
+  "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
+  "progress/strength", "progress/strength-current-block", "progress/strength-all-history", // R3i
+  "progress/strength-comparison", "progress/strength-sparse", // R3i
+]);
+/**
+ * Direction D states that show the lifter before the day's session is saved.
+ * The review page's "today" session is part of the fixture log (the summary
+ * states draw it), so Today's states read the log as it stood that morning.
+ */
+const DIRECTION_D_BEFORE_SESSION = new Set([
+  "today/ready", "today/day-picker", "today/rest-bar", "today/mixed-strategies", "today/draft-resume",
+  "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
+  "workout/rest-running", "workout/rest-done",
+]);
+function directionDBeforeSession() {
+  const state = directionDState();
+  const today = CAPTURE_NOW.slice(0, 10);
+  state.log = state.log.filter((row) => String(row.date) < today);
+  return state;
+}
+
+/**
+ * The Direction D summary states each show one session of the fixture lifter. The log is cut at that
+ * session's date, so the summary reads the evidence the lifter had when it was saved, and the scenario
+ * opens the summary through the same build/open seam the finish path uses.
+ */
+export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
+  "session/summary": "dd-2026-08-31-day1",
+  "session/summary-maintained": "dd-2026-08-26-day2",
+  "session/summary-declined": "dd-2026-08-28-day3",
+  "session/summary-mixed": "dd-2026-08-26-day2-mixed",
+  "session/summary-first": "dd-2026-08-12-day2-mixed",
+});
+function directionDThroughSession(sessionId) {
+  const state = directionDState();
+  const date = state.log.find((row) => row.session === sessionId)?.date;
+  if (!date) throw new Error(`The Direction D fixture has no session ${sessionId}`);
+  state.log = state.log.filter((row) => String(row.date) <= date);
+  return state;
+}
+
+/**
+ * States the review page draws on an earlier day of the same block (OG-6 round
+ * 2): the lifter has fewer sessions then, so Progress shows its baseline,
+ * snapshot and comparison shapes. The drawing's days shift by -21 like the
+ * rest of the fixture: end of week 1 (Sun 16 Aug), the Monday after it (17
+ * Aug, week 2) and Wednesday 19 Aug. `APP_CLOCK` is the capture clock for the
+ * state; `APP_ASOF` is the last day of the log the lifter has by then.
+ */
+export const APP_CLOCK = {
+  "progress/overview-baseline": "2026-08-17T12:00:00.000Z",
+  "progress/strength-comparison": "2026-08-19T12:00:00.000Z",
+  "progress/strength-sparse": "2026-08-16T12:00:00.000Z",
+};
+const APP_ASOF = {
+  "progress/overview-baseline": "2026-08-16",
+  "progress/strength-comparison": "2026-08-19",
+  "progress/strength-sparse": "2026-08-16",
+};
+
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
+  if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
+  if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
       ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
     return emptyEntryState(lang);
   }
+  // Direction D owns these states (spec section 11): they render the one lifter
+  // the review page draws. Every other state keeps catalogState().
+  if (D_FIXTURE_STATES.has(key)) {
+    const drawn = localeState(directionDState(), lang);
+    if (APP_ASOF[key]) drawn.log = drawn.log.filter((row) => row.date <= APP_ASOF[key]);
+    return drawn;
+  }
   const state = catalogState();
-  if (key === "today/ready") {
-    const exercise = state.program.find((item) => item.name === "Barbell bench press");
-    const date = isoDaysAgo(1);
-    if (!exercise) throw new Error("Today hot-readiness fixture is missing its bench press");
-    state.log.push(...Array.from({ length: exercise.sets }, (_, index) => ({
-      session: "today-ready-hot",
-      date,
-      day: exercise.day,
-      name: exercise.name,
-      exerciseId: exercise.id,
-      set: index + 1,
-      load: 90,
-      reps: exercise.max,
-      rir: 1,
-      work: true,
-      notes: "",
-      created: `${date}T12:${String(index).padStart(2, "0")}:00.000Z`,
-      primary: exercise.primary,
-      secondary: exercise.secondary,
-      performedLibraryId: exercise.libraryId || undefined,
-    })));
-  }
-  if (key.startsWith("session/summary-")) {
-    const dayExercises = state.program.filter((exercise) => exercise.day === "Day 1");
-    const loads = dayExercises.map((_, index) => 80 + index * 5);
-    const priorLoads = key === "session/summary-declined"
-      ? loads.map((load) => load + 10)
-      : key === "session/summary-mixed"
-        ? loads.map((load, index) => index % 2 ? load + 10 : load)
-        : loads;
-    const priorDate = isoDaysAgo(1);
-    state.log.push(...dayExercises.map((exercise, index) => ({
-      session: "summary-" + key.slice("session/summary-".length) + "-prior",
-      date: priorDate,
-      day: exercise.day,
-      name: exercise.name,
-      exerciseId: exercise.id,
-      set: 1,
-      load: priorLoads[index],
-      reps: key === "session/summary-declined" || (key === "session/summary-mixed" && index % 2)
-        ? 8
-        : 6,
-      rir: 1,
-      work: true,
-      notes: "",
-      created: priorDate + "T12:00:00.000Z",
-      primary: exercise.primary,
-      secondary: exercise.secondary,
-      performedLibraryId: exercise.libraryId || undefined,
-    })));
-  }
-  if (key === "program/readiness") {
-    const exercise = state.program[0];
-    const date = isoDaysAgo(2);
-    state.log = Array.from({ length: exercise.sets }, (_, index) => ({
-      session: "program-readiness",
-      date,
-      day: exercise.day,
-      name: exercise.name,
-      exerciseId: exercise.id,
-      set: index + 1,
-      load: 100,
-      reps: 8,
-      rir: 1,
-      work: true,
-      notes: "",
-      created: `${date}T12:0${index}:00.000Z`,
-      primary: exercise.primary,
-      secondary: exercise.secondary,
-      performedLibraryId: exercise.libraryId || undefined,
-    }));
-  }
   if (key.startsWith("program/share-")) {
     const libraryIds = ["sq_bb", "lc_mc", "pr_bb", "rw1_db", "dl_cb", "pd_bw", "dl_bb", "sp_cb", "cu_bb", "le_mc", "ci_mc", "tr_cb"];
     state.program.forEach((exercise, index) => { exercise.libraryId = libraryIds[index] || "sq_bb"; });
@@ -384,20 +391,33 @@ async function openTransferState(page, state) {
 }
 
 /** Fill the current focus card and save the set, which starts the rest timer. */
-async function logCurrentSet(page) {
-  await page.evaluate(() => {
+async function logCurrentSet(page, values = { load: "100", reps: "6", rir: "1" }) {
+  await page.evaluate((values) => {
     const card = document.querySelector("#workout .exercise.is-current")
       || document.querySelector("#workout .exercise");
     card?.querySelectorAll("input").forEach((el) => {
       const key = el.dataset.k || "";
-      if (key.endsWith("_load")) el.value = "100";
-      else if (key.endsWith("_reps")) el.value = "6";
-      else if (key.endsWith("_rir")) el.value = "1";
+      if (key.endsWith("_load")) el.value = values.load;
+      else if (key.endsWith("_reps")) el.value = values.reps;
+      else if (key.endsWith("_rir")) el.value = values.rir;
       el.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    card?.querySelector(".saveset, .focus-well .btn--cta")?.click();
-  });
+    card?.querySelector(".saveset")?.click();
+  }, values);
   await sleep(page, 600);
+}
+
+/** Open the session summary for a session already in the log, through the seam the finish path uses. */
+async function openFixtureSummary(page, sessionId) {
+  await page.evaluate((id) => {
+    const log = JSON.parse(localStorage.getItem("repforge_v1")).log;
+    const rows = log.filter((row) => row.session === id);
+    const prevLog = log.filter((row) => row.session !== id);
+    const summary = window.__repforgeSessionSummary.build({ rows, prevLog, session: id, date: rows[0].date, day: rows[0].day, startedAt: 0 });
+    window.__repforgeSessionSummary.open(summary);
+  }, sessionId);
+  await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 20000 });
+  await sleep(page, 900);
 }
 
 async function saveWholeSession(page) {
@@ -416,46 +436,6 @@ async function saveWholeSession(page) {
   // The fixture fills one set per exercise, so the normal finish boundary
   // correctly rejects it as incomplete. Use the same visible confirmation
   // path a lifter must use for an intentional partial session.
-  await page.click("#sessionSheetBtn");
-  await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
-  await page.click("#sessionEarlyFinish");
-  await page.click("#sessionEarlyConfirm");
-  await page.waitForFunction(() => {
-    const el = document.querySelector("#sessionSummary");
-    return el && !el.hidden && !el.classList.contains("hidden");
-  }, undefined, { timeout: 15000 });
-  await sleep(page, 900);
-}
-
-async function saveMixedSummarySession(page) {
-  await enterWorkout(page, { day: "Day 1" });
-  for (const exerciseIndex of [0, 1]) {
-    if (exerciseIndex > 0) {
-      await page.click("#sessionSheetBtn");
-      await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
-      const target = page.locator("[data-session-map-jump]").nth(exerciseIndex);
-      const exerciseId = await target.getAttribute("data-session-map-jump");
-      await target.click();
-      await page.waitForSelector("#sessionSheet.is-open", { state: "hidden", timeout: 15000 });
-      await page.waitForFunction(
-        (id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
-        exerciseId,
-        { timeout: 15000 },
-      );
-    }
-    await page.evaluate(() => {
-      const card = document.querySelector("#workout .exercise.is-current");
-      card?.querySelectorAll("input").forEach((el) => {
-        const key = el.dataset.k || "";
-        if (key.endsWith("_load")) el.value = "100";
-        else if (key.endsWith("_reps")) el.value = "6";
-        else if (key.endsWith("_rir")) el.value = "1";
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-      });
-      card?.querySelector(".saveset")?.click();
-    });
-    await sleep(page, 700);
-  }
   await page.click("#sessionSheetBtn");
   await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
   await page.click("#sessionEarlyFinish");
@@ -493,8 +473,7 @@ async function openShare(page) {
 
 async function progressSegment(page, segment) {
   await view(page, "stats");
-  const primary = segment === "overview" || segment === "review";
-  await page.click(`${primary ? "#statsSeg" : "#statsEvidence"} [data-seg="${segment}"]`);
+  await page.click(`#statsSeg [data-seg="${segment}"]`);
   await sleep(page, 500);
 }
 
@@ -688,44 +667,58 @@ async function createInUseCustomExercise(page) {
   return result;
 }
 
-async function showRestTimer(page, paused = false) {
-  await focusMode(page);
-  await logCurrentSet(page);
-  await page.waitForFunction(
-    () => document.querySelector("#woRest")?.classList.contains("is-running"),
-    undefined, { timeout: 20000 }
-  );
-  await page.click("#woRest");
-  await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
-  if (paused) {
-    await page.click("#restPlayPause");
-    await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-paused"));
+/**
+ * Set 1 of the squat logged at 102.5 x 8 with RIR 1, which starts the rest. The catalog pins `Date`, so the
+ * clock stands where the rest started: 2:00 of 2:00 until the scenario moves it through the rest controls.
+ */
+async function startInlineRest(page) {
+  await enterWorkout(page);
+  await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
+  await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='running']", { timeout: 20000 });
+}
+
+/** The sheet's blocks are the spec 4.3 contract: each carries the lead it opens with. */
+async function expectWhyLeads(page, leads) {
+  const found = await page.$$eval("#whyBody .whysheet__block", (nodes) => nodes.map((node) => node.dataset.lead));
+  for (const lead of leads) {
+    if (!found.includes(lead)) throw new Error(`The Why sheet should lead with "${lead}"; it has ${JSON.stringify(found)}`);
   }
-  await sleep(page, 400);
+}
+
+/** The Why sheet for one lift of the Direction D mixed day, opened from its Focus card. */
+function whyOnMixedDay(exerciseId, leads) {
+  return async (page) => {
+    await enterWorkout(page, { day: "Day 2 · mixed" });
+    await page.evaluate((id) => window.__repforgeGoToLogExercise(id), exerciseId);
+    await sleep(page, 500);
+    await page.click(`#workout .exercise.is-current[data-ex="${exerciseId}"] [data-why]`);
+    await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+    await expectWhyLeads(page, leads);
+  };
 }
 
 export const APP_SCENARIOS = {
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/ready": async (page) => {
     await dismissChrome(page);
-    const ready = page.locator("#readyLine");
-    await ready.waitFor({ state: "visible", timeout: 20000 });
-    const label = (await ready.innerText()).trim();
-    if (!label) throw new Error("Today readiness shortcut has no accessible text");
+    const rows = page.locator("#todayExList .rxrow");
+    await rows.first().waitFor({ state: "visible", timeout: 20000 });
+    if ((await rows.count()) < 5) throw new Error("Today shows every exercise of the day, not a preview of three");
     await sleep(page, 300);
     if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
       await page.evaluate(() => {
-        const row = document.querySelector(".today-ex");
+        const row = document.querySelector(".rxrow");
         const dock = document.querySelector("nav");
         if (!row || !dock) throw new Error("Today 200% exercise row or dock is missing");
         const rowBottom = row.getBoundingClientRect().bottom;
         const dockTop = dock.getBoundingClientRect().top;
-        window.scrollTo({ top: window.scrollY + Math.max(0, rowBottom - dockTop + 8), behavior: "instant" });
+        window.scrollTo({ top: window.scrollY + Math.max(0, Math.ceil(rowBottom - dockTop + 8)), behavior: "instant" });
       });
       const clearance = await page.evaluate(() => {
-        const row = document.querySelector(".today-ex");
-        const name = row?.querySelector(".today-ex__name");
-        const value = row?.querySelector(".today-ex__value");
+        const row = document.querySelector(".rxrow");
+        const name = row?.querySelector(".rxrow__name");
+        const value = row?.querySelector(".rxrow__target");
         const dock = document.querySelector("nav");
         if (!row || !name || !value || !dock) return { error: "Today row, value, or dock is missing" };
         const nameStyle = getComputedStyle(name);
@@ -751,6 +744,21 @@ export const APP_SCENARIOS = {
       await assertDockFitsExternalTextScale(page);
       await assertTodayExerciseFitsExternalTextScale(page);
     }
+  },
+  "today/mixed-strategies": async (page) => {
+    await dismissChrome(page);
+    // The fixture's mixed day is the second day of the split; Today leads with Day 1.
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 2 · mixed" }); });
+    await sleep(page, 500);
+    // Opening the day made an untouched draft; clear it so Today offers Start, not Continue.
+    // Leaving through the hook hands focus to Today's leading control (R5) with no
+    // pointer input behind it, so Chromium would ring it; this state is Today at rest.
+    await page.evaluate(async () => { window.__repforgeLeaveWorkout(); await window.__repforgeWorkoutDraft.clear(); await Promise.resolve(); document.activeElement?.blur(); });
+    await page.evaluate(() => document.querySelector('nav [data-view="log"]')?.click());
+    const rows = page.locator("#todayExList .rxrow");
+    await rows.first().waitFor({ state: "visible", timeout: 20000 });
+    if ((await rows.count()) !== 6) throw new Error("Today's mixed day shows its six exercises");
+    await sleep(page, 300);
   },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
@@ -802,14 +810,10 @@ export const APP_SCENARIOS = {
     }
   },
   "today/done": async (page) => {
-    await saveWholeSession(page);
-    await page.click("#sumDone");
-    await sleep(page, 500);
-    await page.evaluate(() => {
-      document.querySelector('nav [data-view="log"]')?.click();
-      if (document.body.classList.contains("is-settings")) document.querySelector("#settingsBack")?.click();
-    });
-    await sleep(page, 600);
+    // The Direction D lifter's Monday session is already in the log (the drawing's finished day): Today recaps it.
+    await dismissChrome(page);
+    await page.locator("#todayDash .today-done__lifts .sum-grp").first().waitFor({ state: "visible", timeout: 20000 });
+    await sleep(page, 300);
     if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
       const clearance = await page.evaluate(() => {
         const dock = document.querySelector("nav");
@@ -817,10 +821,13 @@ export const APP_SCENARIOS = {
         const review = document.querySelector("#reviewTodaySession");
         const another = document.querySelector("#logAnotherSession");
         if (!dock || !label || !review || !another) return { error: "Today recap heading, actions, or dock are missing" };
-        const labelTop = label.getBoundingClientRect().top;
-        window.scrollBy({ top: Math.max(0, labelTop - 24), behavior: "instant" });
+        // The finished day lists every lift's outcome and target, so at 200% the actions sit far below the heading:
+        // scroll to where they end and check that they, not the heading, clear the floating dock.
+        const dockTop = dock.getBoundingClientRect().top;
+        window.scrollBy({ top: Math.max(0, another.getBoundingClientRect().bottom - (dockTop - 16)), behavior: "instant" });
         const dockRect = dock.getBoundingClientRect();
-        const labelRect = label.getBoundingClientRect();
+        const lifts = [...document.querySelectorAll("#todayDash .today-done__lifts .sum-grp")];
+        const clippedLifts = lifts.filter((group) => [...group.querySelectorAll("*")].some((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible")).length;
         const reviewRect = review.getBoundingClientRect();
         const anotherRect = another.getBoundingClientRect();
         const labelFits = (button) => {
@@ -833,7 +840,9 @@ export const APP_SCENARIOS = {
             && rect.bottom <= button.getBoundingClientRect().bottom + 1);
         };
         return {
-          labelTop: labelRect.top,
+          reviewTop: reviewRect.top,
+          clippedLifts,
+          lifts: lifts.length,
           dockTop: dockRect.top,
           reviewBottom: reviewRect.bottom,
           anotherBottom: anotherRect.bottom,
@@ -841,7 +850,7 @@ export const APP_SCENARIOS = {
           anotherLabelFits: labelFits(another),
         };
       });
-      if (clearance.error || clearance.labelTop < 0 || clearance.reviewBottom > clearance.dockTop - 8
+      if (clearance.error || clearance.reviewTop < 0 || clearance.lifts < 1 || clearance.clippedLifts > 0 || clearance.reviewBottom > clearance.dockTop - 8
         || clearance.anotherBottom > clearance.dockTop - 8
         || !clearance.reviewLabelFits || !clearance.anotherLabelFits) {
         throw new Error(`200% Today recap actions do not clear the floating dock: ${JSON.stringify(clearance)}`);
@@ -859,14 +868,13 @@ export const APP_SCENARIOS = {
     await assertGlossaryViewport(page, "Focus");
     await sleep(page, 400);
   },
-  "today/preview": async page => { await page.click("#previewSession"); await page.waitForSelector("#previewSessionSheet.is-open"); },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
-  "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); },
-  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); await resetSheetScroll(page, "#sessionEarlySection"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
@@ -876,14 +884,14 @@ export const APP_SCENARIOS = {
   },
   "workout/substituted-actions": async page => {
     await focusMode(page);
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickList .pickrow").first().click();
     await page.locator("#exPickSheet").waitFor({state:"hidden"});
-    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#woOverflowBtn").click();
     await resetSheetScroll(page, ".exactions-sheet__body");
   },
-  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/reorder": async page => {
     await focusMode(page);
     await page.click("#sessionSheetBtn");
@@ -974,11 +982,26 @@ export const APP_SCENARIOS = {
     });
     await sleep(page, 400);
   },
-  "workout/rest-timer": async (page) => {
-    await showRestTimer(page);
+  // One -30s moves the pinned clock to 1:30 of 2:00: the pad's own action, taken from the pad. At large text four pads
+  // no longer fit a row, the field pads stay, and the same nudge is the presets sheet's.
+  "workout/rest-running": async (page) => {
+    await startInlineRest(page);
+    const pad = page.locator("#workout .exercise.is-current .restpad[data-rest-act='minus']");
+    if (await pad.count()) await pad.click();
+    else await page.evaluate(() => window.nudgeRest(-30));
+    await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current [data-rest-clock]")?.textContent === "1:30");
+    await sleep(page, 400);
   },
-  "workout/rest-timer-paused": async (page) => {
-    await showRestTimer(page, true);
+  // The bell, fifteen seconds ago: the same seam the accessibility suite uses to run the clock out.
+  "workout/rest-done": async (page) => {
+    await startInlineRest(page);
+    await page.evaluate(() => {
+      window.__repforgeRest.expire(15);
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='done']", { timeout: 20000 });
+    await page.waitForSelector("#workout .exercise.is-current .shelf__pads[data-pads='field']", { timeout: 20000 });
+    await sleep(page, 400);
   },
   "today/rest-bar": async (page) => {
     await focusMode(page);
@@ -996,7 +1019,9 @@ export const APP_SCENARIOS = {
   },
   "workout/exercise-note": async (page) => {
     await focusMode(page);
-    await page.locator("#workout [data-exnote-open]").first().click({ timeout: 20000 });
+    // The header's ⋯ opens the exercise actions; the note is one of them.
+    await page.locator("#woOverflowBtn").click({ timeout: 20000 });
+    await page.locator("#exActionNotesBtn").click({ timeout: 20000 });
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
   },
@@ -1005,21 +1030,41 @@ export const APP_SCENARIOS = {
     await page.click("#workout [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
+    await expectWhyLeads(page, ["top", "load", "reps"]);
   },
+  // Set 1 of the squat logged at 102.5 x 8 with RIR 1: the sheet reads what the set showed, then the next target.
+  "workout/why-in-session": async (page) => {
+    await enterWorkout(page);
+    await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
+    await page.click("#workout .exercise.is-current [data-why]");
+    await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+    await expectWhyLeads(page, ["set1", "set2"]);
+  },
+  "workout/why-rep-goal": whyOnMixedDay("ex-ht", ["goal", "effort", "spread"]),
+  "workout/why-anchor": whyOnMixedDay("ex-dl", ["anchor", "rule", "backoff"]),
+  "workout/why-manual": whyOnMixedDay("ex-cp", ["manual"]),
 
-  "session/summary": saveWholeSession,
+  "session/summary": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);
+    await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
+  },
   "session/summary-maintained": async (page) => {
-    await saveWholeSession(page);
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-maintained"]);
     await page.waitForSelector('.sum-outcome[data-outcome="maintained"]', { timeout: 20000 });
   },
   "session/summary-declined": async (page) => {
-    await saveWholeSession(page);
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-declined"]);
     await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
   },
   "session/summary-mixed": async (page) => {
-    await saveMixedSummarySession(page);
-    await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-mixed"]);
     await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
+    await page.waitForSelector('.sum-outcome[data-outcome="maintained"]', { timeout: 20000 });
+  },
+  "session/summary-first": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-first"]);
+    await page.waitForSelector(".sum-baseline", { timeout: 20000 });
   },
 
   "progress/overview": (page) => view(page, "stats"),
@@ -1027,29 +1072,15 @@ export const APP_SCENARIOS = {
   "progress/overview-action": (page) => view(page, "stats"),
   "progress/exercise-chart": async (page) => {
     await view(page, "stats");
-    await page.evaluate(() => {
-      const select = document.querySelector("#statExercise");
-      if (!select) return;
-      const option = [...select.options].find((o) => /Barbell back squat/i.test(o.textContent));
-      if (option) {
-        select.value = option.value;
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    });
-    await page.evaluate(() => document.querySelector(".chartcard")?.scrollIntoView({ block: "center" }));
-    await page.waitForFunction(() => {
-      const canvas = document.querySelector("#chart");
-      if (!canvas || !canvas.width) return false;
-      const box = canvas.getBoundingClientRect();
-      return box.top >= 0 && box.bottom <= window.innerHeight;
-    }, undefined, { timeout: 20000 });
+    await page.evaluate(() => window.openExerciseView("library:sq_bb", "stats"));
+    await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 20000 });
     await sleep(page, 500);
   },
   "progress/strength": (page) => progressSegment(page, "strength"),
   "progress/strength-current-block": (page) => progressSegment(page, "strength"),
   "progress/strength-all-history": async (page) => { await progressSegment(page, "strength"); await page.click('#strengthScopeSeg [data-scope="all-history"]'); },
-  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const key=await page.evaluate(()=>[...document.querySelectorAll("#strengthDash [data-evkey]")].map(row=>row.dataset.evkey).find(id=>window.__repforgeProgressEvidence.strength(id)?.presentation==="comparison"));const row=page.locator(`#strengthDash [data-evkey="${key}"]`);await row.scrollIntoViewIfNeeded();await row.click(); },
-  "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const key=await page.evaluate(()=>[...document.querySelectorAll("#strengthDash [data-evkey]")].map(row=>row.dataset.evkey).find(id=>window.__repforgeProgressEvidence.strength(id)?.evidenceState==="insufficient"));const row=page.locator(`#strengthDash [data-evkey="${key}"]`);await row.scrollIntoViewIfNeeded(); },
+  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const row = page.locator('#strengthDash [data-evkey="library:sq_bb"]'); await row.scrollIntoViewIfNeeded(); await row.click(); },
+  "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const row = page.locator('#strengthDash [data-evkey="library:sqk_mc"]'); await row.scrollIntoViewIfNeeded(); await row.click(); },
   "progress/volume": (page) => progressSegment(page, "volume"),
   "progress/volume-block": async (page) => { await progressSegment(page, "volume"); await page.click('#volumeScopeSeg [data-vscope="block-to-date"]'); },
   "progress/volume-drill-in": async (page) => { await progressSegment(page, "volume"); await page.locator("#volumeDash [data-volume-muscle]").first().click(); },
@@ -1062,7 +1093,10 @@ export const APP_SCENARIOS = {
   "progress/schedule-diagnosis": openScheduleDiagnosis,
   "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
   "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
-  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000}); },
+  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000});
+    // The progress guide is dismissed here. The rendered-role audit reads the dock's ground from the page's top-left
+    // quadrant, and with the guide above it, this short page would put the primary action there.
+    await page.click("[data-guide-dismiss]"); },
   "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
   "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
   "progress/recovery-questions": openRecoveryPreview,
@@ -1081,6 +1115,9 @@ export const APP_SCENARIOS = {
     await page.locator("#sessions .session__open").first().click({ timeout: 30000 });
     await page.waitForSelector(".session--read", { timeout: 20000 });
     await page.waitForSelector("[data-history-edit]", { timeout: 20000 });
+    // The session page rides in on a push (N4); the frame is its resting state, and the scroll below
+    // belongs to the page, not to the layer it is riding in.
+    await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
     // The read actions are the destructive boundary at large text. Capture the
     // scroll-end state so the fixed navigation cannot hide Edit or Delete in
     // the PT+200 matrix.
@@ -1089,7 +1126,10 @@ export const APP_SCENARIOS = {
   },
   "history/edit-dirty": async (page) => {
     await openHistoryEditor(page);
-    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("175");
+    // The drawing: the first set's load changed to 105 and the squat's third set removed (struck
+    // through, with Undo). The load is filled last so the changed field keeps the ink ring.
+    await page.locator('.session--edit [data-edrm="2"]').click();
+    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("105");
     await sleep(page, 500);
   },
   "history/edit-invalid": async (page) => {
@@ -1097,13 +1137,8 @@ export const APP_SCENARIOS = {
     await page.locator('.session--edit input[data-ek^="load|"]').first().fill("x");
     await page.locator("[data-edsave]").click();
     await page.waitForSelector('.session--edit input[aria-invalid="true"]', { timeout: 20000 });
-    // Validation announces the failure through the transient toast as well as
-    // the field state. Wait for that announcement to finish so the catalog
-    // captures the stable editor rather than depending on toast timing.
-    await page.waitForFunction(() => {
-      const toast = document.querySelector("#toast");
-      return !toast || toast.classList.contains("hidden");
-    }, undefined, { timeout: 10000 });
+    // The reason stays under the row until the value is fixed, so the frame needs no toast timing.
+    await page.waitForSelector(".session--edit [data-histedit-error]", { timeout: 10000 });
     await sleep(page, 400);
   },
   "history/delete-confirm": async (page) => {
@@ -1386,13 +1421,6 @@ export const APP_SCENARIOS = {
     await openShare(page);
     await page.waitForSelector("#shareSetupShare:not(.hidden):not(:disabled)", { timeout: 20000 });
     await stabilizeShareLink(page);
-    await sleep(page, 400);
-  },
-  "program/readiness": async (page) => {
-    await openProgram(page);
-    await page.waitForSelector("#programReadyLink", { timeout: 20000 });
-    await page.click("#programReadyLink");
-    await page.waitForSelector("#programReadyBack", { timeout: 20000 });
     await sleep(page, 400);
   },
   "program/text-export": async (page) => {

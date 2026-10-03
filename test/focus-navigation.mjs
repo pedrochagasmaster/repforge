@@ -56,20 +56,27 @@ async function main() {
      * 1. Arbitrary navigation: Next / Prev and bounds
      * ====================================================================== */
     console.log("\nNavigation: bounds and next/previous controls");
-    const prevBtn = page.locator("#woPrev");
-    const nextBtn = page.locator("#woNext");
+    const segments = page.locator("#woProgress button[data-focusgo]");
+    const nextRow = page.locator("#workout .exercise.is-current [data-fnextrow]");
+    const currentSegment = () => page.locator("#woProgress .segbar__seg.is-current").getAttribute("data-focusgo");
 
-    // At first exercise: prev is disabled
-    assert(await prevBtn.isDisabled(), "previous button is disabled on first exercise");
-    assert(!await nextBtn.isDisabled(), "next button is enabled when next exercise exists");
+    // At the first exercise: the first segment is current and there is a way on
+    assert((await segments.count()) >= 2, "the exercise bar offers a segment button for every other exercise");
+    assert(await currentSegment() === "0", "the first segment is current on the first exercise");
+    assert(await nextRow.count() === 1, "the Next row is offered when a next exercise exists");
 
     // Advance to second exercise
-    await nextBtn.click();
+    await nextRow.click();
     await page.waitForTimeout(350);
 
-    const posText = await page.locator("#woProgress .wo-progress__lab").first().textContent();
+    const posText = await page.locator("#woDayTitle").first().textContent();
     assert(posText.includes("2 of") || posText.includes("2 /") || posText.includes("2 de"), "position indicator reflects exercise 2", posText);
-    assert(!await prevBtn.isDisabled(), "previous button is now enabled on exercise 2");
+    assert(await currentSegment() === "1", "the second segment is current on exercise 2");
+    await segments.nth(0).click();
+    await page.waitForTimeout(350);
+    assert(await currentSegment() === "0", "a segment walks back to its exercise");
+    await nextRow.click();
+    await page.waitForTimeout(350);
 
     /* ======================================================================
      * 2. Session map direct jump
@@ -232,9 +239,8 @@ async function main() {
      * 4. Safe Leave and Resume
      * ====================================================================== */
     console.log("\nSafe Leave/Resume: flushes pending edits, verifies persistence, resumes exactly");
-    // Type an uncommitted load into the active set field
+    // Type an uncommitted load into the active set field (its input is in the document before a second tap brings it forward)
     const loadInput = page.locator('#workout.is-focus .exercise.is-current input[data-k$="_load"]').first();
-    await loadInput.click();
     await loadInput.fill("137.5");
 
     // Click leave workout button in header
@@ -273,7 +279,6 @@ async function main() {
     });
 
     const repsInput = page.locator('#workout.is-focus .exercise.is-current input[data-k$="_reps"]').first();
-    await repsInput.click();
     await repsInput.fill("9");
 
     // Trigger leave: with in-flight failure, leave must not lose work silently

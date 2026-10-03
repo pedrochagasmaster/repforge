@@ -26,6 +26,10 @@ const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
 const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
 const OLD_APP = execFileSync("git", ["show", `${OLD_APP_SHA}:app.js`], { encoding: "utf8" });
+// An installed older version runs its own shell with its own app.js, so the legacy
+// writer gets that commit's index.html too (the current shell retired DOM it binds).
+const OLD_INDEX = execFileSync("git", ["show", `${OLD_APP_SHA}:index.html`], { encoding: "utf8" });
+const OLD_DOCUMENT = /\/(?:index\.html)?(?:\?[^/]*)?$/;
 const EXERCISE_ID = "adversarial-press";
 const OTHER_EXERCISE_ID = "adversarial-row";
 const SET_KEY = `${EXERCISE_ID}_1`;
@@ -302,8 +306,18 @@ async function openOldPopup(context, owner, name) {
     return route.fulfill({ status: 200, contentType: "text/javascript", body: OLD_APP });
   };
   await context.route(/\/app\.js(?:\?|$)/, handler);
+  const shellHandler = (route) => {
+    if (route.request().resourceType() !== "document") return route.continue();
+    // A popup's first navigation has no frame yet; only the old popup navigates while this route is installed.
+    let fromCurrent = false;
+    try { fromCurrent = route.request().frame().page() === owner; } catch { fromCurrent = false; }
+    if (fromCurrent) return route.continue();
+    return route.fulfill({ status: 200, contentType: "text/html", body: OLD_INDEX });
+  };
+  await context.route(OLD_DOCUMENT, shellHandler);
   const page = await openPopup(context, owner, name);
   await context.unroute(/\/app\.js(?:\?|$)/, handler);
+  await context.unroute(OLD_DOCUMENT, shellHandler);
   await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
   await page.waitForSelector(`[data-k="${SET_KEY}_load"]`);
   return page;
@@ -1404,12 +1418,17 @@ async function runDirectDraftOwnerRace(browser) {
     const stagedRaw = latestDraftPendingRaw(staged);
     const dialogs = [];
     stale.on("dialog", async (dialog) => {
-      dialogs.push({ type: dialog.type(), message: dialog.message() });
+      dialogs.push({ type: `native ${dialog.type()}`, message: dialog.message() });
       await dialog.dismiss();
     });
-    const dayChangeAccepted = await stale.evaluate(() =>
+    // The question is the drawn sheet now (OG-6 `today/draft-resume`); Cancel is the refusal under test.
+    const dayChange = stale.evaluate(() =>
       window.__repforgeEnterWorkout({ day: "Day 2"})
     );
+    await stale.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+    dialogs.push({ type: "sheet", message: await stale.locator("#draftDiscardBody").textContent() });
+    await stale.locator("#draftDiscardKeep").click();
+    const dayChangeAccepted = await dayChange;
     const afterRefusal = await readRuntime(stale);
     const afterRefusalRaw = latestDraftPendingRaw(afterRefusal);
 
@@ -1426,7 +1445,7 @@ async function runDirectDraftOwnerRace(browser) {
     );
     check(
       dayChangeAccepted === false &&
-        dialogs.length === 1 &&
+        dialogs.length === 1 && dialogs[0].type === "sheet" &&
         afterRefusal.draftRaw === canonicalDraftRaw &&
         afterRefusalRaw === stagedRaw,
       "day-change refusal leaves transaction-owned staged bytes untouched",

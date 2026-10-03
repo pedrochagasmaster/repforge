@@ -215,9 +215,11 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
     englishOnly.get(value.trim()).push(key);
   }
   assert.ok(englishOnly.size > 200, "the EN/PT catalogs yield enough locale markers to be a real oracle");
-  // Landing copy includes exercise names that are also legitimate editable
-  // program data. Its markers govern the landing routes, not every preview.
+  // Landing copy can equal legitimate editable program data. Its markers govern the
+  // landing routes, not every preview: the hero, the received-link gates, and the
+  // scrolled bands of the same page (onboarding-start/first-run-*).
   const landingScreens = new Set(["onboarding-start/first-run", "onboarding-shared/gate", "onboarding-shared/invalid"]);
+  const isLandingScreen = (flow, screen) => landingScreens.has(`${flow}/${screen}`) || (flow === "onboarding-start" && screen.startsWith("first-run-"));
   for (const key of landingScreens) {
     assert.ok(manifest.screens.some((screen) => `${screen.flow}/${screen.id}` === key),
       `locale marker scope names a registered landing: ${key}`);
@@ -226,7 +228,7 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
     const leaks = [];
     for (const item of records) {
       if (item.locale !== "pt") continue;
-      const landing = landingScreens.has(`${item.flow}/${item.screen}`);
+      const landing = isLandingScreen(item.flow, item.screen);
       for (const entry of item.semantic) {
         for (const field of ["text", "name", "label"]) {
           const markers = englishOnly.get(String(entry[field] ?? "").trim()) || [];
@@ -241,15 +243,15 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
     item.locale === "pt" && item.flow === "onboarding-browse" && item.screen === "preview");
   assert.ok(preview, "locale fault injection has a real Portuguese preview");
   const withCopy = (item, copy) => ({ ...item, semantic: [{ text: copy }] });
-  assert.deepEqual(findLocaleLeaks([withCopy(preview, enCatalog["landing.proof.exercise"])]), [],
-    "an editable program exercise name does not become English UI copy through a landing-only key");
+  assert.deepEqual(findLocaleLeaks([withCopy(preview, enCatalog["landing.outcomes.sub"])]), [],
+    "program text that equals a landing-only English string does not become English UI copy outside the landing");
   assert.ok(findLocaleLeaks([withCopy(preview, enCatalog["entry.hub.lede"])]).length > 0,
     "English entry UI copy still fails outside the landing");
   for (const key of landingScreens) {
     const item = semanticArtifact.captures.find((record) => record.locale === "pt" && `${record.flow}/${record.screen}` === key);
     assert.ok(item, `locale fault injection has a real Portuguese landing: ${key}`);
-    assert.ok(findLocaleLeaks([withCopy(item, enCatalog["landing.proof.exercise"])]).length > 0,
-      `${key}: an English landing exercise label is rejected`);
+    assert.ok(findLocaleLeaks([withCopy(item, enCatalog["landing.outcomes.sub"])]).length > 0,
+      `${key}: an English landing string is rejected in a Portuguese frame`);
     assert.ok(findLocaleLeaks([withCopy(item, enCatalog["entry.hub.lede"])]).length > 0,
       `${key}: shared English UI markers are still rejected`);
   }

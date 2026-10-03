@@ -763,3 +763,24 @@ test("P5: choosing or editing a candidate is represented without mutating adapte
     "durable state fixture must not be mutated during candidate choice or draft edits",
   );
 });
+
+test("identityDiff counts changed exercises by library id, or folded name when unlinked", () => {
+  const row = (name, libraryId) => ({ name, ...(libraryId ? { libraryId } : {}) });
+  const same = [row("Barbell bench press", "pr_bb"), row("Barbell row", "rw_bb"), row("Ab wheel")];
+  assert.deepEqual(Adapter.identityDiff({ program: same }, { program: [...same] }),
+    { added: 0, removed: 0, n: 0, total: 3 }, "an identical program changed nothing");
+  assert.deepEqual(Adapter.identityDiff(same, [same[0], same[1], row("  AB WHEEL ")]),
+    { added: 0, removed: 0, n: 0, total: 3 }, "case and spacing do not make an unlinked row new");
+  assert.deepEqual(Adapter.identityDiff([row("Crunch en poulie")], [row("Crunch en poulié")]),
+    { added: 0, removed: 0, n: 0, total: 1 }, "accents do not make an unlinked row new");
+  assert.deepEqual(Adapter.identityDiff(same, [same[0], same[1], row("Cable crunch")]),
+    { added: 1, removed: 1, n: 1, total: 3 }, "a swapped exercise is one change");
+  assert.deepEqual(Adapter.identityDiff({ program: [row("Curl", "cu_bb")] }, { program: [row("Curl", "cu_bb"), row("Curl", "cu_bb")] }),
+    { added: 1, removed: 0, n: 1, total: 2 }, "a duplicated movement counts twice");
+  assert.deepEqual(Adapter.identityDiff([row("A", "a"), row("B", "b"), row("C", "c")], [row("D", "d")]),
+    { added: 1, removed: 3, n: 1, total: 1 }, "the count never exceeds the new program's size");
+  assert.deepEqual(Adapter.identityDiff({ program: [row("Flye")] }, { program: [row("Flye", "pd_cb")] }),
+    { added: 1, removed: 1, n: 1, total: 1 }, "linking a row to the library is a new identity, not a silent match");
+  assert.deepEqual(Adapter.identityDiff(null, undefined), { added: 0, removed: 0, n: 0, total: 0 },
+    "missing programs are empty");
+});
