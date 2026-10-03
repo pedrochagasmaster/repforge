@@ -805,8 +805,8 @@ the owner's amendment is [`docs/design/motion-rule-11-amendment.md`](docs/design
 - **Do** separate surfaces with a hairline, a `--well` ground or the quiet ring, and
   keep reading screens flat.
 - **Do** position anything fixed to the bottom from `--nav`.
-- **Do** keep native confirmations native (History's delete question is a native
-  `confirm()`) until a drawing replaces them, as the discard-edits sheet was drawn.
+- **Do** keep native confirmations native (Settings' delete-history question is a
+  native `confirm()`) until a drawing replaces them, as the discard-edits sheet was drawn.
 - **Do** declare each new surface pair in both themes and check it in the rendered-role
   audit, including at 200% text.
 - **Do** put every motion through `motion-layer.js` with a reduced-motion path and a

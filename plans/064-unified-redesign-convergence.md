@@ -199,6 +199,12 @@ onboarding; an onboarded device never boots into the landing; a shared-setup
 handoff keeps its own landing. The rest of L-08 stands. Recorded in the
 [decision register](../docs/product-grilling-decision-register.md) beside Q633.
 
+**Dated note, 2026-10-02 (amends L-06).** Owner decision on #295 (comment
+5933076242): "Write from scratch" on the paste door asks before it discards
+pasted text, and it is a sixth exit that clears the tab-scoped draft. L-06's
+"cleared at the five exits" reads "cleared at the six exits"; ADR 0014 and
+`AGENTS.md` carry the six (`47206d7`). The rest of L-06 stands.
+
 ### 5.2 Inherited (already specified; applied as written unless a reconcilable row says otherwise)
 
 | ID | Decision | Source | Consuming slice |

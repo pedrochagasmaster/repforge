@@ -1508,8 +1508,8 @@ The focused control's focus ring, halo and field border are painted from `--colo
 | `progress/volume-reduction-preview` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
 | `progress/recovery-questions` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
 | `progress/recovery-preview` | Already conforming. The BASE audit found nothing and no off-role type size is rendered. | None. |
-| `history/delete-confirm` | Already conforming. The delete question is a native `confirm()` (rule 7) and the conflict banner paints no accent. | None. |
-| `history/conflict` | Already conforming. The delete question is a native `confirm()` (rule 7) and the conflict banner paints no accent. | None. |
+| `history/delete-confirm` | Already conforming. The delete question is an in-page alert with its own actions (not a native dialog) and the conflict banner paints no accent. | None. |
+| `history/conflict` | Already conforming. The delete question is an in-page alert with its own actions (not a native dialog) and the conflict banner paints no accent. | None. |
 | `library/list` | Back, Close and "Create custom exercise" were accent text; the active tab underline and the active filter chip (wash, ring) were accent; the muscle and equipment filter rails scroll sideways inside a narrow box; `.librow__meta` truncated with an ellipsis. | Back, Close and the link are `--control-quiet-ink` (the link underlined); the tab underline is `--boundary-selected-quiet`; the chip is `--well` with the quiet ring; the meta line wraps. The filter rail keeps scrolling sideways (excepted, see "Filter rails"). |
 | `library/list-selected` | Back, Close and "Create custom exercise" were accent text; the active tab underline and the active filter chip (wash, ring) were accent; the muscle and equipment filter rails scroll sideways inside a narrow box; `.librow__meta` truncated with an ellipsis. The ticked row discs were accent. | Back, Close and the link are `--control-quiet-ink` (the link underlined); the tab underline is `--boundary-selected-quiet`; the chip is `--well` with the quiet ring; the meta line wraps. The filter rail keeps scrolling sideways (excepted, see "Filter rails"). The ticked disc is `--boundary-selected-quiet` with the tick cut out of it. |
 | `library/exercise-preview` | Back was accent text. | Back is `--control-quiet-ink`. |
@@ -1565,7 +1565,7 @@ On the live head, light and dark: the future segments and the planned line the D
 ### Not changed
 
 - The focused control's focus indicator (the library search field, the custom exercise name, the focused Done button) is `--color-focus`, the accent; see the audit note above.
-- The delete confirmation on `history/delete-confirm` is a native `confirm()` (rule 7).
+- The delete confirmation on `history/delete-confirm` is an in-page alert, not a native `confirm()` (corrected by R7 N-1).
 - `#restSheet` (timer presets) keeps its own head: R3f owns it.
 - The "x" close glyph is replaced by the existing close mask on the sheets listed above; no new icon is added.
 - The six converted bands do not select their text (`user-select: none`): the band is the sheet's drag rail, and a mouse push that starts on selected band text begins a text drag and cancels the sheet gesture (`test/sheet-swipe-dismiss.mjs` caught it).
