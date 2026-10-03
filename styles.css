@@ -4760,16 +4760,23 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-proof__lens.is-on{opacity:1}
 /* The rail: seven detents you can also tap. The bar is the button's own bottom edge. */
 .firstrun-proof__rail{display:flex;margin:0 calc(var(--space-4) * -1)}
+/* Each button is a full-height 44px target that fills its share of the rail; the bar is drawn along its bottom edge,
+   inset by --space-4 so the seven detents stay apart. (R7 V-08: a bar-as-border button was 34-40px wide at 320-360.) */
 .firstrun-proof__rail button{
-  appearance:none;flex:1;min-width:0;height:var(--control-target);padding:0;margin:0 var(--space-4);border:0;
-  border-bottom:var(--space-4) solid var(--band-night-boundary-required);border-radius:var(--radius-compact);
-  background:none;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  --rail-bar:var(--band-night-boundary-required);
+  appearance:none;position:relative;flex:1;min-width:0;height:var(--control-target);padding:0;margin:0;border:0;
+  border-radius:var(--radius-compact);background:none;cursor:pointer;-webkit-tap-highlight-color:transparent;
 }
-.firstrun-proof__rail button.is-done{border-bottom-color:color-mix(in srgb,var(--band-night-accent) 45%,transparent)}
-.firstrun-proof__rail button[aria-current="step"]{border-bottom-color:var(--band-night-accent)}
+.firstrun-proof__rail button::after{
+  content:"";position:absolute;inset:auto var(--space-4) 0;height:var(--space-4);border-radius:var(--radius-compact);background:var(--rail-bar);
+}
+.firstrun-proof__rail button.is-done{--rail-bar:color-mix(in srgb,var(--band-night-accent) 45%,transparent)}
+.firstrun-proof__rail button[aria-current="step"]{--rail-bar:var(--band-night-accent)}
 .firstrun-proof__rail button:focus-visible{outline-offset:-2px}
 @media(max-width:340px){
   .firstrun-proof__glass{border-radius:var(--radius-landing-stage-compact)}
+  /* Seven 44px targets need 308px; the 288px content column of a 320px phone is short of that, so the rail borrows the gutter. */
+  .firstrun-proof__rail{margin-inline:calc(var(--space-12) * -1)}
 }
 
 /* ---- The three ways ---- */

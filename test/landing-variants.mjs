@@ -1117,7 +1117,7 @@ async function dockFocusRing(browser) {
  * scale), and every proof-rail button is a full 44 x 44 target at the narrowest supported widths.
  */
 async function chartScaleAndRailTargets(browser) {
-  phase("Final page: the chart image is legible at 360 and 390");
+  phase("Final page: the chart image is legible at 360 and 390, and the proof rail buttons are 44 x 44 at 360 and 320");
   for (const lang of ["en", "pt"]) {
     for (const width of [320, 360, 390]) {
       const { context, page } = await landingPage(browser, { lang, width });
@@ -1132,6 +1132,19 @@ async function chartScaleAndRailTargets(browser) {
         assert(scale >= CHART_MIN_SCALE, `[${lang} ${width}] the chart image draws at ${scale.toFixed(2)} of its captured size, needs ${CHART_MIN_SCALE}`, JSON.stringify(read));
       }
       assert(!read.overflowX, `[${lang} ${width}] the chart does not overflow the page`, JSON.stringify(read));
+      if (width <= 360) {
+        const rail = await page.evaluate(() => {
+          const root = document.querySelector("#firstRun");
+          root.scrollTo({ top: document.querySelector("#firstRunProofTrack").getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop, behavior: "instant" });
+          return [...document.querySelectorAll(".firstrun-proof__rail button")].map((button) => {
+            const box = button.getBoundingClientRect();
+            return { width: Math.round(box.width * 10) / 10, height: Math.round(box.height * 10) / 10, left: Math.round(box.left), right: Math.round(box.right) };
+          });
+        });
+        assert(rail.length === 7, `[${lang} ${width}] the pinned proof builds its seven rail buttons`, JSON.stringify(rail));
+        assert(rail.every((box) => box.width >= 44 && box.height >= 44 && box.left >= 0 && box.right <= width),
+          `[${lang} ${width}] every rail button is at least 44 x 44 and on screen`, JSON.stringify(rail));
+      }
       await context.close();
     }
   }
