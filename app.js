@@ -7852,13 +7852,16 @@ function sizeFocusCard(card){
   card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
   // logged and the shelf already shows the set, so the card opens at its top with the exercise's name; later the row
-  // scrolls into view, but never past the cue or the running rest that sits under the name.
+  // scrolls into view, but when the window cannot hold both it never scrolls past a rest that is running or has just
+  // ended, which sits under the name.
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
   if(+open.dataset.lrow<=1&&context.scrollTop===0)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   if(row.bottom>box.bottom){
-    const keep=(context.querySelector(".fx-slot")||context.querySelector(".fcard__ledger"))?.getBoundingClientRect().top;
+    const slot=context.querySelector(".fx-slot"),
+      resting=!!slot&&slot.dataset.rest&&slot.dataset.rest!=="none"&&context.clientHeight<slot.offsetHeight+row.height+24;
+    const keep=resting?slot.getBoundingClientRect().top:NaN;
     const room=Number.isFinite(keep)?Math.max(0,keep-box.top):Infinity;
     context.scrollTop+=Math.min(row.bottom-box.bottom+8,room)}
   else if(row.top<box.top)context.scrollTop=Math.max(0,context.scrollTop-(box.top-row.top)-8)}
