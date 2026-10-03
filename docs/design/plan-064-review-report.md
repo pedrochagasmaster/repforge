@@ -67,22 +67,22 @@ Both blockers are closed.
 | ID | Sev | Finding | Closed by | Guard |
 |---|---|---|---|---|
 | V-02 | blocker | At 200% text, the Focus "Log set" CTA was clipped or off-screen at 320, 360 and 390. This broke the recorded large-text decision. | `05c8851`, `ff2a399`, `99ab616` | `focus-geometry` §2: 9 Focus states × 320/360/390 × EN/PT at 200% (54 frames, all red at base). Checks that the CTA is whole above the safe area, the value stays on one line, the card does not overflow and nothing overprints. |
-| V-01 | major | The CTA arrow was `--accent` on the parchment CTA in dark, at 2.05:1. | `3b2e283`, `b2b08fe`, `1703592` | rendered-role mark contrast ≥ 3:1 in both themes |
+| V-01 | major | The CTA arrow was `--accent` on the parchment CTA in dark, at 2.05:1. | `4bc0a16`, `5cf9e8b`, `cc87d27` | rendered-role mark contrast ≥ 3:1 in both themes |
 | V-05 | major | At 320×568 the Focus header was clamped, the name scrolled away, and the rest block was squeezed. | `00b9ef8`, `6247ace` | `focus-geometry` §2b; the new heading-clamp gate in `check-ui-system` |
 | V-06 | major | The early-finish confirm foot was off-screen. | `5864c33`, `99ab616` | `focus-session-sheet` (10 frames, red at base) |
-| V-08 | major | The landing proof rail buttons were 40×44 at 360. | `92f35be` | `landing-variants`: every button 44×44 at 320 and 360 |
+| V-08 | major | The landing proof rail buttons were 40×44 at 360. | `8426556` | `landing-variants`: every button 44×44 at 320 and 360 |
 | V-09 | major | The exercise chart at PT 200% scrolled sideways, and its figures overprinted. | `8915ab5` | `progress-evidence` |
 | V-10 | minor | Nine D screens lacked 320 and 200% frames. | `d7bf786` plus the 45 captured frames | catalog manifest, `check-ui-screens` |
-| V-03 | minor | The summary hero is 30px, but the contract said 34px. | `09fbb7c` (owner decision: 30px) | `ui-system` token contract |
-| V-04 | minor | The landing chart rendered at 0.31–0.47 scale, and its alt named the wrong metric. | `369c46a`, `da02472` (owner decision: crop) | `landing-variants`: effective scale ≥ 0.75 at 360 and 390 |
+| V-03 | minor | The summary hero is 30px, but the contract said 34px. | `d3c9cc5` (owner decision: 30px) | `ui-system` token contract |
+| V-04 | minor | The landing chart rendered at 0.31–0.47 scale, and its alt named the wrong metric. | `4f0aef5`, `0981d65` (owner decision: crop) | `landing-variants`: effective scale ≥ 0.75 at 360 and 390 |
 | V-07 | minor | "＋ + Add day" | = J-18 | — |
 | V-11 | minor | The History title overlapped the search button at PT 200%. | `cf6dc64` | `history` |
-| V-12 | minor | The onboarding pain note and the hub guide cue used accent. | `8289283` (owner decision: neutral) | `check-rules-only --onboarding` reports 0 for both |
-| V-13 | minor | Smooth `scrollIntoView` ignored reduced motion. | `c4034dd` | `motion-integration` |
-| V-14 | minor | "1 sessions" / "1 sessões" | `754fc24` | `history`: count forms, EN and PT, n = 1 and 2 |
-| V-15 | minor | Pseudo-element transitions escaped reduced motion. | `9f58e4b` | `motion-integration` checks computed durations on pseudo-elements |
-| V-17 | minor | Onboarding CTA labels were 18px; the app's are 16px. | `7ca6dd4`, `027485a` (owner decision: 16px) | rendered-role CTA size in every catalog state |
-| V-18 | minor | Words were set in Plex Mono on the onboarding review meta lines. | `8154cd3` | `ui-system` |
+| V-12 | minor | The onboarding pain note and the hub guide cue used accent. | `0fd46b3` (owner decision: neutral) | `check-rules-only --onboarding` reports 0 for both |
+| V-13 | minor | Smooth `scrollIntoView` ignored reduced motion. | `c5248ce` | `motion-integration` |
+| V-14 | minor | "1 sessions" / "1 sessões" | `2bb0afa` | `history`: count forms, EN and PT, n = 1 and 2 |
+| V-15 | minor | Pseudo-element transitions escaped reduced motion. | `9e62e85` | `motion-integration` checks computed durations on pseudo-elements |
+| V-17 | minor | Onboarding CTA labels were 18px; the app's are 16px. | `1f5c50d`, `6dd2107` (owner decision: 16px) | rendered-role CTA size in every catalog state |
+| V-18 | minor | Words were set in Plex Mono on the onboarding review meta lines. | `1c98acc` | `ui-system` |
 | V-16 | minor | 628 off-scale spacing groups; nothing enforces the scale. | deferred | See "Deferred". |
 | N-1–N-3 | note | 320 PT 200% page scroll on four screens predates main; the note sheet has no band close; main's session-map ellipsis is fixed. | — | Pre-existing or already fixed. |
 
@@ -91,13 +91,13 @@ Both blockers are closed.
 | ID | Sev | Finding | Closed by | Guard |
 |---|---|---|---|---|
 | C-01 | minor | `workout-draft-storage` §7 was flaky: Retry restored focus to a dormant input. | `2613e89` | §7 passes 20/20 |
-| C-02 | minor | Dead production code. | `55e83ed` (`pushRoute` kept: it is R5 glue) | — (a sweep would need an allowlist of 41 wrappers; recorded in the commit) |
-| C-03 | minor | Dead CSS selectors; `vendor-runtimes` pinned a dead class. | `f74d6da` (33 classes) | `vendor-runtimes` pins `.ledgerline.is-fresh` |
-| C-04 | minor | 64 orphaned i18n keys. | `7645e5f` (69 keys) | `i18n` |
-| C-05 | minor | Unread tokens. | `b2f6328`, `09fbb7c` | `ui-system` pins that they stay gone |
-| C-06 | minor | `.impeccable/design.json` was stale. | `52a3a2c` (deleted; nothing read it) | — |
+| C-02 | minor | Dead production code. | `ebab101` (`pushRoute` kept: it is R5 glue) | — (a sweep would need an allowlist of 41 wrappers; recorded in the commit) |
+| C-03 | minor | Dead CSS selectors; `vendor-runtimes` pinned a dead class. | `5ba25d7` (33 classes) | `vendor-runtimes` pins `.ledgerline.is-fresh` |
+| C-04 | minor | 64 orphaned i18n keys. | `8e8e35d` (69 keys) | `i18n` |
+| C-05 | minor | Unread tokens. | `7fe9348`, `d3c9cc5` | `ui-system` pins that they stay gone |
+| C-06 | minor | `.impeccable/design.json` was stale. | `ea7ae10` (deleted; nothing read it) | — |
 | C-07 | minor | Plan 064 L-06 said "five exits". | `fb30a91` | — |
-| C-08 | minor | The install-modes ethos contrast assertion was removed without replacement. | `d2e8f15` | `install-modes` ethos ≥ 4.5:1 in EN, PT and at 200% |
+| C-08 | minor | The install-modes ethos contrast assertion was removed without replacement. | `c7c9e7d` | `install-modes` ethos ≥ 4.5:1 in EN, PT and at 200% |
 | C-09 | note | Legacy-writer fixtures serve the old shell; this was not documented. | AGENTS.md (this change) | — |
 | C-10 | note | N01/N02 were still marked OPEN. | `fb30a91` | — |
 | C-11 | note | Pre-existing: a missing splash, unreferenced fonts, a stale pref. | open | Outside Plan 064. |
@@ -114,6 +114,7 @@ These were not in any review. They surfaced while integrating the fix packets, a
 | I-3 | `check-ui-system` forced `:focus-visible` on a quiet hand-off target. Such a target draws no ring after a tap until a key is pressed. | `90f4c08`: the gate clears the marker first, as a key press does |
 | I-4 | A preview-injected `posthog-config` line was committed while a gate was still serving the worktree. | `4d367dd`; the orchestrator now checks `index.html` before every shell commit |
 | I-5 | The Build editor frames captured the new "Exercise added." toast over the editor. | The scenario lets the toast's lifetime end before capture. |
+| I-6 | The `motion-integration` x=4 swipe check raced the page's edge registration, which is rAF-scheduled. Under reduced motion it reached an unregistered page; CI on `b2ff2bc` failed twice. | `815273e`: wait two frames before the swipe |
 
 ## Deferred, with reasons
 
