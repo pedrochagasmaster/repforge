@@ -533,8 +533,7 @@ try {
       "--font-size-metric": "1.375rem", "--font-size-section-title": "1.5rem", "--font-size-feature-title": "1.75rem",
       "--font-size-title": "1.875rem", "--font-size-display": "2.5rem",
       "--font-size-landing-headline": "2.375rem",
-      "--font-size-landing-headline-wide": "3.25rem", "--font-size-landing-climax": "min(4.25rem,16vw)",
-      "--font-size-landing-climax-wide": "min(5.5rem,7.5vw)", "--font-size-rest-clock": "clamp(2rem,10cqi,2.625rem)",
+      "--font-size-landing-headline-wide": "3.25rem", "--font-size-rest-clock": "clamp(2rem,10cqi,2.625rem)",
       "--line-tight": "1.1", "--line-standard": "1.4", "--line-reading": "1.55",
       "--weight-regular": "400", "--weight-medium": "500", "--weight-semibold": "600",
       "--radius-none": "0", "--radius-compact": "4px", "--radius-control": "8px",
@@ -546,7 +545,7 @@ try {
     const errors = Object.entries(expected).filter(([name, wanted]) => value(name) !== wanted)
       .map(([name, wanted]) => `${name}: ${value(name)} != ${wanted}`);
     // Owner decision #295 comment 5965828337: the summary hero is a 30px title-role consumer, so no 34px token returns.
-    for (const alias of ["--font-size-summary-hero", "--radius-legacy", "--radius", "--r", "--shadow", "--display", "--body", "--mono"]) {
+    for (const alias of ["--font-size-summary-hero", "--font-size-landing-climax", "--font-size-landing-climax-wide", "--firstrun-line", "--radius-legacy", "--radius", "--r", "--shadow", "--display", "--body", "--mono"]) {
       if (value(alias)) errors.push(`${alias} must remain absent`);
     }
     if (value("--font-size-focal-data") !== value("--font-size-feature-title")) {

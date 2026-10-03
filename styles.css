@@ -67,13 +67,11 @@
   --font-size-focal-data:var(--font-size-feature-title);
   --font-size-title:1.875rem;
   --font-size-display:2.5rem;
-  /* The selected landing has deliberate scale breaks above the ordinary
+  /* The selected landing's headline has a deliberate scale break above the ordinary
      display tier; the saved-session hero is a plain title (30px). These are bounded role variants,
      not permission for one-off sizes in other surfaces. */
   --font-size-landing-headline:2.375rem;
   --font-size-landing-headline-wide:3.25rem;
-  --font-size-landing-climax:min(4.25rem,16vw);
-  --font-size-landing-climax-wide:min(5.5rem,7.5vw);
   --font-size-rest-clock:clamp(2rem,10cqi,2.625rem);
   --line-tight:1.1;
   --line-standard:1.4;
@@ -4402,7 +4400,6 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   --firstrun-ink-soft:var(--color-ink-secondary);
   --firstrun-ink-faint:var(--color-ink-secondary);
   --firstrun-rule:var(--boundary-decorative);
-  --firstrun-line:var(--boundary-required);
   --firstrun-focus:var(--color-focus);
   --firstrun-accent-text:var(--color-action-text);
   --firstrun-cta-bg:var(--band-night-cta-bg);
@@ -4437,7 +4434,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-ink-soft:var(--band-night-ink-soft);
   --firstrun-ink-faint:var(--band-night-ink-faint);
   --firstrun-rule:var(--band-night-rule);
-  --firstrun-line:var(--band-night-boundary-required);
   --firstrun-focus:var(--band-night-ink);
   --firstrun-accent-text:var(--band-night-accent-text);
   --firstrun-cta-bg:var(--band-night-cta-bg);
@@ -4451,7 +4447,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-ink-soft:var(--band-orange-ink);
   --firstrun-ink-faint:var(--band-orange-ink);
   --firstrun-rule:var(--band-orange-ink);
-  --firstrun-line:var(--band-orange-ink);
   --firstrun-focus:var(--band-orange-ink);
   --firstrun-accent-text:var(--band-orange-ink);
   --firstrun-cta-bg:var(--band-orange-ink);
@@ -4464,7 +4459,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-ink-soft:var(--band-ink-ink-soft);
   --firstrun-ink-faint:var(--band-ink-ink-soft);
   --firstrun-rule:var(--band-ink-rule);
-  --firstrun-line:var(--band-ink-ink-soft);
   --firstrun-focus:var(--band-ink-ink);
   --firstrun-accent-text:var(--band-ink-ink);
 }
@@ -4719,7 +4713,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-way--ink{
   background:var(--band-ink-bg);color:var(--band-ink-ink);
   --firstrun-band-bg:var(--band-ink-bg);--firstrun-ink:var(--band-ink-ink);--firstrun-ink-soft:var(--band-ink-ink-soft);
-  --firstrun-rule:var(--band-ink-rule);--firstrun-line:var(--band-ink-ink-soft);--firstrun-focus:var(--band-ink-ink);
+  --firstrun-rule:var(--band-ink-rule);--firstrun-focus:var(--band-ink-ink);
 }
 .firstrun-way--ink>.firstrun-wrap>p{color:var(--band-ink-ink-soft)}
 .firstrun-disclosure{

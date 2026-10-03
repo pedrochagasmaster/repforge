@@ -88,7 +88,6 @@ they do not create new roles.
 | Full-screen saved-session summary | `#sessionSummary` | modal |
 | Scope-dependent volume indicator | `#volumeDash .vrow__bar` | week or block from selected scope |
 | First-run headline | `.firstrun .firstrun-hero__title` | landing headline type |
-| First-run climax data | `.firstrun-pull--climax .firstrun-pull__value` | landing Mono data type |
 | Responsive rest clock | `.restinline__clock` | rest clock type |
 
 The two creation buttons share one `landing-accent-primary` recipe. Both open
@@ -246,13 +245,14 @@ exceptions. Page titles use `title`, and full display statements use
 15px or 17px. Structural labels and supporting notes use label, caption, or
 body-small according to whether they carry essential information.
 Line heights are tight 1.1, standard 1.4, reading 1.55; weights are 400, 500,
-600. Labels/captions cannot be the sole critical control text. Three exact
+600. Labels/captions cannot be the sole critical control text. Two exact
 contextual variants protect established hierarchy: the Plan 054 first-run
-headline (38px, 52px wide), its Mono climax data (`min(68px,16vw)`, then
-`min(88px,7.5vw)` wide), and the responsive Mono rest clock
-(`clamp(2rem,10cqi,2.625rem)` since the Plan 064 R3f amendment below). Their
-selectors and catalog owners are in the inventory; no other surface inherits
-them by visual resemblance. The saved-session summary hero (`.sum-hero`) is not
+headline (38px, 52px wide) and the responsive Mono rest clock
+(`clamp(2rem,10cqi,2.625rem)` since the Plan 064 R3f amendment below). The
+Plan 054 climax data (`min(68px,16vw)`, then `min(88px,7.5vw)` wide) retired
+with the landing it belonged to, and its tokens are gone. Their selectors and
+catalog owners are in the inventory; no other surface inherits them by visual
+resemblance. The saved-session summary hero (`.sum-hero`) is not
 a variant: it uses the `--font-size-title` role at 30px, the same step as page
 titles (owner decision, #295 comment 5965828337).
 Text glyphs used as control icons use `--control-icon-size` within the common
