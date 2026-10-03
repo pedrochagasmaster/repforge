@@ -1944,6 +1944,16 @@ textarea.sheetfield__input{
 #sessionEarlyOmissions li{padding:var(--space-4) 0;overflow-wrap:anywhere}
 .session-early-sets{font-family:var(--font-training-data);color:var(--color-ink)}
 .session-early-actions{display:flex;flex-direction:column;gap:var(--space-8)}
+/* While the confirmation is open it is the sheet's one job: the session map and fields give their room to it, the
+   band keeps its title and close, and the sheet may use the screen under the safe area. The sentence and the omitted
+   sets scroll in the prompt while Confirm and Cancel stay pinned to its foot, so enlarged text can never push them
+   below the screen or leave the text a sliver. */
+#sessionSheet:has(#sessionEarlyPrompt:not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
+#sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
+#sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
+#sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
+#sessionEarlyPrompt{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.session-early-actions{position:sticky;bottom:0;padding-top:var(--space-8);background:var(--color-surface)}
 
 /* Workout sheet controls keep their current routes and state owners. */
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry){

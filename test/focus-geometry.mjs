@@ -22,9 +22,7 @@
 
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
-import { loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "../tools/ui-screens/screens-app.mjs";
-import { dismissChrome, openPage, settle } from "../tools/ui-screens/session.mjs";
+import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
@@ -35,25 +33,8 @@ function assert(condition, message, detail = "") {
   }
 }
 
-const SAFE_AREA = { top: 44, bottom: 34 };
 const FOCUS_STATES = ["workout/focus", "workout/focus-glossary", "workout/exercise-note", "workout/why-this-weight",
   "workout/rest-running", "workout/rest-done", "workout/correction", "workout/stale-draft", "workout/persist-retry"];
-const CATALOG_PHONES = { 320: 568, 360: 740, 390: 844 };
-
-/** Open one catalog state exactly as the screen catalog draws it, with the emulated safe areas the shipped app sees. */
-async function openCatalogState(browser, key, width, lang, text) {
-  const manifest = loadManifest();
-  manifest.viewports[`phone-${width}`] = { width, height: CATALOG_PHONES[width], label: "geometry" };
-  manifest.deviceScaleFactor = 1;
-  const job = { flow: "workout", screen: key.split("/")[1], viewport: `phone-${width}`, theme: "light", locale: lang, text, motion: "normal" };
-  const opened = await openPage(browser, manifest, job, appState(key, manifest.locales[lang].lang), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
-  const cdp = await opened.context.newCDPSession(opened.page);
-  await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { ...SAFE_AREA, left: 0, right: 0 } });
-  await dismissChrome(opened.page);
-  await APP_SCENARIOS[key](opened.page);
-  await settle(opened.page);
-  return opened;
-}
 
 /** What the live Focus card looks like in this frame; every number is measured in the page. */
 function measureFocusCard(safeBottom) {
@@ -119,12 +100,6 @@ function focusCardProblems(m) {
   if (!m.contextScrolls) problems.push("the context region is not the scroller");
   if (m.banner && !m.banner.aboveShelf) problems.push(`the banner (bottom ${Math.round(m.banner.bottom)}) is not above the shelf`);
   return problems;
-}
-
-/** Run the cases a few pages at a time; the catalog states are independent of one another. */
-async function inPool(items, size, work) {
-  const queue = [...items];
-  await Promise.all(Array.from({ length: size }, async () => { for (let item = queue.shift(); item; item = queue.shift()) await work(item); }));
 }
 
 async function checkFocusStatesAtLargeText(browser) {

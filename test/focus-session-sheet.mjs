@@ -13,6 +13,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -84,6 +85,40 @@ async function freshPage(browser) {
 }
 
 const flushDraft = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+
+
+/**
+ * R7 V-06: confirming an early finish at large text. The catalog's own early-finish state, at the smallest phone at the
+ * usual size and at the smallest and canonical phones in both languages with double-size text: Confirm and Cancel are whole inside the viewport above the
+ * safe area, and the sentence and the omitted sets above them keep a window of at least 120px (the prompt scrolls
+ * inside the sheet while its actions stay pinned).
+ */
+async function earlyFinishFitsLargeText(browser) {
+  phase("Early finish at double-size text: Confirm and Cancel stay reachable");
+  const frames = [[320, "pt", "normal"], [320, "en", "normal"], ...[320, 390].flatMap((width) => ["pt", "en"].map((lang) => [width, lang, "text200"]))];
+  for (const [width, lang, text] of frames) {
+    const opened = await openCatalogState(browser, "workout/early-finish", width, lang, text);
+    try {
+      const m = await opened.page.evaluate((safeBottom) => {
+        const box = (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height }; };
+        const prompt = document.querySelector("#sessionEarlyPrompt"), actions = document.querySelector(".session-early-actions");
+        const confirm = box(document.querySelector("#sessionEarlyConfirm")), cancel = box(document.querySelector("#sessionEarlyCancel"));
+        const inside = (b) => b.top >= 0 && b.bottom <= innerHeight - safeBottom + 0.5 && b.left >= 0 && b.right <= innerWidth;
+        const tapped = (id) => { const b = box(document.querySelector(id)); const hit = document.elementFromPoint((b.left + b.right) / 2, (b.top + b.bottom) / 2); return !!hit && !!hit.closest(id); };
+        return { confirm, cancel, vh: innerHeight, confirmInside: inside(confirm), cancelInside: inside(cancel),
+          confirmTapped: tapped("#sessionEarlyConfirm"), cancelTapped: tapped("#sessionEarlyCancel"),
+          window: Math.min(actions.getBoundingClientRect().top, innerHeight - safeBottom) - Math.max(prompt.getBoundingClientRect().top, 0), promptShown: !prompt.classList.contains("hidden") };
+      }, SAFE_AREA.bottom);
+      const label = `${width}px ${lang} ${text === "text200" ? "200%" : "100%"}`;
+      assert(m.promptShown, `${label}: the confirmation is open`);
+      assert(m.confirmInside && m.cancelInside, `${label}: Confirm and Cancel are whole inside the viewport above the safe area`, JSON.stringify({ confirm: m.confirm, cancel: m.cancel, vh: m.vh }));
+      assert(m.confirmTapped && m.cancelTapped, `${label}: a tap at the centre of each lands on it`);
+      assert(m.window >= 120, `${label}: the sentence and omitted sets keep a window of at least 120px (${Math.round(m.window)}px)`);
+    } finally {
+      await opened.context.close();
+    }
+  }
+}
 
 async function main() {
   const browser = await launchChromium();
@@ -277,6 +312,8 @@ async function main() {
       JSON.stringify(savedState));
 
     assert(errors.length === 0, "the session sheet journey emits no page or console errors", errors.join(" | "));
+
+    await earlyFinishFitsLargeText(browser);
   } finally {
     await context.close();
     await browser.close();
