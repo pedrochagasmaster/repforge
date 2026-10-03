@@ -16308,7 +16308,10 @@ function renderOnboarding(){
   if(editorTitle){editorTitle.textContent=isEditor?titleText:"";editorTitle.hidden=!isEditor}
   const progress=entryProgressSections(route);
   const showProgress=Boolean(route)&&progress.show;
-  if(step){step.textContent=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
+  /* #onbStepLabel is a live region: rewriting it with the same text re-announces it
+     on every answer, so it is written only when the section changes (R7 J-12). */
+  if(step){const stepText=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
+    if(step.textContent!==stepText)step.textContent=stepText;
     step.classList.toggle("hidden",!showProgress)}
   const seg=$("#onbSegbar");
   if(seg){const total=showProgress?progress.total:0,current=progress.n-1;

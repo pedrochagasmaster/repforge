@@ -67,7 +67,22 @@ export async function runProgramEntryA11y(browser, check = assert) {
     "keyboard-focused controls retain a visible ring", JSON.stringify(controlFocus));
   check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the desired result is answered");
 
+  // R7 J-16: the screen's title is exposed once. The legacy hidden #onbTitle must not repeat #entryHeading.
+  const headingNames = await page.locator("#onboarding").getByRole("heading").allTextContents();
+  const normalizedHeadings = headingNames.map((text) => text.replace(/\s+/g, " ").trim()).filter(Boolean);
+  check(normalizedHeadings.length > 0 && new Set(normalizedHeadings).size === normalizedHeadings.length,
+    "the entry screen exposes each heading once to assistive technology", JSON.stringify(normalizedHeadings));
+  // R7 J-12: #onbStepLabel is aria-live. Answering a question must not rewrite it with the text it already has.
+  await page.evaluate(() => {
+    const label = document.querySelector("#onbStepLabel");
+    window.__stepLabelWrites = 0;
+    window.__stepLabelObserver?.disconnect();
+    window.__stepLabelObserver = new MutationObserver((records) => { window.__stepLabelWrites += records.length; });
+    window.__stepLabelObserver.observe(label, { childList: true, characterData: true, subtree: true });
+  });
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+  check(await page.evaluate(() => { window.__stepLabelObserver.takeRecords(); return window.__stepLabelWrites; }) === 0,
+    "answering a question does not rewrite the live step label");
   check(!(await page.locator("#onbNext").isDisabled()), "answering the desired result enables Continue");
   check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && !el.hasAttribute("aria-pressed")), "radio exposes aria-checked, not aria-pressed");
   check(await page.getByRole("radio").count() === 3, "accessibility tree exposes the three desired-result radios");
