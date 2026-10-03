@@ -7820,7 +7820,7 @@ function sizeFocusDeck(){
  *  context region's floor and the shelf) as `--focus-floor` and `--focus-form-floor`; the stylesheet lets banners and
  *  guides above the deck give way to it. Watching the header and the shelf republishes it when a timer widens a chip
  *  or an edit rebuilds the shelf. */
-let focusFloorWatch=null;
+let focusFloorWatch=null,focusFloorWatched=[];
 function syncFocusFloor(){
   const card=focusCard(),shell=$("#workoutShell"),shelf=card?.querySelector(".focus-shelf"),head=shell?.querySelector(".wo-head");
   if(!card||!shell||!shelf||!head)return;
@@ -7839,9 +7839,13 @@ function syncFocusFloor(){
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
   shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head)+shellGuide)}px`);
   if(typeof ResizeObserver!=="function")return;
+  // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
+  const watched=[head,shelf,$("#woProgress")].filter(Boolean);
+  if(focusFloorWatched.length===watched.length&&watched.every((el,i)=>el===focusFloorWatched[i]))return;
   focusFloorWatch??=new ResizeObserver(()=>syncFocusFloor());
   focusFloorWatch.disconnect();
-  for(const el of [head,shelf,$("#woProgress")])if(el)focusFloorWatch.observe(el)}
+  watched.forEach(el=>focusFloorWatch.observe(el));
+  focusFloorWatched=watched}
 function sizeFocusCard(card){
   if(!card)return;
   const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);

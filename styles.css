@@ -848,6 +848,8 @@ body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bott
 @media (max-height:600px){
   body.is-focus-wo :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
 }
+/* A recovery banner is the one thing to act on; a first-use hint does not sit beside it. */
+body.is-focus-wo:has(#draftRecovery:not(.hidden)) :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
 /* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
    from costing the shelf the room its action needs. The running timer's pill drops its dot and takes the label size so
    the controls and the timer share one row with the title under them. */
