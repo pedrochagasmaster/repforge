@@ -479,7 +479,7 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 .btn--steel{background:var(--surface);border-color:var(--rule-strong)}
 .btn--cta{
   position:relative;width:100%;height:auto;min-height:54px;border:0;border-radius:var(--radius-control);
-  background:var(--cta);color:var(--cta-ink);font-size:var(--font-size-subtitle);font-weight:600;
+  background:var(--cta);color:var(--cta-ink);font-size:var(--font-size-control);font-weight:600;
   justify-content:center;padding:13px 48px;
 }
 .btn--cta::after{

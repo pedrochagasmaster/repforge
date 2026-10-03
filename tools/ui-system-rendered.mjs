@@ -407,6 +407,18 @@ export async function measureRenderedRoles(input) {
         if (marker) results.push(measurePseudoMark(node, `${item.selector}:${label(node)}${marker}`, marker));
         else if (item.roles?.boundary !== "required") results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
       }
+      // One primary label size: the contract's `control` role (R7 V-17, owner decision #295 comment 5965828337), whichever
+      // surface draws it. The featured entry card is a card, not a label, and has its own recipe.
+      if (!disabled && item.roles?.control === "primary" && item.variant !== "featured-entry-action") {
+        const labelSize = Number.parseFloat(getComputedStyle(node).fontSize);
+        const sizeProbe = document.createElement("span");
+        sizeProbe.style.cssText = "position:absolute;visibility:hidden;font-size:var(--font-size-control)";
+        document.body.append(sizeProbe);
+        const controlSize = Number.parseFloat(getComputedStyle(sizeProbe).fontSize);
+        sizeProbe.remove();
+        results.push({ selector: `${item.selector}:${label(node)}`, kind: "primary-label-size", status: labelSize === controlSize ? "pass" : "fail",
+          reason: labelSize === controlSize ? undefined : `${labelSize}px, the control role is ${controlSize}px` });
+      }
       if (!disabled && item.roles?.control === "selection" && node.matches(".toggle")) {
         const track = getComputedStyle(node, "::before"), knob = getComputedStyle(node, "::after");
         const trackColor = color(track.backgroundColor), knobColor = color(knob.backgroundColor);

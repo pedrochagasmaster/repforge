@@ -735,6 +735,17 @@ try {
   assert.equal(measured.find((item) => item.selector === "#uiDecorativeSide")?.status, "pass",
     `a decorative separator cannot fail a separate required control edge: ${JSON.stringify(measured)}`);
   assert.equal(measured.find((item) => item.selector === "#uiDisabled")?.status, "exempt", "disabled control mass is exempt without exempting its reason");
+  // R7 V-17 (owner decision #295 comment 5965828337): one primary label size, the contract's 16px control role. The real
+  // landing CTA passes; an 18px primary (the retired onboarding override) is rejected by the same rendered check, which
+  // the catalog sweep (tools/check-ui-system.mjs) runs over every landing, onboarding and app primary control.
+  await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend",
+    `<button id="uiBigPrimary" style="position:fixed;top:300px;left:20px;font-size:18px;background:#111;color:#fff">Big primary</button>`));
+  const primaryLabels = await opened.page.evaluate(measureRenderedRoles, { components: [
+    { selector: "#firstRunCreate", roles: { control: "primary" } }, { selector: "#uiBigPrimary", roles: { control: "primary" } },
+  ] });
+  const labelSize = (selector) => primaryLabels.find((item) => item.kind === "primary-label-size" && item.selector.startsWith(`${selector}:`));
+  assert.equal(labelSize("#firstRunCreate")?.status, "pass", `the landing CTA label is the control size: ${JSON.stringify(primaryLabels.filter((item) => item.kind === "primary-label-size"))}`);
+  assert.equal(labelSize("#uiBigPrimary")?.status, "fail", "an 18px primary label is rejected");
   const visibleMeasurements = await opened.page.evaluate(measureRenderedRoles, { components: [] });
   assert.ok(!visibleMeasurements.some((item) => item.selector === "text:#uiTransparentText"),
     "fully transparent content is not treated as a live rendered role");
