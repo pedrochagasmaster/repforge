@@ -674,6 +674,52 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   check(!remaining.includes("ui-b") && remaining.includes("ui-a"), "Delete removes only the targeted session", JSON.stringify(remaining));
 }
 
+/**
+ * R7 V-11: the History page head at double-size text in Portuguese on a 390px phone. The title is a word wider than the
+ * room the three actions leave it, so it must take its own row above them instead of drawing under the search button.
+ */
+async function runHistoryHeadAtLargeText(browser) {
+  console.log("\nHistory head at 390px PT 200%");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  try {
+    const page = await context.newPage();
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await clearState(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+    await page.evaluate(async (k) => {
+      const state = JSON.parse(localStorage.getItem(k));
+      state.settings = { ...(state.settings || {}), lang: "pt" };
+      localStorage.setItem(k, JSON.stringify(state));
+      const db = await new Promise((res, rej) => { const r = indexedDB.open("repforge", 1); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+      await new Promise((res, rej) => { const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").put(state, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+      db.close();
+    }, KEY);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; document.querySelector('nav [data-view="history"]').click(); });
+    await page.waitForSelector("#history.active .page-title");
+    await page.waitForTimeout(300);
+    const m = await page.evaluate(() => {
+      const title = document.querySelector("#history .page-title"), range = document.createRange();
+      range.selectNodeContents(title);
+      const text = [...range.getClientRects()].filter((r) => r.width > 0);
+      const actions = [...document.querySelectorAll("#history .pagehead__actions .icon-btn")].map((b) => ({ id: b.id, box: b.getBoundingClientRect() }));
+      const hits = actions.filter(({ box }) => text.some((r) => Math.min(r.right, box.right) - Math.max(r.left, box.left) > 1 && Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top) > 1)).map((a) => a.id);
+      const column = title.closest(".pagehead__titles").getBoundingClientRect();
+      return { lang: document.documentElement.lang, text: title.textContent.trim(), hits, spills: text.some((r) => r.right > column.right + 1 || r.left < column.left - 1),
+        wide: document.documentElement.scrollWidth > innerWidth, actions: actions.length };
+    });
+    assert(m.lang === "pt-BR" && m.actions === 3, "the History head is drawn in Portuguese with its three actions", JSON.stringify(m));
+    assert(m.hits.length === 0, "the History title does not overlap the search, calendar or export button", JSON.stringify(m));
+    assert(!m.spills, "the History title stays inside its own column", JSON.stringify(m));
+    assert(!m.wide, "the History head does not scroll the page sideways", JSON.stringify(m));
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   try {
@@ -693,6 +739,7 @@ async function main() {
     await runHistoryOperabilityChecks(page, assert);
 
     await context.close();
+    await runHistoryHeadAtLargeText(browser);
   } finally {
     await browser.close();
   }

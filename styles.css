@@ -4279,6 +4279,11 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
    calendar is one button away as a sheet, and two small counts sit above the
    list. Flat reading content on hairlines; ink only, with no accent. */
 #history>.pagehead{flex-wrap:wrap}
+/* The title asks for its own width: beside the three actions when they fit, and on the row above them when enlarged text
+   makes it wider than the room they leave, so it never draws under the search button. */
+#history>.pagehead .pagehead__titles{flex:1 1 max-content}
+#history>.pagehead .pagehead__actions{margin-left:auto}
+#history>.pagehead .page-title{overflow-wrap:anywhere}
 #history .hist-block{margin:var(--space-32) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere}
 #history .hist-month{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-4) var(--space-12);margin:var(--space-26) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink)}
 #history .hist-month b{font-weight:var(--weight-semibold)}
