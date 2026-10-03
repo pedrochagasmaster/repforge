@@ -193,6 +193,10 @@
   /* The least the Focus context region keeps: the exercise's name row (the 56px thumbnail and the card's padding).
      Banners and guides give way before it does; at large text on a short screen the shelf comes first and it is 0. */
   --focus-context-floor:80px;
+  /* The exercise chart's axis labels live inside the drawing's own 328x190 units, so they are set in that unit and do
+     not follow the reader's text size (a five-character tick at double size is wider than the margin it labels and
+     leaves the drawing). The table under the chart carries the same numbers at the reader's size. */
+  --font-size-chart-axis:11px;
   /* Workout shelf grounds, on the shelf only: fields sit on the well, pads on
      the page ground. */
   --shelf-field-bg:var(--well);
@@ -4200,11 +4204,11 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #exercise.exview--chart .exview-head__title{display:none}
 #exercise.exview--chart #exBack{gap:var(--space-4);color:var(--control-quiet-ink)}
 #exercise.exview--chart #exBack .chevron{transform:rotate(180deg);color:inherit}
-.exchart__title{margin:var(--space-8) 0 0}
+.exchart__title{margin:var(--space-8) 0 0;overflow-wrap:anywhere}
 .exchart__toggles{display:grid;gap:var(--space-8);margin-top:var(--space-12)}
 .exchart__toggles .segpill{margin:0}
 .exchart__figs{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-12);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(5.25rem,1fr));gap:var(--space-12);
   margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
 }
 .exchart__figs b{
@@ -4218,7 +4222,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__plot{position:relative;margin-top:var(--space-18);touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none}
 .exchart__svg,.exchart__ghost{display:block;width:100%;height:auto}
 .exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1}
-.exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-regular)}
+.exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-training-data);font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
 .exchart__svg .ch-ax--l,.exchart__ghost .ch-ax--l{font-family:var(--font-language)}
 .exchart__svg .ch-block,.exchart__ghost .ch-block{stroke:var(--boundary-required);stroke-width:1;stroke-dasharray:3 3}
 .exchart__svg .ch-line,.exchart__ghost .ch-line{fill:none;stroke:var(--color-ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
@@ -4250,6 +4254,14 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
 }
 .exchart__cols span:nth-child(n+2),.exrow span:nth-child(n+2){text-align:right}
+/* The columns are widths in rem, which grow with the text until the four of them are wider than the screen. Once the
+   screen is narrow in rem (a root of about 125% or more on a phone) the columns share the width in proportion, the
+   rows take the label size and a long cell wraps instead of leaving the page. */
+@container (max-width:19rem){
+  .exchart__cols,.exrow{grid-template-columns:minmax(0,1.2fr) minmax(0,2fr) minmax(0,1.4fr) minmax(0,1fr);gap:var(--space-4)}
+  .exrow{font-size:var(--font-size-label)}
+  .exchart__cols span,.exrow span{overflow-wrap:anywhere}
+}
 .exrow{
   width:100%;min-height:48px;padding:0 0 0 var(--space-8);border:0;border-left:3px solid transparent;
   border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);

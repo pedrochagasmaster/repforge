@@ -1293,6 +1293,44 @@ async function openExerciseCanvas(page) {
   await context.close();
 }
 
+// R7 V-09: the lift's chart page at double-size text, Portuguese and pounds (the widest labels and figures). At 390 and
+// at 320 the page does not scroll sideways, the three figures neither overprint nor spill, every axis label stays
+// inside the drawing's viewBox, and no column of the table (the change column included) is cut or leaves the screen.
+{
+  const { context, page } = await freshPage({ unit: "lb", lang: "pt" });
+  const key = await page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-1"));
+  await page.evaluate((k) => openExerciseView(k, "stats"), key);
+  await page.waitForSelector(".exchart__plot", { timeout: 5000 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  for (const [width, height] of [[390, 844], [320, 568]]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(250);
+    const m = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll(".exchart__figs > div")];
+      const boxes = cells.map((cell) => cell.getBoundingClientRect());
+      const overlap = boxes.some((a, i) => boxes.some((b, j) => j > i && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1));
+      const spill = cells.filter((cell) => { const b = cell.querySelector("b"); return b.scrollWidth > b.clientWidth + 1 || cell.querySelector("span").scrollWidth > cell.clientWidth + 1; }).length;
+      const svg = document.querySelector(".exchart__svg"), vb = svg.viewBox.baseVal;
+      const outside = [...svg.querySelectorAll("text")].filter((text) => {
+        const bb = text.getBBox();
+        return bb.x < vb.x - 0.5 || bb.x + bb.width > vb.x + vb.width + 0.5 || bb.y < vb.y - 0.5 || bb.y + bb.height > vb.y + vb.height + 0.5;
+      }).map((text) => text.textContent);
+      const rows = [...document.querySelectorAll(".exchart__cols, .exrow")];
+      const cut = rows.flatMap((row) => [...row.children].filter((cell) => cell.scrollWidth > cell.clientWidth + 1 || cell.getBoundingClientRect().right > innerWidth + 0.5 || cell.getBoundingClientRect().left < -0.5).map((cell) => cell.textContent.trim()));
+      const delta = document.querySelector(".exrow span:last-child");
+      return { scrollWidth: document.documentElement.scrollWidth, width: innerWidth, overlap, spill, outside, cut, deltaShown: !!delta && delta.getBoundingClientRect().right <= innerWidth + 0.5, rows: rows.length };
+    });
+    const label = `${width}px PT 200%`;
+    assert.ok(m.scrollWidth <= m.width, `${label}: the page does not scroll sideways (${m.scrollWidth} > ${m.width})`);
+    assert.equal(m.overlap, false, `${label}: the three figures do not overprint`);
+    assert.equal(m.spill, 0, `${label}: no figure or its label spills out of its cell`);
+    assert.deepEqual(m.outside, [], `${label}: every axis label is inside the drawing's viewBox`);
+    assert.deepEqual(m.cut, [], `${label}: no table cell is cut or leaves the screen`);
+    assert.ok(m.deltaShown && m.rows > 1, `${label}: the change column is whole on screen`);
+  }
+  await context.close();
+}
+
 assert.deepEqual(errors, [], "no page errors during evidence journeys");
 await browser.close();
 console.log("PASS: progress evidence (sparse policy, scopes, periods, drill-ins)");
