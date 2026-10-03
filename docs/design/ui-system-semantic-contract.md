@@ -696,9 +696,13 @@ holds no colour, size, radius or shadow literal in the landing.
 | `landing-text-link` | `#firstRunImport`, `#firstRunImportClose` | quiet-navigation, no boundary | An underlined text link, `control` 16/600, in the ink of the band it sits on (`--band-night-ink`, `--band-orange-ink`); the underline is `-ink-soft` and takes full ink on hover and press. 44px target. It has no fill and no border. |
 | `landing-sticky-build` | `#firstRunCreateDock` | primary, decorative boundary, **floating** elevation | The same pill, floating on `--elevation-floating-shadow`. It is the landing's persistent Build control: it appears once the hero action has scrolled away, steps aside at the closing action, opens the same route as `#firstRunCreate`, and never exists on the received-program gate (`display:none` and no observer). Its ink follows the band beneath it: the night recipe over a dark ground, the orange-band recipe over a light one. |
 
-The sticky Build control is the one floating surface outside the dock, the
-workout shelf and the sheets (section 8.2): it is not a fifth elevation, it is
-a persistent-action *variant* on the existing `floating` role. Its focus ring is
+The sticky Build control is a floating surface outside the dock, the workout
+shelf and the sheets (section 8.2): it is not a fifth elevation, it is a
+persistent-action *variant* on the existing `floating` role. Today's
+Start / Continue control (`#startWorkout`, #303) is the other: sticky in the
+flow, it floats on the same `floating` role a 12px gap above the dock, measured
+from `--nav` and the safe area, while its own place is below the fold, and it
+settles back above Choose another day at the end of Today. Its focus ring is
 the app's own focus accent (`--color-focus`), because the ground it floats over
 changes while the lifter scrolls.
 

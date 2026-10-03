@@ -57,7 +57,7 @@
       body: body || "",
       tag: tag || "repforge",
       renotify: true,
-      data: { url: url || "./index.html" },
+      data: { url: url || "./" },
       icon: "./icons/icon-192.png",
       badge: "./icons/icon-192.png"
     };
