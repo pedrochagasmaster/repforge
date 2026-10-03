@@ -65,6 +65,38 @@ assert.ok(validateRoleInventory(tagException, manifest).some((error) => error.st
 
 const css = readFileSync(join(ROOT, "styles.css"), "utf8");
 const motionPolishCss = readFileSync(join(ROOT, "motion-polish.css"), "utf8");
+
+// One icon set (owner decision Q-D, #295). G's glyphs are the app-wide icons through the shared mask
+// mechanism: the generated block in styles.css is byte-identical to tools/build-icon-masks.mjs, and every
+// name G drew is defined exactly once in the stylesheet, so a name draws one icon on the dock, Today and onboarding.
+{
+  const iconTool = await import("../tools/build-icon-masks.mjs");
+  const block = iconTool.extractBlock(css);
+  assert.ok(block, "styles.css carries the generated G icon set between its marker comments");
+  assert.equal(block, iconTool.renderBlock(), "the generated G icon set equals the generator's output (run tools/build-icon-masks.mjs)");
+  const generated = iconTool.classRules();
+  for (const [name, rule] of Object.entries(generated)) {
+    assert.ok(block.split("\n").includes(rule), `${name} inside the generated block is the generator's rule`);
+  }
+  const blockRules = [...block.matchAll(/^\.(icon-mask--[a-z-]+)\{/gm)].map((match) => match[1]);
+  assert.deepEqual(blockRules.sort(), Object.keys(generated).sort(), "the generated block holds exactly the generator's icon-mask rules");
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const definitions = (selector) => [...bare.matchAll(/(?:^|[{};])\s*([^{};]+)\{/g)].flatMap((match) => match[1].split(",").map((part) => part.trim()))
+    .filter((part) => part === selector).length;
+  for (const name of Object.keys(generated)) {
+    assert.equal(definitions(`.${name}`), 1, `.${name} is defined exactly once in styles.css`);
+  }
+  for (const selector of [".chevron", ".chevron.is-down", ".chevron.is-up"]) {
+    const rules = [...bare.matchAll(/(?<![^{};])\s*([^{};]+)\{([^}]*)\}/g)].filter((match) => match[1].split(",").some((part) => part.trim() === selector));
+    assert.equal(rules.filter((match) => /mask-image/.test(match[2])).length, 1, `${selector} has one mask drawing`);
+  }
+  assert.equal((css.match(/^\s*--arrow:/gm) || []).length + (css.match(/:root\{--arrow:/g) || []).length, 1, "--arrow is declared once, as G's arrow");
+  assert.equal((css.match(/^\s*--check:/gm) || []).length + (css.match(/;--check:/g) || []).length, 1, "--check is declared once, as G's check");
+  for (const name of ["wand", "sliders", "search", "pencil", "clipboard", "download", "sheet", "flex", "scale", "dumbbell", "building", "house",
+    "kettlebell", "rack", "target", "trend", "cal", "clock", "shield", "pin", "gear", "plus", "minus", "close", "reset"]) {
+    assert.ok(generated[`icon-mask--${name}`], `G's ${name} is in the generated set`);
+  }
+}
 const rootCss = [...css.matchAll(/(?:^|\})\s*:root(?:\[data-theme="dark"\])?\s*\{([^}]*)\}/g)].map((match) => match[1]).join("\n");
 assert.equal(new Set(inventory.rootRecipeOwners.map((item) => item.token)).size, inventory.rootRecipeOwners.length,
   "each P6 root helper recipe has one semantic owner, even when it serves multiple contexts");
