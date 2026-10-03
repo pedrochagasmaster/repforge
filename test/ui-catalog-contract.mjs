@@ -237,7 +237,12 @@ try {
     assert.ok(transferEvidence.overflow.every((item) => item.locator !== "#iosInstallTitle"),
       "the install-transfer title is measured by the catalog layout oracle and does not overflow");
 
-    await transfer.page.evaluate(() => { document.querySelector("#iosInstallTitle").style.overflowWrap = "normal"; });
+    // The band gives the title the whole row, so the regression needs a word that is longer than the row.
+    await transfer.page.evaluate(() => {
+      const title = document.querySelector("#iosInstallTitle");
+      title.textContent = "Instalar".repeat(6);
+      title.style.overflowWrap = "normal";
+    });
     const regressed = validate(await transfer.page.evaluate(collectCatalogEvidence, transferConfig), transferConfig);
     assert.ok(regressed.some((failure) => failure.startsWith("clipped h2 #iosInstallTitle") && failure.includes("axes=x")),
       `removing the long-word wrap safeguard is rejected by the catalog oracle: ${regressed.join(" | ")}`);
