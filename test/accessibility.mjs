@@ -2322,10 +2322,12 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   await page.waitForSelector("#stats.view.active");
   await page.evaluate(() => typeof setStatsSeg === "function" && setStatsSeg("overview"));
   await page.waitForSelector('#statsSeg button[data-seg="strength"]', { state: "visible" });
-  // Keyboard modality: Tab off the Strength tab and back, so :focus-visible applies to the tab.
-  await page.focus('#statsSeg button[data-seg="strength"]');
+  // Keyboard modality: the row is a roving tablist (R7 J-20), so only the selected tab is a tab stop. Land on the
+  // Overview tab, then arrow to Strength, so :focus-visible applies to the tab the keyboard moved to.
+  await page.focus('#statsSeg button[data-seg="overview"]');
   await page.keyboard.press("Tab");
   await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("ArrowRight");
   const strengthRing = await page.evaluate(() => {
     const el = document.activeElement;
     if (!el || el.dataset?.seg !== "strength") return { missing: true, active: el?.id || el?.tagName };
