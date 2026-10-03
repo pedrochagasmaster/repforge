@@ -258,6 +258,12 @@ phase("Journey 5: first session -> summary -> Progress");
   const logged = await page.evaluate(readSurface);
   assert(logged.guideState["first-set"] === "completed" && !logged.cues.includes("first-set"),
     "logging the first set completes the first-set guide (G-62)", JSON.stringify({ cues: logged.cues, state: logged.guideState }));
+  // Logging starts the rest, and its live region speaks two frames later. That
+  // announcement belongs to this step: wait for it, so the next window does not
+  // inherit it.
+  const restSaid = await page.waitForFunction(() => (document.querySelector("#restAnnounce")?.textContent || "").trim(),
+    undefined, { timeout: 2500 }).then((handle) => handle.jsonValue()).catch(() => "");
+  assert(/2:00/.test(restSaid), "logging the first set announces the rest it starts", JSON.stringify(restSaid));
 
   await mark(page);
   await finishEarly(page);
