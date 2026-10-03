@@ -1937,6 +1937,10 @@ async function edgeBack(browser, { reducedMotion = "no-preference" } = {}) {
   // The pointer lands where a finger would: on whatever is at x=4, which on three of these pages is the
   // inset <main>, not the page. Each page must still take it and run its own Back control (R7 J-11).
   const swipeFromEdge = async (label, expectBack) => {
+    // The app registers the shown page for the gesture on the next animation frame after the route changes
+    // (syncEdgeSwipe is rAF-scheduled). Under reduced motion there is no is-pushing phase to wait out, so wait
+    // two frames: the registration frame has then run, and the swipe cannot reach the page before it is armed.
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const seen = await page.evaluate(() => window.__edge2.drag("#" + document.querySelector(".view.active").id, [40, 120, 220, 310], { wait: 16, real: true }));
     const hit = await page.evaluate(() => window.__edge2.lastHit);
     await page.waitForTimeout(reduced ? 150 : 900);
