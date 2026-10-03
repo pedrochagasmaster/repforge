@@ -297,6 +297,15 @@ async function runContextualGuideAccessibility(browser) {
     return bad;
   });
   assert(settingsStops.length === 0, "Every Settings keyboard stop is a named, visible control", JSON.stringify(settingsStops));
+  // The legacy visually-hidden #heatGauge button (kept as a JS hook) was the first assistive-technology node
+  // on every screen (R7 J-17). Nothing visible or announced may remain of it.
+  const legacyHooks = await page.evaluate(() => {
+    const exposed = (el) => !!el && !el.closest("[hidden],[inert],[aria-hidden='true']")
+      && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden";
+    return ["#heatGauge", "#installBtn"].map((selector) => ({ selector, exposed: exposed(document.querySelector(selector)) }))
+      .filter((entry) => entry.exposed);
+  });
+  assert(legacyHooks.length === 0, "No legacy hook button is exposed to assistive technology", JSON.stringify(legacyHooks));
   await page.locator('[data-guide-cue="privacy"] [data-guide-dismiss]').click();
   await page.locator("#guideReplayToggle").focus();
   await page.keyboard.press("Enter");
