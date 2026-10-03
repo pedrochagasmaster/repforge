@@ -501,6 +501,9 @@ async function settingsJourney(browser, { motion = false } = {}) {
   const tag = `Settings${motion ? " (full motion)" : ""}`;
   const { context, page, errors } = await establishedPage(browser, { workouts: 1, motion });
   await openSettings(page);
+  // R7 J-09: Settings opens on its heading, and Back hands focus to the control that opened it.
+  const opened = await page.evaluate(() => ({ focus: document.activeElement?.tagName, heading: !!document.activeElement?.matches?.("#settings h1") }));
+  check("initial-focus", opened.heading, `${tag}: Settings opens with focus on its heading`, opened);
   const trips = [
     { name: `${tag}: Install (transfer), back with Escape`, opener: "#installApp", ...INSTALL_SHEET, initial: "installTransferStart", dismiss: "escape" },
     { name: `${tag}: Install (transfer), back with the close button`, opener: "#installApp", ...INSTALL_SHEET, initial: "installTransferStart", dismiss: "close" },
@@ -510,6 +513,11 @@ async function settingsJourney(browser, { motion = false } = {}) {
     { name: `${tag}: Privacy, back with the scrim`, opener: "#privacyDetails", ...PRIVACY_SHEET, initial: "privacyClose", dismiss: "scrim" },
   ];
   for (const trip of trips) await handoff(page, { ...trip, surface: "app", motion, scrolled: true });
+  await page.click("#settingsBack");
+  await page.waitForSelector("#log.active", { timeout: 8000 });
+  await page.waitForTimeout(150);
+  const back = await page.evaluate(() => ({ focus: document.activeElement?.id || document.activeElement?.tagName }));
+  check("focus-return", back.focus === "openSettings", `${tag}: Back from Settings returns focus to the control that opened it`, back);
   check("landing", errors.length === 0, `${tag}: no page errors`, errors);
   await context.close();
 }
