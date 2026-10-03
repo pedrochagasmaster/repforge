@@ -85,8 +85,11 @@ Test evidence for the prototype: every pure-Node fast-lane suite passes except
 four that also fail on untouched `main` in this environment
 (`privacy-contract`, `direction-d-fixture`, `workout-draft`, `manual-matrix --self-test`);
 the generative suite passes 36/36; the full `entry` browser lane passes 44/44;
-every `tools/*--check` checker passes. The `state` lane result is recorded in
-the PR that carries this plan.
+every `tools/*--check` checker passes. In the `state` lane, 35 of 37 suites
+pass. The two failures, `program-transition-r7-boundary` and
+`install-transfer-client-browser`, fail identically on untouched `main` in
+this environment. `thermonuclear-races` failed once under parallel load and
+passed on rerun, as it does on `main`.
 
 Read [`plans/065/prototype-programs.md`](./065/prototype-programs.md) for the
 audited shortlist (S100, S096, S091, S095, R027, R068, R016, R002, S098 and
