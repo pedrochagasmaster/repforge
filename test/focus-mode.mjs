@@ -1398,6 +1398,13 @@ async function main() {
   assert(a11y.deckNamed && a11y.inputsLabelled && a11y.carriersAbsent && a11y.segmentsNamed && a11y.pressed,
     "the deck is named, the fields are labelled and pressed-state, the segments are named and hidden carriers are absent",
     JSON.stringify(a11y));
+  // R7 J-23: the exercise-name heading is named by the exercise, not by the "Open … stats and history" button inside it.
+  const focusName = (await page.locator("#workout .exercise.is-current .focus-ex__name").textContent()).trim();
+  const namedHeading = await page.locator("#workout .exercise.is-current").getByRole("heading", { name: focusName, exact: true }).count();
+  const openAction = await page.locator("#workout .exercise.is-current").getByRole("button", { name: /^Open .* stats and history$/ }).count();
+  assert(focusName.length > 0 && namedHeading === 1 && openAction === 1,
+    "the Focus exercise-name heading is named by the exercise, and its button keeps the open-stats action",
+    JSON.stringify({ focusName, namedHeading, openAction }));
   assert(a11y.done !== a11y.current && a11y.current !== a11y.upcoming &&
     /27, 26, 23|rgb\(27/.test(a11y.done) && /224, 78, 20/.test(a11y.current),
     "completed segments are near-black, the current one orange, the rest warm gray",

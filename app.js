@@ -7577,7 +7577,9 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
   const name=exerciseDisplayName(ex);
-  const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
+  /* The heading is named by the exercise; the button inside it keeps its own
+     "Open … stats and history" name, which would otherwise become the heading's (R7 J-23). */
+  const nameHtml=`<h3 class="focus-ex__name"${peek?"":` aria-label="${esc(name)}"`}><button type="button" class="ex__name ex__namebtn"`+
     `${peek?dead():` data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}"`}>${esc(name)}</button></h3>`;
   const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
   const note=noteVal?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(noteVal)}</span></p>`:"";
