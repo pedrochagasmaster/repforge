@@ -160,6 +160,19 @@ async function logSets(page, n, { load = 100, reps = 4 } = {}) {
   return done;
 }
 
+/** Where focus is, as the lifter's keyboard or screen reader finds it (R7 J-03). */
+const focusAt = (page) => page.evaluate(() => {
+  const el = document.activeElement;
+  const card = document.querySelector("#workout .exercise.is-current");
+  const live = !!el && el !== document.body && !el.closest("[aria-hidden='true']") && el.tabIndex >= 0;
+  return {
+    tag: el?.tagName, inCard: !!card && card.contains(el), live,
+    field: el?.dataset?.shelfField || null, cta: !!el?.matches?.(".focus-shelf .saveset"),
+    next: el?.matches?.("[data-fnext]") || false,
+    row: el?.matches?.(".ledgerline[data-editn]") ? +el.dataset.editn : null,
+  };
+});
+
 /** The cue slot and the pad row cross over for one 160ms beat; measure them once it has passed. */
 const fadesDone = (page) => page.waitForFunction(() => !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 3000 });
 
@@ -328,6 +341,10 @@ async function main() {
   // The second set armed a rest; its next-set line says the same hold the cue does once the rest is over.
   const restLine = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restinline__next")?.textContent?.replace(/\s+/g, " ").trim());
   assert(/^Set 3: hold 100 kg, aim for \d+ reps$/.test(restLine || ""), "the rest's next-set line repeats the load just logged as a hold", restLine);
+  // R7 J-03: Log set rebuilds the shelf, so focus must land on the next set's field, never on <body>.
+  const afterLog = await focusAt(page);
+  assert(afterLog.inCard && afterLog.live && afterLog.field !== null,
+    "after Log set, focus is on a field of the next set's shelf", JSON.stringify(afterLog));
   await endRest(page);
   st = await cardState(page);
   assert(st.logged === 2 && st.rows === 5, "two logged sets read back in the ledger and every set keeps its row", JSON.stringify(st));
@@ -859,6 +876,9 @@ async function main() {
   assert(st.cancel && st.ctaText.toLowerCase() === "save set 2" && st.ctaArrow === false,
     "editing is reversible and commits without an arrow", JSON.stringify(st));
   assert(st.logged + st.editing === 3, "no row disappears while it is being edited", JSON.stringify(st));
+  const afterEditOpen = await focusAt(page);
+  assert(afterEditOpen.inCard && afterEditOpen.live && afterEditOpen.cta,
+    "Edit on a ledger row moves focus to the shelf's Save control (R7 J-03)", JSON.stringify(afterEditOpen));
   await page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").first().fill("9");
   await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForTimeout(250);
@@ -876,6 +896,9 @@ async function main() {
     `${beforeEdit} -> ${afterEdit.done}`);
   assert(afterEdit.rows[1] && afterEdit.rows[1][1] === "9",
     "the edited value lands on the row it came from", JSON.stringify(afterEdit.rows));
+  const afterSave = await focusAt(page);
+  assert(afterSave.inCard && afterSave.live && afterSave.row === 2,
+    "Save on an edited set returns focus to its ledger row (R7 J-03)", JSON.stringify(afterSave));
   // …and cancelling puts the set back exactly as it was.
   await page.locator(".ledgerline[data-editn]").nth(1).click();
   await page.waitForTimeout(180);
@@ -889,6 +912,9 @@ async function main() {
   );
   assert(afterCancel[1] && afterCancel[1][1] === "9",
     "cancelling an edit restores the set it opened with", JSON.stringify(afterCancel));
+  const afterCancelFocus = await focusAt(page);
+  assert(afterCancelFocus.inCard && afterCancelFocus.live && afterCancelFocus.row === 2,
+    "Cancel on an edited set returns focus to its ledger row (R7 J-03)", JSON.stringify(afterCancelFocus));
 
   // ---- 08 — the note sheet ---------------------------------------------------
   phase("State 08: exercise-note editor");
@@ -1174,6 +1200,9 @@ async function main() {
     "the shelf reports the exercise finished", JSON.stringify(st));
   assert(/next exercise/i.test(st.ctaText) && st.ctaArrow === true,
     "the next action is a navigation, and may carry an arrow", JSON.stringify(st));
+  const afterLastSet = await focusAt(page);
+  assert(afterLastSet.inCard && afterLastSet.live && afterLastSet.next,
+    "logging an exercise's last set moves focus to the shelf's next-exercise action (R7 J-03)", JSON.stringify(afterLastSet));
   const atBefore = await page.evaluate(() => window.__repforgeFocus.at());
   await page.click("[data-fnext]");
   // Tapping through runs the same transition a swipe does, rather than cutting.

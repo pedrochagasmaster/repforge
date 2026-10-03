@@ -1320,8 +1320,14 @@ async function main() {
         document.querySelector("#draftRecovery")?.classList.contains("hidden");
     }, { loadKey });
     await page.waitForFunction((key) => document.activeElement?.dataset?.k === key, loadKey);
-    check(await page.evaluate((key) => document.activeElement?.dataset?.k === key, loadKey),
-      "Retry persists the exact operation and restores its logical field focus");
+    // R7 C-01: the restored focus is the control the lifter can use (live: in the tab order, in the accessibility
+    // tree), not the shelf's dormant input for that field.
+    const retryFocus = await page.evaluate((key) => {
+      const el = document.activeElement;
+      return { key: el?.dataset?.k === key, live: !!el && el.tabIndex >= 0 && !el.closest("[aria-hidden='true']") };
+    }, loadKey);
+    check(retryFocus.key && retryFocus.live,
+      "Retry persists the exact operation and restores its logical field focus on the live control", retryFocus);
 
     await reset(page);
     await enter(page);

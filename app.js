@@ -2220,6 +2220,9 @@ function restoreDraftFocus(identity){
   requestAnimationFrame(()=>{let el=identity.id?document.getElementById(identity.id):null;
     if(!el&&identity.attribute)el=$$(`#workout [data-${identity.attribute}]`).find(item=>item.dataset?.[identity.attribute]===identity.value);
     if(!(el instanceof HTMLElement))return;
+    // A shelf input stays out of the tab order and the accessibility tree until its field is open: land on the
+    // control the lifter can actually use, not the dormant one (R7 C-01).
+    if(el.matches(".shelf__input")&&!el.closest(".shelf__field.is-editing"))el=shelfReveal(el)||el;
     try{el.focus();if(identity.start!=null&&typeof el.setSelectionRange==="function")el.setSelectionRange(identity.start,identity.end??identity.start)}catch{}})}
 function draftRecoveryMessageKind(status,initialization=false){
   if(status==="stale")return initialization?"program":"stale";
@@ -7541,6 +7544,7 @@ function refreshShelf({focus=null}={}){
   const prevSel=old.querySelector(".shelf__field.is-sel"),liveRing=old.querySelector(".shelf__ring");
   const prevField=prevSel?.dataset.field,prevSet=prevSel?.dataset.set;
   const fromRect=(liveRing||prevSel)?.getBoundingClientRect();
+  const heldFocus=!focus&&old.contains(document.activeElement)?workoutFocusKey(document.activeElement):null;
   old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
   bindWorkout();
   // The ledger's open row was not rebuilt: bring it to the values still waiting for their acknowledgement.
@@ -7560,7 +7564,47 @@ function refreshShelf({focus=null}={}){
     const el=focus.startsWith("pad:")?shelf?.querySelector(`.shelf__pad[data-dir="${focus.slice(4)}"]`)
       :shelf?.querySelector(`.shelf__field.is-editing .shelf__input[data-k$="_${focus}"]`)||shelf?.querySelector(`[data-shelf-field="${focus}"]`);
     if(el){try{el.focus({preventScroll:true})}catch{}if(el.matches("input"))el.select()}}
+  else if(heldFocus)restoreWorkoutFocus(heldFocus);
   return true}
+
+/* ---- Focus across a rebuild (Plan 064 rule 12, R7 J-03) ----
+   The shelf and the card are rebuilt from markup, so the control the lifter pressed is
+   a new node afterwards and focus would fall to <body>. `workoutFocusKey` names the
+   focused control by the stable keys it carries (never by reference); `restoreWorkoutFocus`
+   asks the new markup for the equivalent control. Where the control is gone (Log set
+   moves the shelf to the next set, Edit turns a row into the open one) the handler names
+   the next control with `focusWorkoutHandoff`. */
+function workoutFocusKey(el){
+  if(!(el instanceof HTMLElement)||el.closest(".is-peek")||!el.closest("#workout"))return null;
+  const q=value=>CSS.escape(value);
+  const d=el.dataset;
+  if(el.matches(".shelf__input")&&d.k)return{sel:`.focus-shelf .shelf__input[data-k="${q(d.k)}"]`,start:el.selectionStart,end:el.selectionEnd};
+  if(d.shelfField&&d.set)return{sel:`.focus-shelf [data-shelf-field="${q(d.shelfField)}"][data-set="${q(d.set)}"]`};
+  if(el.matches(".shelf__pad")&&d.dir)return{sel:`.focus-shelf .shelf__pad[data-dir="${q(d.dir)}"]`};
+  if(d.restAct)return{sel:`.focus-shelf [data-rest-act="${q(d.restAct)}"]`};
+  if(el.matches(".saveset"))return{sel:".focus-shelf .saveset"};
+  if(d.editex&&d.editn)return{sel:`.ledgerline[data-editex="${q(d.editex)}"][data-editn="${q(d.editn)}"]`};
+  for(const name of["fcancel","fnext","ffinish","fnextrow"])if(name in d||el.hasAttribute(`data-${name}`))return{sel:`[data-${name}]`};
+  if(d.exopen)return{sel:`.ex__namebtn[data-exopen="${q(d.exopen)}"]`};
+  return null}
+function restoreWorkoutFocus(key){
+  const card=focusCard();if(!key||!card)return false;
+  const el=card.querySelector(key.sel);
+  if(!(el instanceof HTMLElement)||!canTakeFocus(el))return false;
+  try{el.focus({preventScroll:true})}catch{return false}
+  if(key.start!=null&&typeof el.setSelectionRange==="function"){try{el.setSelectionRange(key.start,key.end??key.start)}catch{}}
+  return document.activeElement===el}
+/** Name the control that follows an action whose own control is gone after the rebuild. `next`: the field the new
+ *  active set opens on, or the shelf's action once the exercise is done; `cta`: the shelf's action; `row`: a logged
+ *  row, falling back to the action. */
+function focusWorkoutHandoff(kind,{exId=null,n=0}={}){
+  const card=focusCard();if(!card)return false;
+  const shelf=card.querySelector(".focus-shelf");
+  const cta=shelf?.querySelector(".btn--cta")||null;
+  let target=null;
+  if(kind==="row")target=card.querySelector(`.ledgerline[data-editex="${CSS.escape(String(exId))}"][data-editn="${n}"]`);
+  else if(kind==="next")target=shelf?.querySelector(".shelf__field.is-sel [data-shelf-field]")||shelf?.querySelector("[data-shelf-field]")||null;
+  return focusRoute(resolveReturnFocus(target)||cta)}
 
 /** The control standing for a draft field in the live card now. A rebuild replaces the node an edit began on, so
  *  anything that outlives an await asks for the control again by its stable key instead of keeping the old node. */
@@ -7663,11 +7707,14 @@ function renderWorkout(){
   // L3: the cue slot and pad row as they stand, so a change of job arrives from them.
   const restBefore=focusMotion()?captureRestSlot():null;
   restRenderPending=false;
+  // Focus survives the rebuild when the lifter is still on the same exercise: the control is asked for again by its keys.
+  const heldFocus=focusCard()?.contains(document.activeElement)?{ex:focusCard().dataset.ex,key:workoutFocusKey(document.activeElement)}:null;
   wk.innerHTML=banner+(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
   // The landing animation belongs to this render alone: the markup that plays
   // it has been written, so the next render draws the same card at rest.
   focusLogged=null;
   bindWorkout();
+  if(heldFocus&&focusCard()?.dataset.ex===heldFocus.ex)restoreWorkoutFocus(heldFocus.key);
   updateWorkoutHeader(fl,at);
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -7808,7 +7855,9 @@ function bindWorkout(){
       if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
         if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}
-      renderWorkout()
+      renderWorkout();
+      // The action's own button is rebuilt: a corrected set returns to its row, a logged one hands on to the next set.
+      if(nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
     }finally{restRenderPending=false;if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
   $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
@@ -7888,7 +7937,8 @@ function bindWorkout(){
         completedAt:activeWorkoutDraft.exercises[exId].sets[target.setId].completion?.completedAt}};
       const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
       if(result.status!=="applied"){focusEdit=null;return}
-      renderWorkout()});
+      renderWorkout();
+      focusWorkoutHandoff("cta")});
     $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
       if(!focusEdit)return;
       const{exId,n,snap}=focusEdit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
@@ -7897,7 +7947,7 @@ function bindWorkout(){
         if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
       const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
-      if(restored.status!=="applied")return;focusEdit=null;renderWorkout()});
+      if(restored.status!=="applied")return;focusEdit=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
     }
   updateFocusChrome();
 }
