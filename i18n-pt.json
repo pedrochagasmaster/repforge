@@ -2229,7 +2229,7 @@
   "landing.outcomes.target": "{load} × {reps}",
   "landing.outcomes.next_label": "Próxima sessão",
   "landing.outcomes.tip": "Cada série de trabalho que você registra entra no cálculo da próxima meta. Séries de aquecimento ficam de fora.",
-  "landing.chart.alt": "A tendência de força do {exercise}: maior carga de {from} para {to} ao longo de {sessions} sessões, com a tabela das sessões e o gráfico.",
+  "landing.chart.alt": "A tendência de força do {exercise} com {metric} selecionado: a estimativa de uma repetição máxima em linha ao longo de {sessions} sessões, com a maior série mais recente, {to}, lida logo abaixo.",
   "landing.chart.caption": "Seu progresso vira um gráfico: aqui, de {from} para {to} em {sessions} sessões. O e1RM do gráfico é a carga que você levantaria uma única vez, estimada pelas suas séries.",
   "landing.data.title": "Seu histórico fica no seu celular.",
   "landing.data.row1.title": "Você não precisa criar uma conta.",

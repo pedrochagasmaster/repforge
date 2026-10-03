@@ -34,7 +34,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  CHART_FIGURES, CHART_LIFT, CHART_TARGETS, CHART_THEMES, DEFAULT_SPOTS_FILE, LANGS, PASTE_TARGETS, PASTE_THEMES, PROOF_FRAME,
+  CHART_FIGURES, CHART_FRAME, CHART_LIFT, CHART_MIN_SCALE, CHART_TARGETS, CHART_THEMES, DEFAULT_SPOTS_FILE, LANGS, PASTE_TARGETS, PASTE_THEMES, PROOF_FRAME,
   PROOF_SCENES, RETIRED_SELECTORS, SPOT_SCHEMA, SPOT_TARGETS, SPOT_TOLERANCE, chartFile, compareSpots, outputFiles, pasteFile,
   pasteSample, sceneFile, webpSize,
 } from "../tools/capture-landing-proof.mjs";
@@ -264,8 +264,10 @@ try {
       assert.equal(entry.rows.at(-1).top, CHART_FIGURES.from);
       assert.equal(entry.rows[0].top, CHART_FIGURES.to);
       const size = webpSize(readFileSync(join(dir, "charts", chartFile(lang, theme))));
-      assert.equal(size.width, 780, `${lang} ${theme}: 780 px wide (390 CSS px at 2x)`);
-      assert(size.height > 1400 && size.height < 1900, `${lang} ${theme}: a crop of the page (${size.height})`);
+      // R7 V-04: the chart region of a 320 px phone at 2x, so the 230 px landing slot draws it at CHART_MIN_SCALE or better.
+      assert.equal(size.width, 584, `${lang} ${theme}: 584 px wide (292 CSS px at 2x)`);
+      assert(230 / (size.width / CHART_FRAME.scale) >= CHART_MIN_SCALE, `${lang} ${theme}: legible at the 230 px slot`);
+      assert(size.height > 600 && size.height < 900, `${lang} ${theme}: the chart region, not the page (${size.height})`);
     }
     for (const lang of LANGS) {
       const [light, dark] = CHART_THEMES.map((theme) => webpSize(readFileSync(join(dir, "charts", chartFile(lang, theme)))));

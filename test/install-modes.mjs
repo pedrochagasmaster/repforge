@@ -695,7 +695,7 @@ async function run() {
         const shape = await page.evaluate(landingShape);
         const at = `${width}px ${locale}`;
         assert(shape.sectionsInOrder, `${at}: hero, proof, ways, track, data, questions, close and footer follow in order`, JSON.stringify(shape));
-        assert(shape.nextTargets.length === 3 && shape.nextTargets.every((text) => /\d/.test(text)) && /100/.test(shape.chartAlt) && /92[.,]5/.test(shape.chartAlt),
+        assert(shape.nextTargets.length === 3 && shape.nextTargets.every((text) => /\d/.test(text)) && /100/.test(shape.chartAlt) && /e1RM/.test(shape.chartAlt) && /\b4\b/.test(shape.chartAlt),
           `${at}: the three next targets and the strength trend remain live text`, JSON.stringify(shape));
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         assert(

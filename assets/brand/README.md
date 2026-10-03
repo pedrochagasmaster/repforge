@@ -64,7 +64,7 @@ import review's old head): a screenshot of retired UI never ships.
 | `wt-actions-{en,pt}-dark.webp` | same | The redrawn exercise-actions sheet |
 | `wt-note-{en,pt}-dark.webp` | same | The exercise-note sheet over Focus with a typed note |
 | `paste-review-{en,pt}-{light,dark}.webp` | 390 CSS px wide @2x (780x1242), cropped from the import-review head through the first row | The review screen for the landing's sample coach message |
-| `exercise-chart-{en,pt}-{light,dark}.webp` | 390 CSS px wide at 2x, cropped from the back link through the last table row (780x1646 en, 780x1708 pt) | The exercise page opened from Progress for the landing's squat, best e1RM selected: the plot and the session table, from `tools/landing-prototype/fixture.mjs` (the history behind the caption's 92.5 to 100 kg over 4 sessions) |
+| `exercise-chart-{en,pt}-{light,dark}.webp` | the chart region at 2x, from the metric toggle through the plot's readout line, on a 320 px phone (584x728 en, 584x766 pt: 292 CSS px wide, so the landing's 230 px slot draws it at 0.79) | The exercise page opened from Progress for the landing's squat, best e1RM selected: the figures, the plot and its readout (no table), from `tools/landing-prototype/fixture.mjs` (the history behind the caption's 92.5 to 100 kg over 4 sessions) |
 
 The paste-review counts are read off the captured DOM and can differ by
 language (the library's Portuguese names match the sample less exactly), so the

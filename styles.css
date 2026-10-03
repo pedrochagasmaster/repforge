@@ -4833,7 +4833,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-oc__ex{margin-top:2px;font-size:var(--font-size-body-small);color:var(--firstrun-ink-soft)}
 .firstrun-outcomes p{margin:var(--firstrun-gap-1) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--firstrun-ink-soft)}
 .firstrun-chart{margin-top:var(--firstrun-gap-5)}
-.firstrun-chart__img{display:block;width:min(58%,230px);height:auto;margin-inline:auto}
+.firstrun-chart__img{display:block;width:min(100%,230px);height:auto;margin-inline:auto}
 .firstrun-chart figcaption{margin-top:var(--firstrun-gap-2);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--firstrun-ink-soft)}
 .firstrun-tip{font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--firstrun-ink)}
 

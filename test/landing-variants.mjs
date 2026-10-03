@@ -64,7 +64,7 @@ import {
   waitForFirstRun,
 } from "./shared-setup-flow.mjs";
 import { realisticState } from "../tools/landing-prototype/fixture.mjs";
-import { webpSize } from "../tools/capture-landing-proof.mjs";
+import { CHART_FRAME, CHART_MIN_SCALE, webpSize } from "../tools/capture-landing-proof.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const FAULT = process.env.REPFORGE_LANDING_VARIANTS_FAULT;
@@ -775,10 +775,13 @@ async function finalPage(browser) {
     const chart = deriveChart(lang);
     assert(!!f.chart, `[${lang}] the strength-trend figure is present (data-landing-chart)`);
     const shownChart = f.chart ?? { alt: "", caption: "", src: "", width: "", height: "" };
-    for (const [where, text] of [["alt", shownChart.alt], ["caption", shownChart.caption]]) {
-      assert(hasNumber(text, chart.from, lang) && hasNumber(text, chart.to, lang) && hasNumber(text, chart.sessions, lang),
-        `[${lang}] chart ${where} states ${chart.from} -> ${chart.to} kg over ${chart.sessions} sessions (Progress model)`, text);
-    }
+    assert(hasNumber(shownChart.caption, chart.from, lang) && hasNumber(shownChart.caption, chart.to, lang) && hasNumber(shownChart.caption, chart.sessions, lang),
+      `[${lang}] chart caption states ${chart.from} -> ${chart.to} kg over ${chart.sessions} sessions (Progress model)`, shownChart.caption);
+    // R7 V-04 (owner decision #295 comment 5965828337): the image is the Best e1RM chart region with the newest top set read
+    // out under the plot, so the alt names that metric and those two numbers and never calls the picture a "top load" view.
+    assert(hasNumber(shownChart.alt, chart.to, lang) && hasNumber(shownChart.alt, chart.sessions, lang) && shownChart.alt.includes(tr(lang, "stats.metric.best_e1rm")),
+      `[${lang}] chart alt names ${tr(lang, "stats.metric.best_e1rm")}, the newest top set ${chart.to} kg and ${chart.sessions} sessions`, shownChart.alt);
+    assert(!new RegExp(escapeRe(tr(lang, "stats.metric.top_load")), "i").test(shownChart.alt), `[${lang}] chart alt does not describe a top-load chart`, shownChart.alt);
     assert(shownChart.src.includes(`exercise-chart-${lang}-`), `[${lang}] the chart image is the ${lang} capture`, shownChart.src);
     const chartFile = webpSize(readFileSync(new URL(`../assets/brand/exercise-chart-${lang}-light.webp`, import.meta.url)));
     assert(shownChart.width === String(chartFile.width) && shownChart.height === String(chartFile.height),
@@ -1108,6 +1111,32 @@ async function dockFocusRing(browser) {
   }
 }
 
+/**
+ * R7 V-04 and V-08 (owner decision #295 comment 5965828337 for the chart). The chart image must be drawn at or above
+ * CHART_MIN_SCALE of the CSS size it was captured at (rendered width / natural CSS width, natural = pixels / capture
+ * scale), and every proof-rail button is a full 44 x 44 target at the narrowest supported widths.
+ */
+async function chartScaleAndRailTargets(browser) {
+  phase("Final page: the chart image is legible at 360 and 390");
+  for (const lang of ["en", "pt"]) {
+    for (const width of [320, 360, 390]) {
+      const { context, page } = await landingPage(browser, { lang, width });
+      await page.evaluate(() => document.querySelector("[data-landing-chart] img").scrollIntoView({ block: "center", behavior: "instant" }));
+      await page.waitForFunction(() => { const img = document.querySelector("[data-landing-chart] img"); return img.complete && img.naturalWidth > 0; }, undefined, { timeout: 10000 });
+      const read = await page.evaluate(() => {
+        const img = document.querySelector("[data-landing-chart] img");
+        return { rendered: img.getBoundingClientRect().width, natural: img.naturalWidth, overflowX: document.documentElement.scrollWidth > innerWidth };
+      });
+      const scale = read.rendered / (read.natural / CHART_FRAME.scale);
+      if (width >= 360) {
+        assert(scale >= CHART_MIN_SCALE, `[${lang} ${width}] the chart image draws at ${scale.toFixed(2)} of its captured size, needs ${CHART_MIN_SCALE}`, JSON.stringify(read));
+      }
+      assert(!read.overflowX, `[${lang} ${width}] the chart does not overflow the page`, JSON.stringify(read));
+      await context.close();
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 async function main() {
   console.log(`Landing variants\nTarget: ${BASE}${FAULT ? `\nFault: ${FAULT}` : ""}`);
@@ -1117,6 +1146,7 @@ async function main() {
   try {
     await characterize(browser);
     await finalPage(browser);
+    await chartScaleAndRailTargets(browser);
     await dockFocusRing(browser);
   } finally {
     await browser.close();

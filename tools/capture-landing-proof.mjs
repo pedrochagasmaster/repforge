@@ -6,7 +6,7 @@
  *   --proof <dir>      Capture the landing's real-app proof images into <dir>:
  *                        wt-{focus,rest,actions,note}-{en,pt}-dark.webp   (8; 390x844 @2x, dark only)
  *                        paste-review-{en,pt}-{light,dark}.webp            (4; the import-review screen)
- *                        exercise-chart-{en,pt}-{light,dark}.webp         (4; the exercise page, best e1RM, from the chart fixture)
+ *                        exercise-chart-{en,pt}-{light,dark}.webp         (4; the best e1RM chart region of the exercise page, from the chart fixture)
  *                        landing-proof-spots.json                          (lens hotspots + paste counts)
  *                        proof-report.json                                 (sizes, counts, review rows)
  *                      Prints the linked / to-review counts read off each captured paste-review
@@ -65,6 +65,13 @@ export const CHART_SCENE = 'exercise-chart';
 export const CHART_THEMES = ['light', 'dark'];
 /** The squat the landing's chart figures come from: 92.5 to 100 kg over 4 sessions (owner decision L-2). */
 export const CHART_LIFT = 'library:sq_bb';
+/**
+ * The chart capture's phone width and pixel density. The image is a crop of the content column of a 320 px phone, so its
+ * natural CSS width is its pixel width divided by the scale, and the landing slot (at most 230 px) draws it at or above
+ * CHART_MIN_SCALE: effective scale = rendered width / natural CSS width.
+ */
+export const CHART_FRAME = {width: 320, scale: 2};
+export const CHART_MIN_SCALE = 0.75;
 export const CHART_FIGURES = {from: 92.5, to: 100, sessions: 4};
 const NOTE = {
   en: 'Bench on 4, grip one finger past the ring.',
@@ -109,7 +116,7 @@ export const PASTE_TARGETS = {head: '#importReview .onb__head', firstRow: '#impo
 /**
  * The exercise page as the Progress strength list opens it (R3i): the scope and metric toggles, the plot that
  * snaps to a session, and the session table under it. The capture selects best e1RM, the metric the landing's
- * caption explains, and is cropped from the back link through the last table row.
+ * caption explains, and is cropped to the chart region: the metric toggle through the plot's readout line (the table stays out).
  */
 export const CHART_TARGETS = {
   page: '#exercise.exview--chart',
@@ -118,6 +125,7 @@ export const CHART_TARGETS = {
   e1rm: '#exDetail [data-metric="e1rm"]',
   rows: '#exDetail .exrow',
   figs: '#exDetail .exchart__figs',
+  readout: '#exDetail .exchart__readout',
 };
 
 /** Scene table: the runner name, the spots it owns, and what the frame must show. */
@@ -502,7 +510,7 @@ async function capturePasteReview(browser, lang, theme, {images}) {
  */
 async function captureChart(browser, lang, theme, {images}) {
   const name = `${CHART_SCENE}-${lang}-${theme}`;
-  const {page, context} = await open(browser, {width: PROOF_FRAME.width, height: 1300, dpr: PROOF_FRAME.scale, lang, theme,
+  const {page, context} = await open(browser, {width: CHART_FRAME.width, height: 1300, dpr: CHART_FRAME.scale, lang, theme,
     source: true, quiet: true, insets: true, seed: realisticState(lang)});
   try {
     await page.evaluate(key => window.openExerciseView(key, 'stats'), CHART_LIFT);
@@ -538,12 +546,17 @@ async function captureChart(browser, lang, theme, {images}) {
     assert.deepEqual(retired, [], `${name}: the frame shows retired UI`);
     let webp = null;
     if (images) {
+      // R7 V-04 (owner decision #295 comment 5965828337): crop to the chart region, from the metric toggle (best e1RM
+      // pressed) through the plot's readout line, at the content width of a CHART_FRAME.width phone. The landing slot
+      // is 230 px at most, so a page-wide 390 px capture drew 4-7 px text; this one stays at or above CHART_MIN_SCALE.
       const clip = await page.evaluate(targets => {
-        const top = document.querySelector(targets.head).getBoundingClientRect().top;
-        const rows = [...document.querySelectorAll(targets.rows)];
-        const bottom = rows.at(-1).getBoundingClientRect().bottom;
-        const y = Math.max(0, Math.floor(top) - 16);
-        return {x: 0, y, width: innerWidth, height: Math.ceil(bottom) - y + 12};
+        const boxes = [document.querySelector(targets.e1rm).parentElement, document.querySelector(targets.plot), document.querySelector(targets.readout)]
+          .map(node => node.getBoundingClientRect());
+        const pad = 2;
+        const left = Math.floor(Math.min(...boxes.map(box => box.left))) - pad;
+        const right = Math.ceil(Math.max(...boxes.map(box => box.right))) + pad;
+        const top = Math.max(0, Math.floor(boxes[0].top) - pad);
+        return {x: Math.max(0, left), y: top, width: right - Math.max(0, left), height: Math.ceil(boxes[2].bottom) + pad - top};
       }, CHART_TARGETS);
       webp = await encodeWebp(page, await page.screenshot({type: 'png', clip}));
     }

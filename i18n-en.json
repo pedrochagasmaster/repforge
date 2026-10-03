@@ -2229,7 +2229,7 @@
   "landing.outcomes.target": "{load} × {reps}",
   "landing.outcomes.next_label": "Next session",
   "landing.outcomes.tip": "Every working set you log goes into your next target. Warm-up sets are left out.",
-  "landing.chart.alt": "The strength trend for the {exercise}: top load from {from} to {to} across {sessions} sessions, with the session table and chart.",
+  "landing.chart.alt": "The strength trend for the {exercise} with {metric} selected: the estimated one-rep max as a line across {sessions} sessions, with the latest top set, {to}, read out under it.",
   "landing.chart.caption": "Your progress becomes a chart: here, {from} to {to} over {sessions} sessions. The e1RM on the chart is the load you could lift for a single rep, estimated from your sets.",
   "landing.data.title": "Your history stays on your phone.",
   "landing.data.row1.title": "You don't need to create an account.",
