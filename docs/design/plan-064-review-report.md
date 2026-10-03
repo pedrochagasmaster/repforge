@@ -115,6 +115,7 @@ These were not in any review. They surfaced while integrating the fix packets, a
 | I-4 | A preview-injected `posthog-config` line was committed while a gate was still serving the worktree. | `4d367dd`; the orchestrator now checks `index.html` before every shell commit |
 | I-5 | The Build editor frames captured the new "Exercise added." toast over the editor. | The scenario lets the toast's lifetime end before capture. |
 | I-6 | The `motion-integration` x=4 swipe check raced the page's edge registration, which is rAF-scheduled. Under reduced motion it reached an unregistered page; CI on `b2ff2bc` failed twice. | `815273e`: wait two frames before the swipe |
+| I-7 | `motion-integration`'s "Focus rides in from the right" read the push's starting offset from the first sampled frame. Entering Focus is heavy, so that sample can land after the ride has begun; this failed CI once on `36b24c2`, and the diagnostic replay passed. | The probe records the first offset the push writes, and the check asserts on that origin |
 
 ## Deferred, with reasons
 

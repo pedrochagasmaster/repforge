@@ -1642,11 +1642,19 @@ window.__push = {
         for (const r of records) if (r.target.classList?.contains("is-push-over") || r.target.classList?.contains("is-push-under")) ever = true;
       });
       watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
+      // The first offset the push writes is where the ride starts. A frame sample can land late when the route
+      // change is heavy (Focus builds its card first), so the origin is read from the write itself.
+      const el = document.querySelector(sel);
+      const originWatch = new MutationObserver(() => {
+        if (samples.origin != null || !el?.style.transform) return;
+        samples.origin = Math.round(new DOMMatrixReadOnly(el.style.transform).m41 * 10) / 10;
+      });
+      if (el) originWatch.observe(el, { attributes: true, attributeFilter: ["style"] });
       const t0 = performance.now();
       const step = () => {
         const t = performance.now() - t0;
-        samples.push({ t: Math.round(t * 10) / 10, x: this.x(sel), ...this.frame(), ever });
-        if (t < ms) requestAnimationFrame(step); else { watch.disconnect(); resolve(samples); }
+        samples.push({ t: Math.round(t * 10) / 10, x: this.x(sel), ...this.frame(), ever, origin: samples.origin ?? null });
+        if (t < ms) requestAnimationFrame(step); else { watch.disconnect(); originWatch.disconnect(); resolve(samples); }
       };
       act();
       requestAnimationFrame(step);
@@ -1679,6 +1687,8 @@ function pushRun(samples) {
     layered, xs, frames: layered.length,
     never: first < 0 && !samples.at(-1).ever,
     start: xs[0], min: Math.min(...xs), max: Math.max(...xs),
+    // The first offset the push wrote (see __push.run), whatever frame the first sample landed on.
+    origin: samples.find((s) => s.origin != null)?.origin ?? null,
     // The page is parked at its resting offset on the frame the layers come off.
     ms: arrived ? Math.round(arrived.t - samples[first].t) : null,
     mounted: layered.every((s) => s.overShown && s.underShown),
@@ -1811,8 +1821,8 @@ async function pageMotion(browser, { reducedMotion = "no-preference" } = {}) {
     "Focus is open on its day title with a draft, and nothing is left transformed or layered", JSON.stringify(inFocus));
   if (reduced) assert(enter.never, "reduced motion opens Focus with no push layers");
   else {
-    assert(enter.frames >= 5 && enter.start >= 300 && monotone(enter.xs, "in") && enter.xs.at(-1) <= 1 && enter.min >= -0.6,
-      "Focus rides in from the right and lands without overshoot", JSON.stringify(enter.xs));
+    assert(enter.frames >= 5 && enter.origin >= 300 && monotone(enter.xs, "in") && enter.xs.at(-1) <= 1 && enter.min >= -0.6,
+      "Focus rides in from the right and lands without overshoot", JSON.stringify({ origin: enter.origin, xs: enter.xs }));
     assert(enter.mounted && enter.single && enter.layered.every((s) => s.under.includes("todayDash") && s.over.includes("workoutShell")),
       "with Today mounted beneath it for the whole run", JSON.stringify(enter.layered[0]));
     console.log(`  · measured Focus push settle: ${enter.ms} ms`);
