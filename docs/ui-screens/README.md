@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 167 screens,
-1006 frames. This folder is the visual reference for UI and Brand Designers.
+1051 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -186,7 +186,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Session summary](screens/session/summary__phone-390-light-en.png) | 3 | The Direction D lifter's Day 1 summary: an outcome word per lift, the sets, records in green and the next target as the strongest line. |
+| [Session summary](screens/session/summary__phone-390-light-en.png) | 8 | The Direction D lifter's Day 1 summary: an outcome word per lift, the sets, records in green and the next target as the strongest line. |
 | [Session summary — maintained](screens/session/summary-maintained__phone-390-light-en.png) | 8 | A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and a record. |
 | [Session summary — declined](screens/session/summary-declined__phone-390-light-en.png) | 8 | A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription. |
 | [Session summary — mixed strategies](screens/session/summary-mixed__phone-390-light-en.png) | 8 | The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records. |
@@ -196,13 +196,13 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 3 | The Progress landing tab. |
+| [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |
-| [Progress — actionable overview](screens/progress/overview-action__phone-390-light-en.png) | 3 | Sufficient evidence produces linked program-wide action items. |
-| [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 3 | A single lift's strength chart. |
-| [Progress — Strength](screens/progress/strength__phone-390-light-en.png) | 3 | The Strength sub-tab. |
-| [Progress — Strength current block](screens/progress/strength-current-block__phone-390-light-en.png) | 3 | Current-block values, outcomes, and drill-in share one scope. |
-| [Progress — Strength all history](screens/progress/strength-all-history__phone-390-light-en.png) | 3 | All-history scope explicitly includes archived observations. |
+| [Progress — actionable overview](screens/progress/overview-action__phone-390-light-en.png) | 8 | Sufficient evidence produces linked program-wide action items. |
+| [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 8 | A single lift's strength chart. |
+| [Progress — Strength](screens/progress/strength__phone-390-light-en.png) | 8 | The Strength sub-tab. |
+| [Progress — Strength current block](screens/progress/strength-current-block__phone-390-light-en.png) | 8 | Current-block values, outcomes, and drill-in share one scope. |
+| [Progress — Strength all history](screens/progress/strength-all-history__phone-390-light-en.png) | 8 | All-history scope explicitly includes archived observations. |
 | [Progress — Strength comparison](screens/progress/strength-comparison__phone-390-light-en.png) | 8 | Two compatible points show values, dates, absolute change, and percentage change. |
 | [Progress — Strength sparse evidence](screens/progress/strength-sparse__phone-390-light-en.png) | 8 | Zero or one compatible point remains neutral baseline evidence. |
 | [Progress — Volume](screens/progress/volume__phone-390-light-en.png) | 3 | The Volume sub-tab and its muscle rows. |
@@ -229,7 +229,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [History](screens/history/list__phone-390-light-en.png) | 3 | The logged session list. |
+| [History](screens/history/list__phone-390-light-en.png) | 8 | The logged session list. |
 | [History — expanded session](screens/history/session__phone-390-light-en.png) | 8 | One session expanded in place. |
 | [History — dirty edit](screens/history/edit-dirty__phone-390-light-en.png) | 8 | A session edit with an unsaved canonical change and its destructive actions still visible. |
 | [History — invalid edit](screens/history/edit-invalid__phone-390-light-en.png) | 8 | An invalid set value is held at the field boundary with the editor's validation state visible. |
@@ -251,7 +251,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Program — no program](screens/program/no-program__phone-390-light-en.png) | 3 | A fresh device's Program tab, with setup as the only action. |
-| [Program](screens/program/overview__phone-390-light-en.png) | 3 | The current program and its days. |
+| [Program](screens/program/overview__phone-390-light-en.png) | 8 | The current program and its days. |
 | [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
