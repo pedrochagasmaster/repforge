@@ -553,6 +553,20 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   `--color-maintained`; the glyph is never the accent. No role, tier, radius or
   colour is added.
 
+- **Icons: one set, G's (2026-10-01).** The owner decided Q-D on #295
+  (comment 5927122354): onboarding direction G's glyphs are the app-wide icons
+  through the shared mask mechanism, inventoried, so a name draws the same icon
+  on the dock, Today and onboarding (Plan 064 section 8 rule 7). `.icon-mask--NAME`,
+  `.chevron` (with `.is-down` and `.is-up`, and `.icon-mask--chev-down` and
+  `--chev-up` drawn with rotated path coordinates, not a CSS transform) and the
+  `--arrow` and `--check` tokens take G's drawings; the 24 grid, 1.75 stroke (2
+  for check, arrow, plus, minus and close), round caps and joins and the 2.5px
+  safe area are the set's. `tools/build-icon-masks.mjs` generates them into
+  `styles.css`, one definition per name. History, note, overflow, rosette, skip,
+  stop, timer and the dock's own glyphs were not drawn by G and keep their rules.
+  No role, tier, radius or colour is added; icons stay `aria-hidden` beside their
+  labels and an icon-only control keeps its accessible name and 44px target.
+
 ### Type role changes
 
 - **Section heads (OG-4, proposal 2).** `section-title` (24px) now names a

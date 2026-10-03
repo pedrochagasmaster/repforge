@@ -749,6 +749,19 @@ words. Hard sets by muscle are ranked counts, and the week line follows. The tot
 keep a count ramp, and there is no check circle and no row stagger. Done is a pinned
 persistent action at the end.
 
+### Icons (the G set)
+
+One icon set, drawn for onboarding direction G and adopted app-wide by the owner's
+Q-D decision (2026-10-01): a name draws the same icon on the dock, Today and
+onboarding. Each glyph is a mask (`.icon-mask--NAME`, `.chevron`, and the arrow and
+check masks the CTA and the selection marks share) tinted by `currentColor`, on a 24 grid with a 1.75 stroke (2
+for check, arrow, plus, minus and close), round caps and joins, and a 2.5px safe
+area. `tools/build-icon-masks.mjs` is the inventory and the only writer: it writes
+the rules between the `G icon set` markers in `styles.css`, and a name has one
+definition. A drawing that is not G's (history, note, overflow, rosette, skip,
+stop, timer and the dock's own glyphs) keeps its rule outside that block until it
+is redrawn in the set.
+
 ### Retired
 
 These no longer exist, and a new rule does not reintroduce them: the rest timer sheet
