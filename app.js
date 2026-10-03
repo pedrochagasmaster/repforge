@@ -827,7 +827,16 @@ function announce(msg,{assertive=false,placement=""}={}){
         write()})})}
   else write()}
 const toast=(m,opts)=>announce(m,opts||{});
-let activeModal=null;
+/* The Program editor announces a change it made (an exercise added, changed or removed). A custom exercise saved from
+   the picker has just announced itself, and that is the one announcement for the change. */
+let customCreatedToastAt=-Infinity;
+function announceEditorChange(message,opts){
+  if(opts?.change&&performance.now()-customCreatedToastAt<4000)return;
+  toast(message)}
+let activeModal=null,modalSettleQueue=[];
+/** Run `callback` once no modal is open: now, or as the open one finishes closing and has restored focus. */
+function afterModalSettles(callback){
+  if(!activeModal)callback();else modalSettleQueue.push(callback)}
 function modalFocusables(root){
   if(!root)return[];
   const sel='a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -1106,6 +1115,7 @@ function closeModal(el){
       const target=resolveReturnFocus(rec.returnFocus);
       if(target){
         try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
+      if(!activeModal&&modalSettleQueue.length){const queued=modalSettleQueue;modalSettleQueue=[];queued.forEach(callback=>callback())}
       resolve(true)};
     if(rec.delayHide>0){
       rec.el.classList.remove("is-open");
@@ -10792,7 +10802,8 @@ function createInstalledProgramEditorAdapter(){
     status:()=>"",
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
     reducedMotion:()=>reducedMotion(),
-    announce:(message)=>toast(message),
+    announce:announceEditorChange,
+    afterModal:afterModalSettles,
   }
 }
 window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:cloneSnapshot(installedEditorSession),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
@@ -10820,7 +10831,8 @@ function createOnboardingProgramEditorAdapter(){
     status:()=>editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved"),
     confirm:()=>true,
     reducedMotion:()=>reducedMotion(),
-    announce:(message)=>toast(message),
+    announce:announceEditorChange,
+    afterModal:afterModalSettles,
   }
 }
 function updateOnboardingEditorActions(){
@@ -12650,6 +12662,7 @@ async function finishCustomExerciseMutation(active,{operation,entry}){
     operation==="edit"?"toast.custom_saved":
     operation==="archive"?"toast.custom_archived":"toast.custom_deleted";
   toast(t(message));
+  if(operation==="create")customCreatedToastAt=performance.now();
   if(operation==="delete"||operation==="archive"){
     if(libFlow)renderLibrary();else if(pickerState)renderPickerList();
     return}

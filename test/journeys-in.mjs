@@ -449,6 +449,15 @@ phase("Journey 6: Build route -> Open editor (R7 J-05)");
   await page.click("#onbNext");
   await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 10000 });
   await handoff(page, "Build -> Open editor", { view: "onboarding", focus: "#onbEditorTitle", announced: 1 });
+  // R7 J-08 in the setup draft's editor: a pick from the picker lands focus on the new row.
+  await page.locator('#onbProgramEditor [data-role="add-exercise"]').first().click();
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 10000 });
+  await page.evaluate(() => document.querySelector("#exPickList .pickrow").click());
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 10000 });
+  await page.waitForFunction(() => !!document.activeElement?.closest?.('#onbProgramEditor [data-role="exercise"]'), undefined, { timeout: 3000 })
+    .catch(() => {});
+  const pickedFocus = await page.evaluate(() => ({ focus: document.activeElement?.tagName, row: !!document.activeElement?.closest?.('#onbProgramEditor [data-role="exercise"]') }));
+  assert(pickedFocus.row, "a pick in the setup editor lands focus on the new exercise row (R7 J-08)", JSON.stringify(pickedFocus));
   await context.close();
 }
 

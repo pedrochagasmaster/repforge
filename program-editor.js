@@ -54,6 +54,9 @@
     dragDropped: ({ name, index, count, day }) => `Dropped ${name} at position ${index} of ${count} in ${day}.`,
     dragCancelled: ({ name }) => `Reordering cancelled. ${name} stayed where it was.`,
     moved: "Exercise moved",
+    exerciseAdded: "Exercise added.",
+    exerciseChanged: "Exercise changed.",
+    exerciseRemoved: "Exercise removed.",
     undo: "Undo",
     invalid: "Fix the highlighted values before continuing.",
     saved: "Draft saved",
@@ -74,6 +77,7 @@
     secondary: "program.editor.secondary", alternates: "program.editor.alternates", chooseAlternates: "program.editor.choose_alternates",
     move: "program.editor.move", moveUp: "program.editor.move_up", moveDown: "program.editor.move_down",
     moveOther: "program.editor.move_other", moved: "program.editor.moved", undo: "program.editor.undo",
+    exerciseAdded: "toast.exercise_added", exerciseChanged: "toast.exercise_changed", exerciseRemoved: "toast.exercise_removed",
     dragInstructions: "program.editor.drag.instructions", dragPickedUp: "program.editor.drag.picked_up",
     dragOver: "program.editor.drag.over", dragDropped: "program.editor.drag.dropped",
     dragCancelled: "program.editor.drag.cancelled",
@@ -325,6 +329,7 @@
     let reorderMode = false;
     let settleMoveId = null;
     let settleTimer = null;
+    let pendingFocus = null;
     let renderQueued = false;
     let statusTimer = null;
 
@@ -407,11 +412,34 @@
       try { return Promise.resolve(adapter.chooseExercise?.(request)); }
       catch (error) { setStatus(error?.message || label("invalid"), { error: true }); return Promise.resolve(null); }
     };
+    /* A commit that rebuilds the list leaves nothing focused: the row that changed (or, after a remove, the day's
+       Add control) takes focus once the rebuild has drawn, and the change is announced once through the host. */
+    const announceChange = key => { try { adapter.announce?.(label(key), { change: true }); } catch { /* the focus move still says it */ } };
+    const applyPendingFocus = () => {
+      const want = pendingFocus; pendingFocus = null;
+      if (!want) return;
+      const find = selector => host.querySelector(selector);
+      const target = want.id
+        ? (want.roles || ["toggle-exercise"]).map(role => find(`[data-role="${role}"][data-id="${cssEscape(want.id)}"]`)).find(Boolean)
+        : find(`[data-role="add-exercise"][data-day="${cssEscape(want.day)}"]`);
+      try { target?.focus(); } catch { /* a control that cannot take focus is left alone */ }
+    };
+    // The picker that returned the choice is still open when the list redraws, and everything behind it is inert:
+    // the host says when it has closed, and focus lands then.
+    const schedulePendingFocus = () => {
+      if (!pendingFocus) return;
+      const run = () => { if (!destroyed) applyPendingFocus(); };
+      if (typeof adapter.afterModal === "function") adapter.afterModal(run); else run();
+    };
     const addForDay = day => chooseExercise({ mode: "add", day, exclude: exercisesFor(document, day).map(item => item.libraryId).filter(Boolean) }).then(entry => {
       if (!entry) return null;
       const next = clone(document), exercise = addExercise(next, day, entry);
       collapsedDays.delete(day); expandedExercises.add(exercise.id);
-      return stage(next, { kind: "exercise_add", targetDay: day, targetId: exercise.id, libraryId: entry.id, exercise: exercise });
+      pendingFocus = { id: exercise.id };
+      return stage(next, { kind: "exercise_add", targetDay: day, targetId: exercise.id, libraryId: entry.id, exercise: exercise }).then(value => {
+        if (value?.ok !== false) announceChange("exerciseAdded");
+        return value;
+      });
     });
     const replaceForExercise = (id, { repair = false } = {}) => {
       const current = document.program?.find(item => item.id === id);
@@ -430,14 +458,22 @@
         }
         if (!replaceExercise(next, id, entry)) return null;
         const replacement = next.program?.find(item => item.id === id);
-        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement, ...(customExercise ? { customExercise } : {}) });
+        pendingFocus = { id, roles: ["replace", "toggle-exercise"] };
+        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement, ...(customExercise ? { customExercise } : {}) }).then(value => {
+          if (value?.ok !== false) announceChange("exerciseChanged");
+          return value;
+        });
       });
     };
     const removeExercise = id => {
       const exercise = document.program?.find(item => item.id === id);
       if (!exercise) return Promise.resolve(null);
       const next = clone(document); next.program = (next.program || []).filter(item => item.id !== id); normalizeOrders(next);
-      return stage(next, { kind: "exercise_remove", targetId: id, sourceDay: exercise.day });
+      pendingFocus = { day: exercise.day };
+      return stage(next, { kind: "exercise_remove", targetId: id, sourceDay: exercise.day }).then(value => {
+        if (value?.ok !== false) announceChange("exerciseRemoved");
+        return value;
+      });
     };
     const renameDay = (oldDay, value) => {
       const next = clone(document);
@@ -664,6 +700,7 @@
         <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(addDayText)}</span></button>
       </div>`;
       bind();
+      schedulePendingFocus();
     }
     function bind() {
       if (destroyed) return;
