@@ -10454,8 +10454,10 @@ function chartTogglesHtml(scope,metric){
     seg("data-scope",t("stats.scope_aria"),[["current-block",t("stats.scope.current_block"),scope==="current-block"],["all-history",t("stats.scope.all_history"),scope==="all-history"]])+
     seg("data-metric",t("stats.metric.top_load"),[["top",t("stats.metric.top_load"),metric==="top"],["e1rm",t("stats.metric.best_e1rm"),metric==="e1rm"]])+`</div>`}
 function bindChartToggles(){
-  $$("#exDetail [data-scope]").forEach(b=>b.onclick=()=>{chartView.scope=b.dataset.scope;chartView.pt=null;renderExerciseView()});
-  $$("#exDetail [data-metric]").forEach(b=>b.onclick=()=>{chartView.metric=b.dataset.metric;renderExerciseView()})}
+  // The page is rebuilt for every choice, so the pressed toggle is a new node: focus goes back to its equivalent by key (R7 J-10).
+  const keep=(attr,value)=>{const el=$(`#exDetail [${attr}="${CSS.escape(value)}"]`);if(el)focusRoute(el)};
+  $$("#exDetail [data-scope]").forEach(b=>b.onclick=()=>{const value=b.dataset.scope;chartView.scope=value;chartView.pt=null;renderExerciseView();keep("data-scope",value)});
+  $$("#exDetail [data-metric]").forEach(b=>b.onclick=()=>{const value=b.dataset.metric;chartView.metric=value;renderExerciseView();keep("data-metric",value)})}
 /** Moves the selection in place, so the plot, the readout and the table agree and nothing loses focus. */
 function selectChartPoint(i){
   if(!chartLive)return;

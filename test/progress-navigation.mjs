@@ -191,6 +191,24 @@ function snapOf(page) {
   await context.close();
 }
 
+// R7 J-10: the exercise page's scope and metric toggles re-render the page; each keeps focus on the same toggle.
+{
+  const { context, page } = await freshPage();
+  await page.evaluate(() => openExerciseView(JSON.parse(localStorage.getItem("repforge_v1")).program[0].id, "stats"));
+  await page.waitForSelector("#exercise.view.active #exDetail [data-metric]", { timeout: 5000 });
+  for (const selector of ['[data-metric="e1rm"]', '[data-scope="all-history"]', '[data-metric="top"]', '[data-scope="current-block"]']) {
+    await page.locator(`#exDetail ${selector}`).click();
+    await page.waitForTimeout(150);
+    const held = await page.evaluate((sel) => {
+      const el = document.activeElement;
+      return { matches: !!el?.matches?.(`#exDetail ${sel}`), pressed: el?.getAttribute?.("aria-pressed"), tag: el?.tagName };
+    }, selector);
+    assert.equal(held.matches, true, `the ${selector} toggle keeps focus after the chart re-renders (${JSON.stringify(held)})`);
+    assert.equal(held.pressed, "true", `the focused ${selector} toggle is the one now pressed`);
+  }
+  await context.close();
+}
+
 assert.deepEqual(errors, [], "no page errors during navigation journeys");
 await browser.close();
 console.log("PASS: progress navigation (one tab row, migration map, End block route)");
