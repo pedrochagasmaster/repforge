@@ -218,6 +218,11 @@ async function main() {
 
     const name = fieldInput(page, "name");
 
+    // 0. R7 J-18: the Add day control carries one plus, not the glyph and the string's own.
+    const addDayText = ((await page.locator('#programEditor [data-role="add-day"]').textContent()) || "").replace(/\s+/g, " ").trim();
+    check((addDayText.match(/[+＋]/g) || []).length === 1 && /Add day/.test(addDayText),
+      "the Add day control shows a single plus", { addDayText });
+
     // 1. Typing a multi-word name keeps its spaces.
     await name.click();
     await page.keyboard.press("End");
@@ -358,6 +363,9 @@ async function main() {
     const toggles = await page.$$eval('#programEditor [data-role="toggle-exercise"], #programEditor [data-role="toggle-day"]', (nodes) => nodes.map((node) => node.getAttribute("aria-label")));
     check(toggles.length === 2 && toggles.every((value) => /^(Expandir|Recolher)\b/.test(value || "")),
       "PT editor: the exercise and day toggles read Expandir or Recolher", { toggles });
+    const addDayPt = ((await page.locator('#programEditor [data-role="add-day"]').textContent()) || "").replace(/\s+/g, " ").trim();
+    check((addDayPt.match(/[+＋]/g) || []).length === 1 && /Adicionar dia/.test(addDayPt),
+      "PT editor: Add day shows a single plus", { addDayPt });
   } finally {
     await context.close();
     await browser.close();

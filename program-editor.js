@@ -652,6 +652,8 @@
         days.slice(1).forEach(day => collapsedDays.add(day));
         collapsedDaysInitialized = true;
       }
+      // The glyph is drawn here; a host string that already starts with a plus ("+ Add day") would double it.
+      const addDayText = String(t(adapter, "program.add_day", undefined, "Add day")).replace(/^\s*[+＋]\s*/, "");
       host.innerHTML = `<div class="program-editor${reorderMode ? " is-reorder-mode" : ""}" data-role="editor" aria-label="${esc(t(adapter, "program.editor.aria", undefined, "Program editor"))}">
         <div class="program-editor__meta" data-role="meta">
           <label class="program-editor__program-name"><span>${esc(label("programName"))}</span><input data-role="program-name" value="${esc(document.programMeta?.name || "")}" placeholder="${esc(label("namePlaceholder"))}" maxlength="80" aria-label="${esc(label("programName"))}"></label>
@@ -659,7 +661,7 @@
           <p class="program-editor__status" data-role="editor-status" role="status" aria-live="polite" tabindex="-1"${adapter.status?.(document) ? "" : " hidden"}>${esc(adapter.status?.(document) || "")}</p>
         </div>
         <div class="program-editor__days" data-role="days">${days.map((day, index) => renderDay(day, index)).join("") || `<p class="program-editor__empty">${esc(label("emptyDays"))}</p>`}</div>
-        <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(t(adapter, "program.add_day", undefined, "Add day"))}</span></button>
+        <button type="button" class="program-editor__add-day" data-role="add-day"><span aria-hidden="true">＋</span> <span>${esc(addDayText)}</span></button>
       </div>`;
       bind();
     }
