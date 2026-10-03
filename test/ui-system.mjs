@@ -744,6 +744,26 @@ try {
   });
   assert.equal(duplicateFocus.measurements.total, 2, "duplicate-ID controls each receive an independent focus measurement");
   assert.equal(duplicateFocus.measurements.pass, 2, `both duplicate-ID focus outlines are measured: ${JSON.stringify(duplicateFocus)}`);
+  // A control in a fixed layer that paints nothing floats over a band outside its DOM
+  // ancestry (the landing dock). Its outline is read against the rendered band, not the
+  // light page behind the layer: an ink outline over an ink band fails although the page
+  // walk would pass it, and a paper outline over the same band passes although the page
+  // walk would fail it.
+  await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `
+    <div id="uiFloatBand" style="position:fixed;top:300px;left:0;width:360px;height:160px;background:#141310;z-index:1000"></div>
+    <div id="uiFloatLayer" style="position:fixed;top:330px;left:30px;width:300px;z-index:1001">
+      <button id="uiFloatInk" style="display:block;width:240px;height:40px;outline:2px solid #141310;outline-offset:3px;background:#F2EFE9;color:#141310">Ink ring</button>
+      <button id="uiFloatPaper" style="display:block;margin-top:24px;width:240px;height:40px;outline:2px solid #F2EFE9;outline-offset:3px;background:#141310;color:#F2EFE9">Paper ring</button>
+    </div>`));
+  const floatPixels = (await opened.page.screenshot({ animations: "disabled" })).toString("base64");
+  const floating = await opened.page.evaluate(measureRenderedRoles, { pixels: floatPixels, requests: [
+    { selector: "#uiFloatInk", kind: "focus" }, { selector: "#uiFloatPaper", kind: "focus" },
+  ] });
+  assert.equal(floating.find((item) => item.selector === "#uiFloatInk")?.status, "fail",
+    `an ink outline over an ink band beneath a bare fixed layer is rejected: ${JSON.stringify(floating)}`);
+  assert.equal(floating.find((item) => item.selector === "#uiFloatPaper")?.status, "pass",
+    `a paper outline over an ink band beneath a bare fixed layer reads against that band: ${JSON.stringify(floating)}`);
+  await opened.page.evaluate(() => { document.querySelector("#uiFloatBand")?.remove(); document.querySelector("#uiFloatLayer")?.remove(); });
   const auditProblems = renderedRoleProblems("onboarding-start/first-run [en/light]", [
     ...measured,
     { selector: "#uiMissing", kind: "boundary", status: "missing" },

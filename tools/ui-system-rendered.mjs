@@ -101,6 +101,41 @@ export async function measureRenderedRoles(input) {
     const result = sample(rect, children);
     return result ? { rgb: [...result, 1] } : null;
   };
+  /* A control in a fixed layer that paints nothing of its own (the landing's sticky
+     dock) floats over whatever scrolls beneath it, and that band is not in its DOM
+     ancestry: walking the ancestors' backgrounds would measure against the document
+     behind the layer instead of the colour the lifter sees around the control. */
+  const floatsOverUnrelatedGround = (node) => {
+    for (let current = node; current && current !== document.documentElement; current = current.parentElement) {
+      const style = getComputedStyle(current);
+      if (current !== node && (color(style.backgroundColor)?.[3] ?? 0) > 0) return false;
+      if (style.position === "fixed") return true;
+    }
+    return false;
+  };
+  /* The rendered ground in a thin band just outside an outline: the median of points
+     on the rectangle 3px beyond the outline's outer edge. */
+  const outlineGround = (node, style) => {
+    if (!pixels) return null;
+    const rect = node.getBoundingClientRect();
+    const reach = Math.max(0, parseFloat(style.outlineOffset) || 0) + (parseFloat(style.outlineWidth) || 0) + 3;
+    const left = rect.left - reach, right = rect.right + reach, top = rect.top - reach, bottom = rect.bottom + reach;
+    const points = [];
+    for (let x = left; x <= right; x += 4) points.push([x, top], [x, bottom]);
+    for (let y = top; y <= bottom; y += 4) points.push([left, y], [right, y]);
+    // The screenshot is in device pixels; the rectangle is in CSS pixels.
+    const scale = pixels.width / (window.innerWidth || pixels.width);
+    const channels = [[], [], []];
+    for (const [px, py] of points) {
+      const x = Math.round(px * scale), y = Math.round(py * scale);
+      if (x < 0 || y < 0 || x >= pixels.width || y >= pixels.height) continue;
+      const offset = (y * pixels.width + x) * 4;
+      if (pixels.data[offset + 3] < 240) continue;
+      for (let channel = 0; channel < 3; channel++) channels[channel].push(pixels.data[offset + channel]);
+    }
+    if (channels.some((values) => values.length < 8)) return null;
+    return { rgb: [...channels.map((values) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)]), 1] };
+  };
   const adjacentSurface = (node) => {
     for (let current = node.parentElement; current && current !== document.documentElement; current = current.parentElement) {
       const rect = current.getBoundingClientRect();
@@ -205,6 +240,7 @@ export async function measureRenderedRoles(input) {
     let measuredBackground = inside.rgb;
     if (kind === "focus") {
       let outside = background(node.parentElement || document.documentElement);
+      if ((parseFloat(style.outlineOffset) || 0) >= 0 && floatsOverUnrelatedGround(node)) outside = outlineGround(node, style) || outside;
       if (outside.unsupported && pixels) {
         const offset = parseFloat(style.outlineOffset) || 0;
         outside = (offset < 0 ? elementSurface(node) : adjacentSurface(node)) || outside;
