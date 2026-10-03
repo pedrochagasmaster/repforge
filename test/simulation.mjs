@@ -1267,11 +1267,15 @@ async function main() {
   // The day-change question is a sheet now (OG-6 `today/draft-resume`), not a native confirm. The same mode answers it:
   // "accept" is Discard unfinished session, "dismiss" is Cancel. Where a step needs to look at the question, it answers
   // it itself with answerDiscardQuestion, which holds this watcher off (page.__manualDiscard) until it has answered.
+  // The answer is one atomic step in the page: the sheet element is reused, so a waiting locator click aimed at a
+  // question that is closing could land on the next question, after a step has taken it over with __manualDiscard.
   const discardWatcher = setInterval(async () => {
     if (page.__manualDiscard) return;
     try {
-      if (await page.locator("#draftDiscardSheet.is-open").count())
-        await page.locator(dialogMode === "dismiss" ? "#draftDiscardKeep" : "#draftDiscardDrop").click({ timeout: 1500 });
+      await page.evaluate((id) => {
+        const sheet = document.querySelector("#draftDiscardSheet.is-open");
+        if (sheet && !sheet.hidden) sheet.querySelector(id)?.click();
+      }, dialogMode === "dismiss" ? "#draftDiscardKeep" : "#draftDiscardDrop");
     } catch {
       /* the page moved on, or the sheet was already answered */
     }
