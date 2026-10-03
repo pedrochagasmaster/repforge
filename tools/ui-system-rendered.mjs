@@ -418,6 +418,11 @@ export async function measureRenderedRoles(input) {
         sizeProbe.remove();
         results.push({ selector: `${item.selector}:${label(node)}`, kind: "primary-label-size", status: labelSize === controlSize ? "pass" : "fail",
           reason: labelSize === controlSize ? undefined : `${labelSize}px, the control role is ${controlSize}px` });
+        // The trailing arrow is a mark on the button's own ground and holds the 3:1 mark contrast (R7 V-01).
+        const arrow = getComputedStyle(node, "::after");
+        if (arrow.content !== "none" && arrow.content !== "normal" && arrow.display !== "none" && (color(arrow.backgroundColor)?.[3] || 0) > 0) {
+          results.push(measurePseudoMark(node, `${item.selector}:${label(node)}::after`, "::after"));
+        }
       }
       if (!disabled && item.roles?.control === "selection" && node.matches(".toggle")) {
         const track = getComputedStyle(node, "::before"), knob = getComputedStyle(node, "::after");

@@ -746,6 +746,17 @@ try {
   const labelSize = (selector) => primaryLabels.find((item) => item.kind === "primary-label-size" && item.selector.startsWith(`${selector}:`));
   assert.equal(labelSize("#firstRunCreate")?.status, "pass", `the landing CTA label is the control size: ${JSON.stringify(primaryLabels.filter((item) => item.kind === "primary-label-size"))}`);
   assert.equal(labelSize("#uiBigPrimary")?.status, "fail", "an 18px primary label is rejected");
+  // R7 V-01: the trailing arrow is a mark on the button's own ground and holds the 3:1 mark contrast. The real landing arrow
+  // passes; an accent arrow on a parchment ground (2.05:1, the dark app CTA before the fix) is rejected.
+  await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `
+    <button id="uiAccentArrow" style="position:fixed;top:360px;left:20px;width:120px;height:48px;font-size:16px;background:#DED7CC;color:#161513;border:0">Go</button>
+    <style>#uiAccentArrow::after{content:"";position:absolute;right:10px;top:12px;width:22px;height:22px;background:#F2703B}</style>`));
+  const arrows = await opened.page.evaluate(measureRenderedRoles, { components: [
+    { selector: "#firstRunCreate", roles: { control: "primary" } }, { selector: "#uiAccentArrow", roles: { control: "primary" } },
+  ] });
+  const arrow = (selector) => arrows.find((item) => item.kind === "state-mark" && item.selector.startsWith(`${selector}:`));
+  assert.equal(arrow("#uiAccentArrow")?.status, "fail", `an accent arrow on the parchment CTA ground is rejected: ${JSON.stringify(arrow("#uiAccentArrow"))}`);
+  assert.ok(arrow("#uiAccentArrow")?.ratio < 3, "the rejected arrow reads under 3:1");
   const visibleMeasurements = await opened.page.evaluate(measureRenderedRoles, { components: [] });
   assert.ok(!visibleMeasurements.some((item) => item.selector === "text:#uiTransparentText"),
     "fully transparent content is not treated as a live rendered role");

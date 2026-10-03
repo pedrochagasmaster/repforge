@@ -485,9 +485,9 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 .btn--cta::after{
   content:"";position:absolute;right:18px;top:50%;transform:translateY(-50%);
   width:22px;height:22px;
-  /* Brand accent stays here deliberately: on the near-black CTA the brighter
-   * orange measures ~4.6:1 while --accent-deep drops to ~3.3:1 (C1). */
-  color:var(--accent);background:currentColor;
+  /* The arrow is drawn in the CTA's own ink, as the landing draws it. The accent held it on the near-black light CTA
+   * (~4.6:1) but measured 2.05:1 on the parchment dark CTA, under the 3:1 mark floor (R7 V-01). */
+  color:var(--cta-ink);background:currentColor;
   -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
 }
 .btn--noarrow{padding:0 20px}
@@ -6244,7 +6244,7 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
-#todayDash .btn--cta::after{color:var(--color-action)}
+#todayDash .btn--cta::after{color:var(--control-primary-ink)}
 #todayDash .btn--cta:active:not(:disabled),#dayPickConfirm:active:not(:disabled){transform:var(--control-pressed-transform)}
 #todayDash .btn--cta:focus-visible,#dayPickConfirm:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #todayDash .btn--cta:disabled,#dayPickConfirm:disabled{
