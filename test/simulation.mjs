@@ -4384,10 +4384,10 @@ async function main() {
     "Focus's next set remains visible and unclipped after completion", JSON.stringify(focusGeometry));
 
   assert(
-    (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-selected")) === "true",
-    "Active day tab exposes aria-selected",
-    "Active day tab missing aria-selected=true",
-    "Log → select a day → its tab is aria-selected"
+    (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-pressed")) === "true",
+    "Active day button exposes aria-pressed",
+    "Active day button missing aria-pressed=true",
+    "Log → select a day → its button is aria-pressed (the day picker is a toggle group, not a tablist; R7 J-20)"
   );
 
   await saveWorkout(page, { earlyFinish: true });

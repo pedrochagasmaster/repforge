@@ -398,7 +398,7 @@ console.log("\nNotification surfaces");
   await waitForApp(page);
 
   const gotoInfo = await page.evaluate(() => {
-    const sel = document.querySelector('#dayTabs button[aria-selected="true"]');
+    const sel = document.querySelector('#dayTabs button[aria-pressed="true"]');
     return {
       label: sel?.textContent?.trim() || sel?.dataset?.day || null,
       search: location.search,

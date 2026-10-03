@@ -908,7 +908,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await waitForApp(page);
     await page.waitForSelector("#sessionBanner:not(.hidden) .sessionbanner__act", { timeout: 8000 });
     const bannerTarget = await page.evaluate(() => ({
-      beforeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      beforeDay: document.querySelector('#dayTabs button[aria-pressed="true"]')?.dataset?.day,
       dueDay: RepForgeSchedule.mostOverdueDay(state.log, days(), today())?.day || null,
     }));
     await page.locator(".sessionbanner__act").focus();
@@ -916,7 +916,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await page.waitForSelector("#workoutShell:not(.hidden)");
     const afterEnter = await page.evaluate(() => ({
       hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
-      activeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      activeDay: document.querySelector('#dayTabs button[aria-pressed="true"]')?.dataset?.day,
       workoutVisible: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
       dashboardHidden: document.querySelector("#todayDash")?.classList.contains("hidden"),
     }));
@@ -945,7 +945,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await page.waitForSelector("#workoutShell:not(.hidden)");
     const afterSpace = await page.evaluate(() => ({
       hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
-      activeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      activeDay: document.querySelector('#dayTabs button[aria-pressed="true"]')?.dataset?.day,
       dueDay: RepForgeSchedule.mostOverdueDay(state.log, days(), today())?.day || null,
       workoutVisible: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
       dashboardHidden: document.querySelector("#todayDash")?.classList.contains("hidden"),

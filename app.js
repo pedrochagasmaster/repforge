@@ -5114,6 +5114,7 @@ function paintStatsTabs(){
   const fromRect=tabIndicatorRect(liveRing||was,!!liveRing),scrolled=row?row.scrollLeft:0;
   $$("#statsSeg button").forEach(b=>{const sel=b.dataset.seg===on;
     b.classList.toggle("active",sel);b.setAttribute("aria-selected",sel?"true":"false");
+    b.tabIndex=sel?0:-1;
     // A row that scrolls keeps its selected tab in view.
     if(sel&&b.parentElement&&b.parentElement.scrollWidth>b.parentElement.clientWidth){
       const row=b.parentElement,left=b.offsetLeft-row.offsetLeft;
@@ -5215,6 +5216,26 @@ function setEvidenceView(view){
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===view)}
   renderEvidenceView()}
+/* The WAI tabs pattern on the Progress row (R7 J-20): each tab names the panel it controls and each panel
+   is labelled by its tab; the selected tab is the only tab stop; Left/Right (wrapping), Home and End move
+   focus and select, as a tap does. The window, filter and day segments are toggle groups, not tabs: they
+   change one region and have no panel of their own. */
+function wireStatsTabs(){
+  const row=$("#statsSeg");if(!row)return;
+  const tabs=$$("#statsSeg button");
+  tabs.forEach(b=>{
+    b.id=`statsTab-${b.dataset.seg}`;
+    const panel=$("#"+(b.getAttribute("aria-controls")||""));
+    if(panel)panel.setAttribute("aria-labelledby",b.id);
+    b.onclick=()=>setStatsSeg(b.dataset.seg)});
+  row.onkeydown=e=>{
+    if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
+    const at=tabs.indexOf(document.activeElement);if(at<0)return;
+    const to=e.key==="ArrowRight"?(at+1)%tabs.length:e.key==="ArrowLeft"?(at+tabs.length-1)%tabs.length:
+      e.key==="Home"?0:e.key==="End"?tabs.length-1:-1;
+    if(to<0)return;
+    e.preventDefault();
+    setStatsSeg(tabs[to].dataset.seg);tabs[to].focus()}}
 function setStatsSeg(seg){
   // Legacy one-level values route to their Evidence view (Plan 056 migration).
   if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
@@ -7161,7 +7182,7 @@ function render(){applyI18n();
   queueMicrotask(()=>maybeShowContextualGuides())}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
-  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
+  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
 function setFieldVals(ex,n,r,draft,prev){
@@ -8412,7 +8433,7 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   const scopeSeg=$("#strengthScopeSeg");
   if(scopeSeg)$$("#strengthScopeSeg button").forEach(b=>{const on=b.dataset.scope===strengthScope;
-    b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
     b.onclick=()=>{strengthScope=b.dataset.scope;renderStrengthDash()}});
   if(!Model){legacyStrengthTable(el);return}
   const projection=strengthProjection(strengthScope),dash=projection.dashboard;
@@ -9623,7 +9644,7 @@ function prTimeline(filter){
 window.__repforgePrTimeline=prTimeline;
 
 function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
-  $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+  $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
     b.onclick=()=>{prFilter=b.dataset.prf;renderPRTimeline()}});
   const events=prTimeline(prFilter);
   if(!events.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_pr_filter"))}</div>`;return}
@@ -9828,7 +9849,7 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   const scopeSeg=$("#volumeScopeSeg");
   if(scopeSeg)$$("#volumeScopeSeg button").forEach(b=>{const on=b.dataset.vscope===volumeScope;
-    b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
     b.onclick=()=>{volumeScope=b.dataset.vscope;renderVolumeDash()}});
   const periodEl=$("#volumePeriod");
   if(!Model){legacyVolumeTable(el);if(periodEl)periodEl.textContent="";return}
@@ -18925,7 +18946,7 @@ function init(){
   const ne=$("#notifyEnabled");
   if(ne)ne.onchange=()=>setNotificationsEnabled(!!ne.checked);
   ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=commitChangedSettings});
-  $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
+  wireStatsTabs();
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=async()=>{

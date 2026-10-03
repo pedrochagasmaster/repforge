@@ -81,6 +81,53 @@ function snapOf(page) {
   await context.close();
 }
 
+// R7 J-20: the Progress row is the WAI tabs pattern (tabpanels, roving tabindex, Left/Right/Home/End). The
+// window and filter segments (Strength scope, Volume period, PR kind) and the day picker change one region and
+// have no panels of their own, so they are toggle-button groups with aria-pressed, not tabs.
+{
+  const { context, page } = await freshPage();
+  const model = await page.evaluate(() => [...document.querySelectorAll("#statsSeg [role=tab]")].map((tab) => {
+    const panel = document.getElementById(tab.getAttribute("aria-controls") || "");
+    return { seg: tab.dataset.seg, id: tab.id, tabindex: tab.getAttribute("tabindex"), controls: tab.getAttribute("aria-controls"),
+      panelRole: panel?.getAttribute("role"), panelLabelledBy: panel?.getAttribute("aria-labelledby") };
+  }));
+  assert.equal(model.length, 5, "five tabs");
+  assert.ok(model.every((tab) => tab.id && tab.controls && tab.panelRole === "tabpanel" && tab.panelLabelledBy === tab.id),
+    `every tab controls a tabpanel that it labels: ${JSON.stringify(model)}`);
+  assert.deepEqual(model.map((tab) => tab.tabindex), ["0", "-1", "-1", "-1", "-1"], "roving tabindex: only the selected tab is a tab stop");
+  const state = () => page.evaluate(() => ({
+    focus: document.activeElement?.dataset?.seg || document.activeElement?.id || "",
+    selected: [...document.querySelectorAll("#statsSeg [role=tab]")].filter((b) => b.getAttribute("aria-selected") === "true").map((b) => b.dataset.seg),
+    stops: [...document.querySelectorAll("#statsSeg [role=tab]")].filter((b) => b.tabIndex === 0).map((b) => b.dataset.seg),
+  }));
+  await page.focus('#statsSeg button[data-seg="overview"]');
+  for (const [key, expected] of [["ArrowRight", "strength"], ["ArrowRight", "volume"], ["End", "review"], ["ArrowRight", "overview"],
+    ["ArrowLeft", "review"], ["Home", "overview"]]) {
+    await page.keyboard.press(key);
+    const at = await state();
+    assert.deepEqual([at.focus, at.selected, at.stops], [expected, [expected], [expected]], `${key} moves focus, selection and the tab stop to ${expected}: ${JSON.stringify(at)}`);
+    assert.equal(await page.evaluate((seg) => document.getElementById(document.querySelector(`#statsSeg [data-seg="${seg}"]`).getAttribute("aria-controls")).classList.contains("active"), expected), true, `${expected}'s panel is the open one`);
+  }
+  const groups = await page.evaluate(() => ["#strengthScopeSeg", "#volumeScopeSeg", "#prFilterSeg", "#dayTabs"].map((selector) => {
+    const group = document.querySelector(selector);
+    return { selector, role: group?.getAttribute("role"), tabs: group?.querySelectorAll("[role=tab]").length, selectedAttr: group?.querySelectorAll("[aria-selected]").length };
+  }));
+  assert.ok(groups.every((g) => g.role === "group" && g.tabs === 0 && g.selectedAttr === 0),
+    `the window, filter and day segments are groups of toggle buttons, not tablists: ${JSON.stringify(groups)}`);
+  for (const [seg, group, attr] of [["strength", "#strengthScopeSeg", "scope"], ["volume", "#volumeScopeSeg", "vscope"], ["prs", "#prFilterSeg", "prf"]]) {
+    await page.click(`#statsSeg button[data-seg="${seg}"]`);
+    const buttons = await page.$$(`${group} button`);
+    const pressed = () => page.evaluate((g) => [...document.querySelectorAll(`${g} button`)].map((b) => b.getAttribute("aria-pressed")), group);
+    assert.deepEqual((await pressed()).filter((v) => v === "true").length, 1, `${group}: exactly one button is pressed`);
+    await buttons[1].click();
+    const after = await pressed();
+    assert.deepEqual([after[0], after[1]], ["false", "true"], `${group}: pressing the second button moves the pressed state to it`);
+    assert.equal(await page.evaluate(() => document.activeElement?.closest("[role=group]")?.id || ""), group.slice(1), `${group}: focus stays on the pressed button`);
+    void attr;
+  }
+  await context.close();
+}
+
 // Migration map: legacy one-level seg values route correctly, unknown → Overview.
 {
   const { context, page } = await freshPage();
