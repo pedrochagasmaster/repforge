@@ -16365,6 +16365,7 @@ function renderOnboarding(){
   const route=hub?null:entryState.route,stepId=hub?"entry":entryState.step;
   const dialogOpen=!!entryDialogKind();
   const isEditor=setupEditorOpen&&!hub&&!!entryState?.result?.preview;
+  const wasEditor=!!onboarding?.classList.contains("program-editor-onboarding");
   onboarding?.classList.toggle("entry-hub-active",hub);
   onboarding?.classList.toggle("program-editor-onboarding",isEditor);
   document.body.classList.toggle("is-entry-editor",isEditor);
@@ -16457,7 +16458,9 @@ function renderOnboarding(){
       else{
         const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
         const target=resuming?$("#entryResumeTitle"):initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
-        if(target)try{target.focus({preventScroll:true})}catch{}}}
+        if(target)try{target.focus({preventScroll:true})}catch{}
+        // The editor has no #entryHeading: on the render that opens it, focus takes its title (R7 J-05).
+        else if(isEditor&&!wasEditor)focusRoute($("#onbEditorTitle"))}}
     if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
   // The "entry" guide explains the five-job chooser, so it shows here rather
   // than on the landing that opens it. Not while a saved draft is asking first.

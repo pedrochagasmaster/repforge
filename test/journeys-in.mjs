@@ -434,6 +434,24 @@ phase("Journey 4: returning landing -> chooser resume -> activation");
   await context.close();
 }
 
+// ---------------------------------------------------------------------------
+phase("Journey 6: Build route -> Open editor (R7 J-05)");
+{
+  const { page, context } = await newDevice(browser);
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#entryOwnToggle", { timeout: 15000 });
+  await page.click("#entryOwnToggle");
+  await page.click('[data-entry-route="build"]');
+  await page.locator("#entryProgramName").fill("Meu plano");
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+  await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });
+  await mark(page);
+  await page.click("#onbNext");
+  await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 10000 });
+  await handoff(page, "Build -> Open editor", { view: "onboarding", focus: "#onbEditorTitle", announced: 1 });
+  await context.close();
+}
+
 await browser.close();
 assert(!pageErrors.length, "no uncaught page errors in any journey", pageErrors.slice(0, 3).join(" | "));
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
