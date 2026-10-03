@@ -782,6 +782,9 @@ const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 /** "1 session" / "2 sessions": the count catalog keeps a `_one` form for exactly 1 (R7 V-14). kind: sessions, sets, exercises. */
 const countText=(kind,n)=>t(n===1?`count.${kind}_one`:`count.${kind}`,{n});
+/** Words in the language font, figures in Plex Mono: a line of copy with its numbers (5, 11–12, 39.5) wrapped in `.num`, the
+ *  rest escaped text. Mono is only for values (R7 V-18). */
+const monoNums=text=>String(text).split(/(\d+(?:[.,]\d+)?(?:[–-]\d+(?:[.,]\d+)?)?)/).map((part,i)=>i%2?`<span class="num">${esc(part)}</span>`:esc(part)).join("");
 /** A catalog key with a `_one` sibling: the sibling for exactly 1, the key otherwise. */
 const tOne=(key,n,vars)=>t(n===1?`${key}_one`:key,{n,...vars});
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
@@ -15983,7 +15986,7 @@ function renderCatalogueStep(){
       `<span class="entry-prog__days">${esc(t("entry.catalogue.days_badge",{days:card.daysPerWeek}))}</span>`+
       `<span class="entry-prog__go chevron" aria-hidden="true"></span></span>`+
       (purposeLabels[card.purpose]?`<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose])}</span>`:"")+
-      `<span class="entry-prog__facts">${minutes?`<span>${esc(minutes)}</span>`:""}${structure?`<span>${esc(structure)}</span>`:""}</span>`+
+      `<span class="entry-prog__facts">${minutes?`<span>${monoNums(minutes)}</span>`:""}${structure?`<span>${monoNums(structure)}</span>`:""}</span>`+
       (progression?`<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`:"")+
       (equipment?`<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`:"")+
       (mismatch?`<span class="entry-prog__warn">${esc(mismatch)}</span>`:"")+
@@ -15991,7 +15994,7 @@ function renderCatalogueStep(){
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
     `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
-    `<div class="entry__context"><div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${esc(fact.text)}</span>`).join("")}</div>`+
+    `<div class="entry__context"><div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${monoNums(fact.text)}</span>`).join("")}</div>`+
     `<button type="button" class="btn btn--steel entry__carried-change" data-entry-action="change-schedule" aria-label="${esc(t("entry.catalogue.change_aria"))}">${esc(t("entry.about.change"))}</button></div>`+
     /* Every family is released at every frequency, so a flat list is twenty
        near-identical rows. Split the ones that match the answered schedule from
@@ -16195,7 +16198,7 @@ function renderEntryChangeStatement(change){
   return `<div class="entry__change" id="entryChange" tabindex="-1" role="status" aria-live="polite" data-change-statement data-changed="${change.changed}" data-total="${change.total}">`+
     `<p class="entry__change-line">${esc([change.lead,sentence].filter(Boolean).join(" "))}</p>`+
     (change.before&&change.after&&(change.changed||change.before!==change.after)?
-      `<dl class="entry__change-grid"><dt>${esc(change.beforeLabel||t("entry.change.before"))}</dt><dd>${esc(change.before)}</dd><dt>${esc(change.afterLabel||t("entry.change.after"))}</dt><dd>${esc(change.after)}</dd></dl>`:"")+
+      `<dl class="entry__change-grid"><dt>${esc(change.beforeLabel||t("entry.change.before"))}</dt><dd>${monoNums(change.before)}</dd><dt>${esc(change.afterLabel||t("entry.change.after"))}</dt><dd>${monoNums(change.after)}</dd></dl>`:"")+
     `</div>`}
 function renderPreviewStep({merged=false}={}){
   const preview=entryState.result?.preview;
@@ -16236,7 +16239,7 @@ function renderEntryWeek(preview){
     const dayName=previewDayLabel(day,index,preview.programStructure);
     const open=index===0||exercises.some(exercise=>added.has(exercise.id));
     return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
-    `<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
+    `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`)}</span></summary>`+
     exercises.map(ex=>{const isNew=added.has(ex.id);
       return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
     (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+

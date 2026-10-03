@@ -3478,7 +3478,11 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);
   line-height:var(--line-standard);color:var(--color-ink);font-variant-numeric:tabular-nums
 }
-.entry__facts .entry__fact--data{font-family:var(--font-training-data)}
+/* Mono is for values: the words of a fact line are the language font and each figure is a `.num` (R7 V-18). */
+.entry__facts .entry__fact--data{font-family:var(--font-language)}
+.entry__facts .num,.entry-prog__facts .num,.onb__dayname .num,.entry__change-grid .num{font-family:var(--font-training-data)}
+/* A figure stays inline inside its line; `.onb__dayname span` would otherwise stack it as a block. */
+.onb__dayname span.num{display:inline;margin:0;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit}
 .entry__facts>span:not(:last-child)::after{
   content:"·";margin-left:12px;font-weight:var(--weight-regular);color:var(--color-ink-secondary)
 }
@@ -3925,7 +3929,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   line-height:var(--line-reading);color:var(--color-ink-secondary)
 }
 .entry-prog__facts{
-  display:flex;flex-wrap:wrap;gap:2px 9px;color:var(--color-ink);font-family:var(--font-training-data);
+  display:flex;flex-wrap:wrap;gap:2px 9px;color:var(--color-ink);font-family:var(--font-language);
   font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
 .entry-prog__facts>span:not(:last-child)::after{content:"·";margin-left:9px;font-weight:var(--weight-regular);color:var(--color-ink-secondary)}
@@ -5397,7 +5401,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   outline:var(--control-focus-outline);outline-offset:2px
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__dayname>span:not(.onb__daynum){
-  color:var(--color-ink-secondary);font-family:var(--font-training-data);
+  color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-body-small);line-height:var(--line-standard)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__dayname span.onb__daynum{
@@ -6199,7 +6203,7 @@ body.is-entry-editor #entryProgramName,
 
 /* A file import's week reads the way every other review's does. */
 #onbBody.entry-route--import .onb__dayname>span:not(.onb__daynum){
-  color:var(--color-ink-secondary);font-family:var(--font-training-data);
+  color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-body-small);line-height:var(--line-standard)
 }
 
@@ -6718,7 +6722,7 @@ body.is-entry-editor #entryProgramName,
 .entry__change-grid dt{
   font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)
 }
-.entry__change-grid dd{margin:0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-variant-numeric:tabular-nums}
+.entry__change-grid dd{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);font-variant-numeric:tabular-nums}
 .onb__ex.is-new{border-left:3px solid var(--accent);padding-left:calc(var(--space-32) - 3px)}
 .entry__new{
   margin-left:var(--space-8);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;

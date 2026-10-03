@@ -1079,5 +1079,37 @@ try {
         `${sharedCapture.viewport}/${sharedCapture.text}: summary metric text remains inside each item: ${JSON.stringify(geometry)}`);
     } finally { await sharedPage.context.close(); }
   }
+  // R7 V-18: Plex Mono is for values only. On the onboarding review lines (a day's meta, the Before / Now change grid, a
+  // program's facts and the selected limits) the words are set in the language font, every digit run sits in a `.num`
+  // element, and only those carry Mono.
+  const MONO_LINES = [".onb__dayname > span:not(.onb__daynum)", ".entry-prog__facts > span", ".entry__facts > span", ".entry__change-grid dd"];
+  for (const locale of ["en", "pt"]) {
+    for (const key of ["onboarding-browse/catalogue", "onboarding-recommend/result-corrected", "onboarding-import/preview", "onboarding-shared/preview"]) {
+      const monoCapture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-390", theme: "light", locale, text: "normal", motion: "normal" };
+      const monoPage = await openPage(browser, manifest, monoCapture, onboardingState(key, locale));
+      try {
+        await ONBOARDING_SCENARIOS[key](monoPage.page);
+        await settle(monoPage.page);
+        const lines = await monoPage.page.evaluate((selectors) => {
+          const visible = (node) => node.getClientRects().length > 0 && getComputedStyle(node).visibility !== "hidden";
+          const mono = (node) => /mono/i.test(getComputedStyle(node).fontFamily);
+          return [...document.querySelectorAll(selectors.join(","))].filter(visible).map((node) => {
+            const loose = [...node.childNodes].filter((child) => child.nodeType === 3).map((child) => child.textContent).join(" ");
+            const figures = [...node.querySelectorAll(".num")];
+            return { text: node.textContent.trim(), wordsMono: mono(node), looseDigits: /\d/.test(loose), figures: figures.length,
+              figuresMono: figures.every(mono), figuresText: figures.map((figure) => figure.textContent).join(" ") };
+          });
+        }, MONO_LINES);
+        const at = `${locale} ${key}`;
+        assert.ok(lines.length > 0, `${at}: the review lines render`);
+        for (const line of lines) {
+          assert.equal(line.wordsMono, false, `${at}: the words of "${line.text}" are set in the language font, not Plex Mono`);
+          assert.equal(line.looseDigits, false, `${at}: every figure of "${line.text}" is wrapped in .num`);
+          if (/\d/.test(line.text)) assert.ok(line.figures > 0 && line.figuresMono, `${at}: the figures of "${line.text}" (${line.figuresText}) are set in Plex Mono`);
+          else assert.equal(line.figures, 0, `${at}: "${line.text}" has no figure to set in Mono`);
+        }
+      } finally { await monoPage.context.close(); }
+    }
+  }
   console.log("ui-system: exact import-door and import-subview contracts, preference and radius contracts, shared-preview responsive metrics, live ownership, AA failures, and deliberate contract negatives passed");
 } finally { await context?.close(); await browser.close(); preview.cleanup(); }
