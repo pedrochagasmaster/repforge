@@ -1,0 +1,10 @@
+{
+  "sourceProgramsUnchanged": true,
+  "individualPrograms": 200,
+  "completeExerciseEntriesVerified": 3354,
+  "priorityContextsCompared": 29,
+  "coachingCountsVerified": true,
+  "localLinksAndFindingAnchorsChecked": 723,
+  "engineModified": false,
+  "verificationScope": "Evidence arithmetic, case coverage, saved prescription entries, priority comparison counts and report links. No repeated structural pass/fail audit."
+}
