@@ -7846,11 +7846,17 @@ function sizeFocusCard(card){
   if(!card)return;
   const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
   card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
-  // The context region scrolls as one: keep the row being worked on in view.
+  // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
+  // logged and the shelf already shows the set, so the card opens at its top with the exercise's name; later the row
+  // scrolls into view, but never past the cue or the running rest that sits under the name.
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
+  if(+open.dataset.lrow<=1&&context.scrollTop===0)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
-  if(row.bottom>box.bottom)context.scrollTop+=row.bottom-box.bottom+8;
+  if(row.bottom>box.bottom){
+    const keep=(context.querySelector(".fx-slot")||context.querySelector(".fcard__ledger"))?.getBoundingClientRect().top;
+    const room=Number.isFinite(keep)?Math.max(0,keep-box.top):Infinity;
+    context.scrollTop+=Math.min(row.bottom-box.bottom+8,room)}
   else if(row.top<box.top)context.scrollTop=Math.max(0,context.scrollTop-(box.top-row.top)-8)}
 
 async function refreshAfterCommittedEdit(row){

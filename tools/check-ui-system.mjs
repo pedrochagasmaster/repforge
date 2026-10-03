@@ -8,7 +8,7 @@ import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
-import { measureRenderedRoles, renderedRoleProblems } from "./ui-system-rendered.mjs";
+import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "./ui-system-rendered.mjs";
 import { join, resolve } from "node:path";
 
 export function inspectRoleCoverage({ key, components, exceptions, progressCandidateSelectors, allowProgressDebt = false }) {
@@ -250,6 +250,11 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
         for (const item of rendered) measurements[item.status] = (measurements[item.status] || 0) + 1;
         measurements.total += rendered.length;
         problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, rendered));
+        // A heading is read whole: a line clamp that cuts one short is a finding, not a style.
+        const clamps = await opened.page.evaluate(measureClampedHeadings);
+        for (const item of clamps) measurements[item.status] = (measurements[item.status] || 0) + 1;
+        measurements.total += clamps.length;
+        problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, clamps));
         const exceptionBoundaries = requiredBoundaryExceptionRequests(inventory.exceptions, key);
         if (exceptionBoundaries.length) {
           const renderedExceptions = await opened.page.evaluate(measureRenderedRoles, { requests: exceptionBoundaries, pixels });
@@ -257,6 +262,15 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
           measurements.total += renderedExceptions.length;
           problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, renderedExceptions));
         }
+        // A clamp that fits a heading at 390 can cut the same heading on the smallest supported phone, so the
+        // headings are measured again there; layout is all that changes, so the frame needs no second scenario.
+        const smallest = manifest.viewports["phone-320"];
+        await opened.page.setViewportSize({ width: smallest.width, height: smallest.height });
+        await settle(opened.page);
+        const narrowClamps = await opened.page.evaluate(measureClampedHeadings);
+        for (const item of narrowClamps) measurements[item.status] = (measurements[item.status] || 0) + 1;
+        measurements.total += narrowClamps.length;
+        problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}/320]`, narrowClamps));
       } catch (error) {
         problems.push(`${key}: scenario failed: ${error.stack || error.message}`);
       } finally { await context?.close(); }

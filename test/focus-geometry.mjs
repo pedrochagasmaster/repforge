@@ -11,6 +11,8 @@
  *    390 in both languages with double-size text, the action is inside the viewport above the bottom safe area and
  *    is what a tap lands on, the load does not wrap, the card does not overflow, no two lines of the shelf overprint,
  *    and the context region (never the shelf) is what gives up height.
+ * 3b. The smallest phone at the usual size (R7 V-05): the day title shows in full, the context region opens at its top
+ *    with the exercise's name in view, a running rest keeps a readable block, and the shelf keeps its action.
  * 4. Explicit gesture controller lifetime:
  *    - Boot mounts one gesture owner returning a disposal handle { dispose }.
  *    - Mounting twice is idempotent (does not duplicate listeners/navigation).
@@ -26,6 +28,10 @@ import { CATALOG_PHONES, SAFE_AREA, inPool, openCatalogState } from "./fixtures/
 
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
+
+// FOCUS_GEOMETRY_ONLY=large,smallest runs just those sections (stability, large, smallest, gestures); the default is all.
+const only = (process.env.FOCUS_GEOMETRY_ONLY || "").split(",").filter(Boolean);
+const wants = (section) => !only.length || only.includes(section);
 
 function assert(condition, message, detail = "") {
   if (!condition) {
@@ -75,6 +81,8 @@ function measureFocusCard(safeBottom) {
   const banner = q("#draftRecovery");
   const bannerRect = banner && !banner.classList.contains("hidden") ? banner.getBoundingClientRect() : null;
   const shelfRect = shelf.getBoundingClientRect();
+  const title = q("#woDayTitle"), name = q(".focus-ex__name .ex__namebtn", art), slot = q(".fx-slot", art);
+  const nameRect = name?.getBoundingClientRect(), slotRect = slot?.getBoundingClientRect();
   return {
     height: innerHeight,
     // A state that opens a sheet or the glossary is drawn with that layer over the card, and what lies over the action
@@ -85,6 +93,10 @@ function measureFocusCard(safeBottom) {
     card: { scroll: art.scrollHeight, client: art.clientHeight },
     contextScrolls: !!context && ["auto", "scroll"].includes(getComputedStyle(context).overflowY),
     banner: bannerRect && { top: bannerRect.top, bottom: bannerRect.bottom, aboveShelf: bannerRect.bottom <= shelfRect.top + 1 },
+    title: { scroll: title.scrollHeight, client: title.clientHeight, clamp: getComputedStyle(title).webkitLineClamp },
+    window: context && { top: context.getBoundingClientRect().top, bottom: context.getBoundingClientRect().bottom, scrollTop: context.scrollTop },
+    name: nameRect && { top: nameRect.top, bottom: nameRect.bottom },
+    slot: slotRect && { top: slotRect.top, bottom: slotRect.bottom, state: slot.dataset.rest },
   };
 }
 
@@ -126,6 +138,47 @@ async function checkFocusStatesAtLargeText(browser) {
   console.log(`  ${cases.length} frames keep the shelf whole`);
 }
 
+/** The part of a box that shows inside the context region's window. */
+const shown = (box, window) => Math.max(0, Math.min(box.bottom, window.bottom) - Math.max(box.top, window.top));
+
+/**
+ * R7 V-05: Focus at 320x568 with the usual text. The title is a heading and shows in full (no line clamp), the context
+ * region opens at its top with the exercise's name in view, a running or finished rest keeps a readable part of its
+ * block in the window, and a banner or guide never takes the shelf's room.
+ */
+async function checkFocusAtSmallestPhone(browser) {
+  console.log("\nFocus on the smallest phone at the usual size: 320x568, EN/PT");
+  const cases = [];
+  for (const key of ["workout/focus", "workout/rest-running", "workout/rest-done", "workout/stale-draft", "workout/persist-retry"]) for (const lang of ["en", "pt"]) cases.push({ key, lang });
+  const failures = [];
+  await inPool(cases, 3, async ({ key, lang }) => {
+    const label = `${key} 320px ${lang} 100%`;
+    let opened;
+    try {
+      opened = await openCatalogState(browser, key, 320, lang, "normal");
+      const m = await opened.page.evaluate(measureFocusCard, SAFE_AREA.bottom);
+      const problems = focusCardProblems(m);
+      if (!m.error) {
+        if (m.title.scroll > m.title.client + 1 || m.title.clamp !== "none") problems.push(`the day title is cut short (${m.title.scroll}px of text in ${m.title.client}px, line-clamp ${m.title.clamp})`);
+        if (key === "workout/focus") {
+          if (m.window.scrollTop !== 0) problems.push(`the context region opens scrolled ${Math.round(m.window.scrollTop)}px`);
+          if (!m.name || m.name.top < m.window.top - 1 || m.name.bottom > m.window.bottom + 1) problems.push("the exercise's name is not whole in the context window on first paint");
+        }
+        if (key.startsWith("workout/rest-") && (!m.slot || shown(m.slot, m.window) < 44)) problems.push(`the rest block keeps ${Math.round(m.slot ? shown(m.slot, m.window) : 0)}px of the window`);
+      }
+      if (problems.length) failures.push(`${label}: ${problems.join(" | ")}`);
+    } catch (error) {
+      failures.push(`${label}: the state did not reach its drawing: ${String(error.message).split("\n")[0]}`);
+    } finally {
+      await opened?.context.close();
+    }
+  });
+  failures.sort();
+  for (const failure of failures) console.error(`  FAIL ${failure}`);
+  assert(!failures.length, `${failures.length} of ${cases.length} Focus frames on the smallest phone hide the title, the name or the rest block`, failures.slice(0, 3).join(" || "));
+  console.log(`  ${cases.length} frames show the title, the name and the rest block`);
+}
+
 async function main() {
   const browser = await launchChromium();
 
@@ -134,7 +187,7 @@ async function main() {
      * 1. Geometry Stability: Title & Timer at PT + 200% scaling
      * ====================================================================== */
     console.log("\nGeometry Stability: PT + 200% text scaling across viewports (320, 390, 430)");
-    for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const theme of ["light", "dark"]) for (const scale of [1, 2]) {
+    if (wants("stability")) for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const theme of ["light", "dark"]) for (const scale of [1, 2]) {
       const height = { 320: 568, 390: 844, 430: 932 }[width];
       const context = await browser.newContext({
         viewport: { width, height },
@@ -245,7 +298,9 @@ async function main() {
     /* ======================================================================
      * 2. The shelf's action stays whole at large text (R7 V-02)
      * ====================================================================== */
-    await checkFocusStatesAtLargeText(browser);
+    if (wants("large")) await checkFocusStatesAtLargeText(browser);
+    if (wants("smallest")) await checkFocusAtSmallestPhone(browser);
+    if (!wants("gestures")) return;
 
     /* ======================================================================
      * 3. Gesture Controller Lifetime

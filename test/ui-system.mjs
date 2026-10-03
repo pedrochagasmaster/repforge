@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests, uninventoriedSharedComponents, SHARED_COMPONENTS_MARKER } from "../tools/ui-system-core.mjs";
-import { measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
+import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
 import { setCaptureBase, launchChromium, openPage, settle } from "../tools/ui-screens/session.mjs";
@@ -819,6 +819,23 @@ try {
   assert.equal(contextualRoles.find((item) => item.kind === "state-mark" && item.selector.includes("uiRequiredSelectedMark"))?.status, "pass",
     "a required control boundary does not suppress selected state-mark contrast");
   await opened.page.evaluate(() => document.querySelector("#uiSystemFaults")?.remove());
+  // A heading is read whole (R7 V-05): a line clamp that cuts one short fails the audit; one that only reserves room does not.
+  await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `
+    <div id="uiClampFixtures" style="position:fixed;top:60px;left:20px;width:90px;background:#fff;z-index:999">
+      <h2 id="uiClampCut" style="margin:0;font-size:16px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden">A long day title that needs many lines</h2>
+      <div id="uiClampRole" role="heading" aria-level="2" style="margin:0;font-size:16px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden">Another long heading in a role</div>
+      <h2 id="uiClampRoom" style="margin:0;font-size:16px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden">Short</h2>
+      <h2 id="uiClampNone" style="margin:0;font-size:16px">A heading with no clamp wraps in full</h2>
+    </div>`));
+  const clampFindings = await opened.page.evaluate(measureClampedHeadings);
+  const clampStatus = (id) => clampFindings.find((item) => item.selector.startsWith(`#${id}:`))?.status;
+  assert.equal(clampStatus("uiClampCut"), "fail", `a clamp that cuts a heading short fails: ${JSON.stringify(clampFindings)}`);
+  assert.equal(clampStatus("uiClampRole"), "fail", "a role=heading element is held to the same rule");
+  assert.equal(clampStatus("uiClampRoom"), "pass", "a clamp that cuts nothing passes");
+  assert.equal(clampStatus("uiClampNone"), undefined, "an unclamped heading is not a clamp finding");
+  assert.equal(renderedRoleProblems("fixture", clampFindings).length, 2, "exactly the two cut headings become audit problems");
+  assert.match(renderedRoleProblems("fixture", clampFindings)[0], /-webkit-line-clamp 2 cuts the heading short/, "the finding names the clamp and the cut");
+  await opened.page.evaluate(() => document.querySelector("#uiClampFixtures")?.remove());
   await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `
     <div id="uiSystemFaults" style="position:fixed;top:100px;left:20px;background:#fff;z-index:999">
       <button id="uiUnmapped">Unmapped</button>

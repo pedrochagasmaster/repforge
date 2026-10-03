@@ -826,18 +826,23 @@ div.settings-row{cursor:default}
 /* The title wraps rather than truncates, so it hangs from the top of the bar: when the timer chip widens and
    takes room from it, the controls and the first line of the title stay where they were. */
 .wo-head__center{text-align:center;min-width:0;flex:1;padding-top:var(--space-12)}
-.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
-/* At large text the controls leave the title a column too narrow to read, and a running timer's pill narrows it
-   further, so the title takes the row under the controls: it neither squeezes nor moves when the timer starts. */
+.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+/* The title is a heading and is never cut short: it wraps. Where the controls leave it a column too narrow to read
+   (the narrowest phones, and any phone at large text) it takes the row under the controls, so a running timer's
+   wider pill neither squeezes it nor moves it. */
+@media (max-width:340px){
+  .wo-head{flex-wrap:wrap;row-gap:0}
+  .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
+}
 body:has(.exercise--focus.is-text-scaled){--focus-context-floor:0px}
 body:has(.exercise--focus.is-text-scaled) .wo-head{flex-wrap:wrap;row-gap:0}
 body:has(.exercise--focus.is-text-scaled) .fcard__context{padding-block:0}
 body:has(.exercise--focus.is-text-scaled) .exercise--focus .guide-cue{margin-block:0}
 body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bottom:0}
-/* A guide is a hint, and at double size it wraps into most of a short screen. Where the shelf and the controls already
-   take the height, it stands down rather than take the shelf's room; it keeps its state and returns on a taller screen. */
+/* A guide is a hint, and on a short screen it can only be shown cut off. Where the shelf and the controls already take
+   the height it stands down rather than take the shelf's room; it keeps its state and returns on a taller screen. */
 @media (max-height:600px){
-  body:has(.exercise--focus.is-text-scaled) :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
+  body.is-focus-wo :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
 }
 /* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
    from costing the shelf the room its action needs. The running timer's pill drops its dot and takes the label size so
@@ -2122,7 +2127,6 @@ textarea.sheetfield__input{
   .shelf__fieldbtn{padding-left:var(--space-8);padding-right:var(--space-8)}
   .shelf__input{padding-left:var(--space-8);padding-right:var(--space-8)}
   .shelf__lab--edit{left:var(--space-8);right:var(--space-8)}
-  .wo-head__title{-webkit-line-clamp:2}
 }
 
 .pr-kind{display:inline-block;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px}

@@ -485,3 +485,24 @@ export function renderedRoleProblems(key, measurements) {
   return measurements.filter((item) => !["pass", "exempt"].includes(item.status)).map((item) =>
     `${key}: rendered ${item.kind} ${item.selector} ${item.status}${item.ratio === undefined ? "" : ` ${item.ratio}:1 < ${item.threshold}:1`}${item.reason ? ` (${item.reason})` : ""}`);
 }
+
+/**
+ * A heading is read whole. A line clamp that actually cuts a heading short (the text is taller than the box that
+ * shows it) hides part of a name the lifter needs, so the audit fails it; a clamp that only reserves room for a
+ * longer title than this one is not a defect. Serialized into Chromium, so it owns its helpers; the findings go
+ * through `renderedRoleProblems` like every other rendered measurement.
+ */
+export function measureClampedHeadings() {
+  const label = (node) => node.id ? `#${node.id}` : `${node.tagName.toLowerCase()}${node.className && typeof node.className === "string" ? `.${node.className.trim().split(/\s+/)[0]}` : ""}`;
+  const results = [];
+  for (const node of document.querySelectorAll("h1,h2,h3,h4,h5,h6,[role='heading']")) {
+    const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+    if (rect.width <= 0 || rect.height <= 0 || style.display === "none" || style.visibility === "hidden" || node.closest("[inert],.visually-hidden")) continue;
+    const clamp = style.webkitLineClamp;
+    if (!clamp || clamp === "none") continue;
+    const cut = node.scrollHeight > node.clientHeight + 1;
+    results.push({ selector: `${label(node)}:${(node.textContent || "").trim().slice(0, 40)}`, kind: "heading-clamp", status: cut ? "fail" : "pass",
+      reason: cut ? `-webkit-line-clamp ${clamp} cuts the heading short (${node.scrollHeight}px of text in ${node.clientHeight}px)` : undefined });
+  }
+  return results;
+}
