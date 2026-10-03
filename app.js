@@ -1269,10 +1269,6 @@ const EFFORT_TERM={easy:"Easy effort",hard:"Hard effort",max:"Max effort"};
 const targetEffort=()=>effortForRir(state?.settings?.rirHigh);
 /** How a set reads once it is logged: the word in effort mode, else "@RIR". */
 const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fmt(rir)}`;
-/** The per-set target line: reps plus the effort or the RIR window behind it. */
-const targetText=ex=>isEffortMode()
-  ?t("today.target_rest_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
-  :t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)});
 /* ---- Focus motion (Plan 064 rule 11: owner picks T1, L2, L4 and M1) ----
    Everything animated here goes through `RepForgeMotion`: the travelling
    outlines through `animateIndicator`, the short beats through the classes in
@@ -2612,12 +2608,6 @@ function changeRirMode(newMode){
     toast(t("toast.rir_locked_draft"));
     return false}
   return true}
-async function applySkipToggle(id){
-  if(!activeWorkoutDraft)return false;
-  const result=await WorkoutSession.dispatch(skipped.has(id)?"restoreExercise":"skipExercise",{exerciseInstanceId:id});
-  if(result.status!=="applied")return false;
-  {const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
-  renderWorkout();return true}
 async function applyShowAll(){
   if(!activeWorkoutDraft)return false;
   for(const id of [...skipped]){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
@@ -5076,16 +5066,6 @@ function compareExerciseSession(ex,currentRows){const cur=workingRows(currentRow
   const prev=previousSessionForExercise(ex,cur[0]?.session);
   if(!prev.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
   return buildSessionDelta(prev,cur)}
-function formatDelta(delta){if(!delta?.metrics)return"";const{deltas}=delta.metrics,{loadDelta,repsDelta,e1rmDelta}=deltas;
-  if(Math.abs(loadDelta)<.01&&repsDelta!==0){const s=repsDelta>0?"+":"";return t("delta.reps_same_load",{signed:s+repsDelta})}
-  if(Math.abs(e1rmDelta)>=.01){const s=e1rmDelta>0?"+":"";return t("delta.e1rm",{signed:s,delta:Math.round(toDisplay(e1rmDelta)),unit:unitLabel()})}
-  const parts=[];if(repsDelta!==0)parts.push(t("delta.reps",{signed:repsDelta>0?"+":"",delta:repsDelta}));if(Math.abs(e1rmDelta)>=.01)parts.push(t("delta.e1rm_labeled",{signed:e1rmDelta>0?"+":"",delta:Math.round(toDisplay(e1rmDelta)),unit:unitLabel()}));
-  return parts.length?parts.join(" · "):""}
-function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
-  if(c.improved)parts.push(t("delta.count.improved",{n:c.improved}));if(c.flat)parts.push(t("delta.count.flat",{n:c.flat}));
-  if(c.regressed)parts.push(t("delta.count.regressed",{n:c.regressed}));if(c.new)parts.push(t("delta.count.new_lifts",{n:c.new,lifts:tp(c.new,"lift")}));
-  return parts.join(sep)}
-function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
@@ -6284,10 +6264,7 @@ async function saveExNoteSheet(){
     if(!activeWorkoutDraft)return;
     await WorkoutSession.dispatch("setExerciseNotes",{exerciseInstanceId:id,value:val})}
   await closeExNoteSheet();
-  if(id){
-    renderWorkout();
-    const trigger=$$("#workout [data-exnote-open]").find(b=>b.dataset.exnoteOpen===id);
-    if(trigger){try{trigger.focus({preventScroll:true})}catch{try{trigger.focus()}catch{}}}}}
+  if(id)renderWorkout()}
 /* ---- Day picker sheet ---- */
 /* Today leads with one day, and a split is rarely trained in order: a machine is
  * taken, a session is swapped, a day is skipped. The picker is how the lifter
@@ -8696,20 +8673,6 @@ function overviewVolumeProjection(){
     if(ra!==rb)return ra-rb;
     return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
 function overviewVolumeSorted(){return overviewVolumeProjection()}
-function recentDeltaRows(){const sessMap=new Map();
-  for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created});
-    mergeLogChronology(sessMap.get(x.session),x)}
-  const recent=[...sessMap.values()].sort((a,b)=>compareLogChronology(b,a)).slice(0,10);
-  const out=[];
-  for(const sess of recent){const byLift=new Map();
-    for(const r of state.log.filter(x=>x.session===sess.session)){const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
-    for(const rows of byLift.values()){if(!workingRows(rows).length)continue;
-      const ex=currentExerciseForLiftKey(liftKey(rows[0]))||exerciseIdentityFromRow(rows[0]);
-      const cmp=compareExerciseSession(ex,rows);if(cmp.status==="not_comparable")continue;
-      const m=cmp.metrics?.current||exerciseSessionMetrics(rows);
-      out.push({[t("stats.table.date")]:shortDate(sess.date),[t("stats.table.exercise")]:displayName(rows[0]),[t("stats.table.status")]:cmp.label,[t("stats.table.load")]:fmtLoad(m.topLoad),[t("stats.table.reps")]:m.totalReps,
-        [t("stats.table.e1rm")]:fmt(Math.round(toDisplay(m.bestE1rm))),[t("stats.table.delta")]:cmp.status==="new"?"—":formatDelta(cmp)||"—"})}}
-  return out}
 
 function renderStats(){
   // First run: point at the Log tab instead of an all-zero dashboard.
@@ -9833,7 +9796,6 @@ window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir
 window.__repforgeAttention=attentionGroups;
 // Lifts on the Attention board — everything the board lists, so the "attention" cell in
 // the weekly stat row and the "ATTENTION · n" heading always report the same lifts.
-function attentionCount(groups){return(groups||attentionGroups()).reduce((n,g)=>n+g.items.length,0)}
 /** The glyph column of an attention row, from the engine's recommendation for the
  *  lift. Only up and down draw a glyph; hold and recover keep the column and carry
  *  their variant class, which the shared mark gives a glyph. */
@@ -16846,25 +16808,6 @@ function wireEntryDom(){
   const changeSchedule=$("[data-entry-action='change-schedule']");if(changeSchedule)changeSchedule.onclick=()=>{
     const answers={...entryState.answers};delete answers.splitPreference;
     entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
-  $$("[data-entry-select-candidate]").forEach(btn=>btn.onclick=()=>{
-    if(entryState?.step==="result"&&(entryState.route==="recommend"||entryState.route==="custom")){
-      $("#entryCandidateReview")?.scrollIntoView?.({behavior:scrollBehavior(),block:"start"});
-      return}
-    const id=btn.dataset.entrySelectCandidate;
-    const selected=(entryState.result?.candidates||[]).find(c=>c.id===id)||entryState.result?.selected;
-    if(!selected||!entryState.result)return;
-    const next=ProgramEntry.setResult(entryState,{
-      fingerprint:entryState.result.fingerprint,
-      name:entryState.result.name,
-      namePt:entryState.result.namePt,
-      selected:{...selected},
-      candidates:(entryState.result.candidates||[]).map(c=>({...c})),
-      alternative:null,
-      preview:entryState.result.preview,
-      telemetry:entryState.result.telemetry,
-      explanation:entryState.result.explanation});
-    entryPinnedVersionsExecutable=false;
-    entrySetState(ProgramEntry.advance(next).state)});
   const chooseAlternative=$("[data-entry-select-alternative]");if(chooseAlternative)chooseAlternative.onclick=()=>{
     const alternative=entryState?.result?.alternative;
     if(!alternative)return;
