@@ -18775,12 +18775,15 @@ function init(){
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
     earlyBtn.classList.add("hidden");
+    // The pressed control is now hidden: the lifter lands on the choice it asks for.
+    focusRoute("#sessionEarlyConfirm");
   };
 
   const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
     sessionEarlyRevision=null;
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
     const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
+    focusRoute("#sessionEarlyFinish");
   };
 
   const exActionRepeat=$("#exActionRepeatBtn");

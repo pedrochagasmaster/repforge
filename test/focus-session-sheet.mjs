@@ -215,6 +215,18 @@ async function main() {
     await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)", { timeout: 5000 });
     assert(await page.locator("#sessionEarlyConfirm").isVisible(),
       "tapping early finish reveals the confirmation prompt");
+    // R7 J-04: the control that was pressed is hidden by the reveal, so focus moves into the prompt and
+    // Cancel hands it back; neither step may leave it on <body>.
+    assert(await page.evaluate(() => document.activeElement?.id === "sessionEarlyConfirm" &&
+      !!document.activeElement.closest("#sessionEarlyPrompt")),
+    "tapping early finish moves focus to the confirmation in #sessionEarlyPrompt",
+    await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName));
+    await page.locator("#sessionEarlyCancel").click();
+    assert(await page.evaluate(() => document.activeElement?.id === "sessionEarlyFinish"),
+      "Cancel returns focus to #sessionEarlyFinish",
+      await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName));
+    await earlyBtn.click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)", { timeout: 5000 });
 
     const omitted=await page.locator("#sessionEarlyOmissions li").allTextContents();
     const names=await page.evaluate(()=>{const d=window.__repforgeWorkoutDraft.current();return d.exerciseOrder.map(id=>d.exercises[id].displayName)});
