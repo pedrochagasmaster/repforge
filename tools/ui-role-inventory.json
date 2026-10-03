@@ -6338,9 +6338,10 @@
         "hover",
         "pressed",
         "focus-visible",
+        "expanded",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state. A glossary term opens its definition popover and says so with aria-expanded (R7 J-15).",
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
@@ -6921,9 +6922,10 @@
         "hover",
         "pressed",
         "focus-visible",
+        "expanded",
         "disabled"
       ],
-      "rationale": "Opens the RIR definition without changing the workout value.",
+      "rationale": "Opens the RIR definition without changing the workout value. The term says its definition popover is open with aria-expanded (R7 J-15).",
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",

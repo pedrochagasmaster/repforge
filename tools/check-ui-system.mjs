@@ -175,6 +175,10 @@ export async function auditFocusRoles(page, { key, components, pixels }) {
       }
     }
     if (focusTargets.length) {
+      // Forcing :focus-visible stands for a keyboard user. In the app any key press clears a quiet hand-off
+      // (app.js workoutInputModality: focus moved after a tap draws no ring until a key is used), so the
+      // emulation clears it too rather than measuring a state no keyboard user can reach.
+      await page.evaluate(() => document.querySelectorAll("[data-quiet-focus]").forEach((el) => el.removeAttribute("data-quiet-focus")));
       await Promise.all(focusTargets.map(({ nodeId }) => session.send("CSS.forcePseudoState", {
         nodeId, forcedPseudoClasses: ["focus-visible"],
       })));
