@@ -602,8 +602,11 @@ async function main() {
     [runningAppearance.selection.background, runningAppearance.selection.hover].includes(runningAppearance.toggle.background) &&
     runningAppearance.toggle.foreground === runningAppearance.selection.ink && runningAppearance.toggle.border === runningAppearance.selection.boundary,
   "a running timer reserves accent for the drain bar's fill and Pause uses the selection recipe", JSON.stringify(runningAppearance));
-  assert(runningAppearance.icons.every((mask) => /stroke-width(?:%3D|=)['"]1\.75/.test(mask)),
-    "timer outline masks share the 1.75 glyph weight", JSON.stringify(runningAppearance.icons));
+  // The rest stepper draws G's set (tools/build-icon-masks.mjs): G's outline weight is 1.75, and the bolder 2 is
+  // reserved for check, arrow, plus, minus and close. The timer glyph is not one of G's and keeps 1.75.
+  const timerWeights = ["2", "2", "1.75", "1.75"]; // minus, plus, reset, timer
+  assert(runningAppearance.icons.every((mask, i) => new RegExp(`stroke-width(?:%3D|=)(?:%27|['"])${timerWeights[i].replace(".", "\\.")}(?:%27|['"])`).test(mask)),
+    "timer controls draw G's glyph weights (plus and minus 2, outlines 1.75)", JSON.stringify(runningAppearance.icons));
 
   // Pause holds the inline clock; the chip says so. The one wall-clock wait in the timer proof: the invariant
   // is that the visible clock stays equal after real elapsed time while held, and the predicate also requires
