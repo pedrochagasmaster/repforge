@@ -5138,6 +5138,71 @@ function travelTabIndicator(tab,fromRect){
   const done=()=>{ring.remove();if(!row.querySelector(".tabrow__ring"))tab.classList.remove("is-ring-travel")};
   m.animateIndicator(ring,fromRect).then(done,done);
   return true}
+/* ---- N1: the dock lens travels (Plan 064 rule 11) ----
+   The selected tab sits in one lens: a single `aria-hidden` element that JS puts inside `nav` and places on the
+   active button. While it is mounted the active button stops painting its own lens (`nav[data-lens]`); until
+   then, and wherever the dock is hidden, the button's own paint stands. Nothing here routes. The dock handler,
+   `navTo`, `returnToTab` and `showSettings` keep setting `.active` and `aria-current`, and a MutationObserver
+   on those two attributes is the only trigger. A tab change in a dock that was on screen travels the lens with
+   `animateIndicator`; the button keeps its 1px ring at rest and sets it aside only while the lens carries one
+   in the air (`data-lens="travel"`, as N3 does for the tab indicator). A change while the dock is hidden, a
+   resize, a text-size change, or the editor bar swapping in re-snaps with no travel, so the lens is already
+   in place when the dock is next seen. */
+function mountDockLens(){
+  const nav=document.querySelector("nav");
+  if(!nav||nav.querySelector(".dock-lens")||typeof MutationObserver!=="function")return null;
+  let lens=null,at=null,seenNav=null,shown=false,flight=0;
+  const buttons=()=>[...nav.querySelectorAll(":scope > button")];
+  const near=(a,b,keys)=>!!a&&!!b&&keys.every(k=>Math.abs(a[k]-b[k])<0.5);
+  const BOX=["left","top","width","height"],SHAPE=["left","width","height"];
+  const makeLens=()=>{
+    const el=document.createElement("span");
+    el.className="dock-lens";el.setAttribute("aria-hidden","true");
+    nav.append(el);return el};
+  /** The nav's border box, or null while the dock is hidden (display:none gives it no box). */
+  const navRect=()=>{
+    const r=nav.getBoundingClientRect();
+    return r.width>0&&r.height>0?{left:r.left,top:r.top,width:r.width,height:r.height}:null};
+  /** The button's border box in the nav's padding-box coordinates. A press scales the button about its
+   *  centre, which is not where it rests, so the scale is divided back out. */
+  const boxOf=(button,n)=>{
+    const r=button.getBoundingClientRect(),m=new DOMMatrixReadOnly(getComputedStyle(button).transform);
+    const w=r.width/(m.a||1),h=r.height/(m.d||1);
+    return {left:r.left+r.width/2-w/2-n.left-nav.clientLeft,top:r.top+r.height/2-h/2-n.top-nav.clientTop,width:w,height:h}};
+  const place=box=>{
+    lens.style.setProperty("--lens-x",`${box.left}px`);lens.style.setProperty("--lens-y",`${box.top}px`);
+    lens.style.setProperty("--lens-w",`${box.width}px`);lens.style.setProperty("--lens-h",`${box.height}px`)};
+  function sync(travel){
+    const n=navRect();
+    if(!n){shown=false;return}
+    const active=buttons().find(b=>b.classList.contains("active"));
+    if(!active)return;
+    const box=boxOf(active,n),calm=shown&&near(n,seenNav,SHAPE);
+    if(!lens)lens=makeLens();
+    if(at&&near(box,at,BOX)){seenNav=n;shown=true;return}
+    if(travel&&calm&&at){
+      const from=lens.getBoundingClientRect(),id=++flight;
+      at=box;place(box);
+      const run=window.RepForgeMotion?.animateIndicator?.(lens,{left:from.left,top:from.top,width:from.width,height:from.height});
+      // The helper paints its first frame before it returns: a transform on the lens means it is in the air.
+      if(lens.style.transform&&run&&typeof run.then==="function"){
+        nav.dataset.lens="travel";
+        const done=()=>{if(id===flight)nav.dataset.lens="on"};
+        run.then(done,done)}
+      else nav.dataset.lens="on";
+    }else{
+      // A re-snap is never a travel: a run still in the air is left behind with its element.
+      if(nav.dataset.lens==="travel"){lens.remove();lens=makeLens()}
+      flight++;at=box;place(box);nav.dataset.lens="on"}
+    seenNav=n;shown=true}
+  sync(false);
+  new MutationObserver(()=>sync(true)).observe(nav,{attributes:true,attributeFilter:["class","aria-current"],subtree:true});
+  if(typeof ResizeObserver==="function"){
+    const resize=new ResizeObserver(()=>sync(false));
+    resize.observe(nav);buttons().forEach(b=>resize.observe(b))}
+  window.addEventListener("resize",()=>sync(false));
+  return nav}
+mountDockLens();
 function setEvidenceView(view){
   if(!EVIDENCE_SEG[view]){evidenceView=null;
     paintStatsTabs();

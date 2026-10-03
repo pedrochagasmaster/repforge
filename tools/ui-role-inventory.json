@@ -7148,6 +7148,67 @@
       ]
     },
     {
+      "id": "dock-lens",
+      "selector": ".dock-lens",
+      "roles": {
+        "elevation": "selected"
+      },
+      "variant": "navigation-dock-lens",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The one lens the script mounts in the dock (N1): it is the selected destination's pill, sits behind the buttons and travels between them. It is aria-hidden and takes no input; the destination button stays the control and keeps the selected state. In the Program edit bar the button keeps painting its own selected paint at rest and the lens is visible only while it travels.",
+      "owner": "plan-064/r6",
+      "catalogStates": [
+        "history/conflict",
+        "history/delete-confirm",
+        "history/edit-dirty",
+        "history/edit-invalid",
+        "history/list",
+        "history/session",
+        "install/banner",
+        "program/no-program",
+        "program/overview",
+        "program/progression-editor",
+        "progress/exercise-chart",
+        "progress/guided-repair",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/prs",
+        "progress/prs-drill-in",
+        "progress/recovery-active",
+        "progress/recovery-ineligible",
+        "progress/recovery-preview",
+        "progress/recovery-questions",
+        "progress/recovery-reassessment",
+        "progress/review",
+        "progress/review-active",
+        "progress/review-complete",
+        "progress/review-insufficient",
+        "progress/schedule-diagnosis",
+        "progress/sibling-lower-frequency",
+        "progress/sibling-shorter-session",
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse",
+        "progress/volume",
+        "progress/volume-block",
+        "progress/volume-drill-in",
+        "progress/volume-reduction-preview",
+        "today/done",
+        "today/draft-resume",
+        "today/no-program",
+        "today/ready",
+        "today/rest-bar",
+        "workout/invalid-draft",
+        "today/mixed-strategies"
+      ]
+    },
+    {
       "id": "nav-button-data-view",
       "selector": "nav button[data-view]",
       "roles": {
@@ -9181,7 +9242,7 @@
         "nav button.active"
       ],
       "role": "selected",
-      "rationale": "The selected button paints its own lens when :has is unavailable. Its inset sheen and restrained edge keep the selected destination legible without outward elevation.",
+      "rationale": "The selected button paints its own lens wherever the dock lens element is not mounted (before boot or without the script). Its inset sheen and restrained edge keep the selected destination legible without outward elevation.",
       "owner": "plan-057/058",
       "catalogStates": [
         "today/no-program",
@@ -9235,10 +9296,10 @@
       "id": "nav-selected-indicator-elevation",
       "token": "--elevation-nav-indicator-shadow",
       "selectors": [
-        "nav::before"
+        ".dock-lens"
       ],
       "role": "selected",
-      "rationale": "Where :has is supported, the sliding indicator paints the same selected lens behind the buttons. Its slightly adjusted inset opacity compensates for the different paint layer and keeps the approved selection treatment consistent.",
+      "rationale": "Once the script mounts the dock lens, the single lens element paints the selected pill behind the buttons and travels between them. Its slightly adjusted inset opacity compensates for the different paint layer and keeps the approved selection treatment consistent.",
       "owner": "plan-057/058",
       "catalogStates": [
         "today/no-program",

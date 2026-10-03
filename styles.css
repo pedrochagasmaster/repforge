@@ -2429,7 +2429,21 @@ body:has(#program.program-editor-installed) nav button.active{
   border-radius:var(--radius-pill);background:var(--control-selection-active-bg);
   box-shadow:var(--elevation-selected-shadow)
 }
-body:has(#program.program-editor-installed) nav::before{display:none}
+/* In the editor bar the active button keeps painting its whole selected paint at rest (the fill, the 2px inset ring
+   and the 1px border are one box there, and a second box over it would not land on the same pixels). The lens
+   wears that paint only while it is in the air: it sits on the button's layout box (no translate, so it snaps to
+   the pixel grid as the button does), is hidden at rest, and the destination button sets its own aside while
+   the lens is visible, so there is one selected paint on screen. */
+body:has(#program.program-editor-installed) .dock-lens{
+  left:var(--lens-x,0);top:var(--lens-y,0);translate:none;visibility:hidden;
+  border:1px solid var(--boundary-selected);
+  background:var(--control-selection-active-bg);
+  box-shadow:var(--elevation-selected-shadow)
+}
+body:has(#program.program-editor-installed) nav[data-lens=travel] .dock-lens{visibility:visible}
+body:has(#program.program-editor-installed) .dock-lens::after,
+body:has(#program.program-editor-installed) nav[data-lens=travel] .dock-lens::after{display:none}
+body:has(#program.program-editor-installed) nav[data-lens=travel] button.active{background:transparent;box-shadow:none}
 
 .program-editor-leave{
   width:min(calc(100% - 32px),420px);padding:24px;border:1px solid var(--boundary-modal);
@@ -2480,33 +2494,44 @@ nav button > [data-i18n]{min-width:0;max-width:100%;text-align:center;line-heigh
 nav button:active{transform:scale(.93)}
 nav button:focus-visible{outline:var(--control-focus-outline);outline-offset:-3px}
 /* The selected tab sits in a lighter lens. This one is painted on the button
-   itself and is the fallback: where :has can name the live tab, the block below
-   swaps it for a single pill that slides between the four. */
+   itself and is the fallback: wherever the lens element below is not mounted
+   (before boot, without the script, a dock that has never been on screen) the
+   active button wears it. Once JS mounts the lens (`nav[data-lens]`) the
+   button stops painting its own, and the one lens travels between the tabs. */
 nav button.active{
   color:var(--accent-deep);
   background:var(--dock-pill);
   border-color:var(--boundary-selected);
   box-shadow:var(--elevation-nav-selected-shadow);
 }
-@supports selector(:has(*)){
-  nav button.active{background:transparent;box-shadow:none}
-  nav::before{
-    content:"";position:absolute;z-index:-1;
-    top:6px;bottom:6px;left:6px;
-    /* One of four columns of the padding box, gaps discounted. */
-    width:calc((100% - 12px - 6px)/4);
-    /* A step is one column plus one gap, and 100% here is the pill's own width. */
-    transform:translateX(calc(var(--dock-i,0) * (100% + 2px)));
-    border-radius:var(--radius-pill);
-    background:var(--dock-pill);
-    box-shadow:var(--elevation-nav-indicator-shadow);
-    transition:transform .38s cubic-bezier(.32,.72,0,1);
-  }
-  nav:has(button:nth-child(1).active){--dock-i:0}
-  nav:has(button:nth-child(2).active){--dock-i:1}
-  nav:has(button:nth-child(3).active){--dock-i:2}
-  nav:has(button:nth-child(4).active){--dock-i:3}
+/* The lens is placed by the script on the active button's border box (read from
+   layout, so it follows the grid at four columns, at two rows and in the editor
+   bar alike) through --lens-x/-y/-w/-h. It sits under the buttons (z-index:-1 in
+   the dock's own stacking context).
+   The floating dock offsets it with `translate`, as the pill that slid under the
+   buttons was offset with a transform, so the pill is painted where it always
+   was. The button keeps the 1px selected ring at rest; only while the lens is in
+   the air (`nav[data-lens=travel]`) does the ring ride with it, and the button
+   sets its own aside so there is one ring on screen (the Progress tab indicator
+   works the same way). */
+.dock-lens{
+  position:absolute;z-index:-1;left:var(--lens-x,0);top:var(--lens-y,0);
+  width:var(--lens-w,0);height:var(--lens-h,0);
+  pointer-events:none;
+  border-radius:var(--radius-pill);
+  background:var(--dock-pill);
+  box-shadow:var(--elevation-nav-indicator-shadow);
 }
+@supports (translate:1px 1px){
+  .dock-lens{left:0;top:0;translate:var(--lens-x,0) var(--lens-y,0)}
+}
+.dock-lens::after{
+  content:"";display:none;position:absolute;inset:0;
+  border:1px solid var(--boundary-selected);border-radius:inherit;
+}
+nav[data-lens] button.active{background:transparent;box-shadow:none}
+nav[data-lens=travel] button.active{border-color:transparent}
+nav[data-lens=travel] .dock-lens::after{display:block}
 /* At enlarged computed text sizes, four short dock columns break localized
    names inside words. The root container's em threshold follows the rendered
    root font size, regardless of whether the browser scales it with inline
@@ -2520,16 +2545,6 @@ nav button.active{
   }
   nav{grid-template-columns:repeat(2,minmax(0,1fr))}
   nav button{gap:3px}
-  nav::before{
-    bottom:auto;
-    width:calc((100% - 12px - 2px)/2);
-    height:calc((100% - 12px - 2px)/2);
-    transform:translateX(calc(var(--dock-col,0) * (100% + 2px))) translateY(calc(var(--dock-row,0) * (100% + 2px)));
-  }
-  nav:has(button:nth-child(1).active){--dock-col:0;--dock-row:0}
-  nav:has(button:nth-child(2).active){--dock-col:1;--dock-row:0}
-  nav:has(button:nth-child(3).active){--dock-col:0;--dock-row:1}
-  nav:has(button:nth-child(4).active){--dock-col:1;--dock-row:1}
 }
 .nav__icon{width:22px;height:22px;flex:none;background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain}

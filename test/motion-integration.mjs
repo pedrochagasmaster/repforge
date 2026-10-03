@@ -1939,8 +1939,256 @@ async function edgeBack(browser, { reducedMotion = "no-preference" } = {}) {
   await context.close();
 }
 
+/**
+ * Dock motion (Plan 064 R6, owner pick N1): the selected tab's lens is one element that travels between the four
+ * tabs. At rest it sits exactly on the active button and the button paints no lens of its own. A change while the
+ * dock is hidden, a resize and a text-size change re-snap it with no travel.
+ */
+const DOCK_PROBE = `
+window.__dock = {
+  rect(el) { if (!el) return null; const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height }; },
+  read() {
+    const nav = document.querySelector("nav"), lens = nav.querySelector(".dock-lens"), act = nav.querySelector("button.active");
+    return { lens: this.rect(lens), active: this.rect(act), view: act?.dataset.view || null, count: document.querySelectorAll(".dock-lens").length,
+      transform: lens?.style.transform || "", hint: lens?.style.willChange || "", shown: nav.getClientRects().length > 0,
+      mode: nav.dataset.lens || "", buttonRing: act ? getComputedStyle(act).borderTopColor : "", lensRing: lens ? getComputedStyle(lens, "::after").display : "" };
+  },
+  // A sample is taken just after a frame is rendered (rAF, then a task), which is where the page's observers have
+  // run and the frame has been painted: it is what a person sees, not a half-built frame.
+  frames(ms, after) {
+    return new Promise((resolve) => {
+      const out = [], t0 = performance.now();
+      const frame = () => requestAnimationFrame(() => setTimeout(() => {
+        out.push({ t: performance.now() - t0, ...this.read() });
+        if (performance.now() - t0 < ms) frame(); else resolve(out);
+      }, 0));
+      if (after) after();
+      frame();
+    });
+  },
+  click(view) { document.querySelector('nav button[data-view="' + view + '"]').click(); },
+};
+`;
+/** The lens sits on the active button, to a subpixel. */
+const onButton = (s, tol = 0.5) => !!s.lens && !!s.active && ["left", "top", "width", "height"].every((k) => Math.abs(s.lens[k] - s.active[k]) < tol);
+const wait = (page, ms) => page.waitForTimeout(ms);
+
+async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
+  const reduced = reducedMotion === "reduce";
+  const tag = reduced ? " under reduced motion" : "";
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.addInitScript(DOCK_PROBE);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(page);
+  await page.evaluate((rows) => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    state.log = rows;
+    localStorage.setItem("repforge_v1", JSON.stringify(state));
+  }, seedLogRows());
+  await installSeedProgram(page, { waitFor: settle });
+  await page.waitForSelector("#todayExList [data-exopen], #startWorkout", { timeout: 10000 });
+  await wait(page, 350);
+  const views = ["log", "stats", "history", "program"];
+  const rectOf = (view) => page.evaluate((v) => window.__dock.rect(document.querySelector('nav button[data-view="' + v + '"]')), view);
+
+  phase(`N1: at rest there is one lens, on the active tab, and the button paints no pill of its own${tag}`);
+  const rest = await page.evaluate(() => {
+    const nav = document.querySelector("nav"), button = nav.querySelector("button.active"), cs = getComputedStyle(button), lens = nav.querySelector(".dock-lens");
+    const token = document.createElement("div");
+    token.style.cssText = "background:var(--dock-pill);box-shadow:var(--elevation-nav-indicator-shadow);display:none";
+    document.body.append(token);
+    const ls = getComputedStyle(lens), want = getComputedStyle(token);
+    const paint = { background: ls.backgroundColor === want.backgroundColor, shadow: ls.boxShadow === want.boxShadow, radius: parseFloat(ls.borderTopLeftRadius) >= 20 };
+    token.remove();
+    const inactive = [...nav.querySelectorAll("button:not(.active)")].map((b) => getComputedStyle(b).backgroundColor);
+    return { ...window.__dock.read(), parent: lens.parentElement === nav, hidden: lens.getAttribute("aria-hidden"), mounted: nav.dataset.lens, tabbable: lens.tabIndex,
+      button: { bg: cs.backgroundColor, shadow: cs.boxShadow, border: cs.borderTopColor }, paint, inactive, ring: getComputedStyle(lens, "::after").display };
+  });
+  assert(rest.count === 1 && rest.parent && rest.hidden === "true" && rest.mounted === "on", "one aria-hidden lens lives inside the dock", JSON.stringify({ n: rest.count, aria: rest.hidden, mounted: rest.mounted }));
+  assert(onButton(rest), "and at rest it is exactly the active button's box", JSON.stringify({ lens: rest.lens, active: rest.active }));
+  assert(rest.button.bg === "rgba(0, 0, 0, 0)" && rest.button.shadow === "none",
+    "the active button paints no pill or shadow of its own while the lens is mounted", JSON.stringify(rest.button));
+  assert(rest.button.border !== "rgba(0, 0, 0, 0)" && rest.ring === "none" && rest.mode === "on",
+    "it keeps its own 1px selected ring at rest, and the lens draws none", JSON.stringify({ border: rest.button.border, lensRing: rest.ring, mode: rest.mode }));
+  assert(rest.paint.background && rest.paint.shadow && rest.paint.radius,
+    "the lens carries the dock's lens paint: the pill, its shadow and the pill radius", JSON.stringify(rest.paint));
+  assert(rest.inactive.every((c) => c === "rgba(0, 0, 0, 0)") && rest.transform === "" && rest.hint === "", "the other tabs stay bare, and the lens carries no transform or layer hint at rest", JSON.stringify(rest.inactive));
+  await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
+  const dark = await page.evaluate(() => {
+    const lens = document.querySelector(".dock-lens"), token = document.createElement("div");
+    token.style.cssText = "background:var(--dock-pill);display:none";
+    document.body.append(token);
+    const same = getComputedStyle(lens).backgroundColor === getComputedStyle(token).backgroundColor;
+    token.remove();
+    return { same, bg: getComputedStyle(lens).backgroundColor };
+  });
+  await page.evaluate(() => { delete document.documentElement.dataset.theme; });
+  assert(dark.same, "in dark the lens takes the dark dock-pill token (a token swap, nothing else)", dark.bg);
+
+  phase(`N1: choosing a tab travels the lens from the old tab to the new one${tag}`);
+  const before = { log: await rectOf("log"), history: await rectOf("history") };
+  const go = await page.evaluate(() => window.__dock.frames(520, () => window.__dock.click("history")));
+  assert(go[0].view === "history", "the tab is selected on the first frame; nothing waits on the travel", go[0].view);
+  assert(go.every((f) => f.count === 1), "there is one lens on every frame", JSON.stringify([...new Set(go.map((f) => f.count))]));
+  const last = go.at(-1);
+  assert(onButton(last) && last.transform === "" && last.hint === "", "it ends exactly on the new tab with no transform left behind", JSON.stringify({ lens: last.lens, active: last.active, t: last.transform }));
+  assert(last.mode === "on" && last.buttonRing !== "rgba(0, 0, 0, 0)" && last.lensRing === "none", "and the tab wears its own ring again, the lens none", JSON.stringify({ mode: last.mode, ring: last.buttonRing, lens: last.lensRing }));
+  if (reduced) {
+    assert(go.every((f) => onButton(f) && f.transform === "" && f.mode === "on" && f.buttonRing !== "rgba(0, 0, 0, 0)"), "under reduced motion it is on the new tab from the first frame and never in between", JSON.stringify(go.slice(0, 3).map((f) => f.lens)));
+  } else {
+    const air = go.filter((f) => f.transform);
+    assert(air.length > 3 && air.every((f) => f.mode === "travel" && f.buttonRing === "rgba(0, 0, 0, 0)" && f.lensRing === "block"),
+      "while it is in the air the ring rides with it and the tab sets its own aside: one ring on screen", JSON.stringify(air.slice(0, 2).map((f) => ({ m: f.mode, b: f.buttonRing, l: f.lensRing }))));
+    const lefts = go.map((f) => f.lens.left);
+    assert(go.length > 6 && lefts[0] < before.log.left + (before.history.left - before.log.left) * 0.4, "it starts on the tab it left", JSON.stringify({ first: lefts[0], from: before.log.left }));
+    assert(lefts.some((l) => l > before.log.left + 40 && l < before.history.left - 40), "it passes between the two tabs", JSON.stringify(lefts.filter((_, i) => i % 3 === 0).map(Math.round)));
+    assert(lefts.every((l, i) => i === 0 || l >= lefts[i - 1] - 0.6), "moving one way only", JSON.stringify(lefts.map(Math.round)));
+    assert(!lefts.some((l) => l > before.history.left + 1.5), "and it does not overshoot the tab it is going to", JSON.stringify(lefts.slice(-6)));
+    assert(go.every((f) => Math.abs(f.lens.height - before.log.height) < 1.5 && Math.abs(f.lens.top - before.log.top) < 1.5), "it stays the height of a tab the whole way", JSON.stringify(go.slice(2, 5).map((f) => f.lens)));
+
+    phase("N1: a tab chosen mid-flight sends the lens on from where it is");
+    await page.evaluate(() => window.__dock.click("stats"));
+    await wait(page, 70);
+    const mid = await page.evaluate(() => {
+      const live = window.__dock.read();
+      window.__dock.click("program");
+      const restart = window.__dock.read();
+      return { live, restart };
+    });
+    await wait(page, 700);
+    const end = await page.evaluate(() => window.__dock.read());
+    const stats = await rectOf("stats"), program = await rectOf("program");
+    const history = await rectOf("history");
+    assert(mid.live.lens.left > stats.left + 3 && mid.live.lens.left < history.left - 3, "the first flight was in the air", JSON.stringify({ live: mid.live.lens, stats }));
+    assert(Math.abs(mid.restart.lens.left - mid.live.lens.left) < 3 && mid.restart.count === 1,
+      "the second choice starts from the live position, not a jump to either end, still one lens", JSON.stringify({ live: mid.live.lens.left, restart: mid.restart.lens.left, n: mid.restart.count }));
+    assert(onButton(end) && end.view === "program" && end.count === 1 && end.transform === "" && Math.abs(end.lens.left - program.left) < 0.5, "and it lands on the last tab chosen", JSON.stringify(end));
+  }
+  await page.evaluate(() => window.__dock.click("history"));
+  await wait(page, 600);
+
+  phase(`N1: Settings and back: the lens is in place when the dock returns, with no travel${tag}`);
+  await page.evaluate(() => document.querySelector("#openSettings").click());
+  await page.waitForSelector("#restSecRow", { timeout: 10000 });
+  await wait(page, 300);
+  const inSettings = await page.evaluate(() => window.__dock.read());
+  assert(!inSettings.shown, "the dock is hidden in Settings", JSON.stringify(inSettings.shown));
+  const back = await page.evaluate(() => window.__dock.frames(560, () => document.querySelector("#settingsBack").click()));
+  assert(back[0].shown && back.every((f) => f.view === "log" && onButton(f) && f.transform === "" && f.count === 1),
+    "on every frame from the first the dock is visible the lens is already on Today", JSON.stringify(back.slice(0, 3).map((f) => ({ v: f.view, l: f.lens, a: f.active, s: f.shown }))));
+
+  phase(`N1: a tab changed while the dock is hidden does not animate${tag}`);
+  const hiddenChange = await page.evaluate(async () => {
+    document.body.classList.add("is-focus-wo");
+    await new Promise((r) => setTimeout(r, 250));
+    window.returnToTab("stats");
+    await new Promise((r) => setTimeout(r, 250));
+    return window.__dock.frames(560, () => document.body.classList.remove("is-focus-wo"));
+  });
+  assert(hiddenChange[0].shown && hiddenChange.every((f) => f.view === "stats" && onButton(f) && f.transform === ""),
+    "the lens is on Progress on the first frame the dock is seen again", JSON.stringify(hiddenChange.slice(0, 3).map((f) => ({ l: f.lens, a: f.active }))));
+
+  phase(`N1: Focus and back leaves the lens in place${tag}`);
+  await page.evaluate(() => window.__dock.click("log"));
+  await wait(page, 600);
+  await page.waitForSelector("#startWorkout", { state: "visible", timeout: 5000 });
+  await page.evaluate(() => document.querySelector("#startWorkout").click());
+  await page.waitForFunction(() => !document.querySelector("#workoutShell").classList.contains("hidden") && !document.body.classList.contains("is-pushing"), undefined, { timeout: 8000 });
+  await wait(page, 200);
+  assert(!(await page.evaluate(() => window.__dock.read().shown)), "the dock is hidden in Focus");
+  const outOfFocus = await page.evaluate(() => window.__dock.frames(900, () => document.querySelector("#leaveWorkout").click()));
+  const settled = outOfFocus.filter((f) => f.shown);
+  assert(settled.length > 3 && settled.every((f) => f.view === "log" && onButton(f) && f.transform === "" && f.count === 1), "back from Focus the lens is on Today on every frame the dock shows", JSON.stringify(settled.slice(0, 2).map((f) => ({ l: f.lens, a: f.active }))));
+
+  phase(`N1: a pushed page and back leaves the lens in place${tag}`);
+  const key = await page.evaluate(() => document.querySelector("#todayExList [data-exopen]")?.dataset.exopen);
+  await page.evaluate((k) => window.openExerciseView(k, "stats"), key);
+  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+  await wait(page, 500);
+  assert(!(await page.evaluate(() => window.__dock.read().shown)), "the dock is hidden on the pushed page");
+  const outOfPage = await page.evaluate(() => window.__dock.frames(900, () => document.querySelector("#exBack").click()));
+  const shownFrames = outOfPage.filter((f) => f.shown);
+  assert(shownFrames.length > 3 && shownFrames.every((f) => f.view === "stats" && onButton(f) && f.transform === "" && f.count === 1),
+    "back from the page the lens is on the tab it returns to on every frame the dock shows, with no travel", JSON.stringify(shownFrames.slice(0, 2).map((f) => ({ v: f.view, l: f.lens, a: f.active }))));
+
+  phase(`N1: in the Program edit bar the button keeps its own paint and the lens shows only in the air${tag}`);
+  // `render()` clears this class when a tab changes; it is held on so the bar's CSS stays the one under test.
+  await page.evaluate(() => {
+    const list = document.querySelector("#program").classList, toggle = list.toggle.bind(list);
+    window.__holdBarToggle = list.toggle;
+    list.toggle = (name, force) => (name === "program-editor-installed" ? toggle(name, true) : toggle(name, force));
+    list.add("program-editor-installed");
+  });
+  await wait(page, 350);
+  const bar = await page.evaluate(() => {
+    const nav = document.querySelector("nav"), act = nav.querySelector("button.active"), cs = getComputedStyle(act);
+    return { ...window.__dock.read(), vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, shadow: cs.boxShadow, border: cs.borderTopColor, barWide: nav.getBoundingClientRect().width };
+  });
+  assert(bar.barWide > 380 && bar.vis === "hidden" && bar.bg !== "rgba(0, 0, 0, 0)" && bar.shadow !== "none" && bar.border !== "rgba(0, 0, 0, 0)",
+    "at rest the bar's active button paints its own fill, inset ring and border and the lens is hidden", JSON.stringify({ vis: bar.vis, bg: bar.bg, border: bar.border, w: bar.barWide }));
+  assert(onButton(bar), "the hidden lens still sits on the active button's box", JSON.stringify({ lens: bar.lens, active: bar.active }));
+  const barAir = await page.evaluate(async () => {
+    window.__dock.click("history");
+    await new Promise((r) => setTimeout(r, 400));
+    const nav = document.querySelector("nav");
+    window.__dock.click("stats");
+    await new Promise((r) => setTimeout(r, 90));
+    const act = nav.querySelector("button.active"), cs = getComputedStyle(act);
+    return { mode: nav.dataset.lens, vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, shadow: cs.boxShadow, border: cs.borderTopColor, n: document.querySelectorAll(".dock-lens").length };
+  });
+  await wait(page, 600);
+  const barRest = await page.evaluate(() => { const nav = document.querySelector("nav"), cs = getComputedStyle(nav.querySelector("button.active")); return { ...window.__dock.read(), vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, border: cs.borderTopColor }; });
+  if (reduced) {
+    assert(barAir.mode === "on" && barAir.vis === "hidden" && barAir.bg !== "rgba(0, 0, 0, 0)", "under reduced motion the lens never shows: the button's own paint is the selected tab on every frame", JSON.stringify(barAir));
+  } else {
+    assert(barAir.mode === "travel" && barAir.vis === "visible" && barAir.bg === "rgba(0, 0, 0, 0)" && barAir.shadow === "none" && barAir.border === "rgba(0, 0, 0, 0)" && barAir.n === 1,
+      "in the air the lens carries the whole selected paint and the destination button sets its own aside: one selected paint on screen", JSON.stringify(barAir));
+  }
+  assert(barRest.view === "stats" && barRest.vis === "hidden" && barRest.bg !== "rgba(0, 0, 0, 0)" && barRest.border !== "rgba(0, 0, 0, 0)" && onButton(barRest),
+    "and on arrival the lens is hidden again and the button paints its own", JSON.stringify({ vis: barRest.vis, bg: barRest.bg, border: barRest.border, view: barRest.view, lens: barRest.lens, active: barRest.active }));
+  await page.evaluate(() => { const list = document.querySelector("#program").classList; delete list.toggle; list.remove("program-editor-installed"); });
+  await wait(page, 350);
+
+  phase(`N1: a resize or a text-size change re-snaps the lens without animation${tag}`);
+  await page.setViewportSize({ width: 320, height: 700 });
+  const narrow = await page.evaluate(() => window.__dock.frames(420));
+  const narrowEnd = narrow.at(-1);
+  assert(onButton(narrowEnd) && narrow.every((f) => f.transform === "" && f.count === 1), "at 320 the lens is on the active tab and was never in flight", JSON.stringify({ end: narrowEnd.lens, active: narrowEnd.active }));
+  assert(narrow.slice(1).every((f) => onButton(f)), "from the second frame on every frame has it there", JSON.stringify(narrow.slice(0, 3).map((f) => ({ l: f.lens, a: f.active }))));
+  await page.setViewportSize({ width: 430, height: 844 });
+  const wide = await page.evaluate(() => window.__dock.frames(420));
+  assert(onButton(wide.at(-1)) && wide.every((f) => f.transform === ""), "and at 430", JSON.stringify({ end: wide.at(-1).lens, active: wide.at(-1).active }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  const navBefore = await page.evaluate(() => document.querySelector("nav").getBoundingClientRect().height);
+  const big = await page.evaluate(() => window.__dock.frames(480, () => { document.documentElement.style.fontSize = "200%"; }));
+  const navAfter = await page.evaluate(() => document.querySelector("nav").getBoundingClientRect().height);
+  assert(navAfter > navBefore, "200% text makes the two-row dock", JSON.stringify({ navBefore, navAfter }));
+  assert(onButton(big.at(-1)) && big.every((f) => f.transform === "" && f.count === 1), "the lens is on the active tab of the taller dock and was never in flight", JSON.stringify({ end: big.at(-1).lens, active: big.at(-1).active }));
+  const second = await page.evaluate(async () => {
+    const out = await window.__dock.frames(560, () => window.__dock.click("program"));
+    return out;
+  });
+  assert(onButton(second.at(-1)) && second.at(-1).view === "program" && second.every((f) => f.count === 1), "and a tab chosen in the two-row dock lands on its tile", JSON.stringify({ end: second.at(-1).lens, active: second.at(-1).active }));
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+
+  assert(errors.length === 0, `no page errors in the dock run${tag}`, errors.join(" | "));
+  await context.close();
+}
+
 async function run() {
   const browser = await launchChromium();
+
+  // REPFORGE_MOTION_ONLY=dock runs only the dock lens section: the seeded-failure proofs.
+  if (process.env.REPFORGE_MOTION_ONLY === "dock") {
+    await dockMotion(browser);
+    await dockMotion(browser, { reducedMotion: "reduce" });
+    await browser.close();
+    console.log(`\nmotion integration (dock): ${results.passed} passed, ${results.failed} failed`);
+    process.exit(results.failed ? 1 : 0);
+  }
 
   // REPFORGE_MOTION_ONLY=pages runs only the page push and edge swipe sections: the seeded-failure proofs.
   if (process.env.REPFORGE_MOTION_ONLY === "pages") {
@@ -2343,8 +2591,11 @@ async function run() {
   await edgeBack(browser);
   await edgeBack(browser, { reducedMotion: "reduce" });
 
+  await dockMotion(browser);
+  await dockMotion(browser, { reducedMotion: "reduce" });
+
   await browser.close();
-  console.log(`\nmotion integration: ${results.passed} passed, ${results.failed} failed`);
+  console.log(`\nmotion integration:${results.passed} passed, ${results.failed} failed`);
   process.exit(results.failed ? 1 : 0);
 }
 
