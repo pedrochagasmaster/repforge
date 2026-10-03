@@ -1818,16 +1818,16 @@ const libraryName=e=>!e?"":(isPt()&&e.namePt)||e.name;
 /* Display-only localisation of a stored exercise name (RF-10). In Portuguese, a
    movement that resolves to a library entry through the id the app already keeps
    for it, and whose stored name is still exactly that entry's English name, reads
-   as the entry's Portuguese name. A renamed exercise, a custom exercise, an
-   unlinked one and every other language keep the stored text. Nothing here is
+   as the entry's Portuguese name. That includes a custom entry that carries a
+   namePt: Exercise.resolveIdentity already shows a linked custom slot under it,
+   so every other surface must agree (R7 J-07). A renamed exercise, an unlinked
+   one and every other language keep the stored text. Nothing here is
    ever written: storage, setup links, telemetry, lift keys, sort and match keys
    all keep the stored name. */
 function localizedMovementName(name,libraryId){
   const stored=String(name??"");
   if(!isPt()||libraryId==null||libraryId==="")return stored;
-  const key=String(libraryId);
-  if(isCustomLibraryId(key))return stored;
-  const entry=libraryEntry(key);
+  const entry=libraryEntry(String(libraryId));
   return entry&&entry.namePt&&stored===entry.name?entry.namePt:stored}
 /* The item is a program slot or session exercise ({name, libraryId}), a draft
    exercise or replacement snapshot ({displayName, libraryId}) or a log row

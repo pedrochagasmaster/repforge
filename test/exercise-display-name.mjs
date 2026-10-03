@@ -11,8 +11,11 @@
  * item resolves to a library entry through the id the app already keeps (the
  * slot's `libraryId`, a log row's `performedLibraryId`), the app is in Portuguese,
  * the entry has a Portuguese name and the stored name is exactly the English one.
- * Renamed exercises, custom exercises, unlinked exercises (never matched by name)
- * and English all keep the stored text. Nothing it touches is ever written.
+ * Renamed exercises, unlinked exercises (never matched by name) and English all
+ * keep the stored text. A custom exercise with a Portuguese name follows the same
+ * rule (R7 J-07: Today, Focus and Program already read it so, because the program's
+ * identity resolver derives it; the log-based surfaces must agree). Nothing it
+ * touches is ever written.
  *
  * Production-backed in the browser: the fixture is a real program with English
  * stored names and a log written in English. The suite walks every surface that
@@ -70,7 +73,7 @@ const LIB = {
 const LINKED = Object.keys(LIB);
 /** The lifter renamed this one: its stored name is an alias, never the library's. */
 const RENAMED = { id: "cu_bb", stored: "Rosca do Joao", libraryEn: "Barbell curl", libraryPt: "Rosca com barra" };
-/** A custom exercise. Its Portuguese name differs, to prove the rule leaves it alone. */
+/** A custom exercise with its own Portuguese name: one name on every surface (R7 J-07). */
 const CUSTOM = { id: "custom:sled-push", stored: "Sled push", pt: "Empurrar treno" };
 /** Unlinked: no library id, so nothing resolves it, even though the library has a movement of this very name. */
 const UNLINKED = { stored: "Seated leg curl", libraryPt: "Cadeira flexora" };
@@ -250,6 +253,12 @@ function expectNames(label, text, { shown = [], gone = [] } = {}) {
 /** What a Portuguese surface of the whole fixture must show: PT names for the library movements, the rest as stored. */
 const ptShown = (ids = LINKED) => ids.map((id) => LIB[id].pt);
 const ptGone = (ids = LINKED) => ids.map((id) => LIB[id].en);
+/**
+ * A custom exercise with a Portuguese name reads as that name on a Portuguese device, on every surface (R7 J-07):
+ * Today, Focus, Program, History, Progress and the records agree, because the stored name is still the entry's own.
+ */
+const customShown = (pt) => (pt ? CUSTOM.pt : CUSTOM.stored);
+const customGone = (pt) => (pt ? [CUSTOM.stored] : []);
 /** The names that must never be touched, wherever they appear. */
 const kept = () => [RENAMED.stored, ...(withUnlinked ? [UNLINKED.stored] : [])];
 const never = () => [RENAMED.libraryPt, RENAMED.libraryEn, ...(withUnlinked ? [UNLINKED.libraryPt] : [])];
@@ -280,8 +289,8 @@ async function visitToday(page, { pt, label }) {
   await page.waitForSelector("#todayExList .rxrow");
   const rows = await joined(page, "#todayExList .rxrow__name");
   const aria = (await attrs(page, "#todayExList .rxrow", "aria-label")).join(" | ");
-  const shown = pt ? [...ptShown(), ...kept()] : [...LINKED.map((id) => LIB[id].en), ...kept()];
-  expectNames(`${label} Today rows`, rows, { shown, gone: pt ? [...ptGone(), ...never()] : [] });
+  const shown = pt ? [...ptShown(), ...kept(), customShown(pt)] : [...LINKED.map((id) => LIB[id].en), ...kept(), customShown(pt)];
+  expectNames(`${label} Today rows`, rows, { shown, gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [] });
   expectNames(`${label} Today row aria-labels`, aria, { shown: pt ? ptShown() : LINKED.map((id) => LIB[id].en), gone: pt ? ptGone() : [] });
 }
 
@@ -316,7 +325,7 @@ async function visitFocus(page, { pt, label }) {
   await page.waitForSelector("#sessionSheet:not(.hidden) .session-map__name");
   const map = await joined(page, "#sessionMap .session-map__name");
   expectNames(`${label} session map`, map, {
-    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept()], gone: pt ? [...ptGone(), ...never()] : [],
+    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)], gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [],
   });
   const reorder = (await attrs(page, "#sessionMap [aria-label]", "aria-label")).join(" | ");
   expectNames(`${label} session map reorder labels`, reorder, { shown: [name("sq")], gone: pt ? [en("sq")] : [] });
@@ -374,8 +383,8 @@ async function visitHistory(page, { pt, label }) {
   await page.waitForSelector("#history .histlift__name");
   const names = await joined(page, "#history .histlift__name");
   expectNames(`${label} History session page`, names, {
-    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), CUSTOM.stored],
-    gone: pt ? [...ptGone(), ...never(), CUSTOM.pt] : [],
+    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)],
+    gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [],
   });
   await page.locator("[data-history-edit]").click();
   await page.waitForSelector("#history .histedit .edgroup__name");
@@ -408,15 +417,15 @@ async function visitProgress(page, { pt, label }) {
   await page.waitForSelector("#overviewStrength .strrow__name");
   const overview = await joined(page, "#overviewStrength .strrow__name");
   expectNames(`${label} Progress overview strength`, overview, {
-    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), CUSTOM.stored],
-    gone: pt ? [...ptGone(), ...never(), CUSTOM.pt] : [],
+    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)],
+    gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [],
   });
   await page.locator('#statsSeg [data-seg="strength"]').click();
   await page.waitForSelector("#strengthDash .evrow__name");
   const strength = await joined(page, "#strengthDash .evrow__name");
   expectNames(`${label} Progress Strength list`, strength, {
-    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), CUSTOM.stored],
-    gone: pt ? [...ptGone(), ...never(), CUSTOM.pt] : [],
+    shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)],
+    gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [],
   });
   // The list is alphabetical by the name the lifter reads, not by the stored English text.
   const strengthOrder = await texts(page, "#strengthDash .evrow__name");
@@ -434,7 +443,7 @@ async function visitProgress(page, { pt, label }) {
   await page.locator('#statsSeg [data-seg="prs"]').click();
   await page.waitForSelector("#prTimeline .prtl__ex");
   const prs = await joined(page, "#prTimeline .prtl__ex");
-  expectNames(`${label} Progress records`, prs, { shown: [name("sq"), name("pr")], gone: pt ? [LIB.sq.en, LIB.pr.en] : [] });
+  expectNames(`${label} Progress records`, prs, { shown: [name("sq"), name("pr"), customShown(pt)], gone: pt ? [LIB.sq.en, LIB.pr.en, ...customGone(pt)] : [] });
   await page.locator('#statsSeg [data-seg="review"]').click();
   await page.waitForTimeout(300);
   const review = await joined(page, ".review__outcomes");
@@ -455,11 +464,11 @@ async function visitProgram(page, { pt, label }) {
   await goto(page, "program");
   await page.waitForSelector("#programOverview .rxrow__name");
   const overview = await joined(page, "#programOverview .rxrow__name");
-  expectNames(`${label} Program overview`, overview, { shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept()], gone: pt ? [...ptGone(), ...never()] : [] });
+  expectNames(`${label} Program overview`, overview, { shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)], gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [] });
   await page.locator("#exportProgramText").click();
   await page.waitForSelector("#programTextSheet:not(.hidden)");
   const text = await page.locator("#programTextOut").textContent();
-  expectNames(`${label} program text export`, text, { shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept()], gone: pt ? [...ptGone(), ...never()] : [] });
+  expectNames(`${label} program text export`, text, { shown: [...(pt ? ptShown() : LINKED.map((id) => LIB[id].en)), ...kept(), customShown(pt)], gone: pt ? [...ptGone(), ...never(), ...customGone(pt)] : [] });
   await page.locator("#programTextClose").click();
   await page.locator("#programTextSheet").waitFor({ state: "hidden" });
 
@@ -704,6 +713,8 @@ async function run() {
           draft: exerciseDisplayName({ displayName: m.en, libraryId: m.id }),
           renamed: exerciseDisplayName({ name: renamed.stored, libraryId: renamed.id }),
           custom: exerciseDisplayName({ name: custom.stored, libraryId: custom.id }),
+          customRenamed: exerciseDisplayName({ name: "Sled drag", libraryId: custom.id }),
+          customRow: exerciseDisplayName({ name: custom.stored, performedName: custom.stored, performedLibraryId: custom.id, session: "s", set: 1 }),
           unlinked: exerciseDisplayName({ name: m.en }),
           byNameOnly: exerciseDisplayName({ name: m.en, libraryId: undefined }),
           portugueseAlready: exerciseDisplayName({ name: m.pt, libraryId: m.id }),
@@ -718,7 +729,10 @@ async function run() {
       assert(probe.row === LIB.sq.pt, "PT: a log row performed under the English name reads Portuguese", probe.row);
       assert(probe.draft === LIB.sq.pt, "PT: a draft exercise snapshot at the English name reads Portuguese", probe.draft);
       assert(probe.renamed === RENAMED.stored, "PT: a renamed exercise keeps its name", probe.renamed);
-      assert(probe.custom === CUSTOM.stored, "PT: a custom exercise keeps its name", probe.custom);
+      assert(probe.custom === CUSTOM.pt, "PT: a custom exercise at its own English name reads its Portuguese name", probe.custom);
+      assert(probe.customRenamed === "Sled drag" && probe.customRow === CUSTOM.pt,
+        "PT: a custom exercise the lifter renamed keeps its name; a log row at the entry's name reads Portuguese",
+        JSON.stringify([probe.customRenamed, probe.customRow]));
       assert(probe.unlinked === LIB.sq.en && probe.byNameOnly === LIB.sq.en, "PT: an unlinked exercise is never matched by name", `${probe.unlinked}`);
       assert(probe.portugueseAlready === LIB.sq.pt, "PT: a name that is already Portuguese is left alone");
       assert(probe.wrongId === LIB.sq.en, "PT: the name must be the English name of the entry the id resolves to", probe.wrongId);
