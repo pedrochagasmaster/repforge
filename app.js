@@ -17675,7 +17675,7 @@ const LANDING_CASES={
 const LANDING_CHART={exerciseId:"ex-squat",libraryId:"sq_bb",started:"2026-08-03",
   dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
   ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5,
-  /* the capture size per language (the Portuguese name wraps to two lines), from tools/capture-landing-proof.mjs */
+  /* the capture size per language (the Portuguese figure captions wrap, so it is taller), from tools/capture-landing-proof.mjs */
   dims:{en:[584,728],pt:[584,766]}};
 function landingChartRows(){
   const c=LANDING_CHART,rows=[];
