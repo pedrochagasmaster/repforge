@@ -10756,10 +10756,11 @@ function updateOnboardingEditorActions(){
   if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
   const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
   const progression=issues.some(issue=>issue.startsWith("progression_incompatible:"));
-  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:")).map(issue=>
+  /* Named the way the day rows name them (dayLabel), never as the stored "Day N". */
+  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:")).map(issue=>dayLabel(
     entryState.result?.preview?.programStructure?.days
       ?.find(day=>day.dayId===issue.slice("day_empty:".length))?.label
-      ||issue.slice("day_empty:".length));
+      ||issue.slice("day_empty:".length)));
   const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
     issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
@@ -11099,8 +11100,8 @@ function renderProgramHeader(){
       entryUiNotice==="save_failed"?t("entry.save_failed.body"):null;
     const progressionError=issues.some(issue=>issue.startsWith("progression_incompatible:"));
     const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"))
-      .map(issue=>entryState.result?.preview?.programStructure?.days
-        ?.find(item=>item.dayId===issue.slice("day_empty:".length))?.label||issue.slice("day_empty:".length));
+      .map(issue=>dayLabel(entryState.result?.preview?.programStructure?.days
+        ?.find(item=>item.dayId===issue.slice("day_empty:".length))?.label||issue.slice("day_empty:".length)));
     const issueStatus=issues.some(issue=>issue.startsWith("progression_incompatible:"))
       ?t("entry.editor.progression_invalid")
       :issues.some(issue=>issue.startsWith("exercise_invalid:"))

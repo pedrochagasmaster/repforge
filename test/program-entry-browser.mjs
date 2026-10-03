@@ -1787,6 +1787,20 @@ try {
     assert(built.statusNode && built.saveVisible, "Build visibly identifies the editable draft and Save draft action", JSON.stringify(built));
     assert(built.activateDisabled && /Add an exercise to/i.test(built.statusText) && !/day_empty:|manual_d\d/.test(built.statusText) && built.statusAdjacent,
       "Build names incompleteness adjacent to its disabled activation", JSON.stringify(built));
+    // R7 J-13: in Portuguese the empty-days status names the days the way the rows do, never as raw "Day N".
+    const ptStatus = await page.evaluate(() => {
+      window.RepForgeI18n.setLang("pt");
+      renderOnboarding();
+      updateOnboardingEditorActions();
+      const texts = [document.querySelector("#entryEditorStatus")?.textContent || "", document.querySelector('#onbProgramEditor [data-role="editor-status"]')?.textContent || ""];
+      const dayRows = [...document.querySelectorAll('#onbProgramEditor [data-role="day"] .program-editor__day-name, #onbProgramEditor [data-role="day"] input')].map((el) => el.value || el.textContent);
+      window.RepForgeI18n.setLang("en");
+      renderOnboarding();
+      updateOnboardingEditorActions();
+      return { texts, dayRows };
+    });
+    assert(ptStatus.texts.some((text) => /Adicione um exerc/.test(text)) && ptStatus.texts.filter(Boolean).every((text) => !/\bDay \d/.test(text)) && ptStatus.texts.some((text) => /Dia 1/.test(text)),
+      "PT: the Build editor's empty-days status names the days as Dia N, not raw Day N", JSON.stringify(ptStatus));
     const priorViewport = page.viewportSize();
     await page.setViewportSize({ width: 390, height: 844 });
     const buildHeader200 = await page.evaluate(() => {
