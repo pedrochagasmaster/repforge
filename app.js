@@ -7619,11 +7619,23 @@ function workoutFocusKey(el){
   for(const name of["fcancel","fnext","ffinish","fnextrow"])if(name in d||el.hasAttribute(`data-${name}`))return{sel:`[data-${name}]`};
   if(d.exopen)return{sel:`.ex__namebtn[data-exopen="${q(d.exopen)}"]`};
   return null}
+/* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
+   focus ring the tap never asked for (and the orange budget has no place for one). Whoever last used a key still
+   gets the ring. */
+let workoutInputModality="pointer";
+document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
+document.addEventListener("keydown",()=>{workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
+function focusWorkoutControl(el){
+  try{el.focus({preventScroll:true})}catch{return false}
+  if(workoutInputModality==="pointer"){
+    el.setAttribute("data-quiet-focus","");
+    el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})}
+  return document.activeElement===el}
 function restoreWorkoutFocus(key){
   const card=focusCard();if(!key||!card)return false;
   const el=card.querySelector(key.sel);
   if(!(el instanceof HTMLElement)||!canTakeFocus(el))return false;
-  try{el.focus({preventScroll:true})}catch{return false}
+  if(!focusWorkoutControl(el))return false;
   if(key.start!=null&&typeof el.setSelectionRange==="function"){try{el.setSelectionRange(key.start,key.end??key.start)}catch{}}
   return document.activeElement===el}
 /** Name the control that follows an action whose own control is gone after the rebuild. `next`: the field the new
@@ -7636,7 +7648,10 @@ function focusWorkoutHandoff(kind,{exId=null,n=0}={}){
   let target=null;
   if(kind==="row")target=card.querySelector(`.ledgerline[data-editex="${CSS.escape(String(exId))}"][data-editn="${n}"]`);
   else if(kind==="next")target=shelf?.querySelector(".shelf__field.is-sel [data-shelf-field]")||shelf?.querySelector("[data-shelf-field]")||null;
-  return focusRoute(resolveReturnFocus(target)||cta)}
+  const next=resolveReturnFocus(target)||cta;
+  if(!next)return false;
+  if(!next.matches(ROUTE_NATIVE_FOCUS))next.setAttribute("tabindex","-1");
+  return focusWorkoutControl(next)}
 
 /** The control standing for a draft field in the live card now. A rebuild replaces the node an edit began on, so
  *  anything that outlives an await asks for the control again by its stable key instead of keeping the old node. */
