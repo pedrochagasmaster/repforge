@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Taurifer Onboarding Candidates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a contact sheet. Five live phones in one row, one shared step switch on top, the comparison ledger underneath. */
+:root{
+  --paper:#F4F2EF; --stock:#FFFFFF; --well:#FAF8F5;
+  --ink:#1B1A17; --ink-soft:#6A665F; --rule:#E4E1DA; --rule-strong:#D9D5CD;
+  --accent:#E04E14; --cta:#161513; --cta-ink:#FFFFFF; --device:#1B1A17;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --scale:.62;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#141310; --stock:#1E1C18; --well:#191713; --ink:#F2EFE9; --ink-soft:#ADA79D;
+  --rule:#2E2B26; --rule-strong:#4A453D; --accent:#F2703B; --cta:#DED7CC; --cta-ink:#161513; --device:#000000;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#141310; --stock:#1E1C18; --well:#191713; --ink:#F2EFE9; --ink-soft:#ADA79D;
+  --rule:#2E2B26; --rule-strong:#4A453D; --accent:#F2703B; --cta:#DED7CC; --cta-ink:#161513; --device:#000000;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 1rem/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{padding-inline:max(16px,4vw);padding-block:32px 64px;max-width:1720px;margin-inline:auto;display:grid;gap:32px}
+header{display:grid;gap:12px;max-width:68ch}
+.eyebrow{font:500 .6875rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.eyebrow b{color:var(--accent);font-weight:600}
+h1{margin:0;font-weight:600;font-size:clamp(1.75rem,3.4vw,2.5rem);line-height:1.1;letter-spacing:-.02em;text-wrap:balance}
+.lede{margin:0;color:var(--ink-soft);max-width:62ch}
+.controls{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-block:1px solid var(--rule);padding-block:10px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{font:500 .875rem/1 var(--sans);color:var(--ink);background:transparent;border:1px solid var(--rule-strong);border-radius:999px;padding:10px 14px;min-height:40px;cursor:pointer;transition:background .15s,color .15s,border-color .15s,transform .1s}
+.seg button:hover{border-color:var(--ink)}
+.seg button:active{transform:scale(.97)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.seg button .n{font-family:var(--mono);font-size:.75rem;opacity:.6;margin-right:6px}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.zoom{display:flex;align-items:center;gap:8px;font:500 .75rem/1 var(--mono);color:var(--ink-soft)}
+.zoom input{accent-color:var(--accent);width:120px}
+.sheet{overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:12px;margin-inline:calc(-1 * max(16px,4vw));padding-inline:max(16px,4vw)}
+.row{display:flex;gap:28px;width:max-content}
+figure{margin:0;scroll-snap-align:start;display:grid;gap:14px;align-content:start;width:calc(390px * var(--scale) + 20px)}
+.device{width:calc(390px * var(--scale) + 20px);height:calc(844px * var(--scale) + 20px);background:var(--device);border-radius:calc(54px * var(--scale) + 10px);padding:10px;box-shadow:0 1px 0 var(--rule-strong),0 18px 40px -24px rgba(0,0,0,.45)}
+.screen{width:calc(390px * var(--scale));height:calc(844px * var(--scale));border-radius:calc(54px * var(--scale));overflow:hidden;position:relative;background:#000}
+.screen iframe{position:absolute;inset:0;width:390px;height:844px;border:0;transform:scale(var(--scale));transform-origin:0 0;background:#fff}
+figcaption{display:grid;gap:6px}
+.cap-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.letter{font:600 .75rem/1 var(--mono);color:var(--accent);letter-spacing:.08em}
+figcaption h2{margin:0;font-size:1.125rem;font-weight:600;letter-spacing:-.01em}
+figcaption p{margin:0;font-size:.875rem;color:var(--ink-soft);line-height:1.45}
+figcaption a{font:500 .8125rem/1 var(--sans);color:var(--ink);text-underline-offset:3px;white-space:nowrap}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tags span{font:500 .6875rem/1 var(--mono);border:1px solid var(--rule-strong);border-radius:4px;padding:4px 6px;color:var(--ink-soft)}
+section{display:grid;gap:14px}
+section h2{margin:0;font-size:1.5rem;font-weight:600;letter-spacing:-.01em}
+.table-wrap{overflow-x:auto;border-top:1px solid var(--ink)}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:.875rem}
+th,td{text-align:left;vertical-align:top;padding:12px 14px 12px 0;border-bottom:1px solid var(--rule)}
+thead th{font:500 .6875rem/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+tbody th{font-weight:600;white-space:nowrap}
+tbody th .letter{margin-right:8px}
+td{color:var(--ink)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px 32px}
+.notes div{border-top:1px solid var(--rule-strong);padding-top:12px;min-width:0}
+.notes h3{margin:0 0 4px;font-size:1rem;font-weight:600}
+.notes p{margin:0;color:var(--ink-soft);font-size:.9375rem;max-width:62ch}
+code{font-family:var(--mono);font-size:.85em}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow"><b>Experiment</b> · Onboarding overhaul · 5 directions</div>
+    <h1>Five ways to ask three questions and hand over a program</h1>
+    <p class="lede">Each phone runs a working prototype of the same flow: goal, experience, schedule, a building step, then the plan as session cards. They share one answer set and one plan table, so the only thing that changes between them is structure, type and interaction. Tap inside any phone to use it, or switch every phone to the same step below.</p>
+  </header>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Show every candidate at step">
+      <button type="button" data-step="goal" aria-pressed="true"><span class="n">1</span>Goal</button>
+      <button type="button" data-step="experience" aria-pressed="false"><span class="n">2</span>Experience</button>
+      <button type="button" data-step="schedule" aria-pressed="false"><span class="n">3</span>Schedule</button>
+      <button type="button" data-step="building" aria-pressed="false"><span class="n">4</span>Building</button>
+      <button type="button" data-step="plan" aria-pressed="false"><span class="n">5</span>Plan</button>
+      <button type="button" data-step="fresh" aria-pressed="false">Restart all</button>
+    </div>
+    <label class="zoom" for="zoom">Size <input id="zoom" type="range" min="0.5" max="1" step="0.02" value="0.62"></label>
+  </div>
+
+  <div class="sheet">
+    <div class="row" id="row"></div>
+  </div>
+
+  <section>
+    <h2>How they differ</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Candidate</th><th>Structure</th><th>Type</th><th>Inputs</th><th>Building step</th><th>Plan reveal</th><th>Production fit</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Rules every candidate keeps</h2>
+    <div class="notes">
+      <div><h3>Nothing is preselected</h3><p>Session length and every other answer start empty, and Continue says which answer is missing. This follows owner decisions PD-2 and PD-3 in <code>docs/design/onboarding-g-brief.md</code>.</p></div>
+      <div><h3>The building step is honest</h3><p>The compiler is synchronous, so the checklist names real compile stages using the lifter's own answers. It lasts under 3.2 seconds, a tap finishes it, and with reduced motion it completes almost at once.</p></div>
+      <div><h3>No points, no streak bait</h3><p>The reference shows XP on each day. Here the badges carry training facts instead: estimated minutes, exercise count, working sets and focus muscles.</p></div>
+      <div><h3>Same plan everywhere</h3><p>Splits, exercise counts and set totals come from one shared table, so you can compare like with like. They are illustrative and do not come from <code>program-compiler.js</code>.</p></div>
+      <div><h3>Scope of these prototypes</h3><p>Rest preference, training environment and the five-route chooser are left out to keep the comparison focused. A production slice would put them back as R4 requires.</p></div>
+      <div><h3>Deep links</h3><p>Each file opens on a step from its hash, for example <code>c-plates.html#plan</code>, and accepts a <code>{taurifer:'goto', step}</code> message. The gallery uses both.</p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const CANDIDATES=[
+  {id:'a-ledger',letter:'A',name:'Ledger',thesis:'Taurifer pushed further: a ruled training logbook where each answer is a ledger entry and the plan prints as receipt slips.',tags:['Light + dark','Plex Sans / Mono','Ruled rows'],
+   structure:'One ruled logbook page per question, 01/03 counter',type:'IBM Plex Sans and Mono (production faces)',inputs:'Ruled rows with drawn ink ticks, a tally strip with a sliding indicator, mono numeric tiles',building:'Receipt-printer line loader, timestamped checklist',reveal:'Perforated session slips; Day 1 unfolded with set × rep notation',fit:'Highest. Uses live tokens, so it could ship as R4 polish'},
+  {id:'b-forge',letter:'B',name:'Night Forge',thesis:'Cinematic and dark only. Giant condensed headlines sit in the thumb zone and the glow behind them builds as you answer.',tags:['Dark only','Condensed display','Tilt + glow'],
+   structure:'Full-bleed, one question per screen, ember progress bars',type:'Condensed heavy display, tight sans, mono figures',inputs:'Forged plate cards that tilt and press in, a 2×2 pill grid with a heat meter, a snap-scroll day wheel',building:'Canvas spark-sphere loader',reveal:'Horizontal card carousel and a pulsing sticky CTA',fit:'Low to medium. Needs an exception to the one-accent, warm-paper language'},
+  {id:'c-plates',letter:'C',name:'Plate Loader',thesis:'The gym itself as the interface. Each answer loads a plate onto a barbell, and that bar is the progress indicator.',tags:['Neo-brutal','Archivo expanded','Physical metaphor'],
+   structure:'Stations, with a barbell across the top that fills with plates',type:'Archivo expanded 800 for display, Plex Mono for figures',inputs:'Hard-shadow cards you press into, a draggable plate-stack bar graph, a week strip with steppers',building:'Plates slam onto a bar that bends under the load',reveal:'A dealt deck of cards with plate-colour bands',fit:'Medium. The metaphor is memorable but uses several colours'},
+  {id:'d-swiss',letter:'D',name:'Swiss Type',thesis:'The answers are the typography. No cards: huge words on a strict grid, and choosing one strikes through the others.',tags:['Light + dark','Instrument Sans / Serif','Strike-through select'],
+   structure:'Strict 4-column grid, a rolling 1/3 counter',type:'Instrument Sans at display size, Instrument Serif italic asides, Plex Mono',inputs:'Giant word lists with strike-through, number rollers for days and minutes',building:'An odometer percentage counter with a mono checklist',reveal:'A week spine with rest days and session blocks hanging off it',fit:'Medium. Clean and accessible, but the type scale is new'},
+  {id:'e-coach',letter:'E',name:'Coach Chat',thesis:'One continuous conversation. Questions arrive as messages and your answer pill flies up into the thread.',tags:['Light + dark','Figtree + Fraunces','FLIP quick replies'],
+   structure:'A single transcript with a docked quick-reply tray',type:'Figtree UI, Fraunces for names and the plan title, DM Mono',inputs:'Quick-reply tiles that fly into the thread, Change on any earlier answer',building:'The coach drafts the plan inside a bubble with a drawn ring',reveal:'A plan attachment message holding a card rail',fit:'Medium. A familiar pattern, but it reads like an AI coach Taurifer does not have'}
+];
+const row=document.getElementById('row'), tbody=document.getElementById('tbody');
+const frames=[];
+for(const c of CANDIDATES){
+  const fig=document.createElement('figure');
+  fig.innerHTML=`<div class="device"><div class="screen"><iframe title="Candidate ${c.letter}: ${c.name}" src="${c.id}.html#goal" loading="lazy"></iframe></div></div>
+  <figcaption><div class="cap-top"><span class="letter">CANDIDATE ${c.letter}</span><a href="${c.id}.html" target="_blank" rel="noopener">Open full screen</a></div>
+  <h2>${c.name}</h2><p>${c.thesis}</p><div class="tags">${c.tags.map(t=>`<span>${t}</span>`).join('')}</div></figcaption>`;
+  row.appendChild(fig); frames.push({c,el:fig.querySelector('iframe')});
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<th><span class="letter">${c.letter}</span>${c.name}</th><td>${c.structure}</td><td>${c.type}</td><td>${c.inputs}</td><td>${c.building}</td><td>${c.reveal}</td><td>${c.fit}</td>`;
+  tbody.appendChild(tr);
+}
+const buttons=[...document.querySelectorAll('[data-step]')];
+function show(step){
+  buttons.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.step===step)));
+  for(const f of frames){
+    if(step==='fresh'){ f.el.src=`${f.c.id}.html?r=${Date.now()}`; continue; }
+    const base=f.el.src.split('#')[0];
+    f.el.src=`${base}#${step}`;
+    try{ f.el.contentWindow.postMessage({taurifer:'goto',step},'*'); }catch(e){}
+  }
+}
+buttons.forEach(b=>b.addEventListener('click',()=>show(b.dataset.step)));
+const zoom=document.getElementById('zoom');
+zoom.addEventListener('input',()=>document.documentElement.style.setProperty('--scale',zoom.value));
+if(matchMedia('(max-width:520px)').matches){ zoom.value='0.78'; document.documentElement.style.setProperty('--scale','0.78'); }
+</script>
+</body>
+</html>
