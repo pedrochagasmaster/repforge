@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "scope": "Standalone explorer JavaScript executed with DOM stub; no real browser layout/accessibility claim",
+  "checks": [
+    "200 rows",
+    "stress filter 100",
+    "home stress filter 25",
+    "contract failures filter 18",
+    "search S002",
+    "detail opens and contains actual finding",
+    "detail closes"
+  ],
+  "browserAttempts": [
+    {
+      "result": "blocked",
+      "reason": "Pinned Playwright browser missing; system Chromium exits because sandbox denies setsockopt"
+    }
+  ]
+}
