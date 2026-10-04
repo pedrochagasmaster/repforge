@@ -2645,6 +2645,7 @@ async function runMobilePlatformChecks(browser) {
       await page.click('nav button[data-view="log"]');
       await page.click("#startWorkout");
       await page.waitForSelector("#workout .exercise.is-current");
+      await page.waitForFunction(() => !document.body.classList.contains("is-pushing"));
       const prose = page.locator("#workout .exercise.is-current .focus-ex__meta");
       const box = await prose.boundingBox();
       await page.mouse.move(box.x + 2, box.y + box.height / 2);
