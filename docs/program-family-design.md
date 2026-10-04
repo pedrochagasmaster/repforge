@@ -49,10 +49,82 @@ and environment requirements, movement and muscle contribution, stability,
 fatigue-demand class, loading semantics, practical rep range, primary
 suitability, and setup rank. It carries no numeric fatigue score.
 
-Candidate order is deterministic: user preference, exact movement history,
-slot preferences, Foundation suitability, Home equipment clarity, primary
-suitability, stability, catalogue rank, then stable exercise ID. Dislikes are
-removed before ranking. Distinct machine IDs never share history.
+### Candidate rank keys (higher wins; final key is the exercise id ascending)
+
+The exported `RANK_KEYS` order is the candidate ranking contract:
+
+1. `must_have` (in `preferences`)
+2. `capability`: 0 only for `skill: "demanding"` without history or must-have (D5)
+3. `foundation`: under Foundation, 0 for `foundationDefault: false` without evidence
+4. `movement_priority`
+5. `primary_intent`
+6. `preferred_function`
+7. `avoids_de_emphasis`
+8. `history`
+9. `not_in_session`
+10. `new_function_in_session`
+11. `week_balance`: balance jobs prefer the function with the fewest weekly
+    sets so far; other jobs score 0 for an exercise already carrying ≥ 6 sets
+    this week (`WEEKLY_EXERCISE_SET_LIMIT`), else 1
+12. `priority_muscle` (primary muscles only)
+13. `preferred_characteristics` (count)
+14. `foundation_stability`
+15. `home_equipment` (Home only: bodyweight 3, dumbbell 2, band 1)
+16. `skill` (low 3, moderate 2, high 1, demanding 0)
+17. `primary_suitability`
+18. `stability`
+19. `catalogue_rank` (lower rank wins)
+
+Dislikes are removed before ranking. Distinct machine IDs never share history.
+
+### Fill order
+
+Choices are made by tier, then authored day, then authored slot; days keep
+authored slot order in the output. Tier 0 heavy primary; tier 1 protected
+(including `protect_when_capable`); tier 2 other hypertrophy compound and
+volume counterpart; tier 3 other accessories; tier 4 optional. A volume slot
+in an authored relation (non-Foundation) first tries its heavy partner's
+exercise and, when it fits, takes it with the non-efficient prescription (D20).
+
+### Dose fitting (`fitTime`)
+
+Each step runs only while the day is over `sessionMinutes`; candidates are
+ordered de-emphasized first, then later authored position first.
+
+1. `remove_priority_bonus`: drop bonus sets; restore `bonusRestoredRir`.
+2. `remove_optional`.
+3. `efficient_two_set`: `efficientEligible` slots above 2 sets → 2 sets
+   with `rirFor(rule, true, context)`.
+4. `reselect_redundant` / `omit_redundant`: a reducible, non-heavy,
+   non-relation slot whose exercise already appears earlier that day is
+   re-selected excluding that day's exercises; if nothing fits it is removed
+   (D2).
+5. `trim_reducible_assistance`: reducible non-heavy slots lose one set, never
+   below the class minimum; a slot reaching 1 set takes the efficient RIR (D16).
+6. `omit_accessory`: remove reducible, non-conditional
+   `isolation_accessory` slots.
+7. `minimum_dose_single_set`: reducible non-heavy slots whose class has
+   `minimumDoseSets` (compound classes: 1) go to 1 set, efficient RIR,
+   `minimumDose: true`.
+8. `time_ceiling_conflict`.
+
+`RULES.reductionOrder` lists these eight steps then `conflict`. Exported
+`minSets` is the class minimum, or `minimumDoseSets` for a minimum-dose slot.
+`compile()` throws if any resolved slot ends outside its bounds.
+
+### Limitation and reduction codes
+
+New limitations: `home.posterior_capability_unavailable`,
+`capability.demanding_exercise_selected`, `priority.no_room`,
+`priority.at_set_ceiling`, and `priority.no_eligible_slot`. Priority entries
+carry `dayId: null, slotId: null, muscle`.
+
+New reductions: `remove_priority_bonus`, `reselect_redundant`,
+`omit_redundant`, `omit_accessory`, and `minimum_dose_single_set`.
+Priority outcome precedence: a surviving bonus reports nothing; a bonus
+removed by fitting → `no_room`; else a selection the priority key decided
+reports nothing; else eligible slots at ceiling → `at_set_ceiling`; else
+`no_eligible_slot`.
 
 ## Prescription and progression
 

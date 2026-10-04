@@ -29,7 +29,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `progression-engine.js` | Deterministic set-level progression recommendations, calculations, and strategy evaluation. |
 | `progress-model.js` | Pure Progress/history evidence and view-model projections. It consumes outcomes and recommendations from its caller. |
 | `program-entry.js`, `program-entry-adapter.js` | Entry state and shared entry vocabulary; production compiler/catalog integration and entry choices. |
-| `program-compiler.js` | Versioned program-family definitions, compilation, and structural validation. |
+| `program-compiler.js` | Versioned program-family definitions, compilation, authored catalogue functions, week-aware selection, dose fitting, and structural validation. |
 | `program-editor.js` | Reusable program editor. Its host supplies data and handles returned intents. |
 | `history-ui.js` | History rendering and interactions through dependencies supplied by the app. |
 | `shared-setup.js` | Setup-link codec and validation; this module and `AGENTS.md` own the current format, compatibility, and privacy contract. |
@@ -40,7 +40,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `schedule.js`, `notify.js` | Training schedule helpers; notification adapter and delivery helpers. |
 | `sw.js` | Release asset inventory, cache lifecycle, offline shell, and code-response policy. |
 | `styles.css`, `motion-polish.css` | Presentation tokens and component styles; appearance rules and exceptions are governed by `AGENTS.md` and the design audit. |
-| `i18n-en.json`, `i18n-pt.json`, `tools/exercise-curation.json` | Translation and exercise source data. `i18n.js` and `exercises.js` are generated runtime files; follow `AGENTS.md` and `tools/README.md`. |
+| `i18n-en.json`, `i18n-pt.json`, `tools/exercise-curation.json`, `tools/exercise-compiler-data.json` | Translation and exercise source data. `i18n.js` and `exercises.js` are generated runtime files; follow `AGENTS.md` and `tools/README.md`. |
 
 The root JavaScript files are not all architecture owners. Check the relevant module and its callers before moving behavior or adding a new boundary.
 
