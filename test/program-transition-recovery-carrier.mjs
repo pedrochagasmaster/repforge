@@ -610,7 +610,7 @@ async function main() {
     const sourceFixtureCoverage = fixtureProgramCoverage(before?.program);
     check(sourceFixtureCoverage.mismatches.length === 0,
       "source program exactly covers the fixed balanced_4_v1 fixture slots", sourceFixtureCoverage.mismatches);
-    check(INDEPENDENT_CANONICAL_TOTAL === 45 && INDEPENDENT_WEEK_ONE_TOTAL === 22,
+    check(INDEPENDENT_CANONICAL_TOTAL === 44 && INDEPENDENT_WEEK_ONE_TOTAL === 22,
       "independent fixture oracle pins balanced_4_v1 canonical and Rule-B totals",
       { canonical: INDEPENDENT_CANONICAL_TOTAL, weekOne: INDEPENDENT_WEEK_ONE_TOTAL });
 

@@ -556,6 +556,37 @@ if (srcRoot) {
   for (const row of rows) dataset.set(`exdb:${row.id}`, row);
 }
 
+/* Plan 065: the compiler-facing coaching data for every movement. One
+   reviewed block per library id; the program compiler reads it instead of
+   inferring function, skill and loading suitability from names. */
+const COMPILER_FUNCTIONS = new Set(["knee_extension", "unilateral_knee", "hip_hinge", "hip_extension", "knee_flexion",
+  "horizontal_push", "incline_push", "vertical_push", "horizontal_pull", "vertical_pull", "shoulder_extension",
+  "chest_fly", "lateral_raise", "front_raise", "rear_delt", "elbow_flexion", "elbow_extension", "plantar_flexion",
+  "trunk", "hip_abduction", "hip_adduction", "shrug", "grip"]);
+const COMPILER_SKILLS = new Set(["low", "moderate", "high", "demanding"]);
+const COMPILER_ENVIRONMENT = new Set(["safe_pull", "training_support"]);
+const COMPILER_KEYS = ["functions", "secondaryFunctions", "skill", "environment", "practicalRepRange", "stability",
+  "primarySuitability", "unilateral", "foundationDefault", "anchor"];
+const compilerData = JSON.parse(readFileSync(join(HERE, "exercise-compiler-data.json"), "utf8")).entries;
+function compilerProblems(id, block) {
+  const out = [];
+  if (!block) return [`${id}: no entry in exercise-compiler-data.json`];
+  const keys = Object.keys(block).sort().join(",");
+  if (keys !== [...COMPILER_KEYS].sort().join(",")) out.push(`${id}: compiler keys must be exactly ${COMPILER_KEYS.join(",")}`);
+  if (!Array.isArray(block.functions) || !block.functions.length) out.push(`${id}: functions must be a non-empty array`);
+  for (const f of [...(block.functions || []), ...(block.secondaryFunctions || [])])
+    if (!COMPILER_FUNCTIONS.has(f)) out.push(`${id}: unknown function ${f}`);
+  if (!COMPILER_SKILLS.has(block.skill)) out.push(`${id}: unknown skill ${block.skill}`);
+  for (const e of block.environment || []) if (!COMPILER_ENVIRONMENT.has(e)) out.push(`${id}: unknown environment ${e}`);
+  const r = block.practicalRepRange;
+  if (!Array.isArray(r) || r.length !== 2 || !Number.isInteger(r[0]) || !Number.isInteger(r[1]) || r[0] < 1 || r[1] < r[0])
+    out.push(`${id}: practicalRepRange must be [min,max] integers`);
+  if (!["high", "moderate", "free"].includes(block.stability)) out.push(`${id}: unknown stability`);
+  if (!["high", "moderate"].includes(block.primarySuitability)) out.push(`${id}: unknown primarySuitability`);
+  for (const k of ["unilateral", "foundationDefault", "anchor"]) if (typeof block[k] !== "boolean") out.push(`${id}: ${k} must be boolean`);
+  return out;
+}
+
 const mediaSet = new Set(MEDIA_IDS);
 const problems = [];
 const gaps = [];
@@ -666,8 +697,14 @@ for (const item of curation) {
     if (list.length) entry.aliases = list;
   }
   if (item.src) entry.src = item.src;
+  const compilerIssues = compilerProblems(item.id, compilerData[item.id]);
+  if (compilerIssues.length) { problems.push(...compilerIssues); continue; }
+  entry.compiler = compilerData[item.id];
   entries.push(entry);
 }
+
+for (const id of Object.keys(compilerData))
+  if (!ids.has(id)) problems.push(`exercise-compiler-data.json names ${id}, which is not in the curation file`);
 
 if (has("--report")) {
   console.log(`${gaps.length} of ${entries.length} names have untranslated words:\n`);
@@ -705,7 +742,8 @@ const line = e => {
     `secondary:${JSON.stringify(e.secondary)}`,
     `patterns:${JSON.stringify(e.patterns)}`,
     `rank:${e.rank}`,
-    `beginnerFriendly:${e.beginnerFriendly}`
+    `beginnerFriendly:${e.beginnerFriendly}`,
+    `compiler:${JSON.stringify(e.compiler)}`
   ];
   if (e.media) parts.push(`media:${JSON.stringify(e.media)}`);
   if (e.mediaBg) parts.push(`mediaBg:${JSON.stringify(e.mediaBg)}`);

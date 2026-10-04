@@ -216,19 +216,19 @@ test("proposeSibling resolves shorter-session sibling preserving frequency and r
 });
 
 test("proposeSibling returns typed Unavailable when session duration cannot fit at same frequency without reducing frequency", async () => {
-  const predecessor = compilePredecessor(4, 90);
+  const predecessor = compilePredecessor(3, 90);
 
-  // 30 minutes cannot fit 4-day balanced (compiler rejects with time ceiling conflict)
+  // 30 minutes cannot fit 3-day balanced (compiler rejects with time ceiling conflict)
   // Resolver must NOT reduce frequency to 3 or 2 to force fit; it must return Unavailable.
   const result = await Transition.proposeSibling({
     kind: "shorter_session_sibling",
     predecessor: {
-      programId: "prog_balanced_4_90m",
+      programId: "prog_balanced_3_90m",
       durableRevision: 5,
       source: "Recommend",
       compilerProvenance: predecessor.instance.provenance,
     },
-    successorProgramId: "prog_balanced_4_30m",
+    successorProgramId: "prog_balanced_3_30m",
     predecessorInstance: predecessor.instance,
     compilerContext: predecessor.compilerContext,
     targetConstraint: { sessionMinutes: 30 },
@@ -927,9 +927,9 @@ function stableFamilyContext(familyId, frequency, sessionMinutes = 90) {
 const isShorterSessionSupported = (familyId, frequency, targetMinutes) => {
   if (targetMinutes >= 45) return true;
   if (targetMinutes === 30) {
-    if (familyId === "growth" || familyId === "home") return true;
-    if ((familyId === "balanced" || familyId === "strength") && frequency === 6) return true;
-    return false;
+    // Plan 065: omit_accessory and minimum_dose_single_set let every 4-6 day
+    // structure fit 30 minutes; Balanced and Strength 2-3 day still cannot.
+    return !((familyId === "balanced" || familyId === "strength") && (frequency === 2 || frequency === 3));
   }
   return false;
 };
@@ -1090,7 +1090,7 @@ test("all-family lower-frequency sibling matrix proves 40 supported pairs and 4 
   }
 });
 
-test("all-family shorter-session sibling matrix proves 72 supported rows and 8 unavailable rows", async () => {
+test("all-family shorter-session sibling matrix proves 76 supported rows and 4 unavailable rows", async () => {
   let supportedCount = 0;
   let unavailableCount = 0;
   const testedFamilies = new Set();
@@ -1193,12 +1193,12 @@ test("all-family shorter-session sibling matrix proves 72 supported rows and 8 u
 
   // Exact counts
   assert.equal(testedFamilies.size, 4);
-  assert.equal(supportedCount, 72);
-  assert.equal(unavailableCount, 8);
+  assert.equal(supportedCount, 76);
+  assert.equal(unavailableCount, 4);
   assert.deepEqual(resultsByFamily.get("growth"), { supported: 20, unavailable: 0 });
   assert.deepEqual(resultsByFamily.get("home"), { supported: 20, unavailable: 0 });
-  assert.deepEqual(resultsByFamily.get("balanced"), { supported: 16, unavailable: 4 });
-  assert.deepEqual(resultsByFamily.get("strength"), { supported: 16, unavailable: 4 });
+  assert.deepEqual(resultsByFamily.get("balanced"), { supported: 18, unavailable: 2 });
+  assert.deepEqual(resultsByFamily.get("strength"), { supported: 18, unavailable: 2 });
 });
 
 test("compact matrix negatives reject Build, Import, Shared, arbitrary source, customization, and version drift while accepting Custom", async () => {
@@ -1460,8 +1460,8 @@ test("balanced 6->5 records exact authored RIR/set changes yet keeps only truly 
   assert.equal(result.ok, true, result.code);
 
   // The authored sibling change is exact in diff.prescriptions: 11 mapped rows
-  // move target RIR [0,2] -> [1,3]; seven of them also move sets 2 -> 3, four
-  // stay at 2 sets. Nothing is silently relabelled invariant.
+  // move target RIR [0,2] -> [1,3]; five of them also move sets 2 -> 3, six
+  // stay at 2 sets (Plan 065 selection). Nothing is silently relabelled invariant.
   const changed = result.proposal.diff.prescriptions.filter(
     (row) => row.before && row.after && JSON.stringify(row.before) !== JSON.stringify(row.after),
   );
@@ -1471,8 +1471,8 @@ test("balanced 6->5 records exact authored RIR/set changes yet keeps only truly 
       JSON.stringify(row.before.rir) === "[0,2]" && JSON.stringify(row.after.rir) === "[1,3]"),
     "every changed mapped prescription moves target RIR [0,2] -> [1,3]",
   );
-  assert.equal(changed.filter((row) => row.before.sets === 2 && row.after.sets === 3).length, 7);
-  assert.equal(changed.filter((row) => row.before.sets === 2 && row.after.sets === 2).length, 4);
+  assert.equal(changed.filter((row) => row.before.sets === 2 && row.after.sets === 3).length, 5);
+  assert.equal(changed.filter((row) => row.before.sets === 2 && row.after.sets === 2).length, 6);
   assert(changed.every((row) => row.reason === "prescription changed"));
 
   // The paired-exposure relation endpoints are carried over byte-for-byte in
@@ -1607,8 +1607,8 @@ test("shorter-session balanced 6d @ 30m resets relations whose endpoint progress
 });
 
 test("pure transition API creates guided manual repair only from typed unavailable, valid diagnosis, and valid active program", async () => {
-  // 1. Real resolver Unavailable: balanced 4d @ 30m (shorter session cannot fit)
-  const pred = compilePredecessor(4, 90);
+  // 1. Real resolver Unavailable: balanced 3d @ 30m (shorter session cannot fit)
+  const pred = compilePredecessor(3, 90);
   const diag30m = {
     kind: "sessions_too_long",
     answers: { sessionMinutes: 30 },
@@ -1618,7 +1618,7 @@ test("pure transition API creates guided manual repair only from typed unavailab
   const unavailResult = await Transition.proposeSibling({
     kind: "shorter_session_sibling",
     predecessor: {
-      programId: "prog_balanced_4",
+      programId: "prog_balanced_3",
       durableRevision: 3,
       source: "Recommend",
       compilerProvenance: pred.instance.provenance,
@@ -1626,7 +1626,7 @@ test("pure transition API creates guided manual repair only from typed unavailab
     predecessorInstance: pred.instance,
     compilerContext: pred.compilerContext,
     targetConstraint: { sessionMinutes: 30 },
-    successorProgramId: "prog_balanced_4_30m",
+    successorProgramId: "prog_balanced_3_30m",
     diagnosis: diag30m,
     transitionId: "tr_unavailable_30m",
     createdAt: "2026-10-02T12:00:00.000Z",
@@ -1642,7 +1642,7 @@ test("pure transition API creates guided manual repair only from typed unavailab
     revision: 3,
     program: pred.instance.program.map((p) => ({ ...p })),
     programMeta: {
-      id: "prog_balanced_4",
+      id: "prog_balanced_3",
       name: "Balanced 4-Day",
       programStructure: pred.instance.programStructure,
       progressionRelations: pred.instance.relations,
@@ -1762,7 +1762,7 @@ test("pure transition API creates guided manual repair only from typed unavailab
 });
 
 test("guided manual repair copies referenced custom definitions and rejects a missing definition", async () => {
-  const pred = compilePredecessor(4, 90);
+  const pred = compilePredecessor(3, 90);
   const diag30m = {
     kind: "sessions_too_long",
     answers: { sessionMinutes: 30 },
@@ -1772,7 +1772,7 @@ test("guided manual repair copies referenced custom definitions and rejects a mi
   const unavailResult = await Transition.proposeSibling({
     kind: "shorter_session_sibling",
     predecessor: {
-      programId: "prog_balanced_4",
+      programId: "prog_balanced_3",
       durableRevision: 3,
       source: "Recommend",
       compilerProvenance: pred.instance.provenance,
@@ -1780,7 +1780,7 @@ test("guided manual repair copies referenced custom definitions and rejects a mi
     predecessorInstance: pred.instance,
     compilerContext: pred.compilerContext,
     targetConstraint: { sessionMinutes: 30 },
-    successorProgramId: "prog_balanced_4_30m",
+    successorProgramId: "prog_balanced_3_30m",
     diagnosis: diag30m,
     transitionId: "tr_unavailable_30m_custom",
     createdAt: "2026-10-02T12:00:00.000Z",
@@ -1807,7 +1807,7 @@ test("guided manual repair copies referenced custom definitions and rejects a mi
     revision: 3,
     program: programRows,
     programMeta: {
-      id: "prog_balanced_4",
+      id: "prog_balanced_3",
       name: "Balanced 4-Day",
       programStructure: pred.instance.programStructure,
       progressionRelations: pred.instance.relations,

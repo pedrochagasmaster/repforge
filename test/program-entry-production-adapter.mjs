@@ -145,7 +145,7 @@ test("custom split choices carry human facts and are executable for the exact an
     });
     assert.equal(compiled.ok, true, `${choice.id}: ${compiled.code}`);
   }
-  assert.deepEqual(services.splitChoices({ ...answers, sessionMinutes: 30 }).choices, [],
+  assert.deepEqual(services.splitChoices({ ...answers, daysPerWeek: 3, sessionMinutes: 30 }).choices, [],
     "a structure that conflicts with the exact time ceiling must not be offered");
 });
 

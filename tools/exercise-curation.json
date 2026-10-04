@@ -2334,5 +2334,161 @@
     "primary": "Rear delts",
     "secondary": "Mid/upper back,Traps",
     "beginnerFriendly": true
+  },
+  {
+    "id": "sq_bw",
+    "patterns": [
+      "squat"
+    ],
+    "name": "Bodyweight squat",
+    "namePt": "Agachamento livre sem carga",
+    "equipment": [
+      "bodyweight"
+    ],
+    "primary": "Quads",
+    "secondary": "Glutes",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "gb_bw",
+    "patterns": [
+      "hinge"
+    ],
+    "name": "Glute bridge",
+    "namePt": "Ponte de glúteos",
+    "equipment": [
+      "bodyweight"
+    ],
+    "primary": "Glutes",
+    "secondary": "Hamstrings",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "sgb_bw",
+    "patterns": [
+      "hinge"
+    ],
+    "name": "Single-leg glute bridge",
+    "namePt": "Ponte de glúteos unilateral",
+    "equipment": [
+      "bodyweight"
+    ],
+    "primary": "Glutes",
+    "secondary": "Hamstrings",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "rws_bd",
+    "patterns": [
+      "row"
+    ],
+    "name": "Seated band row",
+    "namePt": "Remada sentada com elástico",
+    "equipment": [
+      "band"
+    ],
+    "primary": "Mid/upper back",
+    "secondary": "Biceps,Rear delts",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "pa_bd",
+    "patterns": [
+      "rear_delt"
+    ],
+    "name": "Band pull-apart",
+    "namePt": "Abertura com elástico",
+    "equipment": [
+      "band"
+    ],
+    "primary": "Rear delts",
+    "secondary": "Mid/upper back,Traps",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "lr_bd",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "name": "Band lateral raise",
+    "namePt": "Elevação lateral com elástico",
+    "equipment": [
+      "band"
+    ],
+    "primary": "Side delts",
+    "secondary": "",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "cu_bd",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "name": "Band curl",
+    "namePt": "Rosca com elástico",
+    "equipment": [
+      "band"
+    ],
+    "primary": "Biceps",
+    "secondary": "Forearms",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "te_bd",
+    "patterns": [
+      "triceps"
+    ],
+    "name": "Band overhead triceps extension",
+    "namePt": "Extensão de tríceps acima da cabeça com elástico",
+    "equipment": [
+      "band"
+    ],
+    "primary": "Triceps",
+    "secondary": "",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "cp_bd",
+    "patterns": [
+      "press"
+    ],
+    "name": "Band chest press",
+    "namePt": "Supino com elástico",
+    "equipment": [
+      "band"
+    ],
+    "primary": "Chest",
+    "secondary": "Triceps,Front delts",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "gb_bd",
+    "patterns": [
+      "hinge"
+    ],
+    "name": "Banded glute bridge",
+    "namePt": "Ponte de glúteos com elástico",
+    "equipment": [
+      "band"
+    ],
+    "primary": "Glutes",
+    "secondary": "Hamstrings",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "gm_bd",
+    "patterns": [
+      "hinge"
+    ],
+    "name": "Band good morning",
+    "namePt": "Good morning com elástico",
+    "equipment": [
+      "band"
+    ],
+    "primary": "Hamstrings,Glutes",
+    "secondary": "Spinal erectors",
+    "beginnerFriendly": true
   }
 ]

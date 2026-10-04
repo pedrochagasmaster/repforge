@@ -193,8 +193,8 @@
       },
       acceptanceBand: { minimum: 0.4, maximum: 0.6 },
       allowlistedMisses: {
-        growth_2_v1: { base: 32, effective: 12 },
-        growth_3_v1: { base: 49, effective: 17 },
+        growth_2_v1: { base: 31, effective: 12 },
+        growth_3_v1: { base: 47, effective: 17 },
       },
       reassessment: {
         outcomes: ["Better", "About the same", "Worse"],
@@ -2129,10 +2129,10 @@
         policy.acceptanceBand.maximum !== 0.6) return false;
     if (!exactKeys(policy.allowlistedMisses, ["growth_2_v1", "growth_3_v1"])) return false;
     if (!exactKeys(policy.allowlistedMisses.growth_2_v1, ["base", "effective"]) ||
-        policy.allowlistedMisses.growth_2_v1.base !== 32 ||
+        policy.allowlistedMisses.growth_2_v1.base !== 31 ||
         policy.allowlistedMisses.growth_2_v1.effective !== 12) return false;
     if (!exactKeys(policy.allowlistedMisses.growth_3_v1, ["base", "effective"]) ||
-        policy.allowlistedMisses.growth_3_v1.base !== 49 ||
+        policy.allowlistedMisses.growth_3_v1.base !== 47 ||
         policy.allowlistedMisses.growth_3_v1.effective !== 17) return false;
     if (!exactKeys(policy.reassessment, ["outcomes", "unset", "ordinaryReviewOutcomes", "sameBlockRepeat", "weekTwoCanonical"])) return false;
     if (!exactOrderedArray(policy.reassessment.outcomes, ["Better", "About the same", "Worse"])) return false;

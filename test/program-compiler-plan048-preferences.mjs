@@ -36,7 +36,7 @@ const semanticWithoutVersions = (result) => {
   return copy;
 };
 
-assert.equal(Compiler.VERSIONS.compiler, 2, "Plan 048 preference semantics increment compiler version");
+assert.equal(Compiler.VERSIONS.compiler, 3, "Plan 065 function-aware selection increments the compiler version");
 assert.equal(Compiler.VERSIONS.context, 2, "Plan 048 inputs use context schema/version 2");
 
 const legacyNoPreference = Compiler.compile({
@@ -238,7 +238,7 @@ for (const familyId of Compiler.FAMILY_IDS) {
       familyId,
       frequency,
       blueprintId: `${familyId}_${frequency}_v1`,
-      blueprintVersion: 1,
+      blueprintVersion: 2,
       default: true,
     }], `${familyId} ${frequency} exposes only its real canonical authored split`);
     assert.deepEqual(Compiler.getCompatibleSplitChoices(structuredClone(input)), choices, "split choices are deterministic");

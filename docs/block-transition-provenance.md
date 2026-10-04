@@ -292,7 +292,7 @@ transition. Array order is therefore total, not incidental:
   preimage proposal (it deliberately contains a duplicate evidence ID and
   unsorted evidence to exercise the set rules); hashing it with the
   documented rule yields
-  `proposalHash: c7a4c90322522d6d990fdd7e7e51c7da0de7b349f2d3e959619b9c1d9e9feadc`.
+  `proposalHash: 9d3a50cceccb4592b2296c8407f14665612cf0dc5de5e1b2aeb4982a29e30b4c`.
   its `derivation.slotMapping` section exhaustively covers every predecessor
   and successor slot of the growth_4_v1 -> growth_3_v1 pair (verified against
   `test/fixtures/program-families-v1.json` at check time);
@@ -414,8 +414,8 @@ fixture is not a modern storage snapshot.
         {
           "predecessorSlot": "growth_4_d1_s4",
           "successorSlot": "growth_3_d2_s5",
-          "predecessorMovement": "library:ip_mc",
-          "successorMovement": "library:ip_mc"
+          "predecessorMovement": "library:ci_cb",
+          "successorMovement": "library:ci_cb"
         },
         {
           "predecessorSlot": "growth_4_d2_s5",
@@ -426,8 +426,8 @@ fixture is not a modern storage snapshot.
         {
           "predecessorSlot": "growth_4_d2_s3",
           "successorSlot": "growth_3_d3_s1",
-          "predecessorMovement": "library:lg_bb",
-          "successorMovement": "library:lg_bb"
+          "predecessorMovement": "library:lp1_mc",
+          "successorMovement": "library:lp1_mc"
         },
         {
           "predecessorSlot": "growth_4_d3_s1",
@@ -438,8 +438,8 @@ fixture is not a modern storage snapshot.
         {
           "predecessorSlot": "growth_4_d3_s5",
           "successorSlot": "growth_3_d3_s5",
-          "predecessorMovement": "library:dl_cb",
-          "successorMovement": "library:dl_cb"
+          "predecessorMovement": "library:rd_mc",
+          "successorMovement": "library:rd_mc"
         },
         {
           "predecessorSlot": null,
@@ -451,7 +451,7 @@ fixture is not a modern storage snapshot.
           "predecessorSlot": null,
           "successorSlot": "growth_3_d1_s4",
           "predecessorMovement": null,
-          "successorMovement": "library:hg_mc"
+          "successorMovement": "library:lc_mc"
         },
         {
           "predecessorSlot": null,
@@ -481,13 +481,13 @@ fixture is not a modern storage snapshot.
           "predecessorSlot": null,
           "successorSlot": "growth_3_d3_s4",
           "predecessorMovement": null,
-          "successorMovement": "library:hg_mc"
+          "successorMovement": "library:he_mc"
         },
         {
           "predecessorSlot": null,
           "successorSlot": "growth_3_d3_s6",
           "predecessorMovement": null,
-          "successorMovement": "library:cu_cb"
+          "successorMovement": "library:tr_cb"
         },
         {
           "predecessorSlot": "growth_4_d1_s6",
@@ -504,7 +504,7 @@ fixture is not a modern storage snapshot.
         {
           "predecessorSlot": "growth_4_d2_s4",
           "successorSlot": null,
-          "predecessorMovement": "library:hg_mc",
+          "predecessorMovement": "library:lc_mc",
           "successorMovement": null
         },
         {
@@ -546,13 +546,13 @@ fixture is not a modern storage snapshot.
         {
           "predecessorSlot": "growth_4_d4_s3",
           "successorSlot": null,
-          "predecessorMovement": "library:hg_mc",
+          "predecessorMovement": "library:he_mc",
           "successorMovement": null
         },
         {
           "predecessorSlot": "growth_4_d4_s4",
           "successorSlot": null,
-          "predecessorMovement": "library:hg_mc",
+          "predecessorMovement": "library:lc_mc",
           "successorMovement": null
         },
         {
@@ -723,16 +723,16 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": "growth_4_d1_s4",
         "successorSlot": "growth_3_d2_s5",
-        "movement": "library:ip_mc",
+        "movement": "library:ci_cb",
         "before": {
-          "movement": "library:ip_mc",
+          "movement": "library:ci_cb",
           "index": 3,
-          "sets": 3
+          "sets": 2
         },
         "after": {
-          "movement": "library:ip_mc",
+          "movement": "library:ci_cb",
           "index": 4,
-          "sets": 3
+          "sets": 2
         },
         "reason": "mapped same-template slot changed day or order"
       },
@@ -755,14 +755,14 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": "growth_4_d2_s3",
         "successorSlot": "growth_3_d3_s1",
-        "movement": "library:lg_bb",
+        "movement": "library:lp1_mc",
         "before": {
-          "movement": "library:lg_bb",
+          "movement": "library:lp1_mc",
           "index": 2,
           "sets": 3
         },
         "after": {
-          "movement": "library:lg_bb",
+          "movement": "library:lp1_mc",
           "index": 0,
           "sets": 3
         },
@@ -787,14 +787,14 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": "growth_4_d3_s5",
         "successorSlot": "growth_3_d3_s5",
-        "movement": "library:dl_cb",
+        "movement": "library:rd_mc",
         "before": {
-          "movement": "library:dl_cb",
+          "movement": "library:rd_mc",
           "index": 4,
           "sets": 2
         },
         "after": {
-          "movement": "library:dl_cb",
+          "movement": "library:rd_mc",
           "index": 4,
           "sets": 2
         },
@@ -815,12 +815,12 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": null,
         "successorSlot": "growth_3_d1_s4",
-        "movement": "library:hg_mc",
+        "movement": "library:lc_mc",
         "before": null,
         "after": {
-          "movement": "library:hg_mc",
+          "movement": "library:lc_mc",
           "index": 3,
-          "sets": 3
+          "sets": 2
         },
         "reason": "added successor slot"
       },
@@ -875,10 +875,10 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": null,
         "successorSlot": "growth_3_d3_s4",
-        "movement": "library:hg_mc",
+        "movement": "library:he_mc",
         "before": null,
         "after": {
-          "movement": "library:hg_mc",
+          "movement": "library:he_mc",
           "index": 3,
           "sets": 3
         },
@@ -887,10 +887,10 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": null,
         "successorSlot": "growth_3_d3_s6",
-        "movement": "library:cu_cb",
+        "movement": "library:tr_cb",
         "before": null,
         "after": {
-          "movement": "library:cu_cb",
+          "movement": "library:tr_cb",
           "index": 5,
           "sets": 2
         },
@@ -925,9 +925,9 @@ fixture is not a modern storage snapshot.
         "successorSlot": null,
         "movement": null,
         "before": {
-          "movement": "library:hg_mc",
+          "movement": "library:lc_mc",
           "index": 3,
-          "sets": 3
+          "sets": 2
         },
         "after": null,
         "reason": "removed predecessor slot"
@@ -1009,7 +1009,7 @@ fixture is not a modern storage snapshot.
         "successorSlot": null,
         "movement": null,
         "before": {
-          "movement": "library:hg_mc",
+          "movement": "library:he_mc",
           "index": 2,
           "sets": 3
         },
@@ -1021,9 +1021,9 @@ fixture is not a modern storage snapshot.
         "successorSlot": null,
         "movement": null,
         "before": {
-          "movement": "library:hg_mc",
+          "movement": "library:lc_mc",
           "index": 3,
-          "sets": 3
+          "sets": 2
         },
         "after": null,
         "reason": "removed predecessor slot"
@@ -1225,35 +1225,35 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": "growth_4_d1_s4",
         "successorSlot": "growth_3_d2_s5",
-        "movement": "library:ip_mc",
+        "movement": "library:ci_cb",
         "before": {
-          "sets": 3,
+          "sets": 2,
           "reps": [
             8,
-            12
+            15
           ],
           "rir": [
             1,
             3
           ],
-          "restSeconds": 90,
+          "restSeconds": 60,
           "strategy": "rep_goal@1",
-          "prescriptionClass": "compound_8_12",
+          "prescriptionClass": "isolation_8_15",
           "index": 3
         },
         "after": {
-          "sets": 3,
+          "sets": 2,
           "reps": [
             8,
-            12
+            15
           ],
           "rir": [
             1,
             3
           ],
-          "restSeconds": 90,
+          "restSeconds": 60,
           "strategy": "rep_goal@1",
-          "prescriptionClass": "compound_8_12",
+          "prescriptionClass": "isolation_8_15",
           "index": 4
         },
         "reason": "prescription changed"
@@ -1297,12 +1297,12 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": "growth_4_d2_s3",
         "successorSlot": "growth_3_d3_s1",
-        "movement": "library:lg_bb",
+        "movement": "library:lp1_mc",
         "before": {
           "sets": 3,
           "reps": [
-            4,
-            8
+            8,
+            12
           ],
           "rir": [
             1,
@@ -1310,14 +1310,14 @@ fixture is not a modern storage snapshot.
           ],
           "restSeconds": 90,
           "strategy": "range@1",
-          "prescriptionClass": "compound_4_8",
+          "prescriptionClass": "compound_8_12",
           "index": 2
         },
         "after": {
           "sets": 3,
           "reps": [
-            4,
-            8
+            8,
+            12
           ],
           "rir": [
             1,
@@ -1325,7 +1325,7 @@ fixture is not a modern storage snapshot.
           ],
           "restSeconds": 90,
           "strategy": "range@1",
-          "prescriptionClass": "compound_4_8",
+          "prescriptionClass": "compound_8_12",
           "index": 0
         },
         "reason": "prescription changed"
@@ -1369,7 +1369,7 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": "growth_4_d3_s5",
         "successorSlot": "growth_3_d3_s5",
-        "movement": "library:dl_cb",
+        "movement": "library:rd_mc",
         "before": {
           "sets": 2,
           "reps": [
@@ -1427,21 +1427,21 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": null,
         "successorSlot": "growth_3_d1_s4",
-        "movement": "library:hg_mc",
+        "movement": "library:lc_mc",
         "before": null,
         "after": {
-          "sets": 3,
+          "sets": 2,
           "reps": [
             8,
-            12
+            15
           ],
           "rir": [
             1,
             3
           ],
-          "restSeconds": 90,
+          "restSeconds": 60,
           "strategy": "range@1",
-          "prescriptionClass": "compound_8_12",
+          "prescriptionClass": "isolation_8_15",
           "index": 3
         },
         "reason": "added successor prescription"
@@ -1537,7 +1537,7 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": null,
         "successorSlot": "growth_3_d3_s4",
-        "movement": "library:hg_mc",
+        "movement": "library:he_mc",
         "before": null,
         "after": {
           "sets": 3,
@@ -1559,7 +1559,7 @@ fixture is not a modern storage snapshot.
       {
         "predecessorSlot": null,
         "successorSlot": "growth_3_d3_s6",
-        "movement": "library:cu_cb",
+        "movement": "library:tr_cb",
         "before": null,
         "after": {
           "sets": 2,
@@ -1627,18 +1627,18 @@ fixture is not a modern storage snapshot.
         "successorSlot": null,
         "movement": null,
         "before": {
-          "sets": 3,
+          "sets": 2,
           "reps": [
             8,
-            12
+            15
           ],
           "rir": [
             1,
             3
           ],
-          "restSeconds": 90,
+          "restSeconds": 60,
           "strategy": "range@1",
-          "prescriptionClass": "compound_8_12",
+          "prescriptionClass": "isolation_8_15",
           "index": 3
         },
         "after": null,
@@ -1803,18 +1803,18 @@ fixture is not a modern storage snapshot.
         "successorSlot": null,
         "movement": null,
         "before": {
-          "sets": 3,
+          "sets": 2,
           "reps": [
             8,
-            12
+            15
           ],
           "rir": [
             1,
             3
           ],
-          "restSeconds": 90,
+          "restSeconds": 60,
           "strategy": "range@1",
-          "prescriptionClass": "compound_8_12",
+          "prescriptionClass": "isolation_8_15",
           "index": 3
         },
         "after": null,
@@ -1855,7 +1855,7 @@ fixture is not a modern storage snapshot.
   "status": "committed",
   "confirmedAt": "2026-10-01T09:12:00.000Z",
   "archiveId": "arc_01J9Z8X7C6V5B4N3M1",
-  "proposalHash": "c7a4c90322522d6d990fdd7e7e51c7da0de7b349f2d3e959619b9c1d9e9feadc"
+  "proposalHash": "9d3a50cceccb4592b2296c8407f14665612cf0dc5de5e1b2aeb4982a29e30b4c"
 }
 ```
 

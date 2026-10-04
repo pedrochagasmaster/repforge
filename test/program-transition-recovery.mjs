@@ -41,8 +41,8 @@ const APPROVED_POLICY_V2 = Object.freeze({
   }),
   acceptanceBand: Object.freeze({ minimum: 0.4, maximum: 0.6 }),
   allowlistedMisses: Object.freeze({
-    growth_2_v1: Object.freeze({ base: 32, effective: 12 }),
-    growth_3_v1: Object.freeze({ base: 49, effective: 17 }),
+    growth_2_v1: Object.freeze({ base: 31, effective: 12 }),
+    growth_3_v1: Object.freeze({ base: 47, effective: 17 }),
   }),
   reassessment: Object.freeze({
     outcomes: Object.freeze(["Better", "About the same", "Worse"]),
@@ -542,25 +542,25 @@ test("negative injections: drifted question/answers/patterns/qualifying outcomes
 // ============================================================================
 
 const FIXTURE_EVIDENCE_TABLE = {
-  growth_2_v1: { base: 32, effective: 12, ratio: "37.5%", status: "Miss (low)" },
-  growth_3_v1: { base: 49, effective: 17, ratio: "34.7%", status: "Miss (low)" },
-  growth_4_v1: { base: 60, effective: 26, ratio: "43.3%", status: "Yes" },
-  growth_5_v1: { base: 74, effective: 30, ratio: "40.5%", status: "Yes" },
+  growth_2_v1: { base: 31, effective: 12, ratio: "38.7%", status: "Miss (low)" },
+  growth_3_v1: { base: 47, effective: 17, ratio: "36.2%", status: "Miss (low)" },
+  growth_4_v1: { base: 57, effective: 26, ratio: "45.6%", status: "Yes" },
+  growth_5_v1: { base: 69, effective: 30, ratio: "43.5%", status: "Yes" },
   growth_6_v1: { base: 46, effective: 23, ratio: "50.0%", status: "Yes" },
-  balanced_2_v1: { base: 29, effective: 13, ratio: "44.8%", status: "Yes" },
-  balanced_3_v1: { base: 43, effective: 20, ratio: "46.5%", status: "Yes" },
-  balanced_4_v1: { base: 45, effective: 22, ratio: "48.9%", status: "Yes" },
-  balanced_5_v1: { base: 60, effective: 28, ratio: "46.7%", status: "Yes" },
+  balanced_2_v1: { base: 28, effective: 13, ratio: "46.4%", status: "Yes" },
+  balanced_3_v1: { base: 42, effective: 20, ratio: "47.6%", status: "Yes" },
+  balanced_4_v1: { base: 44, effective: 22, ratio: "50.0%", status: "Yes" },
+  balanced_5_v1: { base: 58, effective: 28, ratio: "48.3%", status: "Yes" },
   balanced_6_v1: { base: 50, effective: 27, ratio: "54.0%", status: "Yes" },
   strength_2_v1: { base: 28, effective: 13, ratio: "46.4%", status: "Yes" },
-  strength_3_v1: { base: 42, effective: 18, ratio: "42.9%", status: "Yes" },
-  strength_4_v1: { base: 45, effective: 21, ratio: "46.7%", status: "Yes" },
-  strength_5_v1: { base: 61, effective: 26, ratio: "42.6%", status: "Yes" },
+  strength_3_v1: { base: 41, effective: 18, ratio: "43.9%", status: "Yes" },
+  strength_4_v1: { base: 43, effective: 21, ratio: "48.8%", status: "Yes" },
+  strength_5_v1: { base: 58, effective: 26, ratio: "44.8%", status: "Yes" },
   strength_6_v1: { base: 53, effective: 27, ratio: "50.9%", status: "Yes" },
   home_2_v1: { base: 27, effective: 15, ratio: "55.6%", status: "Yes" },
   home_3_v1: { base: 34, effective: 20, ratio: "58.8%", status: "Yes" },
   home_4_v1: { base: 39, effective: 20, ratio: "51.3%", status: "Yes" },
-  home_5_v1: { base: 31, effective: 16, ratio: "51.6%", status: "Yes" },
+  home_5_v1: { base: 30, effective: 16, ratio: "53.3%", status: "Yes" },
   home_6_v1: { base: 32, effective: 16, ratio: "50.0%", status: "Yes" },
 };
 
@@ -804,11 +804,11 @@ test("Rule B independent oracle across all 20 real compilations", async () => {
       assert.equal(totalEffective, expectedFixture.effective, `${blueprintId} effective sets`);
       const ratio = totalEffective / totalBase;
       if (blueprintId === "growth_2_v1") {
-        assert.equal(totalBase, 32);
+        assert.equal(totalBase, 31);
         assert.equal(totalEffective, 12);
         assert.ok(ratio < 0.4, "growth_2_v1 must be below 40%");
       } else if (blueprintId === "growth_3_v1") {
-        assert.equal(totalBase, 49);
+        assert.equal(totalBase, 47);
         assert.equal(totalEffective, 17);
         assert.ok(ratio < 0.4, "growth_3_v1 must be below 40%");
       } else {
@@ -1415,7 +1415,7 @@ test("proposal creation requires explicit exact supported compiler versions", as
   });
 
   const coerced = clone(Compiler.VERSIONS);
-  coerced.compiler = "2";
+  coerced.compiler = String(Compiler.VERSIONS.compiler);
   const coercedResult = await proposeRecoveryWeek(
     validRecoveryInput({ predecessorInstance: instance, supportedVersions: coerced }),
   );
@@ -1423,7 +1423,7 @@ test("proposal creation requires explicit exact supported compiler versions", as
   assert.equal(coercedResult.code, "unsupported_compiler_version");
 
   const drifted = clone(Compiler.VERSIONS);
-  drifted.compiler = 3;
+  drifted.compiler = Compiler.VERSIONS.compiler + 1;
   const driftedResult = await proposeRecoveryWeek(
     validRecoveryInput({ predecessorInstance: instance, supportedVersions: drifted }),
   );
@@ -1607,8 +1607,8 @@ test("own-record boundary: inherited or sparse policy fields never satisfy the a
     }],
     ["inherited fake_v1 allowlist membership", (p) => {
       p.allowlistedMisses = inherit(
-        { fake_v1: { base: 32, effective: 12 } },
-        { growth_2_v1: { base: 32, effective: 12 }, growth_3_v1: { base: 49, effective: 17 } },
+        { fake_v1: { base: 31, effective: 12 } },
+        { growth_2_v1: { base: 31, effective: 12 }, growth_3_v1: { base: 47, effective: 17 } },
       );
       return p;
     }],
@@ -1824,8 +1824,8 @@ test("raw-evidence own-data boundary: ordinary JSON and null-prototype evidence 
 test("own-record boundary: a forged fake_v1 out-of-band instance cannot mint a preview via an inherited allowlist", async () => {
   const inheritedAllow = clone(APPROVED_POLICY_V2);
   inheritedAllow.allowlistedMisses = inherit(
-    { fake_v1: { base: 32, effective: 12 } },
-    { growth_2_v1: { base: 32, effective: 12 }, growth_3_v1: { base: 49, effective: 17 } },
+    { fake_v1: { base: 31, effective: 12 } },
+    { growth_2_v1: { base: 31, effective: 12 }, growth_3_v1: { base: 47, effective: 17 } },
   );
 
   assert.deepEqual(evaluateRecoveryEligibility(freshEvidence(), inheritedAllow), INELIGIBLE_POLICY);
@@ -1855,7 +1855,7 @@ test("own-record boundary: a forged fake_v1 out-of-band instance cannot mint a p
   // Defence in depth: a plain-object allowlist that simply adds fake_v1 is still
   // rejected as policy_invalid.
   const plainExtra = clone(APPROVED_POLICY_V2);
-  plainExtra.allowlistedMisses.fake_v1 = { base: 32, effective: 12 };
+  plainExtra.allowlistedMisses.fake_v1 = { base: 31, effective: 12 };
   assert.deepEqual(evaluateRecoveryEligibility(freshEvidence(), plainExtra), INELIGIBLE_POLICY);
 });
 
@@ -2993,8 +2993,8 @@ test("re-entry separation and Policy v2: no weekPrescriptions; primary patterns 
 
   assert.deepEqual(APPROVED_POLICY_V2.primaryPatterns, ["knee-dominant", "horizontal press", "hip/hinge"]);
   assert.deepEqual(APPROVED_POLICY_V2.allowlistedMisses, {
-    growth_2_v1: { base: 32, effective: 12 },
-    growth_3_v1: { base: 49, effective: 17 },
+    growth_2_v1: { base: 31, effective: 12 },
+    growth_3_v1: { base: 47, effective: 17 },
   });
   assert.equal(Transition.RECOVERY_POLICY_VERSION, 2);
 });

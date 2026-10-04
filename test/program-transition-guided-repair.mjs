@@ -10,7 +10,7 @@
  *  2. Real active compiled program, nonempty log sentinel, active DraftV2/checkpoint,
  *     and both durable replicas (localStorage and IndexedDB).
  *  3. Derives guided fallback from representative real resolver Unavailable (shorter session
- *     30m on balanced 4d), and from a real target-1 lower-frequency Unavailable
+ *     30m on balanced 3d), and from a real target-1 lower-frequency Unavailable
  *     (sibling_blueprint_not_found; no authored family has a frequency-1 blueprint):
  *     the staged/resumed guided instruction keeps diagnostics.mainConstraint "fewer_days"
  *     and diagnostics.daysPerWeek === 1, auto-resumes on reload, mutates nothing durable,
@@ -186,7 +186,7 @@ async function run() {
           desiredResult: "balanced",
           structuredExperience: "6_to_24m",
           recentConsistency: "most",
-          daysPerWeek: 4,
+          daysPerWeek: 3,
           sessionMinutes: 90,
           preferredRestSeconds: 90,
           environment: { kind: "commercial_gym" },
@@ -231,7 +231,7 @@ async function run() {
       await window.__repforgeFinalizeProgramSetup({
         exercises: compiled.preview.program,
         name: compiled.name || "Balanced 4-Day",
-        answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
+        answers: { goal: "strength_hypertrophy", daysPerWeek: 3 },
         destination: "log",
         origin: "first-run",
         draftConfirmed: true,
@@ -332,7 +332,7 @@ async function run() {
     };
 
     // Step 2: Representative real resolver Unavailable
-    console.log("\n2. Representative resolver Unavailable: shorter session 30m on balanced 4d");
+    console.log("\n2. Representative resolver Unavailable: shorter session 30m on balanced 3d");
     const diag30m = {
       kind: "sessions_too_long",
       answers: { sessionMinutes: 30 },
@@ -357,7 +357,7 @@ async function run() {
     // repair whose transition instruction keeps daysPerWeek === 1, and the
     // build/editor setup draft auto-resumes on reload. No authored family carries
     // a frequency-1 blueprint, so the real resolver returns sibling_blueprint_not_found
-    // for the active authored (balanced/4) predecessor; createGuidedManualRepair
+    // for the active authored (balanced/3) predecessor; createGuidedManualRepair
     // still validates the diagnosis target over 1..7, and result.diagnostics.daysPerWeek
     // is the independent transition instruction — the ordinary build
     // answers.daysPerWeek seed keeps its own 2..6 editor constraint. This probe

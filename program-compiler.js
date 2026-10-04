@@ -3,10 +3,10 @@
 
   const VERSIONS = Object.freeze({
     schema: 1,
-    blueprint: 1,
-    compiler: 2,
-    catalogue: 1,
-    rules: 1,
+    blueprint: 2,
+    compiler: 3,
+    catalogue: 2,
+    rules: 2,
     context: 2,
     recentConsistency: 1,
     simpleStart: 1,
@@ -44,7 +44,7 @@
   const slot = (template, overrides = {}) => Object.freeze({ template, ...overrides });
   const day = (label, slots) => Object.freeze({ label, slots: Object.freeze(slots) });
   const blueprint = (familyId, frequency, days, relations = []) => Object.freeze({
-    id: `${familyId}_${frequency}_v1`, familyId, frequency, version: 1, kind: "authored_sibling",
+    id: `${familyId}_${frequency}_v1`, familyId, frequency, version: VERSIONS.blueprint, kind: "authored_sibling",
     days: Object.freeze(days), relations: Object.freeze(relations),
     release: Object.freeze({ browse: true, complete: true, executable: true, tested: true }),
   });
@@ -67,51 +67,64 @@
     transitionClass: "new_station",
     timeClass: "standard",
     efficientEligible: true,
+    // Plan 065: a slot is a training job. A candidate must perform one of the
+    // job's functions as a primary function; preferred functions rank first.
+    functions: Object.freeze([]),
+    preferredFunctions: Object.freeze([]),
+    // When false (the default), a candidate must be primary for one of the
+    // job's primary muscles. Only deliberately broad jobs accept secondary.
+    secondaryAcceptable: false,
+    // Coverage jobs pick the function the week has trained least so far.
+    balanceAcrossFunctions: false,
   });
   const contract = (value) => Object.freeze({ ...baseContract, ...value });
+  const HEAVY = Object.freeze({ loading: ["known_grid"], anchor: [true] });
+  const PREFER_BARBELL = Object.freeze({ equipment: ["barbell"] });
   const SLOT_TEMPLATES = Object.freeze({
-    knee_growth: contract({ role: "hypertrophy_compound", patterns: ["squat"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"], status: "protected" }),
-    hinge_growth: contract({ role: "hypertrophy_compound", patterns: ["hinge", "leg_curl", "squat"], primaryMuscles: ["hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"], status: "protected" }),
-    knee_anchor: contract({ role: "heavy_primary", patterns: ["squat"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes"], prescriptionClasses: ["heavy_3_6"], strategies: ["anchor_backoff@1"], requiredCharacteristics: { loading: ["known_grid"], primarySuitability: ["high"] }, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
-    press_anchor: contract({ role: "heavy_primary", patterns: ["press"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["heavy_3_6"], strategies: ["anchor_backoff@1"], requiredCharacteristics: { loading: ["known_grid"], primarySuitability: ["high"] }, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
-    knee_effort: contract({ role: "heavy_primary", patterns: ["squat"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes"], prescriptionClasses: ["heavy_3_6"], strategies: ["effort_target@1", "range@1"], requiredCharacteristics: { loading: ["known_grid"], primarySuitability: ["high"] }, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
-    press_effort: contract({ role: "heavy_primary", patterns: ["press"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["heavy_3_6"], strategies: ["effort_target@1", "range@1"], requiredCharacteristics: { loading: ["known_grid"], primarySuitability: ["high"] }, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
-    hinge_effort: contract({ role: "heavy_primary", patterns: ["hinge"], primaryMuscles: ["hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["heavy_3_6"], strategies: ["effort_target@1", "range@1"], requiredCharacteristics: { loading: ["known_grid"], primarySuitability: ["high"] }, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
-    knee_volume: contract({ role: "volume_counterpart", patterns: ["squat"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["rep_goal@1", "range@1"], status: "protected" }),
-    press_volume: contract({ role: "volume_counterpart", patterns: ["press"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["rep_goal@1", "range@1"], status: "protected" }),
-    hinge_volume: contract({ role: "volume_counterpart", patterns: ["hinge"], primaryMuscles: ["hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["rep_goal@1", "range@1"], status: "protected" }),
-    horizontal_press: contract({ role: "hypertrophy_compound", patterns: ["press"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
-    incline_press: contract({ role: "hypertrophy_compound", patterns: ["incline_press", "press"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
-    vertical_press: contract({ role: "hypertrophy_compound", patterns: ["shoulder_press"], primaryMuscles: ["front_delts"], secondaryMuscles: ["triceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
-    horizontal_pull: contract({ role: "hypertrophy_compound", patterns: ["row"], primaryMuscles: ["back"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
-    supported_pull: contract({ role: "hypertrophy_compound", patterns: ["row"], primaryMuscles: ["back"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_8_12", "compound_4_8"], strategies: ["range@1"], preferredCharacteristics: { stability: ["high"] } }),
-    vertical_pull: contract({ role: "hypertrophy_compound", patterns: ["pulldown"], primaryMuscles: ["lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
-    pull_mixed: contract({ role: "hypertrophy_compound", patterns: ["row", "pulldown"], primaryMuscles: ["back", "lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
-    vertical_press_or_pull: contract({ role: "hypertrophy_compound", patterns: ["shoulder_press", "pulldown"], primaryMuscles: ["front_delts", "lats"], secondaryMuscles: ["triceps", "biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
-    unilateral_knee: contract({ role: "hypertrophy_compound", patterns: ["squat"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes", "hamstrings"], prescriptionClasses: ["compound_8_12", "compound_4_8"], strategies: ["range@1"], preferredCharacteristics: { unilateral: [true] } }),
-    quad_assistance: contract({ role: "isolation_accessory", patterns: ["leg_extension", "squat"], primaryMuscles: ["quads"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"] }),
-    hamstring_assistance: contract({ role: "isolation_accessory", patterns: ["leg_curl", "hinge", "squat"], primaryMuscles: ["hamstrings"], secondaryMuscles: ["glutes"], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"] }),
-    hip_extension: contract({ role: "hypertrophy_compound", patterns: ["hinge", "squat"], primaryMuscles: ["glutes", "hamstrings"], secondaryMuscles: [], prescriptionClasses: ["compound_8_12", "compound_4_8"], strategies: ["range@1"] }),
-    chest: contract({ role: "isolation_accessory", patterns: ["chest_iso", "press", "incline_press"], primaryMuscles: ["chest"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["rep_goal@1", "range@1"] }),
-    back: contract({ role: "isolation_accessory", patterns: ["row", "pulldown", "pull"], primaryMuscles: ["back", "lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["rep_goal@1", "range@1"] }),
-    lateral_delt: contract({ role: "isolation_accessory", patterns: ["lateral_raise", "delts"], primaryMuscles: ["side_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
-    rear_delt: contract({ role: "isolation_accessory", patterns: ["rear_delt", "row"], primaryMuscles: ["rear_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
-    delt_mixed: contract({ role: "isolation_accessory", patterns: ["lateral_raise", "rear_delt", "delts"], primaryMuscles: ["side_delts", "rear_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
-    biceps: contract({ role: "isolation_accessory", patterns: ["curl", "arms"], primaryMuscles: ["biceps"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
-    triceps: contract({ role: "isolation_accessory", patterns: ["triceps", "arms"], primaryMuscles: ["triceps"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
-    arms: contract({ role: "isolation_accessory", patterns: ["curl", "triceps", "arms"], primaryMuscles: ["biceps", "triceps"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
-    calf: contract({ role: "isolation_accessory", patterns: ["calves"], primaryMuscles: ["calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
-    trunk: contract({ role: "isolation_accessory", patterns: ["abs", "core"], primaryMuscles: ["core"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], transitionClass: "same_station" }),
-    priority: contract({ role: "isolation_accessory", patterns: ["leg_extension", "leg_curl", "chest_iso", "row", "pulldown", "lateral_raise", "rear_delt", "curl", "triceps", "calves"], primaryMuscles: ["quads", "hamstrings", "chest", "back", "lats", "side_delts", "rear_delts", "biceps", "triceps", "calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"], status: "optional", priorityBehavior: "priority_only", transitionClass: "same_station" }),
-    optional_arms: contract({ role: "isolation_accessory", patterns: ["curl", "triceps", "arms", "calves", "lateral_raise"], primaryMuscles: ["biceps", "triceps", "calves", "side_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1", "rep_goal@1"], status: "optional", transitionClass: "same_station" }),
-    home_knee: contract({ role: "hypertrophy_compound", patterns: ["squat"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes", "hamstrings"], prescriptionClasses: ["compound_8_12"], strategies: ["range@1"], status: "protected", warmupClass: "assistance", transitionClass: "home_change", preferredCharacteristics: { stability: ["high", "moderate"] } }),
-    home_push: contract({ role: "hypertrophy_compound", patterns: ["press", "incline_press", "triceps"], primaryMuscles: ["chest", "triceps"], secondaryMuscles: ["front_delts"], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "protected", warmupClass: "assistance", transitionClass: "home_change" }),
-    home_posterior: contract({ role: "hypertrophy_compound", patterns: ["hinge", "leg_curl", "squat"], primaryMuscles: ["hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "protected", warmupClass: "assistance", transitionClass: "home_change" }),
-    home_pull: contract({ role: "hypertrophy_compound", patterns: ["row", "pulldown"], primaryMuscles: ["back", "lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_8_12"], strategies: ["range@1"], status: "conditional", priorityBehavior: "protect_when_capable", warmupClass: "assistance", transitionClass: "home_change" }),
-    home_lateral: contract({ role: "isolation_accessory", patterns: ["lateral_raise", "delts"], primaryMuscles: ["side_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], status: "conditional", requiredCapabilities: ["external_resistance"], warmupClass: "assistance", transitionClass: "home_change" }),
-    home_calf: contract({ role: "isolation_accessory", patterns: ["calves"], primaryMuscles: ["calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], transitionClass: "home_change" }),
-    home_trunk: contract({ role: "isolation_accessory", patterns: ["abs", "core"], primaryMuscles: ["core"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], transitionClass: "home_change" }),
-    home_coverage: contract({ role: "hypertrophy_compound", patterns: ["squat", "hinge", "press", "row", "pulldown", "abs", "calves"], primaryMuscles: ["quads", "hamstrings", "glutes", "chest", "back", "lats", "core", "calves"], secondaryMuscles: [], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "reducible", transitionClass: "home_change" }),
+    knee_growth: contract({ role: "hypertrophy_compound", patterns: ["squat"], functions: ["knee_extension"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"], status: "protected" }),
+    hinge_growth: contract({ role: "hypertrophy_compound", patterns: ["hinge", "leg_curl", "squat"], functions: ["hip_hinge", "hip_extension"], preferredFunctions: ["hip_hinge"], primaryMuscles: ["hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"], status: "protected" }),
+    knee_anchor: contract({ role: "heavy_primary", patterns: ["squat"], functions: ["knee_extension"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes"], prescriptionClasses: ["heavy_3_6"], strategies: ["anchor_backoff@1"], requiredCharacteristics: HEAVY, preferredCharacteristics: PREFER_BARBELL, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
+    press_anchor: contract({ role: "heavy_primary", patterns: ["press"], functions: ["horizontal_push"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["heavy_3_6"], strategies: ["anchor_backoff@1"], requiredCharacteristics: HEAVY, preferredCharacteristics: PREFER_BARBELL, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
+    knee_effort: contract({ role: "heavy_primary", patterns: ["squat"], functions: ["knee_extension"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes"], prescriptionClasses: ["heavy_3_6"], strategies: ["effort_target@1", "range@1"], requiredCharacteristics: HEAVY, preferredCharacteristics: PREFER_BARBELL, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
+    press_effort: contract({ role: "heavy_primary", patterns: ["press"], functions: ["horizontal_push"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["heavy_3_6"], strategies: ["effort_target@1", "range@1"], requiredCharacteristics: HEAVY, preferredCharacteristics: PREFER_BARBELL, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
+    hinge_effort: contract({ role: "heavy_primary", patterns: ["hinge"], functions: ["hip_hinge"], primaryMuscles: ["hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["heavy_3_6"], strategies: ["effort_target@1", "range@1"], requiredCharacteristics: HEAVY, preferredCharacteristics: PREFER_BARBELL, status: "protected", warmupClass: "primary", restClass: "primary", efficientEligible: false }),
+    knee_volume: contract({ role: "volume_counterpart", patterns: ["squat"], functions: ["knee_extension"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["rep_goal@1", "range@1"], status: "protected" }),
+    press_volume: contract({ role: "volume_counterpart", patterns: ["press"], functions: ["horizontal_push"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["rep_goal@1", "range@1"], status: "protected" }),
+    hinge_volume: contract({ role: "volume_counterpart", patterns: ["hinge"], functions: ["hip_hinge"], primaryMuscles: ["hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["rep_goal@1", "range@1"], status: "protected" }),
+    horizontal_press: contract({ role: "hypertrophy_compound", patterns: ["press"], functions: ["horizontal_push"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
+    incline_press: contract({ role: "hypertrophy_compound", patterns: ["incline_press", "press"], functions: ["incline_push", "horizontal_push"], preferredFunctions: ["incline_push"], primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "front_delts"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
+    vertical_press: contract({ role: "hypertrophy_compound", patterns: ["shoulder_press"], functions: ["vertical_push"], primaryMuscles: ["front_delts"], secondaryMuscles: ["triceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
+    horizontal_pull: contract({ role: "hypertrophy_compound", patterns: ["row"], functions: ["horizontal_pull"], primaryMuscles: ["back"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
+    supported_pull: contract({ role: "hypertrophy_compound", patterns: ["row"], functions: ["horizontal_pull"], primaryMuscles: ["back"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_8_12", "compound_4_8"], strategies: ["range@1"], preferredCharacteristics: { stability: ["high"] } }),
+    vertical_pull: contract({ role: "hypertrophy_compound", patterns: ["pulldown"], functions: ["vertical_pull"], primaryMuscles: ["lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
+    pull_mixed: contract({ role: "hypertrophy_compound", patterns: ["row", "pulldown"], functions: ["horizontal_pull", "vertical_pull"], primaryMuscles: ["back", "lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
+    vertical_press_or_pull: contract({ role: "hypertrophy_compound", patterns: ["shoulder_press", "pulldown"], functions: ["vertical_push", "vertical_pull"], primaryMuscles: ["front_delts", "lats"], secondaryMuscles: ["triceps", "biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
+    unilateral_knee: contract({ role: "hypertrophy_compound", patterns: ["squat"], functions: ["unilateral_knee"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes", "hamstrings"], prescriptionClasses: ["compound_8_12", "compound_4_8"], strategies: ["range@1"], preferredCharacteristics: { unilateral: [true] } }),
+    quad_assistance: contract({ role: "isolation_accessory", patterns: ["leg_extension", "squat"], functions: ["knee_extension"], primaryMuscles: ["quads"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"] }),
+    hamstring_assistance: contract({ role: "isolation_accessory", patterns: ["leg_curl", "hinge", "squat"], functions: ["knee_flexion", "hip_hinge"], preferredFunctions: ["knee_flexion"], primaryMuscles: ["hamstrings"], secondaryMuscles: ["glutes"], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"] }),
+    hip_extension: contract({ role: "hypertrophy_compound", patterns: ["hinge", "squat"], functions: ["hip_extension", "hip_hinge"], preferredFunctions: ["hip_extension"], primaryMuscles: ["glutes", "hamstrings"], secondaryMuscles: [], prescriptionClasses: ["compound_8_12", "compound_4_8"], strategies: ["range@1"] }),
+    chest: contract({ role: "isolation_accessory", patterns: ["chest_iso", "press", "incline_press"], functions: ["chest_fly", "horizontal_push", "incline_push"], preferredFunctions: ["chest_fly"], primaryMuscles: ["chest"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["rep_goal@1", "range@1"] }),
+    back: contract({ role: "isolation_accessory", patterns: ["row", "pulldown", "pull"], functions: ["horizontal_pull", "vertical_pull", "shoulder_extension"], primaryMuscles: ["back", "lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["rep_goal@1", "range@1"] }),
+    lateral_delt: contract({ role: "isolation_accessory", patterns: ["lateral_raise", "delts"], functions: ["lateral_raise"], primaryMuscles: ["side_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
+    rear_delt: contract({ role: "isolation_accessory", patterns: ["rear_delt", "row"], functions: ["rear_delt"], primaryMuscles: ["rear_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
+    delt_mixed: contract({ role: "isolation_accessory", patterns: ["lateral_raise", "rear_delt", "delts"], functions: ["lateral_raise", "rear_delt"], primaryMuscles: ["side_delts", "rear_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station", balanceAcrossFunctions: true }),
+    biceps: contract({ role: "isolation_accessory", patterns: ["curl", "arms"], functions: ["elbow_flexion"], primaryMuscles: ["biceps"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
+    triceps: contract({ role: "isolation_accessory", patterns: ["triceps", "arms"], functions: ["elbow_extension"], primaryMuscles: ["triceps"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
+    arms: contract({ role: "isolation_accessory", patterns: ["curl", "triceps", "arms"], functions: ["elbow_flexion", "elbow_extension"], primaryMuscles: ["biceps", "triceps"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station", balanceAcrossFunctions: true }),
+    calf: contract({ role: "isolation_accessory", patterns: ["calves"], functions: ["plantar_flexion"], primaryMuscles: ["calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
+    trunk: contract({ role: "isolation_accessory", patterns: ["abs", "core"], functions: ["trunk"], primaryMuscles: ["core"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], transitionClass: "same_station" }),
+    priority: contract({ role: "isolation_accessory", patterns: ["leg_extension", "leg_curl", "chest_iso", "row", "pulldown", "lateral_raise", "rear_delt", "curl", "triceps", "calves"], functions: ["knee_extension", "knee_flexion", "chest_fly", "horizontal_pull", "vertical_pull", "lateral_raise", "rear_delt", "elbow_flexion", "elbow_extension", "plantar_flexion"], primaryMuscles: ["quads", "hamstrings", "chest", "back", "lats", "side_delts", "rear_delts", "biceps", "triceps", "calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"], status: "optional", priorityBehavior: "priority_only", transitionClass: "same_station" }),
+    optional_arms: contract({ role: "isolation_accessory", patterns: ["curl", "triceps", "arms", "calves", "lateral_raise"], functions: ["elbow_flexion", "elbow_extension", "plantar_flexion", "lateral_raise"], primaryMuscles: ["biceps", "triceps", "calves", "side_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1", "rep_goal@1"], status: "optional", transitionClass: "same_station", balanceAcrossFunctions: true }),
+    home_knee: contract({ role: "hypertrophy_compound", patterns: ["squat"], functions: ["knee_extension", "unilateral_knee"], preferredFunctions: ["knee_extension"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes", "hamstrings"], prescriptionClasses: ["compound_8_12"], strategies: ["range@1"], status: "protected", warmupClass: "assistance", transitionClass: "home_change", preferredCharacteristics: { stability: ["high", "moderate"] } }),
+    home_push: contract({ role: "hypertrophy_compound", patterns: ["press", "incline_press", "triceps"], functions: ["horizontal_push", "incline_push", "elbow_extension"], preferredFunctions: ["horizontal_push"], primaryMuscles: ["chest", "triceps"], secondaryMuscles: ["front_delts"], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "protected", warmupClass: "assistance", transitionClass: "home_change" }),
+    home_posterior: contract({ role: "hypertrophy_compound", patterns: ["hinge", "leg_curl", "squat"], functions: ["hip_hinge", "hip_extension", "knee_flexion"], primaryMuscles: ["hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "protected", warmupClass: "assistance", transitionClass: "home_change" }),
+    home_pull: contract({ role: "hypertrophy_compound", patterns: ["row", "pulldown"], functions: ["horizontal_pull", "vertical_pull"], primaryMuscles: ["back", "lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_8_12"], strategies: ["range@1"], status: "conditional", priorityBehavior: "protect_when_capable", warmupClass: "assistance", transitionClass: "home_change" }),
+    home_lateral: contract({ role: "isolation_accessory", patterns: ["lateral_raise", "delts"], functions: ["lateral_raise"], primaryMuscles: ["side_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], status: "conditional", requiredCapabilities: ["external_resistance"], warmupClass: "assistance", transitionClass: "home_change" }),
+    home_calf: contract({ role: "isolation_accessory", patterns: ["calves"], functions: ["plantar_flexion"], primaryMuscles: ["calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], transitionClass: "home_change" }),
+    home_trunk: contract({ role: "isolation_accessory", patterns: ["abs", "core"], functions: ["trunk"], primaryMuscles: ["core"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], transitionClass: "home_change" }),
+    home_coverage_lower: contract({ role: "hypertrophy_compound", patterns: ["squat", "hinge"], functions: ["knee_extension", "unilateral_knee", "hip_hinge", "hip_extension", "knee_flexion"], primaryMuscles: ["quads", "hamstrings", "glutes"], secondaryMuscles: [], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "reducible", transitionClass: "home_change", balanceAcrossFunctions: true }),
+    home_coverage_upper: contract({ role: "hypertrophy_compound", patterns: ["press", "row", "pulldown"], functions: ["horizontal_push", "incline_push", "vertical_push", "horizontal_pull", "vertical_pull"], primaryMuscles: ["chest", "back", "lats", "front_delts"], secondaryMuscles: [], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "reducible", transitionClass: "home_change", balanceAcrossFunctions: true }),
+    home_coverage_trunk_calf: contract({ role: "isolation_accessory", patterns: ["abs", "calves"], functions: ["trunk", "plantar_flexion"], primaryMuscles: ["core", "calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], status: "reducible", transitionClass: "home_change", balanceAcrossFunctions: true }),
   });
   const MUSCLE_IDS = Object.freeze(unique(Object.values(SLOT_TEMPLATES)
     .flatMap((value) => [...value.primaryMuscles, ...value.secondaryMuscles])).sort());
@@ -227,22 +240,22 @@
       day("Knee + push", [slot("home_knee"), slot("home_push"), slot("unilateral_knee"), slot("home_trunk")]),
       day("Hip + pull-capable", [slot("home_posterior"), slot("home_pull"), slot("unilateral_knee"), slot("home_calf")]),
       day("Unilateral + push", [slot("unilateral_knee"), slot("home_push"), slot("home_posterior"), slot("home_trunk")]),
-      day("Mixed", [slot("home_coverage"), slot("home_pull"), slot("home_posterior"), slot("home_coverage")]),
+      day("Mixed", [slot("home_coverage_upper"), slot("home_pull"), slot("home_posterior"), slot("home_coverage_lower")]),
     ]),
     blueprint("home", 5, [
       day("Knee + push + trunk", [slot("home_knee"), slot("home_push"), slot("home_trunk")]),
       day("Hip + available pull", [slot("home_posterior"), slot("home_pull")]),
       day("Unilateral + push", [slot("unilateral_knee"), slot("home_push")]),
       day("Posterior + available pull + trunk", [slot("home_posterior"), slot("home_pull"), slot("home_trunk")]),
-      day("Mixed coverage", [slot("home_coverage"), slot("home_coverage"), slot("home_coverage")]),
+      day("Mixed coverage", [slot("home_coverage_lower"), slot("home_coverage_upper"), slot("home_coverage_trunk_calf")]),
     ]),
     blueprint("home", 6, [
       day("Knee + push + trunk", [slot("home_knee", { efficient: true }), slot("home_push", { efficient: true }), slot("home_trunk", { efficient: true })]),
-      day("Hip + pull-capability", [slot("home_posterior", { efficient: true }), slot("home_pull", { efficient: true }), slot("home_coverage", { efficient: true })]),
+      day("Hip + pull-capability", [slot("home_posterior", { efficient: true }), slot("home_pull", { efficient: true }), slot("home_coverage_upper", { efficient: true })]),
       day("Unilateral + push", [slot("unilateral_knee", { efficient: true }), slot("home_push", { efficient: true }), slot("home_trunk", { efficient: true })]),
-      day("Posterior + pull-capability", [slot("home_posterior", { efficient: true }), slot("home_pull", { efficient: true }), slot("home_coverage", { efficient: true })]),
-      day("Knee / hip + trunk", [slot("home_coverage", { efficient: true }), slot("home_posterior", { efficient: true }), slot("home_trunk", { efficient: true })]),
-      day("Mixed coverage", [slot("home_coverage", { efficient: true }), slot("home_coverage", { efficient: true }), slot("home_coverage", { efficient: true })]),
+      day("Posterior + pull-capability", [slot("home_posterior", { efficient: true }), slot("home_pull", { efficient: true }), slot("home_coverage_upper", { efficient: true })]),
+      day("Knee / hip + trunk", [slot("home_coverage_lower", { efficient: true }), slot("home_posterior", { efficient: true }), slot("home_trunk", { efficient: true })]),
+      day("Mixed coverage", [slot("home_coverage_lower", { efficient: true }), slot("home_coverage_upper", { efficient: true }), slot("home_coverage_trunk_calf", { efficient: true })]),
     ]),
   ]);
   const BLUEPRINT_BY_ID = new Map(BLUEPRINTS.map((item) => [item.id, item]));
@@ -306,12 +319,12 @@
   const RULES = Object.freeze({
     prescriptionClasses: Object.freeze({
       heavy_3_6: Object.freeze({ repRanges: [[3, 6]], sets: [2, 3], defaultSets: 3, efficientSets: 2, rir: [2, 3], rest: [120, 240] }),
-      compound_4_8: Object.freeze({ repRanges: [[4, 8]], sets: [2, 3], defaultSets: 3, efficientSets: 2, rir: [1, 3], efficientRir: [0, 2], rest: [90, 180] }),
-      compound_8_12: Object.freeze({ repRanges: [[8, 12]], sets: [2, 3], defaultSets: 3, efficientSets: 2, rir: [1, 3], efficientRir: [0, 2], rest: [90, 180] }),
+      compound_4_8: Object.freeze({ repRanges: [[4, 8]], sets: [2, 3], defaultSets: 3, efficientSets: 2, minimumDoseSets: 1, rir: [1, 3], efficientRir: [0, 2], rest: [90, 180] }),
+      compound_8_12: Object.freeze({ repRanges: [[8, 12]], sets: [2, 3], defaultSets: 3, efficientSets: 2, minimumDoseSets: 1, rir: [1, 3], efficientRir: [0, 2], rest: [90, 180] }),
       isolation_8_15: Object.freeze({ repRanges: [[8, 15]], sets: [1, 3], defaultSets: 2, efficientSets: 2, rir: [1, 3], efficientRir: [0, 2], rest: [60, 120] }),
     }),
     time: Object.freeze({ workingSetSeconds: 45, warmupSeconds: { primary: 300, compound: 120, assistance: 60 }, transitionSeconds: { new_station: 90, home_change: 45, same_station: 20 }, bufferMinimumSeconds: 300, bufferPercent: 10 }),
-    reductionOrder: Object.freeze(["remove_optional", "efficient_two_set", "trim_reducible_assistance", "conflict"]),
+    reductionOrder: Object.freeze(["remove_priority_bonus", "remove_optional", "efficient_two_set", "reselect_redundant", "omit_redundant", "trim_reducible_assistance", "omit_accessory", "minimum_dose_single_set", "conflict"]),
     reentry: Object.freeze({ interrupted: { normalFromWeek: 2 }, returning: { normalFromWeek: 3 } }),
   });
 
@@ -335,6 +348,19 @@
     return [8, 15];
   }
 
+  // Plan 065: patterns of entries with no authored compiler block (custom and
+  // synthetic entries) map to functions here. Built-in entries always carry an
+  // authored block from tools/exercise-compiler-data.json.
+  const PATTERN_FUNCTIONS = Object.freeze({
+    squat: "knee_extension", hinge: "hip_hinge", leg_curl: "knee_flexion", leg_extension: "knee_extension",
+    press: "horizontal_push", incline_press: "incline_push", shoulder_press: "vertical_push", row: "horizontal_pull",
+    pulldown: "vertical_pull", pull: "shoulder_extension", chest_iso: "chest_fly", lateral_raise: "lateral_raise",
+    delts: "lateral_raise", rear_delt: "rear_delt", curl: "elbow_flexion", arms: "elbow_flexion",
+    triceps: "elbow_extension", calves: "plantar_flexion", abs: "trunk", core: "trunk", traps: "shrug",
+    forearms: "grip", adduction: "hip_adduction", abduction: "hip_abduction",
+  });
+  const SKILL_ORDER = Object.freeze({ low: 3, moderate: 2, high: 1, demanding: 0 });
+
   function normalizeCatalogue(raw, context = {}) {
     const increments = isObject(context.loadIncrements) ? context.loadIncrements : {};
     return (Array.isArray(raw) ? raw : []).filter((entry) => isObject(entry) && typeof entry.id === "string").map((entry) => {
@@ -345,26 +371,33 @@
       const isolation = patterns.some((value) => ["curl", "triceps", "lateral_raise", "rear_delt", "calves", "leg_extension", "leg_curl", "chest_iso", "abs", "core"].includes(value));
       const knownIncrement = Number(entry.loadIncrement || increments[equipment]);
       const loading = equipment === "bodyweight" ? "bodyweight" : equipment === "band" ? "ordinal" : Number.isFinite(knownIncrement) && knownIncrement > 0 ? "known_grid" : "external_unknown";
+      const authored = isObject(entry.compiler) ? entry.compiler : null;
       const inferredRequirements = [];
       if (equipment === "bodyweight" && patterns.some((value) => value === "row" || value === "pulldown")) inferredRequirements.push("safe_pull");
       if (["trb_bw", "cd_bw", "trd_bw", "dpu_bw", "ipu_bw", "ilc_bw", "ghr_bw", "hx_bw"].includes(entry.id)) inferredRequirements.push("training_support");
+      const inferredFunctions = unique(patterns.map((value) => PATTERN_FUNCTIONS[value]).filter(Boolean)).slice(0, 1);
       return Object.freeze({
         id: entry.id,
         name: String(entry.name || entry.id),
         namePt: String(entry.namePt || entry.name || entry.id),
         equipment,
         patterns,
+        functions: authored ? authored.functions.slice() : inferredFunctions,
+        secondaryFunctions: authored ? authored.secondaryFunctions.slice() : [],
+        skill: authored ? authored.skill : "moderate",
         primaryMuscles,
         secondaryMuscles,
-        stability: entry.stability || (["machine", "smith", "cable"].includes(equipment) ? "high" : equipment === "barbell" ? "free" : "moderate"),
+        stability: authored ? authored.stability : entry.stability || (["machine", "smith", "cable"].includes(equipment) ? "high" : equipment === "barbell" ? "free" : "moderate"),
         fatigueDemand: entry.fatigueDemand || (equipment === "barbell" && patterns.some((value) => value === "squat" || value === "hinge") ? "higher_systemic" : isolation ? "low_localized" : "moderate"),
         loading,
         loadIncrement: loading === "known_grid" ? knownIncrement : null,
-        practicalRepRange: practicalRange(entry, equipment, patterns),
-        environmentRequirements: unique([...(Array.isArray(entry.environmentRequirements) ? entry.environmentRequirements.map(token) : []), ...inferredRequirements]),
-        primarySuitability: entry.primarySuitability || (!isolation && ["barbell", "machine", "smith"].includes(equipment) ? "high" : "moderate"),
-        unilateral: entry.unilateral === true || /one arm|single leg|split squat|lunge/i.test(String(entry.name || "")),
+        practicalRepRange: authored ? authored.practicalRepRange.slice() : practicalRange(entry, equipment, patterns),
+        environmentRequirements: authored ? authored.environment.slice() : unique([...(Array.isArray(entry.environmentRequirements) ? entry.environmentRequirements.map(token) : []), ...inferredRequirements]),
+        primarySuitability: authored ? authored.primarySuitability : entry.primarySuitability || (!isolation && ["barbell", "machine", "smith"].includes(equipment) ? "high" : "moderate"),
+        unilateral: authored ? authored.unilateral : entry.unilateral === true || /one arm|single leg|split squat|lunge/i.test(String(entry.name || "")),
         beginnerFriendly: entry.beginnerFriendly !== false,
+        foundationDefault: authored ? authored.foundationDefault : entry.beginnerFriendly !== false,
+        anchor: authored ? authored.anchor : entry.anchor === true,
         rank: Number.isFinite(entry.rank) ? entry.rank : 50,
         custom: entry.custom === true,
       });
@@ -491,37 +524,79 @@
 
   function candidateFits(candidate, contractValue, context) {
     if (!available(candidate, context)) return false;
-    if (!intersects(candidate.patterns, contractValue.patterns)) return false;
-    if (!intersects([...candidate.primaryMuscles, ...candidate.secondaryMuscles], [...contractValue.primaryMuscles, ...contractValue.secondaryMuscles])) return false;
+    const functions = contractValue.functions && contractValue.functions.length ? contractValue.functions : null;
+    if (functions) {
+      if (!intersects(candidate.functions || [], functions)) return false;
+    } else if (!intersects(candidate.patterns, contractValue.patterns)) return false;
+    if (contractValue.secondaryAcceptable) {
+      if (!intersects([...candidate.primaryMuscles, ...candidate.secondaryMuscles], [...contractValue.primaryMuscles, ...contractValue.secondaryMuscles])) return false;
+    } else if (!intersects(candidate.primaryMuscles, contractValue.primaryMuscles)) return false;
     if (contractValue.priorityBehavior === "priority_only" && !intersects(candidate.primaryMuscles, context.priorityMuscles)) return false;
     if (!contractValue.requiredCapabilities.every((value) => capabilitySet(context).has(value))) return false;
     if (!matchesCharacteristics(candidate, contractValue.requiredCharacteristics)) return false;
     return prescriptionClassFor(contractValue, candidate) !== null;
   }
 
-  function preferenceMatches(candidate, contractValue, context) {
-    let count = 0;
-    for (const [key, values] of Object.entries(contractValue.preferredCharacteristics || {})) if (values.includes(candidate[key])) count++;
-    if (context.priorityMuscles.length && intersects([...candidate.primaryMuscles, ...candidate.secondaryMuscles], context.priorityMuscles)) count++;
-    return count;
+  function emptySelectionState() {
+    return { sessionExercises: new Map(), sessionFunctions: new Map(), weekExerciseSets: new Map(), weekFunctionSets: new Map() };
   }
 
-  function candidateOrder(candidate, contractValue, context) {
-    const preferred = context.preferences.includes(candidate.id) ? 1 : 0;
-    const movementPreferred = intersects(candidate.patterns, context.priorityMovements) ? 1 : 0;
+  function recordSelection(state, dayIndex, candidate, sets) {
+    if (!state.sessionExercises.has(dayIndex)) state.sessionExercises.set(dayIndex, new Set());
+    if (!state.sessionFunctions.has(dayIndex)) state.sessionFunctions.set(dayIndex, new Set());
+    state.sessionExercises.get(dayIndex).add(candidate.id);
+    for (const fn of candidate.functions) state.sessionFunctions.get(dayIndex).add(fn);
+    state.weekExerciseSets.set(candidate.id, (state.weekExerciseSets.get(candidate.id) || 0) + sets);
+    for (const fn of candidate.functions) state.weekFunctionSets.set(fn, (state.weekFunctionSets.get(fn) || 0) + sets);
+  }
+
+  // Plan 065 selection keys. Every key is a boolean or a small ordinal; higher
+  // wins; the final key is the stable exercise id. The order is the contract:
+  // tests name keys by these labels.
+  const RANK_KEYS = Object.freeze([
+    "must_have", "capability", "foundation", "movement_priority", "primary_intent", "preferred_function",
+    "avoids_de_emphasis", "history", "not_in_session", "new_function_in_session", "week_balance",
+    "priority_muscle", "preferred_characteristics", "foundation_stability", "home_equipment", "skill",
+    "primary_suitability", "stability", "catalogue_rank",
+  ]);
+  const WEEKLY_EXERCISE_SET_LIMIT = 6;
+
+  function candidateOrder(candidate, contractValue, context, state, dayIndex, options = {}) {
+    const mustHave = context.preferences.includes(candidate.id) ? 1 : 0;
     const history = context.history.some((entry) => entry.libraryId === candidate.id) ? 1 : 0;
-    const preservesPrimaryIntent = intersects(candidate.primaryMuscles, contractValue.primaryMuscles) ? 1 : 0;
+    const evidence = mustHave || history;
+    const capability = candidate.skill !== "demanding" || evidence ? 1 : 0;
+    const foundation = context.profile !== "foundation" || candidate.foundationDefault || evidence ? 1 : 0;
+    const movementPreferred = intersects(candidate.patterns, context.priorityMovements) ? 1 : 0;
+    const primaryIntent = intersects(candidate.primaryMuscles, contractValue.primaryMuscles) ? 1 : 0;
+    const preferredFunction = intersects(candidate.functions, contractValue.preferredFunctions || []) ? 1 : 0;
     const avoidsDeEmphasis = intersects(candidate.primaryMuscles, context.deEmphasizedMuscles) ? 0 : 1;
-    const foundation = context.profile === "foundation" ? Number(candidate.beginnerFriendly) + Number(candidate.stability === "high") : 0;
-    const homeEquipment = candidate.equipment === "bodyweight" ? 3 : candidate.equipment === "dumbbell" ? 2 : candidate.equipment === "band" ? 1 : 0;
-    return [preferred, movementPreferred, preservesPrimaryIntent, avoidsDeEmphasis, history, preferenceMatches(candidate, contractValue, context), foundation, context.familyId === "home" ? homeEquipment : 0, candidate.primarySuitability === "high" ? 1 : 0, candidate.stability === "high" ? 1 : 0, -candidate.rank, candidate.id];
+    const sessionIds = state.sessionExercises.get(dayIndex) || new Set();
+    const sessionFns = state.sessionFunctions.get(dayIndex) || new Set();
+    const notInSession = sessionIds.has(candidate.id) ? 0 : 1;
+    const newFunction = candidate.functions.some((fn) => sessionFns.has(fn)) ? 0 : 1;
+    const weekBalance = contractValue.balanceAcrossFunctions
+      ? -Math.min(...candidate.functions.map((fn) => state.weekFunctionSets.get(fn) || 0))
+      : (state.weekExerciseSets.get(candidate.id) || 0) >= WEEKLY_EXERCISE_SET_LIMIT ? 0 : 1;
+    const priorityMuscle = !options.ignorePriorityMuscles && intersects(candidate.primaryMuscles, context.priorityMuscles) ? 1 : 0;
+    let characteristics = 0;
+    for (const [key, values] of Object.entries(contractValue.preferredCharacteristics || {})) if (values.includes(candidate[key])) characteristics++;
+    const foundationStability = context.profile === "foundation" && candidate.stability === "high" ? 1 : 0;
+    const homeEquipment = context.familyId !== "home" ? 0 : candidate.equipment === "bodyweight" ? 3 : candidate.equipment === "dumbbell" ? 2 : candidate.equipment === "band" ? 1 : 0;
+    const skill = SKILL_ORDER[candidate.skill] ?? 2;
+    return [mustHave, capability, foundation, movementPreferred, primaryIntent, preferredFunction, avoidsDeEmphasis,
+      history, notInSession, newFunction, weekBalance, priorityMuscle, characteristics, foundationStability, homeEquipment,
+      skill, candidate.primarySuitability === "high" ? 1 : 0, candidate.stability === "high" ? 1 : 0, -candidate.rank, candidate.id];
   }
 
-  function compareRank(left, right, contractValue, context) {
-    const a = candidateOrder(left, contractValue, context);
-    const b = candidateOrder(right, contractValue, context);
-    for (let index = 0; index < a.length - 1; index++) if (a[index] !== b[index]) return b[index] - a[index];
-    return String(a.at(-1)).localeCompare(String(b.at(-1)));
+  function rankCandidates(candidates, contractValue, context, state, dayIndex, options = {}) {
+    const keyed = candidates.map((candidate) => ({ candidate, key: candidateOrder(candidate, contractValue, context, state, dayIndex, options) }));
+    keyed.sort((left, right) => {
+      const a = left.key, b = right.key;
+      for (let index = 0; index < a.length - 1; index++) if (a[index] !== b[index]) return b[index] - a[index];
+      return String(a.at(-1)).localeCompare(String(b.at(-1)));
+    });
+    return keyed.map((entry) => entry.candidate);
   }
 
   function strategyFor(contractValue, candidate, context) {
@@ -548,21 +623,24 @@
     return { schemaVersion: 1, strategy: { ...strategy, params }, modifiers: [] };
   }
 
+  // The RIR range a prescription class authors for this slot, after the
+  // Foundation conservative-start preference. Used both at resolution and when
+  // time fitting converts a slot to the efficient prescription, so Foundation
+  // never loses its conservative floor under time pressure.
+  function rirFor(rule, efficient, context) {
+    const authoredRir = efficient && rule.efficientRir ? rule.efficientRir : rule.rir;
+    return context.profile === "foundation"
+      ? [Math.min(Math.max(FOUNDATION_CONSERVATIVE_RIR, authoredRir[0]), authoredRir[1]), authoredRir[1]]
+      : authoredRir.slice();
+  }
+
   function resolvePrescription(contractValue, rawSlot, candidate, context) {
     const classId = prescriptionClassFor(contractValue, candidate);
     if (!classId) return null;
     const rule = RULES.prescriptionClasses[classId];
     const efficient = rawSlot.efficient === true;
-    let sets = efficient ? rule.efficientSets : rule.defaultSets;
-    // The RIR range this slot actually authored (its efficient range when the
-    // blueprint marked the slot efficient, otherwise its normal range).
-    const authoredRir = efficient && rule.efficientRir ? rule.efficientRir : rule.rir;
-    // Foundation prefers the conservative portion of that authored range without
-    // inventing a new target, widening the range, or leaving the authored
-    // bounds: clamp a conservative floor into [authoredMin, authoredMax].
-    const rir = context.profile === "foundation"
-      ? [Math.min(Math.max(FOUNDATION_CONSERVATIVE_RIR, authoredRir[0]), authoredRir[1]), authoredRir[1]]
-      : authoredRir;
+    const sets = efficient ? rule.efficientSets : rule.defaultSets;
+    const rir = rirFor(rule, efficient, context);
     const strategy = strategyFor(contractValue, candidate, context);
     if (!strategy) return null;
     const restSeconds = context.preferredRestSeconds == null
@@ -579,17 +657,21 @@
       restMinimumSeconds: rule.rest[0],
       progression: buildProgression(strategy, rule, candidate, sets, rir),
       efficient,
+      bonusSets: 0,
+      bonusRestoredRir: null,
+      minimumDose: false,
     };
   }
 
-  function resolveSlot(rawSlot, contractValue, catalogue, context, ids) {
-    const candidates = catalogue.filter((candidate) =>
+  function eligibleCandidates(contractValue, catalogue, context, excludeIds = []) {
+    return catalogue.filter((candidate) =>
       !context.dislikes.includes(candidate.id) &&
+      !excludeIds.includes(candidate.id) &&
       !intersects(candidate.primaryMuscles, context.ignoredMuscles) &&
-      candidateFits(candidate, contractValue, context)
-    ).sort((a, b) => compareRank(a, b, contractValue, context));
-    const selected = candidates[0];
-    if (!selected) return null;
+      candidateFits(candidate, contractValue, context));
+  }
+
+  function buildResolved(rawSlot, contractValue, selected, context, ids) {
     const prescription = resolvePrescription(contractValue, rawSlot, selected, context);
     if (!prescription) return null;
     const resolvedStatus = contractValue.priorityBehavior === "protect_when_capable" ? "protected" : rawSlot.status || contractValue.status;
@@ -640,7 +722,44 @@
     if (strategy.id === "anchor_backoff") strategy.params.backoffSets = Math.max(1, prescription.sets - 1);
   }
 
-  function fitTime(dayRecord, ceilingSeconds, reductions, context) {
+  // Exported and enforced set bounds. A minimum-dose slot's floor is the
+  // class's reviewed minimumDoseSets; every other slot uses the class bounds.
+  function minMaxSets(resolved) {
+    const rule = RULES.prescriptionClasses[resolved.prescription.classId];
+    return [resolved.prescription.minimumDose ? rule.minimumDoseSets : rule.sets[0], rule.sets[1]];
+  }
+
+  function classMinimumSets(resolved) {
+    return RULES.prescriptionClasses[resolved.prescription.classId].sets[0];
+  }
+
+  function convertToEfficient(resolved, context) {
+    const rule = RULES.prescriptionClasses[resolved.prescription.classId];
+    resolved.prescription.sets = rule.efficientSets;
+    if (rule.efficientRir) {
+      const rir = rirFor(rule, true, context);
+      resolved.prescription.targetRirMin = rir[0];
+      resolved.prescription.targetRirMax = rir[1];
+    }
+    resolved.prescription.efficient = true;
+    updateProgressionShape(resolved);
+  }
+
+  // A slot at one working set carries the efficient (high-effort) RIR range:
+  // owner decision 2026-10-03, proximity to failure compensates for volume.
+  function applyEfficientRir(resolved, context) {
+    const rule = RULES.prescriptionClasses[resolved.prescription.classId];
+    if (!rule.efficientRir) return;
+    const rir = rirFor(rule, true, context);
+    resolved.prescription.targetRirMin = rir[0];
+    resolved.prescription.targetRirMax = rir[1];
+  }
+
+  // Plan 065 dose fitting. Order (design §15 plus owner decision OD-3):
+  // remove_priority_bonus → remove_optional → efficient_two_set →
+  // reselect_redundant / omit_redundant → trim_reducible_assistance (never
+  // below the class minimum) → time_ceiling_conflict.
+  function fitTime(dayRecord, ceilingSeconds, reductions, context, helpers) {
     const estimate = () => estimateDaySeconds(dayRecord);
     const reductionCandidates = (predicate) => dayRecord.slots.filter(predicate).sort((left, right) => {
       const leftDeEmphasized = intersects(left.exercise.primaryMuscles, context.deEmphasizedMuscles) ? 1 : 0;
@@ -649,6 +768,17 @@
       return dayRecord.slots.indexOf(right) - dayRecord.slots.indexOf(left);
     });
     if (estimate() <= ceilingSeconds) return true;
+    for (const resolved of reductionCandidates((entry) => entry.prescription.bonusSets > 0)) {
+      if (estimate() <= ceilingSeconds) break;
+      resolved.prescription.sets -= resolved.prescription.bonusSets;
+      resolved.prescription.bonusSets = 0;
+      if (resolved.prescription.bonusRestoredRir) {
+        [resolved.prescription.targetRirMin, resolved.prescription.targetRirMax] = resolved.prescription.bonusRestoredRir;
+        resolved.prescription.bonusRestoredRir = null;
+      }
+      updateProgressionShape(resolved);
+      reductions.push({ step: "remove_priority_bonus", dayId: dayRecord.dayId, slotId: resolved.slotId });
+    }
     for (const resolved of reductionCandidates((entry) => entry.status === "optional")) {
       if (estimate() <= ceilingSeconds) break;
       dayRecord.slots.splice(dayRecord.slots.indexOf(resolved), 1);
@@ -656,20 +786,45 @@
     }
     for (const resolved of reductionCandidates((entry) => entry.efficientEligible && entry.prescription.sets > 2)) {
       if (estimate() <= ceilingSeconds) break;
-      resolved.prescription.sets = 2;
-      if (RULES.prescriptionClasses[resolved.prescription.classId].efficientRir) {
-        resolved.prescription.targetRirMin = 0;
-        resolved.prescription.targetRirMax = 2;
-      }
-      resolved.prescription.efficient = true;
-      updateProgressionShape(resolved);
+      convertToEfficient(resolved, context);
       reductions.push({ step: "efficient_two_set", dayId: dayRecord.dayId, slotId: resolved.slotId });
     }
-    for (const resolved of reductionCandidates((entry) => entry.reducible && entry.role !== "heavy_primary" && entry.prescription.sets > 1)) {
+    const isRedundant = (entry) => entry.reducible && entry.role !== "heavy_primary" && !helpers.relationSlotIds.has(entry.slotId) &&
+      dayRecord.slots.some((other) => other !== entry && dayRecord.slots.indexOf(other) < dayRecord.slots.indexOf(entry) && other.exercise.id === entry.exercise.id);
+    for (const resolved of reductionCandidates(isRedundant)) {
+      if (estimate() <= ceilingSeconds) break;
+      const replacement = helpers.reselect(resolved, dayRecord.slots.map((entry) => entry.exercise.id));
+      if (replacement) {
+        const wasEfficient = resolved.prescription.efficient;
+        resolved.exercise = replacement.exercise;
+        resolved.prescription = replacement.prescription;
+        if (wasEfficient && resolved.efficientEligible && resolved.prescription.sets > 2) convertToEfficient(resolved, context);
+        reductions.push({ step: "reselect_redundant", dayId: dayRecord.dayId, slotId: resolved.slotId });
+      } else {
+        dayRecord.slots.splice(dayRecord.slots.indexOf(resolved), 1);
+        reductions.push({ step: "omit_redundant", dayId: dayRecord.dayId, slotId: resolved.slotId });
+      }
+    }
+    for (const resolved of reductionCandidates((entry) => entry.reducible && entry.role !== "heavy_primary" && entry.prescription.sets > classMinimumSets(entry))) {
       if (estimate() <= ceilingSeconds) break;
       resolved.prescription.sets--;
+      if (resolved.prescription.sets === 1) applyEfficientRir(resolved, context);
       updateProgressionShape(resolved);
       reductions.push({ step: "trim_reducible_assistance", dayId: dayRecord.dayId, slotId: resolved.slotId });
+    }
+    for (const resolved of reductionCandidates((entry) => entry.reducible && entry.role === "isolation_accessory" && entry.status !== "conditional")) {
+      if (estimate() <= ceilingSeconds) break;
+      dayRecord.slots.splice(dayRecord.slots.indexOf(resolved), 1);
+      reductions.push({ step: "omit_accessory", dayId: dayRecord.dayId, slotId: resolved.slotId });
+    }
+    for (const resolved of reductionCandidates((entry) => entry.reducible && entry.role !== "heavy_primary" &&
+        RULES.prescriptionClasses[entry.prescription.classId].minimumDoseSets && entry.prescription.sets > 1)) {
+      if (estimate() <= ceilingSeconds) break;
+      resolved.prescription.sets = 1;
+      resolved.prescription.minimumDose = true;
+      applyEfficientRir(resolved, context);
+      updateProgressionShape(resolved);
+      reductions.push({ step: "minimum_dose_single_set", dayId: dayRecord.dayId, slotId: resolved.slotId });
     }
     return estimate() <= ceilingSeconds;
   }
@@ -709,18 +864,6 @@
     return relations;
   }
 
-  function alignAuthoredRelations(days, blueprintValue, context) {
-    for (const authored of blueprintValue.relations) {
-      const heavy = days[authored.heavy[0]]?.slots[authored.heavy[1]];
-      const volume = days[authored.volume[0]]?.slots[authored.volume[1]];
-      if (!heavy || !volume || !candidateFits(heavy.exercise, volume.contract, context)) continue;
-      const prescription = resolvePrescription(volume.contract, {}, heavy.exercise, context);
-      if (!prescription) continue;
-      volume.exercise = clone(heavy.exercise);
-      volume.prescription = prescription;
-    }
-  }
-
   function weekSchedule(days, context) {
     const normal = () => days.map((dayRecord) => ({ dayId: dayRecord.dayId, slots: dayRecord.slots.map((resolved) => ({ slotId: resolved.slotId, sets: resolved.prescription.sets })) }));
     const weeks = Array.from({ length: 6 }, (_, index) => ({ week: index + 1, days: normal(), phase: "normal" }));
@@ -729,7 +872,19 @@
       week.phase = mode;
       for (const dayRecord of week.days) for (const target of dayRecord.slots) {
         const resolved = days.flatMap((entry) => entry.slots).find((entry) => entry.slotId === target.slotId);
-        if (!resolved || target.sets < 2) continue;
+        if (!resolved) continue;
+        // A reduced week never carries a priority bonus set (design §10:
+        // re-entry removes optional priority additions first).
+        target.sets -= resolved.prescription.bonusSets || 0;
+        if (target.sets < 2) continue;
+        // Owner decision OD-4 (2026-10-03): returning week 1 also removes one
+        // set from protected compound work, never below the class minimum and
+        // never from heavy primaries.
+        if (mode === "returning_week_1" && resolved.status === "protected" &&
+            (resolved.role === "hypertrophy_compound" || resolved.role === "volume_counterpart")) {
+          target.sets = Math.max(RULES.prescriptionClasses[resolved.prescription.classId].sets[0], target.sets - 1);
+          continue;
+        }
         if (mode === "interrupted_week_1" && resolved.status === "protected") continue;
         if (mode === "returning_week_2" && (resolved.role === "heavy_primary" || resolved.role === "hypertrophy_compound" || resolved.role === "volume_counterpart")) continue;
         if (resolved.status === "optional" && mode !== "returning_week_2") target.sets = 0;
@@ -768,8 +923,8 @@
         alternates: [],
         targetRirStart: resolved.prescription.targetRirMax,
         targetRirEnd: resolved.prescription.targetRirMin,
-        minSets: RULES.prescriptionClasses[resolved.prescription.classId].sets[0],
-        maxSets: RULES.prescriptionClasses[resolved.prescription.classId].sets[1],
+        minSets: minMaxSets(resolved)[0],
+        maxSets: minMaxSets(resolved)[1],
         priority: resolved.status,
         loadingMode: resolved.exercise.loading,
         loadIncrement: resolved.exercise.loadIncrement,
@@ -818,6 +973,48 @@
     });
   }
 
+  // Plan 065 fill order: choices are made heavy primaries first, then other
+  // protected work, then reducible compounds, then accessories, then optional
+  // work. Within a tier, authored day then slot order. Output order inside a
+  // day stays the authored slot order.
+  function fillTier(contractValue, rawSlot) {
+    const status = contractValue.priorityBehavior === "protect_when_capable" ? "protected" : rawSlot.status || contractValue.status;
+    if (contractValue.role === "heavy_primary") return 0;
+    if (status === "optional") return 4;
+    if (status === "protected") return 1;
+    if (contractValue.role === "hypertrophy_compound" || contractValue.role === "volume_counterpart") return 2;
+    return 3;
+  }
+
+  function applyPriorityBonus(days, context) {
+    const outcomes = [];
+    for (const muscle of context.priorityMuscles) {
+      let added = 0, eligible = 0;
+      for (const dayRecord of days) {
+        const candidates = dayRecord.slots.filter((resolved) => resolved.role !== "heavy_primary" && resolved.exercise.primaryMuscles.includes(muscle));
+        eligible += candidates.length;
+        const target = candidates.find((resolved) => !resolved.prescription.bonusSets &&
+          resolved.prescription.sets < RULES.prescriptionClasses[resolved.prescription.classId].sets[1]);
+        if (!target) continue;
+        target.prescription.sets += 1;
+        target.prescription.bonusSets = 1;
+        // A third set on an efficient slot is the normal prescription, so it
+        // takes the normal RIR range: sets and RIR stay a reviewed pair.
+        if (target.prescription.efficient) {
+          const rule = RULES.prescriptionClasses[target.prescription.classId];
+          target.prescription.bonusRestoredRir = [target.prescription.targetRirMin, target.prescription.targetRirMax];
+          const rir = rirFor(rule, false, context);
+          target.prescription.targetRirMin = rir[0];
+          target.prescription.targetRirMax = rir[1];
+        }
+        updateProgressionShape(target);
+        added++;
+      }
+      outcomes.push({ muscle, added, eligible });
+    }
+    return outcomes;
+  }
+
   function compile(rawContext, rawCatalogue) {
     const checked = validateContext(rawContext);
     if (!checked.ok) return { kind: "invalid", ...checked };
@@ -825,53 +1022,116 @@
     const blueprintValue = BLUEPRINT_BY_ID.get(`${context.familyId}_${context.frequency}_v1`);
     if (!blueprintValue) return { kind: "invalid", code: "unsupported_blueprint", issues: [] };
     const catalogue = normalizeCatalogue(rawCatalogue, context);
-    const days = [];
     const limitations = [];
     const conflicts = [];
-    for (let dayIndex = 0; dayIndex < blueprintValue.days.length; dayIndex++) {
-      const authoredDay = blueprintValue.days[dayIndex];
+    const relationVolume = new Map();
+    if (context.profile !== "foundation") {
+      for (const authored of blueprintValue.relations) relationVolume.set(`${authored.volume[0]}:${authored.volume[1]}`, authored.heavy);
+    }
+    const plan = [];
+    blueprintValue.days.forEach((authoredDay, dayIndex) => {
       const dayId = dayIdFor(blueprintValue.id, dayIndex);
-      const dayRecord = {
-        dayId,
-        label: authoredDay.label,
-        displayNameKey: dayDisplayNameKey(dayId),
-        slots: [],
-      };
-      for (let slotIndex = 0; slotIndex < authoredDay.slots.length; slotIndex++) {
-        const rawSlot = authoredDay.slots[slotIndex];
+      authoredDay.slots.forEach((rawSlot, slotIndex) => {
         const base = SLOT_TEMPLATES[rawSlot.template];
         const contractValue = Object.freeze({ ...base, ...Object.fromEntries(Object.entries(rawSlot).filter(([key]) => key !== "template")) });
-        if (context.profile === "foundation" && contractValue.status === "optional") continue;
-        if (contractValue.priorityBehavior === "priority_only" && !context.priorityMuscles.length) continue;
-        const slotId = `${dayId}_s${slotIndex + 1}`;
-        const resolved = resolveSlot(rawSlot, contractValue, catalogue, context, { dayId, slotId });
-        const directDeEmphasizedOptional = resolved && resolved.status === "optional" &&
-          intersects(resolved.exercise.primaryMuscles, context.deEmphasizedMuscles);
-        if (directDeEmphasizedOptional) limitations.push({ code: "deemphasized_optional_omitted", dayId, slotId });
-        else if (resolved) dayRecord.slots.push(resolved);
-        else {
-          const ignoredCandidate = catalogue.some((candidate) =>
-            !context.dislikes.includes(candidate.id) &&
-            intersects(candidate.primaryMuscles, context.ignoredMuscles) &&
-            candidateFits(candidate, contractValue, context));
-          const resolvedStatus = rawSlot.status || contractValue.status;
-          const safelyOmittableIgnored = ignoredCandidate &&
-            (resolvedStatus === "optional" || resolvedStatus === "conditional" ||
-              (resolvedStatus === "reducible" && contractValue.role === "isolation_accessory"));
-          if (safelyOmittableIgnored) limitations.push({ code: "ignored_direct_work_omitted", dayId, slotId });
-          else if (ignoredCandidate) conflicts.push({ code: "ignored_muscle_required", dayId, slotId, templateId: rawSlot.template });
-          else if (contractValue.status === "optional") limitations.push({ code: "optional_slot_unresolved", dayId, slotId });
-          else if (contractValue.status === "conditional") limitations.push({ code: rawSlot.template === "home_pull" ? "home.pull_capability_unavailable" : "conditional_slot_unresolved", dayId, slotId });
-          else conflicts.push({ code: "required_slot_unresolved", dayId, slotId, templateId: rawSlot.template });
+        if (context.profile === "foundation" && contractValue.status === "optional") return;
+        if (contractValue.priorityBehavior === "priority_only" && !context.priorityMuscles.length) return;
+        plan.push({ dayIndex, slotIndex, dayId, slotId: `${dayId}_s${slotIndex + 1}`, rawSlot, contractValue, tier: fillTier(contractValue, rawSlot), resolved: null, priorityDecided: false });
+      });
+    });
+    const state = emptySelectionState();
+    const byPosition = new Map(plan.map((entry) => [`${entry.dayIndex}:${entry.slotIndex}`, entry]));
+    const order = plan.slice().sort((a, b) => a.tier - b.tier || a.dayIndex - b.dayIndex || a.slotIndex - b.slotIndex);
+    for (const entry of order) {
+      const { contractValue, rawSlot, dayIndex } = entry;
+      const ids = { dayId: entry.dayId, slotId: entry.slotId };
+      let selected = null;
+      const heavyPosition = relationVolume.get(`${entry.dayIndex}:${entry.slotIndex}`);
+      const heavy = heavyPosition ? byPosition.get(`${heavyPosition[0]}:${heavyPosition[1]}`)?.resolved : null;
+      if (heavy && candidateFits(heavy.exercise, contractValue, context) && resolvePrescription(contractValue, rawSlot, heavy.exercise, context)) {
+        selected = heavy.exercise;
+      } else {
+        const ranked = rankCandidates(eligibleCandidates(contractValue, catalogue, context), contractValue, context, state, dayIndex);
+        selected = ranked[0] || null;
+        if (selected && context.priorityMuscles.length) {
+          const neutral = rankCandidates(ranked, contractValue, context, state, dayIndex, { ignorePriorityMuscles: true })[0];
+          entry.priorityDecided = neutral.id !== selected.id && intersects(selected.primaryMuscles, context.priorityMuscles);
         }
       }
-      days.push(dayRecord);
+      const resolved = selected ? buildResolved(rawSlot, contractValue, selected, context, ids) : null;
+      // Compatibility with compiler 2 (deferred finding X09): a volume slot
+      // aligned to its heavy partner takes the non-efficient prescription even
+      // when the blueprint marks the slot efficient.
+      if (resolved && heavy && selected === heavy.exercise) resolved.prescription = resolvePrescription(contractValue, {}, selected, context);
+      if (resolved) {
+        entry.resolved = resolved;
+        recordSelection(state, dayIndex, resolved.exercise, resolved.prescription.sets);
+      }
     }
-    if (context.profile !== "foundation") alignAuthoredRelations(days, blueprintValue, context);
+    const days = blueprintValue.days.map((authoredDay, dayIndex) => {
+      const dayId = dayIdFor(blueprintValue.id, dayIndex);
+      return { dayId, label: authoredDay.label, displayNameKey: dayDisplayNameKey(dayId), slots: [] };
+    });
+    for (const entry of plan) {
+      const { contractValue, rawSlot, dayId, slotId, resolved } = entry;
+      const dayRecord = days[entry.dayIndex];
+      const directDeEmphasizedOptional = resolved && resolved.status === "optional" &&
+        intersects(resolved.exercise.primaryMuscles, context.deEmphasizedMuscles);
+      if (directDeEmphasizedOptional) limitations.push({ code: "deemphasized_optional_omitted", dayId, slotId });
+      else if (resolved) {
+        dayRecord.slots.push(resolved);
+        const evidence = context.preferences.includes(resolved.exercise.id) || context.history.some((item) => item.libraryId === resolved.exercise.id);
+        if (resolved.exercise.skill === "demanding" && !evidence) limitations.push({ code: "capability.demanding_exercise_selected", dayId, slotId });
+      } else {
+        const ignoredCandidate = catalogue.some((candidate) =>
+          !context.dislikes.includes(candidate.id) &&
+          intersects(candidate.primaryMuscles, context.ignoredMuscles) &&
+          candidateFits(candidate, contractValue, context));
+        const resolvedStatus = rawSlot.status || contractValue.status;
+        const safelyOmittableIgnored = ignoredCandidate &&
+          (resolvedStatus === "optional" || resolvedStatus === "conditional" ||
+            (resolvedStatus === "reducible" && contractValue.role === "isolation_accessory"));
+        if (safelyOmittableIgnored) limitations.push({ code: "ignored_direct_work_omitted", dayId, slotId });
+        else if (ignoredCandidate) conflicts.push({ code: "ignored_muscle_required", dayId, slotId, templateId: rawSlot.template });
+        else if (contractValue.status === "optional") limitations.push({ code: "optional_slot_unresolved", dayId, slotId });
+        else if (rawSlot.template === "home_posterior") limitations.push({ code: "home.posterior_capability_unavailable", dayId, slotId });
+        else if (contractValue.status === "conditional") limitations.push({ code: rawSlot.template === "home_pull" ? "home.pull_capability_unavailable" : "conditional_slot_unresolved", dayId, slotId });
+        else conflicts.push({ code: "required_slot_unresolved", dayId, slotId, templateId: rawSlot.template });
+      }
+    }
+    const bonus = applyPriorityBonus(days, context);
+    const relationSlotIds = new Set();
+    for (const authored of blueprintValue.relations) {
+      const heavy = days[authored.heavy[0]]?.slots.find((resolved) => resolved.slotId === `${days[authored.heavy[0]].dayId}_s${authored.heavy[1] + 1}`);
+      const volume = days[authored.volume[0]]?.slots.find((resolved) => resolved.slotId === `${days[authored.volume[0]].dayId}_s${authored.volume[1] + 1}`);
+      if (heavy) relationSlotIds.add(heavy.slotId);
+      if (volume) relationSlotIds.add(volume.slotId);
+    }
+    const reselect = (resolved, excludeIds) => {
+      const entry = plan.find((item) => item.slotId === resolved.slotId);
+      const dayIndex = entry.dayIndex;
+      const candidate = rankCandidates(eligibleCandidates(resolved.contract, catalogue, context, excludeIds), resolved.contract, context, state, dayIndex)[0];
+      return candidate ? buildResolved(entry.rawSlot, entry.contractValue, candidate, context, { dayId: resolved.dayId, slotId: resolved.slotId }) : null;
+    };
     const reductions = [];
     const ceilingSeconds = context.sessionMinutes * 60;
-    for (const dayRecord of days) if (!fitTime(dayRecord, ceilingSeconds, reductions, context)) conflicts.push({ code: "time_ceiling_conflict", dayId: dayRecord.dayId, ceilingMinutes: context.sessionMinutes, estimateMinutes: Math.ceil(estimateDaySeconds(dayRecord) / 60) });
+    for (const dayRecord of days) if (!fitTime(dayRecord, ceilingSeconds, reductions, context, { relationSlotIds, reselect })) conflicts.push({ code: "time_ceiling_conflict", dayId: dayRecord.dayId, ceilingMinutes: context.sessionMinutes, estimateMinutes: Math.ceil(estimateDaySeconds(dayRecord) / 60) });
+    for (const outcome of bonus) {
+      const surviving = days.flatMap((dayRecord) => dayRecord.slots).some((resolved) => resolved.prescription.bonusSets > 0 && resolved.exercise.primaryMuscles.includes(outcome.muscle));
+      const selectionChanged = plan.some((entry) => entry.priorityDecided && entry.resolved && entry.resolved.exercise.primaryMuscles.includes(outcome.muscle));
+      if (surviving) continue;
+      if (outcome.added > 0) limitations.push({ code: "priority.no_room", dayId: null, slotId: null, muscle: outcome.muscle });
+      else if (selectionChanged) continue;
+      else if (outcome.eligible > 0) limitations.push({ code: "priority.at_set_ceiling", dayId: null, slotId: null, muscle: outcome.muscle });
+      else limitations.push({ code: "priority.no_eligible_slot", dayId: null, slotId: null, muscle: outcome.muscle });
+    }
     if (conflicts.length) return { kind: "conflict", code: "compiler_conflict", familyId: context.familyId, frequency: context.frequency, conflicts, limitations, reductions };
+    for (const dayRecord of days) for (const resolved of dayRecord.slots) {
+      const bounds = minMaxSets(resolved);
+      if (resolved.prescription.sets < bounds[0] || resolved.prescription.sets > bounds[1]) {
+        throw new Error(`program compiler: ${resolved.slotId} has ${resolved.prescription.sets} sets outside ${bounds.join("-")}`);
+      }
+    }
     const instance = {
       kind: "compiled",
       schemaVersion: 1,
@@ -882,7 +1142,7 @@
       limitations,
       reductions,
       directIndirectExposure: exposureFor(days),
-      provenance: { familyId: context.familyId, blueprintId: blueprintValue.id, blueprintVersion: 1, compilerVersion: VERSIONS.compiler, catalogueVersion: VERSIONS.catalogue, rulesVersion: VERSIONS.rules, contextVersion: VERSIONS.context, profileId: context.profile === "foundation" ? "simple_start@1" : "standard@1", recentConsistencyVersion: VERSIONS.recentConsistency },
+      provenance: { familyId: context.familyId, blueprintId: blueprintValue.id, blueprintVersion: VERSIONS.blueprint, compilerVersion: VERSIONS.compiler, catalogueVersion: VERSIONS.catalogue, rulesVersion: VERSIONS.rules, contextVersion: VERSIONS.context, profileId: context.profile === "foundation" ? "simple_start@1" : "standard@1", recentConsistencyVersion: VERSIONS.recentConsistency },
       customizedFrom: null,
     };
     instance.relations = context.profile === "foundation" ? [] : relationState(instance, blueprintValue);
@@ -922,7 +1182,7 @@
     const resolved = next.days.flatMap((entry) => entry.slots).find((entry) => entry.slotId === slotId);
     if (!resolved) return { kind: "invalid", code: "unknown_slot" };
     next.customizedFrom = next.customizedFrom || next.blueprintId;
-    resolved.exercise = { id: String(exercise.id || `customized:${slotId}`), name: String(exercise.name || "Customized exercise"), namePt: String(exercise.namePt || exercise.name || "Exercício personalizado"), equipment: "custom", patterns: [], primaryMuscles: words(exercise.primary), secondaryMuscles: words(exercise.secondary), stability: "moderate", fatigueDemand: "moderate", loading: "external_unknown", loadIncrement: null, practicalRepRange: [1, 100], environmentRequirements: [], primarySuitability: "moderate", unilateral: false, beginnerFriendly: true, rank: 50, custom: true };
+    resolved.exercise = { id: String(exercise.id || `customized:${slotId}`), name: String(exercise.name || "Customized exercise"), namePt: String(exercise.namePt || exercise.name || "Exercício personalizado"), equipment: "custom", patterns: [], functions: [], secondaryFunctions: [], skill: "moderate", foundationDefault: true, anchor: false, primaryMuscles: words(exercise.primary), secondaryMuscles: words(exercise.secondary), stability: "moderate", fatigueDemand: "moderate", loading: "external_unknown", loadIncrement: null, practicalRepRange: [1, 100], environmentRequirements: [], primarySuitability: "moderate", unilateral: false, beginnerFriendly: true, rank: 50, custom: true };
     resolved.prescription.progression = { schemaVersion: 1, strategy: { id: "manual", version: 1, params: {} }, modifiers: [] };
     next.relations = [];
     next.directIndirectExposure = exposureFor(next.days);
@@ -1010,6 +1270,7 @@
     DAY_DISPLAY_NAME_KEYS,
     DAY_CONTRACT_LABELS,
     RULES,
+    RANK_KEYS,
     MUSCLE_IDS,
     MOVEMENT_PATTERN_IDS,
     PREFERRED_REST_SECONDS,

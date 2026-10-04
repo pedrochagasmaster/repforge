@@ -16,7 +16,7 @@ const fixture = JSON.parse(readFileSync(
   new URL("./fixtures/transition-proposal-v1.json", import.meta.url),
   "utf8",
 ));
-const FIXTURE_HASH = "c7a4c90322522d6d990fdd7e7e51c7da0de7b349f2d3e959619b9c1d9e9feadc";
+const FIXTURE_HASH = "9d3a50cceccb4592b2296c8407f14665612cf0dc5de5e1b2aeb4982a29e30b4c";
 const EXPECTED_SLOT_PAIRS = [
   ["balanced_4_d1_s1", "balanced_3_d1_s1"],
   ["balanced_4_d1_s2", "balanced_3_d2_s1"],

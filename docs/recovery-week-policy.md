@@ -182,8 +182,8 @@ machine-only edit cannot silently change the contract.
   },
   "acceptanceBand": { "minimum": 0.4, "maximum": 0.6 },
   "allowlistedMisses": {
-    "growth_2_v1": { "base": 32, "effective": 12 },
-    "growth_3_v1": { "base": 49, "effective": 17 }
+    "growth_2_v1": { "base": 31, "effective": 12 },
+    "growth_3_v1": { "base": 47, "effective": 17 }
   },
   "reassessment": {
     "outcomes": ["Better", "About the same", "Worse"],
@@ -266,25 +266,25 @@ unit case in the checker).
 
 | Blueprint | Base | Effective | Ratio | In 40–60% |
 |---|---|---|---|---|
-| growth_2_v1 | 32 | 12 | 37.5% | Miss (low) |
-| growth_3_v1 | 49 | 17 | 34.7% | Miss (low) |
-| growth_4_v1 | 60 | 26 | 43.3% | Yes |
-| growth_5_v1 | 74 | 30 | 40.5% | Yes |
+| growth_2_v1 | 31 | 12 | 38.7% | Miss (low) |
+| growth_3_v1 | 47 | 17 | 36.2% | Miss (low) |
+| growth_4_v1 | 57 | 26 | 45.6% | Yes |
+| growth_5_v1 | 69 | 30 | 43.5% | Yes |
 | growth_6_v1 | 46 | 23 | 50.0% | Yes |
-| balanced_2_v1 | 29 | 13 | 44.8% | Yes |
-| balanced_3_v1 | 43 | 20 | 46.5% | Yes |
-| balanced_4_v1 | 45 | 22 | 48.9% | Yes |
-| balanced_5_v1 | 60 | 28 | 46.7% | Yes |
+| balanced_2_v1 | 28 | 13 | 46.4% | Yes |
+| balanced_3_v1 | 42 | 20 | 47.6% | Yes |
+| balanced_4_v1 | 44 | 22 | 50.0% | Yes |
+| balanced_5_v1 | 58 | 28 | 48.3% | Yes |
 | balanced_6_v1 | 50 | 27 | 54.0% | Yes |
 | strength_2_v1 | 28 | 13 | 46.4% | Yes |
-| strength_3_v1 | 42 | 18 | 42.9% | Yes |
-| strength_4_v1 | 45 | 21 | 46.7% | Yes |
-| strength_5_v1 | 61 | 26 | 42.6% | Yes |
+| strength_3_v1 | 41 | 18 | 43.9% | Yes |
+| strength_4_v1 | 43 | 21 | 48.8% | Yes |
+| strength_5_v1 | 58 | 26 | 44.8% | Yes |
 | strength_6_v1 | 53 | 27 | 50.9% | Yes |
 | home_2_v1 | 27 | 15 | 55.6% | Yes |
 | home_3_v1 | 34 | 20 | 58.8% | Yes |
 | home_4_v1 | 39 | 20 | 51.3% | Yes |
-| home_5_v1 | 31 | 16 | 51.6% | Yes |
+| home_5_v1 | 30 | 16 | 53.3% | Yes |
 | home_6_v1 | 32 | 16 | 50.0% | Yes |
 
 18 of 20 land in band. The two misses sit below it, and no fixture exceeds
@@ -293,8 +293,8 @@ version-specific exceptions:
 
 | Blueprint version | Base | Effective | Ratio | Disposition |
 |---|---:|---:|---:|---|
-| `growth_2_v1` | 32 | 12 | 37.5% | Allowlisted exception |
-| `growth_3_v1` | 49 | 17 | 34.7% | Allowlisted exception |
+| `growth_2_v1` | 31 | 12 | 38.7% | Allowlisted exception |
+| `growth_3_v1` | 47 | 17 | 36.2% | Allowlisted exception |
 
 The checker rejects every other miss. It also rejects an unreviewed program
 version outside the 40–60% band. Runtime code must not clamp percentages or

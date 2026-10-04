@@ -41,8 +41,8 @@
       {
         "predecessorSlot": "growth_3_d1_s4",
         "successorSlot": "growth_2_d1_s4",
-        "predecessorMovement": "library:hg_mc",
-        "successorMovement": "library:hg_mc"
+        "predecessorMovement": "library:lc_mc",
+        "successorMovement": "library:lc_mc"
       },
       {
         "predecessorSlot": "growth_3_d1_s5",
@@ -84,13 +84,13 @@
         "predecessorSlot": null,
         "successorSlot": "growth_2_d2_s5",
         "predecessorMovement": null,
-        "successorMovement": "library:dl_cb"
+        "successorMovement": "library:rd_mc"
       },
       {
         "predecessorSlot": null,
         "successorSlot": "growth_2_d2_s6",
         "predecessorMovement": null,
-        "successorMovement": "library:cu_cb"
+        "successorMovement": "library:cv_mc"
       },
       {
         "predecessorSlot": "growth_3_d2_s3",
@@ -101,7 +101,7 @@
       {
         "predecessorSlot": "growth_3_d2_s5",
         "successorSlot": null,
-        "predecessorMovement": "library:ip_mc",
+        "predecessorMovement": "library:ci_cb",
         "successorMovement": null
       },
       {
@@ -113,7 +113,7 @@
       {
         "predecessorSlot": "growth_3_d3_s1",
         "successorSlot": null,
-        "predecessorMovement": "library:lg_bb",
+        "predecessorMovement": "library:lp1_mc",
         "successorMovement": null
       },
       {
@@ -131,19 +131,19 @@
       {
         "predecessorSlot": "growth_3_d3_s4",
         "successorSlot": null,
-        "predecessorMovement": "library:hg_mc",
+        "predecessorMovement": "library:he_mc",
         "successorMovement": null
       },
       {
         "predecessorSlot": "growth_3_d3_s5",
         "successorSlot": null,
-        "predecessorMovement": "library:dl_cb",
+        "predecessorMovement": "library:rd_mc",
         "successorMovement": null
       },
       {
         "predecessorSlot": "growth_3_d3_s6",
         "successorSlot": null,
-        "predecessorMovement": "library:cu_cb",
+        "predecessorMovement": "library:tr_cb",
         "successorMovement": null
       }
     ],
