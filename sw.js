@@ -1,4 +1,4 @@
-const CACHE = "repforge-v393";
+const CACHE = "repforge-v394";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },

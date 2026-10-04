@@ -1,7 +1,7 @@
 # Plan 066: Mobile viewport, touch, and scroll behavior
 
 - **Plan number:** 066
-- **Status:** IMPLEMENTED — AUTOMATED VERIFICATION IN PROGRESS; physical acceptance pending Plan 059.
+- **Status:** IMPLEMENTED — OWNER / DEVICE REVIEW. Automated evidence is tracked in PR #308; physical acceptance remains pending Plan 059.
 - **Requested:** 4 October 2026, following the owner's mobile-native checklist review.
 - **Baseline:** `fd4ff35fc102bdcf1a2d0176dff2c4f504146864` (`main`, rechecked on 4 October).
 - **Outcome:** Remove the six identified platform-layer gaps while preserving Taurifer's visual language, workout interactions, accessibility, and local-first behavior.
@@ -40,7 +40,7 @@ updates. Preserve and verify these contracts instead of adding parallel mechanis
 | M05 | `.sheet` caps height using `--vvh`, but `.sheet--session,.sheet--exactions` override it with `85vh`; `.storage-recovery` and `.entry-dialog` use `90vh`. | Every sheet/dialog fits the available visible band and safe areas; title, focused input, and final action remain reachable with browser chrome or keyboard visible. | Production-backed measured geometry and scroll-end reachability, plus phone keyboard/rotation checks. |
 | M06 | Generic controls lack consistent selection/callout protection; `article.exercise--focus` applies suppression across content and restores text selection only on inputs/textareas. | Control labels and drag handles do not select or open unwanted callouts; prose, errors, notes, exported text, and share URLs remain copyable. | Effective styles and real text selection on content; physical long-press tests on controls, inputs, and content. |
 
-The runtime changes for every row are implemented; automated evidence is being collected in PR #308. Every physical portion remains **OPEN — device required** until its evidence is recorded.
+The runtime changes for every row are implemented; automated evidence is tracked in PR #308. Every physical portion remains **OPEN — device required** until its evidence is recorded.
 Automated declarations/geometry do not close the physical portion of a row.
 
 ## Implementation delta
@@ -238,3 +238,34 @@ pending device rows; no unqualified mobile-complete claim is allowed.
 - [Chrome: viewport resize behavior](https://developer.chrome.com/blog/viewport-resize-behavior/) — keyboard resizing and VisualViewport versus layout viewport.
 - [WebKit: viewport-fit and safe areas](https://webkit.org/blog/7929/designing-websites-for-iphone-x/) — edge-to-edge drawing and content inset requirements.
 - [W3C: meta viewport allows zoom](https://www.w3.org/WAI/standards-guidelines/act/rules/b4f0c3/) — viewport scale restrictions and accessibility, including browser-support limitations.
+
+## Implementation evidence and handoff
+
+Implementation was authorized by the owner on 4 October 2026 and reconciled with
+merged main `46b0f66954e8257d92f91ef84d4012127c7b7eff`. [PR #308](https://github.com/pedrochagasmaster/repforge/pull/308)
+contains the runtime changes, ADR 0018, six-row assertion mapping, and final-head CI status.
+
+The first browser proof at `58a04602f5a0c529fe4dbf46e6d3754984c0d304`
+falsified the old zoom cancellation, coarse-pointer hover, tap-highlight and root
+overscroll policies ([baseline run](https://github.com/pedrochagasmaster/repforge/actions/runs/37226303090)).
+A test navigation mistake prevented the later baseline assertions; it was corrected
+before implementation validation. The session geometry proof also injects the old
+85vh override to require an observable clipped header, rather than only checking
+a benign resting layout.
+
+Owning production journeys are `test/accessibility.mjs` (mobile policies,
+selection, keyboard/scale geometry, press/hover, scroll boundary),
+`test/program-entry-a11y.mjs` (offset native dialog and last action),
+`test/focus-mode.mjs`, `test/motion-integration.mjs`, and `test/simulation.mjs`.
+Existing session-sheet, swipe-dismiss, editor selection/reorder, appearance,
+offline and cache proofs remain required. The complete CI inventory includes all
+six catalog recapture shards across the global light/dark, EN/PT matrix; generated
+pixel differences, if any, require review before acceptance.
+
+Local production/test syntax, release inventory, design/canonical checkers and
+runtime budget are available. The local Chromium download returned a truncated
+archive, so browser and catalog evidence comes from GitHub Actions, using the
+repository's pinned dependencies and isolated preview. No desktop/device emulator
+result is physical-device evidence. M01–M06's hardware portions remain OPEN in
+Plan 059 and the existing interaction device matrix. No phone was connected and
+no hardware PASS, release acceptance or merge is claimed.
