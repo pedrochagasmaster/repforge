@@ -1,0 +1,4929 @@
+{
+ "schemaVersion": 1,
+ "source": "plans/065-program-generation-engine-overhaul.md",
+ "entries": {
+  "cd_mc": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pd_bw": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trd_as": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sq_bb": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "pr_bb": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "trc_bb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cu_bb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "dl_bb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": true
+  },
+  "dp_bb": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "fr_bb": {
+   "functions": [
+    "front_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sqf_bb": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "gb_bb": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "gm_bb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "sqk_bb": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "sqh_bb": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "ht_bb": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ip_bb": {
+   "functions": [
+    "incline_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sql_bb": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "lg_bb": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": true,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "rw1_bb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sp_bb": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "pdl_bb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "cup_bb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pv_bb": {
+   "functions": [
+    "shoulder_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rp_bb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rdrw_bb": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [
+    "horizontal_pull"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cur_bb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rwr_bb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "wcr_bb": {
+   "functions": [
+    "grip"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "hg_bb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "rw_bb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "cvs_bb": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sh_bb": {
+   "functions": [
+    "shrug"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ss_bb": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": true,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "trs_bb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "cv_bb": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "spc_bb": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "tro_bb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "su_bb": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": true,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "sldl_bb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "ur_bb": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "wc_bb": {
+   "functions": [
+    "grip"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sqz_bb": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "trb_bw": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cv_bw": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pr_cb": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rd_cb": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cx_cb": {
+   "functions": [
+    "chest_fly"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cu_cb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "dld_cb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cdf_cb": {
+   "functions": [
+    "chest_fly"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cud_cb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ci_cb": {
+   "functions": [
+    "chest_fly"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "fr_cb": {
+   "functions": [
+    "front_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cuh_cb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "hr_cb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ad_cb": {
+   "functions": [
+    "hip_adduction"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ip_cb": {
+   "functions": [
+    "incline_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cfi_cb": {
+   "functions": [
+    "chest_fly"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trk_cb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ab_cb": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pdr_cb": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pdv_cb": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "dl_cb": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "clf_cb": {
+   "functions": [
+    "chest_fly"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rwl_cb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rw1_cb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cu1_cb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lr1_cb": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "tro_cb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cup_cb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "tr_cb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pt_cb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pl_cb": {
+   "functions": [
+    "shoulder_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rdrw_cb": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [
+    "horizontal_pull"
+   ],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abr_cb": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cur_cb": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "wcr_cb": {
+   "functions": [
+    "grip"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trrg_cb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "prs_cb": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abs_cb": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rw_cb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rww_cb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sp_cb": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sh_cb": {
+   "functions": [
+    "shrug"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "absb_cb": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cv_cb": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abst_cb": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ha_cb": {
+   "functions": [
+    "hip_abduction"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "he_cb": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rwv_cb": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "plr_cb": {
+   "functions": [
+    "shoulder_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rds_cb": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trv_cb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abt_cb": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pdu_cb": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ur_cb": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "wc_cb": {
+   "functions": [
+    "grip"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cvl_mc": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cd_bw": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "pr_mc": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "chn_bw": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "safe_pull"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "chnc_bw": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "safe_pull"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "trcg_bw": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ab_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abdb_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abd_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "dpu_bw": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [
+    "incline_push"
+   ],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "abds_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trdm_bw": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cvd_bw": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cua_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "arn_db": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pr_db": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rw_db": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trcp_db": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cuc_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cux_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cu_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "dld_db": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "dp_db": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "cf_db": {
+   "functions": [
+    "chest_fly"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "fr_db": {
+   "functions": [
+    "front_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lrf_db": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cuh_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cui_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cfi_db": {
+   "functions": [
+    "chest_fly"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cuih_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ip_db": {
+   "functions": [
+    "incline_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rdi_db": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rwi_db": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trk_db": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lr_db": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lg_db": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lf_db": {
+   "functions": [
+    "knee_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trl_db": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rw1_db": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lr1_db": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "wc_db": {
+   "functions": [
+    "grip"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cup_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pv_db": {
+   "functions": [
+    "shoulder_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rdr_db": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lgr_db": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "wcr_db": {
+   "functions": [
+    "grip"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "hg_db": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cvs_db": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lrs_db": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sps_db": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "spp_db": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trs_db": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sp_db": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sh_db": {
+   "functions": [
+    "shrug"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "absb_db": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cv1_db": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sldl1_db": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "ss_db": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sqd_db": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cv_db": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "tro_db": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "su_db": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sldl_db": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ur_db": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cuz_db": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trc_ez": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cuc_ez": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cu_ez": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "tri_ez": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cur_ez": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "tros_ez": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cus_ez": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "fp_cb": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ghr_bw": {
+   "functions": [
+    "knee_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "sq_db": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cvh_mc": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sqk_mc": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "ablr_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "abok_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "ablrs_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "hr_mc": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ab_mc": {
+   "functions": [
+    "hip_abduction"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ad_mc": {
+   "functions": [
+    "hip_adduction"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ht_mc": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lph_mc": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "hx_bw": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ip_mc": {
+   "functions": [
+    "incline_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ipu_bw": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ilc_bw": {
+   "functions": [
+    "knee_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "irw_bw": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "safe_pull"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sqg_kb": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sw_kb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "lr_lm": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "free",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pd_mc": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lr_mc": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "le_mc": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sq_lp": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "lcl_mc": {
+   "functions": [
+    "knee_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "be_mc": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rwv_mc": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cub_mc": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "dld_mc": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [
+    "knee_extension"
+   ],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "dp_mc": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "cvd_mc": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pdf_mc": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "gr_mc": {
+   "functions": [
+    "grip"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cuhp_mc": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "he_mc": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "icp_mc": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lck_mc": {
+   "functions": [
+    "knee_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abt_mc": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "spm_mc": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rwn_mc": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sp1_mc": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pv_mc": {
+   "functions": [
+    "shoulder_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pdrg_mc": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rh_mc": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "tbr_mc": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cvp_mc": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abc_mc": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trd_mc": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "gm_mc": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ablr_mc": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rdp_mc": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sh_mc": {
+   "functions": [
+    "shrug"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "tb_mc": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "tr_mc": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rwu_mc": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pl_mc": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ci_mc": {
+   "functions": [
+    "chest_fly"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cu_mc": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pupn_bw": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "safe_pull"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "pup_bw": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "safe_pull"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "pu_bw": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rd_db": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abr_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rd_mc": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "hg_mc": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "abrt_bw": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cvs_mc": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lc_mc": {
+   "functions": [
+    "knee_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rw_mc": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sp_mc": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lp1_mc": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sqs_bw": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "high",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "pr_sm": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "gm_sm": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rw_sm": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cu_sm": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sqc_sm": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "trc_sm": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "hg_sm": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [
+    "knee_extension"
+   ],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "dp_sm": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "sqk_sm": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ip_sm": {
+   "functions": [
+    "incline_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lp_sm": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rdrw_sm": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [
+    "horizontal_pull"
+   ],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sp_sm": {
+   "functions": [
+    "vertical_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sh_sm": {
+   "functions": [
+    "shrug"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    4,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sq_sm": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    12
+   ],
+   "stability": "high",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "cv_sm": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ss_bw": {
+   "functions": [
+    "unilateral_knee"
+   ],
+   "secondaryFunctions": [
+    "knee_extension",
+    "hip_extension"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cv_mc": {
+   "functions": [
+    "plantar_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "srw_bw": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [
+    "safe_pull"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "dlt_bb": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [
+    "knee_extension"
+   ],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    3,
+    8
+   ],
+   "stability": "free",
+   "primarySuitability": "high",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": true
+  },
+  "trd_bw": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [
+    "horizontal_push"
+   ],
+   "skill": "demanding",
+   "environment": [
+    "training_support"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "trr_cb": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "high",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ab_wt": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "ablr_wt": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "pupw_wt": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "safe_pull"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "abrt_wt": {
+   "functions": [
+    "trunk"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pupw_bw": {
+   "functions": [
+    "vertical_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "demanding",
+   "environment": [
+    "safe_pull"
+   ],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": false,
+   "anchor": false
+  },
+  "wpu_bw": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "moderate",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sq_bw": {
+   "functions": [
+    "knee_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "gb_bw": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "sgb_bw": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": true,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "rws_bd": {
+   "functions": [
+    "horizontal_pull"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "pa_bd": {
+   "functions": [
+    "rear_delt"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "lr_bd": {
+   "functions": [
+    "lateral_raise"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cu_bd": {
+   "functions": [
+    "elbow_flexion"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "te_bd": {
+   "functions": [
+    "elbow_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "cp_bd": {
+   "functions": [
+    "horizontal_push"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "gb_bd": {
+   "functions": [
+    "hip_extension"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  },
+  "gm_bd": {
+   "functions": [
+    "hip_hinge"
+   ],
+   "secondaryFunctions": [],
+   "skill": "low",
+   "environment": [],
+   "practicalRepRange": [
+    8,
+    15
+   ],
+   "stability": "moderate",
+   "primarySuitability": "moderate",
+   "unilateral": false,
+   "foundationDefault": true,
+   "anchor": false
+  }
+ }
+}

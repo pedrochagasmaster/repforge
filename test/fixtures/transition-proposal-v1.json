@@ -104,8 +104,8 @@
           {
             "predecessorSlot": "growth_4_d1_s4",
             "successorSlot": "growth_3_d2_s5",
-            "predecessorMovement": "library:ip_mc",
-            "successorMovement": "library:ip_mc"
+            "predecessorMovement": "library:ci_cb",
+            "successorMovement": "library:ci_cb"
           },
           {
             "predecessorSlot": "growth_4_d2_s5",
@@ -116,8 +116,8 @@
           {
             "predecessorSlot": "growth_4_d2_s3",
             "successorSlot": "growth_3_d3_s1",
-            "predecessorMovement": "library:lg_bb",
-            "successorMovement": "library:lg_bb"
+            "predecessorMovement": "library:lp1_mc",
+            "successorMovement": "library:lp1_mc"
           },
           {
             "predecessorSlot": "growth_4_d3_s1",
@@ -128,8 +128,8 @@
           {
             "predecessorSlot": "growth_4_d3_s5",
             "successorSlot": "growth_3_d3_s5",
-            "predecessorMovement": "library:dl_cb",
-            "successorMovement": "library:dl_cb"
+            "predecessorMovement": "library:rd_mc",
+            "successorMovement": "library:rd_mc"
           },
           {
             "predecessorSlot": null,
@@ -141,7 +141,7 @@
             "predecessorSlot": null,
             "successorSlot": "growth_3_d1_s4",
             "predecessorMovement": null,
-            "successorMovement": "library:hg_mc"
+            "successorMovement": "library:lc_mc"
           },
           {
             "predecessorSlot": null,
@@ -171,13 +171,13 @@
             "predecessorSlot": null,
             "successorSlot": "growth_3_d3_s4",
             "predecessorMovement": null,
-            "successorMovement": "library:hg_mc"
+            "successorMovement": "library:he_mc"
           },
           {
             "predecessorSlot": null,
             "successorSlot": "growth_3_d3_s6",
             "predecessorMovement": null,
-            "successorMovement": "library:cu_cb"
+            "successorMovement": "library:tr_cb"
           },
           {
             "predecessorSlot": "growth_4_d1_s6",
@@ -194,7 +194,7 @@
           {
             "predecessorSlot": "growth_4_d2_s4",
             "successorSlot": null,
-            "predecessorMovement": "library:hg_mc",
+            "predecessorMovement": "library:lc_mc",
             "successorMovement": null
           },
           {
@@ -236,13 +236,13 @@
           {
             "predecessorSlot": "growth_4_d4_s3",
             "successorSlot": null,
-            "predecessorMovement": "library:hg_mc",
+            "predecessorMovement": "library:he_mc",
             "successorMovement": null
           },
           {
             "predecessorSlot": "growth_4_d4_s4",
             "successorSlot": null,
-            "predecessorMovement": "library:hg_mc",
+            "predecessorMovement": "library:lc_mc",
             "successorMovement": null
           },
           {
@@ -413,16 +413,16 @@
         {
           "predecessorSlot": "growth_4_d1_s4",
           "successorSlot": "growth_3_d2_s5",
-          "movement": "library:ip_mc",
+          "movement": "library:ci_cb",
           "before": {
-            "movement": "library:ip_mc",
+            "movement": "library:ci_cb",
             "index": 3,
-            "sets": 3
+            "sets": 2
           },
           "after": {
-            "movement": "library:ip_mc",
+            "movement": "library:ci_cb",
             "index": 4,
-            "sets": 3
+            "sets": 2
           },
           "reason": "mapped same-template slot changed day or order"
         },
@@ -445,14 +445,14 @@
         {
           "predecessorSlot": "growth_4_d2_s3",
           "successorSlot": "growth_3_d3_s1",
-          "movement": "library:lg_bb",
+          "movement": "library:lp1_mc",
           "before": {
-            "movement": "library:lg_bb",
+            "movement": "library:lp1_mc",
             "index": 2,
             "sets": 3
           },
           "after": {
-            "movement": "library:lg_bb",
+            "movement": "library:lp1_mc",
             "index": 0,
             "sets": 3
           },
@@ -477,14 +477,14 @@
         {
           "predecessorSlot": "growth_4_d3_s5",
           "successorSlot": "growth_3_d3_s5",
-          "movement": "library:dl_cb",
+          "movement": "library:rd_mc",
           "before": {
-            "movement": "library:dl_cb",
+            "movement": "library:rd_mc",
             "index": 4,
             "sets": 2
           },
           "after": {
-            "movement": "library:dl_cb",
+            "movement": "library:rd_mc",
             "index": 4,
             "sets": 2
           },
@@ -505,12 +505,12 @@
         {
           "predecessorSlot": null,
           "successorSlot": "growth_3_d1_s4",
-          "movement": "library:hg_mc",
+          "movement": "library:lc_mc",
           "before": null,
           "after": {
-            "movement": "library:hg_mc",
+            "movement": "library:lc_mc",
             "index": 3,
-            "sets": 3
+            "sets": 2
           },
           "reason": "added successor slot"
         },
@@ -565,10 +565,10 @@
         {
           "predecessorSlot": null,
           "successorSlot": "growth_3_d3_s4",
-          "movement": "library:hg_mc",
+          "movement": "library:he_mc",
           "before": null,
           "after": {
-            "movement": "library:hg_mc",
+            "movement": "library:he_mc",
             "index": 3,
             "sets": 3
           },
@@ -577,10 +577,10 @@
         {
           "predecessorSlot": null,
           "successorSlot": "growth_3_d3_s6",
-          "movement": "library:cu_cb",
+          "movement": "library:tr_cb",
           "before": null,
           "after": {
-            "movement": "library:cu_cb",
+            "movement": "library:tr_cb",
             "index": 5,
             "sets": 2
           },
@@ -615,9 +615,9 @@
           "successorSlot": null,
           "movement": null,
           "before": {
-            "movement": "library:hg_mc",
+            "movement": "library:lc_mc",
             "index": 3,
-            "sets": 3
+            "sets": 2
           },
           "after": null,
           "reason": "removed predecessor slot"
@@ -699,7 +699,7 @@
           "successorSlot": null,
           "movement": null,
           "before": {
-            "movement": "library:hg_mc",
+            "movement": "library:he_mc",
             "index": 2,
             "sets": 3
           },
@@ -711,9 +711,9 @@
           "successorSlot": null,
           "movement": null,
           "before": {
-            "movement": "library:hg_mc",
+            "movement": "library:lc_mc",
             "index": 3,
-            "sets": 3
+            "sets": 2
           },
           "after": null,
           "reason": "removed predecessor slot"
@@ -915,35 +915,35 @@
         {
           "predecessorSlot": "growth_4_d1_s4",
           "successorSlot": "growth_3_d2_s5",
-          "movement": "library:ip_mc",
+          "movement": "library:ci_cb",
           "before": {
-            "sets": 3,
+            "sets": 2,
             "reps": [
               8,
-              12
+              15
             ],
             "rir": [
               1,
               3
             ],
-            "restSeconds": 90,
+            "restSeconds": 60,
             "strategy": "rep_goal@1",
-            "prescriptionClass": "compound_8_12",
+            "prescriptionClass": "isolation_8_15",
             "index": 3
           },
           "after": {
-            "sets": 3,
+            "sets": 2,
             "reps": [
               8,
-              12
+              15
             ],
             "rir": [
               1,
               3
             ],
-            "restSeconds": 90,
+            "restSeconds": 60,
             "strategy": "rep_goal@1",
-            "prescriptionClass": "compound_8_12",
+            "prescriptionClass": "isolation_8_15",
             "index": 4
           },
           "reason": "prescription changed"
@@ -987,12 +987,12 @@
         {
           "predecessorSlot": "growth_4_d2_s3",
           "successorSlot": "growth_3_d3_s1",
-          "movement": "library:lg_bb",
+          "movement": "library:lp1_mc",
           "before": {
             "sets": 3,
             "reps": [
-              4,
-              8
+              8,
+              12
             ],
             "rir": [
               1,
@@ -1000,14 +1000,14 @@
             ],
             "restSeconds": 90,
             "strategy": "range@1",
-            "prescriptionClass": "compound_4_8",
+            "prescriptionClass": "compound_8_12",
             "index": 2
           },
           "after": {
             "sets": 3,
             "reps": [
-              4,
-              8
+              8,
+              12
             ],
             "rir": [
               1,
@@ -1015,7 +1015,7 @@
             ],
             "restSeconds": 90,
             "strategy": "range@1",
-            "prescriptionClass": "compound_4_8",
+            "prescriptionClass": "compound_8_12",
             "index": 0
           },
           "reason": "prescription changed"
@@ -1059,7 +1059,7 @@
         {
           "predecessorSlot": "growth_4_d3_s5",
           "successorSlot": "growth_3_d3_s5",
-          "movement": "library:dl_cb",
+          "movement": "library:rd_mc",
           "before": {
             "sets": 2,
             "reps": [
@@ -1117,21 +1117,21 @@
         {
           "predecessorSlot": null,
           "successorSlot": "growth_3_d1_s4",
-          "movement": "library:hg_mc",
+          "movement": "library:lc_mc",
           "before": null,
           "after": {
-            "sets": 3,
+            "sets": 2,
             "reps": [
               8,
-              12
+              15
             ],
             "rir": [
               1,
               3
             ],
-            "restSeconds": 90,
+            "restSeconds": 60,
             "strategy": "range@1",
-            "prescriptionClass": "compound_8_12",
+            "prescriptionClass": "isolation_8_15",
             "index": 3
           },
           "reason": "added successor prescription"
@@ -1227,7 +1227,7 @@
         {
           "predecessorSlot": null,
           "successorSlot": "growth_3_d3_s4",
-          "movement": "library:hg_mc",
+          "movement": "library:he_mc",
           "before": null,
           "after": {
             "sets": 3,
@@ -1249,7 +1249,7 @@
         {
           "predecessorSlot": null,
           "successorSlot": "growth_3_d3_s6",
-          "movement": "library:cu_cb",
+          "movement": "library:tr_cb",
           "before": null,
           "after": {
             "sets": 2,
@@ -1317,18 +1317,18 @@
           "successorSlot": null,
           "movement": null,
           "before": {
-            "sets": 3,
+            "sets": 2,
             "reps": [
               8,
-              12
+              15
             ],
             "rir": [
               1,
               3
             ],
-            "restSeconds": 90,
+            "restSeconds": 60,
             "strategy": "range@1",
-            "prescriptionClass": "compound_8_12",
+            "prescriptionClass": "isolation_8_15",
             "index": 3
           },
           "after": null,
@@ -1493,18 +1493,18 @@
           "successorSlot": null,
           "movement": null,
           "before": {
-            "sets": 3,
+            "sets": 2,
             "reps": [
               8,
-              12
+              15
             ],
             "rir": [
               1,
               3
             ],
-            "restSeconds": 90,
+            "restSeconds": 60,
             "strategy": "range@1",
-            "prescriptionClass": "compound_8_12",
+            "prescriptionClass": "isolation_8_15",
             "index": 3
           },
           "after": null,

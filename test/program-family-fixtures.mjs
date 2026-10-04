@@ -53,9 +53,9 @@ const EXACT = {
   strength_6_v1: "knee_effort,hip_extension,unilateral_knee,trunk|press_effort,vertical_pull,supported_pull,triceps|hinge_effort,quad_assistance,hamstring_assistance,calf|knee_volume,hinge_volume,unilateral_knee,trunk|press_volume,vertical_press,horizontal_pull,biceps|quad_assistance,chest,back,lateral_delt,optional_arms",
   home_2_v1: "home_knee,home_push,unilateral_knee,home_posterior,home_trunk,home_pull|unilateral_knee,home_push,home_posterior,home_calf,home_trunk,home_pull",
   home_3_v1: "home_knee,home_push,unilateral_knee,home_posterior,home_trunk|unilateral_knee,home_push,home_posterior,home_pull,home_lateral|home_knee,home_push,home_posterior,home_pull,home_calf",
-  home_4_v1: "home_knee,home_push,unilateral_knee,home_trunk|home_posterior,home_pull,unilateral_knee,home_calf|unilateral_knee,home_push,home_posterior,home_trunk|home_coverage,home_pull,home_posterior,home_coverage",
-  home_5_v1: "home_knee,home_push,home_trunk|home_posterior,home_pull|unilateral_knee,home_push|home_posterior,home_pull,home_trunk|home_coverage,home_coverage,home_coverage",
-  home_6_v1: "home_knee,home_push,home_trunk|home_posterior,home_pull,home_coverage|unilateral_knee,home_push,home_trunk|home_posterior,home_pull,home_coverage|home_coverage,home_posterior,home_trunk|home_coverage,home_coverage,home_coverage",
+  home_4_v1: "home_knee,home_push,unilateral_knee,home_trunk|home_posterior,home_pull,unilateral_knee,home_calf|unilateral_knee,home_push,home_posterior,home_trunk|home_coverage_upper,home_pull,home_posterior,home_coverage_lower",
+  home_5_v1: "home_knee,home_push,home_trunk|home_posterior,home_pull|unilateral_knee,home_push|home_posterior,home_pull,home_trunk|home_coverage_lower,home_coverage_upper,home_coverage_trunk_calf",
+  home_6_v1: "home_knee,home_push,home_trunk|home_posterior,home_pull,home_coverage_upper|unilateral_knee,home_push,home_trunk|home_posterior,home_pull,home_coverage_upper|home_coverage_lower,home_posterior,home_trunk|home_coverage_lower,home_coverage_upper,home_coverage_trunk_calf",
 };
 
 assert.deepEqual(Compiler.validateBlueprints(), { ok: true, count: 20 });
@@ -81,7 +81,7 @@ assert.equal(fixture.limitedEquipmentPromise.en, "Train Anywhere");
 assert.equal(fixture.families.find((family) => family.id === "home").publicGoal, null);
 assert.deepEqual(fixture.engineContract.strategies, ["range@1", "rep_goal@1", "effort_target@1", "anchor_backoff@1", "manual@1"]);
 assert(!owns(fixture.rules, "allocation"));
-assert.deepEqual(fixture.rules.reductionOrder, ["remove_optional", "efficient_two_set", "trim_reducible_assistance", "conflict"]);
+assert.deepEqual(fixture.rules.reductionOrder, ["remove_priority_bonus", "remove_optional", "efficient_two_set", "reselect_redundant", "omit_redundant", "trim_reducible_assistance", "omit_accessory", "minimum_dose_single_set", "conflict"]);
 
 for (const [id, contract] of Object.entries(Compiler.SLOT_TEMPLATES)) {
   assert(Array.isArray(contract.patterns) && contract.patterns.length, `${id} has movement patterns`);
@@ -182,8 +182,10 @@ assert(protectedPulls.length > 0 && protectedPulls.every((entry) => entry.protec
 assert(protectedPulls.every((entry) => entry.exercise.environmentRequirements.includes("safe_pull")));
 
 const bandCandidate = { id: "custom:band-lateral", name: "Band lateral raise", namePt: "Elevação lateral com faixa", equipment: ["band"], primary: "Side delts", secondary: "", patterns: ["lateral_raise"], practicalRepRange: [8, 15], stability: "moderate", beginnerFriendly: true, custom: true };
-const homeBands = Compiler.compile(homeContext(3, { equipment: ["band"] }), [...EXERCISE_LIBRARY, bandCandidate]);
-assert.equal(allSlots(homeBands).find((entry) => entry.templateId === "home_lateral").exercise.id, bandCandidate.id, "declared bands can resolve band work");
+const homeBands = Compiler.compile(homeContext(3, { equipment: ["band"] }), EXERCISE_LIBRARY);
+assert.equal(allSlots(homeBands).find((entry) => entry.templateId === "home_lateral").exercise.id, "lr_bd", "declared bands resolve the built-in band lateral raise (Plan 065)");
+const homeBandsCustom = Compiler.compile(homeContext(3, { equipment: ["band"] }), [...EXERCISE_LIBRARY.filter((entry) => entry.id !== "lr_bd"), bandCandidate]);
+assert.equal(allSlots(homeBandsCustom).find((entry) => entry.templateId === "home_lateral").exercise.id, bandCandidate.id, "a custom band candidate without a compiler block still resolves through pattern inference");
 const homeDumbbells = Compiler.compile(homeContext(3, { equipment: ["band", "dumbbell"], loadIncrements: { dumbbell: 2 } }), [...EXERCISE_LIBRARY, bandCandidate]);
 assert.equal(allSlots(homeDumbbells).find((entry) => entry.templateId === "home_lateral").exercise.equipment, "dumbbell", "dumbbells outrank bands when both fit");
 const noHeavyCapability = Compiler.compile({ ...homeContext(2), familyId: "strength" }, EXERCISE_LIBRARY);
@@ -205,8 +207,10 @@ const satisfiesHomeSlot = (candidate, templateId) => {
   return candidate.equipment === "bodyweight" &&
     candidate.environmentRequirements.length === 0 && // no undeclared equipment/environment dependency
     c.requiredCapabilities.length === 0 &&
-    listIntersects(candidate.patterns, c.patterns) &&
-    listIntersects([...candidate.primaryMuscles, ...candidate.secondaryMuscles], [...c.primaryMuscles, ...c.secondaryMuscles]) &&
+    listIntersects(candidate.functions, c.functions) &&
+    (c.secondaryAcceptable
+      ? listIntersects([...candidate.primaryMuscles, ...candidate.secondaryMuscles], [...c.primaryMuscles, ...c.secondaryMuscles])
+      : listIntersects(candidate.primaryMuscles, c.primaryMuscles)) &&
     c.prescriptionClasses.some((classId) => coversClass(candidate, classId));
 };
 const bodyweightUnilateralKnee = normalizedHomeCatalogue.filter((candidate) =>
@@ -221,7 +225,7 @@ assert(bodyweightUnilateralKnee.every((candidate) => candidate.equipment === "bo
    (non-optional, non-conditional) Home slot resolves to a bodyweight movement
    at zero equipment, so a Home baseline compile never degrades to a conflict
    because the shipped catalogue lost a class of movement. */
-const REQUIRED_HOME_TEMPLATES = ["home_knee", "home_push", "home_posterior", "unilateral_knee", "home_trunk", "home_calf", "home_coverage"];
+const REQUIRED_HOME_TEMPLATES = ["home_knee", "home_push", "home_posterior", "unilateral_knee", "home_trunk", "home_calf", "home_coverage_lower", "home_coverage_upper", "home_coverage_trunk_calf"];
 for (const template of REQUIRED_HOME_TEMPLATES) {
   const candidates = normalizedHomeCatalogue.filter((candidate) => satisfiesHomeSlot(candidate, template));
   assert(candidates.length >= 1, `the catalogue carries a bodyweight candidate for the required Home slot ${template}`);
@@ -252,7 +256,8 @@ assert.equal(restored.relations.find((entry) => entry.id === "balanced_3_knee").
 const growth = Compiler.compile(gymContext("growth", 2), EXERCISE_LIBRARY);
 const pressSlot = growth.days[0].slots.find((entry) => entry.templateId === "horizontal_press");
 assert.equal(pressSlot.prescription.classId, "compound_4_8");
-const highRepPress = { ...EXERCISE_LIBRARY.find((entry) => entry.id === "pr_mc"), id: "custom:high-rep-press", practicalRepRange: [8, 12], custom: true };
+const basePress = EXERCISE_LIBRARY.find((entry) => entry.id === "pr_mc");
+const highRepPress = { ...basePress, id: "custom:high-rep-press", compiler: { ...basePress.compiler, practicalRepRange: [8, 12] }, custom: true };
 const changedPrescription = Compiler.substitute(growth, pressSlot.slotId, highRepPress.id, [...EXERCISE_LIBRARY, highRepPress], gymContext("growth", 2));
 assert.equal(changedPrescription.days[0].slots.find((entry) => entry.slotId === pressSlot.slotId).prescription.classId, "compound_8_12", "substitution resolves a compatible new prescription");
 const customized = Compiler.customize(growth, pressSlot.slotId, { name: "My unsupported movement", primary: "Chest" });

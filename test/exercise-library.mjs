@@ -30,7 +30,7 @@ const MUSCLES = new Set([
   "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Adductors",
   "Abductors", "Calves", "Spinal erectors", "Abs", "Obliques"
 ]);
-const EQUIPMENT = new Set(["barbell", "dumbbell", "cable", "machine", "smith", "bodyweight"]);
+const EQUIPMENT = new Set(["barbell", "dumbbell", "cable", "machine", "smith", "bodyweight", "band"]);
 
 /* Every slot the Plan 048 compiler can ask a day for. A slot with no
    candidates must be reported rather than silently skipping an exercise. */

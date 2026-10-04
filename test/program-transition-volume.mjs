@@ -577,8 +577,8 @@ test("growth_3 exact recomputed direct/indirect exposure totals", async () => {
   assert.equal(result.ok, true, result.code);
 
   assert.deepEqual(result.successorInstance.directIndirectExposure, {
-    direct: { quads: 7, chest: 6, back: 4, hamstrings: 7, glutes: 7, side_delts: 2, lats: 2, front_delts: 2 },
-    indirect: { glutes: 7, hamstrings: 7, calves: 7, triceps: 8, front_delts: 6, biceps: 6, forearms: 6, spinal_erectors: 7, traps: 2 },
+    direct: { quads: 7, chest: 5, back: 4, hamstrings: 6, side_delts: 1, glutes: 5, lats: 2, front_delts: 2, rear_delts: 1 },
+    indirect: { glutes: 7, hamstrings: 7, calves: 8, triceps: 6, front_delts: 5, biceps: 6, forearms: 6, traps: 2, spinal_erectors: 3, back: 1 },
   });
   assert.notDeepEqual(
     result.successorInstance.directIndirectExposure,

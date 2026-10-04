@@ -1394,7 +1394,7 @@ try {
     for (const match of appSource.matchAll(/entryCompileError=\{code:"([^"]+)"/g)) found.failure.add(match[1]);
     for (const match of appSource.matchAll(/built\?\.code\|\|"([^"]+)"/g)) found.failure.add(match[1]);
     const total = Object.values(found).reduce((sum, set) => sum + set.size, 0);
-    assert(found.limitation.size >= 5 && found.reduction.size === 3 && found.failure.size >= 14 && found.readiness.size >= 8,
+    assert(found.limitation.size >= 5 && found.reduction.size === 8 && found.failure.size >= 14 && found.readiness.size >= 8,
       "the scan finds the limitation, reduction, failure and readiness vocabularies", JSON.stringify(Object.fromEntries(Object.entries(found).map(([k, v]) => [k, [...v]]))));
     const en = JSON.parse(read("i18n-en.json")), pt = JSON.parse(read("i18n-pt.json"));
     const { context, page } = await openFresh(browser);

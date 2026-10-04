@@ -222,7 +222,7 @@ growthSuccessorOnly.diff.days = growthSuccessorOnly.diff.days.filter(
 const successorOnlyErrors = validateTransitionProposal(growthSuccessorOnly, growthPredecessor, growthSuccessor);
 check(successorOnlyErrors.some((error) => error.includes("day mapping") || error.includes("diff.days")), `successor-only day omission was accepted: ${successorOnlyErrors.join("; ")}`);
 
-const expectedHash = "c7a4c90322522d6d990fdd7e7e51c7da0de7b349f2d3e959619b9c1d9e9feadc";
+const expectedHash = "9d3a50cceccb4592b2296c8407f14665612cf0dc5de5e1b2aeb4982a29e30b4c";
 check(proposalHashOf(base) === expectedHash, "base proposal hash no longer matches the repaired fixture");
 const scalarMutation = clone(base);
 scalarMutation.predecessor.programId = "prog_local_mutated";

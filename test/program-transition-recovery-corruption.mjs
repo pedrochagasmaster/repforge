@@ -69,7 +69,7 @@ const CONFIRMED_AT = "2026-10-01T09:12:00.000Z";
 const REASSESSMENT_DUE_AT = "2026-10-08T09:12:00.000Z";
 const MALFORMED_DETECTED_AT = "2026-10-01T09:30:00.000Z";
 const EXPECTED_BOUNDED_CONFLICT_RAW_LENGTH = 9949;
-const EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH = 16033;
+const EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH = 16039;
 
 const APPROVED_POLICY_V2 = parseExecutablePolicy(
   readFileSync(new URL("../docs/recovery-week-policy.md", import.meta.url), "utf8"),
@@ -987,7 +987,7 @@ async function overBoundDuplicateScenario(browser, base, firstRecord, secondReco
   const raw = expectedConflictRaw(targetBlockId, [firstRecord, secondRecord]);
   console.log(`  measured over-bound duplicate conflict raw length: ${raw.length}`);
   check(raw.length === EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH,
-    "real normalized duplicate conflict raw length remains pinned at 16,033 characters",
+    "real normalized duplicate conflict raw length remains pinned at 16,039 characters",
     { rawLength: raw.length, expected: EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH }, "harness");
   check(raw.length > 10000,
     "real normalized duplicate conflict raw independently exceeds the 10,000-character bound",

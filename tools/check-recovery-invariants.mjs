@@ -181,7 +181,7 @@ for (const [label, mutate, expectedNeedle] of evidenceNegativeControls) {
 }
 
 const evidenceValueNegativeControls = [
-  ["corrupted ratio", (text) => replaceEvidenceCell(text, "growth_2_v1", "37.5%", "999%"), "documented ratio"],
+  ["corrupted ratio", (text) => replaceEvidenceCell(text, "growth_2_v1", "38.7%", "999%"), "documented ratio"],
   ["invalid evidence status", (text) => replaceEvidenceCell(text, "growth_2_v1", "Miss (low)", "Unknown"), "closed vocabulary"],
   ["in-band mismatched status", (text) => replaceEvidenceCell(text, "growth_4_v1", "Yes", "Miss (low)"), "disagrees with derived Yes"],
   ["allowlisted-low mismatched status", (text) => replaceEvidenceCell(text, "growth_2_v1", "Miss (low)", "Yes"), "disagrees with derived Miss (low)"],

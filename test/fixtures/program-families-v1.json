@@ -8,10 +8,10 @@
   ],
   "versions": {
     "schema": 1,
-    "blueprint": 1,
-    "compiler": 2,
-    "catalogue": 1,
-    "rules": 1,
+    "blueprint": 2,
+    "compiler": 3,
+    "catalogue": 2,
+    "rules": 2,
     "context": 2,
     "recentConsistency": 1,
     "simpleStart": 1
@@ -105,6 +105,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "knee_extension"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "squat"
@@ -134,6 +140,15 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "hip_hinge",
+        "hip_extension"
+      ],
+      "preferredFunctions": [
+        "hip_hinge"
+      ],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "hinge",
@@ -159,11 +174,15 @@
         "loading": [
           "known_grid"
         ],
-        "primarySuitability": [
-          "high"
+        "anchor": [
+          true
         ]
       },
-      "preferredCharacteristics": {},
+      "preferredCharacteristics": {
+        "equipment": [
+          "barbell"
+        ]
+      },
       "status": "protected",
       "priorityBehavior": "preserve_coverage",
       "warmupClass": "primary",
@@ -171,6 +190,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": false,
+      "functions": [
+        "knee_extension"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "heavy_primary",
       "patterns": [
         "squat"
@@ -194,11 +219,15 @@
         "loading": [
           "known_grid"
         ],
-        "primarySuitability": [
-          "high"
+        "anchor": [
+          true
         ]
       },
-      "preferredCharacteristics": {},
+      "preferredCharacteristics": {
+        "equipment": [
+          "barbell"
+        ]
+      },
       "status": "protected",
       "priorityBehavior": "preserve_coverage",
       "warmupClass": "primary",
@@ -206,6 +235,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": false,
+      "functions": [
+        "horizontal_push"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "heavy_primary",
       "patterns": [
         "press"
@@ -230,11 +265,15 @@
         "loading": [
           "known_grid"
         ],
-        "primarySuitability": [
-          "high"
+        "anchor": [
+          true
         ]
       },
-      "preferredCharacteristics": {},
+      "preferredCharacteristics": {
+        "equipment": [
+          "barbell"
+        ]
+      },
       "status": "protected",
       "priorityBehavior": "preserve_coverage",
       "warmupClass": "primary",
@@ -242,6 +281,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": false,
+      "functions": [
+        "knee_extension"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "heavy_primary",
       "patterns": [
         "squat"
@@ -266,11 +311,15 @@
         "loading": [
           "known_grid"
         ],
-        "primarySuitability": [
-          "high"
+        "anchor": [
+          true
         ]
       },
-      "preferredCharacteristics": {},
+      "preferredCharacteristics": {
+        "equipment": [
+          "barbell"
+        ]
+      },
       "status": "protected",
       "priorityBehavior": "preserve_coverage",
       "warmupClass": "primary",
@@ -278,6 +327,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": false,
+      "functions": [
+        "horizontal_push"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "heavy_primary",
       "patterns": [
         "press"
@@ -303,11 +358,15 @@
         "loading": [
           "known_grid"
         ],
-        "primarySuitability": [
-          "high"
+        "anchor": [
+          true
         ]
       },
-      "preferredCharacteristics": {},
+      "preferredCharacteristics": {
+        "equipment": [
+          "barbell"
+        ]
+      },
       "status": "protected",
       "priorityBehavior": "preserve_coverage",
       "warmupClass": "primary",
@@ -315,6 +374,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": false,
+      "functions": [
+        "hip_hinge"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "heavy_primary",
       "patterns": [
         "hinge"
@@ -343,6 +408,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "knee_extension"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "volume_counterpart",
       "patterns": [
         "squat"
@@ -373,6 +444,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "horizontal_push"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "volume_counterpart",
       "patterns": [
         "press"
@@ -404,6 +481,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "hip_hinge"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "volume_counterpart",
       "patterns": [
         "hinge"
@@ -433,6 +516,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "horizontal_push"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "press"
@@ -463,6 +552,15 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "incline_push",
+        "horizontal_push"
+      ],
+      "preferredFunctions": [
+        "incline_push"
+      ],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "incline_press",
@@ -494,6 +592,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "vertical_push"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "shoulder_press"
@@ -523,6 +627,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "horizontal_pull"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "row"
@@ -556,6 +666,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "horizontal_pull"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "row"
@@ -585,6 +701,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "vertical_pull"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "pulldown"
@@ -614,6 +736,13 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "horizontal_pull",
+        "vertical_pull"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "row",
@@ -645,6 +774,13 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "vertical_push",
+        "vertical_pull"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "shoulder_press",
@@ -681,6 +817,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "unilateral_knee"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "squat"
@@ -711,6 +853,12 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "knee_extension"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "leg_extension",
@@ -740,6 +888,15 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "knee_flexion",
+        "hip_hinge"
+      ],
+      "preferredFunctions": [
+        "knee_flexion"
+      ],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "leg_curl",
@@ -772,6 +929,15 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "hip_extension",
+        "hip_hinge"
+      ],
+      "preferredFunctions": [
+        "hip_extension"
+      ],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "hinge",
@@ -801,6 +967,16 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "chest_fly",
+        "horizontal_push",
+        "incline_push"
+      ],
+      "preferredFunctions": [
+        "chest_fly"
+      ],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "chest_iso",
@@ -831,6 +1007,14 @@
       "transitionClass": "new_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "horizontal_pull",
+        "vertical_pull",
+        "shoulder_extension"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "row",
@@ -864,6 +1048,12 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "lateral_raise"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "lateral_raise",
@@ -892,6 +1082,12 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "rear_delt"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "rear_delt",
@@ -920,6 +1116,13 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "lateral_raise",
+        "rear_delt"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": true,
       "role": "isolation_accessory",
       "patterns": [
         "lateral_raise",
@@ -950,6 +1153,12 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "elbow_flexion"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "curl",
@@ -978,6 +1187,12 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "elbow_extension"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "triceps",
@@ -1006,6 +1221,13 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "elbow_flexion",
+        "elbow_extension"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": true,
       "role": "isolation_accessory",
       "patterns": [
         "curl",
@@ -1036,6 +1258,12 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "plantar_flexion"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "calves"
@@ -1063,6 +1291,12 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "trunk"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "abs",
@@ -1090,6 +1324,21 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "knee_extension",
+        "knee_flexion",
+        "chest_fly",
+        "horizontal_pull",
+        "vertical_pull",
+        "lateral_raise",
+        "rear_delt",
+        "elbow_flexion",
+        "elbow_extension",
+        "plantar_flexion"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "leg_extension",
@@ -1136,6 +1385,15 @@
       "transitionClass": "same_station",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "elbow_flexion",
+        "elbow_extension",
+        "plantar_flexion",
+        "lateral_raise"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": true,
       "role": "isolation_accessory",
       "patterns": [
         "curl",
@@ -1175,6 +1433,15 @@
       "transitionClass": "home_change",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "knee_extension",
+        "unilateral_knee"
+      ],
+      "preferredFunctions": [
+        "knee_extension"
+      ],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "squat"
@@ -1204,6 +1471,16 @@
       "transitionClass": "home_change",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "horizontal_push",
+        "incline_push",
+        "elbow_extension"
+      ],
+      "preferredFunctions": [
+        "horizontal_push"
+      ],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "press",
@@ -1236,6 +1513,14 @@
       "transitionClass": "home_change",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "hip_hinge",
+        "hip_extension",
+        "knee_flexion"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "hinge",
@@ -1266,6 +1551,13 @@
       "transitionClass": "home_change",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "horizontal_pull",
+        "vertical_pull"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "hypertrophy_compound",
       "patterns": [
         "row",
@@ -1298,6 +1590,12 @@
       "transitionClass": "home_change",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "lateral_raise"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "lateral_raise",
@@ -1325,6 +1623,12 @@
       "transitionClass": "home_change",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "plantar_flexion"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "calves"
@@ -1351,6 +1655,12 @@
       "transitionClass": "home_change",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "trunk"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": false,
       "role": "isolation_accessory",
       "patterns": [
         "abs",
@@ -1367,7 +1677,7 @@
         "range@1"
       ]
     },
-    "home_coverage": {
+    "home_coverage_lower": {
       "requiredCapabilities": [],
       "requiredCharacteristics": {},
       "preferredCharacteristics": {},
@@ -1378,29 +1688,106 @@
       "transitionClass": "home_change",
       "timeClass": "standard",
       "efficientEligible": true,
+      "functions": [
+        "knee_extension",
+        "unilateral_knee",
+        "hip_hinge",
+        "hip_extension",
+        "knee_flexion"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": true,
       "role": "hypertrophy_compound",
       "patterns": [
         "squat",
-        "hinge",
-        "press",
-        "row",
-        "pulldown",
-        "abs",
-        "calves"
+        "hinge"
       ],
       "primaryMuscles": [
         "quads",
         "hamstrings",
-        "glutes",
+        "glutes"
+      ],
+      "secondaryMuscles": [],
+      "prescriptionClasses": [
+        "compound_8_12",
+        "isolation_8_15"
+      ],
+      "strategies": [
+        "range@1"
+      ]
+    },
+    "home_coverage_upper": {
+      "requiredCapabilities": [],
+      "requiredCharacteristics": {},
+      "preferredCharacteristics": {},
+      "status": "reducible",
+      "priorityBehavior": "preserve_coverage",
+      "warmupClass": "compound",
+      "restClass": "compound",
+      "transitionClass": "home_change",
+      "timeClass": "standard",
+      "efficientEligible": true,
+      "functions": [
+        "horizontal_push",
+        "incline_push",
+        "vertical_push",
+        "horizontal_pull",
+        "vertical_pull"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": true,
+      "role": "hypertrophy_compound",
+      "patterns": [
+        "press",
+        "row",
+        "pulldown"
+      ],
+      "primaryMuscles": [
         "chest",
         "back",
         "lats",
+        "front_delts"
+      ],
+      "secondaryMuscles": [],
+      "prescriptionClasses": [
+        "compound_8_12",
+        "isolation_8_15"
+      ],
+      "strategies": [
+        "range@1"
+      ]
+    },
+    "home_coverage_trunk_calf": {
+      "requiredCapabilities": [],
+      "requiredCharacteristics": {},
+      "preferredCharacteristics": {},
+      "status": "reducible",
+      "priorityBehavior": "preserve_coverage",
+      "warmupClass": "compound",
+      "restClass": "compound",
+      "transitionClass": "home_change",
+      "timeClass": "standard",
+      "efficientEligible": true,
+      "functions": [
+        "trunk",
+        "plantar_flexion"
+      ],
+      "preferredFunctions": [],
+      "secondaryAcceptable": false,
+      "balanceAcrossFunctions": true,
+      "role": "isolation_accessory",
+      "patterns": [
+        "abs",
+        "calves"
+      ],
+      "primaryMuscles": [
         "core",
         "calves"
       ],
       "secondaryMuscles": [],
       "prescriptionClasses": [
-        "compound_8_12",
         "isolation_8_15"
       ],
       "strategies": [
@@ -1413,7 +1800,7 @@
       "id": "growth_2_v1",
       "familyId": "growth",
       "frequency": 2,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -1483,7 +1870,7 @@
       "id": "growth_3_v1",
       "familyId": "growth",
       "frequency": 3,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -1584,7 +1971,7 @@
       "id": "growth_4_v1",
       "familyId": "growth",
       "frequency": 4,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -1706,7 +2093,7 @@
       "id": "growth_5_v1",
       "familyId": "growth",
       "frequency": 5,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -1858,7 +2245,7 @@
       "id": "growth_6_v1",
       "familyId": "growth",
       "frequency": 6,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2025,7 +2412,7 @@
       "id": "balanced_2_v1",
       "familyId": "balanced",
       "frequency": 2,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2087,7 +2474,7 @@
       "id": "balanced_3_v1",
       "familyId": "balanced",
       "frequency": 3,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2198,7 +2585,7 @@
       "id": "balanced_4_v1",
       "familyId": "balanced",
       "frequency": 4,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2320,7 +2707,7 @@
       "id": "balanced_5_v1",
       "familyId": "balanced",
       "frequency": 5,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2472,7 +2859,7 @@
       "id": "balanced_6_v1",
       "familyId": "balanced",
       "frequency": 6,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2660,7 +3047,7 @@
       "id": "strength_2_v1",
       "familyId": "strength",
       "frequency": 2,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2722,7 +3109,7 @@
       "id": "strength_3_v1",
       "familyId": "strength",
       "frequency": 3,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2810,7 +3197,7 @@
       "id": "strength_4_v1",
       "familyId": "strength",
       "frequency": 4,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -2911,7 +3298,7 @@
       "id": "strength_5_v1",
       "familyId": "strength",
       "frequency": 5,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -3042,7 +3429,7 @@
       "id": "strength_6_v1",
       "familyId": "strength",
       "frequency": 6,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -3211,7 +3598,7 @@
       "id": "home_2_v1",
       "familyId": "home",
       "frequency": 2,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -3281,7 +3668,7 @@
       "id": "home_3_v1",
       "familyId": "home",
       "frequency": 3,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -3370,7 +3757,7 @@
       "id": "home_4_v1",
       "familyId": "home",
       "frequency": 4,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -3445,7 +3832,7 @@
           "slots": [
             {
               "slotId": "home_4_d4_s1",
-              "template": "home_coverage"
+              "template": "home_coverage_upper"
             },
             {
               "slotId": "home_4_d4_s2",
@@ -3457,7 +3844,7 @@
             },
             {
               "slotId": "home_4_d4_s4",
-              "template": "home_coverage"
+              "template": "home_coverage_lower"
             }
           ]
         }
@@ -3468,7 +3855,7 @@
       "id": "home_5_v1",
       "familyId": "home",
       "frequency": 5,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -3541,15 +3928,15 @@
           "slots": [
             {
               "slotId": "home_5_d5_s1",
-              "template": "home_coverage"
+              "template": "home_coverage_lower"
             },
             {
               "slotId": "home_5_d5_s2",
-              "template": "home_coverage"
+              "template": "home_coverage_upper"
             },
             {
               "slotId": "home_5_d5_s3",
-              "template": "home_coverage"
+              "template": "home_coverage_trunk_calf"
             }
           ]
         }
@@ -3560,7 +3947,7 @@
       "id": "home_6_v1",
       "familyId": "home",
       "frequency": 6,
-      "version": 1,
+      "version": 2,
       "kind": "authored_sibling",
       "days": [
         {
@@ -3600,7 +3987,7 @@
             },
             {
               "slotId": "home_6_d2_s3",
-              "template": "home_coverage",
+              "template": "home_coverage_upper",
               "efficient": true
             }
           ]
@@ -3642,7 +4029,7 @@
             },
             {
               "slotId": "home_6_d4_s3",
-              "template": "home_coverage",
+              "template": "home_coverage_upper",
               "efficient": true
             }
           ]
@@ -3653,7 +4040,7 @@
           "slots": [
             {
               "slotId": "home_6_d5_s1",
-              "template": "home_coverage",
+              "template": "home_coverage_lower",
               "efficient": true
             },
             {
@@ -3674,17 +4061,17 @@
           "slots": [
             {
               "slotId": "home_6_d6_s1",
-              "template": "home_coverage",
+              "template": "home_coverage_lower",
               "efficient": true
             },
             {
               "slotId": "home_6_d6_s2",
-              "template": "home_coverage",
+              "template": "home_coverage_upper",
               "efficient": true
             },
             {
               "slotId": "home_6_d6_s3",
-              "template": "home_coverage",
+              "template": "home_coverage_trunk_calf",
               "efficient": true
             }
           ]
@@ -3730,6 +4117,7 @@
         ],
         "defaultSets": 3,
         "efficientSets": 2,
+        "minimumDoseSets": 1,
         "rir": [
           1,
           3
@@ -3756,6 +4144,7 @@
         ],
         "defaultSets": 3,
         "efficientSets": 2,
+        "minimumDoseSets": 1,
         "rir": [
           1,
           3
@@ -3812,9 +4201,14 @@
       "bufferPercent": 10
     },
     "reductionOrder": [
+      "remove_priority_bonus",
       "remove_optional",
       "efficient_two_set",
+      "reselect_redundant",
+      "omit_redundant",
       "trim_reducible_assistance",
+      "omit_accessory",
+      "minimum_dose_single_set",
       "conflict"
     ],
     "reentry": {
@@ -3841,22 +4235,25 @@
           "quads": 6,
           "chest": 6,
           "back": 3,
-          "hamstrings": 6,
-          "glutes": 6,
-          "side_delts": 4,
-          "biceps": 4,
-          "lats": 3
+          "hamstrings": 5,
+          "side_delts": 2,
+          "biceps": 2,
+          "glutes": 3,
+          "lats": 3,
+          "rear_delts": 2,
+          "calves": 2
         },
         "indirect": {
           "glutes": 6,
           "hamstrings": 6,
-          "calves": 6,
+          "calves": 8,
           "triceps": 6,
           "front_delts": 6,
           "biceps": 6,
-          "forearms": 10,
-          "spinal_erectors": 6,
-          "traps": 4
+          "forearms": 8,
+          "traps": 4,
+          "spinal_erectors": 3,
+          "back": 2
         }
       },
       "days": [
@@ -3926,18 +4323,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -4065,7 +4462,7 @@
               "templateId": "delt_mixed",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "dl_cb",
+              "libraryId": "rd_mc",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -4084,7 +4481,7 @@
               "templateId": "optional_arms",
               "role": "isolation_accessory",
               "status": "optional",
-              "libraryId": "cu_cb",
+              "libraryId": "cv_mc",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -4115,26 +4512,29 @@
       "directIndirectExposure": {
         "direct": {
           "quads": 9,
-          "chest": 9,
+          "chest": 8,
           "back": 6,
-          "hamstrings": 9,
-          "glutes": 9,
-          "side_delts": 4,
-          "biceps": 4,
+          "hamstrings": 8,
+          "side_delts": 2,
+          "biceps": 2,
+          "glutes": 6,
           "lats": 3,
           "front_delts": 3,
-          "calves": 2
+          "calves": 2,
+          "rear_delts": 2,
+          "triceps": 2
         },
         "indirect": {
           "glutes": 9,
           "hamstrings": 9,
-          "calves": 9,
-          "triceps": 12,
-          "front_delts": 9,
+          "calves": 11,
+          "triceps": 9,
+          "front_delts": 8,
           "biceps": 9,
-          "forearms": 13,
-          "spinal_erectors": 9,
-          "traps": 4
+          "forearms": 11,
+          "traps": 4,
+          "spinal_erectors": 3,
+          "back": 2
         }
       },
       "days": [
@@ -4204,18 +4604,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -4343,18 +4743,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -4387,12 +4787,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -4444,7 +4844,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -4463,7 +4863,7 @@
               "templateId": "delt_mixed",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "dl_cb",
+              "libraryId": "rd_mc",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -4482,7 +4882,7 @@
               "templateId": "optional_arms",
               "role": "isolation_accessory",
               "status": "optional",
-              "libraryId": "cu_cb",
+              "libraryId": "tr_cb",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -4513,28 +4913,30 @@
       "relations": [],
       "directIndirectExposure": {
         "direct": {
-          "chest": 9,
+          "chest": 8,
           "back": 6,
           "lats": 6,
-          "side_delts": 4,
+          "side_delts": 2,
           "triceps": 2,
           "quads": 9,
-          "hamstrings": 15,
-          "glutes": 15,
+          "hamstrings": 13,
+          "glutes": 9,
           "calves": 4,
           "front_delts": 3,
+          "rear_delts": 2,
           "biceps": 2
         },
         "indirect": {
-          "triceps": 12,
-          "front_delts": 9,
+          "triceps": 9,
+          "front_delts": 8,
           "biceps": 12,
           "forearms": 14,
           "traps": 4,
           "glutes": 9,
           "hamstrings": 9,
-          "calves": 9,
-          "spinal_erectors": 15
+          "calves": 13,
+          "spinal_erectors": 6,
+          "back": 2
         }
       },
       "days": [
@@ -4604,18 +5006,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -4705,12 +5107,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -4724,18 +5126,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -4844,7 +5246,7 @@
               "templateId": "delt_mixed",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "dl_cb",
+              "libraryId": "rd_mc",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -4926,7 +5328,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -4945,18 +5347,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -4996,28 +5398,31 @@
       "relations": [],
       "directIndirectExposure": {
         "direct": {
-          "chest": 12,
-          "lats": 9,
-          "back": 6,
-          "side_delts": 4,
+          "chest": 10,
+          "lats": 6,
+          "back": 9,
+          "side_delts": 2,
           "triceps": 2,
           "quads": 12,
-          "hamstrings": 18,
-          "glutes": 18,
+          "hamstrings": 15,
+          "glutes": 9,
           "calves": 4,
           "front_delts": 3,
+          "rear_delts": 2,
           "biceps": 4
         },
         "indirect": {
-          "triceps": 15,
-          "front_delts": 12,
+          "triceps": 9,
+          "front_delts": 10,
           "biceps": 15,
-          "forearms": 19,
+          "forearms": 16,
           "traps": 4,
           "glutes": 12,
           "hamstrings": 12,
-          "calves": 12,
-          "spinal_erectors": 18
+          "calves": 18,
+          "spinal_erectors": 6,
+          "back": 2,
+          "rear_delts": 3
         }
       },
       "days": [
@@ -5188,12 +5593,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -5207,18 +5612,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -5308,18 +5713,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -5327,7 +5732,7 @@
               "templateId": "delt_mixed",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "dl_cb",
+              "libraryId": "rd_mc",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -5409,7 +5814,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -5428,18 +5833,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -5472,18 +5877,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -5491,7 +5896,7 @@
               "templateId": "back",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "pd_bw",
+              "libraryId": "hr_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -5510,7 +5915,7 @@
               "templateId": "quad_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "sq_lp",
+              "libraryId": "sq_sm",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -5529,18 +5934,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -5583,25 +5988,27 @@
         "direct": {
           "chest": 6,
           "back": 4,
-          "side_delts": 4,
+          "side_delts": 2,
           "quads": 10,
           "hamstrings": 10,
-          "glutes": 10,
           "calves": 4,
           "lats": 4,
           "front_delts": 2,
-          "biceps": 2
+          "biceps": 2,
+          "glutes": 4,
+          "rear_delts": 2
         },
         "indirect": {
-          "triceps": 8,
+          "triceps": 4,
           "front_delts": 6,
           "biceps": 8,
           "forearms": 10,
           "traps": 4,
           "glutes": 10,
           "hamstrings": 10,
-          "calves": 10,
-          "spinal_erectors": 10
+          "calves": 16,
+          "spinal_erectors": 2,
+          "back": 2
         }
       },
       "days": [
@@ -5652,18 +6059,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -5715,18 +6122,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -5734,12 +6141,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 0,
@@ -5898,7 +6305,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -5917,18 +6324,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             }
           ]
@@ -5942,18 +6349,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -5980,7 +6387,7 @@
               "templateId": "delt_mixed",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "dl_cb",
+              "libraryId": "rd_mc",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -6024,18 +6431,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -6043,12 +6450,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 0,
@@ -6093,21 +6500,21 @@
         "direct": {
           "quads": 6,
           "chest": 6,
-          "back": 3,
-          "hamstrings": 6,
-          "glutes": 6,
+          "back": 6,
+          "hamstrings": 5,
           "biceps": 2,
-          "lats": 6
+          "glutes": 3,
+          "lats": 3
         },
         "indirect": {
           "glutes": 6,
           "hamstrings": 6,
-          "calves": 6,
+          "calves": 8,
           "triceps": 6,
           "front_delts": 6,
           "biceps": 9,
           "forearms": 11,
-          "spinal_erectors": 6
+          "spinal_erectors": 3
         }
       },
       "days": [
@@ -6177,18 +6584,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -6297,7 +6704,7 @@
               "templateId": "back",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "pd_bw",
+              "libraryId": "rw_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -6351,9 +6758,9 @@
           "quads": 9,
           "chest": 6,
           "back": 6,
-          "hamstrings": 9,
-          "glutes": 9,
+          "hamstrings": 8,
           "side_delts": 2,
+          "glutes": 6,
           "lats": 6,
           "front_delts": 3,
           "biceps": 2
@@ -6361,13 +6768,13 @@
         "indirect": {
           "glutes": 9,
           "hamstrings": 9,
-          "calves": 9,
+          "calves": 11,
           "triceps": 9,
           "front_delts": 6,
           "biceps": 12,
           "forearms": 14,
-          "spinal_erectors": 9,
-          "traps": 2
+          "traps": 2,
+          "spinal_erectors": 3
         }
       },
       "days": [
@@ -6437,18 +6844,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -6538,12 +6945,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -6639,7 +7046,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -6711,8 +7118,8 @@
       "directIndirectExposure": {
         "direct": {
           "quads": 9,
-          "hamstrings": 12,
-          "glutes": 12,
+          "hamstrings": 11,
+          "glutes": 9,
           "calves": 2,
           "chest": 6,
           "lats": 6,
@@ -6723,8 +7130,8 @@
         "indirect": {
           "glutes": 9,
           "hamstrings": 9,
-          "calves": 9,
-          "spinal_erectors": 12,
+          "calves": 11,
+          "spinal_erectors": 6,
           "triceps": 6,
           "front_delts": 6,
           "biceps": 12,
@@ -6780,12 +7187,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -6944,18 +7351,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -6963,7 +7370,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -7099,10 +7506,10 @@
       "directIndirectExposure": {
         "direct": {
           "quads": 9,
-          "hamstrings": 12,
-          "glutes": 12,
+          "hamstrings": 11,
+          "glutes": 9,
           "calves": 4,
-          "chest": 9,
+          "chest": 8,
           "lats": 9,
           "back": 6,
           "triceps": 2,
@@ -7114,14 +7521,15 @@
         "indirect": {
           "glutes": 9,
           "hamstrings": 9,
-          "calves": 9,
-          "spinal_erectors": 12,
-          "triceps": 12,
-          "front_delts": 9,
+          "calves": 11,
+          "spinal_erectors": 6,
+          "triceps": 9,
+          "front_delts": 8,
           "biceps": 15,
-          "forearms": 17,
+          "forearms": 14,
           "traps": 4,
-          "back": 2
+          "back": 5,
+          "rear_delts": 3
         }
       },
       "days": [
@@ -7172,12 +7580,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -7298,7 +7706,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -7317,18 +7725,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -7437,18 +7845,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -7500,7 +7908,7 @@
               "templateId": "vertical_pull",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "pd_bw",
+              "libraryId": "pdf_mc",
               "prescriptionClass": "compound_4_8",
               "sets": 3,
               "reps": [
@@ -7613,25 +8021,25 @@
         "direct": {
           "quads": 10,
           "hamstrings": 8,
-          "glutes": 8,
           "calves": 4,
           "chest": 10,
-          "lats": 8,
-          "back": 4,
+          "lats": 6,
+          "back": 6,
           "triceps": 2,
+          "glutes": 4,
           "side_delts": 2,
           "biceps": 2
         },
         "indirect": {
           "glutes": 10,
           "hamstrings": 10,
-          "calves": 10,
-          "spinal_erectors": 8,
-          "triceps": 10,
+          "calves": 14,
+          "triceps": 6,
           "front_delts": 10,
           "biceps": 12,
           "forearms": 14,
-          "traps": 2
+          "traps": 2,
+          "spinal_erectors": 2
         }
       },
       "days": [
@@ -7663,18 +8071,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -7682,12 +8090,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 0,
@@ -7808,7 +8216,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -7827,18 +8235,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -7928,18 +8336,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -8073,18 +8481,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -8092,7 +8500,7 @@
               "templateId": "back",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "pd_bw",
+              "libraryId": "rw_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -8126,7 +8534,8 @@
           "lats": 6,
           "hamstrings": 6,
           "glutes": 6,
-          "biceps": 4
+          "biceps": 2,
+          "calves": 2
         },
         "indirect": {
           "glutes": 6,
@@ -8135,8 +8544,9 @@
           "triceps": 6,
           "front_delts": 6,
           "biceps": 6,
-          "forearms": 10,
-          "spinal_erectors": 6
+          "forearms": 8,
+          "quads": 3,
+          "spinal_erectors": 3
         }
       },
       "days": [
@@ -8206,7 +8616,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -8269,7 +8679,7 @@
               "templateId": "hinge_effort",
               "role": "heavy_primary",
               "status": "protected",
-              "libraryId": "hg_bb",
+              "libraryId": "dlt_bb",
               "prescriptionClass": "heavy_3_6",
               "sets": 3,
               "reps": [
@@ -8326,7 +8736,7 @@
               "templateId": "optional_arms",
               "role": "isolation_accessory",
               "status": "optional",
-              "libraryId": "cu_cb",
+              "libraryId": "cv_mc",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -8359,21 +8769,25 @@
           "quads": 9,
           "chest": 6,
           "back": 6,
-          "hamstrings": 9,
-          "glutes": 9,
-          "biceps": 6,
+          "hamstrings": 8,
+          "biceps": 2,
+          "glutes": 6,
           "lats": 3,
-          "front_delts": 3
+          "calves": 2,
+          "front_delts": 3,
+          "side_delts": 2
         },
         "indirect": {
           "glutes": 9,
           "hamstrings": 9,
-          "calves": 9,
+          "calves": 11,
           "triceps": 9,
           "front_delts": 6,
           "biceps": 9,
-          "forearms": 15,
-          "spinal_erectors": 9
+          "forearms": 11,
+          "spinal_erectors": 6,
+          "quads": 3,
+          "traps": 2
         }
       },
       "days": [
@@ -8443,18 +8857,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -8544,12 +8958,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -8563,7 +8977,7 @@
               "templateId": "optional_arms",
               "role": "isolation_accessory",
               "status": "optional",
-              "libraryId": "cu_cb",
+              "libraryId": "cv_mc",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -8588,7 +9002,7 @@
               "templateId": "hinge_effort",
               "role": "heavy_primary",
               "status": "protected",
-              "libraryId": "hg_bb",
+              "libraryId": "dlt_bb",
               "prescriptionClass": "heavy_3_6",
               "sets": 3,
               "reps": [
@@ -8664,7 +9078,7 @@
               "templateId": "optional_arms",
               "role": "isolation_accessory",
               "status": "optional",
-              "libraryId": "cu_cb",
+              "libraryId": "dl_cb",
               "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
@@ -8696,8 +9110,8 @@
       "directIndirectExposure": {
         "direct": {
           "quads": 9,
-          "hamstrings": 12,
-          "glutes": 12,
+          "hamstrings": 10,
+          "glutes": 6,
           "chest": 6,
           "lats": 6,
           "back": 3,
@@ -8709,12 +9123,13 @@
         "indirect": {
           "glutes": 9,
           "hamstrings": 9,
-          "calves": 9,
-          "spinal_erectors": 12,
+          "calves": 13,
           "triceps": 9,
           "front_delts": 6,
           "biceps": 9,
-          "forearms": 11
+          "forearms": 11,
+          "quads": 3,
+          "spinal_erectors": 3
         }
       },
       "days": [
@@ -8746,7 +9161,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -8765,12 +9180,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -8784,18 +9199,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             }
           ]
@@ -8891,7 +9306,7 @@
               "templateId": "hinge_effort",
               "role": "heavy_primary",
               "status": "protected",
-              "libraryId": "hg_bb",
+              "libraryId": "dlt_bb",
               "prescriptionClass": "heavy_3_6",
               "sets": 3,
               "reps": [
@@ -8929,18 +9344,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -9063,9 +9478,9 @@
       "directIndirectExposure": {
         "direct": {
           "quads": 12,
-          "hamstrings": 15,
-          "glutes": 15,
-          "chest": 9,
+          "hamstrings": 13,
+          "glutes": 9,
+          "chest": 8,
           "lats": 6,
           "back": 6,
           "triceps": 2,
@@ -9077,12 +9492,13 @@
         "indirect": {
           "glutes": 12,
           "hamstrings": 12,
-          "calves": 12,
-          "spinal_erectors": 15,
-          "triceps": 12,
-          "front_delts": 9,
+          "calves": 16,
+          "triceps": 9,
+          "front_delts": 8,
           "biceps": 12,
           "forearms": 16,
+          "quads": 3,
+          "spinal_erectors": 3,
           "traps": 2
         }
       },
@@ -9115,7 +9531,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -9134,12 +9550,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -9153,18 +9569,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             }
           ]
@@ -9260,7 +9676,7 @@
               "templateId": "hinge_effort",
               "role": "heavy_primary",
               "status": "protected",
-              "libraryId": "hg_bb",
+              "libraryId": "dlt_bb",
               "prescriptionClass": "heavy_3_6",
               "sets": 3,
               "reps": [
@@ -9298,18 +9714,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -9424,12 +9840,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 1,
@@ -9443,7 +9859,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -9462,18 +9878,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -9554,7 +9970,7 @@
         "direct": {
           "quads": 13,
           "hamstrings": 9,
-          "glutes": 9,
+          "glutes": 7,
           "core": 4,
           "chest": 7,
           "lats": 4,
@@ -9568,13 +9984,14 @@
         "indirect": {
           "glutes": 13,
           "hamstrings": 13,
-          "calves": 13,
-          "spinal_erectors": 9,
+          "calves": 15,
           "core": 4,
-          "triceps": 9,
+          "triceps": 7,
           "front_delts": 7,
           "biceps": 8,
           "forearms": 12,
+          "quads": 3,
+          "spinal_erectors": 5,
           "traps": 2
         }
       },
@@ -9607,7 +10024,7 @@
               "templateId": "hip_extension",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "hg_mc",
+              "libraryId": "he_mc",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -9626,12 +10043,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 0,
@@ -9752,7 +10169,7 @@
               "templateId": "hinge_effort",
               "role": "heavy_primary",
               "status": "protected",
-              "libraryId": "hg_bb",
+              "libraryId": "dlt_bb",
               "prescriptionClass": "heavy_3_6",
               "sets": 3,
               "reps": [
@@ -9790,18 +10207,18 @@
               "templateId": "hamstring_assistance",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "lc_mc",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             },
             {
@@ -9872,12 +10289,12 @@
               "templateId": "unilateral_knee",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "lg_bb",
-              "prescriptionClass": "compound_4_8",
+              "libraryId": "lp1_mc",
+              "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
-                4,
-                8
+                8,
+                12
               ],
               "rir": [
                 0,
@@ -10017,18 +10434,18 @@
               "templateId": "chest",
               "role": "isolation_accessory",
               "status": "reducible",
-              "libraryId": "ip_mc",
-              "prescriptionClass": "compound_8_12",
+              "libraryId": "ci_cb",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "rep_goal@1"
             },
             {
@@ -10114,17 +10531,18 @@
       "relations": [],
       "directIndirectExposure": {
         "direct": {
-          "quads": 15,
+          "quads": 9,
           "chest": 6,
+          "glutes": 6,
           "core": 4,
           "calves": 2
         },
         "indirect": {
-          "calves": 15,
-          "glutes": 15,
+          "glutes": 9,
           "triceps": 6,
           "front_delts": 6,
-          "hamstrings": 6
+          "hamstrings": 12,
+          "calves": 6
         }
       },
       "days": [
@@ -10137,7 +10555,7 @@
               "templateId": "home_knee",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10194,7 +10612,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10276,7 +10694,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10360,17 +10778,18 @@
       "relations": [],
       "directIndirectExposure": {
         "direct": {
-          "quads": 21,
+          "quads": 12,
           "chest": 9,
+          "glutes": 9,
           "core": 2,
           "calves": 2
         },
         "indirect": {
-          "calves": 21,
-          "glutes": 21,
+          "glutes": 12,
           "triceps": 9,
           "front_delts": 9,
-          "hamstrings": 6
+          "hamstrings": 15,
+          "calves": 6
         }
       },
       "days": [
@@ -10383,7 +10802,7 @@
               "templateId": "home_knee",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10440,7 +10859,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10522,7 +10941,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10547,7 +10966,7 @@
               "templateId": "home_knee",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10566,7 +10985,7 @@
               "templateId": "home_push",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "pu_bw",
+              "libraryId": "wpu_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10585,7 +11004,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "sgb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10646,17 +11065,18 @@
       "relations": [],
       "directIndirectExposure": {
         "direct": {
-          "quads": 21,
-          "chest": 6,
+          "quads": 15,
+          "chest": 9,
           "core": 4,
-          "calves": 8
+          "glutes": 9,
+          "calves": 2
         },
         "indirect": {
-          "calves": 21,
-          "glutes": 21,
-          "triceps": 6,
-          "front_delts": 6,
-          "hamstrings": 9
+          "glutes": 15,
+          "triceps": 9,
+          "front_delts": 9,
+          "hamstrings": 18,
+          "calves": 9
         }
       },
       "days": [
@@ -10669,7 +11089,7 @@
               "templateId": "home_knee",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10751,7 +11171,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10852,7 +11272,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10893,10 +11313,10 @@
           "slots": [
             {
               "slotId": "home_4_d4_s1",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_upper",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "pu_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10915,7 +11335,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "sgb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10931,10 +11351,10 @@
             },
             {
               "slotId": "home_4_d4_s4",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_lower",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -10977,17 +11397,18 @@
       "relations": [],
       "directIndirectExposure": {
         "direct": {
-          "quads": 12,
-          "chest": 6,
+          "quads": 9,
+          "chest": 9,
           "core": 4,
-          "calves": 9
+          "glutes": 6,
+          "calves": 2
         },
         "indirect": {
-          "calves": 12,
-          "glutes": 12,
-          "triceps": 6,
-          "front_delts": 6,
-          "hamstrings": 3
+          "glutes": 9,
+          "triceps": 9,
+          "front_delts": 9,
+          "hamstrings": 9,
+          "calves": 3
         }
       },
       "days": [
@@ -11000,7 +11421,7 @@
               "templateId": "home_knee",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -11063,7 +11484,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -11132,7 +11553,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -11173,10 +11594,10 @@
           "slots": [
             {
               "slotId": "home_5_d5_s1",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_lower",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -11192,10 +11613,10 @@
             },
             {
               "slotId": "home_5_d5_s2",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_upper",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "pu_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 3,
               "reps": [
@@ -11211,21 +11632,21 @@
             },
             {
               "slotId": "home_5_d5_s3",
-              "templateId": "home_coverage",
-              "role": "hypertrophy_compound",
+              "templateId": "home_coverage_trunk_calf",
+              "role": "isolation_accessory",
               "status": "reducible",
               "libraryId": "cv_bw",
-              "prescriptionClass": "compound_8_12",
-              "sets": 3,
+              "prescriptionClass": "isolation_8_15",
+              "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 1,
                 3
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             }
           ]
@@ -11258,17 +11679,18 @@
       "relations": [],
       "directIndirectExposure": {
         "direct": {
-          "quads": 10,
-          "chest": 4,
+          "quads": 8,
+          "chest": 10,
           "core": 6,
-          "calves": 12
+          "glutes": 6,
+          "calves": 2
         },
         "indirect": {
-          "calves": 10,
-          "glutes": 10,
-          "triceps": 4,
-          "front_delts": 4,
-          "hamstrings": 2
+          "glutes": 8,
+          "triceps": 10,
+          "front_delts": 10,
+          "hamstrings": 10,
+          "calves": 4
         }
       },
       "days": [
@@ -11281,7 +11703,7 @@
               "templateId": "home_knee",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11344,7 +11766,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11360,10 +11782,10 @@
             },
             {
               "slotId": "home_6_d2_s3",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_upper",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "pu_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11451,7 +11873,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11467,10 +11889,10 @@
             },
             {
               "slotId": "home_6_d4_s3",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_upper",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "pu_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11492,10 +11914,10 @@
           "slots": [
             {
               "slotId": "home_6_d5_s1",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_lower",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "sq_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11514,7 +11936,7 @@
               "templateId": "home_posterior",
               "role": "hypertrophy_compound",
               "status": "protected",
-              "libraryId": "sqs_bw",
+              "libraryId": "gb_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11555,10 +11977,10 @@
           "slots": [
             {
               "slotId": "home_6_d6_s1",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_lower",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "ss_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11574,10 +11996,10 @@
             },
             {
               "slotId": "home_6_d6_s2",
-              "templateId": "home_coverage",
+              "templateId": "home_coverage_upper",
               "role": "hypertrophy_compound",
               "status": "reducible",
-              "libraryId": "cv_bw",
+              "libraryId": "pu_bw",
               "prescriptionClass": "compound_8_12",
               "sets": 2,
               "reps": [
@@ -11593,21 +12015,21 @@
             },
             {
               "slotId": "home_6_d6_s3",
-              "templateId": "home_coverage",
-              "role": "hypertrophy_compound",
+              "templateId": "home_coverage_trunk_calf",
+              "role": "isolation_accessory",
               "status": "reducible",
               "libraryId": "cv_bw",
-              "prescriptionClass": "compound_8_12",
+              "prescriptionClass": "isolation_8_15",
               "sets": 2,
               "reps": [
                 8,
-                12
+                15
               ],
               "rir": [
                 0,
                 2
               ],
-              "restSeconds": 90,
+              "restSeconds": 60,
               "strategy": "range@1"
             }
           ]

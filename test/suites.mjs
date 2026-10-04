@@ -47,6 +47,7 @@ export const SUITES = {
     s("test/program-entry.mjs"),
     s("test/program-entry-production-adapter.mjs"),
     s("test/program-compiler-plan048-preferences.mjs"),
+    s("test/program-generation-quality.mjs"),
     s("test/program-entry-contracts.mjs"),
     s("test/ui-screens.mjs"),
     s("test/direction-d-fixture.mjs"),
