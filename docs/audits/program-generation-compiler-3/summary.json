@@ -1,0 +1,3611 @@
+{
+  "source": {
+    "sha": "fd4ff35fc102bdcf1a2d0176dff2c4f504146864",
+    "capturedAt": "2026-10-04T15:59:22.525Z",
+    "node": "v22.23.2",
+    "platform": "linux",
+    "arch": "arm64",
+    "fileHashes": {
+      "program-compiler.js": "77bc7166a4b3eabcba9a40dc42f1c7bd5ad9e4ab76b6facfcce9561b3ce3412e",
+      "progression-engine.js": "f531da6add96201d365703dee2c175b4132f09178c4f5076275af55ca36cc1e3",
+      "program-entry-adapter.js": "aa94f4dc4e8643fcd412bcd0638b6f544effcad973dd0d6a5b1b0925149fbf2a",
+      "program-entry.js": "f0816bf927d04a157b8097a73f8e5a7eba57c4efde448a58dfc095774576b7cb",
+      "exercises.js": "876f2da726407f29df86a2678cca952bcd0f4bff3695ed1d4bf17b954f5975bf",
+      "test/fixtures/program-family-contract-v1.json": "b500bdee684e81ff76bad38dd640e05655052e67abadfa7bf317823a3d788b26",
+      "tools/audit-program-generation.mjs": "104286fc73f1d1f2e5d4e289570ed5e035fb326349a84096720e001efc73d2d8"
+    },
+    "versions": {
+      "schema": 1,
+      "blueprint": 2,
+      "compiler": 3,
+      "catalogue": 2,
+      "rules": 2,
+      "context": 2,
+      "recentConsistency": 1,
+      "simpleStart": 1
+    }
+  },
+  "methodology": {
+    "prior": {
+      "family": [
+        [
+          "growth",
+          0.4
+        ],
+        [
+          "balanced",
+          0.3
+        ],
+        [
+          "strength",
+          0.15
+        ],
+        [
+          "home",
+          0.15
+        ]
+      ],
+      "frequency": [
+        [
+          2,
+          0.15
+        ],
+        [
+          3,
+          0.35
+        ],
+        [
+          4,
+          0.3
+        ],
+        [
+          5,
+          0.12
+        ],
+        [
+          6,
+          0.08
+        ]
+      ],
+      "minutes": [
+        [
+          30,
+          0.05
+        ],
+        [
+          45,
+          0.25
+        ],
+        [
+          60,
+          0.4
+        ],
+        [
+          75,
+          0.15
+        ],
+        [
+          90,
+          0.15
+        ]
+      ],
+      "profile": [
+        [
+          "standard",
+          0.65
+        ],
+        [
+          "foundation",
+          0.35
+        ]
+      ],
+      "consistency": [
+        [
+          "consistent",
+          0.75
+        ],
+        [
+          "interrupted",
+          0.15
+        ],
+        [
+          "returning",
+          0.1
+        ]
+      ],
+      "gymEquipment": [
+        [
+          "full_gym",
+          0.85
+        ],
+        [
+          "machines_only",
+          0.15
+        ]
+      ],
+      "homeEquipment": [
+        [
+          "bodyweight_only",
+          0.6
+        ],
+        [
+          "dumbbells",
+          0.25
+        ],
+        [
+          "bands",
+          0.15
+        ]
+      ],
+      "preference": [
+        [
+          "none",
+          0.8
+        ],
+        [
+          "chest_priority",
+          0.2
+        ]
+      ]
+    },
+    "rankedScenarioCount": 2700,
+    "rankedInputsAttempted": 100,
+    "selectedPriorMass": 0.4396352937500001,
+    "priorWarning": "Hypothetical independent-factor prior, conditioned on successful compilation; not observed usage. No forced deduplication.",
+    "stressTracks": "20 blueprints × 5 tracks; 40 searches over supported 30/45/60/75/90-minute choices retain all rejected contexts. No malformed-input tests. No failed program is replaced.",
+    "timing": "Three warm in-process compilations per program; sample median. Not a browser/end-to-end or hardware benchmark.",
+    "heuristics": {
+      "highDirectSets": 20,
+      "lowTimeSlackMinutes": 2,
+      "systemicSlotsPerDay": 3
+    },
+    "oracleLimitations": "Numeric bounds and day labels independent; slot constraints, time and weeks partially use compiler metadata. No training-outcome proof."
+  },
+  "checkerEvidence": [
+    {
+      "dimension": "equipment",
+      "rejected": true
+    },
+    {
+      "dimension": "identity",
+      "rejected": true
+    },
+    {
+      "dimension": "time_ceiling",
+      "rejected": true
+    },
+    {
+      "dimension": "progression_validity",
+      "rejected": true
+    },
+    {
+      "dimension": "exposure_accounting",
+      "rejected": true
+    },
+    {
+      "dimension": "protected_coverage",
+      "rejected": true
+    }
+  ],
+  "differentials": [
+    {
+      "family": "growth",
+      "frequency": 2,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "growth",
+      "frequency": 3,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 1,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "growth",
+      "frequency": 4,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 1,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "growth",
+      "frequency": 5,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 4,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "growth",
+      "frequency": 6,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 4,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "balanced",
+      "frequency": 2,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "balanced",
+      "frequency": 3,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "balanced",
+      "frequency": 4,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "balanced",
+      "frequency": 5,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 1,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "balanced",
+      "frequency": 6,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 4,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "strength",
+      "frequency": 2,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "strength",
+      "frequency": 3,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "strength",
+      "frequency": 4,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "strength",
+      "frequency": 5,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 1,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "strength",
+      "frequency": 6,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 2,
+      "homePullWithCapability": null
+    },
+    {
+      "family": "home",
+      "frequency": 2,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": {
+        "quads": 9,
+        "chest": 6,
+        "glutes": 6,
+        "core": 4,
+        "back": 6,
+        "calves": 2
+      }
+    },
+    {
+      "family": "home",
+      "frequency": 3,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": {
+        "quads": 12,
+        "chest": 9,
+        "glutes": 9,
+        "core": 2,
+        "back": 6,
+        "calves": 2
+      }
+    },
+    {
+      "family": "home",
+      "frequency": 4,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": {
+        "quads": 15,
+        "chest": 9,
+        "core": 4,
+        "glutes": 9,
+        "back": 6,
+        "calves": 2
+      }
+    },
+    {
+      "family": "home",
+      "frequency": 5,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 0,
+      "homePullWithCapability": {
+        "quads": 9,
+        "chest": 9,
+        "core": 4,
+        "glutes": 6,
+        "back": 6,
+        "calves": 2
+      }
+    },
+    {
+      "family": "home",
+      "frequency": 6,
+      "restMonotone": true,
+      "noTimeFill": true,
+      "reentryOnlySets": true,
+      "foundationSimplifies": true,
+      "priorityChestDirectSetDelta": 5,
+      "homePullWithCapability": {
+        "quads": 8,
+        "chest": 8,
+        "core": 6,
+        "glutes": 6,
+        "back": 6,
+        "calves": 2
+      }
+    }
+  ],
+  "cohorts": {
+    "representative": {
+      "programs": 100,
+      "verdicts": {
+        "contract_fail": 3,
+        "pass": 72,
+        "review": 25
+      },
+      "families": {
+        "balanced": 33,
+        "growth": 46,
+        "home": 8,
+        "strength": 13
+      },
+      "frequencies": {
+        "2": 14,
+        "3": 39,
+        "4": 33,
+        "5": 10,
+        "6": 4
+      },
+      "profiles": {
+        "foundation": 31,
+        "standard": 69
+      },
+      "consistency": {
+        "consistent": 93,
+        "interrupted": 5,
+        "returning": 2
+      },
+      "tracks": {
+        "bodyweight_only": 7,
+        "dumbbells": 1,
+        "full_gym": 87,
+        "machines_only": 5
+      },
+      "blueprintCoverage": 17,
+      "blueprints": {
+        "balanced_2_v1": 6,
+        "balanced_3_v1": 12,
+        "balanced_4_v1": 11,
+        "balanced_5_v1": 3,
+        "balanced_6_v1": 1,
+        "growth_2_v1": 6,
+        "growth_3_v1": 17,
+        "growth_4_v1": 14,
+        "growth_5_v1": 6,
+        "growth_6_v1": 3,
+        "home_2_v1": 1,
+        "home_3_v1": 4,
+        "home_4_v1": 3,
+        "strength_2_v1": 1,
+        "strength_3_v1": 6,
+        "strength_4_v1": 5,
+        "strength_5_v1": 1
+      },
+      "exactPrescriptionSignatures": 52,
+      "exerciseSequenceSignatures": 33,
+      "completePlanSignatures": 59,
+      "largestPrescriptionDuplicateCluster": 6,
+      "uniqueExercises": 36,
+      "catalogueSize": 282,
+      "catalogueCoverage": 0.1276595744680851,
+      "unusedCatalogueIds": [
+        "cd_mc",
+        "trd_as",
+        "cp_bd",
+        "cu_bd",
+        "gm_bd",
+        "lr_bd",
+        "te_bd",
+        "pa_bd",
+        "gb_bd",
+        "trc_bb",
+        "cu_bb",
+        "dl_bb",
+        "dp_bb",
+        "fr_bb",
+        "sqf_bb",
+        "gb_bb",
+        "gm_bb",
+        "sqk_bb",
+        "sqh_bb",
+        "ht_bb",
+        "ip_bb",
+        "sql_bb",
+        "lg_bb",
+        "rw1_bb",
+        "sp_bb",
+        "pdl_bb",
+        "cup_bb",
+        "pv_bb",
+        "rp_bb",
+        "rdrw_bb",
+        "cur_bb",
+        "rwr_bb",
+        "wcr_bb",
+        "hg_bb",
+        "rw_bb",
+        "cvs_bb",
+        "sh_bb",
+        "ss_bb",
+        "trs_bb",
+        "cv_bb",
+        "spc_bb",
+        "tro_bb",
+        "su_bb",
+        "sldl_bb",
+        "ur_bb",
+        "wc_bb",
+        "sqz_bb",
+        "trb_bw",
+        "pr_cb",
+        "rd_cb",
+        "cx_cb",
+        "dld_cb",
+        "cdf_cb",
+        "cud_cb",
+        "fr_cb",
+        "cuh_cb",
+        "hr_cb",
+        "ad_cb",
+        "ip_cb",
+        "cfi_cb",
+        "trk_cb",
+        "ab_cb",
+        "pdr_cb",
+        "pdv_cb",
+        "clf_cb",
+        "rwl_cb",
+        "rw1_cb",
+        "cu1_cb",
+        "lr1_cb",
+        "tro_cb",
+        "cup_cb",
+        "pt_cb",
+        "pl_cb",
+        "rdrw_cb",
+        "abr_cb",
+        "cur_cb",
+        "wcr_cb",
+        "trrg_cb",
+        "prs_cb",
+        "abs_cb",
+        "rw_cb",
+        "rww_cb",
+        "sp_cb",
+        "sh_cb",
+        "absb_cb",
+        "cv_cb",
+        "abst_cb",
+        "ha_cb",
+        "he_cb",
+        "rwv_cb",
+        "plr_cb",
+        "rds_cb",
+        "trv_cb",
+        "abt_cb",
+        "pdu_cb",
+        "ur_cb",
+        "wc_cb",
+        "cvl_mc",
+        "cd_bw",
+        "chn_bw",
+        "chnc_bw",
+        "trcg_bw",
+        "abdb_bw",
+        "abd_bw",
+        "dpu_bw",
+        "abds_bw",
+        "trdm_bw",
+        "cvd_bw",
+        "cua_db",
+        "arn_db",
+        "pr_db",
+        "trcp_db",
+        "cuc_db",
+        "cux_db",
+        "cu_db",
+        "dld_db",
+        "dp_db",
+        "cf_db",
+        "fr_db",
+        "lrf_db",
+        "cuh_db",
+        "cui_db",
+        "cfi_db",
+        "cuih_db",
+        "ip_db",
+        "rdi_db",
+        "rwi_db",
+        "trk_db",
+        "lg_db",
+        "lf_db",
+        "trl_db",
+        "rw1_db",
+        "lr1_db",
+        "wc_db",
+        "cup_db",
+        "pv_db",
+        "rdr_db",
+        "lgr_db",
+        "wcr_db",
+        "hg_db",
+        "cvs_db",
+        "lrs_db",
+        "sps_db",
+        "spp_db",
+        "trs_db",
+        "sp_db",
+        "sh_db",
+        "absb_db",
+        "cv1_db",
+        "sldl1_db",
+        "ss_db",
+        "sqd_db",
+        "cv_db",
+        "tro_db",
+        "su_db",
+        "sldl_db",
+        "ur_db",
+        "cuz_db",
+        "trc_ez",
+        "cuc_ez",
+        "cu_ez",
+        "tri_ez",
+        "cur_ez",
+        "tros_ez",
+        "cus_ez",
+        "fp_cb",
+        "ghr_bw",
+        "sq_db",
+        "cvh_mc",
+        "sqk_mc",
+        "ablr_bw",
+        "abok_bw",
+        "ablrs_bw",
+        "ab_mc",
+        "ad_mc",
+        "ht_mc",
+        "lph_mc",
+        "hx_bw",
+        "ipu_bw",
+        "ilc_bw",
+        "irw_bw",
+        "sqg_kb",
+        "sw_kb",
+        "lr_lm",
+        "pd_mc",
+        "le_mc",
+        "lcl_mc",
+        "be_mc",
+        "rwv_mc",
+        "cub_mc",
+        "dld_mc",
+        "dp_mc",
+        "cvd_mc",
+        "gr_mc",
+        "cuhp_mc",
+        "icp_mc",
+        "lck_mc",
+        "abt_mc",
+        "spm_mc",
+        "rwn_mc",
+        "sp1_mc",
+        "pv_mc",
+        "pdrg_mc",
+        "rh_mc",
+        "tbr_mc",
+        "cvp_mc",
+        "abc_mc",
+        "trd_mc",
+        "gm_mc",
+        "ablr_mc",
+        "rdp_mc",
+        "sh_mc",
+        "tb_mc",
+        "rwu_mc",
+        "pl_mc",
+        "pupn_bw",
+        "pup_bw",
+        "rd_db",
+        "abr_bw",
+        "abrt_bw",
+        "rws_bd",
+        "cvs_mc",
+        "sqs_bw",
+        "pr_sm",
+        "gm_sm",
+        "rw_sm",
+        "cu_sm",
+        "sqc_sm",
+        "trc_sm",
+        "hg_sm",
+        "dp_sm",
+        "sqk_sm",
+        "ip_sm",
+        "lp_sm",
+        "rdrw_sm",
+        "sp_sm",
+        "sh_sm",
+        "cv_sm",
+        "srw_bw",
+        "trd_bw",
+        "trr_cb",
+        "ab_wt",
+        "ablr_wt",
+        "pupw_wt",
+        "abrt_wt",
+        "pupw_bw"
+      ],
+      "topExercises": [
+        {
+          "id": "rw_mc",
+          "name": "Seated row machine",
+          "count": 172,
+          "share": 0.1026252983293556
+        },
+        {
+          "id": "pd_bw",
+          "name": "Assisted pull-up",
+          "count": 150,
+          "share": 0.08949880668257756
+        },
+        {
+          "id": "lc_mc",
+          "name": "Seated leg curl",
+          "count": 130,
+          "share": 0.07756563245823389
+        },
+        {
+          "id": "sq_lp",
+          "name": "Leg press",
+          "count": 128,
+          "share": 0.07637231503579953
+        },
+        {
+          "id": "hg_mc",
+          "name": "Romanian deadlift machine",
+          "count": 119,
+          "share": 0.07100238663484487
+        },
+        {
+          "id": "cv_mc",
+          "name": "Standing calf raise machine",
+          "count": 85,
+          "share": 0.05071599045346062
+        },
+        {
+          "id": "lp1_mc",
+          "name": "Single-leg leg press",
+          "count": 83,
+          "share": 0.049522673031026254
+        },
+        {
+          "id": "pr_mc",
+          "name": "Chest press machine",
+          "count": 78,
+          "share": 0.046539379474940336
+        },
+        {
+          "id": "he_mc",
+          "name": "Machine hip extension",
+          "count": 75,
+          "share": 0.04474940334128878
+        },
+        {
+          "id": "dl_cb",
+          "name": "Cable lateral raise",
+          "count": 71,
+          "share": 0.042362768496420046
+        },
+        {
+          "id": "sp_mc",
+          "name": "Shoulder press machine",
+          "count": 67,
+          "share": 0.03997613365155131
+        },
+        {
+          "id": "cu_cb",
+          "name": "Cable curl",
+          "count": 66,
+          "share": 0.03937947494033413
+        },
+        {
+          "id": "pr_bb",
+          "name": "Barbell bench press",
+          "count": 60,
+          "share": 0.03579952267303103
+        },
+        {
+          "id": "sq_bb",
+          "name": "Barbell back squat",
+          "count": 60,
+          "share": 0.03579952267303103
+        },
+        {
+          "id": "ci_cb",
+          "name": "Cable fly",
+          "count": 51,
+          "share": 0.030429594272076373
+        }
+      ],
+      "topTenExerciseShare": 0.6509546539379475,
+      "exerciseEntropyBits": 4.445005470252798,
+      "effectiveExerciseCount": 21.781108451052717,
+      "weeklySets": {
+        "min": 23,
+        "median": 43,
+        "p95": 64,
+        "max": 69,
+        "mean": 44.1
+      },
+      "exportedWeeklySets": {
+        "min": 23,
+        "median": 43,
+        "p95": 64,
+        "max": 69,
+        "mean": 44.1
+      },
+      "maxSessionMinutes": {
+        "min": 29,
+        "median": 44.5,
+        "p95": 51.083333333333336,
+        "max": 51.333333333333336,
+        "mean": 43.96083333333334
+      },
+      "compileLatencyMs": {
+        "min": 2.411355999999614,
+        "median": 3.7912740000001577,
+        "p95": 5.800431000000003,
+        "max": 8.395426999999984,
+        "mean": 4.056145790000014
+      },
+      "dimensions": {
+        "structure": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 200,
+          "failures": 0
+        },
+        "identity": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1776,
+          "failures": 0
+        },
+        "projection": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1776,
+          "failures": 0
+        },
+        "provenance": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 100,
+          "failures": 0
+        },
+        "determinism": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 200,
+          "failures": 0
+        },
+        "non_mutation": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 100,
+          "failures": 0
+        },
+        "protected_coverage": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 433,
+          "failures": 0
+        },
+        "time_ceiling": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 451,
+          "failures": 0
+        },
+        "equipment": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1676,
+          "failures": 0
+        },
+        "environment": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 3352,
+          "failures": 0
+        },
+        "slot_intent": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 3352,
+          "failures": 0
+        },
+        "prescription_bounds": {
+          "programsChecked": 100,
+          "programsFailed": 3,
+          "checks": 5028,
+          "failures": 3
+        },
+        "rest_bounds": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1676,
+          "failures": 0
+        },
+        "progression_validity": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1676,
+          "failures": 0
+        },
+        "preferences": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1676,
+          "failures": 0
+        },
+        "loading": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1676,
+          "failures": 0
+        },
+        "exposure_accounting": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 200,
+          "failures": 0
+        },
+        "reentry": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 11356,
+          "failures": 0
+        },
+        "week_projection": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 600,
+          "failures": 0
+        },
+        "relations": {
+          "programsChecked": 18,
+          "programsFailed": 0,
+          "checks": 72,
+          "failures": 0
+        },
+        "foundation": {
+          "programsChecked": 31,
+          "programsFailed": 0,
+          "checks": 541,
+          "failures": 0
+        }
+      },
+      "advisoryCounts": {
+        "home_pull_limitation": 8,
+        "little_time_slack": 20,
+        "major_region_without_direct_work": 7
+      },
+      "limitations": {
+        "conditional_slot_unresolved": 3,
+        "home.pull_capability_unavailable": 7,
+        "priority.at_set_ceiling": 3,
+        "priority.no_room": 2
+      },
+      "reductions": {
+        "efficient_two_set": 38,
+        "omit_accessory": 3,
+        "remove_optional": 19,
+        "remove_priority_bonus": 2,
+        "trim_reducible_assistance": 7
+      },
+      "strategies": {
+        "anchor_backoff": 44,
+        "effort_target": 30,
+        "range": 1285,
+        "rep_goal": 317
+      },
+      "muscleDirect": {
+        "back": {
+          "min": 0,
+          "median": 6,
+          "p95": 8,
+          "max": 9,
+          "mean": 5.22,
+          "programsWithZeroDirect": 8
+        },
+        "biceps": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 4,
+          "mean": 1.38,
+          "programsWithZeroDirect": 36
+        },
+        "calves": {
+          "min": 0,
+          "median": 2,
+          "p95": 4,
+          "max": 4,
+          "mean": 1.86,
+          "programsWithZeroDirect": 34
+        },
+        "chest": {
+          "min": 4,
+          "median": 6,
+          "p95": 9,
+          "max": 10,
+          "mean": 7.17,
+          "programsWithZeroDirect": 0
+        },
+        "core": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 4,
+          "mean": 0.24,
+          "programsWithZeroDirect": 92
+        },
+        "front_delts": {
+          "min": 0,
+          "median": 3,
+          "p95": 3,
+          "max": 3,
+          "mean": 1.94,
+          "programsWithZeroDirect": 33
+        },
+        "glutes": {
+          "min": 3,
+          "median": 6,
+          "p95": 9,
+          "max": 9,
+          "mean": 6.8,
+          "programsWithZeroDirect": 0
+        },
+        "hamstrings": {
+          "min": 0,
+          "median": 8,
+          "p95": 15,
+          "max": 15,
+          "mean": 8.7,
+          "programsWithZeroDirect": 8
+        },
+        "lats": {
+          "min": 0,
+          "median": 5,
+          "p95": 6,
+          "max": 9,
+          "mean": 4.36,
+          "programsWithZeroDirect": 8
+        },
+        "quads": {
+          "min": 5,
+          "median": 9,
+          "p95": 12,
+          "max": 15,
+          "mean": 9.11,
+          "programsWithZeroDirect": 0
+        },
+        "rear_delts": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.96,
+          "programsWithZeroDirect": 52
+        },
+        "side_delts": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 2,
+          "mean": 1.51,
+          "programsWithZeroDirect": 23
+        },
+        "triceps": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.96,
+          "programsWithZeroDirect": 52
+        }
+      },
+      "movementExposure": {
+        "abs": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "arms": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 4,
+          "mean": 1.38
+        },
+        "calves": {
+          "min": 0,
+          "median": 2,
+          "p95": 4,
+          "max": 4,
+          "mean": 1.86
+        },
+        "chest_iso": {
+          "min": 0,
+          "median": 0,
+          "p95": 4,
+          "max": 4,
+          "mean": 1.12
+        },
+        "core": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 4,
+          "mean": 0.24
+        },
+        "curl": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 4,
+          "mean": 1.38
+        },
+        "delts": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 2,
+          "mean": 1.51
+        },
+        "hinge": {
+          "min": 3,
+          "median": 6,
+          "p95": 9,
+          "max": 9,
+          "mean": 6.8
+        },
+        "incline_press": {
+          "min": 0,
+          "median": 0,
+          "p95": 3,
+          "max": 3,
+          "mean": 1.26
+        },
+        "lateral_raise": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 2,
+          "mean": 1.51
+        },
+        "leg_curl": {
+          "min": 0,
+          "median": 2,
+          "p95": 6,
+          "max": 6,
+          "mean": 2.59
+        },
+        "leg_extension": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "press": {
+          "min": 2,
+          "median": 6,
+          "p95": 9,
+          "max": 9,
+          "mean": 4.79
+        },
+        "pull": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "pulldown": {
+          "min": 0,
+          "median": 5,
+          "p95": 6,
+          "max": 9,
+          "mean": 4.36
+        },
+        "rear_delt": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.96
+        },
+        "row": {
+          "min": 0,
+          "median": 6,
+          "p95": 8,
+          "max": 9,
+          "mean": 5.22
+        },
+        "shoulder_press": {
+          "min": 0,
+          "median": 3,
+          "p95": 3,
+          "max": 3,
+          "mean": 1.94
+        },
+        "squat": {
+          "min": 5,
+          "median": 9,
+          "p95": 12,
+          "max": 15,
+          "mean": 9.11
+        },
+        "triceps": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.96
+        }
+      },
+      "programsWithReduction": 17,
+      "programsWithLimitations": 12,
+      "byFamilyFrequency": {
+        "growth_2": {
+          "programs": 6,
+          "weeklySets": {
+            "min": 27,
+            "median": 27,
+            "p95": 31,
+            "max": 31,
+            "mean": 29
+          },
+          "contractFailures": 0
+        },
+        "growth_3": {
+          "programs": 17,
+          "weeklySets": {
+            "min": 23,
+            "median": 41,
+            "p95": 47,
+            "max": 48,
+            "mean": 42.529411764705884
+          },
+          "contractFailures": 1
+        },
+        "growth_4": {
+          "programs": 14,
+          "weeklySets": {
+            "min": 54,
+            "median": 57,
+            "p95": 58,
+            "max": 58,
+            "mean": 56.5
+          },
+          "contractFailures": 0
+        },
+        "growth_5": {
+          "programs": 6,
+          "weeklySets": {
+            "min": 64,
+            "median": 67,
+            "p95": 69,
+            "max": 69,
+            "mean": 67.33333333333333
+          },
+          "contractFailures": 0
+        },
+        "growth_6": {
+          "programs": 3,
+          "weeklySets": {
+            "min": 46,
+            "median": 46,
+            "p95": 46,
+            "max": 46,
+            "mean": 46
+          },
+          "contractFailures": 0
+        },
+        "balanced_2": {
+          "programs": 6,
+          "weeklySets": {
+            "min": 23,
+            "median": 26,
+            "p95": 28,
+            "max": 28,
+            "mean": 26.333333333333332
+          },
+          "contractFailures": 0
+        },
+        "balanced_3": {
+          "programs": 12,
+          "weeklySets": {
+            "min": 39,
+            "median": 42,
+            "p95": 42,
+            "max": 42,
+            "mean": 41.25
+          },
+          "contractFailures": 2
+        },
+        "balanced_4": {
+          "programs": 11,
+          "weeklySets": {
+            "min": 44,
+            "median": 44,
+            "p95": 44,
+            "max": 44,
+            "mean": 44
+          },
+          "contractFailures": 0
+        },
+        "balanced_5": {
+          "programs": 3,
+          "weeklySets": {
+            "min": 58,
+            "median": 58,
+            "p95": 58,
+            "max": 58,
+            "mean": 58
+          },
+          "contractFailures": 0
+        },
+        "balanced_6": {
+          "programs": 1,
+          "weeklySets": {
+            "min": 50,
+            "median": 50,
+            "p95": 50,
+            "max": 50,
+            "mean": 50
+          },
+          "contractFailures": 0
+        },
+        "strength_2": {
+          "programs": 1,
+          "weeklySets": {
+            "min": 28,
+            "median": 28,
+            "p95": 28,
+            "max": 28,
+            "mean": 28
+          },
+          "contractFailures": 0
+        },
+        "strength_3": {
+          "programs": 6,
+          "weeklySets": {
+            "min": 35,
+            "median": 37,
+            "p95": 41,
+            "max": 41,
+            "mean": 38.333333333333336
+          },
+          "contractFailures": 0
+        },
+        "strength_4": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 43,
+            "median": 43,
+            "p95": 43,
+            "max": 43,
+            "mean": 43
+          },
+          "contractFailures": 0
+        },
+        "strength_5": {
+          "programs": 1,
+          "weeklySets": {
+            "min": 58,
+            "median": 58,
+            "p95": 58,
+            "max": 58,
+            "mean": 58
+          },
+          "contractFailures": 0
+        },
+        "strength_6": {
+          "programs": 0,
+          "weeklySets": {
+            "min": null,
+            "median": null,
+            "p95": null,
+            "max": null,
+            "mean": null
+          },
+          "contractFailures": 0
+        },
+        "home_2": {
+          "programs": 1,
+          "weeklySets": {
+            "min": 27,
+            "median": 27,
+            "p95": 27,
+            "max": 27,
+            "mean": 27
+          },
+          "contractFailures": 0
+        },
+        "home_3": {
+          "programs": 4,
+          "weeklySets": {
+            "min": 34,
+            "median": 34,
+            "p95": 34,
+            "max": 42,
+            "mean": 36
+          },
+          "contractFailures": 0
+        },
+        "home_4": {
+          "programs": 3,
+          "weeklySets": {
+            "min": 39,
+            "median": 39,
+            "p95": 39,
+            "max": 39,
+            "mean": 39
+          },
+          "contractFailures": 0
+        },
+        "home_5": {
+          "programs": 0,
+          "weeklySets": {
+            "min": null,
+            "median": null,
+            "p95": null,
+            "max": null,
+            "mean": null
+          },
+          "contractFailures": 0
+        },
+        "home_6": {
+          "programs": 0,
+          "weeklySets": {
+            "min": null,
+            "median": null,
+            "p95": null,
+            "max": null,
+            "mean": null
+          },
+          "contractFailures": 0
+        }
+      },
+      "programsWithExportSetMismatch": []
+    },
+    "stress": {
+      "programs": 100,
+      "verdicts": {
+        "contract_fail": 29,
+        "pass": 36,
+        "review": 35
+      },
+      "families": {
+        "balanced": 25,
+        "growth": 25,
+        "home": 25,
+        "strength": 25
+      },
+      "frequencies": {
+        "2": 20,
+        "3": 20,
+        "4": 20,
+        "5": 20,
+        "6": 20
+      },
+      "profiles": {
+        "foundation": 20,
+        "standard": 80
+      },
+      "consistency": {
+        "consistent": 80,
+        "returning": 20
+      },
+      "tracks": {
+        "foundation_under_time_pressure": 20,
+        "minimum_time_long_rest": 20,
+        "preferences_and_exclusions": 20,
+        "returning_with_priorities": 20,
+        "sparse_equipment": 20
+      },
+      "blueprintCoverage": 20,
+      "blueprints": {
+        "balanced_2_v1": 5,
+        "balanced_3_v1": 5,
+        "balanced_4_v1": 5,
+        "balanced_5_v1": 5,
+        "balanced_6_v1": 5,
+        "growth_2_v1": 5,
+        "growth_3_v1": 5,
+        "growth_4_v1": 5,
+        "growth_5_v1": 5,
+        "growth_6_v1": 5,
+        "home_2_v1": 5,
+        "home_3_v1": 5,
+        "home_4_v1": 5,
+        "home_5_v1": 5,
+        "home_6_v1": 5,
+        "strength_2_v1": 5,
+        "strength_3_v1": 5,
+        "strength_4_v1": 5,
+        "strength_5_v1": 5,
+        "strength_6_v1": 5
+      },
+      "exactPrescriptionSignatures": 99,
+      "exerciseSequenceSignatures": 84,
+      "completePlanSignatures": 100,
+      "largestPrescriptionDuplicateCluster": 2,
+      "uniqueExercises": 54,
+      "catalogueSize": 282,
+      "catalogueCoverage": 0.19148936170212766,
+      "unusedCatalogueIds": [
+        "trd_as",
+        "cp_bd",
+        "cu_bd",
+        "te_bd",
+        "pa_bd",
+        "gb_bd",
+        "trc_bb",
+        "cu_bb",
+        "dl_bb",
+        "dp_bb",
+        "fr_bb",
+        "sqf_bb",
+        "gb_bb",
+        "gm_bb",
+        "sqk_bb",
+        "sqh_bb",
+        "ht_bb",
+        "ip_bb",
+        "sql_bb",
+        "lg_bb",
+        "rw1_bb",
+        "sp_bb",
+        "pdl_bb",
+        "cup_bb",
+        "pv_bb",
+        "rp_bb",
+        "rdrw_bb",
+        "cur_bb",
+        "rwr_bb",
+        "wcr_bb",
+        "hg_bb",
+        "rw_bb",
+        "cvs_bb",
+        "sh_bb",
+        "ss_bb",
+        "trs_bb",
+        "cv_bb",
+        "spc_bb",
+        "tro_bb",
+        "su_bb",
+        "sldl_bb",
+        "ur_bb",
+        "wc_bb",
+        "sqz_bb",
+        "trb_bw",
+        "pr_cb",
+        "rd_cb",
+        "cx_cb",
+        "dld_cb",
+        "cdf_cb",
+        "cud_cb",
+        "fr_cb",
+        "cuh_cb",
+        "hr_cb",
+        "ad_cb",
+        "ip_cb",
+        "cfi_cb",
+        "trk_cb",
+        "ab_cb",
+        "pdr_cb",
+        "pdv_cb",
+        "clf_cb",
+        "rwl_cb",
+        "rw1_cb",
+        "cu1_cb",
+        "lr1_cb",
+        "tro_cb",
+        "cup_cb",
+        "pt_cb",
+        "pl_cb",
+        "abr_cb",
+        "cur_cb",
+        "wcr_cb",
+        "trrg_cb",
+        "prs_cb",
+        "abs_cb",
+        "rw_cb",
+        "rww_cb",
+        "sp_cb",
+        "sh_cb",
+        "absb_cb",
+        "cv_cb",
+        "abst_cb",
+        "ha_cb",
+        "he_cb",
+        "rwv_cb",
+        "plr_cb",
+        "rds_cb",
+        "trv_cb",
+        "abt_cb",
+        "pdu_cb",
+        "ur_cb",
+        "wc_cb",
+        "cvl_mc",
+        "cd_bw",
+        "chn_bw",
+        "chnc_bw",
+        "trcg_bw",
+        "abdb_bw",
+        "abd_bw",
+        "abds_bw",
+        "trdm_bw",
+        "cvd_bw",
+        "cua_db",
+        "arn_db",
+        "pr_db",
+        "trcp_db",
+        "cuc_db",
+        "cux_db",
+        "cu_db",
+        "dp_db",
+        "cf_db",
+        "fr_db",
+        "lrf_db",
+        "cuh_db",
+        "cui_db",
+        "cfi_db",
+        "cuih_db",
+        "rdi_db",
+        "rwi_db",
+        "trk_db",
+        "trl_db",
+        "rw1_db",
+        "lr1_db",
+        "wc_db",
+        "cup_db",
+        "pv_db",
+        "rdr_db",
+        "lgr_db",
+        "wcr_db",
+        "hg_db",
+        "cvs_db",
+        "lrs_db",
+        "sps_db",
+        "spp_db",
+        "trs_db",
+        "sh_db",
+        "absb_db",
+        "cv1_db",
+        "sldl1_db",
+        "ss_db",
+        "sqd_db",
+        "cv_db",
+        "tro_db",
+        "su_db",
+        "sldl_db",
+        "ur_db",
+        "cuz_db",
+        "trc_ez",
+        "cuc_ez",
+        "cu_ez",
+        "tri_ez",
+        "cur_ez",
+        "tros_ez",
+        "cus_ez",
+        "fp_cb",
+        "ghr_bw",
+        "sq_db",
+        "cvh_mc",
+        "sqk_mc",
+        "ablr_bw",
+        "abok_bw",
+        "ablrs_bw",
+        "ab_mc",
+        "ad_mc",
+        "ipu_bw",
+        "ilc_bw",
+        "sqg_kb",
+        "sw_kb",
+        "lr_lm",
+        "pd_mc",
+        "le_mc",
+        "be_mc",
+        "rwv_mc",
+        "cub_mc",
+        "dld_mc",
+        "dp_mc",
+        "cvd_mc",
+        "gr_mc",
+        "cuhp_mc",
+        "icp_mc",
+        "lck_mc",
+        "abt_mc",
+        "spm_mc",
+        "rwn_mc",
+        "sp1_mc",
+        "pv_mc",
+        "pdrg_mc",
+        "rh_mc",
+        "tbr_mc",
+        "cvp_mc",
+        "trd_mc",
+        "gm_mc",
+        "ablr_mc",
+        "rdp_mc",
+        "sh_mc",
+        "tb_mc",
+        "rwu_mc",
+        "pl_mc",
+        "pupn_bw",
+        "pup_bw",
+        "rd_db",
+        "abr_bw",
+        "abrt_bw",
+        "rws_bd",
+        "cvs_mc",
+        "pr_sm",
+        "gm_sm",
+        "rw_sm",
+        "cu_sm",
+        "sqc_sm",
+        "trc_sm",
+        "dp_sm",
+        "sqk_sm",
+        "ip_sm",
+        "lp_sm",
+        "rdrw_sm",
+        "sp_sm",
+        "sh_sm",
+        "cv_sm",
+        "srw_bw",
+        "trd_bw",
+        "trr_cb",
+        "ab_wt",
+        "ablr_wt",
+        "pupw_wt",
+        "abrt_wt",
+        "pupw_bw"
+      ],
+      "topExercises": [
+        {
+          "id": "pd_bw",
+          "name": "Assisted pull-up",
+          "count": 115,
+          "share": 0.07352941176470588
+        },
+        {
+          "id": "rw_mc",
+          "name": "Seated row machine",
+          "count": 111,
+          "share": 0.07097186700767263
+        },
+        {
+          "id": "lc_mc",
+          "name": "Seated leg curl",
+          "count": 80,
+          "share": 0.05115089514066496
+        },
+        {
+          "id": "sq_lp",
+          "name": "Leg press",
+          "count": 80,
+          "share": 0.05115089514066496
+        },
+        {
+          "id": "hg_mc",
+          "name": "Romanian deadlift machine",
+          "count": 76,
+          "share": 0.04859335038363171
+        },
+        {
+          "id": "lp1_mc",
+          "name": "Single-leg leg press",
+          "count": 75,
+          "share": 0.0479539641943734
+        },
+        {
+          "id": "cv_mc",
+          "name": "Standing calf raise machine",
+          "count": 68,
+          "share": 0.043478260869565216
+        },
+        {
+          "id": "pr_bb",
+          "name": "Barbell bench press",
+          "count": 64,
+          "share": 0.04092071611253197
+        },
+        {
+          "id": "pr_mc",
+          "name": "Chest press machine",
+          "count": 63,
+          "share": 0.04028132992327366
+        },
+        {
+          "id": "he_mc",
+          "name": "Machine hip extension",
+          "count": 61,
+          "share": 0.03900255754475703
+        },
+        {
+          "id": "pu_bw",
+          "name": "Push-up",
+          "count": 56,
+          "share": 0.03580562659846547
+        },
+        {
+          "id": "gb_bw",
+          "name": "Glute bridge",
+          "count": 55,
+          "share": 0.03516624040920716
+        },
+        {
+          "id": "sq_bb",
+          "name": "Barbell back squat",
+          "count": 52,
+          "share": 0.03324808184143223
+        },
+        {
+          "id": "sp_mc",
+          "name": "Shoulder press machine",
+          "count": 50,
+          "share": 0.0319693094629156
+        },
+        {
+          "id": "rw_db",
+          "name": "Dumbbell bent over row",
+          "count": 48,
+          "share": 0.030690537084398978
+        }
+      ],
+      "topTenExerciseShare": 0.5070332480818415,
+      "exerciseEntropyBits": 5.022958899871756,
+      "effectiveExerciseCount": 32.51331830895133,
+      "weeklySets": {
+        "min": 12,
+        "median": 36,
+        "p95": 57,
+        "max": 72,
+        "mean": 37.52
+      },
+      "exportedWeeklySets": {
+        "min": 12,
+        "median": 36,
+        "p95": 57,
+        "max": 72,
+        "mean": 37.52
+      },
+      "maxSessionMinutes": {
+        "min": 21,
+        "median": 39.75,
+        "p95": 62.88333333333333,
+        "max": 66.28333333333333,
+        "mean": 40.48566666666667
+      },
+      "compileLatencyMs": {
+        "min": 2.4579560000001948,
+        "median": 3.450354999999945,
+        "p95": 4.860152000000198,
+        "max": 5.944351000000097,
+        "mean": 3.6568647600000124
+      },
+      "dimensions": {
+        "structure": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 200,
+          "failures": 0
+        },
+        "identity": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1664,
+          "failures": 0
+        },
+        "projection": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1664,
+          "failures": 0
+        },
+        "provenance": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 100,
+          "failures": 0
+        },
+        "determinism": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 200,
+          "failures": 0
+        },
+        "non_mutation": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 100,
+          "failures": 0
+        },
+        "protected_coverage": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 515,
+          "failures": 0
+        },
+        "time_ceiling": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 500,
+          "failures": 0
+        },
+        "equipment": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1564,
+          "failures": 0
+        },
+        "environment": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 3128,
+          "failures": 0
+        },
+        "slot_intent": {
+          "programsChecked": 100,
+          "programsFailed": 8,
+          "checks": 3128,
+          "failures": 12
+        },
+        "prescription_bounds": {
+          "programsChecked": 100,
+          "programsFailed": 23,
+          "checks": 4692,
+          "failures": 72
+        },
+        "rest_bounds": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1564,
+          "failures": 0
+        },
+        "progression_validity": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1564,
+          "failures": 0
+        },
+        "preferences": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1564,
+          "failures": 0
+        },
+        "loading": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 1564,
+          "failures": 0
+        },
+        "exposure_accounting": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 200,
+          "failures": 0
+        },
+        "reentry": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 10684,
+          "failures": 0
+        },
+        "week_projection": {
+          "programsChecked": 100,
+          "programsFailed": 0,
+          "checks": 600,
+          "failures": 0
+        },
+        "foundation": {
+          "programsChecked": 20,
+          "programsFailed": 0,
+          "checks": 288,
+          "failures": 0
+        },
+        "relations": {
+          "programsChecked": 16,
+          "programsFailed": 0,
+          "checks": 64,
+          "failures": 0
+        }
+      },
+      "advisoryCounts": {
+        "duplicate_exercise_within_day": 1,
+        "home_pull_limitation": 10,
+        "little_time_slack": 23,
+        "major_region_without_direct_work": 10,
+        "unmatched_exercise_preference": 20
+      },
+      "limitations": {
+        "conditional_slot_unresolved": 2,
+        "deemphasized_optional_omitted": 1,
+        "home.pull_capability_unavailable": 10,
+        "ignored_direct_work_omitted": 18,
+        "priority.at_set_ceiling": 16
+      },
+      "reductions": {
+        "efficient_two_set": 250,
+        "minimum_dose_single_set": 44,
+        "omit_accessory": 114,
+        "remove_optional": 13,
+        "trim_reducible_assistance": 130
+      },
+      "strategies": {
+        "anchor_backoff": 40,
+        "effort_target": 60,
+        "range": 1171,
+        "rep_goal": 293
+      },
+      "muscleDirect": {
+        "back": {
+          "min": 0,
+          "median": 6,
+          "p95": 9,
+          "max": 9,
+          "mean": 4.61,
+          "programsWithZeroDirect": 13
+        },
+        "biceps": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 4,
+          "mean": 0.62,
+          "programsWithZeroDirect": 72
+        },
+        "calves": {
+          "min": 0,
+          "median": 2,
+          "p95": 4,
+          "max": 4,
+          "mean": 1.74,
+          "programsWithZeroDirect": 33
+        },
+        "chest": {
+          "min": 4,
+          "median": 6,
+          "p95": 10,
+          "max": 15,
+          "mean": 6.98,
+          "programsWithZeroDirect": 0
+        },
+        "core": {
+          "min": 0,
+          "median": 0,
+          "p95": 6,
+          "max": 8,
+          "mean": 1,
+          "programsWithZeroDirect": 76
+        },
+        "front_delts": {
+          "min": 0,
+          "median": 1,
+          "p95": 3,
+          "max": 4,
+          "mean": 1.29,
+          "programsWithZeroDirect": 48
+        },
+        "glutes": {
+          "min": 2,
+          "median": 6,
+          "p95": 9,
+          "max": 12,
+          "mean": 6.28,
+          "programsWithZeroDirect": 0
+        },
+        "hamstrings": {
+          "min": 0,
+          "median": 6,
+          "p95": 13,
+          "max": 15,
+          "mean": 6.17,
+          "programsWithZeroDirect": 16
+        },
+        "lats": {
+          "min": 0,
+          "median": 3,
+          "p95": 6,
+          "max": 9,
+          "mean": 2.91,
+          "programsWithZeroDirect": 27
+        },
+        "quads": {
+          "min": 2,
+          "median": 9,
+          "p95": 12,
+          "max": 17,
+          "mean": 8.51,
+          "programsWithZeroDirect": 0
+        },
+        "rear_delts": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.46,
+          "programsWithZeroDirect": 77
+        },
+        "side_delts": {
+          "min": 0,
+          "median": 1,
+          "p95": 4,
+          "max": 6,
+          "mean": 1.2,
+          "programsWithZeroDirect": 49
+        },
+        "triceps": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.26,
+          "programsWithZeroDirect": 87
+        }
+      },
+      "movementExposure": {
+        "abs": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "arms": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 4,
+          "mean": 0.62
+        },
+        "calves": {
+          "min": 0,
+          "median": 2,
+          "p95": 4,
+          "max": 4,
+          "mean": 1.74
+        },
+        "chest_iso": {
+          "min": 0,
+          "median": 0,
+          "p95": 4,
+          "max": 4,
+          "mean": 0.55
+        },
+        "core": {
+          "min": 0,
+          "median": 0,
+          "p95": 6,
+          "max": 8,
+          "mean": 1
+        },
+        "curl": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 4,
+          "mean": 0.62
+        },
+        "delts": {
+          "min": 0,
+          "median": 1,
+          "p95": 4,
+          "max": 6,
+          "mean": 1.2
+        },
+        "hinge": {
+          "min": 2,
+          "median": 6,
+          "p95": 9,
+          "max": 12,
+          "mean": 6.28
+        },
+        "incline_press": {
+          "min": 0,
+          "median": 0,
+          "p95": 6,
+          "max": 9,
+          "mean": 1.01
+        },
+        "lateral_raise": {
+          "min": 0,
+          "median": 1,
+          "p95": 4,
+          "max": 6,
+          "mean": 1.2
+        },
+        "leg_curl": {
+          "min": 0,
+          "median": 2,
+          "p95": 6,
+          "max": 6,
+          "mean": 1.66
+        },
+        "leg_extension": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "press": {
+          "min": 0,
+          "median": 6,
+          "p95": 9,
+          "max": 12,
+          "mean": 5.42
+        },
+        "pull": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "pulldown": {
+          "min": 0,
+          "median": 3,
+          "p95": 6,
+          "max": 9,
+          "mean": 2.91
+        },
+        "rear_delt": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.46
+        },
+        "row": {
+          "min": 0,
+          "median": 6,
+          "p95": 9,
+          "max": 11,
+          "mean": 4.75
+        },
+        "shoulder_press": {
+          "min": 0,
+          "median": 1,
+          "p95": 3,
+          "max": 4,
+          "mean": 1.29
+        },
+        "squat": {
+          "min": 2,
+          "median": 9,
+          "p95": 12,
+          "max": 17,
+          "mean": 8.51
+        },
+        "triceps": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.26
+        }
+      },
+      "programsWithReduction": 37,
+      "programsWithLimitations": 38,
+      "byFamilyFrequency": {
+        "growth_2": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 12,
+            "median": 31,
+            "p95": 31,
+            "max": 31,
+            "mean": 23.4
+          },
+          "contractFailures": 0
+        },
+        "growth_3": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 18,
+            "median": 46,
+            "p95": 47,
+            "max": 47,
+            "mean": 35.2
+          },
+          "contractFailures": 2
+        },
+        "growth_4": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 24,
+            "median": 53,
+            "p95": 56,
+            "max": 57,
+            "mean": 42.8
+          },
+          "contractFailures": 2
+        },
+        "growth_5": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 30,
+            "median": 64,
+            "p95": 69,
+            "max": 72,
+            "mean": 53
+          },
+          "contractFailures": 2
+        },
+        "growth_6": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 39,
+            "median": 44,
+            "p95": 46,
+            "max": 54,
+            "mean": 44.4
+          },
+          "contractFailures": 1
+        },
+        "balanced_2": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 19,
+            "median": 27,
+            "p95": 28,
+            "max": 28,
+            "mean": 24.2
+          },
+          "contractFailures": 0
+        },
+        "balanced_3": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 28,
+            "median": 39,
+            "p95": 42,
+            "max": 42,
+            "mean": 35.8
+          },
+          "contractFailures": 0
+        },
+        "balanced_4": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 41,
+            "median": 42,
+            "p95": 42,
+            "max": 44,
+            "mean": 42
+          },
+          "contractFailures": 0
+        },
+        "balanced_5": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 51,
+            "median": 54,
+            "p95": 57,
+            "max": 58,
+            "mean": 54.2
+          },
+          "contractFailures": 0
+        },
+        "balanced_6": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 36,
+            "median": 46,
+            "p95": 50,
+            "max": 54,
+            "mean": 44.4
+          },
+          "contractFailures": 3
+        },
+        "strength_2": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 24,
+            "median": 28,
+            "p95": 28,
+            "max": 28,
+            "mean": 26.8
+          },
+          "contractFailures": 0
+        },
+        "strength_3": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 28,
+            "median": 41,
+            "p95": 41,
+            "max": 41,
+            "mean": 35.8
+          },
+          "contractFailures": 0
+        },
+        "strength_4": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 21,
+            "median": 39,
+            "p95": 41,
+            "max": 43,
+            "mean": 33
+          },
+          "contractFailures": 2
+        },
+        "strength_5": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 26,
+            "median": 53,
+            "p95": 57,
+            "max": 58,
+            "mean": 44
+          },
+          "contractFailures": 2
+        },
+        "strength_6": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 34,
+            "median": 49,
+            "p95": 53,
+            "max": 57,
+            "mean": 45.4
+          },
+          "contractFailures": 3
+        },
+        "home_2": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 14,
+            "median": 33,
+            "p95": 33,
+            "max": 33,
+            "mean": 25.4
+          },
+          "contractFailures": 2
+        },
+        "home_3": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 22,
+            "median": 42,
+            "p95": 42,
+            "max": 42,
+            "mean": 34
+          },
+          "contractFailures": 2
+        },
+        "home_4": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 28,
+            "median": 45,
+            "p95": 45,
+            "max": 45,
+            "mean": 38.2
+          },
+          "contractFailures": 3
+        },
+        "home_5": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 28,
+            "median": 36,
+            "p95": 36,
+            "max": 36,
+            "mean": 32.8
+          },
+          "contractFailures": 2
+        },
+        "home_6": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 32,
+            "median": 36,
+            "p95": 36,
+            "max": 42,
+            "mean": 35.6
+          },
+          "contractFailures": 3
+        }
+      },
+      "programsWithExportSetMismatch": []
+    },
+    "all": {
+      "programs": 200,
+      "verdicts": {
+        "contract_fail": 32,
+        "pass": 108,
+        "review": 60
+      },
+      "families": {
+        "balanced": 58,
+        "growth": 71,
+        "home": 33,
+        "strength": 38
+      },
+      "frequencies": {
+        "2": 34,
+        "3": 59,
+        "4": 53,
+        "5": 30,
+        "6": 24
+      },
+      "profiles": {
+        "foundation": 51,
+        "standard": 149
+      },
+      "consistency": {
+        "consistent": 173,
+        "interrupted": 5,
+        "returning": 22
+      },
+      "tracks": {
+        "bodyweight_only": 7,
+        "dumbbells": 1,
+        "foundation_under_time_pressure": 20,
+        "full_gym": 87,
+        "machines_only": 5,
+        "minimum_time_long_rest": 20,
+        "preferences_and_exclusions": 20,
+        "returning_with_priorities": 20,
+        "sparse_equipment": 20
+      },
+      "blueprintCoverage": 20,
+      "blueprints": {
+        "balanced_2_v1": 11,
+        "balanced_3_v1": 17,
+        "balanced_4_v1": 16,
+        "balanced_5_v1": 8,
+        "balanced_6_v1": 6,
+        "growth_2_v1": 11,
+        "growth_3_v1": 22,
+        "growth_4_v1": 19,
+        "growth_5_v1": 11,
+        "growth_6_v1": 8,
+        "home_2_v1": 6,
+        "home_3_v1": 9,
+        "home_4_v1": 8,
+        "home_5_v1": 5,
+        "home_6_v1": 5,
+        "strength_2_v1": 6,
+        "strength_3_v1": 11,
+        "strength_4_v1": 10,
+        "strength_5_v1": 6,
+        "strength_6_v1": 5
+      },
+      "exactPrescriptionSignatures": 149,
+      "exerciseSequenceSignatures": 109,
+      "completePlanSignatures": 157,
+      "largestPrescriptionDuplicateCluster": 6,
+      "uniqueExercises": 54,
+      "catalogueSize": 282,
+      "catalogueCoverage": 0.19148936170212766,
+      "unusedCatalogueIds": [
+        "trd_as",
+        "cp_bd",
+        "cu_bd",
+        "te_bd",
+        "pa_bd",
+        "gb_bd",
+        "trc_bb",
+        "cu_bb",
+        "dl_bb",
+        "dp_bb",
+        "fr_bb",
+        "sqf_bb",
+        "gb_bb",
+        "gm_bb",
+        "sqk_bb",
+        "sqh_bb",
+        "ht_bb",
+        "ip_bb",
+        "sql_bb",
+        "lg_bb",
+        "rw1_bb",
+        "sp_bb",
+        "pdl_bb",
+        "cup_bb",
+        "pv_bb",
+        "rp_bb",
+        "rdrw_bb",
+        "cur_bb",
+        "rwr_bb",
+        "wcr_bb",
+        "hg_bb",
+        "rw_bb",
+        "cvs_bb",
+        "sh_bb",
+        "ss_bb",
+        "trs_bb",
+        "cv_bb",
+        "spc_bb",
+        "tro_bb",
+        "su_bb",
+        "sldl_bb",
+        "ur_bb",
+        "wc_bb",
+        "sqz_bb",
+        "trb_bw",
+        "pr_cb",
+        "rd_cb",
+        "cx_cb",
+        "dld_cb",
+        "cdf_cb",
+        "cud_cb",
+        "fr_cb",
+        "cuh_cb",
+        "hr_cb",
+        "ad_cb",
+        "ip_cb",
+        "cfi_cb",
+        "trk_cb",
+        "ab_cb",
+        "pdr_cb",
+        "pdv_cb",
+        "clf_cb",
+        "rwl_cb",
+        "rw1_cb",
+        "cu1_cb",
+        "lr1_cb",
+        "tro_cb",
+        "cup_cb",
+        "pt_cb",
+        "pl_cb",
+        "abr_cb",
+        "cur_cb",
+        "wcr_cb",
+        "trrg_cb",
+        "prs_cb",
+        "abs_cb",
+        "rw_cb",
+        "rww_cb",
+        "sp_cb",
+        "sh_cb",
+        "absb_cb",
+        "cv_cb",
+        "abst_cb",
+        "ha_cb",
+        "he_cb",
+        "rwv_cb",
+        "plr_cb",
+        "rds_cb",
+        "trv_cb",
+        "abt_cb",
+        "pdu_cb",
+        "ur_cb",
+        "wc_cb",
+        "cvl_mc",
+        "cd_bw",
+        "chn_bw",
+        "chnc_bw",
+        "trcg_bw",
+        "abdb_bw",
+        "abd_bw",
+        "abds_bw",
+        "trdm_bw",
+        "cvd_bw",
+        "cua_db",
+        "arn_db",
+        "pr_db",
+        "trcp_db",
+        "cuc_db",
+        "cux_db",
+        "cu_db",
+        "dp_db",
+        "cf_db",
+        "fr_db",
+        "lrf_db",
+        "cuh_db",
+        "cui_db",
+        "cfi_db",
+        "cuih_db",
+        "rdi_db",
+        "rwi_db",
+        "trk_db",
+        "trl_db",
+        "rw1_db",
+        "lr1_db",
+        "wc_db",
+        "cup_db",
+        "pv_db",
+        "rdr_db",
+        "lgr_db",
+        "wcr_db",
+        "hg_db",
+        "cvs_db",
+        "lrs_db",
+        "sps_db",
+        "spp_db",
+        "trs_db",
+        "sh_db",
+        "absb_db",
+        "cv1_db",
+        "sldl1_db",
+        "ss_db",
+        "sqd_db",
+        "cv_db",
+        "tro_db",
+        "su_db",
+        "sldl_db",
+        "ur_db",
+        "cuz_db",
+        "trc_ez",
+        "cuc_ez",
+        "cu_ez",
+        "tri_ez",
+        "cur_ez",
+        "tros_ez",
+        "cus_ez",
+        "fp_cb",
+        "ghr_bw",
+        "sq_db",
+        "cvh_mc",
+        "sqk_mc",
+        "ablr_bw",
+        "abok_bw",
+        "ablrs_bw",
+        "ab_mc",
+        "ad_mc",
+        "ipu_bw",
+        "ilc_bw",
+        "sqg_kb",
+        "sw_kb",
+        "lr_lm",
+        "pd_mc",
+        "le_mc",
+        "be_mc",
+        "rwv_mc",
+        "cub_mc",
+        "dld_mc",
+        "dp_mc",
+        "cvd_mc",
+        "gr_mc",
+        "cuhp_mc",
+        "icp_mc",
+        "lck_mc",
+        "abt_mc",
+        "spm_mc",
+        "rwn_mc",
+        "sp1_mc",
+        "pv_mc",
+        "pdrg_mc",
+        "rh_mc",
+        "tbr_mc",
+        "cvp_mc",
+        "trd_mc",
+        "gm_mc",
+        "ablr_mc",
+        "rdp_mc",
+        "sh_mc",
+        "tb_mc",
+        "rwu_mc",
+        "pl_mc",
+        "pupn_bw",
+        "pup_bw",
+        "rd_db",
+        "abr_bw",
+        "abrt_bw",
+        "rws_bd",
+        "cvs_mc",
+        "pr_sm",
+        "gm_sm",
+        "rw_sm",
+        "cu_sm",
+        "sqc_sm",
+        "trc_sm",
+        "dp_sm",
+        "sqk_sm",
+        "ip_sm",
+        "lp_sm",
+        "rdrw_sm",
+        "sp_sm",
+        "sh_sm",
+        "cv_sm",
+        "srw_bw",
+        "trd_bw",
+        "trr_cb",
+        "ab_wt",
+        "ablr_wt",
+        "pupw_wt",
+        "abrt_wt",
+        "pupw_bw"
+      ],
+      "topExercises": [
+        {
+          "id": "rw_mc",
+          "name": "Seated row machine",
+          "count": 283,
+          "share": 0.08734567901234568
+        },
+        {
+          "id": "pd_bw",
+          "name": "Assisted pull-up",
+          "count": 265,
+          "share": 0.08179012345679013
+        },
+        {
+          "id": "lc_mc",
+          "name": "Seated leg curl",
+          "count": 210,
+          "share": 0.06481481481481481
+        },
+        {
+          "id": "sq_lp",
+          "name": "Leg press",
+          "count": 208,
+          "share": 0.06419753086419754
+        },
+        {
+          "id": "hg_mc",
+          "name": "Romanian deadlift machine",
+          "count": 195,
+          "share": 0.06018518518518518
+        },
+        {
+          "id": "lp1_mc",
+          "name": "Single-leg leg press",
+          "count": 158,
+          "share": 0.04876543209876543
+        },
+        {
+          "id": "cv_mc",
+          "name": "Standing calf raise machine",
+          "count": 153,
+          "share": 0.04722222222222222
+        },
+        {
+          "id": "pr_mc",
+          "name": "Chest press machine",
+          "count": 141,
+          "share": 0.04351851851851852
+        },
+        {
+          "id": "he_mc",
+          "name": "Machine hip extension",
+          "count": 136,
+          "share": 0.04197530864197531
+        },
+        {
+          "id": "pr_bb",
+          "name": "Barbell bench press",
+          "count": 124,
+          "share": 0.03827160493827161
+        },
+        {
+          "id": "sp_mc",
+          "name": "Shoulder press machine",
+          "count": 117,
+          "share": 0.03611111111111111
+        },
+        {
+          "id": "dl_cb",
+          "name": "Cable lateral raise",
+          "count": 115,
+          "share": 0.035493827160493825
+        },
+        {
+          "id": "sq_bb",
+          "name": "Barbell back squat",
+          "count": 112,
+          "share": 0.0345679012345679
+        },
+        {
+          "id": "cu_cb",
+          "name": "Cable curl",
+          "count": 80,
+          "share": 0.024691358024691357
+        },
+        {
+          "id": "pu_bw",
+          "name": "Push-up",
+          "count": 75,
+          "share": 0.023148148148148147
+        }
+      ],
+      "topTenExerciseShare": 0.5780864197530864,
+      "exerciseEntropyBits": 4.845009551823148,
+      "effectiveExerciseCount": 28.740426216824112,
+      "weeklySets": {
+        "min": 12,
+        "median": 42,
+        "p95": 58,
+        "max": 72,
+        "mean": 40.81
+      },
+      "exportedWeeklySets": {
+        "min": 12,
+        "median": 42,
+        "p95": 58,
+        "max": 72,
+        "mean": 40.81
+      },
+      "maxSessionMinutes": {
+        "min": 21,
+        "median": 43.833333333333336,
+        "p95": 59.766666666666666,
+        "max": 66.28333333333333,
+        "mean": 42.22324999999997
+      },
+      "compileLatencyMs": {
+        "min": 2.411355999999614,
+        "median": 3.680474000000231,
+        "p95": 5.424272000000201,
+        "max": 8.395426999999984,
+        "mean": 3.8565052750000133
+      },
+      "dimensions": {
+        "structure": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 400,
+          "failures": 0
+        },
+        "identity": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 3440,
+          "failures": 0
+        },
+        "projection": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 3440,
+          "failures": 0
+        },
+        "provenance": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 200,
+          "failures": 0
+        },
+        "determinism": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 400,
+          "failures": 0
+        },
+        "non_mutation": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 200,
+          "failures": 0
+        },
+        "protected_coverage": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 948,
+          "failures": 0
+        },
+        "time_ceiling": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 951,
+          "failures": 0
+        },
+        "equipment": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 3240,
+          "failures": 0
+        },
+        "environment": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 6480,
+          "failures": 0
+        },
+        "slot_intent": {
+          "programsChecked": 200,
+          "programsFailed": 8,
+          "checks": 6480,
+          "failures": 12
+        },
+        "prescription_bounds": {
+          "programsChecked": 200,
+          "programsFailed": 26,
+          "checks": 9720,
+          "failures": 75
+        },
+        "rest_bounds": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 3240,
+          "failures": 0
+        },
+        "progression_validity": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 3240,
+          "failures": 0
+        },
+        "preferences": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 3240,
+          "failures": 0
+        },
+        "loading": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 3240,
+          "failures": 0
+        },
+        "exposure_accounting": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 400,
+          "failures": 0
+        },
+        "reentry": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 22040,
+          "failures": 0
+        },
+        "week_projection": {
+          "programsChecked": 200,
+          "programsFailed": 0,
+          "checks": 1200,
+          "failures": 0
+        },
+        "relations": {
+          "programsChecked": 34,
+          "programsFailed": 0,
+          "checks": 136,
+          "failures": 0
+        },
+        "foundation": {
+          "programsChecked": 51,
+          "programsFailed": 0,
+          "checks": 829,
+          "failures": 0
+        }
+      },
+      "advisoryCounts": {
+        "duplicate_exercise_within_day": 1,
+        "home_pull_limitation": 18,
+        "little_time_slack": 43,
+        "major_region_without_direct_work": 17,
+        "unmatched_exercise_preference": 20
+      },
+      "limitations": {
+        "conditional_slot_unresolved": 5,
+        "deemphasized_optional_omitted": 1,
+        "home.pull_capability_unavailable": 17,
+        "ignored_direct_work_omitted": 18,
+        "priority.at_set_ceiling": 19,
+        "priority.no_room": 2
+      },
+      "reductions": {
+        "efficient_two_set": 288,
+        "minimum_dose_single_set": 44,
+        "omit_accessory": 117,
+        "remove_optional": 32,
+        "remove_priority_bonus": 2,
+        "trim_reducible_assistance": 137
+      },
+      "strategies": {
+        "anchor_backoff": 84,
+        "effort_target": 90,
+        "range": 2456,
+        "rep_goal": 610
+      },
+      "muscleDirect": {
+        "back": {
+          "min": 0,
+          "median": 6,
+          "p95": 8,
+          "max": 9,
+          "mean": 4.915,
+          "programsWithZeroDirect": 21
+        },
+        "biceps": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 4,
+          "mean": 1,
+          "programsWithZeroDirect": 108
+        },
+        "calves": {
+          "min": 0,
+          "median": 2,
+          "p95": 4,
+          "max": 4,
+          "mean": 1.8,
+          "programsWithZeroDirect": 67
+        },
+        "chest": {
+          "min": 4,
+          "median": 6,
+          "p95": 10,
+          "max": 15,
+          "mean": 7.075,
+          "programsWithZeroDirect": 0
+        },
+        "core": {
+          "min": 0,
+          "median": 0,
+          "p95": 4,
+          "max": 8,
+          "mean": 0.62,
+          "programsWithZeroDirect": 168
+        },
+        "front_delts": {
+          "min": 0,
+          "median": 2,
+          "p95": 3,
+          "max": 4,
+          "mean": 1.615,
+          "programsWithZeroDirect": 81
+        },
+        "glutes": {
+          "min": 2,
+          "median": 6,
+          "p95": 9,
+          "max": 12,
+          "mean": 6.54,
+          "programsWithZeroDirect": 0
+        },
+        "hamstrings": {
+          "min": 0,
+          "median": 8,
+          "p95": 13,
+          "max": 15,
+          "mean": 7.435,
+          "programsWithZeroDirect": 24
+        },
+        "lats": {
+          "min": 0,
+          "median": 3,
+          "p95": 6,
+          "max": 9,
+          "mean": 3.635,
+          "programsWithZeroDirect": 35
+        },
+        "quads": {
+          "min": 2,
+          "median": 9,
+          "p95": 12,
+          "max": 17,
+          "mean": 8.81,
+          "programsWithZeroDirect": 0
+        },
+        "rear_delts": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.71,
+          "programsWithZeroDirect": 129
+        },
+        "side_delts": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 6,
+          "mean": 1.355,
+          "programsWithZeroDirect": 72
+        },
+        "triceps": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.61,
+          "programsWithZeroDirect": 139
+        }
+      },
+      "movementExposure": {
+        "abs": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "arms": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 4,
+          "mean": 1
+        },
+        "calves": {
+          "min": 0,
+          "median": 2,
+          "p95": 4,
+          "max": 4,
+          "mean": 1.8
+        },
+        "chest_iso": {
+          "min": 0,
+          "median": 0,
+          "p95": 4,
+          "max": 4,
+          "mean": 0.835
+        },
+        "core": {
+          "min": 0,
+          "median": 0,
+          "p95": 4,
+          "max": 8,
+          "mean": 0.62
+        },
+        "curl": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 4,
+          "mean": 1
+        },
+        "delts": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 6,
+          "mean": 1.355
+        },
+        "hinge": {
+          "min": 2,
+          "median": 6,
+          "p95": 9,
+          "max": 12,
+          "mean": 6.54
+        },
+        "incline_press": {
+          "min": 0,
+          "median": 0,
+          "p95": 3,
+          "max": 9,
+          "mean": 1.135
+        },
+        "lateral_raise": {
+          "min": 0,
+          "median": 2,
+          "p95": 2,
+          "max": 6,
+          "mean": 1.355
+        },
+        "leg_curl": {
+          "min": 0,
+          "median": 2,
+          "p95": 6,
+          "max": 6,
+          "mean": 2.125
+        },
+        "leg_extension": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "press": {
+          "min": 0,
+          "median": 6,
+          "p95": 9,
+          "max": 12,
+          "mean": 5.105
+        },
+        "pull": {
+          "min": 0,
+          "median": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "pulldown": {
+          "min": 0,
+          "median": 3,
+          "p95": 6,
+          "max": 9,
+          "mean": 3.635
+        },
+        "rear_delt": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.71
+        },
+        "row": {
+          "min": 0,
+          "median": 6,
+          "p95": 8,
+          "max": 11,
+          "mean": 4.985
+        },
+        "shoulder_press": {
+          "min": 0,
+          "median": 2,
+          "p95": 3,
+          "max": 4,
+          "mean": 1.615
+        },
+        "squat": {
+          "min": 2,
+          "median": 9,
+          "p95": 12,
+          "max": 17,
+          "mean": 8.81
+        },
+        "triceps": {
+          "min": 0,
+          "median": 0,
+          "p95": 2,
+          "max": 2,
+          "mean": 0.61
+        }
+      },
+      "programsWithReduction": 54,
+      "programsWithLimitations": 50,
+      "byFamilyFrequency": {
+        "growth_2": {
+          "programs": 11,
+          "weeklySets": {
+            "min": 12,
+            "median": 31,
+            "p95": 31,
+            "max": 31,
+            "mean": 26.454545454545453
+          },
+          "contractFailures": 0
+        },
+        "growth_3": {
+          "programs": 22,
+          "weeklySets": {
+            "min": 18,
+            "median": 41,
+            "p95": 47,
+            "max": 48,
+            "mean": 40.86363636363637
+          },
+          "contractFailures": 3
+        },
+        "growth_4": {
+          "programs": 19,
+          "weeklySets": {
+            "min": 24,
+            "median": 57,
+            "p95": 58,
+            "max": 58,
+            "mean": 52.89473684210526
+          },
+          "contractFailures": 2
+        },
+        "growth_5": {
+          "programs": 11,
+          "weeklySets": {
+            "min": 30,
+            "median": 67,
+            "p95": 69,
+            "max": 72,
+            "mean": 60.81818181818182
+          },
+          "contractFailures": 2
+        },
+        "growth_6": {
+          "programs": 8,
+          "weeklySets": {
+            "min": 39,
+            "median": 46,
+            "p95": 46,
+            "max": 54,
+            "mean": 45
+          },
+          "contractFailures": 1
+        },
+        "balanced_2": {
+          "programs": 11,
+          "weeklySets": {
+            "min": 19,
+            "median": 27,
+            "p95": 28,
+            "max": 28,
+            "mean": 25.363636363636363
+          },
+          "contractFailures": 0
+        },
+        "balanced_3": {
+          "programs": 17,
+          "weeklySets": {
+            "min": 28,
+            "median": 42,
+            "p95": 42,
+            "max": 42,
+            "mean": 39.64705882352941
+          },
+          "contractFailures": 2
+        },
+        "balanced_4": {
+          "programs": 16,
+          "weeklySets": {
+            "min": 41,
+            "median": 44,
+            "p95": 44,
+            "max": 44,
+            "mean": 43.375
+          },
+          "contractFailures": 0
+        },
+        "balanced_5": {
+          "programs": 8,
+          "weeklySets": {
+            "min": 51,
+            "median": 57,
+            "p95": 58,
+            "max": 58,
+            "mean": 55.625
+          },
+          "contractFailures": 0
+        },
+        "balanced_6": {
+          "programs": 6,
+          "weeklySets": {
+            "min": 36,
+            "median": 46,
+            "p95": 50,
+            "max": 54,
+            "mean": 45.333333333333336
+          },
+          "contractFailures": 3
+        },
+        "strength_2": {
+          "programs": 6,
+          "weeklySets": {
+            "min": 24,
+            "median": 28,
+            "p95": 28,
+            "max": 28,
+            "mean": 27
+          },
+          "contractFailures": 0
+        },
+        "strength_3": {
+          "programs": 11,
+          "weeklySets": {
+            "min": 28,
+            "median": 41,
+            "p95": 41,
+            "max": 41,
+            "mean": 37.18181818181818
+          },
+          "contractFailures": 0
+        },
+        "strength_4": {
+          "programs": 10,
+          "weeklySets": {
+            "min": 21,
+            "median": 43,
+            "p95": 43,
+            "max": 43,
+            "mean": 38
+          },
+          "contractFailures": 2
+        },
+        "strength_5": {
+          "programs": 6,
+          "weeklySets": {
+            "min": 26,
+            "median": 53,
+            "p95": 58,
+            "max": 58,
+            "mean": 46.333333333333336
+          },
+          "contractFailures": 2
+        },
+        "strength_6": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 34,
+            "median": 49,
+            "p95": 53,
+            "max": 57,
+            "mean": 45.4
+          },
+          "contractFailures": 3
+        },
+        "home_2": {
+          "programs": 6,
+          "weeklySets": {
+            "min": 14,
+            "median": 27,
+            "p95": 33,
+            "max": 33,
+            "mean": 25.666666666666668
+          },
+          "contractFailures": 2
+        },
+        "home_3": {
+          "programs": 9,
+          "weeklySets": {
+            "min": 22,
+            "median": 34,
+            "p95": 42,
+            "max": 42,
+            "mean": 34.888888888888886
+          },
+          "contractFailures": 2
+        },
+        "home_4": {
+          "programs": 8,
+          "weeklySets": {
+            "min": 28,
+            "median": 39,
+            "p95": 45,
+            "max": 45,
+            "mean": 38.5
+          },
+          "contractFailures": 3
+        },
+        "home_5": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 28,
+            "median": 36,
+            "p95": 36,
+            "max": 36,
+            "mean": 32.8
+          },
+          "contractFailures": 2
+        },
+        "home_6": {
+          "programs": 5,
+          "weeklySets": {
+            "min": 32,
+            "median": 36,
+            "p95": 36,
+            "max": 42,
+            "mean": 35.6
+          },
+          "contractFailures": 3
+        }
+      },
+      "programsWithExportSetMismatch": []
+    }
+  },
+  "probes": {
+    "total": 294,
+    "byCategory": {
+      "preferences_and_exclusions": 20,
+      "representative_ranked_input": 100,
+      "returning_with_priorities": 20,
+      "sparse_equipment": 20,
+      "time_boundary_search": 54,
+      "user_choice_edge": 80
+    },
+    "outcomes": {
+      "compiled": 221,
+      "conflict": 73
+    },
+    "failedExpectations": [],
+    "rankedRejected": []
+  },
+  "artifactHashes": {
+    "semanticPrograms": "1b59d011cc1d52fdc2bfaa96548f5bd6a7f884e28be80c5ac4aa145cd0419a07",
+    "programs": "f1109fd6ab4ffc36fcd7d359a0c8af2d25470938854c76fbb8dbae4fb2f6d4ae",
+    "probes": "f9d1ec4d165b15cafd47bbe23b21373a5f985dffba776650d48ab1404fff7a8f"
+  }
+}

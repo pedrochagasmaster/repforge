@@ -374,6 +374,10 @@ Everything else is mechanical and re-runnable: equipment mapping, muscle
 synonym collapsing, deltoid-head splitting by movement name, display-name
 repair, and Portuguese composition.
 
+`tools/exercise-compiler-data.json` holds exactly one compiler block per
+library id. The build rejects missing, extra, or out-of-vocabulary values.
+Values change only by owner decision (Plan 065).
+
 ### Muscle tokens are a contract
 
 `test/exercise-library.mjs` pins the vocabulary. The volume audit groups hard
