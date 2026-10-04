@@ -20,7 +20,7 @@ const DRAFT = "repforge_draft_v1";
 const DB = "repforge";
 const STORE = "kv";
 
-const results = { passed: 0, failed: 0 };
+const results = { passed: 0, failed: 0, failures: [] };
 
 export function assert(cond, name, detail) {
   if (cond) {
@@ -28,6 +28,7 @@ export function assert(cond, name, detail) {
     console.log(`  ✓ ${name}`);
   } else {
     results.failed++;
+    results.failures.push({ name, detail });
     console.log(`  ✗ ${name}`);
     if (detail != null) console.log(`    ${detail}`);
   }
@@ -2622,10 +2623,12 @@ async function runMobilePlatformChecks(browser) {
       assert(policy.overscroll.every(value => value === "none"), "root scroll boundaries stay in the app", JSON.stringify(policy));
 
       await page.evaluate(() => window.openLibrary());
+      await page.waitForFunction(() => document.querySelector("#library").classList.contains("active") && !document.body.classList.contains("is-pushing"));
       const tab = page.locator("#libTabs .picktab:not(.is-active)").first();
       const style = () => tab.evaluate(el => {
         const s = getComputedStyle(el);
-        return { bg: s.backgroundColor, transform: s.transform, select: s.userSelect, tap: s.webkitTapHighlightColor };
+        return { bg: s.backgroundColor, transform: s.transform, select: s.userSelect, tap: s.webkitTapHighlightColor,
+          hovered: el.matches(":hover"), active: el.matches(":active"), fine: matchMedia("(hover: hover) and (pointer: fine)").matches };
       });
       await page.mouse.move(0, 0);
       const rest = await style();
@@ -2662,7 +2665,8 @@ async function runMobilePlatformChecks(browser) {
       const zoom = await page.evaluate(() => ({ keyboard: document.documentElement.dataset.keyboard, inset: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kb")) }));
       assert(zoom.keyboard !== "up" && zoom.inset === 0, "pinch alone with a focused field does not open a keyboard inset", JSON.stringify(zoom));
       await page.evaluate(() => window.__mobileViewport({ height: 320, scale: 1, offsetTop: 70 }));
-      await page.waitForTimeout(200);
+      // Measure the resting sheet, rather than a residual opening-spring offset.
+      await page.waitForFunction(() => Math.abs(document.querySelector("#sessionSheet").getBoundingClientRect().bottom - 390) < .25);
       const geometry = await page.evaluate(() => {
         const sheet = document.querySelector("#sessionSheet"), body = sheet.querySelector(".session-sheet__body");
         body.scrollTop = body.scrollHeight;
@@ -2725,6 +2729,7 @@ async function main() {
   }
   await browser.close();
   console.log(`\n${results.passed} passed, ${results.failed} failed`);
+  if (results.failed) console.error("Failed assertions:", JSON.stringify(results.failures, null, 2));
   process.exit(results.failed > 0 ? 1 : 0);
 }
 

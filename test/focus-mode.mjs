@@ -1425,8 +1425,8 @@ async function main() {
   assert(same.length === 0,
     "the card that landed is the one that rode in — nothing pops in, nothing reflows",
     JSON.stringify({ peek: midSwipe, landed, differs: same }));
-  // The whole card is a handle, not just its header. The one scroll region only
-  // takes vertical gestures and browser pinch; controls remain swipe surfaces.
+  // Control and neutral card surfaces handle horizontal drag; prose is selectable.
+  // The scroll region keeps vertical gestures and browser pinch.
   const grip = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
     const context = card.querySelector(".fcard__context");
@@ -1438,8 +1438,9 @@ async function main() {
   for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["shelf", 0.9]]) {
     const at = await page.evaluate(() => window.__repforgeFocus.at());
     const b = await page.locator("#workout .exercise.is-current").boundingBox();
-    const gy = Math.round(b.y + b.height * frac);
-    const gx = Math.round(b.x + b.width - 24);
+    const header = where === "header" ? await page.locator("#workout .exercise.is-current .ex__namebtn").boundingBox() : null;
+    const gy = Math.round(header ? header.y + header.height / 2 : b.y + b.height * frac);
+    const gx = Math.round(header ? header.x + header.width / 2 : b.x + b.width - 24);
     await page.mouse.move(gx, gy);
     await page.mouse.down();
     for (const step of [-40, -110, -200, -250]) {
