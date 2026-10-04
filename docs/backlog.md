@@ -196,6 +196,7 @@ These are real but do not outrank the foundation above.
 | Completed | Free-form program import | "I already have a program" almost never meant a Taurifer file. The import route now has a paste door: the lifter's free-form program is wrapped in a reviewed prompt and handed to their own ChatGPT or Claude through a link they tap, and the reply comes back through the existing import review. No key, account, backend or LLM dependency, and no front-running of ADR 0011. See [ADR 0014](adr/0014-free-form-program-import-handoff.md). |
 | Completed | No bundled program before onboarding | Backing out of setup used to leave a bundled three-day program presented as the lifter's own. A device that has not been through onboarding now holds no program, and Today and Program say so and offer the entry hub. |
 | Completed | Catalog the two no-program screens | `today/no-program` and `program/no-program` now use the empty-entry fixture and have localized light/dark reference frames generated with the pinned browser. |
+| Completed | Program generation engine overhaul (Plan 065) | Compiler 3 adds authored function-aware exercise selection, week-aware ranking and explicit dose fitting; documented with the audited residuals in ADR 0017 (PR #306). |
 
 ## 6. Engineering debt
 
