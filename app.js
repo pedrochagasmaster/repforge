@@ -6354,45 +6354,29 @@ function trackSheetViewport(){
   let settle=0;
   const editing=()=>{const el=document.activeElement;
     return el?.matches?.("input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]),textarea,[contenteditable=true]")?el:null};
-  const apply=()=>{const inset=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
+  const apply=()=>{
+    // Pinching reduces CSS-pixel height without opening a keyboard. Normalize
+    // that reduction; panning a zoomed view must not move the app's dock.
+    const scale=vv.scale||1,zoomed=Math.abs(scale-1)>.01;
+    const height=Math.min(window.innerHeight,vv.height*scale),top=zoomed?0:vv.offsetTop;
+    const inset=Math.max(0,window.innerHeight-height-top);
     root.style.setProperty("--kb",`${Math.round(inset)}px`);
-    root.style.setProperty("--vvh",`${Math.round(vv.height)}px`);
-    const field=editing(),up=!!field&&window.innerHeight-vv.height>1,was=root.dataset.keyboard==="up";
+    root.style.setProperty("--vvh",`${Math.round(height)}px`);
+    root.style.setProperty("--vv-top",`${Math.round(top)}px`);
+    const field=editing(),up=!!field&&window.innerHeight-height>1,was=root.dataset.keyboard==="up";
     if(up)root.dataset.keyboard="up";else delete root.dataset.keyboard;
     cancelAnimationFrame(settle);
-    if(up&&field.closest(".focus-shelf"))settle=requestAnimationFrame(()=>{
+    if(!zoomed&&up&&field.closest(".focus-shelf"))settle=requestAnimationFrame(()=>{
       if(document.activeElement!==field)return;
       // Client coordinates are layout-viewport relative; the band on screen is [offsetTop, offsetTop + height].
       const r=field.getBoundingClientRect();
       if(r.top<vv.offsetTop||r.bottom>vv.offsetTop+vv.height)field.scrollIntoView({block:"nearest",inline:"nearest"})});
-    else if(was&&!up&&document.body.classList.contains("is-focus-wo")&&(window.scrollY||window.scrollX))window.scrollTo(0,0)};
+    else if(!zoomed&&was&&!up&&document.body.classList.contains("is-focus-wo")&&(window.scrollY||window.scrollX))window.scrollTo(0,0)};
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);
   document.addEventListener("focusin",apply);
   // Focus leaves before it lands anywhere else, so read where it went once it has.
   document.addEventListener("focusout",()=>setTimeout(apply,0));
   apply()}
-/* ---- Zoom is off everywhere ---- */
-/* The layout is already sized to the phone, and it is worked one-handed between
- * sets: a zoom is never asked for and always in the way, because the hand that
- * would pinch back out is holding a dumbbell. `touch-action` in styles.css and
- * the viewport meta take the touch gestures and the focus zoom; these listeners
- * take what neither reaches — iOS Safari's own pinch gestures, a trackpad pinch
- * or ctrl+wheel, and the browser zoom shortcuts. Every one needs `passive:false`
- * to be allowed to cancel. */
-function blockZoomGestures(){
-  const stop=e=>{if(e.cancelable)e.preventDefault()};
-  // Safari reports a pinch as its own gesture, outside `touch-action`.
-  for(const type of ["gesturestart","gesturechange","gestureend"])
-    document.addEventListener(type,stop,{passive:false});
-  // Nothing here is driven by two fingers, so a second one is always a pinch.
-  document.addEventListener("touchmove",e=>{if(e.touches.length>1)stop(e)},{passive:false});
-  // A trackpad pinch arrives as a wheel event with ctrlKey set, as does ctrl+wheel.
-  window.addEventListener("wheel",e=>{if(e.ctrlKey)stop(e)},{passive:false});
-  // Ctrl/Cmd with +, -, or 0 — including the numpad keys and the unshifted "=".
-  window.addEventListener("keydown",e=>{
-    if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
-    if(["+","-","=","_","0"].includes(e.key))stop(e)},{passive:false});
-}
 /* ---- Swipe down to dismiss (every bottom sheet) ---- */
 /* The grab handle promises a sheet that can be pushed back down, so the gesture
  * has to answer: the sheet follows the thumb, and past a real commitment it
@@ -6407,6 +6391,14 @@ function sheetScrollHeld(target,sheet){
   for(let n=target;n instanceof Element&&n!==sheet;n=n.parentElement){
     if(n.scrollHeight>n.clientHeight+1&&n.scrollTop>0)return true}
   return false}
+/* user-select is inherited by WebKit/Chromium, but other engines can report
+ * auto on a child of selectable prose. Stop at a control's explicit none. */
+function isNativeTextSelectionTarget(target){
+  for(let el=target;el;el=el.parentElement){
+    const policy=getComputedStyle(el).userSelect;
+    if(policy==="none")return false;
+    if(policy==="text")return true}
+  return false}
 function sheetDragStart(e){
   if(sheetDrag)return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
@@ -6417,7 +6409,7 @@ function sheetDragStart(e){
   if(!target||!rec.el.contains(target))return;
   // A mouse inside a text field is selecting, not swiping. A thumb in one has no
   // other use for a downward drag once the field is already at its top.
-  if(e.pointerType==="mouse"&&target.closest("input,select,textarea,[contenteditable]"))return;
+  if(e.pointerType==="mouse"&&(target.closest("input,select,textarea,[contenteditable]")||isNativeTextSelectionTarget(target)))return;
   if(sheetScrollHeld(target,rec.el))return;
   sheetDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dy:0,live:false,rec,
     vy:0,lastY:e.clientY,lastT:e.timeStamp||performance.now()}}
@@ -6551,9 +6543,10 @@ function focusDragStart(e){
   if(focusFlinging||!workoutActive)return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
   const el=e.target instanceof Element?e.target:null;
-  // Fields keep their caret; every other part of the card is draggable, with the
-  // click that follows a real drag swallowed so buttons don't also fire.
+  // Fields and copyable prose keep native selection. Control surfaces still
+  // drag, with the click after a committed drag swallowed.
   if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
+  if(el&&e.pointerType==="mouse"&&isNativeTextSelectionTarget(el))return;
   const card=focusCard(),track=focusTrack();if(!card||!track)return;
   const ledger=card.querySelector(".fcard__ledger");
   focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card,track,
@@ -18870,7 +18863,6 @@ function init(){
   if(impCommit)impCommit.onclick=()=>commitImportReview(pendingImportIo||storageIO);
   const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
-  blockZoomGestures();
   // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>{navTo("log");focusRoute("#openSettings")};

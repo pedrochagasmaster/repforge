@@ -396,16 +396,27 @@
 }
 
 *{box-sizing:border-box}
-/* Nudging load or reps means tapping the same 44px target several times in a row,
-   and a browser reads two of those taps as double-tap-to-zoom: the page jumps
-   mid-set and there is no way back one-handed. A pinch, or a second finger
-   landing while the first drags a card, does the same. `pan-x pan-y` leaves the
-   browser scrolling and takes both zoom gestures away, and it is what stops them
-   in iOS Safari, which ignores `user-scalable=no`. Panning policies set further
-   in (the focus card's `touch-action:pan-y`) still win, because the browser
-   intersects this with theirs. */
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:pan-x pan-y}
+/* Controls skip double-tap delay while ordinary content keeps browser zoom.
+   Root containment belongs to this app; inner scrollers retain native physics. */
+html{
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:auto;
+  -webkit-tap-highlight-color:transparent;
+  --sheet-max-height:calc(var(--vvh,100dvh) - max(56px,calc(env(safe-area-inset-top,0px) + var(--space-8))));
+  --dialog-max-height:calc(var(--vvh,100dvh) - 2 * max(var(--space-16),env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px)));
+}
+html,body{overscroll-behavior:none}
 button,input,select,textarea,label,summary,a,[role=button]{touch-action:manipulation}
+/* Only controls suppress long-press selection/callouts; links in prose remain copyable. */
+button,[role=button],summary,label.file,label[for],label:has(input[type=checkbox]),label:has(input[type=radio]),
+a.btn,a.text-link,.entry__freeform-app,.sheet__grab,.sheet__head,.sheetband,.program-editor__drag-handle{
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.focus-ex__meta,.fx-cue__l1,.fx-cue__l2,.fx-note,.sheet__pre,.share-setup__link,.privacy-sheet__body,.entry-dialog__body,.storage-recovery__copy{
+  -webkit-user-select:text;user-select:text;
+}
+input:not([type=checkbox]):not([type=radio]),textarea{
+  -webkit-user-select:text;user-select:text;-webkit-touch-callout:default;
+}
 body{
   margin:0;
   font-family:var(--font-language);
@@ -465,7 +476,9 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
   width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
   border:0;background:transparent;color:var(--ink-soft);cursor:pointer;border-radius:50%;
 }
+@media (hover: hover) and (pointer: fine){
 .icon-btn:hover{color:var(--ink)}
+}
 .icon-btn svg,.nav__icon{display:block}
 /* ---- Segmented progress ---- */
 .segbar{display:flex;gap:6px;margin:8px 0}
@@ -638,8 +651,7 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
 /* ---- In-page tabs ---- */
 .tabs{
   display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
-  border-bottom:1px solid var(--rule);margin:0 0 18px;scrollbar-width:none;
-}
+  border-bottom:1px solid var(--rule);margin:0 0 18px;scrollbar-width:none;overscroll-behavior:contain;}
 .tabs::-webkit-scrollbar{display:none}
 .tabs button,.seg.seg--window button,#prFilterSeg button{
   flex:none;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
@@ -790,11 +802,15 @@ div.settings-row{cursor:default}
 #settings :is(#createProgram,#privacyDetails){
   background:var(--control-quiet-bg);color:var(--control-quiet-ink)
 }
+@media (hover: hover) and (pointer: fine){
 #settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle):hover:not(:disabled){
   background:var(--well);color:var(--control-disclosure-ink)
 }
+}
+@media (hover: hover) and (pointer: fine){
 #settings :is(#createProgram,#privacyDetails):hover:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink)
+}
 }
 #settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):active:not(:disabled){
   transform:var(--control-pressed-transform)
@@ -802,7 +818,9 @@ div.settings-row{cursor:default}
 #settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)
 }
+@media (hover: hover) and (pointer: fine){
 #settings #reset:hover:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
+}
 #settings #reset:active:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
 #settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled{
   background:transparent;color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
@@ -884,7 +902,9 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%
   font-family:var(--font-training-data);font-size:var(--font-size-control);line-height:var(--line-standard);
   transition:border-radius .2s ease,width .2s ease,color .2s ease,border-color .2s ease;
 }
+@media (hover: hover) and (pointer: fine){
 .wo-rest:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+}
 .wo-rest:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 .wo-rest:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .wo-rest:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -902,7 +922,9 @@ body.is-focus-wo .restbar{display:none!important}
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
   background:var(--control-quiet-bg);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);color:var(--control-quiet-ink);
 }
+@media (hover: hover) and (pointer: fine){
 #leaveWorkout:hover:not(:disabled),#sessionSheetBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
 #leaveWorkout:active:not(:disabled),#sessionSheetBtn:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #leaveWorkout:focus-visible,#sessionSheetBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #leaveWorkout:disabled,#sessionSheetBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -910,7 +932,9 @@ body.is-focus-wo .restbar{display:none!important}
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
   background:var(--control-quiet-bg);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);color:var(--control-quiet-ink);
 }
+@media (hover: hover) and (pointer: fine){
 #woOverflowBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
 #woOverflowBtn:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #woOverflowBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #woOverflowBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -929,7 +953,9 @@ body.is-focus-wo .restbar{display:none!important}
 #woProgress .segbar__seg.is-done .segbar__bar{background:var(--color-ink)}
 #woProgress .segbar__seg.is-current .segbar__bar{background:var(--color-action)}
 #woProgress span.segbar__seg{cursor:default}
+@media (hover: hover) and (pointer: fine){
 #woProgress button.segbar__seg:hover:not(:disabled){background:var(--well)}
+}
 #woProgress button.segbar__seg:active:not(:disabled){transform:var(--control-pressed-transform)}
 #woProgress .segbar__seg:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 body.is-workout.is-focus-wo #logWorkspace,
@@ -1013,13 +1039,12 @@ article.exercise--focus{
   display:flex;flex-direction:column;overflow:hidden;
   background:var(--bg);border:0;border-radius:var(--radius-none);
   padding:0;box-shadow:none;
-  touch-action:pan-y;
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  touch-action:pan-y pinch-zoom;
 }
 article.exercise--focus input,article.exercise--focus textarea{-webkit-user-select:text;user-select:text}
 
 .fcard__context{
-  flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;
+  flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;
   padding:var(--space-8) var(--gut) var(--space-16);
 }
 /* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
@@ -1037,7 +1062,9 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
   display:block;padding:0;text-align:left;background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:inherit;font-weight:inherit;line-height:inherit;
 }
+@media (hover: hover) and (pointer: fine){
 .exercise--focus .focus-ex__name .ex__namebtn:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 .exercise--focus .focus-ex__name .ex__namebtn:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .focus-ex__name .ex__namebtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 .exercise--focus .focus-ex__name .ex__namebtn:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -1071,7 +1098,9 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;
   text-decoration:underline;text-underline-offset:.2em;
 }
+@media (hover: hover) and (pointer: fine){
 .exercise--focus .text-link.focus-ex__why:hover:not(:disabled),.exercise--focus .fx-cue__cancel:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 .exercise--focus .text-link.focus-ex__why:active:not(:disabled),.exercise--focus .fx-cue__cancel:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .text-link.focus-ex__why:focus-visible,.exercise--focus .fx-cue__cancel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .exercise--focus .text-link.focus-ex__why:disabled,.exercise--focus .fx-cue__cancel:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -1083,7 +1112,9 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .fx-note .icon-mask{flex:none;margin-top:2px}
 
 .exercise--focus .term{background:var(--control-quiet-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);font-family:var(--font-language)}
+@media (hover: hover) and (pointer: fine){
 .exercise--focus .term:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);text-decoration-color:var(--control-quiet-ink)}
+}
 .exercise--focus .term:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .term:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .exercise--focus .term:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -1103,7 +1134,9 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .ledgerline__vals > .fx-col:nth-child(3){min-width:4.5rem}
 .ledgerline__vals > .fx-col.is-soft{color:var(--color-ink-secondary)}
 button.ledgerline{cursor:pointer;text-align:left;border-top:0;border-inline:0}
+@media (hover: hover) and (pointer: fine){
 button.ledgerline:hover:not(:disabled){background:var(--well)}
+}
 button.ledgerline:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .ledgerline .fx-check{
@@ -1121,7 +1154,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-regular);line-height:var(--line-standard);text-align:left;
 }
 .fx-next b{font-weight:var(--weight-semibold)}
+@media (hover: hover) and (pointer: fine){
 .fx-next:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 .fx-next:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .fx-next:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .fx-next:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
@@ -1153,7 +1188,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   padding:var(--space-8) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
   background:var(--control-selection-bg);color:var(--control-selection-ink);text-align:left;cursor:pointer;
 }
+@media (hover: hover) and (pointer: fine){
 .shelf__fieldbtn:hover:not(:disabled){background:var(--well)}
+}
 .shelf__fieldbtn:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .shelf__fieldbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--elevation-selected-quiet-shadow)}
@@ -1235,15 +1272,23 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
 .restpad--toggle{flex-grow:1.4}
+@media (hover: hover) and (pointer: fine){
 .restpad:hover:not(:disabled){background:var(--well)}
+}
 .restpad:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .restpad:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .restpad:disabled{color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .restpad--adjust{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
-.restpad--adjust:hover:not(:disabled),.restpad--adjust:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+@media (hover: hover) and (pointer: fine){
+.restpad--adjust:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+}
+.restpad--adjust:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
 .restpad--adjust:disabled{background:var(--control-adjustment-bg)}
 .restpad--toggle{background:var(--control-selection-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
-.restpad--toggle:hover:not(:disabled),.restpad--toggle:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
+@media (hover: hover) and (pointer: fine){
+.restpad--toggle:hover:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
+}
+.restpad--toggle:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
 .restpad--toggle:disabled{background:var(--control-selection-bg)}
 @media (prefers-reduced-motion:reduce){
   .restinline__fill{transition:none}
@@ -1254,7 +1299,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   font-family:var(--font-language);text-transform:none;letter-spacing:normal;font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
   min-height:54px;min-width:0;padding:0 var(--space-18);border-radius:var(--radius-control);
 }
+@media (hover: hover) and (pointer: fine){
 .focus-shelf .btn--cta.saveset:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
+}
 .focus-shelf .btn--cta.saveset:active:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)}
 .focus-shelf .btn--cta.saveset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .focus-shelf .btn--cta.saveset:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -1368,7 +1415,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   padding:0 8px;min-width:46px}
 .saveset{position:relative;flex:none;border-color:var(--rule);background:var(--surface);color:var(--ink-soft);
   border-radius:var(--radius-control);cursor:pointer;min-height:46px;line-height:1}
+@media (hover: hover) and (pointer: fine){
 .saveset:hover{color:var(--ink);border-color:var(--ink-soft)}
+}
 /* Drawn, not typed, for the same reason as --arrow: U+2713 is outside the
  * Plex Sans subset, so a "✓" here fell back to a platform symbol font and
  * came out at a different weight on Android than on iOS. */
@@ -1386,7 +1435,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .stepbtn{flex:none;width:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);
   background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);cursor:pointer;font-family:var(--font-language);font-size:var(--control-icon-size);line-height:1;padding:0;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+@media (hover: hover) and (pointer: fine){
 .stepbtn:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+}
 .stepbtn:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary);transform:var(--control-pressed-transform)}
 .stepbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .stepbtn:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -1459,11 +1510,8 @@ body.is-sheet-open{overflow:hidden}
 .sheet{
   position:fixed;left:0;right:0;bottom:var(--kb,0px);z-index:41;
   display:flex;flex-direction:column;
-  /* Size against the band the keyboard leaves visible (--vvh tracks
-     visualViewport.height), not 100dvh: dvh ignores the software keyboard, so
-     the sheet grew taller than the screen and pushed its own header out of
-     sight above the top edge. */
-  height:min(74dvh,660px);max-height:calc(var(--vvh,100dvh) - 56px);
+  /* The shared cap tracks the keyboard's band, normalized for browser zoom. */
+  height:min(74dvh,660px);max-height:var(--sheet-max-height);
   background:var(--surface);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;
   box-shadow:var(--elevation-sheet-shadow);
   padding-bottom:env(safe-area-inset-bottom);
@@ -1544,10 +1592,15 @@ body.is-sheet-open{overflow:hidden}
   background:var(--control-quiet-bg);font-family:var(--font-language);font-size:var(--font-size-body-small);
   font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--control-selection-ink);cursor:pointer;
 }
+@media (hover: hover) and (pointer: fine){
 .picktab:hover:not(:disabled){background:var(--well)}
+}
 .picktab:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .picktab.is-active{color:var(--control-selection-ink);border-bottom-color:var(--control-selected-boundary)}
-.picktab.is-active:hover:not(:disabled),.picktab.is-active:active:not(:disabled){background:var(--well);border-bottom-color:var(--control-selected-boundary)}
+@media (hover: hover) and (pointer: fine){
+.picktab.is-active:hover:not(:disabled){background:var(--well);border-bottom-color:var(--control-selected-boundary)}
+}
+.picktab.is-active:active:not(:disabled){background:var(--well);border-bottom-color:var(--control-selected-boundary)}
 .picktab:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .picktab:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
 /* Let the tabs reflow when enlarged text narrows their effective container. */
@@ -1597,8 +1650,12 @@ body.is-sheet-open{overflow:hidden}
   border-color:var(--control-selected-boundary);background:var(--control-selected-boundary) no-repeat center/13px 13px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.6 4.6L19 7.2'/%3E%3C/svg%3E");
 }
+@media (hover: hover) and (pointer: fine){
 .librow__check:hover:not(:disabled):not(.is-on)::before{background:var(--well)}
+}
+@media (hover: hover) and (pointer: fine){
 .librow__check.is-on:hover:not(:disabled)::before{border-color:var(--control-selected-boundary);background-color:var(--control-selected-boundary)}
+}
 .librow__check:active:not(:disabled){transform:var(--control-pressed-transform)}
 .librow__check:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-round)}
 .librow__check:disabled{background:var(--control-selection-bg);cursor:not-allowed;transform:none}
@@ -1716,19 +1773,23 @@ body.is-sheet-open{overflow:hidden}
    eating the list it is meant to narrow. */
 .pick__filters{
   display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;
-  margin:0 -16px;padding:0 16px 2px;
-}
+  margin:0 -16px;padding:0 16px 2px;overscroll-behavior:contain;}
 .pick__filters::-webkit-scrollbar{display:none}
 .pchip{
   flex:none;min-height:var(--control-target);padding:7px 13px;border:1px solid var(--control-selection-boundary);border-radius:var(--radius-pill);
   background:var(--control-selection-bg);color:var(--control-selection-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
   cursor:pointer;white-space:nowrap;
 }
+@media (hover: hover) and (pointer: fine){
 .pchip:hover:not(:disabled){background:var(--well);border-color:var(--control-selection-boundary);color:var(--control-selection-ink)}
+}
 .pchip:active:not(:disabled){background:var(--well);border-color:var(--control-selection-boundary);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
 .pchip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .pchip.is-active{background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);color:var(--control-selection-ink);box-shadow:var(--elevation-selected-shadow)}
-.pchip.is-active:hover:not(:disabled),.pchip.is-active:active:not(:disabled){background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);color:var(--control-selection-ink)}
+@media (hover: hover) and (pointer: fine){
+.pchip.is-active:hover:not(:disabled){background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);color:var(--control-selection-ink)}
+}
+.pchip.is-active:active:not(:disabled){background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);color:var(--control-selection-ink)}
 .pchip:disabled{background:var(--control-selection-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none;box-shadow:none}
 /* Artwork tiles. The empty variant is the same box with nothing in it — no
    glyph, no initials, no shimmer — so illustrated and plain rows line up and a
@@ -1754,7 +1815,7 @@ body.is-sheet-open{overflow:hidden}
   padding-top:env(safe-area-inset-top);
 }
 .pick__body{padding-top:10px;flex-direction:column;overflow:hidden}
-.pick__list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+.pick__list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px;overscroll-behavior:contain;}
 .pick__section{
   position:sticky;top:0;z-index:1;background:var(--color-surface);
   padding:10px 0 6px;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.04em;
@@ -1768,11 +1829,16 @@ body.is-sheet-open{overflow:hidden}
   padding:11px 2px;border:0;border-bottom:1px solid var(--control-selection-boundary);
   background:var(--control-selection-bg);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--control-selection-ink);text-align:left;cursor:pointer;
 }
+@media (hover: hover) and (pointer: fine){
 .pickrow:hover:not(:disabled){background:var(--well);border-bottom-color:var(--control-selection-boundary)}
+}
 .pickrow:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .pickrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .pickrow.is-selected{background:var(--control-selection-active-bg)}
-.pickrow.is-selected:hover:not(:disabled),.pickrow.is-selected:active:not(:disabled){background:var(--control-selection-active-bg)}
+@media (hover: hover) and (pointer: fine){
+.pickrow.is-selected:hover:not(:disabled){background:var(--control-selection-active-bg)}
+}
+.pickrow.is-selected:active:not(:disabled){background:var(--control-selection-active-bg)}
 .pickrow:disabled{background:var(--control-selection-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .pickrow__main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .pickrow__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
@@ -1795,7 +1861,7 @@ body.is-sheet-open{overflow:hidden}
 }
 
 /* ---- Custom exercise sheet ---- */
-.custom__form{width:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
+.custom__form{width:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px;overscroll-behavior:contain;}
 .custom__error{margin:var(--space-4) 0 0;font-size:var(--font-size-body-small);line-height:1.4;color:var(--color-destructive)}
 .custom__lab{margin:16px 0 8px;font-size:var(--font-size-caption);font-weight:600;color:var(--ink-soft)}
 /* Tagging muscles means reading all nineteen, not swiping a rail to find
@@ -1837,7 +1903,9 @@ body.is-sheet-open{overflow:hidden}
   cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-selection-ink);
 }
 .daypick__row:last-child{border-bottom:0}
+@media (hover: hover) and (pointer: fine){
 .daypick__row:hover:not(:disabled){background:var(--well);color:var(--control-selection-ink)}
+}
 .daypick__row:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
 .daypick__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 /* The armed day takes the well and the quiet selected boundary (ink, never orange) on its rail. */
@@ -1860,7 +1928,7 @@ body.is-sheet-open{overflow:hidden}
 /* ---- Workout sheets (Plan 064 R3d) ----
    One band (.sheetband) heads each sheet; the body scrolls under a pinned foot; groups are hairline
    bands, never cards; fields are the shared field control with the quiet selected (ink) ring. */
-.sheet--session,.sheet--exactions{height:auto;max-height:85vh;display:flex;flex-direction:column}
+.sheet--session,.sheet--exactions{height:auto;max-height:min(85dvh,var(--sheet-max-height));display:flex;flex-direction:column}
 .sheet--note,.sheet--discard{height:auto;display:flex;flex-direction:column}
 .session-sheet__body,.exactions-sheet__body,.sheetbody{
   flex:1 8 auto;min-height:0;display:flex;flex-direction:column;
@@ -1902,7 +1970,10 @@ body.is-sheet-open{overflow:hidden}
 textarea.sheetfield__input{
   min-height:88px;resize:none;font-family:var(--font-language);font-weight:var(--weight-regular);line-height:var(--line-reading);
 }
-.sheetfield__input:hover,.sheetfield__input:active{background:var(--control-field-bg);border-color:var(--control-field-boundary)}
+@media (hover: hover) and (pointer: fine){
+.sheetfield__input:hover{background:var(--control-field-bg);border-color:var(--control-field-boundary)}
+}
+.sheetfield__input:active{background:var(--control-field-bg);border-color:var(--control-field-boundary)}
 /* The selected field wears the 2px quiet (ink) ring, not the accent outline: orange is not a field state. */
 .sheetfield__input:focus{border-color:var(--boundary-selected-quiet);box-shadow:none}
 .sheetfield__input:focus-visible{outline:2px solid var(--boundary-selected-quiet);outline-offset:-1px}
@@ -1928,7 +1999,9 @@ textarea.sheetfield__input{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);min-width:0;min-height:48px;margin:0;padding:var(--space-4) 0;
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);border:0;border-radius:var(--radius-none);cursor:pointer;text-align:left;
 }
+@media (hover: hover) and (pointer: fine){
 .session-map__jump:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 .session-map__jump:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .session-map__jump:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .session-map__jump:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -1949,7 +2022,9 @@ textarea.sheetfield__input{
 .session-map__status.is-skipped{font-family:var(--font-language)}
 .session-map__reorder{display:flex;align-items:center;gap:var(--space-8);flex:none}
 .session-map__reorder-btn{width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;display:inline-flex;align-items:center;justify-content:center;background:var(--control-secondary-bg);border:1px solid var(--control-secondary-boundary);color:var(--control-secondary-ink);border-radius:var(--radius-control);cursor:pointer}
+@media (hover: hover) and (pointer: fine){
 .session-map__reorder-btn:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+}
 .session-map__reorder-btn:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 .session-map__reorder-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .session-map__reorder-btn:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -1993,7 +2068,9 @@ textarea.sheetfield__input{
   min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -2001,7 +2078,9 @@ textarea.sheetfield__input{
   min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
   background:var(--control-primary-bg);color:var(--control-primary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+}
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
@@ -2009,7 +2088,9 @@ textarea.sheetfield__input{
   min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 :is(#sessionEarlyCancel,#exNoteCancel):hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+}
 :is(#sessionEarlyCancel,#exNoteCancel):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyCancel,#exNoteCancel):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyCancel,#exNoteCancel):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -2021,7 +2102,9 @@ textarea.sheetfield__input{
   min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 :is(#historyDiscardDrop,#draftDiscardDrop):hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
+}
 :is(#historyDiscardDrop,#draftDiscardDrop):active:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
 :is(#historyDiscardDrop,#draftDiscardDrop):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#historyDiscardDrop,#draftDiscardDrop):disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -2029,7 +2112,9 @@ textarea.sheetfield__input{
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
 }
+@media (hover: hover) and (pointer: fine){
 #restSheetClose:hover:not(:disabled),#whyClose:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
 #restSheetClose:active:not(:disabled),#whyClose:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #restSheetClose:focus-visible,#whyClose:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #restSheetClose:disabled,#whyClose:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -2056,7 +2141,9 @@ textarea.sheetfield__input{
 .exactions__act-text{display:grid;min-width:0;overflow-wrap:anywhere}
 .exactions__act-text small{font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .exactions__act-text small:empty{display:none}
+@media (hover: hover) and (pointer: fine){
 .exactions__act:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 .exactions__act:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exactions__act:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .exactions__act:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -2096,11 +2183,16 @@ textarea.sheetfield__input{
   border:1px solid var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--control-selection-ink);
   font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 .restpreset:hover:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--well)}
+}
 .restpreset:active:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--well);transform:var(--control-pressed-transform)}
 .restpreset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .restpreset.is-active{border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg);box-shadow:var(--elevation-selected-shadow)}
-.restpreset.is-active:hover:not(:disabled),.restpreset.is-active:active:not(:disabled){border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg)}
+@media (hover: hover) and (pointer: fine){
+.restpreset.is-active:hover:not(:disabled){border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg)}
+}
+.restpreset.is-active:active:not(:disabled){border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg)}
 .restpreset:disabled{border-color:var(--boundary-decorative);color:var(--color-disabled-reason);background:var(--control-selection-bg);opacity:1;cursor:not-allowed;transform:none;box-shadow:none}
 .restsheet__controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:4px;width:100%}
 .restctl{
@@ -2109,12 +2201,19 @@ textarea.sheetfield__input{
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 .restctl:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+}
 .restctl:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 .restctl:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .restctl:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 #restMinus,#restPlus{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
-#restMinus:hover:not(:disabled),#restPlus:hover:not(:disabled),#restMinus:active:not(:disabled),#restPlus:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+@media (hover: hover) and (pointer: fine){
+#restMinus:hover:not(:disabled),
+#restPlus:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+}
+#restMinus:active:not(:disabled),
+#restPlus:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
 #restMinus:active:not(:disabled),#restPlus:active:not(:disabled){transform:var(--control-pressed-transform)}
 #restMinus:disabled,#restPlus:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 /* Pause or Resume: a text-only control on a row of its own above the four icon controls. */
@@ -2176,7 +2275,7 @@ textarea.sheetfield__input{
 canvas{width:100%;display:block;margin-top:6px}
 
 /* ---- Tables ---- */
-.table{background:transparent;border:0;border-radius:0;overflow:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px}
+.table{background:transparent;border:0;border-radius:0;overflow:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px;overscroll-behavior:contain;}
 table{width:100%;border-collapse:separate;border-spacing:0;min-width:520px}
 th,td{padding:11px 8px;text-align:left;font-size:var(--font-size-body-small);white-space:nowrap;border-bottom:1px solid var(--rule)}
 th{font-size:var(--font-size-label);color:var(--ink-faint);background:transparent;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
@@ -2233,7 +2332,9 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 /* Separate the destructive control from the benign one beside it, and tint it
    so the two identical squares are no longer interchangeable at a glance. */
 .pday__head .iconbtn--del{margin-right:6px;color:var(--danger)}
+@media (hover: hover) and (pointer: fine){
 .pday__head .iconbtn--del:hover{border-color:var(--danger)}
+}
 .pday__name{flex:1;margin-top:0;font-weight:var(--weight-semibold);font-size:var(--font-size-control);letter-spacing:0;
   text-transform:none;padding:9px 11px;background:var(--bg);border-color:var(--rule)}
 .pday__count{flex:none;font-size:var(--font-size-label);letter-spacing:.04em;color:var(--ink-faint);text-transform:uppercase;white-space:nowrap}
@@ -2267,9 +2368,13 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 @media(max-width:350px){.pstrategy__grid{grid-template-columns:1fr}}
 .iconbtn{flex:none;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;
   border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);border-radius:var(--radius-control);cursor:pointer;font-size:var(--control-icon-size);line-height:1}
+@media (hover: hover) and (pointer: fine){
 .iconbtn:hover:not(:disabled){color:var(--ink);border-color:var(--ink-soft)}
+}
 .iconbtn:disabled{opacity:.3;cursor:default}
+@media (hover: hover) and (pointer: fine){
 .iconbtn--del:hover:not(:disabled){color:var(--danger);border-color:rgba(var(--danger-rgb),.4);background:rgba(var(--danger-rgb),.06)}
+}
 .advanced{margin-top:24px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
 .advanced[open]{padding-bottom:16px}
 .advanced summary{cursor:pointer;list-style:none;min-height:52px;padding:14px 0;font-weight:500;font-size:var(--font-size-control);color:var(--ink);
@@ -2312,7 +2417,9 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__day-menu-panel{display:flex;flex-direction:column;gap:0;margin:0 12px 12px;border:1px solid var(--rule-strong);border-radius:var(--radius-control);background:var(--surface);overflow:hidden}
 .program-editor__day-menu-panel[hidden]{display:none}
 .program-editor__day-menu-panel button{min-height:44px;padding:10px 12px;border:0;background:transparent;color:var(--danger);cursor:pointer;text-align:left;font:inherit;font-size:var(--font-size-body-small)}
+@media (hover: hover) and (pointer: fine){
 .program-editor__day-menu-panel button:hover{background:var(--well)}
+}
 .program-editor__day-toggle,.program-editor__exercise-toggle{flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .program-editor__day-toggle .icon-mask,.program-editor__exercise-toggle .icon-mask{width:20px;height:20px}
 /* The legacy .pday rule rotates its always-down glyph for the old editor.
@@ -2337,6 +2444,8 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 /* A held touch belongs to reordering while this mode is active. Safari must
    not turn a small drift away from the handle into a text selection. */
 .program-editor.is-reorder-mode .program-editor__exercise{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* Reorder mode turns the row, including its fields, into a drag surface. */
+.program-editor.is-reorder-mode .program-editor__exercise :is(input,textarea){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .program-editor__exercise-body{margin:0;padding:14px 16px 0;border-top:1px solid var(--rule)}
 .program-editor__sets{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:62px}
 .program-editor__field-label,.program-editor__range legend{color:var(--ink-soft);font-size:var(--font-size-label);font-weight:500;letter-spacing:.08em;text-transform:uppercase}
@@ -2344,7 +2453,9 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__stepper button,.program-editor__stepper output{display:flex;align-items:center;justify-content:center;min-width:0;min-height:60px;padding:0;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-metric);font-variant-numeric:tabular-nums}
 .program-editor__stepper button{cursor:pointer}
 .program-editor__stepper button+output,.program-editor__stepper output+button{border-left:1px solid var(--rule)}
+@media (hover: hover) and (pointer: fine){
 .program-editor__stepper button:hover{background:var(--well)}
+}
 .program-editor__rep-rule{height:1px;background:var(--rule);margin:0 0 18px}
 .program-editor__range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
 .program-editor__range legend{grid-column:1/-1;padding:0;margin:0 0 4px}
@@ -2361,17 +2472,23 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__more label{margin:0 0 12px}
 .program-editor__more button{width:100%;min-height:44px;padding:10px;text-align:left;border:1px solid var(--rule);border-radius:var(--radius-control);background:var(--surface);color:var(--accent-deep);cursor:pointer;font:inherit}
 .program-editor__add{display:flex;align-items:center;gap:8px;width:100%;min-height:62px;margin:0;padding:12px 16px;border:0;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font-size:var(--font-size-control)}
+@media (hover: hover) and (pointer: fine){
 .program-editor__add:hover{background:var(--well)}
+}
 .program-editor__add span{font-size:var(--control-icon-size);font-weight:var(--weight-regular);line-height:1;color:var(--ink-soft)}
 .program-editor__add-day{display:flex;align-items:center;gap:8px;width:100%;min-height:62px;padding:10px 16px;border:1px solid var(--rule-strong);border-radius:var(--radius-control);background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font-size:var(--font-size-control)}
+@media (hover: hover) and (pointer: fine){
 .program-editor__add-day:hover{background:var(--well)}
+}
 .program-editor__add-day:first-letter{font-size:var(--control-icon-size);color:var(--ink-soft)}
 .program-editor__empty{padding:18px 16px;color:var(--ink-soft);font-size:var(--font-size-body-small);line-height:1.4}
 .program-editor__menu{position:relative;z-index:2;display:flex;flex-direction:column;gap:0;margin:0 12px 12px;border:1px solid var(--rule-strong);border-radius:var(--radius-control);background:var(--surface);overflow:hidden}
 .program-editor__menu[hidden]{display:none}
 .program-editor__menu button{min-height:44px;padding:10px 12px;border:0;border-bottom:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer;text-align:left;font:inherit;font-size:var(--font-size-body-small)}
 .program-editor__menu button:last-child{border-bottom:0}
+@media (hover: hover) and (pointer: fine){
 .program-editor__menu button:hover{background:var(--well)}
+}
 .program-editor__menu [data-role="move-days"]{display:flex;flex-direction:column;background:var(--well)}
 .program-editor__menu [data-role="move-days"] button{padding-left:24px}
 /* The row under the thumb. The drag library lifts a copy of the row and leaves
@@ -2699,7 +2816,9 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
   border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
 }
+@media (hover: hover) and (pointer: fine){
 .blockprompt__dismiss:hover{color:var(--ink)}
+}
 .fatigue{position:relative;background:transparent;border:0;border-left:3px solid var(--ink-soft);
   border-radius:0;padding:12px 40px 12px 14px;margin-bottom:14px;font-size:var(--font-size-body-small);color:var(--ink);line-height:1.45}
 .fatigue b{font-weight:600;color:var(--ink);margin-right:2px;text-transform:none;letter-spacing:0;font-family:inherit}
@@ -2710,12 +2829,16 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
   border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
 }
+@media (hover: hover) and (pointer: fine){
 .fatigue__dismiss:hover{color:var(--ink)}
+}
 
 .term{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;padding:10px 8px;margin:-10px -8px;
   min-width:44px;min-height:44px;box-sizing:border-box;vertical-align:middle;
   text-decoration:underline dotted;text-decoration-color:var(--ink-faint);cursor:pointer;font:inherit;line-height:1.4}
+@media (hover: hover) and (pointer: fine){
 .term:hover{text-decoration-color:var(--accent);color:var(--accent-deep)}
+}
 .glossary{
   position:absolute;z-index:60;max-width:280px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);
   display:flex;flex-direction:column;
@@ -2724,10 +2847,12 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 }
 .glossary__close{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:var(--control-icon-size);line-height:1;width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
 .glossary__term{flex:none;font-weight:var(--weight-semibold);font-size:var(--font-size-caption);margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
-.glossary__body{flex:0 1 auto;min-height:0;overflow-y:auto;margin:0;font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft)}
+.glossary__body{flex:0 1 auto;min-height:0;overflow-y:auto;margin:0;font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);overscroll-behavior:contain;}
 body.is-focus-wo #glossary{background:var(--color-surface);border-color:var(--boundary-floating);border-radius:var(--radius-surface);box-shadow:var(--elevation-floating-shadow)}
 body.is-focus-wo #glossary .glossary__close{background:var(--control-quiet-bg);color:var(--control-quiet-ink);border-radius:var(--radius-round)}
+@media (hover: hover) and (pointer: fine){
 body.is-focus-wo #glossary .glossary__close:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 body.is-focus-wo #glossary .glossary__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 body.is-focus-wo #glossary .glossary__term{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
@@ -2798,7 +2923,9 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   display:flex;align-items:center;min-height:var(--control-target);margin:var(--space-4) 0 0;padding:0;background:var(--control-disclosure-bg);border:0;cursor:pointer;text-align:left;
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-disclosure-ink);
 }
+@media (hover: hover) and (pointer: fine){
 .sum-muscles__more:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
+}
 .sum-muscles__more:active:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
 .sum-muscles__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .sum-muscles__more:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -2823,7 +2950,9 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 #sumSee:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
 #sumSee:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #sumSee:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -2839,7 +2968,9 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 #sumDone:hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+}
 #sumDone:active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
 #sumDone:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #sumDone:disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
@@ -2850,7 +2981,8 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    not; the element they now use is what makes a backdrop available, and every
    other dialog already draws one. */
 .importchoice{
-  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(92%,360px);margin:0;
+  position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:70;width:min(92%,360px);margin:0;
+  max-height:min(90dvh,var(--dialog-max-height));overflow:auto;overscroll-behavior:contain;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-prominent);color:var(--ink);
   padding:20px 18px 16px;box-shadow:var(--elevation-dialog-shadow);
 }
@@ -2859,10 +2991,10 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .importchoice__body{margin:0 0 14px;font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);white-space:pre-line}
 
 .storage-recovery{
-  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;width:min(92%,380px);margin:0;
+  position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(92%,380px);margin:0;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-prominent);
   padding:20px 18px 16px;box-shadow:var(--elevation-dialog-shadow);
-  max-height:90vh;overflow:auto;color:var(--ink);
+  max-height:min(90dvh,var(--dialog-max-height));overflow:auto;overscroll-behavior:contain;color:var(--ink);
 }
 .storage-recovery::backdrop{background:var(--scrim)}
 .storage-recovery__copy{margin:0 0 12px;padding:10px 12px;background:var(--well);border-radius:var(--radius-surface);font-size:var(--font-size-body-small);line-height:1.4}
@@ -2893,7 +3025,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    onboarding text size in rem so the browser's root text setting can enlarge
    copy without turning the whole page into a zoomed viewport. */
 .onboarding{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
-  padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overscroll-behavior:contain;}
 .onboarding.active{display:block}
 .onb{max-width:var(--maxw);margin:0 auto}
 .onb__head{margin-bottom:18px}
@@ -2933,7 +3065,9 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .guide-cue__dismiss{align-self:start;min-width:44px;min-height:44px;margin:-8px -10px 0 0;
   border:0;border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font:inherit;font-size:var(--control-icon-size);cursor:pointer}
+@media (hover: hover) and (pointer: fine){
 .guide-cue__dismiss:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 .guide-cue__dismiss:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .guide-cue__dismiss:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-round)}
 .guide-cue__dismiss:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
@@ -2966,7 +3100,9 @@ body.is-sheet-open .installbanner{display:none}
   min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;border-radius:var(--radius-round);
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);line-height:var(--line-tight);cursor:pointer}
+@media (hover: hover) and (pointer: fine){
 .installbanner__close:hover:not(:disabled){background:var(--well)}
+}
 .installbanner__close:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .installbanner__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .installbanner__close:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
@@ -2989,7 +3125,7 @@ body.is-sheet-open .installbanner{display:none}
 .evrow{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:11px 2px;background:none;border:0;border-bottom:1px solid var(--rule)}
 .evrow .listrow__main{flex:1;min-width:0}
 .evrow__val{font-family:var(--font-training-data);font-size:var(--font-size-body-small);white-space:nowrap}
-.evrow__detail{padding:8px 2px 14px;border-bottom:1px solid var(--rule);width:100%;min-width:0;max-width:100%;overflow-x:auto}
+.evrow__detail{padding:8px 2px 14px;border-bottom:1px solid var(--rule);width:100%;min-width:0;max-width:100%;overflow-x:auto;overscroll-behavior:contain;}
 .evrows{display:block}
 button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;color:inherit;font:inherit}
 .vrow.evrow{display:grid;grid-template-columns:1fr auto auto auto;gap:6px 12px;align-items:center}
@@ -3069,7 +3205,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 /* The name opens the exercise page: give it a tap target without
    moving the baseline the title sits on. */
 .focus-ex__name .ex__namebtn{font:inherit;color:inherit;display:block;padding:7px 0;margin:-7px 0;min-height:44px}
+@media (hover: hover) and (pointer: fine){
 .ex__namebtn:hover{color:var(--accent-deep)}
+}
 
 #exercise .exview-head__title{font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 .exdet__muscle{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
@@ -3164,7 +3302,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   width:var(--control-target);height:var(--control-target);border-radius:var(--radius-round);border:1px solid var(--control-quiet-boundary);
   background:var(--control-quiet-bg);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--control-quiet-ink);padding:0;
 }
+@media (hover: hover) and (pointer: fine){
 .settings-btn:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)}
+}
 .settings-btn:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);transform:var(--control-pressed-transform)}
 .settings-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .settings-btn:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -3209,7 +3349,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 #reviewTodaySession{margin-top:32px}
 #reviewTodaySession .chevron{display:none}
 #logAnotherSession{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin:10px 0 0;padding:8px 16px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center}
+@media (hover: hover) and (pointer: fine){
 #logAnotherSession:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+}
 #logAnotherSession:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 #logAnotherSession:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #logAnotherSession:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -3373,7 +3515,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 /* Hover and focus are distinct signals: a pointer resting on a card tints its
    keyline, while the copper ring is reserved for keyboard focus. Sharing one
    declaration made a hovered card read as the focused one. */
+@media (hover: hover) and (pointer: fine){
 .entry-card:hover{border-color:var(--accent)}
+}
 .entry-card:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:2px}
 .entry-card--primary{border-color:var(--accent);box-shadow:var(--control-accent-keyline-shadow)}
 .entry-card--secondary{background:transparent}
@@ -3567,7 +3711,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry__freeform-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);background:var(--color-surface);margin-bottom:16px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .entry__freeform-preview{margin:12px 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
 .entry__freeform-preview summary{min-height:var(--control-target);padding:10px 0;cursor:pointer;background:var(--control-disclosure-bg);color:var(--control-disclosure-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
-.entry__freeform-prompt-preview{margin:8px 0 0;padding:10px;background:var(--color-surface);border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);white-space:pre-wrap;max-height:160px;overflow-y:auto}
+.entry__freeform-prompt-preview{margin:8px 0 0;padding:10px;background:var(--color-surface);border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);white-space:pre-wrap;max-height:160px;overflow-y:auto;overscroll-behavior:contain;}
 .entry__switch{margin:16px 0 0;display:flex;justify-content:center}
 .entry-body .entry__switch .btn--ghost{color:var(--ink-soft)}
 .radio-card.is-disabled,.radio-card:disabled{
@@ -3575,7 +3719,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry__correct{margin-top:14px;padding-top:4px}
 .entry__hint,.entry__pain{margin:14px 0 0;font-size:var(--font-size-body-small);line-height:1.4;color:var(--ink-soft)}
 .entry__pain{padding:10px 12px;border-radius:var(--radius-surface);border:1px solid var(--rule);background:var(--surface)}
-.entry__avoid-results{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;max-height:180px;overflow:auto}
+.entry__avoid-results{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;max-height:180px;overflow:auto;overscroll-behavior:contain;}
 .entry-card--compact{padding:10px 12px}
 .entry__avoid-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
 .entry__avoid-item{padding:12px;border:1px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface)}
@@ -3614,7 +3758,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 :root[data-theme="dark"] .entry-body .entry-card{box-shadow:none}
 /* In the flow a route row is borderless, so hover reads as a wash rather than
    a keyline; the copper ring stays reserved for `:focus-visible`. */
+@media (hover: hover) and (pointer: fine){
 .entry-body .entry-card:hover{background:var(--well)}
+}
 .entry-body .entry-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .entry-body .entry-card:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .entry-body .entry-card--nested{min-height:52px;padding:12px 4px 12px 14px;border-bottom:0}
@@ -3635,9 +3781,14 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative)
 }
+@media (hover: hover) and (pointer: fine){
 .entry-body #entryFreeformStart:hover:not(:disabled),
+.entry-body .entry-card--secondary:not([id]):hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);
+  border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative)
+}
+}
 .entry-body #entryFreeformStart:active:not(:disabled),
-.entry-body .entry-card--secondary:not([id]):hover:not(:disabled),
 .entry-body .entry-card--secondary:not([id]):active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);
   border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative)
@@ -3646,11 +3797,17 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry-body .entry-card--secondary:not([id]):focus-visible{
   border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative)
 }
-.entry-body #entryFreeformStart:disabled,
+@media (hover: hover) and (pointer: fine){
 .entry-body #entryFreeformStart:disabled:hover,
+.entry-body .entry-card--secondary:not([id]):disabled:hover{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative);
+  opacity:1;cursor:not-allowed;transform:none
+}
+}
+.entry-body #entryFreeformStart:disabled,
 .entry-body #entryFreeformStart:disabled:active,
 .entry-body .entry-card--secondary:not([id]):disabled,
-.entry-body .entry-card--secondary:not([id]):disabled:hover,
 .entry-body .entry-card--secondary:not([id]):disabled:active{
   background:var(--control-quiet-bg);color:var(--color-disabled-reason);
   border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative);
@@ -3662,7 +3819,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   margin-bottom:14px;padding:18px 16px;border:1.5px solid var(--accent);
   border-radius:var(--radius-surface);background:var(--entry-tint)
 }
+@media (hover: hover) and (pointer: fine){
 .entry-body .entry-card[data-entry-route="recommend"]:hover{background:var(--entry-tint)}
+}
 .entry-body .entry-card[data-entry-route="recommend"]:active:not(:disabled){background:var(--entry-tint)}
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__go{color:var(--accent)}
@@ -3695,7 +3854,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
   background:var(--well);padding:14px 16px
 }
+@media (hover: hover) and (pointer: fine){
 .entry-body .radio-card:hover{border-color:var(--rule-strong)}
+}
 .entry-body .radio-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .entry-body .radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .entry-body .radio-card__title{font-size:var(--font-size-control);font-weight:500;line-height:1.3}
@@ -3776,14 +3937,24 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry__muscle-current{flex:none;padding:3px 7px;border:1px solid var(--boundary-decorative);border-radius:var(--radius-pill);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.04em;text-transform:uppercase;color:var(--color-ink-secondary)}
 .entry__muscle-states{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:6px}
 .entry__muscle-state{min-height:var(--control-target);padding:7px 8px;border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);background:var(--control-selection-bg);color:var(--control-selection-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center;overflow-wrap:anywhere}
+@media (hover: hover) and (pointer: fine){
 .entry__muscle-state:hover:not(:disabled):not(.is-selected){border-color:var(--control-selection-boundary);background:var(--well);color:var(--control-selection-ink)}
+}
 .entry__muscle-state:active:not(:disabled):not(.is-selected){border-color:var(--control-selection-boundary);background:var(--well);color:var(--control-selection-ink)}
 .entry__muscle-state:active:not(:disabled){transform:var(--control-pressed-transform)}
 .entry__muscle-state:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .entry__muscle-state.is-selected{border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well);color:var(--control-selection-ink)}
-.entry__muscle-state.is-disabled,.entry__muscle-state:disabled,
-.entry__muscle-state.is-disabled:hover,.entry__muscle-state:disabled:hover,
-.entry__muscle-state.is-disabled:active,.entry__muscle-state:disabled:active{
+@media (hover: hover) and (pointer: fine){
+.entry__muscle-state.is-disabled:hover,
+.entry__muscle-state:disabled:hover{
+  border-color:var(--boundary-decorative);background:var(--control-selection-bg);
+  color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none
+}
+}
+.entry__muscle-state.is-disabled,
+.entry__muscle-state:disabled,
+.entry__muscle-state.is-disabled:active,
+.entry__muscle-state:disabled:active{
   border-color:var(--boundary-decorative);background:var(--control-selection-bg);
   color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none
 }
@@ -3803,7 +3974,12 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);
   line-height:var(--line-standard);white-space:nowrap;
 }
-.entry__exercise-action:hover:not(:disabled),.entry__exercise-action:active:not(:disabled){
+@media (hover: hover) and (pointer: fine){
+.entry__exercise-action:hover:not(:disabled){
+  background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary);
+}
+}
+.entry__exercise-action:active:not(:disabled){
   background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary);
 }
 .entry__exercise-action:active:not(:disabled){transform:var(--control-pressed-transform)}
@@ -3847,12 +4023,19 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);font:inherit;text-align:left;cursor:pointer;
 }
-.entry-prog:not([id]):hover:not(:disabled),
+@media (hover: hover) and (pointer: fine){
+.entry-prog:not([id]):hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 .entry-prog:not([id]):active:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 .entry-prog:not([id]):active:not(:disabled){transform:var(--control-pressed-transform)}
 .entry-prog:not([id]):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+@media (hover: hover) and (pointer: fine){
+.entry-prog:not([id]):disabled:hover{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+}
 .entry-prog:not([id]):disabled,
-.entry-prog:not([id]):disabled:hover,
 .entry-prog:not([id]):disabled:active{
   background:var(--control-quiet-bg);color:var(--color-disabled-reason);
   border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
@@ -3930,7 +4113,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   flex:none;min-height:44px;padding:0 4px;border:0;background:none;cursor:pointer;
   font:inherit;font-size:var(--font-size-body-small);font-weight:600;color:var(--accent-deep)
 }
+@media (hover: hover) and (pointer: fine){
 .entry__remove:hover{text-decoration:underline;text-underline-offset:3px}
+}
 .entry__remove:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--radius-compact)}
 
 /* Search field with a leading glyph inside the input. */
@@ -4054,7 +4239,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   border-radius:var(--radius-none);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;
 }
+@media (hover: hover) and (pointer: fine){
 .attn__chip:hover{background:var(--well)}
+}
 .attn__chip:active{background:var(--well);transform:var(--control-pressed-transform)}
 .attn__chip:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .attnrow__mark{grid-column:1;display:flex;align-self:start;padding-top:var(--space-4)}
@@ -4086,7 +4273,9 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   font-family:var(--font-language);font-size:var(--font-size-control);line-height:var(--line-standard);
 }
 button.strrow{cursor:pointer}
+@media (hover: hover) and (pointer: fine){
 button.strrow:hover{background:var(--well)}
+}
 button.strrow:active{background:var(--well);transform:var(--control-pressed-transform)}
 button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .strrow--snap{grid-template-columns:minmax(0,1fr) 60px 5rem}
@@ -4180,7 +4369,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   display:block;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
-.exchart__plot{position:relative;margin-top:var(--space-18);touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none}
+.exchart__plot{position:relative;margin-top:var(--space-18);touch-action:pan-y pinch-zoom;cursor:pointer;-webkit-user-select:none;user-select:none}
 .exchart__svg,.exchart__ghost{display:block;width:100%;height:auto}
 .exchart__svg .ch-grid,.exchart__ghost .ch-grid{stroke:var(--boundary-decorative);stroke-width:1}
 .exchart__svg .ch-ax,.exchart__ghost .ch-ax{fill:var(--color-ink-secondary);font-family:var(--font-training-data);font-size:var(--font-size-chart-axis);font-weight:var(--weight-regular)}
@@ -4229,7 +4418,9 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   background:var(--control-quiet-bg);color:var(--color-ink);text-align:left;cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 .exrow:hover{background:var(--well)}
+}
 .exrow:active{background:var(--well);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .exrow.is-sel{border-left-color:var(--boundary-selected-quiet)}
@@ -4252,7 +4443,9 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .hist-week{margin:var(--space-18) 0 0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 #history .hist-row{display:block;min-height:0;padding:0;border-bottom:1px solid var(--boundary-decorative);cursor:default}
 #history .session__open{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--space-4) var(--space-12);flex:none;width:100%;min-height:56px;margin:0;padding:var(--space-12) 0;background:var(--control-quiet-bg);border:0;border-radius:var(--radius-none);cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-quiet-ink)}
+@media (hover: hover) and (pointer: fine){
 #history .session__open:hover:not(:disabled){background:var(--well)}
+}
 #history .session__open:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 #history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 #history .hist-sess__d{flex:0 0 2.5rem;display:flex;flex-direction:column;align-items:flex-start;font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-medium);line-height:var(--line-tight)}
@@ -4317,7 +4510,9 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #historyCalSheet .cal{margin:0}
 #historyCalSheet .cal-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 var(--space-4)}
 #historyCalSheet .cal-head .chevron{color:var(--color-ink)}
+@media (hover: hover) and (pointer: fine){
 #historyCalSheet :is(#calPrev,#calNext):hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 #historyCalSheet :is(#calPrev,#calNext):active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 #historyCalSheet :is(#calPrev,#calNext):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #historyCalSheet .cal-head__prev{transform:rotate(180deg)}
@@ -4586,7 +4781,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__link:active:not(:disabled){text-decoration-color:currentColor}
 .firstrun__link:disabled{color:var(--firstrun-ink-soft);cursor:default}
 @media(hover:hover){
-  .firstrun__link:hover:not(:disabled){text-decoration-color:currentColor}
+  @media (hover: hover) and (pointer: fine){
+.firstrun__link:hover:not(:disabled){text-decoration-color:currentColor}
+}
 }
 .firstrun-row__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .firstrun-row__title,.firstrun-row__cap{overflow-wrap:anywhere}
@@ -4883,8 +5080,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   margin:0;min-width:0;padding:12px;background:var(--control-field-bg);border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
   overflow:auto;overflow-wrap:anywhere;word-break:break-all;max-height:12em;
   font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-reading);color:var(--control-field-ink);
-  -webkit-user-select:text;user-select:text;
-}
+  -webkit-user-select:text;user-select:text;overscroll-behavior:contain;}
 .share-setup__link:empty{display:none}
 .share-setup__blocker-summary{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);font-weight:var(--weight-semibold);color:var(--color-warning);overflow-wrap:anywhere}
 .share-setup__blockers{display:flex;flex-direction:column;gap:0;border-block:1px solid var(--boundary-decorative)}
@@ -4952,7 +5148,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:var(--control-disclosure-bg);border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);cursor:pointer;text-align:left;
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--control-disclosure-ink);
 }
+@media (hover: hover) and (pointer: fine){
 .whysheet__disc:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
+}
 .whysheet__disc:active:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
 .whysheet__disc:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .whysheet__disc:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -5049,8 +5247,13 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   border-color:var(--control-quiet-boundary)
 }
+@media (hover: hover) and (pointer: fine){
 #onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared)) #onbCancel:hover,
-#onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared)) #onbBack:hover:not(:disabled),
+#onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared)) #onbBack:hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);
+  border-color:var(--control-quiet-boundary)
+}
+}
 #onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared)) #onbCancel:active:not(:disabled),
 #onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared)) #onbBack:active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);
@@ -5078,11 +5281,13 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   border-color:var(--control-primary-boundary)
 }
+@media (hover: hover) and (pointer: fine){
 #onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared)) #onbNext:hover:not(:disabled),
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryActivate:hover:not(:disabled),
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .btn.btn--cta:not([id]):hover:not(:disabled){
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   border-color:var(--control-primary-boundary)
+}
 }
 #onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared)) #onbNext:disabled,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryActivate:disabled,
@@ -5096,11 +5301,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);
   border-color:var(--control-secondary-boundary)
 }
+@media (hover: hover) and (pointer: fine){
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .btn.btn--steel:not(.btn--destructive):hover:not(:disabled),
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .btn.btn--steel:not(.btn--destructive):active:not(:disabled),
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryConflictReview:hover:not(:disabled),
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryEdit:hover:not(:disabled){
+  background:var(--well);color:var(--control-secondary-ink);
+  border-color:var(--control-secondary-boundary)
+}
+}
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .btn.btn--steel:not(.btn--destructive):active:not(:disabled),
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryConflictReview:active:not(:disabled),
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryEdit:hover:not(:disabled),
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryEdit:active:not(:disabled){
   background:var(--well);color:var(--control-secondary-ink);
   border-color:var(--control-secondary-boundary)
@@ -5109,7 +5319,12 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryRestart:hover:not(:disabled),
+@media (hover: hover) and (pointer: fine){
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryRestart:hover:not(:disabled){
+  background:var(--well);color:var(--control-destructive-ink);
+  border-color:var(--control-destructive-boundary)
+}
+}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) #entryRestart:active:not(:disabled){
   background:var(--well);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
@@ -5143,7 +5358,12 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   border-color:var(--control-selection-boundary);border-radius:var(--radius-control);
   font-family:var(--font-language)
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card:hover:not(:disabled):not(.is-selected),
+@media (hover: hover) and (pointer: fine){
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card:hover:not(:disabled):not(.is-selected){
+  background:var(--well);color:var(--control-selection-ink);
+  border-color:var(--control-selection-boundary)
+}
+}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card:active:not(:disabled):not(.is-selected){
   background:var(--well);color:var(--control-selection-ink);
   border-color:var(--control-selection-boundary)
@@ -5159,10 +5379,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card:focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
 }
+@media (hover: hover) and (pointer: fine){
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card.is-disabled:hover,
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card:disabled:hover{
+  background:var(--control-selection-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card.is-disabled,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card:disabled,
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card.is-disabled:hover,
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card:disabled:hover,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card.is-disabled:active,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .radio-card:disabled:active{
   background:var(--control-selection-bg);color:var(--color-disabled-reason);
@@ -5269,8 +5494,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   color:var(--control-field-ink);font-family:var(--font-language);
   font-size:var(--font-size-control);font-weight:var(--weight-medium)
 }
+@media (hover: hover) and (pointer: fine){
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) :is(#entryAvoidSearch, #entryExerciseSearch):hover:not(:disabled){
   border-color:var(--control-field-boundary)
+}
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) :is(#entryAvoidSearch, #entryExerciseSearch):focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
@@ -5296,9 +5523,11 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   color:var(--control-disclosure-ink);border-color:var(--control-disclosure-boundary);
   font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard)
 }
+@media (hover: hover) and (pointer: fine){
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__disclosure>summary:hover,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__day>summary:hover{
   background:var(--well);color:var(--control-disclosure-ink)
+}
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .entry__disclosure>summary:active,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared) .onb__day>summary:active{
@@ -5433,9 +5662,14 @@ body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:last-ch
 #program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:last-child{
   border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none)
 }
+@media (hover: hover) and (pointer: fine){
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled),
+#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled){
+  background:var(--well);color:var(--control-adjustment-ink);
+  border-color:var(--control-adjustment-boundary)
+}
+}
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:active:not(:disabled),
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled),
 #program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:active:not(:disabled){
   background:var(--well);color:var(--control-adjustment-ink);
   border-color:var(--control-adjustment-boundary)
@@ -5507,6 +5741,7 @@ body.is-entry-editor input[data-field="max"],
 #program.program-editor-installed input[data-field="max"]{
   font-family:var(--font-training-data);font-variant-numeric:tabular-nums
 }
+@media (hover: hover) and (pointer: fine){
 body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
@@ -5516,7 +5751,11 @@ body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
-):hover:not(:disabled),
+):hover:not(:disabled){
+  border-color:var(--control-field-boundary);background:var(--control-field-bg);
+  color:var(--control-field-ink)
+}
+}
 body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
@@ -5568,6 +5807,7 @@ body.is-entry-editor :is(
   min-height:var(--control-target);background:var(--control-disclosure-bg);
   color:var(--control-disclosure-ink);border-color:var(--control-disclosure-boundary)
 }
+@media (hover: hover) and (pointer: fine){
 body.is-entry-editor :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
@@ -5577,7 +5817,11 @@ body.is-entry-editor :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
-):hover:not(:disabled),
+):hover:not(:disabled){
+  background:var(--well);color:var(--control-disclosure-ink);
+  border-color:var(--control-disclosure-boundary)
+}
+}
 body.is-entry-editor :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
@@ -5629,6 +5873,7 @@ body.is-entry-editor :is(
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
+@media (hover: hover) and (pointer: fine){
 body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
@@ -5637,7 +5882,11 @@ body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
-):hover:not(:disabled),
+):hover:not(:disabled){
+  background:var(--well);color:var(--control-secondary-ink);
+  border-color:var(--control-secondary-boundary)
+}
+}
 body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
@@ -5679,9 +5928,14 @@ body.is-entry-editor .program-editor__remove:not([id]),
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
+@media (hover: hover) and (pointer: fine){
 body.is-entry-editor .program-editor__remove:not([id]):hover:not(:disabled),
+#program.program-editor-installed .program-editor__remove:not([id]):hover:not(:disabled){
+  background:var(--well);color:var(--control-destructive-ink);
+  border-color:var(--control-destructive-boundary)
+}
+}
 body.is-entry-editor .program-editor__remove:not([id]):active:not(:disabled),
-#program.program-editor-installed .program-editor__remove:not([id]):hover:not(:disabled),
 #program.program-editor-installed .program-editor__remove:not([id]):active:not(:disabled){
   background:var(--well);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
@@ -5702,7 +5956,12 @@ body.is-entry-editor #entryProgramName,
   color:var(--control-field-ink);font-family:var(--font-language);
   font-size:var(--font-size-control);font-weight:var(--weight-medium)
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build) #entryProgramName:hover:not(:disabled),
+@media (hover: hover) and (pointer: fine){
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build) #entryProgramName:hover:not(:disabled){
+  background:var(--control-field-bg);color:var(--control-field-ink);
+  border-color:var(--control-field-boundary)
+}
+}
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build) #entryProgramName:active:not(:disabled){
   background:var(--control-field-bg);color:var(--control-field-ink);
   border-color:var(--control-field-boundary)
@@ -5733,7 +5992,12 @@ body.is-entry-editor #entryProgramName,
   font-size:var(--font-size-control);font-weight:var(--weight-medium);
   line-height:var(--line-standard)
 }
-#onboarding:has(.entry__resume) #onbCancel:hover:not(:disabled),
+@media (hover: hover) and (pointer: fine){
+#onboarding:has(.entry__resume) #onbCancel:hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);
+  border-color:var(--control-quiet-boundary)
+}
+}
 #onboarding:has(.entry__resume) #onbCancel:active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);
   border-color:var(--control-quiet-boundary)
@@ -5750,7 +6014,13 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   border-color:var(--control-primary-boundary)
 }
-#onbBody:has(.entry__resume) #entryResumeContinue:is(:hover:not(:disabled), :active:not(:disabled)){
+@media (hover: hover) and (pointer: fine){
+#onbBody:has(.entry__resume) #entryResumeContinue:hover:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+}
+#onbBody:has(.entry__resume) #entryResumeContinue:active:not(:disabled){
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   border-color:var(--control-primary-boundary)
 }
@@ -5767,7 +6037,13 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
-#onbBody:has(.entry__resume) #entryResumeRestart:is(:hover:not(:disabled), :active:not(:disabled)){
+@media (hover: hover) and (pointer: fine){
+#onbBody:has(.entry__resume) #entryResumeRestart:hover:not(:disabled){
+  background:var(--well);color:var(--control-destructive-ink);
+  border-color:var(--control-destructive-boundary)
+}
+}
+#onbBody:has(.entry__resume) #entryResumeRestart:active:not(:disabled){
   background:var(--well);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
@@ -5780,7 +6056,12 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   border-color:var(--control-primary-boundary)
 }
-#onbBody #entryRebuildRules:hover:not(:disabled),
+@media (hover: hover) and (pointer: fine){
+#onbBody #entryRebuildRules:hover:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+}
 #onbBody #entryRebuildRules:active:not(:disabled){
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   border-color:var(--control-primary-boundary)
@@ -5802,7 +6083,12 @@ body.is-entry-editor #entryProgramName,
   color:var(--control-quiet-ink);font-family:var(--font-language);
   font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
-#onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):is(:hover:not(:disabled), :active:not(:disabled)){
+@media (hover: hover) and (pointer: fine){
+#onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
+}
+#onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):active:not(:disabled){transform:var(--control-pressed-transform)}
@@ -5879,11 +6165,13 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
+@media (hover: hover) and (pointer: fine){
 #onbBody.entry-route--import :is(
   #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ):hover:not(:disabled){
   background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)
+}
 }
 #onbBody.entry-route--import :is(
   #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
@@ -5905,7 +6193,9 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
+@media (hover: hover) and (pointer: fine){
 #importCommit:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
+}
 #importCommit:active:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)}
 #importCommit:focus-visible,#importBack:focus-visible,#importReviewCancel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #importCommit:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -5919,10 +6209,18 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
+@media (hover: hover) and (pointer: fine){
 #onbBody.entry-route--import :is(
   #entryEdit, #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
   #entryFreeformTryAnother, .btn.btn--steel:not(.btn--destructive):not([id]), .entry__freeform-app:not([id])
-):is(:hover:not(:disabled), :active:not(:disabled)){
+):hover:not(:disabled){
+  background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)
+}
+}
+#onbBody.entry-route--import :is(
+  #entryEdit, #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
+  #entryFreeformTryAnother, .btn.btn--steel:not(.btn--destructive):not([id]), .entry__freeform-app:not([id])
+):active:not(:disabled){
   background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)
 }
 #onbBody.entry-route--import :is(
@@ -5936,8 +6234,14 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-secondary-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
+@media (hover: hover) and (pointer: fine){
+#onbBody.entry-route--import .entry__freeform-app:is(.is-disabled, [aria-disabled="true"]):hover{
+  background:var(--control-secondary-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+}
 #onbBody.entry-route--import .entry__freeform-app:is(.is-disabled, [aria-disabled="true"]),
-#onbBody.entry-route--import .entry__freeform-app:is(.is-disabled, [aria-disabled="true"]):is(:hover, :active){
+#onbBody.entry-route--import .entry__freeform-app:is(.is-disabled, [aria-disabled="true"]):active{
   background:var(--control-secondary-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
@@ -5949,9 +6253,16 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
-#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):is(:hover:not(:disabled), :active:not(:disabled)),
-#importBack:is(:hover:not(:disabled), :active:not(:disabled)),
-#importReviewCancel:is(:hover:not(:disabled), :active:not(:disabled)){
+@media (hover: hover) and (pointer: fine){
+#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):hover:not(:disabled),
+#importBack:hover:not(:disabled),
+#importReviewCancel:hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
+}
+#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):active:not(:disabled),
+#importBack:active:not(:disabled),
+#importReviewCancel:active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):active:not(:disabled),
@@ -5968,7 +6279,12 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
-#onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart):is(:hover:not(:disabled), :active:not(:disabled)){
+@media (hover: hover) and (pointer: fine){
+#onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart):hover:not(:disabled){
+  background:var(--well);color:var(--control-destructive-ink);border-color:var(--control-destructive-boundary)
+}
+}
+#onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart):active:not(:disabled){
   background:var(--well);color:var(--control-destructive-ink);border-color:var(--control-destructive-boundary)
 }
 #onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart):active:not(:disabled){transform:var(--control-pressed-transform)}
@@ -5977,7 +6293,12 @@ body.is-entry-editor #entryProgramName,
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
 
-#importRows .improw__btn:not(.improw__btn--change):not([id]):is(:hover:not(:disabled), :active:not(:disabled)){
+@media (hover: hover) and (pointer: fine){
+#importRows .improw__btn:not(.improw__btn--change):not([id]):hover:not(:disabled){
+  background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)
+}
+}
+#importRows .improw__btn:not(.improw__btn--change):not([id]):active:not(:disabled){
   background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)
 }
 #importRows .improw__btn:not(.improw__btn--change):not([id]):active:not(:disabled){transform:var(--control-pressed-transform)}
@@ -5990,7 +6311,12 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
-#importRows .improw__btn.improw__btn--change:not([id]):is(:hover:not(:disabled), :active:not(:disabled)){
+@media (hover: hover) and (pointer: fine){
+#importRows .improw__btn.improw__btn--change:not([id]):hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
+}
+#importRows .improw__btn.improw__btn--change:not([id]):active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #importRows .improw__btn.improw__btn--change:not([id]):active:not(:disabled){transform:var(--control-pressed-transform)}
@@ -6010,7 +6336,11 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-field-bg);color:var(--control-field-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
-#onbBody.entry-route--import :is(#entryFreeformIn, #entryFreeformOut, .entry__field-input:not([id])):hover:not(:disabled),
+@media (hover: hover) and (pointer: fine){
+#onbBody.entry-route--import :is(#entryFreeformIn, #entryFreeformOut, .entry__field-input:not([id])):hover:not(:disabled){
+  background:var(--control-field-bg);color:var(--control-field-ink);border-color:var(--control-field-boundary)
+}
+}
 #onbBody.entry-route--import :is(#entryFreeformIn, #entryFreeformOut, .entry__field-input:not([id])):active:not(:disabled){
   background:var(--control-field-bg);color:var(--control-field-ink);border-color:var(--control-field-boundary)
 }
@@ -6029,8 +6359,10 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
+@media (hover: hover) and (pointer: fine){
 #onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)>summary:hover,
 #importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)>summary:hover{background:var(--well);color:var(--control-disclosure-ink)}
+}
 #onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)>summary:active,
 #importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)>summary:active{
   background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)
@@ -6052,7 +6384,12 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
-#onbBody.entry-route--import #entryWriteOwn:is(:hover:not(:disabled), :active:not(:disabled)){
+@media (hover: hover) and (pointer: fine){
+#onbBody.entry-route--import #entryWriteOwn:hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
+}
+#onbBody.entry-route--import #entryWriteOwn:active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #onbBody.entry-route--import #entryWriteOwn:active:not(:disabled){transform:var(--control-pressed-transform)}
@@ -6105,8 +6442,7 @@ body.is-entry-editor #entryProgramName,
   --onb-pad-l:max(var(--gut),env(safe-area-inset-left));
   --onb-pad-r:max(var(--gut),env(safe-area-inset-right));
   position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
-  padding:calc(var(--space-12) + env(safe-area-inset-top)) var(--onb-pad-r) 0 var(--onb-pad-l)
-}
+  padding:calc(var(--space-12) + env(safe-area-inset-top)) var(--onb-pad-r) 0 var(--onb-pad-l);overscroll-behavior:contain;}
 #importBack::before{
   content:"";flex:none;width:var(--control-icon-size);height:var(--control-icon-size);background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
@@ -6152,8 +6488,10 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
+@media (hover: hover) and (pointer: fine){
 #chooseAnotherDay:hover:not(:disabled),#dayPickCancel:hover:not(:disabled),#todayDash #upNextBtn:hover:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
 }
 #chooseAnotherDay:active:not(:disabled),#dayPickCancel:active:not(:disabled),#todayDash #upNextBtn:active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)
@@ -6176,7 +6514,10 @@ body.is-entry-editor #entryProgramName,
 }
 #todayDash #upNextBtn .listrow__title{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 #todayDash #upNextBtn .listrow__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#todayDash #upNextBtn:hover:not(:disabled),#todayDash #upNextBtn:active:not(:disabled){border-bottom-color:var(--boundary-decorative)}
+@media (hover: hover) and (pointer: fine){
+#todayDash #upNextBtn:hover:not(:disabled){border-bottom-color:var(--boundary-decorative)}
+}
+#todayDash #upNextBtn:active:not(:disabled){border-bottom-color:var(--boundary-decorative)}
 
 /* Progress control states use the frozen selection, disclosure, navigation, and action roles. */
 #stats .page-title{font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-spacing:-0.02em;line-height:var(--line-tight);color:var(--color-ink)}
@@ -6214,16 +6555,23 @@ body.is-entry-editor #entryProgramName,
 #stats .empty{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);border-color:var(--boundary-decorative)}
 #stats .listrow__sub{white-space:normal;overflow-wrap:anywhere}
 #stats #prFilterSeg > button,#stats .seg--window > button{color:var(--color-ink-secondary)}
+@media (hover: hover) and (pointer: fine){
 #stats #prFilterSeg > button:hover:not(:disabled),#stats .seg--window > button:hover:not(:disabled){color:var(--control-selection-ink)}
+}
 #stats #prFilterSeg > button.active,#stats .seg--window > button.active{color:var(--control-selection-ink);border-bottom-color:var(--control-selected-boundary)}
 #stats #prFilterSeg > button:focus-visible,#stats .seg--window > button:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 #stats button[role="tab"]:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 #stats #prFilterSeg > button:disabled,#stats .seg--window > button:disabled{color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);cursor:not-allowed}
+@media (hover: hover) and (pointer: fine){
 #stats .evrow:hover,#stats .prtl__row:hover{background:var(--well);color:var(--control-disclosure-ink)}
+}
 #stats .evrow:active,#stats .prtl__row:active{background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
 #stats .evrow:focus-visible,#stats .prtl__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #stats .evrow__detail{border-bottom-color:var(--boundary-decorative)}
-#stats button.vrow:not(.evrow):hover,#stats button.vrow:not(.evrow):active{background:var(--well);color:var(--control-quiet-ink)}
+@media (hover: hover) and (pointer: fine){
+#stats button.vrow:not(.evrow):hover{background:var(--well);color:var(--control-quiet-ink)}
+}
+#stats button.vrow:not(.evrow):active{background:var(--well);color:var(--control-quiet-ink)}
 #stats button.vrow:not(.evrow):active{transform:var(--control-pressed-transform)}
 #stats button.vrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 /* Keep the label and value on the first row, with the full status beneath them. */
@@ -6241,8 +6589,12 @@ body.is-entry-editor #entryProgramName,
 #stats #reviewPanel .btn--cta,#stats #reviewPanel .btn--steel{min-height:var(--control-target);border-radius:var(--radius-control);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
 #stats #reviewPanel .btn--cta{border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);font-weight:var(--weight-semibold)}
 #stats #reviewPanel .btn--steel{border:1px solid var(--control-secondary-boundary);background:var(--control-secondary-bg);color:var(--control-secondary-ink)}
+@media (hover: hover) and (pointer: fine){
 #stats #reviewPanel .btn--cta:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink)}
+}
+@media (hover: hover) and (pointer: fine){
 #stats #reviewPanel .btn--steel:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink)}
+}
 #stats #reviewPanel .btn--cta:active:not(:disabled),#stats #reviewPanel .btn--steel:active:not(:disabled){transform:var(--control-pressed-transform)}
 #stats #reviewPanel .btn--cta:focus-visible,#stats #reviewPanel .btn--steel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #stats #reviewPanel .btn--cta:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -6252,14 +6604,20 @@ body.is-entry-editor #entryProgramName,
    These rules apply the frozen control roles without changing History state. */
 #history #historyExportBtn{width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-round);background:var(--control-secondary-bg);color:var(--control-secondary-ink)}
 #history :is(#calPrev,#calNext,#historySearchBtn){width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink)}
+@media (hover: hover) and (pointer: fine){
 #history #historyExportBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+}
+@media (hover: hover) and (pointer: fine){
 #history :is(#calPrev,#calNext,#historySearchBtn):hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
 #history #historyExportBtn:active:not(:disabled),#history :is(#calPrev,#calNext,#historySearchBtn):active:not(:disabled){transform:var(--control-pressed-transform)}
 #history :is(#historyExportBtn,#calPrev,#calNext,#historySearchBtn):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #history #historyExportBtn:disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
 #history :is(#calPrev,#calNext,#historySearchBtn):disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
 #history .back-link{min-height:var(--control-target);background:var(--control-quiet-bg);color:var(--control-quiet-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
+@media (hover: hover) and (pointer: fine){
 #history .session__open:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 #history .session__open:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)}
 #history .session__open:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -6268,16 +6626,24 @@ body.is-entry-editor #entryProgramName,
 #history .btn--steel,#history .btn--danger{min-height:var(--control-target)}
 #history .btn--steel{border:1px solid var(--control-secondary-boundary);background:var(--control-secondary-bg);color:var(--control-secondary-ink)}
 #history .btn--danger{border-color:transparent;background:var(--control-destructive-bg);color:var(--control-destructive-ink)}
+@media (hover: hover) and (pointer: fine){
 #history .btn--cta:hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+}
+@media (hover: hover) and (pointer: fine){
 #history .btn--steel:hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+}
+@media (hover: hover) and (pointer: fine){
 #history .btn--danger:hover:not(:disabled){background:var(--control-destructive-bg);border-color:transparent;color:var(--control-destructive-ink)}
+}
 #history .btn--cta:active:not(:disabled),#history .btn--steel:active:not(:disabled),#history .btn--danger:active:not(:disabled){transform:var(--control-pressed-transform)}
 #history .btn--cta:focus-visible,#history .btn--steel:focus-visible,#history .btn--danger:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #history .btn--cta:disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
 #history .btn--cta:disabled::after{color:var(--color-disabled-reason)}
 #history .btn--steel:disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #history .btn--danger:disabled{background:var(--control-destructive-bg);border-color:transparent;color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+@media (hover: hover) and (pointer: fine){
 #history .edrow__in:hover{border-color:var(--control-field-boundary)}
+}
 #history .edrow__in:active{border-color:var(--control-field-boundary)}
 /* A field is selected with the quiet ink ring; orange is not a field state. */
 #history .edrow__in:focus{border-color:var(--boundary-selected-quiet);box-shadow:none}
@@ -6288,14 +6654,18 @@ body.is-entry-editor #entryProgramName,
 #history .histedit .sheetfield__input:focus-visible{outline:2px solid var(--boundary-selected-quiet);outline-offset:-1px}
 #history .histedit .sheetfield__input[aria-invalid="true"]{border-color:var(--control-error-boundary);outline:1px solid var(--control-error-boundary);outline-offset:-2px}
 #history .histedit .sheetfield__input[aria-invalid="true"]:focus-visible{outline:2px solid var(--control-error-boundary);outline-offset:-1px}
+@media (hover: hover) and (pointer: fine){
 #history .edrow__rm:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
 #history .edrow__rm:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #history .edrow__rm:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #history .edrow__rm:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #history .advanced{border-top-color:var(--boundary-decorative);border-bottom-color:var(--boundary-decorative)}
 #history .advanced>summary{min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-disclosure-ink)}
 #history .advanced>summary::after{background:var(--control-disclosure-ink)}
+@media (hover: hover) and (pointer: fine){
 #history .advanced>summary:hover{background:var(--well);color:var(--control-disclosure-ink)}
+}
 #history .advanced>summary:active{background:var(--well);transform:var(--control-pressed-transform)}
 #history .advanced>summary:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 
@@ -6325,7 +6695,9 @@ body.is-entry-editor #entryProgramName,
   margin:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);
 }
 #shareSetupSheet .sheet__foot--actions{border-top-color:var(--boundary-decorative)}
+@media (hover: hover) and (pointer: fine){
 #shareSetupClose:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
 #shareSetupClose:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 #shareSetupClose:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #shareSetupClose:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -6334,7 +6706,9 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 #shareSetupCopy:hover:not(:disabled),.share-setup__repair:hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+}
 #shareSetupCopy:active:not(:disabled),.share-setup__repair:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 #shareSetupCopy:focus-visible,.share-setup__repair:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #shareSetupCopy:disabled,.share-setup__repair:disabled{
@@ -6346,7 +6720,9 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 #shareSetupShare:hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+}
 #shareSetupShare:active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
 #shareSetupShare:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #shareSetupShare:disabled{
@@ -6431,7 +6807,9 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);font:inherit;font-size:var(--font-size-body-small);
   font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;cursor:pointer
 }
+@media (hover: hover) and (pointer: fine){
 .entry-rail__chip:hover{background:var(--well)}
+}
 .entry-rail__chip:active{background:var(--well);transform:var(--control-pressed-transform)}
 .entry-rail__chip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .entry-rail__text{min-width:0;overflow-wrap:anywhere}
@@ -6482,7 +6860,9 @@ body.is-entry-editor #entryProgramName,
   border-radius:var(--radius-pill);background:var(--control-selection-bg);color:var(--control-selection-ink);font:inherit;
   font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;cursor:pointer
 }
+@media (hover: hover) and (pointer: fine){
 .entry-help__opt:hover{background:var(--well)}
+}
 .entry-help__opt:active{transform:var(--control-pressed-transform)}
 .entry-help__opt:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .entry-help__opt.is-selected{
@@ -6505,7 +6885,9 @@ body.is-entry-editor #entryProgramName,
   min-height:calc(var(--control-target) + var(--space-12));margin:0;padding:var(--space-12) var(--space-14);
   border:1px solid var(--boundary-selected-quiet);border-radius:var(--radius-surface);background:var(--surface);color:var(--color-ink)
 }
-.entry-body .entry-card.entry-goal[data-entry-route="recommend"]:hover,
+@media (hover: hover) and (pointer: fine){
+.entry-body .entry-card.entry-goal[data-entry-route="recommend"]:hover{background:var(--well)}
+}
 .entry-body .entry-card.entry-goal[data-entry-route="recommend"]:active:not(:disabled){background:var(--well)}
 .entry-body .entry-card.entry-goal[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card.entry-goal[data-entry-route="recommend"] .entry-card__go{color:var(--ink-soft)}
@@ -6615,8 +6997,8 @@ body.is-entry-editor #entryProgramName,
 
 /* Dialogs: cancel, replace and start over share one modal panel. */
 .entry-dialog{
-  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;width:min(calc(100% - var(--space-32)),420px);
-  max-height:90vh;margin:0;padding:var(--space-18);overflow:auto;border:1px solid var(--boundary-modal);
+  position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(calc(100% - var(--space-32)),420px);
+  max-height:min(90dvh,var(--dialog-max-height));margin:0;padding:var(--space-18);overflow:auto;overscroll-behavior:contain;border:1px solid var(--boundary-modal);
   border-radius:var(--radius-prominent);background:var(--surface);color:var(--ink);box-shadow:var(--elevation-dialog-shadow)
 }
 .entry-dialog::backdrop{background:var(--scrim)}
@@ -6631,7 +7013,9 @@ body.is-entry-editor #entryProgramName,
 .entry-dialog .btn--cta{background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
 .entry-dialog .btn--steel{background:var(--control-secondary-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
 .entry-dialog .btn--steel.btn--destructive{background:var(--control-destructive-bg);color:var(--control-destructive-ink);border-color:var(--control-destructive-boundary)}
+@media (hover: hover) and (pointer: fine){
 .entry-dialog .btn:hover:not(:disabled):not(.btn--cta){background:var(--well)}
+}
 .entry-dialog .btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 
 /* ---- Plan 064 shared components ----
@@ -6709,7 +7093,9 @@ body.is-entry-editor #entryProgramName,
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);margin:0;padding:0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
 }
+@media (hover: hover) and (pointer: fine){
 .sheetband__close:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
 .sheetband__close:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .sheetband__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .sheetband__close:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
@@ -6756,7 +7142,9 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;text-align:left;
   font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
 }
+@media (hover: hover) and (pointer: fine){
 .rxrow:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-bottom-color:var(--boundary-decorative)}
+}
 .rxrow:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .rxrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .rxrow:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
@@ -6790,8 +7178,7 @@ body.is-entry-editor #entryProgramName,
    rendered-role audit cannot measure, so it is not drawn here. */
 .tabrow{
   display:flex;gap:var(--space-4);overflow-x:auto;margin:0;padding:0;
-  border-bottom:1px solid var(--boundary-decorative);scrollbar-width:none;
-}
+  border-bottom:1px solid var(--boundary-decorative);scrollbar-width:none;overscroll-behavior:contain;}
 .tabrow::-webkit-scrollbar{display:none}
 .tabrow__tab{
   flex:none;min-width:var(--control-target);min-height:var(--control-target);margin:0;padding:0 var(--space-12);
@@ -6802,7 +7189,9 @@ body.is-entry-editor #entryProgramName,
 .tabrow__tab[aria-selected="true"]{
   border-bottom-color:var(--boundary-selected-quiet);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
 }
+@media (hover: hover) and (pointer: fine){
 .tabrow__tab:hover:not(:disabled){background:var(--well)}
+}
 .tabrow__tab:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .tabrow__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .tabrow__tab:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
@@ -6936,7 +7325,9 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-disclosure-bg);color:var(--control-disclosure-ink);font:inherit;font-size:var(--font-size-body-small);
   font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;cursor:pointer
 }
+@media (hover: hover) and (pointer: fine){
 .entry-chip:hover{background:var(--well)}
+}
 .entry-chip:active{background:var(--well);transform:var(--control-pressed-transform)}
 .entry-chip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .entry-chip.is-open{border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well);font-weight:var(--weight-semibold)}
@@ -7013,14 +7404,27 @@ body.is-entry-editor #entryProgramName,
    selected boundary on the well; a ticked row is an ink disc with the tick cut out of it. */
 #library :is(#libBack,#libClose,#libCustom),#exercise #exBack,#exercisePreview #previewBack{color:var(--control-quiet-ink)}
 #library #libCustom{text-decoration:underline;text-underline-offset:.2em}
-#library .picktab.is-active,#library .picktab.is-active:hover:not(:disabled),#library .picktab.is-active:active:not(:disabled){border-bottom-color:var(--boundary-selected-quiet)}
+@media (hover: hover) and (pointer: fine){
+#library .picktab.is-active:hover:not(:disabled){border-bottom-color:var(--boundary-selected-quiet)}
+}
+#library .picktab.is-active,
+#library .picktab.is-active:active:not(:disabled){border-bottom-color:var(--boundary-selected-quiet)}
+@media (hover: hover) and (pointer: fine){
+:is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active:hover:not(:disabled){
+  background:var(--well);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
+}
+}
 :is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active,
-:is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active:hover:not(:disabled),
 :is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active:active:not(:disabled){
   background:var(--well);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
 }
 #library .librow__check{position:relative}
-#library .librow__check.is-on::before,#library .librow__check.is-on:hover:not(:disabled)::before{
+@media (hover: hover) and (pointer: fine){
+#library .librow__check.is-on:hover:not(:disabled)::before{
+  border-color:var(--boundary-selected-quiet);background-color:var(--boundary-selected-quiet);background-image:none
+}
+}
+#library .librow__check.is-on::before{
   border-color:var(--boundary-selected-quiet);background-color:var(--boundary-selected-quiet);background-image:none
 }
 #library .librow__check.is-on::after{

@@ -1900,7 +1900,7 @@ async function edgeBack(browser, { reducedMotion = "no-preference" } = {}) {
   phase(`edge swipe: a pushed page opts in and takes the horizontal drag${tag}`);
   await openExercise();
   const touchAction = await page.evaluate(() => getComputedStyle(document.querySelector("#exercise")).touchAction);
-  assert(touchAction === "pan-y", "the pushed page carries touch-action: pan-y", touchAction);
+  assert(touchAction === "pan-y pinch-zoom", "the pushed page keeps vertical scroll and pinch", touchAction);
 
   phase(`edge swipe: in a browser tab the left edge is left to the browser${tag}`);
   const tab = await page.evaluate(() => window.__edge2.drag("#exercise", [30, 90, 160, 240]));

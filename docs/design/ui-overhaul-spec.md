@@ -91,16 +91,14 @@ These override the sections below where they conflict.
   draft holds logged or filled sets, and "Start workout" otherwise.
 - **Entering and leaving a workout animates.** The workout shell rises into place and the
   dashboard settles back on return; both are skipped under `prefers-reduced-motion`.
-- **The page does not zoom, by any route.** Adjusting load or reps means tapping one 44px
-  target several times in a row, and a browser reads two of those taps as double-tap-to-zoom,
-  which throws the layout off mid-set; a pinch, or a second finger landing while the first
-  drags a card, does the same, and the hand that would pinch back out is holding a dumbbell.
-  The viewport meta pins the scale at 1, the root takes `touch-action:pan-x pan-y` so the
-  browser is left scrolling and nothing else (iOS Safari ignores `user-scalable=no`), and
-  `blockZoomGestures` in `app.js` cancels what neither reaches: Safari's `gesture*` events,
-  two-finger `touchmove`, ctrl+wheel and trackpad pinch, and the ctrl/cmd +/-/0 shortcuts.
-  Every text field stays at 16px so focusing one cannot zoom either. Legibility is therefore
-  the type scale's job alone — nothing may rely on the reader zooming in.
+- **Browser enlargement remains available.** [ADR 0018](../adr/0018-accessible-mobile-viewport.md)
+  replaces the former no-zoom policy, approved by the owner for Plan 066. Ordinary
+  content permits pinch and browser zoom to at least 200%; controls use
+  `touch-action: manipulation` to avoid double-tap delay, and editable fields
+  remain at least 16px to avoid accidental focus zoom. Axis-owned content surfaces
+  preserve pinch; only actual gesture rails own every axis. No global gesture,
+  wheel or keyboard listener cancels zoom. The shared viewport owner normalizes
+  scale before deriving keyboard geometry and does not reset a zoomed reader's view.
 
 ## 1. Design language
 

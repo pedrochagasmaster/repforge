@@ -1582,16 +1582,16 @@ async function main() {
     };
   });
   assert(
-    /\bmaximum-scale\s*=\s*1\b/.test(zoomPolicy.meta) && /\buser-scalable\s*=\s*no\b/i.test(zoomPolicy.meta),
-    "Viewport meta pins the scale at 1",
+    !/maximum-scale|minimum-scale|user-scalable\s*=\s*no/i.test(zoomPolicy.meta),
+    "Viewport meta permits browser enlargement",
     JSON.stringify(zoomPolicy),
-    "Inspect <meta name=viewport> → maximum-scale=1 and user-scalable=no"
+    "Inspect <meta name=viewport> → no scale restriction"
   );
   assert(
-    zoomPolicy.root === "pan-x pan-y" &&
+    zoomPolicy.root === "auto" &&
       zoomPolicy.step === "manipulation" &&
       zoomPolicy.field === "manipulation",
-    "The page takes scrolling only, so no tap or pinch can zoom",
+    "The page permits zoom while controls avoid double-tap delay",
     JSON.stringify(zoomPolicy),
     "Log tab → computed touch-action on the root, a ± step button and a set field"
   );
@@ -5928,13 +5928,13 @@ async function main() {
     "Focus → tap the first segment of the exercise bar → first exercise"
   );
 
-  // Real thumbs don't swipe in straight lines: an arc that starts with a vertical
-  // nudge, and a short fast flick, both have to count.
+  // Exercise direction and velocity from a control surface. These mouse drags
+  // must not claim selectable header prose, whose native selection has its own proof.
   const currentEx = () => page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
   const dragPath = async (path) => {
-    const box = await page.locator("#workout .exercise.is-current").boundingBox();
-    const ox = Math.round(box.x + box.width - 40);
-    const oy = Math.round(box.y + 60);
+    const box = await page.locator("#workout .exercise.is-current .ex__namebtn").boundingBox();
+    const ox = Math.round(box.x + box.width / 2);
+    const oy = Math.round(box.y + box.height / 2);
     const before = await currentEx();
     await page.mouse.move(ox, oy);
     await page.mouse.down();
@@ -5979,7 +5979,7 @@ async function main() {
   });
   assert(
     scrollPolicy.scrolls &&
-      scrollPolicy.touch === "pan-y" && !scrollPolicy.wellScrolls,
+      scrollPolicy.touch === "pan-y pinch-zoom" && !scrollPolicy.wellScrolls,
     "the context above the shelf is the only scrolling region of the card",
     JSON.stringify(scrollPolicy),
     "Focus → vertical gestures scroll the ledger; nothing else is claimed"
