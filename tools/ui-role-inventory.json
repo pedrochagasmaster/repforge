@@ -5103,7 +5103,8 @@
       "id": "startworkout",
       "selector": "#startWorkout",
       "roles": {
-        "control": "primary"
+        "control": "primary",
+        "elevation": "floating"
       },
       "variant": null,
       "facets": [],
@@ -5115,7 +5116,7 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the current task with the strongest action weight.",
+      "rationale": "Advances the current task with the strongest action weight. It stays in reach while the prescription scrolls: sticky in the flow, floating on the existing floating elevation a gap above the dock (from --nav), and back in place above Choose another day at the end of Today (#303).",
       "owner": "plan-058",
       "catalogStates": [
         "install/banner",

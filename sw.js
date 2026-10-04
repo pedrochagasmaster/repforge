@@ -1,13 +1,13 @@
-const CACHE = "repforge-v388";
+const CACHE = "repforge-v390";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
   { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
-  "./motion-layer.js", "./motion-layer.js?v=311",
+  "./motion-layer.js", "./motion-layer.js?v=312",
   "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
   "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=308", "./program-compiler.js", "./program-compiler.js?v=307", "./program-entry.js", "./program-entry.js?v=307", "./program-entry-adapter.js", "./program-entry-adapter.js?v=308", "./program-editor.js", "./program-editor.js?v=310",
-  "./shared-setup.js", "./shared-setup.js?v=307", "./workout-draft.js", "./workout-draft.js?v=307", "./program-transition.js", "./program-transition.js?v=307", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=307", "./durable-state.js", "./durable-state.js?v=309", "./history-ui.js", "./history-ui.js?v=313", "./app.js", "./app.js?v=350",
+  "./shared-setup.js", "./shared-setup.js?v=307", "./workout-draft.js", "./workout-draft.js?v=307", "./program-transition.js", "./program-transition.js?v=307", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=307", "./durable-state.js", "./durable-state.js?v=309", "./history-ui.js", "./history-ui.js?v=313", "./app.js", "./app.js?v=351",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -98,6 +98,15 @@ function unavailableCodeResponse() {
   });
 }
 
+/* A host may answer a release URL with a redirect: the production domain sends `/index.html` to `/` (#304). The
+   precache fetch follows it, and the stored copy keeps the `redirected` flag, which Chrome refuses as the answer to a
+   navigation (its redirect mode is `manual`), so serving it turned an installed launch into ERR_FAILED. Store and serve
+   the same bytes without the flag. */
+async function withoutRedirect(response) {
+  if (!response?.redirected) return response;
+  return new Response(await response.blob(), { status: response.status, statusText: response.statusText, headers: response.headers });
+}
+
 async function installReleaseAssets() {
   const cache = await caches.open(CACHE);
   const failures = await Promise.all(RELEASE_ASSETS.map(async asset => {
@@ -107,7 +116,7 @@ async function installReleaseAssets() {
           (expectedCodeType(asset.path) && !validCodeResponse(asset.path, response))) {
         throw new Error(`Invalid release asset response: ${asset.url}`);
       }
-      await cache.put(asset.resolved.href, response);
+      await cache.put(asset.resolved.href, await withoutRedirect(response));
       return null;
     } catch (error) {
       return asset.required ? error : null;
@@ -171,13 +180,17 @@ self.addEventListener("fetch", event => {
     event.respondWith((async () => {
       try {
         const response = await fetch(event.request);
+        // A navigation's redirect comes back opaque; hand it to the browser, which follows it (to `/` for the
+        // production host's `/index.html`) and asks the worker again for the destination.
+        if (response.type === "opaqueredirect") return response;
         if (response.ok) {
           const cache = await caches.open(CACHE);
-          await cache.put(event.request, response.clone());
+          await cache.put(event.request, await withoutRedirect(response.clone()));
           return response;
         }
       } catch {}
-      return (await caches.match(event.request)) || (await caches.match("./index.html")) ||
+      const cached = (await caches.match(event.request)) || (await caches.match("./")) || (await caches.match("./index.html"));
+      return (await withoutRedirect(cached)) ||
         new Response("Document unavailable", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
     })());
     return;
@@ -199,7 +212,7 @@ self.addEventListener("fetch", event => {
 
 self.addEventListener("notificationclick", event => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "./index.html";
+  const url = (event.notification.data && event.notification.data.url) || "./";
   event.waitUntil((async () => {
     const all = await clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const c of all) {
