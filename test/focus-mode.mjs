@@ -1426,14 +1426,14 @@ async function main() {
     "the card that landed is the one that rode in — nothing pops in, nothing reflows",
     JSON.stringify({ peek: midSwipe, landed, differs: same }));
   // The whole card is a handle, not just its header. The one scroll region only
-  // takes vertical gestures, and no gesture zooms.
+  // takes vertical gestures and browser pinch; controls remain swipe surfaces.
   const grip = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
     const context = card.querySelector(".fcard__context");
     return { card: getComputedStyle(card).touchAction, context: getComputedStyle(context).touchAction };
   });
-  assert(grip.card === "pan-y" && grip.context === "pan-y",
-    "the card and its scroll region take vertical gestures only, so a horizontal swipe is the deck's", JSON.stringify(grip));
+  assert(grip.card === "pan-y pinch-zoom" && grip.context === "pan-y pinch-zoom",
+    "the card and its scroll region keep vertical scroll and pinch, so a horizontal swipe is the deck's", JSON.stringify(grip));
   // Drag from three heights: header, middle of the ledger, and the shelf.
   for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["shelf", 0.9]]) {
     const at = await page.evaluate(() => window.__repforgeFocus.at());

@@ -1582,16 +1582,16 @@ async function main() {
     };
   });
   assert(
-    /\bmaximum-scale\s*=\s*1\b/.test(zoomPolicy.meta) && /\buser-scalable\s*=\s*no\b/i.test(zoomPolicy.meta),
-    "Viewport meta pins the scale at 1",
+    !/maximum-scale|minimum-scale|user-scalable\s*=\s*no/i.test(zoomPolicy.meta),
+    "Viewport meta permits browser enlargement",
     JSON.stringify(zoomPolicy),
-    "Inspect <meta name=viewport> → maximum-scale=1 and user-scalable=no"
+    "Inspect <meta name=viewport> → no scale restriction"
   );
   assert(
-    zoomPolicy.root === "pan-x pan-y" &&
+    zoomPolicy.root === "auto" &&
       zoomPolicy.step === "manipulation" &&
       zoomPolicy.field === "manipulation",
-    "The page takes scrolling only, so no tap or pinch can zoom",
+    "The page permits zoom while controls avoid double-tap delay",
     JSON.stringify(zoomPolicy),
     "Log tab → computed touch-action on the root, a ± step button and a set field"
   );
@@ -5979,7 +5979,7 @@ async function main() {
   });
   assert(
     scrollPolicy.scrolls &&
-      scrollPolicy.touch === "pan-y" && !scrollPolicy.wellScrolls,
+      scrollPolicy.touch === "pan-y pinch-zoom" && !scrollPolicy.wellScrolls,
     "the context above the shelf is the only scrolling region of the card",
     JSON.stringify(scrollPolicy),
     "Focus → vertical gestures scroll the ledger; nothing else is claimed"

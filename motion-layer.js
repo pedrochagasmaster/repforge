@@ -553,7 +553,7 @@
     const target = event.target instanceof Element ? event.target : null;
     const sheet = visibleSheetFrom(target);
     if (!target || !sheet) return;
-    if (event.pointerType === "mouse" && target.closest("input,select,textarea,[contenteditable]")) return;
+    if (event.pointerType === "mouse" && (target.closest("input,select,textarea,[contenteditable]") || global.isNativeTextSelectionTarget?.(target))) return;
     if (sheetScrollHeld(target, sheet)) return;
     sheetGesture = {
       id: event.pointerId, sheet, scrim: currentScrim(), x: event.clientX, y: event.clientY,
@@ -766,6 +766,7 @@
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest("#focusDeck")) return;
     if (target.closest("input,select,textarea,[contenteditable]")) return;
+    if (event.pointerType === "mouse" && global.isNativeTextSelectionTarget?.(target)) return;
     const card = focusCard(), track = focusTrack(), deck = document.querySelector("#focusDeck");
     if (!card || !track || !deck) return;
     const ledger = card.querySelector(".fcard__ledger");

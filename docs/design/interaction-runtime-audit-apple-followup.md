@@ -14,10 +14,10 @@ This note records the implemented follow-up to the Apple Design audit of PR #232
 
 ## Explicitly unchanged
 
-The existing page-zoom policy is not changed by this follow-up, per owner direction.
+The existing page-zoom policy was not changed by this follow-up, per the owner direction at that time. This is historical: [ADR 0018](../adr/0018-accessible-mobile-viewport.md) supersedes that policy for Plan 066, with explicit owner authorization on 4 October 2026.
 
 ## Verification
 
-Production-backed `test/motion-integration.mjs` and `test/sheet-swipe-dismiss.mjs` cover projection, presentation-value takeover and Focus/sheet interruption behavior; `test/accessibility.mjs` owns rendered accessibility semantics. `test/runtime-budget.mjs` remains a repository/runtime constraint for the bundle split, offline availability and payload ceilings. The earlier source-shape follow-up test was retired once these stronger owners existed; the deliberate zoom-policy non-change remains a documented owner decision rather than a regex over implementation text.
+Production-backed `test/motion-integration.mjs` and `test/sheet-swipe-dismiss.mjs` cover projection, presentation-value takeover and Focus/sheet interruption behavior; `test/accessibility.mjs` owns rendered accessibility semantics. `test/runtime-budget.mjs` remains a repository/runtime constraint for the bundle split, offline availability and payload ceilings. The earlier source-shape follow-up test was retired once these stronger owners existed; the deliberate zoom-policy non-change remains a historical owner decision, superseded by ADR 0018, rather than a regex over implementation text.
 
 Physical-device checks are intentionally not represented as automated success: their evidence belongs in `interaction-runtime-device-matrix.md`, because CI cannot validate touch feel, one-handed edge ergonomics, or real VoiceOver/TalkBack pacing.

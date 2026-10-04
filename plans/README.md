@@ -80,6 +80,7 @@ not grant merge authority for the next plan.
 
 | Plan | State | Meaning |
 |---|---|---|
+| [066](./066-mobile-native-platform-polish.md) | **IMPLEMENTED — VERIFICATION IN PROGRESS, PR #308** | Accessible zoom (ADR 0018), capability-gated hover, tap feedback, overscroll containment, visible-viewport overlays, and control-only selection/callout protection. Physical acceptance remains with the existing device matrix and Plan 059. |
 | [065](./065-program-generation-engine-overhaul.md) | **IMPLEMENTED — PR #306** | Fixes every finding of the 3 October 2026 program-generation audits (F01 one-set compounds, false Home posterior work, job collapse onto one exercise, Foundation effort drift, no-op priorities, capability gaps) and overhauls the compiler into a function-aware, week-aware, self-assessing resolver with a 200-program quality gate. |
 | [062](./062-ci-agent-feedback-loop.md) | **IMPLEMENTED — PR #248** | Refactors CI and local verification around explicit edit, packet and candidate loops so coding agents get fast targeted feedback while final persistence, race, privacy, offline, accessibility, generative and visual gates remain strict. |
 | [061](./061-import-exercise-matching.md) | **IMPLEMENTED IN PR #230** | Fixes shared import exercise matching: stopword/equipment/containment scoring, up to three candidates per review row, curated aliases via the curation file, gated on a two-tier fixture corpus. Independent of Plan 060 and of PR #225. |

@@ -287,6 +287,23 @@ async function runEntryDialogFocus(page) {
   await page.waitForSelector("#entryCancelKeep");
   assert(await dialogHasFocus(page), "the cancel dialog takes focus inside itself");
   assert(await page.getByRole("dialog").count() === 1, "the cancel dialog is exposed as a dialog");
+  const band = await page.evaluate(() => {
+    const vv = visualViewport;
+    for (const [key, value] of Object.entries({ height: 280, offsetTop: 65, scale: 1 }))
+      Object.defineProperty(vv, key, { configurable: true, value });
+    vv.dispatchEvent(new Event("resize"));
+    const dialog = document.getElementById("entryDialog");
+    dialog.scrollTop = dialog.scrollHeight;
+    const r = dialog.getBoundingClientRect(), action = dialog.lastElementChild.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, actionBottom: action.bottom, contain: getComputedStyle(dialog).overscrollBehaviorY };
+  });
+  assert(band.top >= 65 && band.bottom <= 345.5 && band.actionBottom <= band.bottom && band.contain === "contain",
+    "the native cancel dialog and its last action fit the offset visible band", JSON.stringify(band));
+  await page.evaluate(() => {
+    for (const key of ["height", "offsetTop", "scale"]) delete visualViewport[key];
+    visualViewport.dispatchEvent(new Event("resize"));
+    document.getElementById("entryDialog").scrollTop = 0;
+  });
   for (let press = 0; press < 5; press++) await page.keyboard.press("Tab");
   assert(await dialogHasFocus(page), "Tab stays inside the cancel dialog");
   await page.keyboard.press("Escape");

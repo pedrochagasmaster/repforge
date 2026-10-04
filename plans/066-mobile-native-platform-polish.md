@@ -1,12 +1,12 @@
 # Plan 066: Mobile viewport, touch, and scroll behavior
 
 - **Plan number:** 066
-- **Status:** PROPOSED — OWNER REVIEW. This PR contains a plan, not runtime fixes.
+- **Status:** IMPLEMENTED — AUTOMATED VERIFICATION IN PROGRESS; physical acceptance pending Plan 059.
 - **Requested:** 4 October 2026, following the owner's mobile-native checklist review.
 - **Baseline:** `fd4ff35fc102bdcf1a2d0176dff2c4f504146864` (`main`, rechecked on 4 October).
 - **Outcome:** Remove the six identified platform-layer gaps while preserving Taurifer's visual language, workout interactions, accessibility, and local-first behavior.
 - **Sequencing:** A bounded stabilization addition to the current pre-059 candidate-construction work. Implement on then-current merged `main`; integrate before Plan 059 freezes the release candidate. Do not absorb unrelated Next work or reopen completed redesign slices. Serialize shared CSS, shell, and cache integration with other workfronts.
-- **Authority:** This proposal does not silently override the existing zoom policy. Accepting its implementation scope ratifies the replacement described under M01; until then, the current specification remains governing.
+- **Authority:** The owner explicitly requested implementation on 4 October 2026 after the planning PR. This ratifies M01's zoom-policy replacement, recorded in ADR 0018.
 
 ## Governing sources and evidence limits
 
@@ -40,7 +40,7 @@ updates. Preserve and verify these contracts instead of adding parallel mechanis
 | M05 | `.sheet` caps height using `--vvh`, but `.sheet--session,.sheet--exactions` override it with `85vh`; `.storage-recovery` and `.entry-dialog` use `90vh`. | Every sheet/dialog fits the available visible band and safe areas; title, focused input, and final action remain reachable with browser chrome or keyboard visible. | Production-backed measured geometry and scroll-end reachability, plus phone keyboard/rotation checks. |
 | M06 | Generic controls lack consistent selection/callout protection; `article.exercise--focus` applies suppression across content and restores text selection only on inputs/textareas. | Control labels and drag handles do not select or open unwanted callouts; prose, errors, notes, exported text, and share URLs remain copyable. | Effective styles and real text selection on content; physical long-press tests on controls, inputs, and content. |
 
-Every row remains **OPEN — planned** until its required evidence is recorded.
+The runtime changes for every row are implemented; automated evidence is being collected in PR #308. Every physical portion remains **OPEN — device required** until its evidence is recorded.
 Automated declarations/geometry do not close the physical portion of a row.
 
 ## Implementation delta

@@ -2,12 +2,8 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
-  <!-- The layout is fixed to the phone and worked one-handed mid-set, so every
-       scale but 1 is an accident: pinch, double-tap, and the zoom iOS applies
-       when a small field takes focus. `maximum-scale`/`user-scalable` shut the
-       last one and cover the browsers that honour them; `touch-action` in
-       styles.css and the gesture listeners in app.js close the rest. -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+  <!-- Browser enlargement stays available; controls suppress double-tap delay in CSS. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#F4F2EF">
   <meta name="description" content="Taurifer keeps workout logs, drafts, and history on this device. Setup links share a program and selected settings.">
   <meta name="mobile-web-app-capable" content="yes">
@@ -1271,7 +1267,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"></script>
   <script src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=312"></script>
+  <script src="motion-layer.js?v=313"></script>
   <script src="program-compiler.js?v=308"></script>
   <script src="program-entry.js?v=307"></script>
   <script src="program-entry-adapter.js?v=308"></script>
@@ -1286,6 +1282,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=309"></script>
   <script src="progress-model.js?v=308"></script>
   <script src="history-ui.js?v=313"></script>
-  <script src="app.js?v=352"></script>
+  <script src="app.js?v=353"></script>
 </body>
 </html>

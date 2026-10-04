@@ -2246,20 +2246,17 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
 
 {
   const { context, page } = await freshPage(browser);
-  // Zoom is off by decision: the layout is fixed to the phone and worked
-  // one-handed mid-set, so the meta pins the scale and the root takes panning
-  // only. Text size is what has to carry legibility instead, which is why the
-  // font-size floors below are the assertions that matter here.
+  // Browser enlargement remains available; controls and field sizes prevent accidental focus/double-tap zoom.
   const meta = await page.evaluate(() => {
     const content = document.querySelector('meta[name="viewport"]')?.content || "";
     return {
       content,
-      blocks: /\bmaximum-scale\s*=\s*1\b/.test(content) && /\buser-scalable\s*=\s*no\b/i.test(content),
+      blocks: /maximum-scale|minimum-scale|user-scalable\s*=\s*no/i.test(content),
       root: getComputedStyle(document.documentElement).touchAction,
     };
   });
-  assert(meta.blocks && /width=device-width/.test(meta.content) && /initial-scale=1/.test(meta.content), "viewport pins the scale at 1", JSON.stringify(meta));
-  assert(meta.root === "pan-x pan-y", "root takes panning only, never a zoom", meta.root);
+  assert(!meta.blocks && /width=device-width/.test(meta.content) && /initial-scale=1/.test(meta.content), "viewport permits browser enlargement", JSON.stringify(meta));
+  assert(meta.root === "auto", "root permits native scrolling and zoom", meta.root);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
   const fonts = await page.evaluate(() => {
@@ -2287,8 +2284,8 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       scrolls: ledger ? ledger.scrollHeight > ledger.clientHeight + 1 : false,
     };
   });
-  const wantLedger = "pan-y";
-  assert(grip.card === "pan-y" && grip.ledger === wantLedger, "Focus card/ledger take panning only, never a zoom", JSON.stringify(grip));
+  const wantLedger = "pan-y pinch-zoom";
+  assert(grip.card === "pan-y pinch-zoom" && grip.ledger === wantLedger, "Focus keeps vertical scrolling and pinch while owning horizontal swipes", JSON.stringify(grip));
   await context.close();
 }
 
@@ -2642,6 +2639,7 @@ async function runMobilePlatformChecks(browser) {
       assert(press.select === "none" && press.tap === "rgba(0, 0, 0, 0)", "control labels suppress selection and the browser tap flash", JSON.stringify(press));
       await page.mouse.move(0, 0); await page.mouse.up();
       await page.click("#libBack");
+      await page.click('nav button[data-view="log"]');
       await page.click("#startWorkout");
       await page.waitForSelector("#workout .exercise.is-current");
       const prose = page.locator("#workout .exercise.is-current .focus-ex__meta");
@@ -2674,6 +2672,20 @@ async function runMobilePlatformChecks(browser) {
       assert(geometry.top >= 70 && geometry.bottom <= 390.5 && geometry.fieldBottom <= geometry.bottom,
         "session header and last field fit the keyboard's visible band", JSON.stringify(geometry));
       assert(geometry.contain === "contain" && geometry.keyboard === "up", "sheet retains native scrolling with boundary containment", JSON.stringify(geometry));
+      const legacyCapClips = await page.evaluate(() => {
+        const sheet = document.querySelector("#sessionSheet");
+        sheet.style.maxHeight = "85vh";
+        const clipped = sheet.getBoundingClientRect().top < 70;
+        sheet.style.removeProperty("max-height");
+        return clipped;
+      });
+      assert(legacyCapClips, "the geometry proof rejects the previous unbounded subtype cap");
+      const body = page.locator("#sessionSheet .session-sheet__body"), bodyBox = await body.boundingBox();
+      const beforeBoundary = await page.evaluate(() => ({ page: scrollY, context: document.querySelector(".exercise.is-current .fcard__context").scrollTop }));
+      await page.mouse.move(bodyBox.x + bodyBox.width / 2, bodyBox.y + bodyBox.height / 2);
+      await page.mouse.wheel(0, 600); await page.waitForTimeout(150);
+      const afterBoundary = await page.evaluate(() => ({ page: scrollY, context: document.querySelector(".exercise.is-current .fcard__context").scrollTop }));
+      assert(JSON.stringify(beforeBoundary) === JSON.stringify(afterBoundary), "scrolling beyond the sheet end does not move the page behind it", JSON.stringify({ beforeBoundary, afterBoundary }));
       await page.evaluate(() => window.__mobileViewport({ height: 160, scale: 2, offsetTop: 100 }));
       const zoomKeyboard = await page.evaluate(() => ({ keyboard: document.documentElement.dataset.keyboard, height: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vvh")) }));
       assert(zoomKeyboard.keyboard === "up" && zoomKeyboard.height === 320, "keyboard geometry remains normalized while zoomed", JSON.stringify(zoomKeyboard));
