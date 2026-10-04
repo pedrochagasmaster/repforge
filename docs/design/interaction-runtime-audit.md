@@ -231,6 +231,10 @@ the moment a run is superseded) rather than read back from the animation. And
 thickness while it travels between different sizes; a consumer that cannot
 accept that draws its indicator as a fill or a hairline.
 
+Measured disclosure and slot runs hold their starting height synchronously while
+Motion schedules the first keyframe. This prevents swapped content from exposing
+its natural destination height before the run begins; timing and curves stay the same.
+
 ## Focus after the input well
 
 Plan 064 R3e (Plan 063 P5c) removes the input well that the shelf replaced in

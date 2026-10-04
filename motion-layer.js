@@ -424,6 +424,8 @@
     const token = {};
     disclosureRuns.set(panel, token);
     panel.style.overflow = "hidden";
+    // Hold the measured start while Motion schedules its first keyframe.
+    panel.style.height = `${from}px`;
     hint(panel, "height");
     const arrived = arrival(
       animate(panel, { height: [`${from}px`, `${to}px`] }, tween),
