@@ -157,8 +157,8 @@ function sampleState(overrides = {}) {
   };
 }
 
-async function freshPage(browser) {
-  const context = await browser.newContext();
+async function freshPage(browser, options = {}) {
+  const context = await browser.newContext(options);
   const page = await context.newPage();
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
@@ -2599,9 +2599,93 @@ console.log("\nShared setup gate accessibility");
 
 }
 
+async function runMobilePlatformChecks(browser) {
+  for (const touch of [true, false]) {
+    const { context, page } = await freshPage(browser, {
+      viewport: { width: 390, height: 844 }, hasTouch: touch, isMobile: touch, serviceWorkers: "block",
+    });
+    try {
+      const policy = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        const events = [
+          ...["gesturestart", "gesturechange", "gestureend"].map(type => new Event(type, { bubbles: true, cancelable: true })),
+          new WheelEvent("wheel", { ctrlKey: true, cancelable: true, bubbles: true }),
+          ...["+", "-", "0"].map(key => new KeyboardEvent("keydown", { key, ctrlKey: true, cancelable: true, bubbles: true })),
+        ];
+        const multi = new Event("touchmove", { bubbles: true, cancelable: true });
+        Object.defineProperty(multi, "touches", { value: [{}, {}] }); events.push(multi);
+        for (const event of events) document.body.dispatchEvent(event);
+        return { meta: document.querySelector('meta[name="viewport"]').content, root: root.touchAction,
+          overscroll: [root.overscrollBehaviorY, getComputedStyle(document.body).overscrollBehaviorY],
+          cancelled: events.filter(event => event.defaultPrevented).map(event => event.type) };
+      });
+      assert(!/maximum-scale|minimum-scale|user-scalable\s*=\s*no/i.test(policy.meta) && policy.root === "auto",
+        "ordinary content permits browser enlargement", JSON.stringify(policy));
+      assert(policy.cancelled.length === 0, "browser zoom gestures and shortcuts are not globally cancelled", JSON.stringify(policy));
+      assert(policy.overscroll.every(value => value === "none"), "root scroll boundaries stay in the app", JSON.stringify(policy));
+
+      await page.evaluate(() => window.openLibrary());
+      const tab = page.locator("#libTabs .picktab:not(.is-active)").first();
+      const style = () => tab.evaluate(el => {
+        const s = getComputedStyle(el);
+        return { bg: s.backgroundColor, transform: s.transform, select: s.userSelect, tap: s.webkitTapHighlightColor };
+      });
+      await page.mouse.move(0, 0);
+      const rest = await style();
+      await tab.hover(); await page.waitForTimeout(180);
+      const hover = await style();
+      assert(touch ? hover.bg === rest.bg : hover.bg !== rest.bg,
+        `${touch ? "coarse" : "fine"} pointer gets the intended hover treatment`, JSON.stringify({ rest, hover }));
+      await page.mouse.down(); await page.waitForTimeout(180);
+      const press = await style();
+      assert(press.transform !== "none", "press feedback is immediate on either pointer", JSON.stringify(press));
+      assert(press.select === "none" && press.tap === "rgba(0, 0, 0, 0)", "control labels suppress selection and the browser tap flash", JSON.stringify(press));
+      await page.mouse.move(0, 0); await page.mouse.up();
+      await page.click("#libBack");
+      await page.click("#startWorkout");
+      await page.waitForSelector("#workout .exercise.is-current");
+      const prose = page.locator("#workout .exercise.is-current .focus-ex__meta");
+      const box = await prose.boundingBox();
+      await page.mouse.move(box.x + 2, box.y + box.height / 2);
+      await page.mouse.down(); await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2, { steps: 12 }); await page.mouse.up();
+      const selection = await page.evaluate(() => ({ text: getSelection().toString(), dragging: !!document.querySelector("#focusDeck.is-swiping") }));
+      assert(selection.text.length > 0 && !selection.dragging, "explanatory workout text can be selected without starting a swipe", JSON.stringify(selection));
+
+      await page.click("#sessionSheetBtn"); await page.waitForSelector("#sessionSheet.is-open");
+      await page.locator("#sessionNotes").focus();
+      // Fault injection models OS viewport events at the production owner. It is
+      // geometry evidence, not a claim to have reproduced a real phone keyboard.
+      await page.evaluate(() => {
+        const vv = visualViewport, state = { height: innerHeight, scale: 1, offsetTop: 0 };
+        for (const key of Object.keys(state)) Object.defineProperty(vv, key, { configurable: true, get: () => state[key] });
+        window.__mobileViewport = next => { Object.assign(state, next); vv.dispatchEvent(new Event("resize")); };
+        window.__mobileViewport({ height: innerHeight / 2, scale: 2, offsetTop: 70 });
+      });
+      const zoom = await page.evaluate(() => ({ keyboard: document.documentElement.dataset.keyboard, inset: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kb")) }));
+      assert(zoom.keyboard !== "up" && zoom.inset === 0, "pinch alone with a focused field does not open a keyboard inset", JSON.stringify(zoom));
+      await page.evaluate(() => window.__mobileViewport({ height: 320, scale: 1, offsetTop: 70 }));
+      await page.waitForTimeout(200);
+      const geometry = await page.evaluate(() => {
+        const sheet = document.querySelector("#sessionSheet"), body = sheet.querySelector(".session-sheet__body");
+        body.scrollTop = body.scrollHeight;
+        const r = sheet.getBoundingClientRect(), field = document.querySelector("#sessionNotes").getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, fieldBottom: field.bottom, contain: getComputedStyle(body).overscrollBehaviorY, keyboard: document.documentElement.dataset.keyboard };
+      });
+      assert(geometry.top >= 70 && geometry.bottom <= 390.5 && geometry.fieldBottom <= geometry.bottom,
+        "session header and last field fit the keyboard's visible band", JSON.stringify(geometry));
+      assert(geometry.contain === "contain" && geometry.keyboard === "up", "sheet retains native scrolling with boundary containment", JSON.stringify(geometry));
+      await page.evaluate(() => window.__mobileViewport({ height: 160, scale: 2, offsetTop: 100 }));
+      const zoomKeyboard = await page.evaluate(() => ({ keyboard: document.documentElement.dataset.keyboard, height: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vvh")) }));
+      assert(zoomKeyboard.keyboard === "up" && zoomKeyboard.height === 320, "keyboard geometry remains normalized while zoomed", JSON.stringify(zoomKeyboard));
+    } finally { await context.close(); }
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
-  if (process.argv.includes("--touch-targets-320")) {
+  if (process.argv.includes("--mobile-platform")) {
+    await runMobilePlatformChecks(browser);
+  } else if (process.argv.includes("--touch-targets-320")) {
     await runTouchTarget320Regression(browser);
   } else if (process.argv.includes("--history-tour")) {
     await runLocalizedHistoryAndGuideChecks(browser);
@@ -2616,6 +2700,7 @@ async function main() {
   } else if (process.argv.includes("--shared-setup")) {
     await runSharedSetupAccessibility(browser);
   } else {
+    await runMobilePlatformChecks(browser);
     await runWorkoutValidationFocusCheck(browser);
     await runAccessibleInteractions(browser);
     await runExerciseIllustrationAccessibility(browser);
