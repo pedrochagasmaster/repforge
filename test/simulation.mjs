@@ -5928,13 +5928,13 @@ async function main() {
     "Focus → tap the first segment of the exercise bar → first exercise"
   );
 
-  // Real thumbs don't swipe in straight lines: an arc that starts with a vertical
-  // nudge, and a short fast flick, both have to count.
+  // Exercise direction and velocity from a control surface. These mouse drags
+  // must not claim selectable header prose, whose native selection has its own proof.
   const currentEx = () => page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
   const dragPath = async (path) => {
-    const box = await page.locator("#workout .exercise.is-current").boundingBox();
-    const ox = Math.round(box.x + box.width - 40);
-    const oy = Math.round(box.y + 60);
+    const box = await page.locator("#workout .exercise.is-current .ex__namebtn").boundingBox();
+    const ox = Math.round(box.x + box.width / 2);
+    const oy = Math.round(box.y + box.height / 2);
     const before = await currentEx();
     await page.mouse.move(ox, oy);
     await page.mouse.down();
