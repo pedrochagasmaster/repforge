@@ -89,7 +89,14 @@ every `tools/*--check` checker passes. In the `state` lane, 35 of 37 suites
 pass. The two failures, `program-transition-r7-boundary` and
 `install-transfer-client-browser`, fail identically on untouched `main` in
 this environment. `thermonuclear-races` failed once under parallel load and
-passed on rerun, as it does on `main`.
+passed on rerun, as it does on `main`. The `privacy` lane passes 3/3. The
+`workout` lane passes 37/47, including the full `simulation.mjs`; all ten
+failures (`direction-d-gate`, `today-week-line`, `focus-only-parity`,
+`focus-navigation`, `management-summary`, `summary-evidence`,
+`progress-navigation`, `progress-lifecycle`, `progress-recovery`,
+`progress-guides`) fail identically on untouched `main` in this environment.
+The `visual` lane was not run; it changes by design (Step 6). Remote `ci` on
+PR 1 is the authoritative run.
 
 Read [`plans/065/prototype-programs.md`](./065/prototype-programs.md) for the
 audited shortlist (S100, S096, S091, S095, R027, R068, R016, R002, S098 and
