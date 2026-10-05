@@ -1,0 +1,2382 @@
+{
+  "P1": {
+    "cycles": 7,
+    "days": [
+      {
+        "exercises": [
+          {
+            "exerciseId": "23b5c6f170d8809aa142f91210536839",
+            "exportName": "Pause Smith Machine Bench Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 113
+          },
+          {
+            "exerciseId": "2ab5c6f170d880839baed369debc0459",
+            "exportName": "Chest-Supported Dumbbell Row (Elbows-Out)",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 114
+          },
+          {
+            "exerciseId": "1a15c6f170d88049a93dd5aded824eee",
+            "exportName": "Seated Dumbbell Lateral Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 115
+          },
+          {
+            "exerciseId": "1a15c6f170d880e8ad58cebec203e231",
+            "exportName": "Cable Rope Overhead Triceps Extension",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 116
+          },
+          {
+            "exerciseId": "1a15c6f170d880db8633e3bec8b7e8fe",
+            "exportName": "Neutral Grip Machine Rear Delt Fly",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 117
+          },
+          {
+            "exerciseId": "1a15c6f170d8808b9721ff65d549d8ba",
+            "exportName": "Dumbbell Pullover",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 118
+          }
+        ],
+        "name": "Upper A"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a25c6f170d88079a926dde776766181",
+            "exportName": "45° Leg Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 120
+          },
+          {
+            "exerciseId": "2925c6f170d880e5ba36f6cc1fb32a88",
+            "exportName": "Plate-Loaded Machine Hip Thrust (Starting From The Bottom)",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 121
+          },
+          {
+            "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+            "exportName": "45° Leg Press Calf Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 122
+          },
+          {
+            "exerciseId": "1a25c6f170d880dcb28bc023b51f8285",
+            "exportName": "Single Leg Leg Extension",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 123
+          },
+          {
+            "exerciseId": "1a35c6f170d8806dac95e1ab4fa67605",
+            "exportName": "Cable Hip Abduction (Leg Behind Body)",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 124
+          }
+        ],
+        "name": "Lower A"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "2405c6f170d8805e8629d8445d40121a",
+            "exportName": "High Incline Smith Machine Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 126
+          },
+          {
+            "exerciseId": "1a15c6f170d88014a0ccdeb82dfbc1f4",
+            "exportName": "Overhand Grip Plate-Loaded Machine Lat Pulldown",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 127
+          },
+          {
+            "exerciseId": "1a05c6f170d8806b911acf558c5af4f6",
+            "exportName": "45° Incline Dumbbell Press",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 128
+          },
+          {
+            "exerciseId": "1a15c6f170d880409004f87e18f9b974",
+            "exportName": "Overhand Grip Pin-Loaded Machine Row",
+            "sets": [
+              {
+                "repMax": 13,
+                "repMin": 11,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 13,
+                "repMin": 11,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 129
+          },
+          {
+            "exerciseId": "1a15c6f170d880b08845d6f0fe186dd1",
+            "exportName": "Pin-Loaded Machine Preacher Curl",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 130
+          },
+          {
+            "exerciseId": "1a15c6f170d8804d834cef49a7b23f12",
+            "exportName": "Pec Deck Fly",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 131
+          }
+        ],
+        "name": "Upper B"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+            "exportName": "Barbell Romanian Deadlift",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 132
+          },
+          {
+            "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+            "exportName": "Barbell Back Squat",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 133
+          },
+          {
+            "exerciseId": "1a35c6f170d880f6884cda44975bf858",
+            "exportName": "Seated Single Leg Hamstring Curl",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 134
+          },
+          {
+            "exerciseId": "1a35c6f170d8807c8999d24ee4aaf939",
+            "exportName": "Kneeling Cable Crunch",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 135
+          },
+          {
+            "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+            "exportName": "Dumbbell Side Bend",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 136
+          }
+        ],
+        "name": "Lower B"
+      }
+    ],
+    "deload": "None",
+    "exportedCycles": [
+      1
+    ],
+    "generationContext": {
+      "competencyAnswers": [
+        "No",
+        "No",
+        "No",
+        "No",
+        "No",
+        "No",
+        "No"
+      ],
+      "emphasis": [],
+      "evidence": "owner-reported; P3/P4 requested experiment conditions",
+      "excludedMuscles": [],
+      "experience": "intermediate",
+      "goal": "hypertrophy",
+      "gym": "Commercial Gym",
+      "periodization": "static",
+      "sessionMinutes": [
+        40,
+        60
+      ],
+      "split": "upper/lower/upper/lower",
+      "trainingDays": 4
+    },
+    "name": "P1",
+    "schedule": [
+      "Upper A",
+      "Rest",
+      "Lower A",
+      "Rest",
+      "Upper B",
+      "Lower B",
+      "Rest"
+    ]
+  },
+  "P2": {
+    "cycles": 7,
+    "days": [
+      {
+        "exercises": [
+          {
+            "exerciseId": "23b5c6f170d8809aa142f91210536839",
+            "exportName": "Pause Smith Machine Bench Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 84
+          },
+          {
+            "exerciseId": "1a15c6f170d880f89beacd8c81156f2d",
+            "exportName": "Bent-Over Barbell Row",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 85
+          },
+          {
+            "exerciseId": "1a15c6f170d88049a93dd5aded824eee",
+            "exportName": "Seated Dumbbell Lateral Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 86
+          },
+          {
+            "exerciseId": "1a15c6f170d880e8ad58cebec203e231",
+            "exportName": "Cable Rope Overhead Triceps Extension",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 87
+          },
+          {
+            "exerciseId": "2ad5c6f170d8802abf00e4d2809132fa",
+            "exportName": "Single Arm Machine Rear Delt Fly",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 88
+          },
+          {
+            "exerciseId": "2ae5c6f170d8807da2dcd7bf23371d82",
+            "exportName": "Cable Rope Straight Arm Lat Pulldown",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 89
+          }
+        ],
+        "name": "Upper A"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+            "exportName": "Barbell Back Squat",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 91
+          },
+          {
+            "exerciseId": "2995c6f170d88013930fe5be0247f177",
+            "exportName": "Wide Stance Smith Machine Good Morning",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 92
+          },
+          {
+            "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+            "exportName": "Standing Machine Calf Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 93
+          },
+          {
+            "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+            "exportName": "Leg Extension",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 94
+          },
+          {
+            "exerciseId": "1a35c6f170d880bd90eae6df2f7527e8",
+            "exportName": "Side-Lying Weighted Hip Abduction Leg Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 95
+          }
+        ],
+        "name": "Lower A"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "2405c6f170d8805e8629d8445d40121a",
+            "exportName": "High Incline Smith Machine Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 97
+          },
+          {
+            "exerciseId": "2ae5c6f170d88069bb1dc458458a3a78",
+            "exportName": "Overhand Grip Pin-Loaded Machine Lat Pulldown",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 98
+          },
+          {
+            "exerciseId": "1a05c6f170d8803da198c200611265c3",
+            "exportName": "Seated Plate-Loaded Machine Chest Press",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 99
+          },
+          {
+            "exerciseId": "1a15c6f170d880e89f71c03312fd37ba",
+            "exportName": "Underhand Grip Cable Row",
+            "sets": [
+              {
+                "repMax": 13,
+                "repMin": 11,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 13,
+                "repMin": 11,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 100
+          },
+          {
+            "exerciseId": "1a15c6f170d8803a891bf223d4468a8a",
+            "exportName": "EZ Bar Biceps Curl",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 101
+          },
+          {
+            "exerciseId": "1a05c6f170d880df946bdd6f42f0901c",
+            "exportName": "Horizontal Cable Fly",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 102
+          }
+        ],
+        "name": "Upper B"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "2ee5c6f170d8809a9e87d7a58d087ca3",
+            "exportName": "Trap Bar Romanian Deadlift",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 103
+          },
+          {
+            "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+            "exportName": "Hack Squat",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 104
+          },
+          {
+            "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+            "exportName": "Lying Hamstring Curl",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 105
+          },
+          {
+            "exerciseId": "30d5c6f170d88084bccbdddab0cf761f",
+            "exportName": "Weighted Glute Ham Developer Sit-Up",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 106
+          },
+          {
+            "exerciseId": "28c5c6f170d8805cb02ae70c20b9350f",
+            "exportName": "Machine Upper Torso Rotation (With Arm Or Shoulder Pads)",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 107
+          }
+        ],
+        "name": "Lower B"
+      }
+    ],
+    "deload": "None",
+    "exportedCycles": [
+      1
+    ],
+    "generationContext": {
+      "competencyAnswers": [
+        "No",
+        "No",
+        "No",
+        "No",
+        "No",
+        "No",
+        "No"
+      ],
+      "emphasis": [],
+      "evidence": "owner-reported; P3/P4 requested experiment conditions",
+      "excludedMuscles": [],
+      "experience": "intermediate",
+      "goal": "hypertrophy",
+      "gym": "Commercial Gym",
+      "periodization": "static",
+      "sessionMinutes": [
+        40,
+        60
+      ],
+      "split": "upper/lower/upper/lower",
+      "trainingDays": 4
+    },
+    "name": "P2",
+    "schedule": [
+      "Upper A",
+      "Rest",
+      "Lower A",
+      "Rest",
+      "Upper B",
+      "Lower B",
+      "Rest"
+    ]
+  },
+  "P3": {
+    "cycles": 7,
+    "days": [
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a05c6f170d8807c9f16f226db24074d",
+            "exportName": "Close Grip Bench Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 4
+          },
+          {
+            "exerciseId": "2a15c6f170d8803c80eddc3aed1b7914",
+            "exportName": "Smith Machine Row",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 5
+          },
+          {
+            "exerciseId": "1a15c6f170d88067875bfd4347b883ef",
+            "exportName": "Dual Cable Lateral Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 6
+          },
+          {
+            "exerciseId": "1a15c6f170d880e8ad58cebec203e231",
+            "exportName": "Cable Rope Overhead Triceps Extension",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 7
+          },
+          {
+            "exerciseId": "1a15c6f170d880db8633e3bec8b7e8fe",
+            "exportName": "Neutral Grip Machine Rear Delt Fly",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 8
+          },
+          {
+            "exerciseId": "1a15c6f170d880308073fc37f580cda4",
+            "exportName": "Cable Bar Straight Arm Lat Pulldown",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 9
+          }
+        ],
+        "name": "Upper A"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+            "exportName": "Barbell Back Squat",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 11
+          },
+          {
+            "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+            "exportName": "Smith Machine Good Morning",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 12
+          },
+          {
+            "exerciseId": "1ac5c6f170d8803f915fec32a9820548",
+            "exportName": "Pin-Loaded Leg Press Calf Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 13
+          },
+          {
+            "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+            "exportName": "Leg Extension",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 14
+          },
+          {
+            "exerciseId": "1a35c6f170d880bd90eae6df2f7527e8",
+            "exportName": "Side-Lying Weighted Hip Abduction Leg Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 15
+          }
+        ],
+        "name": "Lower A"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a05c6f170d880c5ad11c99b302b1bf9",
+            "exportName": "Barbell Overhead Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 17
+          },
+          {
+            "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+            "exportName": "Overhand Grip Cable Lat Pulldown",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 18
+          },
+          {
+            "exerciseId": "1a05c6f170d880198e1aceac084f30eb",
+            "exportName": "45° Incline Barbell Press",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 19
+          },
+          {
+            "exerciseId": "2a55c6f170d880f6aa9ed2abe35b5215",
+            "exportName": "Single Arm Dumbbell Row (Elbow-Out)",
+            "sets": [
+              {
+                "repMax": 13,
+                "repMin": 11,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 13,
+                "repMin": 11,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 20
+          },
+          {
+            "exerciseId": "1a15c6f170d880f1ba5ef781b583618a",
+            "exportName": "Standing Dumbbell Biceps Curl",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 21
+          },
+          {
+            "exerciseId": "1a15c6f170d8804d834cef49a7b23f12",
+            "exportName": "Pec Deck Fly",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 22
+          }
+        ],
+        "name": "Upper B"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "2ee5c6f170d8809a9e87d7a58d087ca3",
+            "exportName": "Trap Bar Romanian Deadlift",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 23
+          },
+          {
+            "exerciseId": "1a25c6f170d8802ea9b9ce71cd9d3d67",
+            "exportName": "Pin-Loaded Leg Press",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 24
+          },
+          {
+            "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+            "exportName": "Seated Hamstring Curl",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 25
+          },
+          {
+            "exerciseId": "1a45c6f170d88065be3acba9f007a364",
+            "exportName": "Hanging Straight Leg Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 26
+          },
+          {
+            "exerciseId": "28c5c6f170d8805cb02ae70c20b9350f",
+            "exportName": "Machine Upper Torso Rotation (With Arm Or Shoulder Pads)",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 27
+          }
+        ],
+        "name": "Lower B"
+      }
+    ],
+    "deload": "None",
+    "exportedCycles": [
+      1
+    ],
+    "generationContext": {
+      "competencyAnswers": [
+        "Yes",
+        "Yes",
+        "Yes",
+        "Yes",
+        "Yes",
+        "Yes",
+        "Yes"
+      ],
+      "emphasis": [],
+      "evidence": "owner-reported; P3/P4 requested experiment conditions",
+      "excludedMuscles": [],
+      "experience": "intermediate",
+      "goal": "hypertrophy",
+      "gym": "Commercial Gym",
+      "periodization": "static",
+      "sessionMinutes": [
+        40,
+        60
+      ],
+      "split": "upper/lower/upper/lower",
+      "trainingDays": 4
+    },
+    "name": "P3",
+    "schedule": [
+      "Upper A",
+      "Rest",
+      "Lower A",
+      "Rest",
+      "Upper B",
+      "Lower B",
+      "Rest"
+    ]
+  },
+  "P4": {
+    "cycles": 7,
+    "days": [
+      {
+        "exercises": [
+          {
+            "exerciseId": "23b5c6f170d8809aa142f91210536839",
+            "exportName": "Pause Smith Machine Bench Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 33
+          },
+          {
+            "exerciseId": "1a15c6f170d8807188c0da98a91c30c3",
+            "exportName": "Neutral Grip Pin-Loaded Machine Row",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 34
+          },
+          {
+            "exerciseId": "2ab5c6f170d880d680edcd91f1766560",
+            "exportName": "Single Arm High Cable Lateral Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 35
+          },
+          {
+            "exerciseId": "1a15c6f170d880e8ad58cebec203e231",
+            "exportName": "Cable Rope Overhead Triceps Extension",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 36
+          }
+        ],
+        "name": "Upper A"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+            "exportName": "Barbell Back Squat",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 38
+          },
+          {
+            "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+            "exportName": "Standing Machine Calf Raise",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 39
+          },
+          {
+            "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+            "exportName": "Leg Extension",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 40
+          }
+        ],
+        "name": "Lower A"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a05c6f170d88060bbffeeb9acaa3c80",
+            "exportName": "Seated Dumbbell Overhead Press",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 42
+          },
+          {
+            "exerciseId": "2ae5c6f170d88069bb1dc458458a3a78",
+            "exportName": "Overhand Grip Pin-Loaded Machine Lat Pulldown",
+            "sets": [
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 11,
+                "repMin": 9,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 43
+          },
+          {
+            "exerciseId": "1a15c6f170d88040bffdd2f6127e6d4c",
+            "exportName": "EZ Bar Preacher Curl",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 44
+          },
+          {
+            "exerciseId": "1a05c6f170d8801f98afff449f6a3b05",
+            "exportName": "Low-To-High Cable Fly",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 45
+          },
+          {
+            "exerciseId": "3065c6f170d880eea408cc28767961ae",
+            "exportName": "Single Arm Cable Rear Delt Fly",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 46
+          }
+        ],
+        "name": "Upper B"
+      },
+      {
+        "exercises": [
+          {
+            "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+            "exportName": "Barbell Romanian Deadlift",
+            "sets": [
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 3.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 2.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 9,
+                "repMin": 7,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 47
+          },
+          {
+            "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+            "exportName": "Lying Hamstring Curl",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 48
+          },
+          {
+            "exerciseId": "1a35c6f170d8807c8999d24ee4aaf939",
+            "exportName": "Kneeling Cable Crunch",
+            "sets": [
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 1.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              },
+              {
+                "repMax": 16,
+                "repMin": 14,
+                "restSeconds": null,
+                "rir": 0.0,
+                "type": "Standard Set"
+              }
+            ],
+            "sourceRow": 49
+          }
+        ],
+        "name": "Lower B"
+      }
+    ],
+    "deload": "None",
+    "exportedCycles": [
+      1
+    ],
+    "generationContext": {
+      "competencyAnswers": [
+        "No",
+        "No",
+        "No",
+        "No",
+        "No",
+        "No",
+        "No"
+      ],
+      "emphasis": [],
+      "evidence": "owner-reported; P3/P4 requested experiment conditions",
+      "excludedMuscles": [],
+      "experience": "intermediate",
+      "goal": "hypertrophy",
+      "gym": "Commercial Gym",
+      "periodization": "static",
+      "sessionMinutes": [
+        20,
+        40
+      ],
+      "split": "upper/lower/upper/lower",
+      "trainingDays": 4
+    },
+    "name": "P4",
+    "schedule": [
+      "Upper A",
+      "Rest",
+      "Lower A",
+      "Rest",
+      "Upper B",
+      "Lower B",
+      "Rest"
+    ]
+  }
+}

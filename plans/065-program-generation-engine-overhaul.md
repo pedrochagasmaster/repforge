@@ -3,9 +3,10 @@
 - **Plan number:** 065
 - **Phase:** Outside the UI overhaul programme (049–059). Engine correctness
   and coaching quality of first-program generation.
-- **Status:** READY FOR EXECUTION. Every product decision is settled (owner
-  interview, 3 October 2026; see *Decision log*). The implementation exists as
-  a verified prototype, shipped here as `plans/065/implementation.patch`.
+- **Status:** IMPLEMENTED in PR #306. Historical compiler-3 design and proof.
+  [Plan 067](067-engine-replacement.md) supersedes its future engine direction
+  under the owner's 5 October 2026 replacement decision. Do not reapply the
+  retained `plans/065/implementation.patch`.
 - **Sequencing (owner decision D18):** lands before Plan 059 freezes the alpha
   candidate, in parallel with Plan 064. It touches the engine, the exercise
   catalogue, copy strings, the app's code-to-copy table, tests, fixtures and

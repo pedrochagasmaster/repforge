@@ -1,0 +1,34 @@
+{
+  "evidenceClass": "screenshot observation with owner interpretation",
+  "exerciseId": "23b5c6f170d8807fbea3e916bac10cfc",
+  "firstSet": {
+    "completed": true,
+    "loadKg": 110,
+    "prescribedRepRange": [
+      7,
+      9
+    ],
+    "reps": 6,
+    "rir": 2
+  },
+  "notEstablished": [
+    "initial set-one recommendation",
+    "loading increments",
+    "bodyweight",
+    "history baseline",
+    "isolated fatigue contribution",
+    "exact formula"
+  ],
+  "ownerInterpretation": "Load decrease responds to reps below range; fatigue contribution suspected",
+  "secondSet": {
+    "completed": false,
+    "prefilledReps": 8,
+    "prescribedRepRange": [
+      7,
+      9
+    ],
+    "prescribedRir": 1,
+    "recommendedLoadKg": 105
+  },
+  "sourceSha256": "0a89edb33688d1be22f6e21a8f5832484de9d7116bd7d9f8ebc434d7451e283e"
+}

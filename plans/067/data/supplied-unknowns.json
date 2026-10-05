@@ -1,0 +1,51 @@
+{
+  "evidence_classes": {
+    "U-AOT": "Not recovered in this pass; potentially recoverable from libapp.so semantic decompilation",
+    "U-SERVER": "Fundamentally unknowable from APK alone if defined by live backend"
+  },
+  "fundamentally_unknowable_from_apk": [
+    "Firebase/backend source code implementing createProgram / trainingProgram",
+    "Exact deployed backend revision corresponding to any moment this APK was used",
+    "Server-side feature flags, Remote Config, A/B experiments, rollout cohorts",
+    "Server-only generation tables/weights/thresholds not duplicated in the client",
+    "Server-only exercise overrides or metadata not bundled in app_file.json",
+    "Server-side random seeds or nondeterministic selection state",
+    "Per-account server state implicitly read from authentication identity",
+    "Backend defaults inserted for omitted request fields",
+    "Backend validation/fallback behavior for payloads the normal client never sends",
+    "Server-side postprocessing not represented in the client model",
+    "Backend changes after APK publication",
+    "Exact arbitrary production outputs when behavior is stateful/experiment-dependent/version-drifted"
+  ],
+  "potentially_recoverable_from_apk_but_unresolved": [
+    "Exact createProgram callable name/path and request serializer",
+    "Exact client preprocessing before Firebase call",
+    "Exact client normalization after response",
+    "Exact ProgramSplit serialized values vs helper tokens",
+    "Exact ordered SplitExerciseType arrays for each split/day",
+    "Exact auto-split decision rule if client-side",
+    "Exact IsolationAccessoriesAssignment mapping",
+    "Exact supported focus-muscle subset",
+    "Exact mapping from experience/competency answers to all 46 preconditions",
+    "Exact classification-vs-tier eligibility rule",
+    "Exact use of ROM/stability/laterality/agonist metadata in ranking",
+    "Exact exerciseGroup/exclusionGroupings semantics in generation",
+    "Exact same-tier tie-breaks if local",
+    "Exact hybrid rank composition if local",
+    "Exact time estimator/trimmer if local",
+    "Exact set/rep/RIR dose tables if local",
+    "Exact periodization matrices if local",
+    "Exact deload transform if local",
+    "Exact output JSON/freezed serialization contract",
+    "Exact no-candidate fallback path"
+  ],
+  "target": {
+    "architecture": "Flutter release / Dart AOT / AArch64",
+    "dart_version_string": "3.13.3 stable",
+    "exercise_db_generated_at": "2026-09-28T22:29:08Z",
+    "libapp_sha256": "a79f5db63bb7dffdd683fae131fe033deabaef20d14d6ce4e5d4a6debb3f1312",
+    "package": "com.sbs.train",
+    "version": "1.4.0",
+    "xapk_sha256": "e9b518b0dbf85615f414b7859b758532d8acd5a9d8bbd3c7fe37ab1e9783a12d"
+  }
+}
