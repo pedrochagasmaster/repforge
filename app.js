@@ -16596,7 +16596,7 @@ function renderOnboarding(){
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
   const rail=!hub&&!isEditor?renderEntryRail():"";
   /* Each questionnaire section is a ledger entry: "Entry 01 · About you". */
-  if(showProgress&&!isEditor)html+=`<p class="entry__ledger-k" aria-hidden="true">${monoNums(t("entry.ledger.entry",{n:String(progress.n).padStart(2,"0")}))} · ${esc(t(`entry.ledger.section.${stepId}`))}</p>`;
+  if(showProgress&&!isEditor)html+=`<p class="entry__ledger-k" aria-hidden="true"><span>${monoNums(t("entry.ledger.entry",{n:String(progress.n).padStart(2,"0")}))} · ${esc(t(`entry.ledger.section.${stepId}`))}</span></p>`;
   if(hub)html+=renderEntryHub();
   else if(stepId==="desired_result")html+=entryRailAfterTitle(renderDesiredResultStep(),rail);
   else if(stepId==="background")html+=entryRailAfterTitle(renderBackgroundStep(),rail);
