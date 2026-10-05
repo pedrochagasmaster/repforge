@@ -7642,7 +7642,7 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:1.2;
   letter-spacing:0;text-transform:none;color:var(--ink);background:transparent;white-space:nowrap
 }
-#onboarding #onbBody.entry-body .onb__slip :is(.onb__badge,.onb__slip-k) .num{font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
+#onboarding #onbBody.entry-body .onb__slip :is(.onb__badge,.onb__slip-k,.onb__slip-name) .num{font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
 #onboarding #onbBody.entry-body .onb__slip .onb__badge--focus{border-style:dashed;border-color:var(--boundary-required);color:var(--ink-soft)}
 #onboarding #onbBody.entry-body .onb__slip>summary.onb__dayname::after{top:6px;right:0;transform:rotate(90deg)}
 #onboarding #onbBody.entry-body .onb__slip[open]>summary.onb__dayname::after{transform:rotate(270deg)}
