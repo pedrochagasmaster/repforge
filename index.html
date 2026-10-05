@@ -528,6 +528,8 @@
         <div class="onb__head">
           <div class="onb__bar">
             <button type="button" class="back-link onb__back" id="onbBack" data-i18n="onb.back">Back</button>
+            <span class="onb__mark" aria-hidden="true">Taurifer</span>
+            <span class="onb__counter" id="onbCounter" aria-hidden="true"></span>
             <button type="button" class="back-link onb__cancel" id="onbCancel" data-i18n="onb.cancel">Cancel</button>
           </div>
           <h1 id="onbEditorTitle" class="onb__editor-title" hidden>Build a program</h1>
@@ -1253,6 +1255,7 @@ Triceps pushdown 3x12-15</pre>
   </div>
   <script src="telemetry.js"></script>
   <script src="unsupported-workout-grammar.js"></script>
+  <script src="posthog-config.js?v=local" data-optional-runtime="RepForgeTelemetry"></script>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>

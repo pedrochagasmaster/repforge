@@ -7662,3 +7662,223 @@ body.is-entry-editor #entryProgramName,
   #onboarding #onbBody.entry-body .radio-card::before{transition:none}
   .entry-print,.entry-print *{animation:none!important;transition:none!important}
 }
+
+/* ==== Ledger page: the shell and the question screens, as drawn ====
+   Header: a chevron, the wordmark and a Mono "01/04" counter on one row, a
+   hairline progress rule under it. The route and "Section n of N" stay in the
+   live #onbStepLabel and #onbEyebrow for assistive technology and are drawn by
+   the counter instead. Each section opens with a Mono "Entry 01 · About you"
+   line; questions are ruled, answers are flush ruled rows, and the pinned
+   region reads back what was recorded. */
+#onboarding:not(.program-editor-onboarding) .onb__bar{justify-content:flex-start;gap:var(--space-4)}
+#onboarding:not(.program-editor-onboarding) .onb__mark{
+  font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
+  line-height:var(--line-tight);letter-spacing:-.01em;color:var(--ink)
+}
+#onboarding:not(.program-editor-onboarding) #onbBack{font-size:0;gap:0;justify-content:flex-start;min-width:36px;padding:var(--space-8) 0}
+#onboarding:not(.program-editor-onboarding) #onbBack::before{width:24px;height:24px;color:var(--ink)}
+#onboarding:not(.program-editor-onboarding) .onb__counter{
+  margin-left:auto;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-variant-numeric:tabular-nums;
+  letter-spacing:.02em;color:var(--ink-faint)
+}
+#onboarding:not(.program-editor-onboarding) .onb__counter b{font-weight:var(--weight-semibold);color:var(--ink)}
+#onboarding:not(.program-editor-onboarding) .onb__counter:empty{display:none}
+#onboarding:not(.program-editor-onboarding) #onbCancel{
+  font-size:var(--font-size-body-small);color:var(--ink-soft);padding:var(--space-8) 0 var(--space-8) var(--space-12)
+}
+#onboarding:not(.program-editor-onboarding) .onb__counter:empty+#onbCancel{margin-left:auto}
+#onboarding.entry-hub-active:not(.program-editor-onboarding) .onb__bar #onbCancel{order:-1;margin-left:0;padding-left:0;font-size:0;gap:0;color:var(--ink)}
+#onboarding.entry-hub-active:not(.program-editor-onboarding) .onb__bar #onbCancel::before{width:24px;height:24px}
+#onboarding:not(.program-editor-onboarding) .onb__where{
+  position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0
+}
+#onboarding:not(.program-editor-onboarding) #onbSegbar{gap:var(--space-12);align-items:flex-end;margin:var(--space-4) 0 0}
+#onboarding:not(.program-editor-onboarding):has(#onbBody) #onbSegbar .segbar__seg{height:1.5px;border-radius:0;background:var(--rule-strong)}
+#onboarding:not(.program-editor-onboarding):has(#onbBody) #onbSegbar .segbar__seg.is-done,
+#onboarding:not(.program-editor-onboarding):has(#onbBody) #onbSegbar .segbar__seg.is-current{height:3px;background:var(--ink)}
+
+#onboarding #onbBody.entry-body .entry__ledger-k{
+  display:flex;align-items:center;gap:var(--space-12);margin:var(--space-8) 0 var(--space-14);
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)
+}
+#onboarding #onbBody.entry-body .entry__ledger-k::after{content:"";flex:1;height:1px;background:var(--rule)}
+#onboarding #onbBody.entry-body .onb__q{
+  font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:1.12;letter-spacing:-.015em;text-wrap:balance
+}
+#onboarding #onbBody.entry-body .entry__group-lab.entry__question{
+  display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12);
+  margin:var(--space-26) 0 0;padding-bottom:var(--space-12);border-bottom:1px solid var(--ink);
+  font-size:var(--font-size-body);font-weight:var(--weight-semibold);color:var(--ink)
+}
+#onboarding #onbBody.entry-body .entry__question-unit{
+  flex:none;font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-regular);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)
+}
+/* Flush ruled rows: no box, a hairline under each, the index large and faint. */
+#onboarding #onbBody.entry-body .onb__opts.onb__list,
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none){
+  gap:0;border:0;border-radius:0;background:transparent;overflow:visible
+}
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card{
+  min-height:72px;padding:var(--space-18) var(--space-4) var(--space-18) 0;gap:var(--space-18);
+  border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent;box-shadow:none
+}
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card::before{
+  min-width:2ch;font-size:var(--font-size-focal-data);font-weight:var(--weight-regular)
+}
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card.is-selected{
+  background:transparent;box-shadow:none
+}
+@media (hover: hover) and (pointer: fine){
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card:hover:not(:disabled){background:var(--well)}
+}
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card .radio-card__title{
+  font-size:var(--font-size-control);font-weight:var(--weight-semibold)
+}
+/* The tick box is square, as drawn. */
+#onboarding #onbBody.entry-body .radio-card .radio-card__mark,
+#onboarding #onbBody.entry-body .radio-card[role="radio"] .radio-card__mark{width:26px;height:26px;border-radius:var(--radius-compact)}
+#onboarding #onbBody.entry-body .onb__grid .radio-card .radio-card__mark{width:18px;height:18px}
+#onboarding #onbBody.entry-body .onb__num .radio-card .radio-card__mark{width:20px;height:20px}
+
+/* Experience: the tally strip. */
+#onboarding #onbBody.entry-body .entry-tally{container-type:inline-size;display:flex;flex-direction:column;gap:var(--space-8);margin-top:var(--space-18)}
+#onboarding #onbBody.entry-body .entry-tally__scale{
+  display:flex;justify-content:space-between;gap:var(--space-8);
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)
+}
+#onboarding #onbBody.entry-body .entry-tally__cells{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:start}
+#onboarding #onbBody.entry-body .entry-tally__cell{
+  display:flex;flex-direction:column;align-items:stretch;gap:var(--space-12);min-width:0;padding:0;margin:0;
+  border:0;background:transparent;color:var(--ink-soft);font:inherit;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent
+}
+#onboarding #onbBody.entry-body .entry-tally__box{
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-8);
+  min-height:92px;padding:var(--space-12) var(--space-4);background:var(--surface);color:var(--ink);
+  border-block:1px solid var(--ink);border-left:1px solid var(--rule);transition:background-color .15s ease,color .15s ease
+}
+#onboarding #onbBody.entry-body .entry-tally__cell:first-child .entry-tally__box{border-left:1px solid var(--ink)}
+#onboarding #onbBody.entry-body .entry-tally__cell:last-child .entry-tally__box{border-right:1px solid var(--ink)}
+#onboarding #onbBody.entry-body .entry-tally__marks{
+  font-family:var(--font-training-data);font-size:var(--font-size-focal-data);font-weight:var(--weight-semibold);
+  line-height:1;letter-spacing:-.08em;white-space:nowrap
+}
+#onboarding #onbBody.entry-body .entry-tally__n{font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--ink-soft)}
+#onboarding #onbBody.entry-body .entry-tally__label{font-size:var(--font-size-body-small);line-height:var(--line-standard);overflow-wrap:anywhere}
+#onboarding #onbBody.entry-body .entry-tally__cell.is-selected .entry-tally__box{background:var(--ink);color:var(--bg)}
+#onboarding #onbBody.entry-body .entry-tally__cell.is-selected .entry-tally__n{color:var(--bg)}
+#onboarding #onbBody.entry-body .entry-tally__cell.is-selected .entry-tally__label{color:var(--ink);font-weight:var(--weight-semibold)}
+#onboarding #onbBody.entry-body .entry-tally__cell.is-selected .entry-tally__box::after{
+  content:"";position:absolute;left:50%;bottom:-7px;width:12px;height:12px;background:var(--ink);transform:translateX(-50%) rotate(45deg)
+}
+#onboarding #onbBody.entry-body .entry-tally__cell.is-fresh .entry-tally__box::after{animation:ledger-caret-in .22s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes ledger-caret-in{from{transform:translateX(-50%) translateY(-6px) rotate(45deg);opacity:0}}
+@media (hover: hover) and (pointer: fine){
+#onboarding #onbBody.entry-body .entry-tally__cell:not(.is-selected):hover .entry-tally__box{background:var(--well)}
+}
+#onboarding #onbBody.entry-body .entry-tally__cell:active:not(.is-selected) .entry-tally__box{background:color-mix(in srgb,var(--ink) 8%,var(--well))}
+#onboarding #onbBody.entry-body .entry-tally__cell:focus-visible{outline:none}
+#onboarding #onbBody.entry-body .entry-tally__cell:focus-visible .entry-tally__box{outline:var(--control-focus-outline);outline-offset:2px;z-index:1}
+#onboarding #onbBody.entry-body .entry-tally__note{
+  margin:var(--space-8) 0 0;padding-top:var(--space-14);border-top:1px solid var(--rule);
+  font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--ink-soft)
+}
+#onboarding #onbBody.entry-body .entry-tally__note b{color:var(--ink);font-weight:var(--weight-semibold)}
+@container (max-width:22rem){
+  #onboarding #onbBody.entry-body .entry-tally__cells{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:var(--space-12)}
+  #onboarding #onbBody.entry-body .entry-tally__box{border:1px solid var(--rule);border-color:var(--ink)}
+}
+
+/* Numbers: the days in one row, minutes three over two, values with a small unit. */
+#onboarding #onbBody.entry-body{container-type:inline-size}
+#onboarding #onbBody.entry-body .onb__opts.onb__num{margin-top:var(--space-14);gap:var(--space-8)}
+#onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryDaysLab"]{grid-template-columns:repeat(5,minmax(0,1fr))}
+#onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryDaysLab"] .radio-card__cap{
+  position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0
+}
+#onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryMinLab"]{grid-template-columns:repeat(6,minmax(0,1fr))}
+#onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryMinLab"]>.radio-card{grid-column:span 2}
+#onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryMinLab"]>.radio-card:nth-child(n+4){grid-column:span 3}
+#onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryMinLab"] .radio-card__body{flex-direction:row;align-items:baseline;gap:var(--space-4)}
+#onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryMinLab"] .radio-card__cap{font-family:var(--font-training-data);font-size:var(--font-size-caption)}
+#onboarding #onbBody.entry-body .onb__opts.onb__num .radio-card{min-height:64px;border-color:var(--rule-strong);border-radius:var(--radius-control)}
+#onboarding #onbBody.entry-body .onb__opts.onb__num .radio-card__title{font-size:var(--font-size-focal-data);font-weight:var(--weight-regular)}
+#onboarding #onbBody.entry-body .onb__opts.onb__num .radio-card.is-selected .radio-card__title{font-weight:var(--weight-semibold)}
+@container (max-width:17rem){
+  #onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryDaysLab"],
+  #onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryMinLab"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryMinLab"]>.radio-card,
+  #onboarding #onbBody.entry-body .onb__opts.onb__num[aria-labelledby="entryMinLab"]>.radio-card:nth-child(n+4){grid-column:auto}
+}
+
+/* The pinned status line: a hollow mark while blocked, an orange one once recorded. */
+#onboarding .onb__nav .onb__reason{
+  display:flex;align-items:center;gap:var(--space-8);font-family:var(--font-training-data);font-size:var(--font-size-caption);
+  letter-spacing:.02em;color:var(--color-disabled-reason)
+}
+#onboarding .onb__nav .onb__reason[hidden]{display:none}
+#onboarding .onb__nav .onb__reason::before{
+  content:"";flex:none;width:8px;height:8px;border-radius:50%;border:1.5px solid currentColor
+}
+#onboarding .onb__nav .onb__reason.is-recorded{color:var(--ink)}
+#onboarding .onb__nav .onb__reason.is-recorded::before{border-color:var(--accent);background:var(--accent)}
+#onboarding:has(#onbBody) .onb__nav #onbNext:disabled{background:transparent;color:var(--color-disabled-reason);border:1px solid var(--rule-strong)}
+
+/* The review reads as the program's ledger page. */
+#onboarding #onbBody.entry-body .entry__eyebrow{
+  display:flex;align-items:center;gap:var(--space-12);font-family:var(--font-training-data);font-weight:var(--weight-regular);letter-spacing:.1em;color:var(--ink-soft)
+}
+#onboarding #onbBody.entry-body .entry__eyebrow::after{content:"";flex:1;height:1px;background:var(--rule)}
+#onboarding #onbBody.entry-body .entry__progname{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-spacing:-.015em}
+#onboarding #onbBody.entry-body .entry__strip{
+  display:flex;flex-wrap:wrap;gap:var(--space-4) var(--space-14);padding:var(--space-8) 0 0;border:0
+}
+#onboarding #onbBody.entry-body .entry__strip-cell{flex-direction:row;align-items:baseline;gap:var(--space-4);padding:0}
+#onboarding #onbBody.entry-body .entry__strip-value{font-size:var(--font-size-control);font-weight:var(--weight-semibold)}
+#onboarding #onbBody.entry-body .entry__strip-unit{font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--ink-soft)}
+#onboarding #onbBody.entry-body .entry__section-head--ledger{
+  display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12);
+  margin-top:var(--space-26);padding-bottom:var(--space-12);border-bottom:1px solid var(--ink);
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-regular);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)
+}
+#onboarding #onbBody.entry-body .entry__section-count{flex:none}
+#onboarding #onbBody.entry-body .entry__section-head--ledger+.onb__review{margin-top:var(--space-14)}
+@media (prefers-reduced-motion: reduce){
+  #onboarding #onbBody.entry-body .entry-tally__box,#onboarding #onbBody.entry-body .entry-tally__cell.is-fresh .entry-tally__box::after{transition:none;animation:none}
+}
+
+/* Answers so far: a quiet Mono line of tags, not pills. */
+#onboarding #onbBody.entry-body .entry-rail{gap:var(--space-8);margin:var(--space-14) 0 0}
+#onboarding #onbBody.entry-body .entry-rail__chip{
+  min-height:var(--control-target);padding:var(--space-4) var(--space-12);border:1px solid var(--rule-strong);border-radius:var(--radius-compact);
+  background:transparent;font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--ink-soft);box-shadow:none
+}
+#onboarding #onbBody.entry-body .entry-rail__chip .entry-rail__text{font-family:var(--font-training-data);font-size:var(--font-size-caption)}
+@media (hover: hover) and (pointer: fine){
+#onboarding #onbBody.entry-body .entry-rail__chip:hover{border-color:var(--ink);color:var(--ink);background:transparent}
+}
+/* The carried goal is a ruled ledger line with a text Change. */
+#onboarding #onbBody.entry-body .entry__carried{border-color:var(--rule);padding:var(--space-12) 0}
+#onboarding #onbBody.entry-body .entry__carried-k{font-family:var(--font-training-data);font-weight:var(--weight-regular);letter-spacing:.1em;color:var(--ink-soft)}
+#onboarding #onbBody.entry-body .entry__carried-change{
+  border:0;background:transparent;box-shadow:none;padding:var(--space-8) 0 var(--space-8) var(--space-12);
+  color:var(--ink);text-decoration:underline;text-underline-offset:3px;font-weight:var(--weight-medium)
+}
+
+#onboarding.entry-hub-active:not(.program-editor-onboarding) .onb__mark{margin-left:var(--space-4)}
+/* The hub's goal question is the mockup's first entry: flush ruled rows. */
+#onboarding #onbBody.entry-body .entry-feature__goals{gap:0;border-top:1px solid var(--ink);margin-top:var(--space-12)}
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal{
+  min-height:80px;padding:var(--space-18) var(--space-4) var(--space-18) 0;gap:var(--space-18);
+  border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent;box-shadow:none
+}
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal::before{font-size:var(--font-size-focal-data);font-weight:var(--weight-regular);min-width:2ch}
+@media (hover: hover) and (pointer: fine){
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal:hover{background:var(--well)}
+}
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal:active{background:color-mix(in srgb,var(--ink) 6%,var(--well))}
+#onboarding #onbBody.entry-body .entry-feature{border:0;padding:0;background:transparent}
+#onboarding #onbBody.entry-body .entry-feature__q{font-size:var(--font-size-section-title);line-height:var(--line-tight)}
+#onboarding #onbBody.entry-body .entry-feature__eyebrow{font-family:var(--font-training-data);font-weight:var(--weight-regular);letter-spacing:.1em;color:var(--ink-soft)}
+#onboarding #onbBody.entry-body .entry-rail__chip{padding:var(--space-4) var(--space-8)}

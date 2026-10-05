@@ -1633,7 +1633,13 @@ window.__entrySel = () => {
     };
   });
   const idle = [...document.querySelectorAll("#onbBody .onb__list .radio-card:not(.is-selected)")].map((card) => accents.includes(trip(getComputedStyle(card, "::before").color)));
-  return { ink, cards, idleAccent: idle.some(Boolean) };
+  const tally = [...document.querySelectorAll("#onbBody .entry-tally__cell")].map((cell) => {
+    const box = cell.querySelector(".entry-tally__box"), cs = getComputedStyle(box);
+    return { value: cell.dataset.entryVal, role: cell.getAttribute("role"), checked: cell.getAttribute("aria-checked"), selected: cell.classList.contains("is-selected"),
+      bg: trip(cs.backgroundColor), marks: cell.querySelector(".entry-tally__marks")?.textContent, caret: getComputedStyle(box, "::after").content !== "none",
+      paints: paints(box) };
+  });
+  return { ink: trip(ink), inkRaw: ink, cards, tally, idleAccent: idle.some(Boolean) };
 };
 window.__entryRects = () => [...document.querySelectorAll("#onbBody .radio-card")].map((c) => { const r = c.getBoundingClientRect(); return [Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; });
 `;
@@ -1651,35 +1657,38 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await page.evaluate(() => window.startOnboarding("settings"));
   await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
 
-  phase(`O2: a chosen row is a ruled ledger entry: ink edge, ink tick, orange index${tag}`);
+  phase(`O2: experience is a tally strip; a chosen row is a flush ledger entry with an ink tick and an orange index${tag}`);
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
   await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   const list = await page.evaluate(() => window.__entrySel());
-  const ruled = (c) => /3px 0px 0px 0px inset/.test(c.shadow) && c.shadow.includes(list.ink);
-  assert(list.cards.length === 2, "the two chosen rows are selected cards", String(list.cards.length));
-  assert(list.cards.every(ruled), "each selected row is ruled in ink on its leading edge", JSON.stringify(list.cards.map((c) => c.shadow)));
-  assert(list.cards.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
-    "the card and its tick box stay ink: no accent on the card, its mark or its icon", JSON.stringify(list.cards.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
-  assert(list.cards.every((c) => c.indexAccent) && !list.idleAccent,
-    "the chosen row's index is the one orange mark, and no unchosen index is orange", JSON.stringify(list.cards.map((c) => [c.index, c.indexAccent])));
-  const tally = list.cards.find((c) => c.value === "6_to_24m");
-  assert(tally && tally.index === '"|||"', "experience counts in tally marks", JSON.stringify(tally?.index));
-  const fresh = list.cards.filter((c) => c.fresh), carried = list.cards.filter((c) => !c.fresh);
-  assert(fresh.length === 1 && fresh[0].value === "most" && carried.length === 1,
-    "only the answer just picked is fresh; the earlier answer is carried", JSON.stringify(list.cards.map((c) => [c.value, c.fresh])));
-  if (reduced) assert(list.cards.every((c) => c.tick?.animation === "none" && parseFloat(c.tick?.offset) === 0),
-    "under reduced motion every tick is drawn at once", JSON.stringify(list.cards.map((c) => c.tick)));
-  else assert(fresh[0].tick?.animation === "ledger-tick" && carried[0].tick?.animation === "none" && parseFloat(carried[0].tick?.offset) === 0,
-    "the fresh tick draws its stroke; a carried tick is already drawn", JSON.stringify(list.cards.map((c) => c.tick)));
-  assert(list.cards.every((c) => c.transform === "none"), "a selected card does not lift", JSON.stringify(list.cards.map((c) => c.transform)));
+  const chosenCell = list.tally.find((c) => c.selected);
+  assert(list.tally.length === 4 && list.tally.every((c) => c.role === "radio") && list.tally.map((c) => c.marks).join(",") === "|,||,|||,||||",
+    "experience is four radio cells counted in tally marks", JSON.stringify(list.tally));
+  assert(chosenCell?.value === "6_to_24m" && chosenCell.checked === "true" && chosenCell.bg === list.ink && chosenCell.caret && !chosenCell.paints.length,
+    "the chosen cell is inked with a caret under it, and paints no accent", JSON.stringify(chosenCell));
+  assert(list.tally.filter((c) => !c.selected).every((c) => c.checked === "false" && !c.caret), "the other cells stay open", JSON.stringify(list.tally));
+  const row = list.cards.find((c) => c.value === "most");
+  assert(list.cards.length === 1 && row, "the chosen consistency answer is the one selected row", JSON.stringify(list.cards.map((c) => c.value)));
+  assert(row.shadow === "none" && row.kind === "row", "a chosen row is flush: no ring and no box", JSON.stringify(row.shadow));
+  assert(!row.cardPaints.length && !row.markPaints.length && !row.iconPaints.length,
+    "the row and its tick box stay ink: no accent on the card, its mark or its icon", JSON.stringify([row.cardPaints, row.markPaints, row.iconPaints]));
+  assert(row.indexAccent && !list.idleAccent, "the chosen row's index is the one orange mark, and no unchosen index is orange", JSON.stringify(row.index));
+  if (reduced) assert(row.tick?.animation === "none" && parseFloat(row.tick?.offset) === 0, "under reduced motion the tick is drawn at once", JSON.stringify(row.tick));
+  else assert(row.fresh && row.tick?.animation === "ledger-tick", "the answer just picked draws its tick stroke", JSON.stringify(row));
+  assert(row.transform === "none", "a selected row does not lift", JSON.stringify(row.transform));
   const sizes = await page.evaluate(() => window.__entryRects());
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="under_6m"]');
+  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="about_half"]');
+  const after = await page.evaluate(() => window.__entrySel());
+  const carried = after.cards.find((c) => c.value === "about_half");
   const resized = await page.evaluate(() => window.__entryRects());
   assert(sizes.length > 0 && sizes.length === resized.length && sizes.every((r, i) => r[0] === resized[i][0] && r[1] === resized[i][1]),
-    "choosing a different row leaves every card the same size", JSON.stringify({ sizes, resized }));
-  if (reduced) assert(list.cards.every((c) => c.maxDuration === 0), "under reduced motion the card has no transition", JSON.stringify(list.cards.map((c) => c.maxDuration)));
-  else assert(list.cards.every((c) => /box-shadow/.test(c.transition) && c.maxDuration > 0 && c.maxDuration <= 0.16),
-    "the rule arrives on the card's own box-shadow transition, 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
+    "choosing a different row leaves every row the same size", JSON.stringify({ sizes, resized }));
+  const strip = after.tally.find((c) => c.selected);
+  assert(strip?.value === "6_to_24m" && !after.tally.some((c) => c.caret && !c.selected), "the strip keeps its answer across the re-render", JSON.stringify(after.tally));
+  if (!reduced) assert(carried?.fresh && after.cards.length === 1, "only the newly picked row is fresh", JSON.stringify(after.cards.map((c) => [c.value, c.fresh])));
+  if (reduced) assert(list.cards.every((c) => c.maxDuration === 0), "under reduced motion the row has no transition", JSON.stringify(list.cards.map((c) => c.maxDuration)));
+  else assert(list.cards.every((c) => c.maxDuration > 0 && c.maxDuration <= 0.16),
+    "the row's own transition stays at 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
 
   phase(`O2: number tiles and checkbox tiles keep the ink ring and an ink mark${tag}`);
   await page.click("#onbNext");
@@ -1687,7 +1696,7 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
   await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
   const numbers = (await page.evaluate(() => window.__entrySel())).cards.filter((c) => c.kind === "number");
-  assert(numbers.length === 2 && numbers.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && !c.cardPaints.length && !c.markPaints.length),
+  assert(numbers.length === 2 && numbers.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && !c.cardPaints.length && !c.markPaints.length && c.tick?.offset && parseFloat(c.tick.offset) === 0),
     "a chosen number tile takes the 2px ink ring and an ink check chip, no accent", JSON.stringify(numbers.map((c) => [c.shadow, c.markPaints])));
   await page.click("#onbNext");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
@@ -1697,9 +1706,9 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   assert(checks.length >= 3, "the commercial gym presets some equipment boxes", String(checks.length));
   assert(checks.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
     "no selected checkbox card, mark or icon paints the accent", JSON.stringify(checks.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
-  assert(boxes.cards.filter((c) => c.kind === "tile").every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.ink)) &&
-    boxes.cards.filter((c) => c.kind === "row").every((c) => /3px 0px 0px 0px inset/.test(c.shadow) && c.shadow.includes(boxes.ink)),
-    "tiles draw the ink ring and rows the ink edge", JSON.stringify(boxes.cards.map((c) => [c.kind, c.shadow])));
+  assert(boxes.cards.filter((c) => c.kind === "tile").every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.inkRaw)) &&
+    boxes.cards.filter((c) => c.kind === "row").every((c) => c.shadow === "none" && c.indexAccent),
+    "tiles draw the ink ring; the chosen environment row is flush with an orange index", JSON.stringify(boxes.cards.map((c) => [c.kind, c.shadow, c.indexAccent])));
   assert(errors.length === 0, `no page errors in the choice card run${tag}`, errors.join(" | "));
   await context.close();
 }

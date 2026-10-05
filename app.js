@@ -14938,8 +14938,9 @@ function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,ro
     `<span class="radio-card__mark" aria-hidden="true">${ENTRY_TICK_SVG}</span></button>`}
 /* A question, set as a sentence in ink. The glyph argument is kept so callers
    read the same, but a question is not a column head and carries no icon. */
-function entryGroupLab(text,_icon,attrs=""){
-  return `<p class="entry__group-lab entry__question"${attrs}><span>${esc(text)}</span></p>`}
+function entryGroupLab(text,_icon,attrs="",unit=""){
+  return `<p class="entry__group-lab entry__question"${attrs}><span>${esc(text)}</span>`+
+    (unit?`<span class="entry__question-unit" aria-hidden="true">${esc(unit)}</span>`:"")+`</p>`}
 function entryHeading(title){
   return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
 function entryLegacyBanner(){
@@ -15037,9 +15038,23 @@ function entryGoalGroup(){
     ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`),{icon:ENTRY_DESIRED_ICONS[v]})).join("")+`</div>`}
 function renderDesiredResultStep(){
   return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}`+entryGoalGroup()}
+/* Experience is a count of time, so it reads as a tally strip from less to more:
+   one bounded strip of four cells, the chosen cell inked with a caret under it,
+   and one honest line about what the answer changes. Each cell is the same
+   radio the list was (`data-entry-pick`, `role="radio"`, `aria-checked`). */
+function entryExperienceStrip(){
+  const vals=["first","under_6m","6_to_24m","over_24m"],current=entryState?.answers?.structuredExperience;
+  const cells=vals.map((v,i)=>{
+    const on=current===v,fresh=on&&entryFreshPick?.key==="structuredExperience"&&entryFreshPick.val===v;
+    return `<button type="button" class="entry-tally__cell${on?" is-selected":""}${fresh?" is-fresh":""}" data-entry-pick="structuredExperience" data-entry-val="${v}" data-entry-multi="0" role="radio" aria-checked="${on}">`+
+      `<span class="entry-tally__box" aria-hidden="true"><span class="entry-tally__marks">${"|".repeat(i+1)}</span><span class="entry-tally__n">${String(i+1).padStart(2,"0")}</span></span>`+
+      `<span class="entry-tally__label">${esc(t(`entry.background.experience.${v}`))}</span></button>`}).join("");
+  const note=current?`<p class="entry-tally__note"><b>${esc(t(`entry.ledger.tally.${current}`))}</b> ${esc(t(current==="first"?"entry.ledger.tally.first_note":"entry.ledger.tally.standard_note"))}</p>`:"";
+  return `<div class="entry-tally">`+
+    `<div class="entry-tally__scale" aria-hidden="true"><span>${esc(t("entry.ledger.tally.less"))}</span><span>${esc(t("entry.ledger.tally.history"))}</span><span>${esc(t("entry.ledger.tally.more"))}</span></div>`+
+    `<div class="entry-tally__cells" role="radiogroup" aria-labelledby="entryExpLab">${cells}</div>${note}</div>`}
 function entryBackgroundGroups(){
-  return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
-    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
+  return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+entryExperienceStrip()+
     entryGroupLab(t("entry.background.consistency.label"),"cal",` id="entryConLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryConLab">`+
     ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
 /* The "about" screen: the goal the hub already asked is carried as a band with
@@ -15057,11 +15072,10 @@ function renderBackgroundStep(){
 /* Schedule values are numbers, so they are set as numbers: a Mono value over its
    unit, in a grid of equal cards with no radio mark. Nothing is preselected. */
 function entryScheduleGroups({browse=false}={}){
-  const minuteUnit=n=>t(`entry.schedule.minutes.${n}`).replace(/^[\d+]+\s*/,"").trim()||t(`entry.schedule.minutes.${n}`);
-  return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
+  return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`,t("entry.ledger.unit.days"))+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
-    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
-    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`+
+    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`,t("entry.ledger.unit.minutes"))+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
+    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),t("entry.ledger.unit.min"))).join("")+`</div>`+
     (browse?"":entryGroupLab(t("entry.schedule.rest.label"),"timer",` id="entryRestLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryRestLab">`+
       entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
       [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
@@ -15928,7 +15942,7 @@ function renderResultStep(){
     renderEntryFactsStrip(preview)+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    `<h2 class="entry__section-head" id="entryWeekLab">${esc(t("entry.preview.days"))}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
+    `<h2 class="entry__section-head entry__section-head--ledger" id="entryWeekLab">${esc(t("entry.preview.days"))}${entrySlipCount(preview)}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
     renderEntryChips()+
     `<section class="entry__why" aria-labelledby="entryWhyLab"><h2 class="entry__section-head" id="entryWhyLab">${esc(t("entry.result.why"))}</h2>`+
     `<ul class="entry__rows entry__rows--reasons">${whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")}</ul>`+
@@ -16216,7 +16230,7 @@ function renderPreviewStep({merged=false}={}){
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p></div>`+
     renderEntryFactsStrip(preview)+
     renderEntryChangeStatement(entryChange)+
-    `<p class="entry__group-lab entry__section-head">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`+
+    `<p class="entry__group-lab entry__section-head entry__section-head--ledger">${esc(t("entry.preview.days"))}${entrySlipCount(preview)}</p><div class="onb__review">${days.join("")}</div>`+
     /* Each facet keeps its heading element: the review's heading outline is how
        a screen-reader user jumps between Priorities, Equipment, Progression and
        Compromises, so the redesign restyles `h4` rather than demoting it. */
@@ -16228,6 +16242,9 @@ function renderPreviewStep({merged=false}={}){
    sentence the review always read (exercises, working sets, minutes), set as
    short Mono tags for the eye; the sentence itself stays as the slip's
    accessible text. Focus tags are the day's first three primary muscles. */
+function entrySlipCount(preview){
+  const n=(preview?.days||[]).length;
+  return n?`<span class="entry__section-count" aria-hidden="true">${monoNums(tOne("entry.ledger.slips",n))}</span>`:""}
 function entryDayMuscles(exercises){
   const seen=[];
   for(const ex of exercises){
@@ -16459,6 +16476,15 @@ function setupEntryRovingFocus(){
 /* The hub is also what a resumable draft opens on (Q633): the saved route and
    step are named on a card there, and nothing behind it is chosen until the
    lifter resumes or starts over. */
+function entryRecordedLine(stepId){
+  const a=entryState?.answers||{};
+  let what="";
+  if(stepId==="desired_result"&&a.desiredResult)what=t(`entry.desired_result.${a.desiredResult}.label`);
+  else if(stepId==="background"&&a.structuredExperience)what=t(`entry.background.experience.${a.structuredExperience}`);
+  else if(stepId==="schedule"&&a.daysPerWeek&&a.sessionMinutes)what=t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>=90?"90+":a.sessionMinutes});
+  else if(stepId==="environment"&&a.environment?.kind)what=entryEnvironmentLabel();
+  else if(stepId==="priorities")what=entryPriorityLabel();
+  return what?`${t("entry.ledger.recorded")} · ${what}`:""}
 function entryHubMode(){
   return !entryState?.route||entryState.step==="entry"||entryUiNotice==="resume"}
 /* Earlier answers, each one tap from being changed (G's answer rail). Question
@@ -16533,6 +16559,10 @@ function renderOnboarding(){
   if(step){const stepText=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
     if(step.textContent!==stepText)step.textContent=stepText;
     step.classList.toggle("hidden",!showProgress)}
+  /* The ledger counter: the section as "01/04", Mono, for the eye only. The live
+     #onbStepLabel above still says it in words for assistive technology. */
+  const counter=$("#onbCounter");
+  if(counter)counter.innerHTML=showProgress?`<b>${String(progress.n).padStart(2,"0")}</b>/${String(progress.total).padStart(2,"0")}`:"";
   const seg=$("#onbSegbar");
   if(seg){const total=showProgress?progress.total:0,current=progress.n-1;
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
@@ -16553,7 +16583,11 @@ function renderOnboarding(){
     next.disabled=!!pendingReason||blocked;
     /* A blocked primary says why, in text above it, and drops its arrow. */
     const showReason=blocked&&!pendingReason;
-    if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":"entry.pinned.reason"):""}
+    /* The ledger status line: a blocked primary says why (hollow mark); an
+       answered section reads back what was recorded (orange mark). */
+    const recorded=!showReason&&!pendingReason&&!hideNext&&!isEditor?entryRecordedLine(stepId):"";
+    if(reason){reason.hidden=!showReason&&!recorded;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":"entry.pinned.reason"):recorded;
+      reason.classList.toggle("is-recorded",!!recorded)}
     next.classList.toggle("btn--noarrow",next.disabled);
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
     else if(showReason)next.setAttribute("aria-describedby","onbNextReason");
@@ -16561,6 +16595,8 @@ function renderOnboarding(){
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
   const rail=!hub&&!isEditor?renderEntryRail():"";
+  /* Each questionnaire section is a ledger entry: "Entry 01 · About you". */
+  if(showProgress&&!isEditor)html+=`<p class="entry__ledger-k" aria-hidden="true">${monoNums(t("entry.ledger.entry",{n:String(progress.n).padStart(2,"0")}))} · ${esc(t(`entry.ledger.section.${stepId}`))}</p>`;
   if(hub)html+=renderEntryHub();
   else if(stepId==="desired_result")html+=entryRailAfterTitle(renderDesiredResultStep(),rail);
   else if(stepId==="background")html+=entryRailAfterTitle(renderBackgroundStep(),rail);
