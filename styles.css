@@ -7786,8 +7786,7 @@ body.is-entry-editor #entryProgramName,
 #onboarding #onbBody.entry-body .entry-tally__cell:not(.is-selected):hover .entry-tally__box{background:var(--well)}
 }
 #onboarding #onbBody.entry-body .entry-tally__cell:active:not(.is-selected) .entry-tally__box{background:color-mix(in srgb,var(--ink) 8%,var(--well))}
-#onboarding #onbBody.entry-body .entry-tally__cell:focus-visible{outline:none}
-#onboarding #onbBody.entry-body .entry-tally__cell:focus-visible .entry-tally__box{outline:var(--control-focus-outline);outline-offset:2px;z-index:1}
+#onboarding #onbBody.entry-body .entry-tally__cell:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;position:relative;z-index:1}
 #onboarding #onbBody.entry-body .entry-tally__note{
   margin:var(--space-8) 0 0;padding-top:var(--space-14);border-top:1px solid var(--rule);
   font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--ink-soft)
