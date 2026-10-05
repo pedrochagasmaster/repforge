@@ -14920,16 +14920,22 @@ function entryRouteLabel(route){
   const labels={recommend:t("entry.route.recommend"),custom:t("entry.route.custom"),browse:t("entry.route.browse"),
     build:t("entry.route.build"),import:t("entry.route.import"),shared:t("entry.route.shared")};
   return labels[route]||t("entry.eyebrow")}
+/* Ledger selection: the mark is a tick box, and the tick is a drawn stroke. It
+   draws only on the answer the lifter just picked (`is-fresh`); a re-render that
+   carries an earlier answer shows its tick already drawn. */
+const ENTRY_TICK_SVG=`<svg class="radio-card__tick" viewBox="0 0 24 24" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1"/></svg>`;
+let entryFreshPick=null;
 function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,role="radio",icon=""}={}){
   const current=entryState?.answers||{};
   const isSelected=selected!=null?selected:multi?(current[key]||[]).includes(val):current[key]===val;
   const checked=isSelected?"true":"false";
   const disabledCopy=disabled?` aria-label="${esc(`${label}. ${t("entry.choice.disabled")}`)}" aria-describedby="entryChoiceDisabledNote"`:
     "";
-  return `<button type="button" class="radio-card${isSelected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""}${disabledCopy} role="${esc(role)}" aria-checked="${checked}">`+
+  const fresh=isSelected&&entryFreshPick&&entryFreshPick.key===key&&entryFreshPick.val===String(val);
+  return `<button type="button" class="radio-card${isSelected?" is-selected":""}${fresh?" is-fresh":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""}${disabledCopy} role="${esc(role)}" aria-checked="${checked}">`+
     (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
     `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
-    `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
+    `<span class="radio-card__mark" aria-hidden="true">${ENTRY_TICK_SVG}</span></button>`}
 /* A question, set as a sentence in ink. The glyph argument is kept so callers
    read the same, but a question is not a column head and carries no icon. */
 function entryGroupLab(text,_icon,attrs=""){
@@ -15242,7 +15248,7 @@ function entryPrioritiesBody(){
       `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
       ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
   const primary=a.primaryMuscles||[];
-  return `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
+  return `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true">${ENTRY_TICK_SVG}</span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
     (primary.length>=2?`<p class="entry__hint entry__limit" id="entryPrimaryLimit">${esc(t("entry.priorities.limit"))}</p>`:"")+
@@ -16216,21 +16222,45 @@ function renderPreviewStep({merged=false}={}){
        Compromises, so the redesign restyles `h4` rather than demoting it. */
     `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
     renderEntryMore()+renderEntryPinned({progressionIssue})}
-/* The week is a stack of hairline bands. The first day is open, so the first
+/* The week is a stack of ledger slips. The first day is open, so the first
    exercise is on the first screen (K-32); the others fold away, except a day
-   that holds an exercise the last change added. */
+   that holds an exercise the last change added. A slip's badges are the
+   sentence the review always read (exercises, working sets, minutes), set as
+   short Mono tags for the eye; the sentence itself stays as the slip's
+   accessible text. Focus tags are the day's first three primary muscles. */
+function entryDayMuscles(exercises){
+  const seen=[];
+  for(const ex of exercises){
+    const m=String(ex?.primary||libraryEntry(ex?.libraryId)?.primary||"").split(",")[0].trim();
+    if(m&&!seen.includes(m))seen.push(m);
+    if(seen.length>=3)break}
+  return seen}
 function renderEntryWeek(preview){
   const added=new Set(entryChangeNow()?.added||[]);
   return (preview.days||[]).map((day,index)=>{
     const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
     const dayName=previewDayLabel(day,index,preview.programStructure);
     const open=index===0||exercises.some(exercise=>added.has(exercise.id));
-    return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
-    `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`)}</span></summary>`+
-    exercises.map(ex=>{const isNew=added.has(ex.id);
-      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
+    const sentence=`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`;
+    const badges=[day.estimateMinutes?t("entry.preview.badge_minutes",{n:day.estimateMinutes}):"",
+      entryExerciseCountLabel(exercises.length),t("entry.preview.sets",{n:sets})].filter(Boolean);
+    const muscles=entryDayMuscles(exercises);
+    /* The slip's eyebrow counts the day; a day whose name already is "Day n" is not counted twice. */
+    const dayN=t("program.default.day",{n:index+1});
+    const eyebrow=[dayName.trim()===dayN?"":dayN,index===0?t("entry.preview.up_next"):""].filter(Boolean).join(" · ");
+    return `<details class="onb__day onb__slip"${open?" open":""}><summary class="onb__dayname">`+
+    `<span class="onb__daynum" aria-hidden="true">${String(index+1).padStart(2,"0")}</span>`+
+    `<span class="onb__slip-title">${eyebrow?`<span class="onb__slip-k">${esc(eyebrow)}</span>`:""}`+
+    `<span class="onb__slip-name">${esc(dayName)}</span></span>`+
+    `<span class="visually-hidden">${monoNums(sentence)}</span>`+
+    `<span class="onb__slip-tags" aria-hidden="true">${badges.map(b=>`<span class="onb__badge">${esc(b)}</span>`).join("")}`+
+    muscles.map(m=>`<span class="onb__badge onb__badge--focus">${esc(muscleLabel(m))}</span>`).join("")+`</span></summary>`+
+    `<div class="onb__slip-body">`+
+    exercises.map((ex,i)=>{const isNew=added.has(ex.id);
+      return `<div class="onb__ex${isNew?" is-new":""}"><span class="onb__ex-i" aria-hidden="true">${String(i+1).padStart(2,"0")}</span><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}`+
+        (ex.sets!=null?`<span class="onb__ex-lead" aria-hidden="true"></span><span class="onb__ex-dose"><span class="visually-hidden"> · </span>${ex.sets} × ${ex.min}–${ex.max}</span>`:"")+`</div>`}).join("")+
     (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
-    `</details>`})}
+    `</div></details>`})}
 function renderEntryMore(){
   return `<section class="entry__more" aria-labelledby="entryMoreLab"><p class="entry__group-lab entry__section-head" id="entryMoreLab">${esc(t("entry.preview.more"))}</p>`+
     `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`+
@@ -16475,6 +16505,7 @@ function renderOnboarding(){
     onboarding.scrollTop=0;onboarding.scrollLeft=0;
   }
   entryVisibleScreenKey=screenKey;
+  if(!sameScreen)endEntryPrint({build:false});
   const hub=entryHubMode();
   const resuming=entryUiNotice==="resume";
   const route=hub?null:entryState.route,stepId=hub?"entry":entryState.step;
@@ -16551,6 +16582,7 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
+  entryFreshPick=null;
   if(stepId==="result"&&!isEditor)playEntryBuild(body);
   const environmentCorrection=body.querySelector(".entry__correct");
   if(environmentCorrectionOpen&&environmentCorrection)environmentCorrection.open=true;
@@ -16581,19 +16613,73 @@ function renderOnboarding(){
   // than on the landing that opens it. Not while a saved draft is asking first.
   if(hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
   syncEntryDialog()}
-/** O3: draw the generated program in reading order, one block every 55ms
+/** O3: a fresh generation is built in two beats. First the ledger prints: a
+ *  full-screen interstitial (`#entryPrint`) ticks through four lines built from
+ *  the lifter's own answers, about 2.5 seconds in all. It is decorative and
+ *  aria-hidden: the review is already rendered underneath it, focus is on the
+ *  program's name, and a tap or any key ends it at once. A tap is taken on
+ *  `click`, so the press that skips can never land on Use this program. Then the
+ *  program is drawn in reading order, one block every 55ms
  *  (`.motion-build > .motion-build-item`, `--build-i` counting from zero): the
  *  name, where it came from, the four facts, what just changed, the week's
  *  heading and then each day. The answers, the reasons and every control stay
  *  out of it, so nothing a lifter can press is held back or disabled. The
  *  classes come off when the last block lands, and a render that follows draws
- *  the program at rest. Reduced motion draws it all at once with no classes. */
+ *  the program at rest. Reduced motion shows no interstitial and draws it all at
+ *  once with no classes. */
+const ENTRY_PRINT_STEP_MS=560,ENTRY_PRINT_HOLD_MS=320;
+let entryPrintRun=null;
+function entryPrintLines(){
+  const a=entryState?.answers||{};
+  const minutes=a.sessionMinutes>=90?"90+":a.sessionMinutes;
+  return [t("entry.print.read"),
+    a.daysPerWeek?t("entry.print.split",{days:a.daysPerWeek}):null,
+    minutes?t("entry.print.fit",{minutes}):null,
+    t("entry.print.volume")].filter(Boolean)}
+function endEntryPrint({build=true}={}){
+  const run=entryPrintRun;if(!run)return;
+  entryPrintRun=null;
+  run.timers.forEach(clearTimeout);
+  document.removeEventListener("keydown",run.onKey,true);
+  run.el.remove();
+  if(build&&run.body.isConnected)runEntryBuild(run.body)}
 function playEntryBuild(body){
   const armed=entryBuildArmed;entryBuildArmed=null;
   const result=entryState?.result;
   if(!armed||!result?.fingerprint||armed.draftId!==entryState.draftId||armed.fingerprint!==result.fingerprint||!beatsOn())return;
+  if(!body.querySelector("#entryCandidateReview > .onb__review"))return;
+  endEntryPrint({build:false});
+  // Without the motion layer, beatsOn() cannot see the setting, so ask the media query too.
+  if(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches)return;
+  const host=$("#onboarding")||document.body;
+  const lines=entryPrintLines();
+  const el=document.createElement("div");
+  el.className="entry-print";el.id="entryPrint";el.setAttribute("aria-hidden","true");
+  el.style.setProperty("--print-steps",String(lines.length));
+  el.style.setProperty("--print-step",`${ENTRY_PRINT_STEP_MS}ms`);
+  el.innerHTML=`<div class="entry-print__inner">`+
+    `<p class="entry-print__eyebrow">${esc(entrySourceLabel())}</p>`+
+    `<p class="entry-print__title">${esc(t("entry.print.title"))}</p>`+
+    `<div class="entry-print__paper">${Array.from({length:6},(_,i)=>`<span class="entry-print__rule" style="--rule-i:${i}"></span>`).join("")}</div>`+
+    `<ol class="entry-print__steps">${lines.map(line=>`<li class="entry-print__step"><span class="entry-print__time">—</span>`+
+      `<span class="entry-print__label">${esc(line)}</span><span class="entry-print__tickbox">${ENTRY_TICK_SVG}</span></li>`).join("")}</ol>`+
+    `<p class="entry-print__skip">${esc(t("entry.print.skip"))}</p></div>`;
+  host.appendChild(el);
+  /* The key that ends the print does only that: an Escape must not also open Cancel. */
+  const run={el,body,timers:[],onKey:event=>{event.preventDefault();event.stopPropagation();endEntryPrint()}};
+  entryPrintRun=run;
+  el.addEventListener("click",()=>endEntryPrint());
+  document.addEventListener("keydown",run.onKey,true);
+  const steps=[...el.querySelectorAll(".entry-print__step")];
+  const mark=i=>{
+    steps.forEach((step,n)=>{step.classList.toggle("is-done",n<i);step.classList.toggle("is-active",n===i)});
+    if(i>0)steps[i-1].querySelector(".entry-print__time").textContent=`${(i*ENTRY_PRINT_STEP_MS/1000).toFixed(1)}s`};
+  mark(0);
+  for(let i=1;i<=steps.length;i++)run.timers.push(setTimeout(()=>mark(i),i*ENTRY_PRINT_STEP_MS));
+  run.timers.push(setTimeout(()=>endEntryPrint(),steps.length*ENTRY_PRINT_STEP_MS+ENTRY_PRINT_HOLD_MS))}
+function runEntryBuild(body){
   const review=body.querySelector("#entryCandidateReview"),week=review?.querySelector(":scope > .onb__review");
-  if(!review||!week)return;
+  if(!review||!week||!beatsOn())return;
   const lead=[...review.children].filter(el=>el.matches(".entry__progname,.entry__source,.entry__strip,#entryChange,#entryWeekLab"));
   const items=[...lead,...week.children];
   items.forEach((el,i)=>{el.classList.add("motion-build-item");el.style.setProperty("--build-i",String(i))});
@@ -16731,6 +16817,7 @@ function wireEntryDom(){
   });
   $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
     const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";
+    entryFreshPick={key,val:String(raw)};
     if(key==="environment"){
       const next=ProgramEntryAdapter?.defaultEnvironment?.(raw)||{kind:raw,equipment:[],capabilities:[]};
       entryPatchAnswers({environment:next});

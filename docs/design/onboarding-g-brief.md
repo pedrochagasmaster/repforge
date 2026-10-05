@@ -248,6 +248,18 @@ comment 5927122354, and Plan 064 §8. They are not changes to G's intent.
 - Selection ink. Entry selections (selected option ring, featured Recommend
   outline, open chip) use the quiet ink selection from slice R1b, not the
   accent. The orange budget of Plan 064 §8.8 holds on entry surfaces.
+- Ledger onboarding (owner decision, 2026-10-05). The entry questions, the
+  generated review and the step between them take the Ledger direction from
+  `docs/design/onboarding-experiments/a-ledger.html`: ruled answer rows with a
+  Mono index (tally marks for experience), a drawn ink tick on the answer just
+  picked, the chosen row's index in `--color-action-text` as the screen's one
+  orange mark, a full-screen building print before a fresh generation's review
+  (tap or any key ends it; none under reduced motion), and the week as
+  perforated slips with Mono badges and focus tags. This supersedes the
+  selection-ink rule above for the chosen row's index and Q-E's "no check beat"
+  on these surfaces; the card, its mark and its icon stay ink. Route graph,
+  step IDs, K-25 to K-32 and the facts strip are unchanged. The motion record is
+  O2 and O3 in `interaction-runtime-audit.md`.
 - Scale snapping. G's weight 650, spacing 20 and 28 and row heights 52 and 68
   snap to the existing weight, spacing and control-height tokens. A value
   that cannot snap stops the slice.

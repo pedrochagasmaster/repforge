@@ -175,6 +175,10 @@
      the contract's 2px inset recipe; it adds no width. */
   --boundary-selected-quiet:var(--ink);
   --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  /* Ledger: a chosen ruled row is ruled in ink on its leading edge; a slip sits on one hairline; an added exercise carries the accent edge. */
+  --elevation-ledger-ruled-shadow:inset 3px 0 0 var(--boundary-selected-quiet);
+  --elevation-ledger-slip-shadow:0 1px 0 var(--rule-strong);
+  --elevation-ledger-new-shadow:inset 3px 0 0 var(--accent);
   /* Decorative separator drawn on --surface (sheets, the shelf). Never the sole
      cue for a required mark. */
   --rule-on-surface:var(--rule);
@@ -7478,3 +7482,182 @@ body.is-entry-editor #entryProgramName,
   position:relative;background:var(--surface);background-image:none;border:2px solid var(--boundary-selected-quiet)
 }
 #reviewPanel .radio-card.is-selected .radio-card__mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--boundary-selected-quiet)}
+
+/* ==== Ledger: the setup questionnaire, the building print and the slips ====
+   The entry flow reads as one training logbook (owner pick, 2026-10-05, which
+   supersedes Q-E's "quiet ring only" for these surfaces). An answer is a ruled
+   entry with a Mono index; picking it draws an ink tick in its box, rules the
+   row's leading edge in ink and turns the index orange (the screen's one orange
+   mark). Experience counts in tally marks. Numbers stay numeric tiles that take
+   an ink check chip. Groups stay bounded surfaces. Every colour is a token, so
+   dark is the same token swap as the rest of the app. */
+#onboarding #onbBody.entry-body .onb__opts{counter-reset:ledger}
+#onboarding #onbBody.entry-body :is(.onb__list,.onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none))>.radio-card::before{
+  counter-increment:ledger;content:counter(ledger,decimal-leading-zero);flex:none;min-width:2.2ch;
+  font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-medium);
+  line-height:1;letter-spacing:0;color:var(--ink-faint);font-variant-numeric:tabular-nums;transition:color .15s ease
+}
+#onboarding #onbBody.entry-body :is(.onb__list,.onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none))>.radio-card[data-entry-pick="structuredExperience"]::before{min-width:3.2ch;letter-spacing:-.12em;font-weight:var(--weight-semibold)}
+#onboarding #onbBody.entry-body :is(.onb__list,.onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none))>.radio-card[data-entry-pick="structuredExperience"][data-entry-val="first"]::before{content:"|"}
+#onboarding #onbBody.entry-body :is(.onb__list,.onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none))>.radio-card[data-entry-pick="structuredExperience"][data-entry-val="under_6m"]::before{content:"||"}
+#onboarding #onbBody.entry-body :is(.onb__list,.onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none))>.radio-card[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]::before{content:"|||"}
+#onboarding #onbBody.entry-body :is(.onb__list,.onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none))>.radio-card[data-entry-pick="structuredExperience"][data-entry-val="over_24m"]::before{content:"||||"}
+#onboarding #onbBody.entry-body :is(.onb__list,.onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none))>.radio-card.is-selected::before{
+  color:var(--color-action-text)
+}
+/* The ledger index stands in for the glyph on the goal and environment rows. */
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons)>.radio-card .radio-card__icon{display:none}
+/* Ruled rows: a selected row is ruled in ink on its leading edge instead of ringed. */
+#onboarding #onbBody.entry-body .onb__list .radio-card.is-selected,
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card.is-selected{
+  box-shadow:var(--elevation-ledger-ruled-shadow);background:var(--well)
+}
+#onboarding #onbBody.entry-body .onb__list .radio-card:active:not(:disabled),
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid)>.radio-card:active:not(:disabled){
+  background:color-mix(in srgb,var(--ink) 6%,var(--well));transform:translateY(1px)
+}
+/* The tick box. A radio's box is round and a checkbox's is square, so the
+   shape still says whether a second pick replaces the first. */
+#onboarding #onbBody.entry-body .radio-card .radio-card__mark{
+  position:relative;display:grid;place-items:center;width:24px;height:24px;flex:none;
+  border:1.5px solid var(--boundary-required);border-radius:50%;background:var(--surface);background-image:none
+}
+#onboarding #onbBody.entry-body .radio-card[role="checkbox"] .radio-card__mark{border-radius:var(--radius-compact)}
+#onboarding #onbBody.entry-body .radio-card .radio-card__mark::after{content:none}
+#onboarding #onbBody.entry-body .radio-card__tick{
+  width:18px;height:18px;fill:none;stroke:var(--surface);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:1;stroke-dashoffset:1
+}
+#onboarding #onbBody.entry-body .radio-card.is-selected .radio-card__mark{
+  border-color:var(--boundary-selected-quiet);background:var(--boundary-selected-quiet)
+}
+#onboarding #onbBody.entry-body .radio-card.is-selected .radio-card__tick{stroke-dashoffset:0}
+#onboarding #onbBody.entry-body .radio-card.is-selected.is-fresh .radio-card__tick{animation:ledger-tick .28s cubic-bezier(.65,0,.35,1) both}
+@keyframes ledger-tick{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+/* Number tiles: the value stays the subject, the check rides the corner. */
+#onboarding #onbBody.entry-body .onb__num .radio-card .radio-card__mark{
+  position:absolute;top:6px;right:6px;width:20px;height:20px;border:0;background:transparent;opacity:0;
+  transform:scale(.6);transition:opacity .15s ease,transform .2s cubic-bezier(.34,1.56,.64,1)
+}
+#onboarding #onbBody.entry-body .onb__num .radio-card .radio-card__tick{width:14px;height:14px}
+#onboarding #onbBody.entry-body .onb__num .radio-card.is-selected .radio-card__mark{
+  opacity:1;transform:none;background:var(--boundary-selected-quiet);border-radius:var(--radius-compact)
+}
+#onboarding #onbBody.entry-body .onb__num .radio-card.is-selected{
+  box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
+}
+#onboarding #onbBody.entry-body .onb__grid .radio-card .radio-card__mark{width:18px;height:18px}
+#onboarding #onbBody.entry-body .onb__grid .radio-card .radio-card__tick{width:13px;height:13px}
+/* The hub's goal question counts its answers the same way. */
+#onboarding #onbBody.entry-body .entry-feature__goals{counter-reset:ledger}
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal .entry-card__icon{display:none}
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal::before{
+  counter-increment:ledger;content:counter(ledger,decimal-leading-zero);flex:none;min-width:2.2ch;align-self:center;
+  font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-medium);
+  line-height:1;color:var(--ink-faint);font-variant-numeric:tabular-nums;transition:color .15s ease
+}
+@media (hover: hover) and (pointer: fine){
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal:hover::before{color:var(--color-action-text)}
+}
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal:active::before{color:var(--color-action-text)}
+/* Progress reads as a ledger counter. */
+#onboarding #onbStepLabel{font-family:var(--font-training-data);letter-spacing:.04em}
+
+/* The print: a full-screen interstitial over a review that is already there. */
+.entry-print{
+  position:fixed;inset:0;z-index:60;display:grid;place-items:center;cursor:pointer;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
+  background:var(--bg);color:var(--ink);animation:ledger-print-in .2s ease-out both
+}
+.entry-print__inner{width:100%;max-width:400px;display:flex;flex-direction:column;gap:var(--space-16)}
+.entry-print__eyebrow{margin:0;font-family:var(--font-training-data);font-size:var(--font-size-label);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.entry-print__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);text-wrap:balance}
+.entry-print__paper{
+  display:flex;flex-direction:column;gap:10px;padding:18px 16px 14px;background:var(--surface);
+  border:1px solid var(--rule);border-radius:var(--radius-compact);
+  -webkit-mask:radial-gradient(circle at 6px 0,transparent 4px,#000 4.5px) 0 0/12px 100% repeat-x;
+  mask:radial-gradient(circle at 6px 0,transparent 4px,#000 4.5px) 0 0/12px 100% repeat-x
+}
+.entry-print__rule{
+  display:block;height:6px;border-radius:var(--radius-compact);background:var(--rule-strong);
+  transform-origin:left center;transform:scaleX(0);
+  animation:ledger-rule calc(var(--print-step) * var(--print-steps) / 6) cubic-bezier(.3,0,.2,1) both;
+  animation-delay:calc(var(--print-step) * var(--print-steps) / 6 * var(--rule-i))
+}
+.entry-print__rule:nth-child(3n){width:62%}
+.entry-print__rule:nth-child(3n+2){width:84%}
+.entry-print__steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--ink)}
+.entry-print__step{
+  display:grid;grid-template-columns:4.5ch minmax(0,1fr) 24px;align-items:center;gap:var(--space-12);
+  min-height:48px;padding:10px 0;border-bottom:1px solid var(--rule);color:var(--ink-faint);transition:color .2s ease
+}
+.entry-print__time{font-family:var(--font-training-data);font-size:var(--font-size-caption);font-variant-numeric:tabular-nums;color:var(--ink-faint)}
+.entry-print__label{font-size:var(--font-size-body);line-height:var(--line-standard)}
+.entry-print__step.is-active,.entry-print__step.is-done{color:var(--ink)}
+.entry-print__step.is-active .entry-print__label::after{
+  content:"";display:inline-block;width:.5ch;height:1em;margin-left:3px;vertical-align:-.15em;background:var(--color-action-text);
+  animation:ledger-caret .8s steps(1) infinite
+}
+.entry-print__step.is-done .entry-print__time{color:var(--ink-soft)}
+.entry-print__tickbox{display:grid;place-items:center;width:24px;height:24px;border:1.5px solid var(--rule-strong);border-radius:var(--radius-compact)}
+.entry-print__step.is-done .entry-print__tickbox{border-color:var(--ink);background:var(--ink)}
+.entry-print__tickbox .radio-card__tick{width:16px;height:16px;fill:none;stroke:var(--bg);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
+.entry-print__step.is-done .radio-card__tick{animation:ledger-tick .28s cubic-bezier(.65,0,.35,1) both}
+.entry-print__skip{margin:0;font-size:var(--font-size-caption);color:var(--ink-soft);text-align:center}
+@keyframes ledger-print-in{from{opacity:0}to{opacity:1}}
+@keyframes ledger-rule{to{transform:scaleX(1)}}
+@keyframes ledger-caret{50%{opacity:0}}
+
+/* Slips: each day is a torn ledger slip with a perforated top edge. */
+#onboarding #onbBody.entry-body .onb__day.onb__slip{
+  position:relative;padding:18px 16px 14px;background:var(--surface);border:0;border-radius:0 0 var(--radius-compact) var(--radius-compact);
+  box-shadow:var(--elevation-ledger-slip-shadow);
+  -webkit-mask:radial-gradient(circle at 6px 0,transparent 4px,#000 4.5px) 0 0/12px 100% repeat-x;
+  mask:radial-gradient(circle at 6px 0,transparent 4px,#000 4.5px) 0 0/12px 100% repeat-x
+}
+#onboarding #onbBody.entry-body .onb__review{display:flex;flex-direction:column;gap:var(--space-12);border:0}
+#onboarding #onbBody.entry-body .onb__slip>summary.onb__dayname{
+  display:grid;grid-template-columns:auto minmax(0,1fr) 24px;column-gap:var(--space-12);row-gap:var(--space-12);
+  align-items:start;padding:0;margin:0;list-style:none;min-height:44px
+}
+#onboarding #onbBody.entry-body .onb__slip>summary.onb__dayname::-webkit-details-marker{display:none}
+#onboarding #onbBody.entry-body .onb__slip .onb__daynum{
+  grid-column:1;grid-row:1;align-self:start;min-width:2ch;margin:0;padding:0;border:0;background:none;
+  font-family:var(--font-training-data);font-size:var(--font-size-focal-data);font-weight:var(--weight-regular);
+  line-height:1;color:var(--ink-soft);font-variant-numeric:tabular-nums
+}
+#onboarding #onbBody.entry-body .onb__slip:first-child .onb__daynum{color:var(--color-action-text)}
+#onboarding #onbBody.entry-body .onb__slip .onb__slip-title{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:2px;min-width:0;flex-basis:auto}
+#onboarding #onbBody.entry-body .onb__slip .onb__slip-k{
+  display:block;margin:0;font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-medium);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)
+}
+#onboarding #onbBody.entry-body .onb__slip .onb__slip-name{
+  display:block;margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);
+  letter-spacing:0;text-transform:none;color:var(--ink);overflow-wrap:anywhere
+}
+#onboarding #onbBody.entry-body .onb__slip .onb__slip-tags{grid-column:1/-1;grid-row:2;display:flex;flex-wrap:wrap;gap:6px;margin:0;flex-basis:auto}
+#onboarding #onbBody.entry-body .onb__slip .onb__badge{
+  display:inline-flex;align-items:center;min-height:26px;padding:2px 8px;margin:0;border:1px solid var(--ink);border-radius:var(--radius-compact);
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:1.2;
+  letter-spacing:0;text-transform:none;color:var(--ink);background:transparent;white-space:nowrap
+}
+#onboarding #onbBody.entry-body .onb__slip .onb__badge--focus{border-style:dashed;border-color:var(--boundary-required);color:var(--ink-soft)}
+#onboarding #onbBody.entry-body .onb__slip>summary.onb__dayname::after{top:6px;right:0;transform:rotate(90deg)}
+#onboarding #onbBody.entry-body .onb__slip[open]>summary.onb__dayname::after{transform:rotate(270deg)}
+#onboarding #onbBody.entry-body .onb__slip-body{margin-top:var(--space-12);padding-top:4px;border-top:1px dashed var(--rule-strong)}
+#onboarding #onbBody.entry-body .onb__slip .onb__ex{
+  display:flex;align-items:baseline;gap:var(--space-8);padding:8px 0;border:0;font-size:var(--font-size-body-small);color:var(--ink-soft)
+}
+#onboarding #onbBody.entry-body .onb__slip .onb__ex-i{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--ink-faint);font-variant-numeric:tabular-nums}
+#onboarding #onbBody.entry-body .onb__slip .onb__ex b{flex:0 1 auto;min-width:0;color:var(--ink);font-weight:var(--weight-medium);overflow-wrap:anywhere}
+#onboarding #onbBody.entry-body .onb__slip .onb__ex-lead{flex:1 1 12px;min-width:12px;align-self:center;border-bottom:1px dotted var(--rule-strong);transform:translateY(3px)}
+#onboarding #onbBody.entry-body .onb__slip .onb__ex-dose{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+#onboarding #onbBody.entry-body .onb__slip .onb__ex.is-new{box-shadow:var(--elevation-ledger-new-shadow);padding-left:8px}
+
+@media (prefers-reduced-motion: reduce){
+  #onboarding #onbBody.entry-body .radio-card .radio-card__tick,#onboarding #onbBody.entry-body .radio-card.is-selected.is-fresh .radio-card__tick{animation:none}
+  #onboarding #onbBody.entry-body .onb__num .radio-card .radio-card__mark{transition:none}
+  #onboarding #onbBody.entry-body .radio-card::before{transition:none}
+  .entry-print,.entry-print *{animation:none!important;transition:none!important}
+}

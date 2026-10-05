@@ -174,6 +174,11 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
  * anchors, the Progress chart) scroll to their subject on purpose.
  */
 export async function settle(page) {
+  // The setup flow's building print (#entryPrint) is a timed entrance over a
+  // review that is already rendered. Its checklist ticks slower than the quiet
+  // window below, so wait for it to end on its own (about 2.5s) rather than
+  // photographing it mid-run; a catalog frame of a review shows the review.
+  await page.waitForSelector("#entryPrint", { state: "detached", timeout: 6000 }).catch(() => {});
   // Park the pointer off-viewport first. A scenario drives the app by clicking,
   // and the pointer stays where it was left, so whatever the last layout puts
   // under that point is photographed in its :hover state — a warm wash on one
