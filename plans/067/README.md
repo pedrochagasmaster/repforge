@@ -21,7 +21,8 @@ application implementation or competitor media.
 - `data/manifest.json`: source and output hashes, APK byte-equality provenance,
   database member path, version, counts, and evidence classifications.
 - `data/supplied-reconstruction.json`, `data/supplied-unknowns.json`, and
-  `data/static-evidence.tsv`: secondary analysis supplied by the owner.
+  `data/static-evidence.tsv`: secondary analysis supplied by the owner. The TSV normalizes line endings and
+  trailing whitespace; the raw database remains byte-exact.
   Preserve these as research inputs. Their strings, paths, hypotheses, and
   statements of exactness are not independently recovered executable logic.
 - `unknowns.md`: current dispositions, corrections, and implementation defaults.

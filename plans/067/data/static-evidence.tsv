@@ -34,8 +34,8 @@ hex_offset	category	matched_term	string
 0x5d1ad	source_path		package:macrofactor/src/models/workout/laterality_type.dart
 0x5d847	source_path		package:macrofactor/src/models/workout/session/auto_targets_event.g.dart
 0x5d90b	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_sho_parser.dart
-0x5e230	curated	hypertrophyAccessoryRecommendationLevel	, hypertrophyAccessoryRecommendationLevel: 
-0x5e6bc	curated	strengthSecondaryCompoundRecommendationLevel	, strengthSecondaryCompoundRecommendationLevel: 
+0x5e230	curated	hypertrophyAccessoryRecommendationLevel	, hypertrophyAccessoryRecommendationLevel:
+0x5e6bc	curated	strengthSecondaryCompoundRecommendationLevel	, strengthSecondaryCompoundRecommendationLevel:
 0x5ed45	source_path		package:macrofactor/src/services/workout/channel/flutter_workout_content_channel.dart
 0x5edec	source_path		package:macrofactor/src/ui/dashboard/experiences/workouts/exercise_data_view.dart
 0x5ef33	curated	PeriodizedPeriodization	$PeriodizedPeriodizationCopyWith
@@ -83,7 +83,7 @@ hex_offset	category	matched_term	string
 0xb03a0	source_path		package:macrofactor/src/ui/workout/select_exercise_view.dart
 0xb0865	curated	Over 120 minutes	Over 120 minutes
 0xb0d36	source_path		package:macrofactor/src/models/workout/workout_cycle_completion.dart
-0xb126b	curated	strengthPrimaryCompoundRecommendationLevel	, strengthPrimaryCompoundRecommendationLevel: 
+0xb126b	curated	strengthPrimaryCompoundRecommendationLevel	, strengthPrimaryCompoundRecommendationLevel:
 0xb1742	source_path		package:macrofactor/src/models/workout/config/user_exercise_config.freezed.dart
 0xb2927	source_path		package:macrofactor/src/models/workout/gym/gym_icon.dart
 0xb29a4	source_path		package:macrofactor/src/models/workout/gym/equipment_weight_config.g.dart
@@ -95,7 +95,7 @@ hex_offset	category	matched_term	string
 0xb42e5	source_path		package:macrofactor/src/services/workout/channel/flutter_train_general_channel.g.dart
 0xb4db2	source_path		package:macrofactor/src/services/workout/workout_listeners.g.dart
 0xb6188	curated	Would you like to add a deload to your program block?	Would you like to add a deload to your program block?
-0xb631c	curated	strengthAccessoryRecommendationLevel	, strengthAccessoryRecommendationLevel: 
+0xb631c	curated	strengthAccessoryRecommendationLevel	, strengthAccessoryRecommendationLevel:
 0xb6942	source_path		package:macrofactor/src/models/workout/program/cycle_target.freezed.dart
 0xb6dbd	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_sho_common.dart
 0xb84fe	source_path		package:macrofactor/src/models/workout/session/workout_session.g.dart
@@ -219,7 +219,7 @@ hex_offset	category	matched_term	string
 0x103a52	source_path		package:macrofactor/src/models/workout/history/workout_block.freezed.dart
 0x103d91	source_path		package:macrofactor/src/ui/workout/workout_program_completed_view.dart
 0x103e2f	source_path		package:macrofactor/src/models/workout/session/calculated_warm_up_source.freezed.dart
-0x104e2a	curated	repRangeExtension	, repRangeExtension: 
+0x104e2a	curated	repRangeExtension	, repRangeExtension:
 0x105dc8	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_draft_models.dartR
 0x105f56	source_path		package:macrofactor/src/models/workout/program/workout_program_icon.dart
 0x106520	curated	Linear	LinearProgressIndicator
@@ -287,7 +287,7 @@ hex_offset	category	matched_term	string
 0x12eecd	source_path		package:macrofactor/src/models/workout/session/context/workout_session_set_context.dart
 0x12fec5	curated	60 to 90 minutes	60 to 90 minutes
 0x130edb	source_path		package:macrofactor/src/models/workout/laterality.dart
-0x1314f7	curated	hypertrophyPrimaryCompoundRecommendationLevel	, hypertrophyPrimaryCompoundRecommendationLevel: 
+0x1314f7	curated	hypertrophyPrimaryCompoundRecommendationLevel	, hypertrophyPrimaryCompoundRecommendationLevel:
 0x13277a	curated	Linear	ReverseLinearEffectController
 0x133146	curated	How much time would you like to budget per session?	How much time would you like to budget per session?
 0x133325	curated	Up to 20 minutes	Up to 20 minutes
@@ -314,7 +314,7 @@ hex_offset	category	matched_term	string
 0x140fbe	curated	40 to 60 minutes	40 to 60 minutes
 0x14145c	source_path		package:macrofactor/src/ui/workout/warmup_settings_view.dart
 0x1420a0	source_path		package:macrofactor/src/models/workout/region_trained.dart
-0x1424fd	curated	hypertrophySecondaryCompoundRecommendationLevel	, hypertrophySecondaryCompoundRecommendationLevel: 
+0x1424fd	curated	hypertrophySecondaryCompoundRecommendationLevel	, hypertrophySecondaryCompoundRecommendationLevel:
 0x1427fb	source_path		package:macrofactor/src/models/profiles/workout_profile.g.dart
 0x142c99	source_path		package:macrofactor/src/ui/workout/widgets/exercise_video.dart
 0x144245	curated	Linear	_LinearProgressIndicatorDefaultsM2@125243954
@@ -350,7 +350,7 @@ hex_offset	category	matched_term	string
 0x156c79	curated	sbs-diet-app-remote-us-central1	sbs-diet-app-remote-us-central1
 0x159e55	source_path		package:macrofactor/src/services/firebase/remote_config/live_workouts_config.g.dart
 0x15b638	source_path		package:macrofactor/src/ui/workout/session/exercise_row.dart
-0x15ba59	curated	CycleTarget	CycleTarget(target: 
+0x15ba59	curated	CycleTarget	CycleTarget(target:
 0x15bfc9	source_path		package:macrofactor/src/services/workout/exercise_database.dart
 0x15c1fb	source_path		package:macrofactor/src/models/workout/program_creation/program_periodization.dart
 0x15c30f	curated	Push/Pull Split	Push/Pull Split
@@ -476,7 +476,7 @@ hex_offset	category	matched_term	string
 0x1aadd7	curated	repRangeExtension	repRangeExtension
 0x1ab622	source_path		package:macrofactor/src/services/workout/dtos/swift_serialization.dart
 0x1ab931	source_path		package:macrofactor/src/ui/workout/widgets/exercise_records_row.dart
-0x1abfbb	curated	isDoNotRecommend	, isDoNotRecommend: 
+0x1abfbb	curated	isDoNotRecommend	, isDoNotRecommend:
 0x1ac191	source_path		package:macrofactor/src/models/workout/movement_pattern.dart
 0x1ad553	source_path		package:macrofactor/src/models/workout/history/workout.g.dart
 0x1adcb0	source_path		package:macrofactor/src/services/workout/dtos/state_and_context_dto.dart
@@ -485,7 +485,7 @@ hex_offset	category	matched_term	string
 0x1af67e	curated	Commercial Gym	Commercial Gym
 0x1af6a5	source_path		package:macrofactor/src/ui/workout/session/textfields/weight_text_field.dart
 0x1af6f2	source_path		package:macrofactor/src/ui/workout/workout_drag_data.dart
-0x1b103d	curated	repRangeExtension	, repRangeExtensionOverride: 
+0x1b103d	curated	repRangeExtension	, repRangeExtensionOverride:
 0x1b1621	curated	Everything Gym	Everything Gym
 0x1b2053	source_path		package:macrofactor/src/models/workout/plan/workout_plan.dart
 0x1b222f	curated	How many times per week would you like to train?	How many times per week would you like to train?

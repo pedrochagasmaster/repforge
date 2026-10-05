@@ -172,7 +172,7 @@ def main():
             raise ValueError('Spec-pack ontology counts differ from APK')
         unknowns = json.loads(pack.read('macrofactor_workouts_1_4_0_unknowns_ledger.json'))
         reconstruction = json.loads(pack.read('macrofactor_generator_reconstruction.json'))
-        static = pack.read('macrofactor_static_evidence.tsv')
+        static = ('\n'.join(line.rstrip(' \t') for line in pack.read('macrofactor_static_evidence.tsv').decode().splitlines()) + '\n').encode()
     observation = {'evidenceClass': 'screenshot observation with owner interpretation',
         'sourceSha256': source['screenshot']['sha256'],
         'exerciseId': resolve('Close Grip Smith Machine Bench Press', objects, 'exercise'),

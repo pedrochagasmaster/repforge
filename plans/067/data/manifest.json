@@ -25,8 +25,8 @@
       "sha256": "31061da276203f12a227d57249baee929d84457ab98c6f57f94d5707f261d34d"
     },
     "static-evidence.tsv": {
-      "bytes": 46508,
-      "sha256": "4134257810adf379bf999becd4b5ec8de3ab6b48e942db29d55009d3fd820937"
+      "bytes": 45975,
+      "sha256": "65037742e9798c8d14c577b9cc28569c9455630c3d1999c77977c324678d141a"
     },
     "supplied-reconstruction.json": {
       "bytes": 52928,
