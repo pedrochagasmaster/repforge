@@ -173,6 +173,8 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("onb.title.${onbStep}"), keys: (en) => Object.keys(en).filter((k) => /^onb\.title\.\d+$/.test(k)) },
   { test: (s) => s.includes("entry.desired_result.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.desired_result\.[^.]+\.(label|sub)$/.test(k)) },
   { test: (s) => s.includes("entry.background.experience.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.experience.") && k !== "entry.background.experience.label") },
+  { test: (s) => s.includes("entry.ledger.tally.${"), keys: () => ["first", "under_6m", "6_to_24m", "over_24m"].map((level) => `entry.ledger.tally.${level}`) },
+  { test: (s) => s.includes("entry.ledger.section.${"), keys: () => ["desired_result", "background", "schedule", "environment", "priorities", "exercise_preferences", "custom_shape"].map((step) => `entry.ledger.section.${step}`) },
   { test: (s) => s.includes("entry.background.consistency.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.consistency.") && k !== "entry.background.consistency.label") },
   { test: (s) => s.includes("entry.schedule.minutes.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.schedule.minutes.")) },
   { test: (s) => s.includes("entry.schedule.rest.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.schedule.rest.")) },
