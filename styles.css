@@ -7841,7 +7841,9 @@ body.is-entry-editor #entryProgramName,
 #onboarding #onbBody.entry-body .entry__strip{
   display:flex;flex-wrap:wrap;gap:var(--space-4) var(--space-14);padding:var(--space-8) 0 0;border:0
 }
-#onboarding #onbBody.entry-body .entry__strip-cell{flex-direction:row;align-items:baseline;gap:var(--space-4);padding:0}
+#onboarding #onbBody.entry-body .entry__strip-cell{display:block;padding:0;line-height:var(--line-standard)}
+#onboarding #onbBody.entry-body .entry__strip-cell>span{display:inline;line-height:inherit}
+#onboarding #onbBody.entry-body .entry__strip-value{margin-right:var(--space-4)}
 #onboarding #onbBody.entry-body .entry__strip-value{font-size:var(--font-size-control);font-weight:var(--weight-semibold)}
 #onboarding #onbBody.entry-body .entry__strip-unit{font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--ink-soft)}
 #onboarding #onbBody.entry-body .entry__section-head--ledger{
