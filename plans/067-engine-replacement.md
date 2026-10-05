@@ -195,10 +195,14 @@ Expected fatigue is the median proportional capacity drop between corresponding
 adjacent sets in up to three comparable sessions, clamped to 0–15%, default zero.
 For an in-session recommendation apply one adjacent-set drop to the latest completed
 capacity. For future set j apply the sequential factors from the first-set baseline.
-Enumerate available loads and integer reps inside the target range. Predicted RIR is
-`30 × (capacity/load - 1) - reps`; prefer candidates in [targetRIR,targetRIR+1].
+Enumerate available external/display loads and integer reps inside the target range.
+Transform each candidate into `candidateEffectiveLoad` using exactly the same
+bodyweight, assistance and per-side convention as the comparable history anchor.
+Reject candidates with nonpositive effective load. Predicted RIR is
+`30 × (capacity/candidateEffectiveLoad - 1) - reps`; prefer candidates in
+[targetRIR,targetRIR+1].
 Rank by distance from range midpoint, distance from target RIR, absolute change from
-anchor load, then ascending load/reps. Weight Match promotes the previous load only
+anchor external/display load, then ascending external/display load and reps. Weight Match promotes the previous load only
 among admissible candidates. If no candidate fits and expansion is enabled, extend
 by one rep at each boundary per pass up to four reps, keeping the 3–30 bounds. If
 still none fits, retain manual targets and explain the equipment/range conflict.
