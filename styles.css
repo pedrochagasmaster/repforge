@@ -7638,7 +7638,7 @@ body.is-entry-editor #entryProgramName,
 }
 #onboarding #onbBody.entry-body .onb__slip .onb__slip-tags{grid-column:1/-1;grid-row:2;display:flex;flex-wrap:wrap;gap:6px;margin:0;flex-basis:auto}
 #onboarding #onbBody.entry-body .onb__slip .onb__badge{
-  display:inline-flex;align-items:center;min-height:26px;padding:2px 8px;margin:0;border:1px solid var(--ink);border-radius:var(--radius-compact);
+  display:inline-block;padding:4px 8px;margin:0;border:1px solid var(--ink);border-radius:var(--radius-compact);
   font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:1.2;
   letter-spacing:0;text-transform:none;color:var(--ink);background:transparent;white-space:nowrap
 }
