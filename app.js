@@ -16250,10 +16250,10 @@ function renderEntryWeek(preview){
     const eyebrow=[dayName.trim()===dayN?"":dayN,index===0?t("entry.preview.up_next"):""].filter(Boolean).join(" · ");
     return `<details class="onb__day onb__slip"${open?" open":""}><summary class="onb__dayname">`+
     `<span class="onb__daynum" aria-hidden="true">${String(index+1).padStart(2,"0")}</span>`+
-    `<span class="onb__slip-title">${eyebrow?`<span class="onb__slip-k">${esc(eyebrow)}</span>`:""}`+
+    `<span class="onb__slip-title">${eyebrow?`<span class="onb__slip-k">${monoNums(eyebrow)}</span>`:""}`+
     `<span class="onb__slip-name">${esc(dayName)}</span></span>`+
     `<span class="visually-hidden">${monoNums(sentence)}</span>`+
-    `<span class="onb__slip-tags" aria-hidden="true">${badges.map(b=>`<span class="onb__badge">${esc(b)}</span>`).join("")}`+
+    `<span class="onb__slip-tags" aria-hidden="true">${badges.map(b=>`<span class="onb__badge">${monoNums(b)}</span>`).join("")}`+
     muscles.map(m=>`<span class="onb__badge onb__badge--focus">${esc(muscleLabel(m))}</span>`).join("")+`</span></summary>`+
     `<div class="onb__slip-body">`+
     exercises.map((ex,i)=>{const isNew=added.has(ex.id);

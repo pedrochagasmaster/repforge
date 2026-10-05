@@ -7570,13 +7570,13 @@ body.is-entry-editor #entryProgramName,
   background:var(--bg);color:var(--ink);animation:ledger-print-in .2s ease-out both
 }
 .entry-print__inner{width:100%;max-width:400px;display:flex;flex-direction:column;gap:var(--space-16)}
-.entry-print__eyebrow{margin:0;font-family:var(--font-training-data);font-size:var(--font-size-label);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.entry-print__eyebrow{margin:0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
 .entry-print__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);text-wrap:balance}
 .entry-print__paper{
   display:flex;flex-direction:column;gap:10px;padding:18px 16px 14px;background:var(--surface);
   border:1px solid var(--rule);border-radius:var(--radius-compact);
-  -webkit-mask:radial-gradient(circle at 6px 0,transparent 4px,#000 4.5px) 0 0/12px 100% repeat-x;
-  mask:radial-gradient(circle at 6px 0,transparent 4px,#000 4.5px) 0 0/12px 100% repeat-x
+  -webkit-mask:radial-gradient(circle at 6px 0,transparent 4px,var(--ink) 4.5px) 0 0/12px 100% repeat-x;
+  mask:radial-gradient(circle at 6px 0,transparent 4px,var(--ink) 4.5px) 0 0/12px 100% repeat-x
 }
 .entry-print__rule{
   display:block;height:6px;border-radius:var(--radius-compact);background:var(--rule-strong);
@@ -7612,8 +7612,8 @@ body.is-entry-editor #entryProgramName,
 #onboarding #onbBody.entry-body .onb__day.onb__slip{
   position:relative;padding:18px 16px 14px;background:var(--surface);border:0;border-radius:0 0 var(--radius-compact) var(--radius-compact);
   box-shadow:var(--elevation-ledger-slip-shadow);
-  -webkit-mask:radial-gradient(circle at 6px 0,transparent 4px,#000 4.5px) 0 0/12px 100% repeat-x;
-  mask:radial-gradient(circle at 6px 0,transparent 4px,#000 4.5px) 0 0/12px 100% repeat-x
+  -webkit-mask:radial-gradient(circle at 6px 0,transparent 4px,var(--ink) 4.5px) 0 0/12px 100% repeat-x;
+  mask:radial-gradient(circle at 6px 0,transparent 4px,var(--ink) 4.5px) 0 0/12px 100% repeat-x
 }
 #onboarding #onbBody.entry-body .onb__review{display:flex;flex-direction:column;gap:var(--space-12);border:0}
 #onboarding #onbBody.entry-body .onb__slip>summary.onb__dayname{
@@ -7629,7 +7629,7 @@ body.is-entry-editor #entryProgramName,
 #onboarding #onbBody.entry-body .onb__slip:first-child .onb__daynum{color:var(--color-action-text)}
 #onboarding #onbBody.entry-body .onb__slip .onb__slip-title{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:2px;min-width:0;flex-basis:auto}
 #onboarding #onbBody.entry-body .onb__slip .onb__slip-k{
-  display:block;margin:0;font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-medium);
+  display:block;margin:0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
   letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)
 }
 #onboarding #onbBody.entry-body .onb__slip .onb__slip-name{
@@ -7639,9 +7639,10 @@ body.is-entry-editor #entryProgramName,
 #onboarding #onbBody.entry-body .onb__slip .onb__slip-tags{grid-column:1/-1;grid-row:2;display:flex;flex-wrap:wrap;gap:6px;margin:0;flex-basis:auto}
 #onboarding #onbBody.entry-body .onb__slip .onb__badge{
   display:inline-flex;align-items:center;min-height:26px;padding:2px 8px;margin:0;border:1px solid var(--ink);border-radius:var(--radius-compact);
-  font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:1.2;
+  font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:1.2;
   letter-spacing:0;text-transform:none;color:var(--ink);background:transparent;white-space:nowrap
 }
+#onboarding #onbBody.entry-body .onb__slip :is(.onb__badge,.onb__slip-k) .num{font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
 #onboarding #onbBody.entry-body .onb__slip .onb__badge--focus{border-style:dashed;border-color:var(--boundary-required);color:var(--ink-soft)}
 #onboarding #onbBody.entry-body .onb__slip>summary.onb__dayname::after{top:6px;right:0;transform:rotate(90deg)}
 #onboarding #onbBody.entry-body .onb__slip[open]>summary.onb__dayname::after{transform:rotate(270deg)}
