@@ -7675,8 +7675,12 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
   line-height:var(--line-tight);letter-spacing:-.01em;color:var(--ink)
 }
-#onboarding:not(.program-editor-onboarding) #onbBack{font-size:0;gap:0;justify-content:flex-start;min-width:36px;padding:var(--space-8) 0}
-#onboarding:not(.program-editor-onboarding) #onbBack::before{width:24px;height:24px;color:var(--ink)}
+/* Back keeps its text size and its accessible text; the word is clipped behind the chevron. */
+#onboarding:not(.program-editor-onboarding) #onbBack{
+  width:var(--control-target);min-width:var(--control-target);white-space:nowrap;gap:0;text-indent:-100vw;
+  justify-content:flex-start;padding:var(--space-8) 0;color:var(--control-quiet-ink)
+}
+#onboarding:not(.program-editor-onboarding) #onbBack::before{width:24px;height:24px}
 #onboarding:not(.program-editor-onboarding) .onb__counter{
   margin-left:auto;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-variant-numeric:tabular-nums;
   letter-spacing:.02em;color:var(--ink-faint)
@@ -7687,7 +7691,10 @@ body.is-entry-editor #entryProgramName,
   font-size:var(--font-size-body-small);color:var(--ink-soft);padding:var(--space-8) 0 var(--space-8) var(--space-12)
 }
 #onboarding:not(.program-editor-onboarding) .onb__counter:empty+#onbCancel{margin-left:auto}
-#onboarding.entry-hub-active:not(.program-editor-onboarding) .onb__bar #onbCancel{order:-1;margin-left:0;padding-left:0;font-size:0;gap:0;color:var(--ink)}
+#onboarding.entry-hub-active:not(.program-editor-onboarding) .onb__bar #onbCancel{
+  order:-1;margin-left:0;padding-left:0;width:var(--control-target);min-width:var(--control-target);white-space:nowrap;
+  gap:0;text-indent:-100vw;color:var(--control-quiet-ink)
+}
 #onboarding.entry-hub-active:not(.program-editor-onboarding) .onb__bar #onbCancel::before{width:24px;height:24px}
 #onboarding:not(.program-editor-onboarding) .onb__where{
   position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0
@@ -7882,3 +7889,8 @@ body.is-entry-editor #entryProgramName,
 #onboarding #onbBody.entry-body .entry-feature__q{font-size:var(--font-size-section-title);line-height:var(--line-tight)}
 #onboarding #onbBody.entry-body .entry-feature__eyebrow{font-family:var(--font-training-data);font-weight:var(--weight-regular);letter-spacing:.1em;color:var(--ink-soft)}
 #onboarding #onbBody.entry-body .entry-rail__chip{padding:var(--space-4) var(--space-8)}
+/* At large text sizes the wordmark gives way first; Cancel and the counter keep their size. */
+#onboarding:not(.program-editor-onboarding) .onb__bar>#onbCancel,
+#onboarding:not(.program-editor-onboarding) .onb__bar>.onb__counter,
+#onboarding:not(.program-editor-onboarding) .onb__bar>#onbBack{flex:none}
+#onboarding:not(.program-editor-onboarding) .onb__mark{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

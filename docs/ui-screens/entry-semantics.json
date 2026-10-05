@@ -10561,8 +10561,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -10651,13 +10651,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -10668,12 +10668,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -10684,12 +10684,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -10700,12 +10700,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -10716,12 +10716,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -10732,7 +10732,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "p",
@@ -10801,8 +10801,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -10891,13 +10891,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -10908,12 +10908,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -10924,12 +10924,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -10940,12 +10940,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -10956,12 +10956,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -10972,7 +10972,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "p",
@@ -11041,8 +11041,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -11131,13 +11131,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -11148,12 +11148,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11164,12 +11164,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11180,12 +11180,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11196,12 +11196,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11212,7 +11212,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "p",
@@ -11281,8 +11281,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -11371,13 +11371,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -11388,12 +11388,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11404,12 +11404,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11420,12 +11420,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11436,12 +11436,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11452,7 +11452,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "p",
@@ -11521,8 +11521,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -11611,13 +11611,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -11628,12 +11628,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11644,12 +11644,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11660,12 +11660,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11676,12 +11676,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11692,7 +11692,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "p",
@@ -11761,8 +11761,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Dias de treino por semana",
-          "labelledBy": "Dias de treino por semana"
+          "name": "Dias de treino por semanaDias / sem",
+          "labelledBy": "Dias de treino por semanaDias / sem"
         },
         {
           "tag": "button",
@@ -11851,13 +11851,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Duração máxima de uma sessão típica",
-          "labelledBy": "Duração máxima de uma sessão típica"
+          "name": "Duração máxima de uma sessão típicaMinutos",
+          "labelledBy": "Duração máxima de uma sessão típicaMinutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutos",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -11868,12 +11868,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutos",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11884,12 +11884,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutos",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11900,12 +11900,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutos",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11916,12 +11916,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutos",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -11932,7 +11932,7 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "p",
@@ -12001,8 +12001,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -12091,13 +12091,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -12108,12 +12108,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -12124,12 +12124,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -12140,12 +12140,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -12156,12 +12156,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -12172,7 +12172,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "p",
@@ -18896,7 +18896,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "First structured program",
+          "name": "|01First structured program",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -18908,7 +18908,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Under 6 months",
+          "name": "||02Under 6 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -18920,7 +18920,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 to 24 months",
+          "name": "|||036 to 24 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -18932,7 +18932,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Over 2 years",
+          "name": "||||04Over 2 years",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19087,7 +19087,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "First structured program",
+          "name": "|01First structured program",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -19099,7 +19099,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Under 6 months",
+          "name": "||02Under 6 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19111,7 +19111,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 to 24 months",
+          "name": "|||036 to 24 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19123,7 +19123,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Over 2 years",
+          "name": "||||04Over 2 years",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19278,7 +19278,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "First structured program",
+          "name": "|01First structured program",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -19290,7 +19290,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Under 6 months",
+          "name": "||02Under 6 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19302,7 +19302,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 to 24 months",
+          "name": "|||036 to 24 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19314,7 +19314,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Over 2 years",
+          "name": "||||04Over 2 years",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19469,7 +19469,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Primeiro treino estruturado",
+          "name": "|01Primeiro treino estruturado",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -19481,7 +19481,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Menos de 6 meses",
+          "name": "||02Menos de 6 meses",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19493,7 +19493,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 a 24 meses",
+          "name": "|||036 a 24 meses",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -19505,7 +19505,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Mais de 2 anos",
+          "name": "||||04Mais de 2 anos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -23120,6 +23120,10 @@
           "text": "Pulldown"
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -23971,6 +23975,10 @@
         {
           "tag": "span",
           "text": "Pulldown"
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
         },
         {
           "tag": "button",
@@ -24826,6 +24834,10 @@
           "text": "Pulldown"
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -25677,6 +25689,10 @@
         {
           "tag": "span",
           "text": "Pulldown"
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
         },
         {
           "tag": "button",
@@ -26532,6 +26548,10 @@
           "text": "Pulldown"
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -27383,6 +27403,10 @@
         {
           "tag": "span",
           "text": "Puxada"
+        },
+        {
+          "tag": "p",
+          "text": "Registrado · Sem prioridade muscular especial"
         },
         {
           "tag": "button",
@@ -28238,6 +28262,10 @@
           "text": "Puxada"
         },
         {
+          "tag": "p",
+          "text": "Registrado · Sem prioridade muscular especial"
+        },
+        {
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
@@ -29089,6 +29117,10 @@
         {
           "tag": "span",
           "text": "Pulldown"
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
         },
         {
           "tag": "button",
@@ -31025,8 +31057,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -31115,13 +31147,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -31132,12 +31164,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31148,12 +31180,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31164,12 +31196,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31180,12 +31212,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31196,7 +31228,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -31361,8 +31393,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -31451,13 +31483,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -31468,12 +31500,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31484,12 +31516,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31500,12 +31532,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31516,12 +31548,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31532,7 +31564,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -31697,8 +31729,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -31787,13 +31819,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -31804,12 +31836,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31820,12 +31852,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31836,12 +31868,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31852,12 +31884,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -31868,7 +31900,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -32033,8 +32065,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -32123,13 +32155,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -32140,12 +32172,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32156,12 +32188,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32172,12 +32204,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32188,12 +32220,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32204,7 +32236,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -32369,8 +32401,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -32459,13 +32491,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -32476,12 +32508,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32492,12 +32524,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32508,12 +32540,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32524,12 +32556,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32540,7 +32572,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -32705,8 +32737,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Dias de treino por semana",
-          "labelledBy": "Dias de treino por semana"
+          "name": "Dias de treino por semanaDias / sem",
+          "labelledBy": "Dias de treino por semanaDias / sem"
         },
         {
           "tag": "button",
@@ -32795,13 +32827,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Duração máxima de uma sessão típica",
-          "labelledBy": "Duração máxima de uma sessão típica"
+          "name": "Duração máxima de uma sessão típicaMinutos",
+          "labelledBy": "Duração máxima de uma sessão típicaMinutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutos",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -32812,12 +32844,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutos",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32828,12 +32860,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutos",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32844,12 +32876,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutos",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32860,12 +32892,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutos",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -32876,7 +32908,7 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -33041,8 +33073,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Dias de treino por semana",
-          "labelledBy": "Dias de treino por semana"
+          "name": "Dias de treino por semanaDias / sem",
+          "labelledBy": "Dias de treino por semanaDias / sem"
         },
         {
           "tag": "button",
@@ -33131,13 +33163,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Duração máxima de uma sessão típica",
-          "labelledBy": "Duração máxima de uma sessão típica"
+          "name": "Duração máxima de uma sessão típicaMinutos",
+          "labelledBy": "Duração máxima de uma sessão típicaMinutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutos",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -33148,12 +33180,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutos",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -33164,12 +33196,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutos",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -33180,12 +33212,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutos",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -33196,12 +33228,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutos",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -33212,7 +33244,7 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -33377,8 +33409,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -33467,13 +33499,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -33484,12 +33516,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -33500,12 +33532,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -33516,12 +33548,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -33532,12 +33564,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -33548,7 +33580,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -41519,6 +41551,10 @@
           "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Show my program",
           "name": "Show my program",
@@ -41922,6 +41958,10 @@
         {
           "tag": "span",
           "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
         },
         {
           "tag": "button",
@@ -42329,6 +42369,10 @@
           "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Show my program",
           "name": "Show my program",
@@ -42732,6 +42776,10 @@
         {
           "tag": "span",
           "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
         },
         {
           "tag": "button",
@@ -43139,6 +43187,10 @@
           "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Show my program",
           "name": "Show my program",
@@ -43542,6 +43594,10 @@
         {
           "tag": "span",
           "text": "O Taurifer trata dor ou desconforto como restrição de segurança, não como preferência. Escolha uma substituição compatível e pare qualquer movimento que cause dor."
+        },
+        {
+          "tag": "p",
+          "text": "Registrado · Sem prioridade muscular especial"
         },
         {
           "tag": "button",
@@ -43949,6 +44005,10 @@
           "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Show my program",
           "name": "Show my program",
@@ -44030,7 +44090,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "First structured program",
+          "name": "|01First structured program",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -44042,7 +44102,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Under 6 months",
+          "name": "||02Under 6 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44054,7 +44114,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 to 24 months",
+          "name": "|||036 to 24 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44066,7 +44126,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Over 2 years",
+          "name": "||||04Over 2 years",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44221,7 +44281,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "First structured program",
+          "name": "|01First structured program",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -44233,7 +44293,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Under 6 months",
+          "name": "||02Under 6 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44245,7 +44305,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 to 24 months",
+          "name": "|||036 to 24 months",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44257,7 +44317,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Over 2 years",
+          "name": "||||04Over 2 years",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44412,7 +44472,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Primeiro treino estruturado",
+          "name": "|01Primeiro treino estruturado",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -44424,7 +44484,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Menos de 6 meses",
+          "name": "||02Menos de 6 meses",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44436,7 +44496,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 a 24 meses",
+          "name": "|||036 a 24 meses",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44448,7 +44508,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Mais de 2 anos",
+          "name": "||||04Mais de 2 anos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44870,8 +44930,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -44960,13 +45020,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44977,12 +45037,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -44993,12 +45053,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
@@ -45009,12 +45069,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -45025,12 +45085,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -45041,7 +45101,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -45524,8 +45584,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -45614,13 +45674,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -45631,12 +45691,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -45647,12 +45707,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
@@ -45663,12 +45723,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -45679,12 +45739,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -45695,7 +45755,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -46178,8 +46238,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Dias de treino por semana",
-          "labelledBy": "Dias de treino por semana"
+          "name": "Dias de treino por semanaDias / sem",
+          "labelledBy": "Dias de treino por semanaDias / sem"
         },
         {
           "tag": "button",
@@ -46268,13 +46328,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Duração máxima de uma sessão típica",
-          "labelledBy": "Duração máxima de uma sessão típica"
+          "name": "Duração máxima de uma sessão típicaMinutos",
+          "labelledBy": "Duração máxima de uma sessão típicaMinutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutos",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -46285,12 +46345,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutos",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -46301,12 +46361,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutos",
+          "name": "60min",
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
@@ -46317,12 +46377,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutos",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -46333,12 +46393,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutos",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -46349,7 +46409,7 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -47599,6 +47659,10 @@
           "text": "Only supported training capabilities are listed. External resistance is inferred from equipment beyond bodyweight."
         },
         {
+          "tag": "p",
+          "text": "Recorded · Full commercial gym"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -47884,6 +47948,10 @@
         {
           "tag": "p",
           "text": "Only supported training capabilities are listed. External resistance is inferred from equipment beyond bodyweight."
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · Full commercial gym"
         },
         {
           "tag": "button",
@@ -48173,6 +48241,10 @@
           "text": "Only supported training capabilities are listed. External resistance is inferred from equipment beyond bodyweight."
         },
         {
+          "tag": "p",
+          "text": "Recorded · Full commercial gym"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -48458,6 +48530,10 @@
         {
           "tag": "p",
           "text": "Only supported training capabilities are listed. External resistance is inferred from equipment beyond bodyweight."
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · Full commercial gym"
         },
         {
           "tag": "button",
@@ -48747,6 +48823,10 @@
           "text": "Only supported training capabilities are listed. External resistance is inferred from equipment beyond bodyweight."
         },
         {
+          "tag": "p",
+          "text": "Recorded · Full commercial gym"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -49034,6 +49114,10 @@
           "text": "A lista mostra apenas capacidades de treino compatíveis. O Taurifer considera equipamentos além do peso corporal como resistência externa."
         },
         {
+          "tag": "p",
+          "text": "Registrado · Academia comercial completa"
+        },
+        {
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
@@ -49319,6 +49403,10 @@
         {
           "tag": "p",
           "text": "Only supported training capabilities are listed. External resistance is inferred from equipment beyond bodyweight."
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · Full commercial gym"
         },
         {
           "tag": "button",
@@ -49656,6 +49744,10 @@
           "type": "search"
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Show my program",
           "name": "Show my program",
@@ -49991,6 +50083,10 @@
           "type": "search"
         },
         {
+          "tag": "p",
+          "text": "Recorded · No special muscle priority"
+        },
+        {
           "tag": "button",
           "text": "Show my program",
           "name": "Show my program",
@@ -50324,6 +50420,10 @@
           "tag": "input",
           "name": "Pesquisar exercícios a evitar",
           "type": "search"
+        },
+        {
+          "tag": "p",
+          "text": "Registrado · Sem prioridade muscular especial"
         },
         {
           "tag": "button",
@@ -58852,8 +58952,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -58942,13 +59042,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -58959,12 +59059,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -58975,12 +59075,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -58991,12 +59091,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59007,12 +59107,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59023,7 +59123,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -59188,8 +59288,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -59278,13 +59378,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -59295,12 +59395,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59311,12 +59411,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59327,12 +59427,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59343,12 +59443,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59359,7 +59459,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -59524,8 +59624,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Dias de treino por semana",
-          "labelledBy": "Dias de treino por semana"
+          "name": "Dias de treino por semanaDias / sem",
+          "labelledBy": "Dias de treino por semanaDias / sem"
         },
         {
           "tag": "button",
@@ -59614,13 +59714,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Duração máxima de uma sessão típica",
-          "labelledBy": "Duração máxima de uma sessão típica"
+          "name": "Duração máxima de uma sessão típicaMinutos",
+          "labelledBy": "Duração máxima de uma sessão típicaMinutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutos",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -59631,12 +59731,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutos",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59647,12 +59747,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutos",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59663,12 +59763,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutos",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59679,12 +59779,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutos",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59695,7 +59795,7 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -59860,8 +59960,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -59950,13 +60050,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -59967,12 +60067,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59983,12 +60083,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -59999,12 +60099,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60015,12 +60115,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60031,7 +60131,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -60184,8 +60284,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Training days per week",
-          "labelledBy": "Training days per week"
+          "name": "Training days per weekDays / wk",
+          "labelledBy": "Training days per weekDays / wk"
         },
         {
           "tag": "button",
@@ -60274,13 +60374,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Longest usual session",
-          "labelledBy": "Longest usual session"
+          "name": "Longest usual sessionMinutes",
+          "labelledBy": "Longest usual sessionMinutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutes",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -60291,12 +60391,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutes",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60307,12 +60407,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutes",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60323,12 +60423,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutes",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60339,12 +60439,12 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutes",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60355,7 +60455,7 @@
         },
         {
           "tag": "span",
-          "text": "minutes"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -60508,8 +60608,8 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Dias de treino por semana",
-          "labelledBy": "Dias de treino por semana"
+          "name": "Dias de treino por semanaDias / sem",
+          "labelledBy": "Dias de treino por semanaDias / sem"
         },
         {
           "tag": "button",
@@ -60598,13 +60698,13 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Duração máxima de uma sessão típica",
-          "labelledBy": "Duração máxima de uma sessão típica"
+          "name": "Duração máxima de uma sessão típicaMinutos",
+          "labelledBy": "Duração máxima de uma sessão típicaMinutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "30minutos",
+          "name": "30min",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
@@ -60615,12 +60715,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45minutos",
+          "name": "45min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60631,12 +60731,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60minutos",
+          "name": "60min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60647,12 +60747,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75minutos",
+          "name": "75min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60663,12 +60763,12 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+minutos",
+          "name": "90+min",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -60679,7 +60779,7 @@
         },
         {
           "tag": "span",
-          "text": "minutos"
+          "text": "min"
         },
         {
           "tag": "span",
@@ -63701,6 +63801,10 @@
           "text": "Heavier primary exercises with supporting volume"
         },
         {
+          "tag": "p",
+          "text": "Recorded · Prioritize muscle growth"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -63826,6 +63930,10 @@
         {
           "tag": "span",
           "text": "Heavier primary exercises with supporting volume"
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · Prioritize muscle growth"
         },
         {
           "tag": "button",
@@ -63955,6 +64063,10 @@
           "text": "Heavier primary exercises with supporting volume"
         },
         {
+          "tag": "p",
+          "text": "Recorded · Prioritize muscle growth"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -64080,6 +64192,10 @@
         {
           "tag": "span",
           "text": "Heavier primary exercises with supporting volume"
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · Prioritize muscle growth"
         },
         {
           "tag": "button",
@@ -64209,6 +64325,10 @@
           "text": "Heavier primary exercises with supporting volume"
         },
         {
+          "tag": "p",
+          "text": "Recorded · Prioritize muscle growth"
+        },
+        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -64336,6 +64456,10 @@
           "text": "Exercícios principais mais pesados, com volume complementar"
         },
         {
+          "tag": "p",
+          "text": "Registrado · Priorizar ganho de massa"
+        },
+        {
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
@@ -64461,6 +64585,10 @@
         {
           "tag": "span",
           "text": "Heavier primary exercises with supporting volume"
+        },
+        {
+          "tag": "p",
+          "text": "Recorded · Prioritize muscle growth"
         },
         {
           "tag": "button",
