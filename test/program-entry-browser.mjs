@@ -848,12 +848,15 @@ try {
       const groups = [...document.querySelectorAll(".entry-body--schedule .onb__opts")];
       const seg = document.querySelector(".entry-body--schedule .onb__num");
       return {
-        // Days and the session ceiling are numbers set as equal cards in a grid;
-        // the rest chooser is a bounded grouped list. Every control is a bounded
-        // surface, never a flush hairline row.
+        // Ledger (owner decision 2026-10-05): days and the session ceiling are
+        // numbers set as bounded tiles in a grid; the rest chooser is a list of
+        // flush ruled rows under its ruled question, each row a full-width tap
+        // target with a hairline under it.
         segmented: seg ? getComputedStyle(seg).display : "",
-        bounded: groups.length > 0 && groups.every((group) => getComputedStyle(group).borderRadius !== "0px" ||
-          [...group.querySelectorAll(".radio-card")].every((card) => getComputedStyle(card).borderRadius !== "0px")),
+        bounded: groups.length > 0 && groups.every((group) => group.classList.contains("onb__num")
+          ? [...group.querySelectorAll(".radio-card")].every((card) => getComputedStyle(card).borderRadius !== "0px")
+          : [...group.querySelectorAll(".radio-card")].every((card) => getComputedStyle(card).borderBottomStyle === "solid" &&
+            Math.round(card.getBoundingClientRect().width) >= Math.round(group.getBoundingClientRect().width) - 1 && card.getBoundingClientRect().height >= 44)),
         noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
           rect.right <= other.left + 1 || other.right <= rect.left + 1 ||
           rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),

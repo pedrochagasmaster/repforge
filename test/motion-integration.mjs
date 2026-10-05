@@ -928,14 +928,48 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     await page.click("#onbNext");
   };
-  phase(`O3: a freshly generated program is drawn in reading order${tag}`);
+  phase(`O3: a fresh generation prints first, over a review that is already there${tag}`);
   await walk();
+  const printed = await page.evaluate(async () => {
+    const t0 = performance.now();
+    document.querySelector("#onbNext").click();
+    while (!document.querySelector("#entryCandidateReview") && performance.now() - t0 < 3000) await new Promise((r) => requestAnimationFrame(r));
+    const print = document.querySelector("#entryPrint");
+    const out = {
+      review: !!document.querySelector("#entryCandidateReview"), print: !!print,
+      hidden: print?.getAttribute("aria-hidden"), focusables: print ? print.querySelectorAll("button,a,input,select,textarea,[tabindex]").length : 0,
+      lines: [...(print?.querySelectorAll(".entry-print__label") || [])].map((el) => el.textContent),
+      focus: document.activeElement?.id, activateDisabled: document.querySelector("#entryActivate")?.disabled,
+      cover: print ? document.elementFromPoint(195, 422) === print || print.contains(document.elementFromPoint(195, 422)) : false,
+    };
+    await new Promise((r) => setTimeout(r, 700));
+    out.doneAt700 = document.querySelectorAll("#entryPrint .entry-print__step.is-done").length;
+    out.time = document.querySelector("#entryPrint .entry-print__step.is-done .entry-print__time")?.textContent;
+    return out;
+  });
+  if (reduced) {
+    assert(printed.review && !printed.print, "under reduced motion there is no print: the review is the first thing shown", JSON.stringify(printed));
+  } else {
+    assert(printed.review && printed.print && printed.cover, "the print covers the screen while the review is already rendered under it", JSON.stringify(printed));
+    assert(printed.hidden === "true" && printed.focusables === 0, "the print is decorative: aria-hidden, with nothing focusable in it", JSON.stringify(printed));
+    assert(printed.focus === "entryHeading" && printed.activateDisabled === false,
+      "focus is on the program's name and Use this program is enabled under the print", JSON.stringify(printed));
+    assert(printed.lines.length === 4 && /4/.test(printed.lines[1]) && /60/.test(printed.lines[2]),
+      "its lines come from the lifter's own answers (days, then minutes)", JSON.stringify(printed.lines));
+    assert(printed.doneAt700 >= 1 && /^\d\.\ds$/.test(printed.time || ""), "the lines tick one by one, each stamped with its time", JSON.stringify(printed));
+  }
+
+  phase(`O3: when the print ends, the program is drawn in reading order${tag}`);
   const built = await page.evaluate(async () => {
     const out = { frames: [] };
     const t0 = performance.now();
-    document.querySelector("#onbNext").click();
+    // The print ends on its own in about 2.5s; the build follows it.
+    while (document.querySelector("#entryPrint") && performance.now() - t0 < 4000) await new Promise((r) => requestAnimationFrame(r));
+    out.printEndedAfter = Math.round(performance.now() - t0);
+    out.printGone = !document.querySelector("#entryPrint");
+    const t1 = performance.now();
     let busy = true;
-    while (performance.now() - t0 < 1800) {
+    while (performance.now() - t1 < 1800) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const review = document.querySelector("#entryCandidateReview");
       if (!review) continue;
@@ -959,7 +993,7 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
         out.activateDisabled = document.querySelector("#entryActivate")?.disabled;
         out.activatePointer = getComputedStyle(document.querySelector("#entryActivate")).pointerEvents;
       }
-      out.frames.push({ t: Math.round(performance.now() - t0), hosts: document.querySelectorAll("#onbBody .motion-build").length, items: items.length });
+      out.frames.push({ t: Math.round(performance.now() - t1), hosts: document.querySelectorAll("#onbBody .motion-build").length, items: items.length });
     }
     out.opacity = [...document.querySelectorAll("#entryCandidateReview details.onb__day, #entryCandidateReview .entry__progname")].map((el) => Number(getComputedStyle(el).opacity));
     return out;
@@ -967,6 +1001,7 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
   if (reduced) {
     assert(!built.first && built.frames.length > 0 && built.frames.every((f) => f.items === 0 && f.hosts === 0), "under reduced motion the whole program is drawn at once with no build", JSON.stringify(built.frames.slice(0, 3)));
   } else {
+    assert(built.printGone && built.printEndedAfter <= 3400, "the print ends on its own within about 2.5 seconds", JSON.stringify({ after: built.printEndedAfter }));
     const first = built.first;
     assert(first && first.animation.every((n) => n === "taurifer-build-in") && first.duration.every((d) => d === "0.2s"),
       "each block rises into place over 200ms", JSON.stringify(first));
@@ -990,10 +1025,11 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     while (performance.now() - t0 < 700) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       max = Math.max(max, document.querySelectorAll("#onbBody .motion-build-item").length);
+      if (document.querySelector("#entryPrint")) max += 100;
     }
     return { max, review: !!document.querySelector("#entryCandidateReview") };
   });
-  assert(again.review && again.max === 0, "going back and forward draws the program at rest", JSON.stringify(again));
+  assert(again.review && again.max === 0, "going back and forward draws the program at rest, with no print", JSON.stringify(again));
   // An answer chip re-renders the review, and applying a changed answer rebuilds the program in place: neither plays the build.
   const edited = await page.evaluate(async () => {
     let max = 0;
@@ -1002,6 +1038,7 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
       while (performance.now() - t0 < ms) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
         max = Math.max(max, document.querySelectorAll("#onbBody .motion-build-item").length);
+        if (document.querySelector("#entryPrint")) max += 100;
       }
     };
     document.querySelector('[data-entry-chip="days"]').click();
@@ -1030,11 +1067,51 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     while (performance.now() - t0 < 900) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       max = Math.max(max, document.querySelectorAll("#onbBody .motion-build-item").length);
+      if (document.querySelector("#entryPrint")) max += 100;
       seen = seen || !!document.querySelector("#entryCandidateReview");
     }
     return { max, seen };
   });
   assert(reopened.seen && reopened.max === 0, "reopening the saved preview draws it at rest", JSON.stringify(reopened));
+
+  if (!reduced) {
+    phase("O3: a tap ends the print at once and never reaches the button under it");
+    // A changed answer makes the next Show my program a fresh generation, so it prints again.
+    await page.click("#onbBack");
+    await page.click('[data-entry-rail="schedule"]');
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="5"]');
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.waitForSelector("#entryPrint", { timeout: 5000 });
+    const box = await page.locator("#entryActivate").boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const skipped = await page.evaluate(async () => {
+      const gone = !document.querySelector("#entryPrint");
+      let items = 0;
+      const t0 = performance.now();
+      while (performance.now() - t0 < 400) {
+        await new Promise((r) => requestAnimationFrame(r));
+        items = Math.max(items, document.querySelectorAll("#onbBody .motion-build-item").length);
+      }
+      return { gone, items, onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+        review: !!document.querySelector("#entryCandidateReview"), days: document.querySelectorAll("#entryCandidateReview details.onb__day").length };
+    });
+    assert(skipped.gone && skipped.onboarding && skipped.review && skipped.days === 5,
+      "the tap took the print away and left the lifter on the review, not activated", JSON.stringify(skipped));
+    assert(skipped.items > 0, "and the program is then drawn in reading order", JSON.stringify(skipped));
+    await page.waitForFunction(() => !document.querySelector("#onbBody .motion-build-item"), undefined, { timeout: 3000 });
+    // Any key ends it too, so a keyboard user is never left behind a cover.
+    await page.click("#onbBack");
+    await page.click('[data-entry-rail="schedule"]');
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.waitForSelector("#entryPrint", { timeout: 5000 });
+    await page.keyboard.press("Tab");
+    assert(await page.locator("#entryPrint").count() === 0, "a key press ends the print at once");
+  }
   assert(errors.length === 0, `no page errors in the generated program run${tag}`, errors.join(" | "));
   await context.close();
 }
@@ -1543,13 +1620,26 @@ window.__entrySel = () => {
   const cards = [...document.querySelectorAll("#onbBody .radio-card.is-selected")].map((card) => {
     const cs = getComputedStyle(card), mark = card.querySelector(".radio-card__mark"), icon = card.querySelector(".radio-card__icon");
     const dur = cs.transitionDuration.split(",").map((d) => parseFloat(d));
+    const before = getComputedStyle(card, "::before"), tick = card.querySelector(".radio-card__tick");
+    const group = card.closest(".onb__opts");
     return {
       role: card.getAttribute("role"), shadow: cs.boxShadow, transform: cs.transform,
       transition: cs.transitionProperty, maxDuration: Math.max(...dur),
       cardPaints: paints(card), markPaints: mark ? paints(mark) : [], iconPaints: icon ? paints(icon) : [],
+      kind: group?.classList.contains("onb__grid") ? "tile" : group?.classList.contains("onb__num") ? "number" : "row",
+      fresh: card.classList.contains("is-fresh"), value: card.dataset.entryVal,
+      index: before.content, indexAccent: accents.includes(trip(before.color)),
+      tick: tick ? { animation: getComputedStyle(tick).animationName, offset: getComputedStyle(tick).strokeDashoffset } : null,
     };
   });
-  return { ink, cards };
+  const idle = [...document.querySelectorAll("#onbBody .onb__list .radio-card:not(.is-selected)")].map((card) => accents.includes(trip(getComputedStyle(card, "::before").color)));
+  const tally = [...document.querySelectorAll("#onbBody .entry-tally__cell")].map((cell) => {
+    const box = cell.querySelector(".entry-tally__box"), cs = getComputedStyle(box);
+    return { value: cell.dataset.entryVal, role: cell.getAttribute("role"), checked: cell.getAttribute("aria-checked"), selected: cell.classList.contains("is-selected"),
+      bg: trip(cs.backgroundColor), marks: cell.querySelector(".entry-tally__marks")?.textContent, caret: getComputedStyle(box, "::after").content !== "none",
+      paints: paints(box) };
+  });
+  return { ink: trip(ink), inkRaw: ink, cards, tally, idleAccent: idle.some(Boolean) };
 };
 window.__entryRects = () => [...document.querySelectorAll("#onbBody .radio-card")].map((c) => { const r = c.getBoundingClientRect(); return [Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; });
 `;
@@ -1567,30 +1657,47 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await page.evaluate(() => window.startOnboarding("settings"));
   await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
 
-  phase(`O2: a chosen option is ringed in ink and nothing about the card moves${tag}`);
+  phase(`O2: experience is a tally strip; a chosen row is a flush ledger entry with an ink tick and an orange index${tag}`);
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
   await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   const list = await page.evaluate(() => window.__entrySel());
-  const ring = (c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(list.ink);
-  assert(list.cards.length === 2, "the two chosen rows are selected cards", String(list.cards.length));
-  assert(list.cards.every(ring), "each selected row draws the 2px inset ink ring", JSON.stringify(list.cards.map((c) => c.shadow)));
-  assert(list.cards.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
-    "and paints no accent on the card, its mark or its icon", JSON.stringify(list.cards.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
-  assert(list.cards.every((c) => c.transform === "none"), "a selected card does not lift", JSON.stringify(list.cards.map((c) => c.transform)));
+  const chosenCell = list.tally.find((c) => c.selected);
+  assert(list.tally.length === 4 && list.tally.every((c) => c.role === "radio") && list.tally.map((c) => c.marks).join(",") === "|,||,|||,||||",
+    "experience is four radio cells counted in tally marks", JSON.stringify(list.tally));
+  assert(chosenCell?.value === "6_to_24m" && chosenCell.checked === "true" && chosenCell.bg === list.ink && chosenCell.caret && !chosenCell.paints.length,
+    "the chosen cell is inked with a caret under it, and paints no accent", JSON.stringify(chosenCell));
+  assert(list.tally.filter((c) => !c.selected).every((c) => c.checked === "false" && !c.caret), "the other cells stay open", JSON.stringify(list.tally));
+  const row = list.cards.find((c) => c.value === "most");
+  assert(list.cards.length === 1 && row, "the chosen consistency answer is the one selected row", JSON.stringify(list.cards.map((c) => c.value)));
+  assert(row.shadow === "none" && row.kind === "row", "a chosen row is flush: no ring and no box", JSON.stringify(row.shadow));
+  assert(!row.cardPaints.length && !row.markPaints.length && !row.iconPaints.length,
+    "the row and its tick box stay ink: no accent on the card, its mark or its icon", JSON.stringify([row.cardPaints, row.markPaints, row.iconPaints]));
+  assert(row.indexAccent && !list.idleAccent, "the chosen row's index is the one orange mark, and no unchosen index is orange", JSON.stringify(row.index));
+  if (reduced) assert(row.tick?.animation === "none" && parseFloat(row.tick?.offset) === 0, "under reduced motion the tick is drawn at once", JSON.stringify(row.tick));
+  else assert(row.fresh && row.tick?.animation === "ledger-tick", "the answer just picked draws its tick stroke", JSON.stringify(row));
+  assert(row.transform === "none", "a selected row does not lift", JSON.stringify(row.transform));
   const sizes = await page.evaluate(() => window.__entryRects());
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="under_6m"]');
+  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="about_half"]');
+  const after = await page.evaluate(() => window.__entrySel());
+  const carried = after.cards.find((c) => c.value === "about_half");
   const resized = await page.evaluate(() => window.__entryRects());
   assert(sizes.length > 0 && sizes.length === resized.length && sizes.every((r, i) => r[0] === resized[i][0] && r[1] === resized[i][1]),
-    "choosing a different row leaves every card the same size", JSON.stringify({ sizes, resized }));
-  if (reduced) assert(list.cards.every((c) => c.maxDuration === 0), "under reduced motion the card has no transition", JSON.stringify(list.cards.map((c) => c.maxDuration)));
-  else assert(list.cards.every((c) => /box-shadow/.test(c.transition) && c.maxDuration > 0 && c.maxDuration <= 0.16),
-    "the ring arrives on the card's own box-shadow transition, 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
+    "choosing a different row leaves every row the same size", JSON.stringify({ sizes, resized }));
+  const strip = after.tally.find((c) => c.selected);
+  assert(strip?.value === "6_to_24m" && !after.tally.some((c) => c.caret && !c.selected), "the strip keeps its answer across the re-render", JSON.stringify(after.tally));
+  if (!reduced) assert(carried?.fresh && after.cards.length === 1, "only the newly picked row is fresh", JSON.stringify(after.cards.map((c) => [c.value, c.fresh])));
+  if (reduced) assert(list.cards.every((c) => c.maxDuration === 0), "under reduced motion the row has no transition", JSON.stringify(list.cards.map((c) => c.maxDuration)));
+  else assert(list.cards.every((c) => c.maxDuration > 0 && c.maxDuration <= 0.16),
+    "the row's own transition stays at 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
 
-  phase(`O2: a chosen checkbox has an ink mark, not an orange one${tag}`);
+  phase(`O2: number tiles and checkbox tiles keep the ink ring and an ink mark${tag}`);
   await page.click("#onbNext");
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
   await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+  const numbers = (await page.evaluate(() => window.__entrySel())).cards.filter((c) => c.kind === "number");
+  assert(numbers.length === 2 && numbers.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && !c.cardPaints.length && !c.markPaints.length && c.tick?.offset && parseFloat(c.tick.offset) === 0),
+    "a chosen number tile takes the 2px ink ring and an ink check chip, no accent", JSON.stringify(numbers.map((c) => [c.shadow, c.markPaints])));
   await page.click("#onbNext");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.locator(".entry__correct > summary").click();
@@ -1599,8 +1706,9 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   assert(checks.length >= 3, "the commercial gym presets some equipment boxes", String(checks.length));
   assert(checks.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
     "no selected checkbox card, mark or icon paints the accent", JSON.stringify(checks.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
-  assert(boxes.cards.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.ink)),
-    "and every selected card on the step draws the same ink ring", JSON.stringify(boxes.cards.map((c) => c.shadow)));
+  assert(boxes.cards.filter((c) => c.kind === "tile").every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.inkRaw)) &&
+    boxes.cards.filter((c) => c.kind === "row").every((c) => c.shadow === "none" && c.indexAccent),
+    "tiles draw the ink ring; the chosen environment row is flush with an orange index", JSON.stringify(boxes.cards.map((c) => [c.kind, c.shadow, c.indexAccent])));
   assert(errors.length === 0, `no page errors in the choice card run${tag}`, errors.join(" | "));
   await context.close();
 }

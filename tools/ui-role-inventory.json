@@ -6724,6 +6724,33 @@
       ]
     },
     {
+      "id": "entry-tally-cell",
+      "selector": ".entry-tally__cell",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ]
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Changes a chosen value: one cell of the Ledger experience tally strip, a radio in its radiogroup. Its drawn edge is the strip's inked box, not the button.",
+      "neverDisabledReason": "Every experience answer is always available; the strip never withholds a cell.",
+      "owner": "plan-064/ledger-onboarding",
+      "catalogStates": [
+        "onboarding-recommend/background",
+        "onboarding-custom/background"
+      ]
+    },
+    {
       "id": "restpreset-not-id",
       "selector": ".restpreset:not([id])",
       "roles": {

@@ -14920,20 +14920,27 @@ function entryRouteLabel(route){
   const labels={recommend:t("entry.route.recommend"),custom:t("entry.route.custom"),browse:t("entry.route.browse"),
     build:t("entry.route.build"),import:t("entry.route.import"),shared:t("entry.route.shared")};
   return labels[route]||t("entry.eyebrow")}
+/* Ledger selection: the mark is a tick box, and the tick is a drawn stroke. It
+   draws only on the answer the lifter just picked (`is-fresh`); a re-render that
+   carries an earlier answer shows its tick already drawn. */
+const ENTRY_TICK_SVG=`<svg class="radio-card__tick" viewBox="0 0 24 24" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1"/></svg>`;
+let entryFreshPick=null;
 function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,role="radio",icon=""}={}){
   const current=entryState?.answers||{};
   const isSelected=selected!=null?selected:multi?(current[key]||[]).includes(val):current[key]===val;
   const checked=isSelected?"true":"false";
   const disabledCopy=disabled?` aria-label="${esc(`${label}. ${t("entry.choice.disabled")}`)}" aria-describedby="entryChoiceDisabledNote"`:
     "";
-  return `<button type="button" class="radio-card${isSelected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""}${disabledCopy} role="${esc(role)}" aria-checked="${checked}">`+
+  const fresh=isSelected&&entryFreshPick&&entryFreshPick.key===key&&entryFreshPick.val===String(val);
+  return `<button type="button" class="radio-card${isSelected?" is-selected":""}${fresh?" is-fresh":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""}${disabledCopy} role="${esc(role)}" aria-checked="${checked}">`+
     (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
     `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
-    `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
+    `<span class="radio-card__mark" aria-hidden="true">${ENTRY_TICK_SVG}</span></button>`}
 /* A question, set as a sentence in ink. The glyph argument is kept so callers
    read the same, but a question is not a column head and carries no icon. */
-function entryGroupLab(text,_icon,attrs=""){
-  return `<p class="entry__group-lab entry__question"${attrs}><span>${esc(text)}</span></p>`}
+function entryGroupLab(text,_icon,attrs="",unit=""){
+  return `<p class="entry__group-lab entry__question"${attrs}><span>${esc(text)}</span>`+
+    (unit?`<span class="entry__question-unit" aria-hidden="true">${esc(unit)}</span>`:"")+`</p>`}
 function entryHeading(title){
   return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
 function entryLegacyBanner(){
@@ -15031,9 +15038,23 @@ function entryGoalGroup(){
     ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`),{icon:ENTRY_DESIRED_ICONS[v]})).join("")+`</div>`}
 function renderDesiredResultStep(){
   return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}`+entryGoalGroup()}
+/* Experience is a count of time, so it reads as a tally strip from less to more:
+   one bounded strip of four cells, the chosen cell inked with a caret under it,
+   and one honest line about what the answer changes. Each cell is the same
+   radio the list was (`data-entry-pick`, `role="radio"`, `aria-checked`). */
+function entryExperienceStrip(){
+  const vals=["first","under_6m","6_to_24m","over_24m"],current=entryState?.answers?.structuredExperience;
+  const cells=vals.map((v,i)=>{
+    const on=current===v,fresh=on&&entryFreshPick?.key==="structuredExperience"&&entryFreshPick.val===v;
+    return `<button type="button" class="entry-tally__cell${on?" is-selected":""}${fresh?" is-fresh":""}" data-entry-pick="structuredExperience" data-entry-val="${v}" data-entry-multi="0" role="radio" aria-checked="${on}">`+
+      `<span class="entry-tally__box" aria-hidden="true"><span class="entry-tally__marks">${"|".repeat(i+1)}</span><span class="entry-tally__n">${String(i+1).padStart(2,"0")}</span></span>`+
+      `<span class="entry-tally__label">${esc(t(`entry.background.experience.${v}`))}</span></button>`}).join("");
+  const note=current?`<p class="entry-tally__note"><b>${esc(t(`entry.ledger.tally.${current}`))}</b> ${esc(t(current==="first"?"entry.ledger.tally.first_note":"entry.ledger.tally.standard_note"))}</p>`:"";
+  return `<div class="entry-tally">`+
+    `<div class="entry-tally__scale" aria-hidden="true"><span>${esc(t("entry.ledger.tally.less"))}</span><span>${esc(t("entry.ledger.tally.history"))}</span><span>${esc(t("entry.ledger.tally.more"))}</span></div>`+
+    `<div class="entry-tally__cells" role="radiogroup" aria-labelledby="entryExpLab">${cells}</div>${note}</div>`}
 function entryBackgroundGroups(){
-  return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
-    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
+  return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+entryExperienceStrip()+
     entryGroupLab(t("entry.background.consistency.label"),"cal",` id="entryConLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryConLab">`+
     ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
 /* The "about" screen: the goal the hub already asked is carried as a band with
@@ -15051,11 +15072,10 @@ function renderBackgroundStep(){
 /* Schedule values are numbers, so they are set as numbers: a Mono value over its
    unit, in a grid of equal cards with no radio mark. Nothing is preselected. */
 function entryScheduleGroups({browse=false}={}){
-  const minuteUnit=n=>t(`entry.schedule.minutes.${n}`).replace(/^[\d+]+\s*/,"").trim()||t(`entry.schedule.minutes.${n}`);
-  return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
+  return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`,t("entry.ledger.unit.days"))+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
-    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
-    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`+
+    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`,t("entry.ledger.unit.minutes"))+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
+    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),t("entry.ledger.unit.min"))).join("")+`</div>`+
     (browse?"":entryGroupLab(t("entry.schedule.rest.label"),"timer",` id="entryRestLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryRestLab">`+
       entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
       [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
@@ -15242,7 +15262,7 @@ function entryPrioritiesBody(){
       `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
       ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
   const primary=a.primaryMuscles||[];
-  return `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
+  return `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true">${ENTRY_TICK_SVG}</span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
     (primary.length>=2?`<p class="entry__hint entry__limit" id="entryPrimaryLimit">${esc(t("entry.priorities.limit"))}</p>`:"")+
@@ -15922,7 +15942,7 @@ function renderResultStep(){
     renderEntryFactsStrip(preview)+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    `<h2 class="entry__section-head" id="entryWeekLab">${esc(t("entry.preview.days"))}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
+    `<h2 class="entry__section-head entry__section-head--ledger" id="entryWeekLab">${esc(t("entry.preview.days"))}${entrySlipCount(preview)}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
     renderEntryChips()+
     `<section class="entry__why" aria-labelledby="entryWhyLab"><h2 class="entry__section-head" id="entryWhyLab">${esc(t("entry.result.why"))}</h2>`+
     `<ul class="entry__rows entry__rows--reasons">${whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")}</ul>`+
@@ -16210,27 +16230,54 @@ function renderPreviewStep({merged=false}={}){
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p></div>`+
     renderEntryFactsStrip(preview)+
     renderEntryChangeStatement(entryChange)+
-    `<p class="entry__group-lab entry__section-head">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`+
+    `<p class="entry__group-lab entry__section-head entry__section-head--ledger">${esc(t("entry.preview.days"))}${entrySlipCount(preview)}</p><div class="onb__review">${days.join("")}</div>`+
     /* Each facet keeps its heading element: the review's heading outline is how
        a screen-reader user jumps between Priorities, Equipment, Progression and
        Compromises, so the redesign restyles `h4` rather than demoting it. */
     `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
     renderEntryMore()+renderEntryPinned({progressionIssue})}
-/* The week is a stack of hairline bands. The first day is open, so the first
+/* The week is a stack of ledger slips. The first day is open, so the first
    exercise is on the first screen (K-32); the others fold away, except a day
-   that holds an exercise the last change added. */
+   that holds an exercise the last change added. A slip's badges are the
+   sentence the review always read (exercises, working sets, minutes), set as
+   short Mono tags for the eye; the sentence itself stays as the slip's
+   accessible text. Focus tags are the day's first three primary muscles. */
+function entrySlipCount(preview){
+  const n=(preview?.days||[]).length;
+  return n?`<span class="entry__section-count" aria-hidden="true">${monoNums(tOne("entry.ledger.slips",n))}</span>`:""}
+function entryDayMuscles(exercises){
+  const seen=[];
+  for(const ex of exercises){
+    const m=String(ex?.primary||libraryEntry(ex?.libraryId)?.primary||"").split(",")[0].trim();
+    if(m&&!seen.includes(m))seen.push(m);
+    if(seen.length>=3)break}
+  return seen}
 function renderEntryWeek(preview){
   const added=new Set(entryChangeNow()?.added||[]);
   return (preview.days||[]).map((day,index)=>{
     const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
     const dayName=previewDayLabel(day,index,preview.programStructure);
     const open=index===0||exercises.some(exercise=>added.has(exercise.id));
-    return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
-    `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`)}</span></summary>`+
-    exercises.map(ex=>{const isNew=added.has(ex.id);
-      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
+    const sentence=`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`;
+    const badges=[day.estimateMinutes?t("entry.preview.badge_minutes",{n:day.estimateMinutes}):"",
+      entryExerciseCountLabel(exercises.length),t("entry.preview.sets",{n:sets})].filter(Boolean);
+    const muscles=entryDayMuscles(exercises);
+    /* The slip's eyebrow counts the day; a day whose name already is "Day n" is not counted twice. */
+    const dayN=t("program.default.day",{n:index+1});
+    const eyebrow=[dayName.trim()===dayN?"":dayN,index===0?t("entry.preview.up_next"):""].filter(Boolean).join(" · ");
+    return `<details class="onb__day onb__slip"${open?" open":""}><summary class="onb__dayname">`+
+    `<span class="onb__daynum" aria-hidden="true">${String(index+1).padStart(2,"0")}</span>`+
+    `<span class="onb__slip-title">${eyebrow?`<span class="onb__slip-k">${monoNums(eyebrow)}</span>`:""}`+
+    `<span class="onb__slip-name">${monoNums(dayName)}</span></span>`+
+    `<span class="visually-hidden">${monoNums(sentence)}</span>`+
+    `<span class="onb__slip-tags" aria-hidden="true">${badges.map(b=>`<span class="onb__badge">${monoNums(b)}</span>`).join("")}`+
+    muscles.map(m=>`<span class="onb__badge onb__badge--focus">${esc(muscleLabel(m))}</span>`).join("")+`</span></summary>`+
+    `<div class="onb__slip-body">`+
+    exercises.map((ex,i)=>{const isNew=added.has(ex.id);
+      return `<div class="onb__ex${isNew?" is-new":""}"><span class="onb__ex-i" aria-hidden="true">${String(i+1).padStart(2,"0")}</span><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}`+
+        (ex.sets!=null?`<span class="onb__ex-lead" aria-hidden="true"></span><span class="onb__ex-dose"><span class="visually-hidden"> · </span>${ex.sets} × ${ex.min}–${ex.max}</span>`:"")+`</div>`}).join("")+
     (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
-    `</details>`})}
+    `</div></details>`})}
 function renderEntryMore(){
   return `<section class="entry__more" aria-labelledby="entryMoreLab"><p class="entry__group-lab entry__section-head" id="entryMoreLab">${esc(t("entry.preview.more"))}</p>`+
     `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`+
@@ -16429,6 +16476,15 @@ function setupEntryRovingFocus(){
 /* The hub is also what a resumable draft opens on (Q633): the saved route and
    step are named on a card there, and nothing behind it is chosen until the
    lifter resumes or starts over. */
+function entryRecordedLine(stepId){
+  const a=entryState?.answers||{};
+  let what="";
+  if(stepId==="desired_result"&&a.desiredResult)what=t(`entry.desired_result.${a.desiredResult}.label`);
+  else if(stepId==="background"&&a.structuredExperience)what=t(`entry.background.experience.${a.structuredExperience}`);
+  else if(stepId==="schedule"&&a.daysPerWeek&&a.sessionMinutes)what=t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>=90?"90+":a.sessionMinutes});
+  else if(stepId==="environment"&&a.environment?.kind)what=entryEnvironmentLabel();
+  else if(stepId==="priorities")what=entryPriorityLabel();
+  return what?`${t("entry.ledger.recorded")} · ${what}`:""}
 function entryHubMode(){
   return !entryState?.route||entryState.step==="entry"||entryUiNotice==="resume"}
 /* Earlier answers, each one tap from being changed (G's answer rail). Question
@@ -16475,6 +16531,7 @@ function renderOnboarding(){
     onboarding.scrollTop=0;onboarding.scrollLeft=0;
   }
   entryVisibleScreenKey=screenKey;
+  if(!sameScreen)endEntryPrint({build:false});
   const hub=entryHubMode();
   const resuming=entryUiNotice==="resume";
   const route=hub?null:entryState.route,stepId=hub?"entry":entryState.step;
@@ -16502,6 +16559,10 @@ function renderOnboarding(){
   if(step){const stepText=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
     if(step.textContent!==stepText)step.textContent=stepText;
     step.classList.toggle("hidden",!showProgress)}
+  /* The ledger counter: the section as "01/04", Mono, for the eye only. The live
+     #onbStepLabel above still says it in words for assistive technology. */
+  const counter=$("#onbCounter");
+  if(counter)counter.innerHTML=showProgress?`<b>${String(progress.n).padStart(2,"0")}</b>/${String(progress.total).padStart(2,"0")}`:"";
   const seg=$("#onbSegbar");
   if(seg){const total=showProgress?progress.total:0,current=progress.n-1;
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
@@ -16522,7 +16583,11 @@ function renderOnboarding(){
     next.disabled=!!pendingReason||blocked;
     /* A blocked primary says why, in text above it, and drops its arrow. */
     const showReason=blocked&&!pendingReason;
-    if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":"entry.pinned.reason"):""}
+    /* The ledger status line: a blocked primary says why (hollow mark); an
+       answered section reads back what was recorded (orange mark). */
+    const recorded=!showReason&&!pendingReason&&!hideNext&&!isEditor?entryRecordedLine(stepId):"";
+    if(reason){reason.hidden=!showReason&&!recorded;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":"entry.pinned.reason"):recorded;
+      reason.classList.toggle("is-recorded",!!recorded)}
     next.classList.toggle("btn--noarrow",next.disabled);
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
     else if(showReason)next.setAttribute("aria-describedby","onbNextReason");
@@ -16530,6 +16595,8 @@ function renderOnboarding(){
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
   const rail=!hub&&!isEditor?renderEntryRail():"";
+  /* Each questionnaire section is a ledger entry: "Entry 01 · About you". */
+  if(showProgress&&!isEditor)html+=`<p class="entry__ledger-k" aria-hidden="true"><span>${monoNums(t("entry.ledger.entry",{n:String(progress.n).padStart(2,"0")}))} · ${esc(t(`entry.ledger.section.${stepId}`))}</span></p>`;
   if(hub)html+=renderEntryHub();
   else if(stepId==="desired_result")html+=entryRailAfterTitle(renderDesiredResultStep(),rail);
   else if(stepId==="background")html+=entryRailAfterTitle(renderBackgroundStep(),rail);
@@ -16551,6 +16618,7 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
+  entryFreshPick=null;
   if(stepId==="result"&&!isEditor)playEntryBuild(body);
   const environmentCorrection=body.querySelector(".entry__correct");
   if(environmentCorrectionOpen&&environmentCorrection)environmentCorrection.open=true;
@@ -16581,19 +16649,73 @@ function renderOnboarding(){
   // than on the landing that opens it. Not while a saved draft is asking first.
   if(hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
   syncEntryDialog()}
-/** O3: draw the generated program in reading order, one block every 55ms
+/** O3: a fresh generation is built in two beats. First the ledger prints: a
+ *  full-screen interstitial (`#entryPrint`) ticks through four lines built from
+ *  the lifter's own answers, about 2.5 seconds in all. It is decorative and
+ *  aria-hidden: the review is already rendered underneath it, focus is on the
+ *  program's name, and a tap or any key ends it at once. A tap is taken on
+ *  `click`, so the press that skips can never land on Use this program. Then the
+ *  program is drawn in reading order, one block every 55ms
  *  (`.motion-build > .motion-build-item`, `--build-i` counting from zero): the
  *  name, where it came from, the four facts, what just changed, the week's
  *  heading and then each day. The answers, the reasons and every control stay
  *  out of it, so nothing a lifter can press is held back or disabled. The
  *  classes come off when the last block lands, and a render that follows draws
- *  the program at rest. Reduced motion draws it all at once with no classes. */
+ *  the program at rest. Reduced motion shows no interstitial and draws it all at
+ *  once with no classes. */
+const ENTRY_PRINT_STEP_MS=560,ENTRY_PRINT_HOLD_MS=320;
+let entryPrintRun=null;
+function entryPrintLines(){
+  const a=entryState?.answers||{};
+  const minutes=a.sessionMinutes>=90?"90+":a.sessionMinutes;
+  return [t("entry.print.read"),
+    a.daysPerWeek?t("entry.print.split",{days:a.daysPerWeek}):null,
+    minutes?t("entry.print.fit",{minutes}):null,
+    t("entry.print.volume")].filter(Boolean)}
+function endEntryPrint({build=true}={}){
+  const run=entryPrintRun;if(!run)return;
+  entryPrintRun=null;
+  run.timers.forEach(clearTimeout);
+  document.removeEventListener("keydown",run.onKey,true);
+  run.el.remove();
+  if(build&&run.body.isConnected)runEntryBuild(run.body)}
 function playEntryBuild(body){
   const armed=entryBuildArmed;entryBuildArmed=null;
   const result=entryState?.result;
   if(!armed||!result?.fingerprint||armed.draftId!==entryState.draftId||armed.fingerprint!==result.fingerprint||!beatsOn())return;
+  if(!body.querySelector("#entryCandidateReview > .onb__review"))return;
+  endEntryPrint({build:false});
+  // Without the motion layer, beatsOn() cannot see the setting, so ask the media query too.
+  if(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches)return;
+  const host=$("#onboarding")||document.body;
+  const lines=entryPrintLines();
+  const el=document.createElement("div");
+  el.className="entry-print";el.id="entryPrint";el.setAttribute("aria-hidden","true");
+  el.style.setProperty("--print-steps",String(lines.length));
+  el.style.setProperty("--print-step",`${ENTRY_PRINT_STEP_MS}ms`);
+  el.innerHTML=`<div class="entry-print__inner">`+
+    `<p class="entry-print__eyebrow">${esc(entrySourceLabel())}</p>`+
+    `<p class="entry-print__title">${esc(t("entry.print.title"))}</p>`+
+    `<div class="entry-print__paper">${Array.from({length:6},(_,i)=>`<span class="entry-print__rule" style="--rule-i:${i}"></span>`).join("")}</div>`+
+    `<ol class="entry-print__steps">${lines.map(line=>`<li class="entry-print__step"><span class="entry-print__time">—</span>`+
+      `<span class="entry-print__label">${esc(line)}</span><span class="entry-print__tickbox">${ENTRY_TICK_SVG}</span></li>`).join("")}</ol>`+
+    `<p class="entry-print__skip">${esc(t("entry.print.skip"))}</p></div>`;
+  host.appendChild(el);
+  /* The key that ends the print does only that: an Escape must not also open Cancel. */
+  const run={el,body,timers:[],onKey:event=>{event.preventDefault();event.stopPropagation();endEntryPrint()}};
+  entryPrintRun=run;
+  el.addEventListener("click",()=>endEntryPrint());
+  document.addEventListener("keydown",run.onKey,true);
+  const steps=[...el.querySelectorAll(".entry-print__step")];
+  const mark=i=>{
+    steps.forEach((step,n)=>{step.classList.toggle("is-done",n<i);step.classList.toggle("is-active",n===i)});
+    if(i>0)steps[i-1].querySelector(".entry-print__time").textContent=`${(i*ENTRY_PRINT_STEP_MS/1000).toFixed(1)}s`};
+  mark(0);
+  for(let i=1;i<=steps.length;i++)run.timers.push(setTimeout(()=>mark(i),i*ENTRY_PRINT_STEP_MS));
+  run.timers.push(setTimeout(()=>endEntryPrint(),steps.length*ENTRY_PRINT_STEP_MS+ENTRY_PRINT_HOLD_MS))}
+function runEntryBuild(body){
   const review=body.querySelector("#entryCandidateReview"),week=review?.querySelector(":scope > .onb__review");
-  if(!review||!week)return;
+  if(!review||!week||!beatsOn())return;
   const lead=[...review.children].filter(el=>el.matches(".entry__progname,.entry__source,.entry__strip,#entryChange,#entryWeekLab"));
   const items=[...lead,...week.children];
   items.forEach((el,i)=>{el.classList.add("motion-build-item");el.style.setProperty("--build-i",String(i))});
@@ -16731,6 +16853,7 @@ function wireEntryDom(){
   });
   $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
     const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";
+    entryFreshPick={key,val:String(raw)};
     if(key==="environment"){
       const next=ProgramEntryAdapter?.defaultEnvironment?.(raw)||{kind:raw,equipment:[],capabilities:[]};
       entryPatchAnswers({environment:next});
