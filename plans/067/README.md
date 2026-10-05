@@ -64,7 +64,7 @@ python3 plans/067/verify.py --negative-controls
 The validator checks hashes and independent expected counts, UUID coverage,
 reference types, tier equality, equipment closure and program eligibility,
 P1–P3 prescription equality, P4 day/set counts, and fixture field allowlists.
-Its five corruptions exercise dangling references, incorrect tiers, a missing
-compact-program set, missing equipment, and an unexpected personal field.
+Its six corruptions exercise dangling references, incorrect tiers, a missing
+compact-program set, missing equipment, an unexpected nested personal field, and uniformly wrong rep ranges.
 These checks prove artifact integrity and selected observations. They do not
 prove the future generator, progression engine, persistence, or UI.

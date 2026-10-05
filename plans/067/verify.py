@@ -17,6 +17,21 @@ EXPECTED_COUNTS = {'alternativeName':2069,'appEquipmentCategory':13,'equipment':
 ROLES = ['strengthPrimaryCompound','strengthSecondaryCompound','strengthAccessory',
  'hypertrophyPrimaryCompound','hypertrophySecondaryCompound','hypertrophyAccessory']
 
+# Independent transcription of the observed slot prescriptions, not generated
+# from the corpus being checked. Tuples are rep bounds and the complete RIR list.
+STANDARD = [
+ [(7,9,[2,1]),(9,11,[1,0])] + [(14,16,[1,0,0])] * 4,
+ [(7,9,[3,2,1]),(9,11,[3,2,1])] + [(14,16,[1,0,0])] * 3,
+ [(7,9,[3,2,1]),(9,11,[2,1,0]),(9,11,[2,1]),(11,13,[1,0])] + [(14,16,[1,0,0])] * 2,
+ [(7,9,[3,2,1]),(9,11,[3,2,1])] + [(14,16,[1,0,0])] * 3,
+]
+COMPACT = [
+ [(7,9,[3,2,1]),(9,11,[1,0]),(14,16,[0,0]),(14,16,[0,0])],
+ [(7,9,[3,2,1]),(14,16,[1,0,0]),(14,16,[1,0,0])],
+ [(7,9,[2,1]),(9,11,[1,0])] + [(14,16,[0,0])] * 3,
+ [(7,9,[3,2,1]),(14,16,[1,0,0]),(14,16,[1,0,0])],
+]
+
 
 def require(condition, message):
     if not condition:
@@ -80,10 +95,19 @@ def validate(corpus):
         expected_sets = [9,9,10,9] if name=='P4' else [16,15,16,15]
         require([len(d['exercises']) for d in program['days']]==expected_lengths, 'day exercise counts')
         require([sum(len(e['sets']) for e in d['exercises']) for d in program['days']]==expected_sets, 'day set counts')
+        expected_context = {'evidence':'owner-reported; P3/P4 requested experiment conditions',
+            'goal':'hypertrophy','experience':'intermediate','trainingDays':4,
+            'split':'upper/lower/upper/lower','sessionMinutes':[20,40] if name=='P4' else [40,60],
+            'competencyAnswers':['Yes' if name=='P3' else 'No']*7,'emphasis':[],
+            'excludedMuscles':[],'periodization':'static','gym':'Commercial Gym'}
+        require(program['generationContext']==expected_context, 'generation context allowlist/value')
         signature=[]
-        for day in program['days']:
+        matrix = COMPACT if name=='P4' else STANDARD
+        for day_index, day in enumerate(program['days']):
             require(set(day)=={'name','exercises'},'day allowlist')
-            for ex in day['exercises']:
+            for slot_index, ex in enumerate(day['exercises']):
+                lo,hi,rirs = matrix[day_index][slot_index]
+                require([(v['repMin'],v['repMax'],v['rir']) for v in ex['sets']]==[(lo,hi,rir) for rir in rirs], 'observed slot prescription')
                 require(set(ex)=={'exerciseId','exportName','sourceRow','sets'},'exercise fixture allowlist')
                 require(ex['exerciseId'] in exercises and eligible(exercises[ex['exerciseId']]),'selected exercise equipment')
                 signature.append(ex['sets'])
@@ -117,13 +141,18 @@ def main():
         def tier(c): c['recommendation-tiers.json'][0]['tier']=99
         def prescription(c): c['programs.json']['P4']['days'][0]['exercises'][0]['sets'].pop()
         def equipment(c): c['gym.json']['equipment'].pop()
-        def privacy(c): c['programs.json']['P1']['email']='unexpected@example.invalid'
-        for mutate in [dangling,tier,prescription,equipment,privacy]:
+        def privacy(c): c['programs.json']['P1']['generationContext']['email']='unexpected@example.invalid'
+        def dose(c):
+            for program in c['programs.json'].values():
+                for day in program['days']:
+                    for exercise in day['exercises']:
+                        for s in exercise['sets']: s['repMin'],s['repMax']=100,102
+        for mutate in [dangling,tier,prescription,equipment,privacy,dose]:
             bad=copy.deepcopy(corpus);mutate(bad)
             try: validate(bad)
             except ValueError: continue
             raise ValueError(f'Negative control escaped: {mutate.__name__}')
-        report['negativeControlsRejected']=5
+        report['negativeControlsRejected']=6
     print(json.dumps(report,sort_keys=True))
 
 if __name__=='__main__':main()

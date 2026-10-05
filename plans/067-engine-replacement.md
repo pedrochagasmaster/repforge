@@ -244,7 +244,7 @@ This PR's contract owner is the raw APK database and explicitly selected workboo
 observations. The extractor produces the committed corpus; the validator consumes it.
 Run `python3 plans/067/verify.py --negative-controls`, reproduce into a separate directory,
 and compare all bytes. The verifier must reject dangling references, wrong tiers,
-missing P4 prescriptions, missing equipment and unexpected personal fixture fields.
+missing P4 prescriptions, missing equipment unexpected nested personal fixture fields and uniformly wrong rep ranges.
 Hashes alone do not prove semantics; fixed counts, reference types and observed
 prescription equality are checked independently. Capture command/source identity using
 the existing verification recorder after committing.
