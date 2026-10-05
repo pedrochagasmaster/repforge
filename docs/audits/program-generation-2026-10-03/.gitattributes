@@ -1,0 +1,2 @@
+evidence-parts/* binary
+*.csv whitespace=cr-at-eol

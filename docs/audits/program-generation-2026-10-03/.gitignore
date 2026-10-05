@@ -1,0 +1,11 @@
+# Complete originals are stored in the checksummed evidence package.
+# restore-evidence.py recreates these generated files locally.
+/coaching/coaching-evidence.json
+/coaching/individual-assessments.json
+/coaching/priority-counterfactuals.json
+/coaching/program-reviews.md
+/exercises.csv
+/explorer.html
+/individual-evaluations.md
+/probes.json
+/programs.json

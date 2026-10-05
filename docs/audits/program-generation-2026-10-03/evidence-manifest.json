@@ -1,0 +1,210 @@
+{
+  "format": "tar+gzip, concatenated ordered parts",
+  "sourceRevision": "c1d643206d1c472b34d3f0c0e4b7cb425f571329",
+  "archiveBytes": 1160874,
+  "archiveSha256": "8dcef2d4b164ef0de84edf042e42fe7803ba1cc65d5aeca280031c895c695700",
+  "parts": [
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0001",
+      "bytes": 65536,
+      "sha256": "de0bbc59b16d96d4a81322f784e45f28c55723c7c6eed2e93e2dfc19b2b69ff4"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0002",
+      "bytes": 65536,
+      "sha256": "9c1248f5bb10d29bdca04fe6d46b705bba5d17a5fce7b3d93d7a444cacc218d3"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0003",
+      "bytes": 65536,
+      "sha256": "7c582944264343e7ebfff184b3fb28216e1ee374a693edd817a29f1bac3a9dcf"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0004",
+      "bytes": 65536,
+      "sha256": "1e04a21fe4ddae9a1f3b2b18e04a310a7ad8f9f7430e10913c75f29b904858a7"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0005",
+      "bytes": 65536,
+      "sha256": "ba7a76bafae09cb42e5c8678d6781c9fd5c6a18c5d99d97a54e23277136ad7c8"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0006",
+      "bytes": 65536,
+      "sha256": "0dc513d06d3b35b1f05f858565ad173a0c338569b7db7fbfbf485dd7f6ca6758"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0007",
+      "bytes": 65536,
+      "sha256": "495c709b9097585dea9d065d481f53ce7d353f7aeb1658aee909e3055a711baf"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0008",
+      "bytes": 65536,
+      "sha256": "3fa0d13d2cd800a4bd929aed0e6d85fbab0380959124bb7a7d95df9078e0dbe9"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0009",
+      "bytes": 65536,
+      "sha256": "e10ba73511f3025a8b45b86f93a27de3de45baf623f58b61247131e488e214eb"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0010",
+      "bytes": 65536,
+      "sha256": "444e387415c1f1ed41d22c71c17c56ba67352ef68d47ef49d70437bd88790f4f"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0011",
+      "bytes": 65536,
+      "sha256": "de544b27e92b217dd46bea884749b8dd645091c44ac995a419464d619aeca447"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0012",
+      "bytes": 65536,
+      "sha256": "a5dc57ee004bd4a274a44220a21410df4c3a6de1ba06df2aa3dac8ca41fa816a"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0013",
+      "bytes": 65536,
+      "sha256": "e3c643e9bc6b6c123c065f8bbc941dce3e7778ca74c35941412af08e5bffb12b"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0014",
+      "bytes": 65536,
+      "sha256": "8bce46f9e4157be6a7b65f51066506929dc92d10f9a094c1c6540e01b8ab18c9"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0015",
+      "bytes": 65536,
+      "sha256": "2702589d5b287a650e2d2b2974fbf2c0ee6948e07a3c5af78161c545b8a0db09"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0016",
+      "bytes": 65536,
+      "sha256": "8e56741ea6201c8dbf56c76a47b5b403ab9741d27f5eb879b1954902a066b148"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0017",
+      "bytes": 65536,
+      "sha256": "d872f71d5634ec37d89498f32895eab97eceae2618f7d0f404caa0031f8e2a2b"
+    },
+    {
+      "path": "evidence-parts/audit.tar.gz.part-0018",
+      "bytes": 46762,
+      "sha256": "4bd85993b47467e00d5ba857195b40316847486e8948a9fd0def1cdc03fbd978"
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/audits/program-generation-2026-10-03/README.md",
+      "bytes": 17717,
+      "sha256": "2ff437c726b31c1fa30dd93738d17f3b3bf3473b50efd5eac412e37ec62dd54f"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/README.md",
+      "bytes": 42432,
+      "sha256": "ecfd4f4da3bb8def7e4adbf89581a3e9689761bea72830fef190237268198d23"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/build-program-reviews.py",
+      "bytes": 17384,
+      "sha256": "1b4f4e8f51b417cc0775b1714e1091bbe9652ca658855a161f0a266a38184eff"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/coaching-evidence.json",
+      "bytes": 2924744,
+      "sha256": "aa8f83d7f77f838b8fd01947e13e2f7ba1583b354f75a1fca768ecc063e34bbd"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/coaching-inventory.csv",
+      "bytes": 40048,
+      "sha256": "00dc7bae0fcdbf5adfc274b550d176c9425b5554f001fc6d72236d59101193ef"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/coaching-inventory.py",
+      "bytes": 12782,
+      "sha256": "92c61a3e7c83c8e45e68268a806d330f1ba6cf16eb67e4ed3a1a77a0aa247bd9"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/individual-assessments.json",
+      "bytes": 326534,
+      "sha256": "1b7c1272bffd46e7fbcb917cbe3311a367a26c84ed191f291bbb7efd093fcebf"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/priority-counterfactuals.json",
+      "bytes": 1246130,
+      "sha256": "c387886bd4958402b00597e321469a1f6296e12c68a6401c97654aeb7e8d08f8"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/program-reviews.md",
+      "bytes": 1117629,
+      "sha256": "20d52cfcb7dec016339a8fd8e4b677a03c1966caecbd0556ed3b9a1a56154010"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/coaching/verification.json",
+      "bytes": 425,
+      "sha256": "973b7532b835fbe6490b2eedf332b04ad544061613d21a84987f1863c876c83f"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/contract.md",
+      "bytes": 2588,
+      "sha256": "2cd591e07a08094f8c3134a09d198ab262c77ee422c1b74db6bdea49fe6be55f"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/evaluations.csv",
+      "bytes": 40897,
+      "sha256": "752d2e7bc4c7cb5fd73c0a8a14649481698270dde949579c429031e84971f0b6"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/exercises.csv",
+      "bytes": 597717,
+      "sha256": "d0221ac3874cb15dceda612f193d7a25ae975cf310e6565c9a0a53834b1c8f50"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/explorer-verification.json",
+      "bytes": 520,
+      "sha256": "9b83baa435806bd7e746f2bac5b5e2cb5324a75758faa2bf2012285ba60a50bc"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/explorer.html",
+      "bytes": 3382996,
+      "sha256": "90c407629f14b4f028d9dd3672b58eb5ce8b7b2b373bd6671b5a9200565d89df"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/finding-F01-reproduction.json",
+      "bytes": 737,
+      "sha256": "bc624e5dd1a1c81a9691d79be795441587157b6fb8b7fcd183c17d5d84da8610"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/individual-evaluations.md",
+      "bytes": 681449,
+      "sha256": "3289e25b7a61371bf25834fb090ca0de181fd0254b12c1317e60c9e9edf50492"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/probes.json",
+      "bytes": 473578,
+      "sha256": "dc65baf53ae9860f078a9ba069782dfb2ead2208a9a841117b092299fe4a57ff"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/programs.json",
+      "bytes": 10407045,
+      "sha256": "4c83b12ddfe46d113a441ed477845540ad8206b4e9ab791441e5da80bd136660"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/summary.json",
+      "bytes": 84075,
+      "sha256": "6348665e45b75f6230c15b6c7bf1fc07321ab2a56eb45b5ebff6f5b253d76dd4"
+    },
+    {
+      "path": "docs/audits/program-generation-2026-10-03/verification.json",
+      "bytes": 1349,
+      "sha256": "c90ed00806b7c13587ff2c56640f788658b27d0aff7dacd33ddc70617abe36eb"
+    },
+    {
+      "path": "tools/audit-program-generation.mjs",
+      "bytes": 42614,
+      "sha256": "104286fc73f1d1f2e5d4e289570ed5e035fb326349a84096720e001efc73d2d8"
+    }
+  ]
+}

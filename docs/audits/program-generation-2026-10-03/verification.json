@@ -1,0 +1,54 @@
+{
+  "sourceSha": "c1d643206d1c472b34d3f0c0e4b7cb425f571329",
+  "semanticProgramsSha256": "92f9e0bece87b4aba07c379f86208b66175f1b2417273d4f8ee8d3c21bae41e0",
+  "exactReplayMatches": true,
+  "programs": 200,
+  "representative": 100,
+  "stress": 100,
+  "allEntryAnswersAccepted": true,
+  "allProductionAdapterRoundTripsMatch": true,
+  "allProbesSupportedResultKinds": true,
+  "allSourceHashesMatch": true,
+  "exerciseRows": 3354,
+  "evaluatorFalsificationsPassed": [
+    {
+      "dimension": "equipment",
+      "rejected": true
+    },
+    {
+      "dimension": "identity",
+      "rejected": true
+    },
+    {
+      "dimension": "time_ceiling",
+      "rejected": true
+    },
+    {
+      "dimension": "progression_validity",
+      "rejected": true
+    },
+    {
+      "dimension": "exposure_accounting",
+      "rejected": true
+    },
+    {
+      "dimension": "protected_coverage",
+      "rejected": true
+    }
+  ],
+  "focusedChecks": [
+    {
+      "command": "node test/program-family-fixtures.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "node test/program-compiler-plan048-preferences.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "node tools/build-program-family-fixtures.mjs --check",
+      "exitCode": 0
+    }
+  ],
+  "runnerLimitation": "Standard browser runner blocked by spawnSync git EPERM; pure owning proofs ran directly."
+}
