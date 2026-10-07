@@ -19,6 +19,12 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 
 const results = { passed: 0, failed: 0 };
+/* Catalog identities the journey addresses. Chin-up and Barbell bench press
+   both carry licensed artwork; MAPPED is how many catalog movements do. */
+const CHIN_UP = "1a15c6f170d880b6adcbff83e8bb6b0f";
+const BARBELL_BENCH = "19f5c6f170d8808bb424e98de4472a7e";
+const SMITH_BENCH = "1a05c6f170d88058a3a0c07e098a9605";
+const MAPPED = 20;
 function assert(cond, name, detail) {
   if (cond) { results.passed++; console.log(`  ✓ ${name}`); }
   else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${detail}`); }
@@ -164,8 +170,8 @@ async function main() {
       emptyIsBlank: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => !s.textContent.trim() && !s.children.length),
       lazy: [...document.querySelectorAll("#libList img.exthumb")].every((i) => i.loading === "lazy"),
     }));
-    assert(media.images === 96, "exactly the mapped exercises show artwork", `${media.images} of ${media.rows}`);
-    assert(media.empties === media.rows - 96, "every other row shows an empty tile",
+    assert(media.images === MAPPED, "exactly the mapped exercises show artwork", `${media.images} of ${media.rows}`);
+    assert(media.empties === media.rows - MAPPED, "every other row shows an empty tile",
       `${media.empties} empties, ${media.rows} rows`);
     assert(media.emptyHasNoSrc && media.emptyIsBlank,
       "the empty tile is genuinely empty — no src, no glyph, no text");
@@ -181,7 +187,7 @@ async function main() {
     // ---- preview ----
     await page.evaluate(() => {
       const row = [...document.querySelectorAll("#libList .librow")]
-        .find((r) => (r.querySelector(".librow__name")?.textContent || "").trim() === "Lat pulldown");
+        .find((r) => (r.querySelector(".librow__name")?.textContent || "").trim() === "Chin-up");
       row?.querySelector("[data-lib-preview]")?.click();
     });
     await page.waitForSelector("#exercisePreview.active", { timeout: 5000 });
@@ -192,8 +198,8 @@ async function main() {
       alt: document.querySelector(".preview img.exthumb--lg")?.getAttribute("alt"),
       add: document.querySelector("#previewAdd")?.textContent?.trim(),
     }));
-    assert(preview.title === "Lat pulldown", "preview shows the canonical name", JSON.stringify(preview));
-    assert(preview.rows[0] === "Lats", "preview shows the definition's muscles", JSON.stringify(preview.rows));
+    assert(preview.title === "Chin-up", "preview shows the canonical name", JSON.stringify(preview));
+    assert(preview.rows[0]?.split(" · ").includes("Lats"), "preview shows the definition's muscles", JSON.stringify(preview.rows));
     assert(preview.art && !!preview.alt,
       "a large illustration is described, unlike the list thumbnails", JSON.stringify([preview.art, preview.alt]));
     assert(preview.add?.includes(day), "preview offers to add to the day being built", preview.add);
@@ -201,10 +207,10 @@ async function main() {
     await page.waitForSelector("#library.active", { timeout: 5000 });
     await settle(page);
     const previewFocus = await page.evaluate(() => document.activeElement?.getAttribute("data-lib-preview"));
-    assert(previewFocus === "pd_mc", "closing a preview returns focus to its library row", String(previewFocus));
+    assert(previewFocus === CHIN_UP, "closing a preview returns focus to its library row", String(previewFocus));
     let model = await flow(page);
     assert(
-      model.selected.includes("pd_mc"),
+      model.selected.includes(CHIN_UP),
       "adding from the preview selects it and returns to the library",
       JSON.stringify(model)
     );
@@ -238,9 +244,13 @@ async function main() {
     await settle(page, 800);
 
     const state = await getState(page);
-    const added = state.program.filter((e) => e.day === day && ["pd_mc", "pr_bb"].includes(e.libraryId));
+    const added = state.program.filter((e) => e.day === day && [CHIN_UP, BARBELL_BENCH].includes(e.libraryId));
     assert(added.length === 2, "both exercises land on the day", JSON.stringify(added.map((e) => e.name)));
-    const configured = added.find((e) => e.libraryId === "pd_mc");
+    const canonicalDay = state.programMeta?.programDefinition?.days?.find((d) => d.name === day);
+    const canonicalIds = (canonicalDay?.slots || []).map((slot) => slot.exerciseId);
+    assert(canonicalIds.includes(CHIN_UP) && canonicalIds.includes(BARBELL_BENCH),
+      "both exercises are slots of the canonical program, not only display rows", JSON.stringify(canonicalIds));
+    const configured = added.find((e) => e.libraryId === CHIN_UP);
     assert(
       configured && configured.sets === 4 && configured.min === 8 && configured.max === 12,
       "the configured sets and rep range are what gets saved",
@@ -336,7 +346,7 @@ async function main() {
 
     // A name that already exists offers the existing one.
     await page.waitForSelector("#library.active", { timeout: 5000 });
-    await page.fill("#libSearch", "Lat pulldown");
+    await page.fill("#libSearch", "Chin-up");
     await settle(page);
     await page.click("#libCustom");
     await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
@@ -356,8 +366,8 @@ async function main() {
     // Duplicate acknowledgement belongs to the exact existing entry, even
     // when custom creation starts from the ordinary library route.
     const standardBefore = await getState(page);
-    const standardA = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
-    const standardB = await page.evaluate(() => window.__repforgeLibraryEntry("pr_bb"));
+    const standardA = await page.evaluate((id) => window.__repforgeLibraryEntry(id), SMITH_BENCH);
+    const standardB = await page.evaluate((id) => window.__repforgeLibraryEntry(id), BARBELL_BENCH);
     await page.fill("#libSearch", standardA.name);
     await page.click("#libCustom");
     await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });

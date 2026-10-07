@@ -2062,6 +2062,7 @@
   "entry.preview.progression_manual_unsupported": "Este exercício importado mantém sua meta original. O Taurifer não consegue verificar sua regra de progressão.",
   "entry.preview.progression_incompatible": "Este treino inclui detalhes de progressão que o Taurifer ainda não consegue verificar.",
   "entry.preview.activation_blocked": "Você ainda não pode ativar este treino. Revise ou remova primeiro os detalhes de progressão incompatíveis.",
+  "entry.preview.metrics_required": "Escolha o que cada exercício personalizado registra antes de começar. Use Editar antes de usar para definir as medidas.",
   "entry.preview.compromises": "Ajustes necessários",
   "entry.preview.compromises_none": "Nenhum ajuste foi necessário.",
   "entry.preview.compromises_some": "O Taurifer fez {n} ajustes limitados para respeitar seu tempo, equipamento ou prioridades.",

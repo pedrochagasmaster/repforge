@@ -451,7 +451,10 @@
         if (!exercise.id) issues.push("exercise_invalid:id");
         if (!String(exercise.name || "").trim()) issues.push(`exercise_invalid:${exercise.id}:name`);
         const sets = number(exercise.sets), min = number(exercise.min), max = number(exercise.max);
-        if (!(sets > 0) || !(min > 0) || !(max >= min)) issues.push(`exercise_invalid:${exercise.id}:prescription`);
+        // A metric composition without repetitions (duration, distance, or a
+        // custom movement not yet configured) carries no rep range to check.
+        const reps = exercise.hasRepTarget !== false;
+        if (!(sets > 0) || reps && (!(min > 0) || !(max >= min))) issues.push(`exercise_invalid:${exercise.id}:prescription`);
       }
     }
     return issues;
@@ -519,6 +522,9 @@
       Promise.resolve().then(() => { renderQueued = false; if (!destroyed) render(); });
     };
     const stage = (next, edit, { redraw = true } = {}) => {
+      // The host's returned document redraws the list a second time; the focus
+      // the caller asked for has to land on that final DOM, not the first one.
+      const focusRequest = pendingFocus;
       document = normalizeOrders(clone(next));
       edits.push(intent(edit.kind, edit));
       if (redraw) scheduleRender();
@@ -534,7 +540,10 @@
         if (value?.ok !== false && returnedDocument?.program && returnedDocument?.programMeta) {
           document = clone(returnedDocument);
           ensureStructure(document);
-          if (redraw) scheduleRender();
+          if (redraw) {
+            if (!pendingFocus && focusRequest) pendingFocus = focusRequest;
+            scheduleRender();
+          }
         }
         if (value?.token !== undefined && value?.staged !== false) token = clone(value.token);
         if (value?.ok === false || value?.localOk === false && value?.staged !== true && value?.setupDraft !== true) {

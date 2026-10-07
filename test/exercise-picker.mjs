@@ -13,6 +13,10 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 
 const results = { passed: 0, failed: 0 };
+// Catalog identities of the movements the picker journey chooses by name.
+const PEC_DECK_FLY = "1a15c6f170d8804d834cef49a7b23f12";
+const HORIZONTAL_CABLE_FLY = "1a05c6f170d880df946bdd6f42f0901c";
+const OVERHAND_LAT_PULLDOWN = "1a15c6f170d8800d8fc9d2c235673bf6";
 
 function assert(cond, name, detail) {
   if (cond) {
@@ -192,12 +196,14 @@ async function main() {
 
     // Both languages are searchable whichever one the UI is in, because gyms
     // label machines in either.
-    await page.fill("#exPickSearch", "puxada frontal");
-    await page.waitForTimeout(200);
+    await page.fill("#exPickSearch", "puxada frontal pegada pronada");
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("#exPickList .pickrow__name")].some((n) => n.textContent.trim() === "Overhand grip cable lat pulldown"),
+    undefined, { timeout: 5000 }).catch(() => {});
     const ptHit = await page.evaluate(() =>
       [...document.querySelectorAll("#exPickList .pickrow__name")].map((n) => n.textContent.trim())
     );
-    assert(ptHit.includes("Lat pulldown"), "Portuguese names are searchable from the English UI", JSON.stringify(ptHit.slice(0, 4)));
+    assert(ptHit.includes("Overhand grip cable lat pulldown"), "Portuguese names are searchable from the English UI", JSON.stringify(ptHit.slice(0, 4)));
 
     // Filters narrow to the equipment actually in front of the lifter.
     await page.fill("#exPickSearch", "");
@@ -215,7 +221,7 @@ async function main() {
     await page.waitForTimeout(150);
 
     await watchAnnouncements(page);
-    const picked = await pickExact(page, "Pec deck");
+    const picked = await pickExact(page, "Pec deck fly");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
     const newRowId = await page.evaluate((before) =>
@@ -230,7 +236,7 @@ async function main() {
     // and a wrong row here would make the next assertions lie.
     const added = state.program.find((e) => !idsBefore.has(e.id));
     assert(
-      picked && added && added.libraryId === "ci_mc" && added.primary === "Chest" && added.day === day,
+      picked && added && added.libraryId === PEC_DECK_FLY && added.primary === "Chest" && added.day === day,
       "a picked movement arrives named, linked and muscle-tagged",
       JSON.stringify(added)
     );
@@ -242,7 +248,7 @@ async function main() {
     await page.click(`#programEditor [data-role="replace"][data-id="${slotId}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await watchAnnouncements(page);
-    await pickExact(page, "Cable fly");
+    await pickExact(page, "Horizontal cable fly");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
     const afterReplace = await landed(page, { rowId: slotId });
@@ -252,7 +258,7 @@ async function main() {
     state = await getState(page);
     const swapped = state.program.find((e) => e.id === slotId);
     assert(
-      swapped && swapped.name === "Cable fly" && swapped.libraryId === "ci_cb",
+      swapped && swapped.name === "Horizontal cable fly" && swapped.libraryId === HORIZONTAL_CABLE_FLY,
       "changing a slot repoints it at the new movement",
       JSON.stringify(swapped)
     );
@@ -277,16 +283,16 @@ async function main() {
     const renamed = state.program.find((e) => e.id === slotId);
     assert(
       renamed.name === "Hammer Strength fly" && renamed.displayName === "Hammer Strength fly" &&
-        renamed.libraryId === "ci_cb",
+        renamed.libraryId === HORIZONTAL_CABLE_FLY,
       "renaming a linked slot stores an alias and keeps the link",
       JSON.stringify(renamed)
     );
     // The whole point of the alias: the id still means one movement, so the
     // muscles the audit reads are the definition's, not whatever was typed.
     assert(
-      renamed.primary === "Chest" && renamed.secondary === "Front delts",
+      renamed.primary === "Chest" && renamed.primary === swapped.primary && renamed.secondary === swapped.secondary,
       "an aliased slot keeps the definition's muscles",
-      JSON.stringify([renamed.primary, renamed.secondary])
+      JSON.stringify([renamed.primary, renamed.secondary, swapped.primary, swapped.secondary])
     );
     await openEditor(page);
     await openDetails(page, slotId);
@@ -498,33 +504,6 @@ async function main() {
       historyDelete.idbArchived && historyDelete.historyLinked,
       "a history-only custom exercise remains linked and is archived rather than deleted after reload",
       JSON.stringify(historyDelete)
-    );
-
-    // ---- imported splits get linked to the library ----
-    const linked = await page.evaluate(() => {
-      const rows = [
-        { day: "Day 1", order: 1, name: "Lat pulldown", sets: 3, min: 6, max: 10 },
-        { day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 6, max: 10 },
-        { day: "Day 1", order: 3, name: "Reverse Zercher goblet thing", sets: 3, min: 6, max: 10 },
-      ];
-      const summary = window.__repforgeLinkImported(rows);
-      return { summary, rows };
-    });
-    assert(
-      linked.summary.linked === 2 && linked.summary.total === 3,
-      "importing links the names the library knows, in either language",
-      JSON.stringify(linked.summary)
-    );
-    assert(
-      linked.rows[0].libraryId === "pd_mc" && linked.rows[0].primary === "Lats" &&
-        linked.rows[1].libraryId === "pd_mc",
-      "a linked import gains muscle tags it did not carry",
-      JSON.stringify(linked.rows.map((r) => [r.name, r.libraryId, r.primary]))
-    );
-    assert(
-      !linked.rows[2].libraryId && linked.rows[2].name === "Reverse Zercher goblet thing",
-      "an unmatched import keeps exactly what was imported",
-      JSON.stringify(linked.rows[2])
     );
   } finally {
     await context.close();

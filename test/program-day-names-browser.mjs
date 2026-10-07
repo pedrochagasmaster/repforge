@@ -1,9 +1,21 @@
 #!/usr/bin/env node
+/**
+ * Day names on a generated program: every surface shows the generator's
+ * authored day names in authored order, a rename in the editor stays staged
+ * until Done, and the lifter's exact name survives a language switch and a
+ * reload. The program is the app's own generated four-day ProgramDefinition.
+ */
 import assert from "node:assert/strict";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
+
+const stored = (page) => page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
+const trainingDayNames = (state) =>
+  state.programMeta.programDefinition.days.filter((day) => day.kind === "training").map((day) => day.name);
+const dayTabs = (page) =>
+  page.evaluate(() => [...document.querySelectorAll("#dayTabs button")].map((button) => button.textContent.trim()));
 
 const browser = await launchChromium();
 try {
@@ -11,110 +23,72 @@ try {
   const page = await context.newPage();
   await page.goto(BASE);
   await waitForAppBoot(page, { base: BASE });
-  await page.evaluate(async () => {
-    localStorage.clear();
-    await new Promise((resolve) => {
-      const request = indexedDB.deleteDatabase("repforge");
-      request.onsuccess = request.onerror = request.onblocked = () => resolve();
+  await page.evaluate(() => localStorage.setItem("repforge_ui_v1", JSON.stringify({ tourDone: true })));
+  const finalized = await page.evaluate(async () => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4,
+      sessionMinutes: 60, environment: { kind: "commercial_gym" },
+    }, catalog).value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "day-names").value;
+    const result = await window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition, name: "Generated browser fixture", answers: {}, destination: "log",
+      origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+      entrySource: { route: "recommend", fingerprint: "day-names" },
     });
-    const compiler = window.RepForgeProgramCompiler;
-    const compiled = compiler.compile({
-      schemaVersion: 1,
-      familyId: "balanced",
-      frequency: 4,
-      sessionMinutes: 90,
-      equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
-      environment: ["safe_pull", "training_support"],
-      loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
-    }, window.RepForgeExercises.library);
-    const program = compiled.program.map((row) => {
-      const entry = window.__repforgeExerciseLibrary.find((item) => item.id === row.libraryId);
-      return entry ? { ...row, primary: entry.primary || "", secondary: entry.secondary || "" } : row;
-    });
-    const now = new Date().toISOString();
-    localStorage.setItem("repforge_v1", JSON.stringify({
-      settings: {
-        jumpPct: 2.5, minJump: 2.5, rirHigh: 3, hardRir: 1, restSec: 120,
-        unit: "kg", lang: "en", rirMode: "numeric", voiceInputEnabled: false,
-        notifyEnabled: false, notifyTimer: true, notifySession: true,
-        notifyUnfinished: false, notifyMissed: false,
-      },
-      programMeta: {
-        id: "day-name-browser", name: "Generated browser fixture", started: "2026-09-02",
-        created: now, updated: now, goal: "balanced", experience: "intermediate",
-        daysPerWeek: 4, splitType: "full_body", equipment: ["barbell"], priorityMuscles: [],
-        sessionLength: "long", mesocycleLengthWeeks: 6, mesocycleStatus: "active",
-        completedAt: null, onboarded: true, progressionRelations: [], progressionModifiers: [],
-        progressionIncompatibilities: [], blockPromptDismissedId: null,
-        programStructure: compiled.programStructure,
-      },
-      program,
-      log: [], programHistory: [], customExercises: [], _storageRevision: 1,
-    }));
-    localStorage.setItem("repforge_ui_v1", JSON.stringify({ tourDone: true }));
+    return { ok: result?.ok !== false };
   });
+  assert.ok(finalized.ok, "the generated program activates");
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
 
-  const english = await page.evaluate(() => ({
-    tabs: [...document.querySelectorAll("#dayTabs button")].map((button) => button.textContent.trim()),
-    structure: JSON.parse(localStorage.getItem("repforge_v1")).programMeta.programStructure.days,
-  }));
-  assert.deepEqual(english.tabs, [
-    "Lower body strength", "Upper body strength", "Lower body volume", "Upper body volume",
-  ]);
-  assert.equal(english.structure[0].label, "Lower primary");
-  assert.equal(english.structure[0].displayNameKey, "program.day.balanced_4_d1");
+  const authored = trainingDayNames(await stored(page));
+  assert.deepEqual(authored, ["Upper A", "Lower A", "Upper B", "Lower B"], "the generator authors the four-day split");
+  assert.deepEqual(await dayTabs(page), authored, "the day tabs follow the authored day order");
 
   await page.click('nav button[data-view="program"]');
   assert.deepEqual(
     await page.evaluate(() => [...document.querySelectorAll("#programOverview .prog-day__title")].map((node) => node.textContent.trim())),
-    english.tabs,
+    authored,
+    "the program overview follows the authored day order",
   );
   await page.click("#programEditToggle");
   assert.deepEqual(
     await page.evaluate(() => [...document.querySelectorAll("#programEditor .pday__name")].map((input) => input.value)),
-    english.tabs,
+    authored,
+    "the editor follows the authored day order",
   );
 
-  await page.locator("#programEditor .pday__name").first().fill("My lower day");
-  await page.locator("#programEditor .pday__name").first().press("Enter");
-  await page.waitForTimeout(250);
-  assert.equal(
-    JSON.parse(await page.evaluate((key) => localStorage.getItem(key), KEY)).programMeta.programStructure.days[0].nameOverride,
-    undefined,
-    "installed edits stay staged until Done",
-  );
+  const firstDay = page.locator("#programEditor .pday__name").first();
+  await firstDay.fill("My upper day");
+  await firstDay.press("Enter");
+  await page.waitForFunction(async () => {
+    const debug = await window.__debugProgramEditor?.();
+    return (debug?.session?.document?.program || []).some((row) => row.day === "My upper day");
+  }, undefined, { timeout: 5000 });
+  assert.deepEqual(trainingDayNames(await stored(page)), authored, "installed edits stay staged until Done");
+
   await page.click("#programEditToggle");
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
-  const renamed = await page.evaluate(() => ({
-    day: JSON.parse(localStorage.getItem("repforge_v1")).programMeta.programStructure.days[0],
-  }));
-  assert.equal(renamed.day.dayId, "balanced_4_d1");
-  assert.equal(renamed.day.nameOverride, "My lower day");
-  assert.equal(renamed.day.displayNameKey, "program.day.balanced_4_d1");
+  const renamed = await stored(page);
+  assert.deepEqual(trainingDayNames(renamed), ["My upper day", ...authored.slice(1)],
+    "Done renames exactly that day in the canonical program");
+  assert.ok(renamed.program.filter((row) => row.day === "My upper day").length > 0 &&
+    !renamed.program.some((row) => row.day === authored[0]), "every row of the renamed day follows it");
 
   await page.evaluate(() => window.__repforgeShowSettings());
   await page.selectOption("#lang", "pt");
-  await page.waitForTimeout(350);
-  const portuguese = await page.evaluate(() => ({
-    tabs: [...document.querySelectorAll("#dayTabs button")].map((button) => button.textContent.trim()),
-    day: JSON.parse(localStorage.getItem("repforge_v1")).programMeta.programStructure.days[0],
-  }));
-  assert.equal(portuguese.tabs[0], "My lower day");
-  assert.equal(portuguese.tabs[1], "Força de membros superiores");
-  assert.equal(portuguese.tabs[3], "Volume de membros superiores");
-  assert.equal(portuguese.day.nameOverride, "My lower day");
+  await page.waitForFunction(() => /^pt/.test(document.documentElement.lang));
+  const portuguese = await dayTabs(page);
+  assert.equal(portuguese[0], "My upper day", "the lifter's own day name is never translated");
+  assert.deepEqual(trainingDayNames(await stored(page)), ["My upper day", ...authored.slice(1)],
+    "switching language rewrites no stored day name");
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
-  assert.deepEqual(
-    await page.evaluate(() => [...document.querySelectorAll("#dayTabs button")].map((button) => button.textContent.trim())),
-    portuguese.tabs,
-    "language and custom day name survive reload",
-  );
+  assert.deepEqual(await dayTabs(page), portuguese, "language and custom day name survive reload");
   await context.close();
-  console.log("PASS browser day names: authored localization and exact custom rename survive language switch");
+  console.log("PASS browser day names: authored order and exact custom rename survive language switch and reload");
 } finally {
   await browser.close();
 }

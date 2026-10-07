@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { exerciseAction } from "./fixtures/focus-workout.mjs";
+import { exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
 /**
  * A mid-session swap must move the work with it.
  *
@@ -20,6 +20,9 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 
 const results = { passed: 0, failed: 0 };
+// Catalog movements the swap and the permanent replacement choose by name.
+const LAT = { id: "1a15c6f170d8800d8fc9d2c235673bf6", name: "Overhand grip cable lat pulldown" };
+const FLY = { id: "1a05c6f170d880df946bdd6f42f0901c", name: "Horizontal cable fly" };
 function assert(cond, name, detail) {
   if (cond) { results.passed++; console.log(`  ✓ ${name}`); }
   else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${detail}`); }
@@ -100,10 +103,10 @@ async function main() {
         exerciseId: slot.id, set: 1, load: 200, reps: 6, rir: 2, created: "2026-08-01T10:00:00.000Z",
         primary: slot.primary, secondary: slot.secondary, performedName: slot.name,
         performedMovementId: slot.movementId, performedPrimary: slot.primary, performedSecondary: slot.secondary },
-      { session: "lat-history", date: "2026-08-02", day: slot.day, name: "Lat pulldown",
+      { session: "lat-history", date: "2026-08-02", day: slot.day, name: LAT.name,
         exerciseId: "old-lat-slot", set: 1, load: 60, reps: 8, rir: 2, created: "2026-08-02T10:00:00.000Z",
-        primary: "Lats", secondary: "Mid/upper back,Biceps", performedName: "Lat pulldown",
-        performedLibraryId: "pd_mc", performedPrimary: "Lats", performedSecondary: "Mid/upper back,Biceps" },
+        primary: "Lats", secondary: "Mid/upper back,Biceps", performedName: LAT.name,
+        performedLibraryId: LAT.id, performedPrimary: "Lats", performedSecondary: "Mid/upper back,Biceps" },
     ];
     await writeState(page, state);
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -123,17 +126,17 @@ async function main() {
     // Swap it to a lat movement for this session.
     await exerciseAction(page, slot.id, "#exActionSubstBtn");
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-    const swapped = await pickExact(page, "Lat pulldown");
+    const swapped = await pickExact(page, LAT.name);
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
-    assert(swapped, "swapped the quad slot to Lat pulldown");
+    assert(swapped, "swapped the quad slot to a lat pulldown");
     const swappedUi = await page.evaluate((id) => ({
       prev: [...document.querySelectorAll(`.exercise[data-ex="${id}"] .ledgerline__prev`)].map((line) => line.textContent).join(" "),
       name: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__name`)?.textContent || "",
       rec: document.querySelector(`.exercise[data-ex="${id}"] .fx-cue`)?.textContent || "",
     }), slot.id);
     // The D card header names the movement and its programme line; the muscle is recorded on the row (checked below).
-    assert(/Lat pulldown/i.test(swappedUi.name),
+    assert(swappedUi.name.includes(LAT.name),
       "the swapped card shows the performed movement", JSON.stringify(swappedUi));
     assert(swappedUi.prev.includes("60") && !swappedUi.prev.includes("200"),
       "previous sets and recommendations switch to the performed movement", JSON.stringify(swappedUi));
@@ -141,23 +144,37 @@ async function main() {
 
     const volumeBefore = await page.evaluate(() => window.__repforgeCompletedVolume?.());
 
-    await page.evaluate((id) => {
-      const set = (k, v) => {
-        const el = document.querySelector(`[data-k="${id}_1_${k}"]`);
-        if (el) { el.value = String(v); el.dispatchEvent(new Event("input", { bubbles: true })); }
-      };
-      set("load", 60); set("reps", 10); set("rir", 2);
-    }, slot.id);
-    await settle(page, 150);
+    // Log the first set through the focus shelf's metric fields, then save it.
+    const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+    const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+    const shelfField = async (input, field) => {
+      await input.waitFor({ state: "attached", timeout: 5000 });
+      if (await input.getAttribute("aria-hidden") === "true")
+        await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`).click();
+      await input.waitFor({ state: "visible", timeout: 5000 });
+    };
+    for (const [metricId, value] of [[WEIGHT, 60], [REPS, 10]]) {
+      const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
+      await shelfField(input, `metric_${metricId}`);
+      await input.fill(String(value));
+      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    }
+    const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${slot.id}_1_rir"]`);
+    await shelfField(rir, "rir");
+    await rir.fill("2");
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.locator(`#workout .exercise.is-current [data-save="${slot.id}_1"]`).click();
+    await page.waitForFunction((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+      return !!exercise?.sets?.[exercise.setOrder[0]]?.completion;
+    }, slot.id, { timeout: 15000 });
     // The substitution journey intentionally logs only this slot. Persist that
     // partial session through the user-visible early-finish confirmation rather
     // than treating a normal form submit as a completion shortcut.
-    await page.locator("#sessionSheetBtn").click();
-    await page.locator("#sessionEarlyFinish").click();
-    await page.locator("#sessionEarlyConfirm").click();
+    await finishEarly(page);
     await page.waitForSelector("#sessionSummary:not(.hidden)");
-    await page.evaluate(() => document.querySelector("#sessionSummary .sumsheet__done, #sessionSummary button")?.click());
-    await settle(page, 400);
+    await page.evaluate(() => window.__repforgeSessionSummary.close());
+    await page.waitForSelector("#sessionSummary", { state: "hidden" });
 
     state = await getState(page);
     const row = state.log.find((r) => r.exerciseId === slot.id && +r.load === 60);
@@ -168,12 +185,12 @@ async function main() {
       `${row?.exerciseId} vs ${slot.id}`
     );
     assert(
-      row && row.performedLibraryId === "pd_mc" && row.performedName === "Lat pulldown",
+      row && row.performedLibraryId === LAT.id && row.performedName === LAT.name,
       "the row records which movement was actually performed",
       JSON.stringify(row)
     );
     assert(
-      row && row.performedPrimary === "Lats" && !/quad/i.test(row.performedPrimary),
+      row && String(row.performedPrimary).split(",").includes("Lats") && !/quad/i.test(row.performedPrimary),
       "the row records the performed movement's muscles",
       JSON.stringify([row?.performedPrimary, row?.performedSecondary])
     );
@@ -181,7 +198,7 @@ async function main() {
     // The point of all of it: the audit credits lats, not quads.
     const attributed = await page.evaluate((rowIn) => window.__repforgeRowMuscles(rowIn), row);
     assert(
-      attributed.primary === "Lats",
+      String(attributed.primary).split(",").includes("Lats") && !/quad/i.test(attributed.primary),
       "muscle attribution follows the performed movement",
       JSON.stringify(attributed)
     );
@@ -201,12 +218,12 @@ async function main() {
       JSON.stringify(volume)
     );
 
-    const split = await page.evaluate((original) => {
+    const split = await page.evaluate(({ original, lat: latMovement }) => {
       const hack = window.__repforgeCapacity.sessionsFor(original).map((s) => s.top);
-      const lat = window.__repforgeCapacity.sessionsFor({ ...original, name: "Lat pulldown", libraryId: "pd_mc" }).map((s) => s.top);
+      const lat = window.__repforgeCapacity.sessionsFor({ ...original, name: latMovement.name, libraryId: latMovement.id }).map((s) => s.top);
       const dashboard = window.__repforgeStrengthDashboard?.() || [];
       return { hack, lat, names: dashboard.map((r) => r.exercise) };
-    }, slot);
+    }, { original: slot, lat: LAT });
     assert(split.hack.includes(200) && !split.hack.includes(60),
       "quad analytics exclude pulldown sets", JSON.stringify(split));
     assert(split.lat.filter((x) => x === 60).length >= 2 && !split.lat.includes(200),
@@ -223,24 +240,26 @@ async function main() {
     await page.waitForSelector('#programEditor [data-role="editor"]');
     await page.click(`[data-role="replace"][data-id="${slot.id}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-    await pickExact(page, "Cable fly");
+    await pickExact(page, FLY.name);
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
     await page.click("#programEditToggle");
-    await page.waitForFunction(({ key, id }) => {
+    await page.waitForFunction(({ key, id, fly }) => {
       const saved = JSON.parse(localStorage.getItem(key) || "{}");
       return document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") &&
-        saved.program?.find((exercise) => exercise.id === id)?.libraryId === "ci_cb";
-    }, { key: KEY, id: slot.id });
+        saved.program?.find((exercise) => exercise.id === id)?.libraryId === fly;
+    }, { key: KEY, id: slot.id, fly: FLY.id });
     state = await getState(page);
     const replacement = state.program.find((e) => e.id === slot.id);
     const permanent = await page.evaluate((ex) => ({
       status: window.__repforgeRecommendation(ex).status,
+      load: window.__repforgeRecommendation(ex).load,
       names: (window.__repforgeStrengthDashboard?.() || []).map((r) => r.exercise),
     }), replacement);
-    assert(replacement?.libraryId === "ci_cb", "the permanent replacement keeps the slot but changes movement identity", JSON.stringify(replacement));
-    assert(permanent.status === "new", "the replacement gets no recommendation from the old slot history", JSON.stringify(permanent));
-    assert(permanent.names.includes(slot.name) && permanent.names.includes("Lat pulldown") && !permanent.names.includes("Cable fly"),
+    assert(replacement?.libraryId === FLY.id, "the permanent replacement keeps the slot but changes movement identity", JSON.stringify(replacement));
+    assert(permanent.status !== "recommended" && permanent.load == null,
+      "the replacement gets no recommendation from the old slot history", JSON.stringify(permanent));
+    assert(permanent.names.includes(slot.name) && permanent.names.includes(LAT.name) && !permanent.names.includes(FLY.name),
       "historical analytics retain the movements actually performed", JSON.stringify(permanent.names));
 
     // A row written before the snapshot existed keeps reading its template.

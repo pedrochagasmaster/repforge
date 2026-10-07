@@ -2062,6 +2062,7 @@
   "entry.preview.progression_manual_unsupported": "This imported exercise keeps its original target. Taurifer cannot verify its progression rule.",
   "entry.preview.progression_incompatible": "This program includes progression details Taurifer cannot verify yet.",
   "entry.preview.activation_blocked": "You cannot activate this program yet. Review or remove the unsupported progression details first.",
+  "entry.preview.metrics_required": "Choose what each custom exercise records before you start. Use Edit before using to pick its measurements.",
   "entry.preview.compromises": "Adjustments",
   "entry.preview.compromises_none": "No adjustments were needed.",
   "entry.preview.compromises_some": "Taurifer made {n} limited adjustments to fit your time, equipment, or priority constraints.",

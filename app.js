@@ -434,11 +434,16 @@ function isSafeProgressionMeta(value,customDefinitions=[]){
   if(Object.prototype.hasOwnProperty.call(value,"plannedVolumeHistory")&&value.plannedVolumeHistory!=null&&
     !isValidPlannedVolumeHistory(value.plannedVolumeHistory))return false;
   return true}
-function isSafeProgramHistoryEntry(entry){
+/* An archived block's custom slots resolve against the install's custom
+   definitions (archived, never deleted, while anything points at them) as well
+   as any the archive itself carries. */
+function isSafeProgramHistoryEntry(entry,customExercises=[]){
   if(!isPlainStateObject(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"transitionOut")&&entry.transitionOut!=null&&
     !DurableState.isCoherentV1TransitionOut(entry.transitionOut))return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta,entry.customExercises||[]))return false;
+  const customs=[...(Array.isArray(entry.customExercises)?entry.customExercises:[]),
+    ...(Array.isArray(customExercises)?customExercises:[])];
+  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta,customs))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
@@ -541,7 +546,7 @@ function isValidStateShape(s){
     if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
       !(Array.isArray(s.customExercises)&&s.customExercises.every(isSafeCustomExercise)))return false;
     if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
-    return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
+    return Array.isArray(s.programHistory)&&s.programHistory.every(entry=>isSafeProgramHistoryEntry(entry,s.customExercises||[]))}
   catch{return false}}
 function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
 function stripStorageMeta(s){return DurableState.stripStorageMeta(s)}
@@ -2186,7 +2191,7 @@ function applyPriorityMuscles(program,priorityMuscles,equipment,experience){
     if(!entry)continue;
     const rs=repScheme("intermediate","hypertrophy",slot);
     program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
-      primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}}
+      primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary"),notes:entry.notes||"",libraryId:entry.id})}}
 function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
   const have=new Set(dayExs.map(e=>e.libraryId));
   for(const slot of FILLER_SLOTS){
@@ -2194,7 +2199,7 @@ function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
     if(!entry||have.has(entry.id))continue;
     const rs=repScheme(experience,"hypertrophy",slot);
     return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
-      primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id}}
+      primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary"),notes:entry.notes||"",libraryId:entry.id}}
   return null}
 function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
   const [lo,hi]=SESSION_BOUNDS[sessionLength]||SESSION_BOUNDS.normal,out=[];
@@ -2456,7 +2461,7 @@ function migrationSubstitutionResolutions(legacy,context,migratedAt){
   for(const [exId,rawName]of Object.entries(subs)){const name=String(rawName||"").trim(),ref=refs[exId]??null;
     const entry=ref?libraryEntry(ref):byName.get(movementToken(name));
     const replacement=entry?{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
-      displayName:name||libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||""}
+      displayName:name||libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary")}
       :{exerciseInstanceId:`replacement:${exId}`,sourceExerciseId:`adhoc:${movementToken(name)}`,
         movementId:`adhoc:${movementToken(name)}`,displayName:name,primary:"",secondary:""};
     out[exId]={legacyName:rawName,legacyRef:ref,replacement,selectedAt:migratedAt}}
@@ -2923,7 +2928,7 @@ async function applyShowAll(){
 function replacementSnapshot(id,name,libraryRef){
   const entry=libraryRef?libraryEntry(libraryRef):null,token=movementToken(name),original=activeWorkoutDraft?.exercises?.[id],slot=prog.find(id);
   if(entry)return{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
-    displayName:name||libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||""};
+    displayName:name||libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary")};
   return{exerciseInstanceId:`replacement:${id}`,sourceExerciseId:`adhoc:${token}`,movementId:`adhoc:${token}`,
     displayName:name,primary:original?.programmed?.primary||slot?.primary||"",
     secondary:original?.programmed?.secondary||slot?.secondary||""}}
@@ -3011,8 +3016,8 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
     row.performedMovementId=ex.movementId;changed=true}
   const performed=row.performedLibraryId?lookup(row.performedLibraryId):null;
   if(performed){
-    if(row.performedPrimary==null){row.performedPrimary=performed.primary||"";changed=true}
-    if(row.performedSecondary==null){row.performedSecondary=performed.secondary||"";changed=true}}
+    if(row.performedPrimary==null){row.performedPrimary=libraryMuscleAttribution(performed,"primary");changed=true}
+    if(row.performedSecondary==null){row.performedSecondary=libraryMuscleAttribution(performed,"secondary");changed=true}}
   else if(row.performedName===row.name){
     if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
     if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
@@ -3353,6 +3358,10 @@ function customExerciseRemoveOrArchive(snapshot,id,operation){
     ?list.map(value=>value.id===id?Object.assign(cloneSnapshot(value),{archived:true}):value)
     :list.filter(value=>value.id!==id);
   return next}
+function customMetricConfiguration(draft,existing){
+  const from=Array.isArray(draft?.metricIds)?draft:Array.isArray(existing?.metricIds)?existing:null;
+  return from?{metricIds:cloneSnapshot(from.metricIds),
+    ...(Array.isArray(from.metricDefinitions)?{metricDefinitions:cloneSnapshot(from.metricDefinitions)}:{})}:{}}
 async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
   const name=String(draft?.name??"").trim();
   if(!name)return{result:null,entry:null};
@@ -3366,7 +3375,11 @@ async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
     primary:primary.value,
     secondary:secondary.value,
     notes:String(draft.notes??"").trim(),
+    // A metric composition is part of what program slots and logged sets mean;
+    // editing the name or muscles keeps it unless the edit supplies a new one.
+    ...customMetricConfiguration(draft,existing),
     created:existing?.created||new Date().toISOString()}])[0];
+  if(!entry)return{result:{invalid:true,code:"invalid-custom-exercise"},entry:null};
   const source=existing?(expectedEntry||cloneSnapshot(existing)):null;
   const proposal=customExerciseUpsert(state,entry);
   const preflight=({head})=>{
@@ -5022,6 +5035,11 @@ function days(){
     if(seen.has(d))continue;seen.add(d);out.push(d)}
   return out}
 function structureDayLabels(meta){
+  // A canonical program orders its days as authored, not alphabetically.
+  const canonical=meta?.programDefinition?.days;
+  if(Array.isArray(canonical)){
+    const labels=canonical.filter(day=>day?.kind==="training").map(day=>String(day.name||"").trim()).filter(Boolean);
+    if(labels.length)return labels}
   const days=meta?.programStructure?.days;
   if(!Array.isArray(days)||!days.length)return null;
   const labels=days.map(d=>String(d.label||d.dayId||"").trim()).filter(Boolean);
@@ -10704,8 +10722,10 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
     ?document.programMeta.programDefinition.cycles:1;
   const reps=definitions.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
   const targets={};
-  if(reps&&Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min)
-    targets[reps.semantic]={min:row.min,max:row.max};
+  // A movement that counts repetitions always gets a range: the row's, or
+  // Build's default when the slot it replaces had none (a rep-less movement).
+  if(reps)targets[reps.semantic]=Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min
+    ?{min:row.min,max:row.max}:{min:6,max:10};
   const setCount=Math.max(1,Math.min(100,Number.isInteger(row.sets)?row.sets:3));
   const prescriptionsByCycle=[];
   for(let cycleIndex=1;cycleIndex<=cycles;cycleIndex++){
@@ -10716,6 +10736,8 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
       const retainedTargets=existing&&old?cloneSnapshot(old.targets||{}):cloneSnapshot(targets);
       const filteredTargets=Object.fromEntries(Object.entries(retainedTargets).filter(([semantic])=>
         definitions.some(definition=>definition.semantic===semantic)));
+      if(reps&&filteredTargets[reps.semantic]==null&&targets[reps.semantic])
+        filteredTargets[reps.semantic]=cloneSnapshot(targets[reps.semantic]);
       const built=editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,definitions,filteredTargets,
         definitions.length?(origin==="user_defined"?"manual":old?.status==="ready"?"ready":"manual"):"configuration_required");
       if(existing&&old){built.id=old.id;built.rir=old.rir??null;built.restSeconds=old.restSeconds??null;
@@ -10796,9 +10818,17 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     else for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
       if(!changeValueEqualForEditor(set.metricIds,edit.metricIds)||
         !changeValueEqualForEditor(set.metricDefinitions,edit.metricDefinitions))return false}
+    // A composition that counts repetitions needs a rep range to log against;
+    // a newly configured one starts from the row's range or Build's default.
+    const repSemantic=edit.metricDefinitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
+    const row=(document.program||[]).find(item=>String(item.slotId||item.id)===String(slotId));
+    const rowMin=Number(row?.min),rowMax=Number(row?.max);
+    const defaultRange=Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
+      ?{min:rowMin,max:rowMax}:{min:6,max:10};
     for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
       set.status=edit.metricIds.length?"manual":"configuration_required";
-      set.provenance={source:"manual",policyVersion:"manual@1"}}
+      set.provenance={source:"manual",policyVersion:"manual@1"};
+      if(repSemantic&&set.targets?.[repSemantic]==null)set.targets={...(set.targets||{}),[repSemantic]:cloneSnapshot(defaultRange)}}
     slot.metricOrigin=String(slot.exerciseId||"").startsWith("custom:")||edit.metricIds.length?"user_defined":"source_catalog";
     const custom=(document.customExercises||[]).find(item=>item.id===slot.exerciseId);
     if(custom){custom.metricIds=cloneSnapshot(edit.metricIds);custom.metricDefinitions=cloneSnapshot(edit.metricDefinitions)}
@@ -11911,7 +11941,7 @@ function reconcileLinkedProgramRows(rows,byId){
       :prev?(nextName!==prevName?nextName:prevAlias)
       :(nextAlias||nextName);
     if(alias&&alias!==canonical)row.displayName=alias;else delete row.displayName;
-    if(text(row.primary)!==text(entry.primary)||text(row.secondary)!==text(entry.secondary))
+    if(text(row.primary)!==text(libraryMuscleAttribution(entry,"primary"))||text(row.secondary)!==text(libraryMuscleAttribution(entry,"secondary")))
       ignoredMuscles.add(alias&&alias!==canonical?alias:canonical)}
   return{ignoredMuscles:[...ignoredMuscles]}}
 
@@ -13638,10 +13668,17 @@ async function commitLibrarySelection(){
   const editorScope=!!libFlow.editorScope;
   const proposal=libFlow.editorScope?programEditorSnapshot():cloneSnapshot(state);
   const nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+  const baseline=cloneSnapshot(proposal),addedIds=[];
   for(const r of rows){
     const added=nextProgram.addExercise(libFlow.day,r.entry);
-    added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max)}
+    added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max);addedIds.push(added.id)}
   proposal.program=nextProgram.toJSON();
+  // The canonical definition is the program; each added row becomes a slot
+  // through the same intent the editor's own Add uses.
+  for(const id of addedIds){
+    const cycleIndex=mesocycleLifecycle(proposal.programMeta).current||1;
+    if(!syncEditorCanonicalIntent(proposal,baseline,{kind:"exercise_add",targetId:id,targetDay:libFlow.day},{cycleIndex})){
+      toast(t("toast.program_save_failed"));return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"}}}
   const result=libFlow.editorScope
     ?await commitProgramEditorProposal(proposal)
     :await commitProposedState(proposal);
@@ -13692,8 +13729,8 @@ function closeExercisePreview(){
 function renderExercisePreview(){
   const el=$("#previewBody");if(!el||!previewState)return;
   const e=libraryEntry(previewState.id);if(!e)return;
-  const prim=muscles(e.primary).map(muscleLabel).join(" · ");
-  const sec=muscles(e.secondary).map(muscleLabel).join(" · ");
+  const prim=muscles(libraryMuscleAttribution(e,"primary")).map(muscleLabel).join(" · ");
+  const sec=muscles(libraryMuscleAttribution(e,"secondary")).map(muscleLabel).join(" · ");
   const eq=(e.equipment||[]).map(x=>t("picker.equipment."+x)).join(" · ");
   const inLibrary=!!libFlow;
   const selected=inLibrary&&libFlow.selected.has(e.id);
@@ -16123,7 +16160,7 @@ function renderResultStep(){
     renderEntryConstraints()+
     alternativeBlock+
     renderEntryMore()+
-    (entryEditor?"":renderEntryPinned({progressionIssue}))+
+    (entryEditor?"":renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration()}))+
     `</section>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
@@ -16406,7 +16443,7 @@ function renderPreviewStep({merged=false}={}){
        a screen-reader user jumps between Priorities, Equipment, Progression and
        Compromises, so the redesign restyles `h4` rather than demoting it. */
     `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
-    renderEntryMore()+renderEntryPinned({progressionIssue})}
+    renderEntryMore()+renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration()})}
 /* The week is a stack of hairline bands. The first day is open, so the first
    exercise is on the first screen (K-32); the others fold away, except a day
    that holds an exercise the last change added. */
@@ -16428,11 +16465,18 @@ function renderEntryMore(){
     `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive" aria-haspopup="dialog"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></section>`}
 /* The confirm action is the point of the screen, so it is pinned: a long
    program cannot scroll it away, and a blocked one says why directly above. */
-function renderEntryPinned({progressionIssue=false}={}){
+/* A custom movement arrives without a metric composition until the lifter
+   chooses what it records; the program cannot start before that. */
+function entryNeedsMetricConfiguration(){
+  try{return !!entryState&&ProgramEntry.candidateActivationIssues(entryState).some(issue=>issue.startsWith("metric_configuration_required:"))}
+  catch{return false}}
+function renderEntryPinned({progressionIssue=false,configurationIssue=false}={}){
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+  const blocked=progressionIssue||configurationIssue;
+  const reason=progressionIssue?t("entry.preview.activation_blocked"):t("entry.preview.metrics_required");
   return `<div class="entry__pinned">`+
-    (progressionIssue?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
-    `<button type="button" id="entryActivate" class="btn btn--cta${progressionIssue?" btn--noarrow":""}"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
+    (blocked?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(reason)}</p>`:"")+
+    `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}"${blocked?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
   // Cancel is a dialog and Resume is a card on the hub; neither is a notice.

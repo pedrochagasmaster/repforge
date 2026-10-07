@@ -5,6 +5,7 @@
  * Run: node test/program-text-export.mjs
  */
 import { launchChromium } from "./browser.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -23,37 +24,52 @@ function assert(cond, name, detail) {
   }
 }
 
-/** Two days, one of them with a fixed rep target, so both range shapes are covered. */
+/**
+ * Two days, one of them with a fixed rep target, so both range shapes are
+ * covered. Each row is a seed-program slot under a Portuguese program alias,
+ * re-dosed in the canonical ProgramDefinition the export reads.
+ * [day, seed slot, alias, sets, min, max]
+ */
 const TEMPLATES = [
-  ["Dia 1", "Hack squat", 3, 4, 8, "Quads", "Glutes"],
-  ["Dia 1", "Hip thrust com barra", 3, 6, 10, "Glutes", ""],
-  ["Dia 1", "Cadeira flexora", 2, 6, 10, "Hamstrings", ""],
-  ["Dia 2", "RDL", 3, 4, 8, "Hamstrings", "Glutes"],
-  ["Dia 2", "Abdução em pé no cabo", 2, 12, 12, "Glutes", ""],
+  ["Dia 1", "seed-ex-1", "Hack squat", 3, 4, 8],
+  ["Dia 1", "seed-ex-7", "Leg press 45", 3, 6, 10],
+  ["Dia 1", "seed-ex-2", "Cadeira flexora", 2, 6, 10],
+  ["Dia 2", "seed-ex-8", "RDL", 3, 4, 8],
+  ["Dia 2", "seed-ex-6", "Cadeira adutora", 2, 12, 12],
 ];
+const DAYS = [...new Set(TEMPLATES.map(([day]) => day))];
+/* "Hack squat" is the movement's own catalog name rather than an alias, so a
+   Portuguese export shows the catalog's Portuguese name for it. */
+const PT_NAMES = { "Hack squat": "Agachamento hack" };
 
 function fixture(lang) {
-  const perDay = new Map();
-  const program = TEMPLATES.map(([day, name, sets, min, max, primary, secondary], i) => {
-    const order = (perDay.get(day) || 0) + 1;
-    perDay.set(day, order);
-    return {
-      id: `ex${i}`, day, order, name, sets, min, max, primary, secondary, notes: "", alternates: [],
-      ...(i < 2 ? { movementId: "movement:paired-test" } : {}),
-      ...(i === 0 ? {
-        progression: {
-          schemaVersion: 1,
-          strategy: { id: "range", version: 1, params: { workingSets: sets, repMin: min, repMax: max } },
-          modifiers: [],
-        },
-      } : {}),
-      ...(i === 1 ? {
-        progressionIncompatibility: {
-          version: 1, kind: "prescription", source: "test", reason: "future",
-          value: { schemaVersion: 1, strategy: { id: "future_strategy", version: 99, params: { authored: true } }, modifiers: [] },
-        },
-      } : {}),
-    };
+  const meta = seedProgramMeta();
+  const definition = meta.programDefinition;
+  const slots = new Map(definition.days.flatMap((day) => day.slots).map((slot) => [slot.id, slot]));
+  const rows = new Map(seedProgram().map((row) => [row.id, row]));
+  const program = [];
+  definition.days.forEach((day, index) => {
+    const label = DAYS[index];
+    const entries = TEMPLATES.filter(([dayName]) => dayName === label);
+    day.kind = entries.length ? "training" : "rest";
+    if (label) day.name = label;
+    day.slots = entries.map(([, id, alias, sets, min, max], slotIndex) => {
+      const slot = structuredClone(slots.get(id));
+      slot.order = slotIndex + 1;
+      slot.displayName = alias;
+      for (const cycle of slot.prescriptionsByCycle) {
+        const template = cycle.sets[0];
+        cycle.sets = Array.from({ length: sets }, (_, setIndex) => ({
+          ...structuredClone(template),
+          id: `${template.id}-${setIndex + 1}`,
+          setIndex: setIndex + 1,
+          targets: { reps: { min, max } },
+        }));
+      }
+      program.push({ ...rows.get(id), day: label, dayId: day.id, order: slotIndex + 1, name: alias,
+        displayName: alias, sets, min, max, alternates: [] });
+      return slot;
+    });
   });
   return {
     settings: {
@@ -61,24 +77,9 @@ function fixture(lang) {
       unit: "kg", lang, rirMode: "numeric", voiceInputEnabled: false,
       notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
     },
-    programMeta: {
-      id: "prog-text", name: "Treino Cecela", started: "2026-07-01",
-      created: "2026-07-01T00:00:00.000Z", updated: "2026-07-01T00:00:00.000Z",
-      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6,
-      goal: null, experience: null, daysPerWeek: 2, splitType: "lower_upper",
-      equipment: ["machines"], priorityMuscles: [], sessionLength: "60", completedAt: null,
-      progressionRelations: [{
-        schemaVersion: 1, id: "relation-text", type: "paired_exposure", version: 1,
-        movementId: "movement:paired-test",
-        members: [{ exerciseId: "ex0", role: "heavy" }, { exerciseId: "ex1", role: "volume" }],
-      }],
-      progressionModifiers: [{ id: "modifier-text", version: 1, compatibleStrategies: ["range@1"], params: { pending: true } }],
-      progressionIncompatibilities: [{
-        version: 1, kind: "modifiers", source: "test", reason: "future",
-        value: [{ id: "future-modifier", version: 1, compatibleStrategies: ["range@1"], params: { pending: true }, futureField: true }],
-      }],
-    },
+    programMeta: { ...meta, id: "prog-text", name: "Treino Cecela", daysPerWeek: DAYS.length, programDefinition: definition },
     program,
+    customExercises: [],
     log: [],
     programHistory: [],
   };
@@ -163,15 +164,12 @@ async function run() {
   await seed(page, fixture("pt"));
   const text = await openSheet(page);
   const lines = text.split("\n");
-  const parsed = await page.evaluate((value) => window.__repforgeParseProgramSource(value, "progression.txt"), text);
-  assert(parsed?.exercises?.[0]?.progression?.strategy?.id === "range", "text import recognizes the versioned progression marker");
-  assert(parsed?.exercises?.[0]?.progression?.strategy?.params?.repMax === 8, "text import preserves range parameters");
-  assert(parsed?.meta?.progressionRelations?.[0]?.id === "relation-text" &&
-    parsed?.meta?.progressionModifiers?.[0]?.id === "modifier-text",
-    "text import preserves structured relation and modifier data");
-  assert(parsed?.exercises?.[1]?.progressionIncompatibility?.value?.strategy?.id === "future_strategy" &&
-    parsed?.meta?.progressionIncompatibilities?.[0]?.value?.[0]?.id === "future-modifier",
-    "text import preserves incompatible progression provenance");
+  const parsed = await page.evaluate((value) => window.__repforgeParseProgramSource(value, "program.txt"), text);
+  const readBack = (parsed?.exercises || []).map(({ day, name, sets, min, max }) => [day, name, sets, min, max]);
+  const authored = TEMPLATES.map(([day, , alias, sets, min, max]) => [day, PT_NAMES[alias] || alias, sets, min, max]);
+  assert(JSON.stringify(readBack) === JSON.stringify(authored),
+    "text import reads back every exercise with its day, sets and rep range", JSON.stringify(readBack));
+  assert(parsed?.meta?.name === "Treino Cecela", "text import reads back the program name", parsed?.meta?.name);
 
   assert(lines[0] === "TREINO CECELA, 2 dias/semana", "header carries the program name and days per week", lines[0]);
   assert(lines[1] === "", "a blank line separates the header from the first day");
@@ -180,12 +178,12 @@ async function run() {
     "day headers are uppercased and list their localized muscles",
     lines[2]
   );
-  assert(lines[3] === "1. Hack squat: 3× 4 a 8", "exercise templates are numbered with sets × rep range", lines[3]);
-  assert(lines.includes("TAURIFER-DATA"), "structured progression data is separated from user-facing copy");
+  assert(lines[3] === "1. Agachamento hack: 3× 4 a 8", "exercise templates are numbered with sets × rep range", lines[3]);
+  assert(!lines.includes("TAURIFER-DATA"), "the export is the readable copy alone, with no machine appendix");
   assert(
-    lines.includes("2. Abdução em pé no cabo: 2× 12"),
+    lines.includes("2. Cadeira adutora: 2× 12"),
     "a single-value rep target is not printed as a range",
-    lines.filter((l) => l.includes("cabo")).join(" | ")
+    lines.filter((l) => l.includes("adutora")).join(" | ")
   );
   assert(lines.filter((l) => /^DIA /.test(l)).length === 2, "every training day gets a header");
   assert(!/undefined|NaN|\[object/.test(text), "the export has no placeholder leakage");
