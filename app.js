@@ -1754,6 +1754,12 @@ function canonicalProgramDefinition(value,customDefinitions=customExercises()){
   if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
   const checked=compiler.validateProgramDefinition(value,rawExerciseCatalog,compilerCustomDefinitions(customDefinitions));
   return checked?.ok?cloneSnapshot(value):null}
+/* A movement outside the catalog carries the lifter's own muscle labels. An
+   empty label is no attribution, not an invalid one. */
+function manualAttributionFor(row){
+  const primary=String(row?.primary||"").trim(),secondary=String(row?.secondary||"").trim();
+  if(!primary&&!secondary)return{};
+  return{manualAttribution:{...(primary?{primary}:{}),...(secondary?{secondary}:{})}}}
 function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=customExercises()){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
   if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
@@ -1797,11 +1803,11 @@ function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=cust
       return{id:String(row.slotId||row.id||`manual-slot-${index+1}-${slotIndex+1}`),
         purposeId:"manual",exerciseId,sourceExerciseIds:[exerciseId],role:"manual",
         musclePurposeIds:[...new Set([...primary,...secondary])],movementPatternIds:[...new Set(patterns)],
-        exerciseTypeId:typeId,order:slotIndex+1,metricOrigin:raw?"source_catalog":"user_defined",
+        ...(typeId?{exerciseTypeId:typeId}:{}),order:slotIndex+1,metricOrigin:raw?"source_catalog":"user_defined",
         metricIds,metricDefinitions:definitions.map(cloneSnapshot),
         ...(row.displayName?{displayName:String(row.displayName)}:{}),
         setupNotes:String(row.notes||""),
-        ...(!raw?{manualAttribution:{primary:String(row.primary||""),secondary:String(row.secondary||"")}}:{}),
+        ...(!raw?manualAttributionFor(row):{}),
         loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,
           assistanceDirection:"subtract"},
         prescriptionsByCycle};});
@@ -3129,6 +3135,17 @@ function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
   return{program:migrated.program,meta:nextMeta}
 }
 function isImportableState(s){return isValidStateShape(s)}
+/* A backup from before the canonical program model carries flat rows with no
+   ProgramDefinition. Restoring it would install a program the engine cannot
+   read, so it is refused; its program can still come in through import review,
+   which re-links each name to a catalog movement. */
+function isLegacyBackup(s){
+  const rows=Array.isArray(s?.program)?s.program:[];
+  if(!rows.length)return false;
+  const definition=s?.programMeta?.programDefinition;
+  if(!definition)return true;
+  const customs=normalizeCustomExercises(s.customExercises||[]);
+  return !canonicalProgramDefinition(definition,compilerCustomDefinitions(customs))}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
    path then cannot tell the two apart. */
@@ -3936,7 +3953,7 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       // carry compiler/progression provenance into the fresh block while the
       // activation fields above still describe the new block boundary.
       for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities",
-        "programStructure","compilerContext","entrySource"]){
+        "programStructure","compilerContext","entrySource","programDefinition","loadingConfiguration"]){
         if(Object.prototype.hasOwnProperty.call(cap.oldMeta||{},key))
           nextMeta[key]=cloneSnapshot(cap.oldMeta[key]);
       }
@@ -10706,7 +10723,7 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
     musclePurposeIds:[...new Set([...primaryIds,...secondaryIds])],movementPatternIds:[...new Set(patternIds)],
     ...(sourceType?{exerciseTypeId:sourceType}:{}),order,metricOrigin:origin,metricIds,metricDefinitions:definitions,
     ...(row.displayName?{displayName:String(row.displayName)}:{}),setupNotes:String(row.notes||""),
-    ...(!raw?{manualAttribution:{primary:String(row.primary||""),secondary:String(row.secondary||"")}}:{}),
+    ...(!raw?manualAttributionFor(row):{}),
     loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,assistanceDirection:"subtract"},
     prescriptionsByCycle}}
 function syncEditorRowFromCanonical(document,slot,cycleIndex=1){
@@ -10788,7 +10805,8 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
       const alias=String(row.displayName||"").trim();
       if(alias)slot.displayName=alias;else delete slot.displayName;
     }else if((edit.field==="primary"||edit.field==="secondary")&&slot.metricOrigin==="user_defined"){
-      slot.manualAttribution={...(slot.manualAttribution||{}),[edit.field]:String(row[edit.field]||"")};
+      const attribution=manualAttributionFor({...(slot.manualAttribution||{}),[edit.field]:row[edit.field]}).manualAttribution;
+      if(attribution)slot.manualAttribution=attribution;else delete slot.manualAttribution;
     }
   }else if(edit?.kind==="prescription_field"){
     const {slot,cycle,set}=editorSetByCoordinates(definition,slotId,Number(edit.cycleIndex),Number(edit.setIndex));
@@ -13772,12 +13790,9 @@ function importRowHtml(row){
     :(!folded&&row.match&&row.decision!=="link"
       ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"");
   const escapes=
+    // Every slot of a program names a movement, so an unmatched row is settled
+    // by choosing one or creating it; there is no unlinked "keep as typed".
     `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
-    // Shown while a row still needs a decision even when "keep" is already
-    // the standing choice: an unmatched row has to be acknowledged, not just
-    // defaulted, or there is no way to clear it off the review list.
-    (row.decision!=="raw"||!row.reviewed
-      ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
     (row.decision!=="custom"
       ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
   const acts=folded
@@ -13809,7 +13824,6 @@ function importRowAction(act,key,idx){
     settleImportRow(row,Number(idx)===0?"top_candidate":"alternate");
     return}
   if(act==="link"&&row.match){row.decision="link";settleImportRow(row,"top_candidate");return}
-  if(act==="raw"){row.decision="raw";settleImportRow(row,"keep");return}
   if(act==="choose"){
     openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
       onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row,"picker")}});
@@ -13967,8 +13981,10 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{
     if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
     const text=await f.text();
-    const backup=parseBackupFile(text);
+    const parsedBackup=parseBackupFile(text),legacyBackup=isLegacyBackup(parsedBackup);
+    const backup=legacyBackup?null:parsedBackup;
     const source=parseProgramSource(text,f.name);
+    if(legacyBackup&&!source?.exercises?.length){toast(t("toast.backup_legacy"));e.target.value="";return}
     // A backup whose program is empty is still a backup worth restoring, so the
     // exercise requirement only has to hold for a file that is nothing else.
     if(!backup&&!source?.exercises?.length)throw Error();
@@ -14595,6 +14611,7 @@ async function importJson(e){const f=e.target.files?.[0];if(!f)return;
     if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
     const s=boundedImportJson(await f.text());
     if(!isImportableState(s))throw Error();
+    if(isLegacyBackup(s)){toast(t("toast.backup_legacy"));e.target.value="";return}
     openImportChoice(importChoiceContext(s,e.target))}
   catch{toast(t("toast.import_invalid"))}
   e.target.value=""}

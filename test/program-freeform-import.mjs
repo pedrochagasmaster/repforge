@@ -258,6 +258,24 @@ async function main() {
     assert(staged.program === 0,
       "a converted program is a candidate: nothing is active until it is activated",
       String(staged.program));
+    // The reviewed reply becomes a canonical Build definition over the catalog
+    // movements the review linked, so the common preview can activate it.
+    const candidate = await page.evaluate(() => {
+      const preview = window.__repforgeOnboarding.entry()?.result?.preview;
+      const catalogIds = new Set(window.__repforgeExerciseLibrary.map((entry) => entry.id));
+      const slots = (preview?.programDefinition?.days || []).flatMap((day) => day.slots || []);
+      return {
+        slotIds: slots.map((slot) => slot.exerciseId),
+        allCatalog: slots.length > 0 && slots.every((slot) => catalogIds.has(slot.exerciseId)),
+        rowsLinked: (preview?.program || []).map((row) => row.libraryId),
+        activateEnabled: !document.querySelector("#entryActivate")?.disabled,
+      };
+    });
+    assert(candidate.slotIds.length === 3 && candidate.allCatalog &&
+      JSON.stringify(candidate.rowsLinked) === JSON.stringify(candidate.slotIds),
+      "the reviewed reply is a canonical program over catalog movements", JSON.stringify(candidate));
+    assert(candidate.activateEnabled, "the converted program is ready to activate from the common preview",
+      JSON.stringify(candidate));
     const sessionCleared = await page.evaluate(() => sessionStorage.getItem("repforge_freeform_session_v1"));
     assert(sessionCleared === null, "session storage is cleared on transition to review");
 
