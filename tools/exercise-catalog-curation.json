@@ -5,43 +5,63 @@
     "1a25c6f170d8803d8231d083fdd65458": {
       "sourceName": "Barbell back squat",
       "namePt": "Agachamento livre com barra",
-      "aliases": ["Agachamento com barra", "Agachamento livre"],
+      "aliases": [
+        "Agachamento com barra",
+        "Agachamento livre"
+      ],
       "mediaId": "sq_bb"
     },
     "19f5c6f170d8808bb424e98de4472a7e": {
       "sourceName": "Barbell bench press",
       "namePt": "Supino reto com barra",
-      "aliases": ["Supino", "Supino com barra"],
+      "aliases": [
+        "Supino",
+        "Supino com barra"
+      ],
       "mediaId": "pr_bb"
     },
     "1a35c6f170d88059b804ff16ff621a1c": {
       "sourceName": "Barbell hip thrust",
       "namePt": "Elevação pélvica com barra",
-      "aliases": ["Hip thrust", "Elevação pélvica"],
+      "aliases": [
+        "Hip thrust",
+        "Elevação pélvica"
+      ],
       "mediaId": "ht_bb"
     },
     "1a05c6f170d880c5ad11c99b302b1bf9": {
       "sourceName": "Barbell overhead press",
       "namePt": "Desenvolvimento militar com barra",
-      "aliases": ["Desenvolvimento com barra", "Press militar com barra"],
+      "aliases": [
+        "Desenvolvimento com barra",
+        "Press militar com barra"
+      ],
       "mediaId": "sp_bb"
     },
     "1a35c6f170d880bebc64f4dce0d5f5f1": {
       "sourceName": "Barbell Romanian deadlift",
       "namePt": "Levantamento terra romeno com barra",
-      "aliases": ["Terra romeno", "RDL"],
+      "aliases": [
+        "Terra romeno",
+        "RDL"
+      ],
       "mediaId": "hg_bb"
     },
     "1a15c6f170d88061b074caacc5a76081": {
       "sourceName": "Barbell shrug",
       "namePt": "Encolhimento com barra",
-      "aliases": ["Encolhimento de ombros"],
+      "aliases": [
+        "Encolhimento de ombros"
+      ],
       "mediaId": "sh_bb"
     },
     "1a15c6f170d880b6adcbff83e8bb6b0f": {
       "sourceName": "Chin-up",
       "namePt": "Barra fixa supinada",
-      "aliases": ["Barra fixa com pegada supinada", "Chin-up"],
+      "aliases": [
+        "Barra fixa com pegada supinada",
+        "Chin-up"
+      ],
       "mediaId": "chn_bw"
     },
     "2775c6f170d8801eb7ccd455a85f58ff": {
@@ -53,74 +73,340 @@
     "1a05c6f170d8803ba48ec1443eab5978": {
       "sourceName": "Dumbbell bench press",
       "namePt": "Supino reto com halteres",
-      "aliases": ["Supino", "Supino com halteres"],
+      "aliases": [
+        "Supino",
+        "Supino com halteres"
+      ],
       "mediaId": "pr_db"
     },
     "1a05c6f170d8806ab70ee93a5c79d733": {
       "sourceName": "Dumbbell fly",
       "namePt": "Crucifixo com halteres",
-      "aliases": ["Crucifixo", "Fly com halteres"],
+      "aliases": [
+        "Crucifixo",
+        "Fly com halteres"
+      ],
       "mediaId": "cf_db"
     },
     "1a15c6f170d8808b9721ff65d549d8ba": {
       "sourceName": "Dumbbell pullover",
       "namePt": "Pullover com halteres",
-      "aliases": ["Pullover com halteres"],
+      "aliases": [
+        "Pullover com halteres"
+      ],
       "mediaId": "pv_db"
     },
     "1a35c6f170d880489b7be1d31faff56b": {
       "sourceName": "Dumbbell Romanian deadlift",
       "namePt": "Levantamento terra romeno com halteres",
-      "aliases": ["Terra romeno", "RDL"],
+      "aliases": [
+        "Terra romeno",
+        "RDL"
+      ],
       "mediaId": "hg_db"
     },
     "1a25c6f170d880e09445d806733a82a2": {
       "sourceName": "Dumbbell step-up",
       "namePt": "Subida no banco com halteres",
-      "aliases": ["Step-up com halteres"],
+      "aliases": [
+        "Step-up com halteres"
+      ],
       "mediaId": "su_db"
     },
     "1a25c6f170d8802c992bda97ded323ba": {
       "sourceName": "Goblet squat",
       "namePt": "Agachamento goblet",
-      "aliases": ["Goblet squat"],
+      "aliases": [
+        "Goblet squat"
+      ],
       "mediaId": "sq_db"
     },
     "1a25c6f170d880c59f17ce7802758fc3": {
       "sourceName": "Leg extension",
       "namePt": "Cadeira extensora",
-      "aliases": ["Extensão de pernas", "Leg extension"],
+      "aliases": [
+        "Extensão de pernas",
+        "Leg extension"
+      ],
       "mediaId": "le_mc"
     },
     "1a45c6f170d8801cbc4de021fccb0fd8": {
       "sourceName": "Machine back extension",
       "namePt": "Extensão lombar na máquina",
-      "aliases": ["Hiperextensão na máquina"],
+      "aliases": [
+        "Hiperextensão na máquina"
+      ],
       "mediaId": "be_mc"
     },
     "2985c6f170d8800b94d6cc7918bfe6db": {
       "sourceName": "Machine triceps extension",
       "namePt": "Extensão de tríceps na máquina",
-      "aliases": ["Tríceps máquina", "Extensão de cotovelo na máquina"],
+      "aliases": [
+        "Tríceps máquina",
+        "Extensão de cotovelo na máquina"
+      ],
       "mediaId": "tr_mc"
     },
     "1a05c6f170d880a5b43fe13bcb1b6f3a": {
       "sourceName": "Push-up",
       "namePt": "Flexão de braço",
-      "aliases": ["Flexão"],
+      "aliases": [
+        "Flexão"
+      ],
       "mediaId": "pu_bw"
     },
     "1a05c6f170d88058a3a0c07e098a9605": {
       "sourceName": "Smith machine bench press",
       "namePt": "Supino reto no Smith",
-      "aliases": ["Supino", "Supino Smith"],
+      "aliases": [
+        "Supino",
+        "Supino Smith"
+      ],
       "mediaId": "pr_sm"
     },
     "1a05c6f170d880dfb155db9048527b8b": {
       "sourceName": "Triceps dip",
       "namePt": "Mergulho de tríceps",
-      "aliases": ["Paralela para tríceps", "Dips"],
+      "aliases": [
+        "Paralela para tríceps",
+        "Dips"
+      ],
       "mediaId": "trd_bw"
+    },
+    "3315c6f170d8805a8e13ff6a504ddf82": {
+      "sourceName": "Band lateral raise",
+      "namePt": "Elevação lateral com elástico",
+      "aliases": []
+    },
+    "1a15c6f170d88075bedff384fa3f8c3b": {
+      "sourceName": "Band pull-apart",
+      "namePt": "Abertura com elástico",
+      "aliases": []
+    },
+    "1a15c6f170d880ee83eccf109356e208": {
+      "sourceName": "Barbell biceps curl",
+      "namePt": "Rosca com barra",
+      "aliases": []
+    },
+    "1a35c6f170d880f7a755cd3780a63371": {
+      "sourceName": "Conventional deadlift",
+      "namePt": "Levantamento terra com barra",
+      "aliases": []
+    },
+    "2965c6f170d880f8b368e35f599819f7": {
+      "sourceName": "Barbell front raise",
+      "namePt": "Elevação frontal com barra",
+      "aliases": []
+    },
+    "28e5c6f170d88028a450c005a7a8cf60": {
+      "sourceName": "Front squat",
+      "namePt": "Agachamento frontal com barra",
+      "aliases": []
+    },
+    "1a35c6f170d880eda0b7e8540f9367a6": {
+      "sourceName": "Barbell good morning",
+      "namePt": "Bom dia com barra",
+      "aliases": []
+    },
+    "30d5c6f170d880169baafa7dbe3cee89": {
+      "sourceName": "Behind-the-back deadlift",
+      "namePt": "Agachamento hack com barra",
+      "aliases": []
+    },
+    "1a15c6f170d880e9bd65f120ac4908a0": {
+      "sourceName": "Pendlay row",
+      "namePt": "Remada Pendlay com barra",
+      "aliases": []
+    },
+    "1dc5c6f170d88089b852feeb63b0e9e2": {
+      "sourceName": "Barbell pullover",
+      "namePt": "Pullover com barra",
+      "aliases": []
+    },
+    "1a15c6f170d8806390e7e1743452b88c": {
+      "sourceName": "Barbell reverse curl",
+      "namePt": "Rosca inversa com barra",
+      "aliases": []
+    },
+    "1a15c6f170d88029a037f1c1bea19636": {
+      "sourceName": "Barbell skull crusher",
+      "namePt": "Tríceps testa com barra",
+      "aliases": []
+    },
+    "1f15c6f170d8804d99b1d1aedad699ce": {
+      "sourceName": "Barbell straight-leg deadlift",
+      "namePt": "Levantamento terra pernas retas com barra",
+      "aliases": []
+    },
+    "1a05c6f170d880639ca1ff8aeac1dd6e": {
+      "sourceName": "Barbell upright row",
+      "namePt": "Remada alta com barra",
+      "aliases": []
+    },
+    "1a25c6f170d880728a49e54a8d583742": {
+      "sourceName": "Bodyweight squat",
+      "namePt": "Agachamento livre sem carga",
+      "aliases": []
+    },
+    "1a05c6f170d880df946bdd6f42f0901c": {
+      "sourceName": "Horizontal cable fly",
+      "namePt": "Crucifixo na polia",
+      "aliases": []
+    },
+    "2965c6f170d880fcbe4ef2971006df0a": {
+      "sourceName": "Cable front raise",
+      "namePt": "Elevação frontal na polia",
+      "aliases": []
+    },
+    "2a05c6f170d880a3a7b5c523968fc01b": {
+      "sourceName": "Cable hip adduction",
+      "namePt": "Cadeira adutora na polia",
+      "aliases": []
+    },
+    "1a15c6f170d88047b707cb56112beab4": {
+      "sourceName": "Cable reverse curl",
+      "namePt": "Rosca inversa na polia",
+      "aliases": []
+    },
+    "2aa5c6f170d8805eba89d16e66093142": {
+      "sourceName": "Cable shoulder press",
+      "namePt": "Desenvolvimento na polia",
+      "aliases": []
+    },
+    "1a15c6f170d8803fbfb3de3621bd96b5": {
+      "sourceName": "Cable shrug",
+      "namePt": "Encolhimento na polia",
+      "aliases": []
+    },
+    "1a45c6f170d88088a607cb473ed28d7f": {
+      "sourceName": "Cable side bend",
+      "namePt": "Flexão lateral de tronco na polia",
+      "aliases": []
+    },
+    "1a05c6f170d880638d90c257b0cb7fdd": {
+      "sourceName": "Cable upright row",
+      "namePt": "Remada alta na polia",
+      "aliases": []
+    },
+    "1a15c6f170d880009c83d4273fef90bd": {
+      "sourceName": "Close grip chin-up",
+      "namePt": "Barra fixa supinada pegada fechada",
+      "aliases": []
+    },
+    "1a05c6f170d880dfb02cf76f7519927d": {
+      "sourceName": "Close grip push-up",
+      "namePt": "Flexão de braço pegada fechada",
+      "aliases": []
+    },
+    "1a05c6f170d880cd8e13ef0e0d5a4637": {
+      "sourceName": "Decline push-up",
+      "namePt": "Flexão de braço declinado",
+      "aliases": []
+    },
+    "2335c6f170d880b3bf05fbd3fe896667": {
+      "sourceName": "Diamond push-up",
+      "namePt": "Flexão diamante",
+      "aliases": []
+    },
+    "1a15c6f170d880d7b8cbf608580aaa50": {
+      "sourceName": "Dumbbell concentration curl",
+      "namePt": "Rosca concentrada com halteres",
+      "aliases": []
+    },
+    "3065c6f170d8807abd9fc6be633e0b19": {
+      "sourceName": "Dumbbell deadlift",
+      "namePt": "Levantamento terra com halteres",
+      "aliases": []
+    },
+    "29f5c6f170d8800f9577c4c1d85c2900": {
+      "sourceName": "Dumbbell preacher curl",
+      "namePt": "Rosca scott com halteres",
+      "aliases": []
+    },
+    "1a45c6f170d8805c8bc9f17b441a96d9": {
+      "sourceName": "Dumbbell side bend",
+      "namePt": "Flexão lateral de tronco com halteres",
+      "aliases": []
+    },
+    "1a25c6f170d880708256e9a8bf6337bf": {
+      "sourceName": "Dumbbell squat",
+      "namePt": "Agachamento com halteres",
+      "aliases": []
+    },
+    "1a05c6f170d880409e9cf644b585ca3a": {
+      "sourceName": "Dumbbell upright row",
+      "namePt": "Remada alta com halteres",
+      "aliases": []
+    },
+    "2995c6f170d880daa027fa6e51c2b961": {
+      "sourceName": "Glute ham raise",
+      "namePt": "Elevação glúteo-femoral",
+      "aliases": []
+    },
+    "1a45c6f170d88065be3acba9f007a364": {
+      "sourceName": "Hanging straight leg raise",
+      "namePt": "Elevação de pernas na barra",
+      "aliases": []
+    },
+    "1a25c6f170d8802ea9b9ce71cd9d3d67": {
+      "sourceName": "Pin-loaded leg press",
+      "namePt": "Leg press horizontal",
+      "aliases": []
+    },
+    "1a05c6f170d8808092c2da8955b361f1": {
+      "sourceName": "Incline push-up",
+      "namePt": "Flexão de braço inclinado",
+      "aliases": []
+    },
+    "1a35c6f170d8803da7d8d3df40fda893": {
+      "sourceName": "Kettlebell swing",
+      "namePt": "Swing com kettlebell",
+      "aliases": []
+    },
+    "1a45c6f170d880ff8f44dfd8ac3f86a2": {
+      "sourceName": "Bent-leg reverse crunch",
+      "namePt": "Abdominal invertido",
+      "aliases": []
+    },
+    "1a25c6f170d880e9a081d306d6073583": {
+      "sourceName": "Sissy squat",
+      "namePt": "Agachamento sissy",
+      "aliases": []
+    },
+    "24f5c6f170d88077beffc838033a5eea": {
+      "sourceName": "Smith machine overhead press",
+      "namePt": "Desenvolvimento no Smith",
+      "aliases": []
+    },
+    "1a15c6f170d8804cbd9afa04567bd5f7": {
+      "sourceName": "Smith machine shrug",
+      "namePt": "Encolhimento no Smith",
+      "aliases": []
+    },
+    "1a25c6f170d8800a86efdcb6f902b9a9": {
+      "sourceName": "Smith machine back squat",
+      "namePt": "Agachamento no Smith",
+      "aliases": []
+    },
+    "1a35c6f170d8801b9d6af6cb4040482f": {
+      "sourceName": "Weighted crunch",
+      "namePt": "Abdominal com carga",
+      "aliases": []
+    },
+    "1a15c6f170d880bf8710e3cf4209936d": {
+      "sourceName": "Overhand grip weighted pull-up",
+      "namePt": "Barra fixa com carga",
+      "aliases": []
+    },
+    "2765c6f170d8805887baffcb3def81fb": {
+      "sourceName": "Weighted Russian twist",
+      "namePt": "Abdominal russo com carga",
+      "aliases": []
+    },
+    "1a15c6f170d880849033e0f75c6ee758": {
+      "sourceName": "Wide grip pull-up",
+      "namePt": "Barra fixa pegada aberta",
+      "aliases": []
     }
   }
 }
