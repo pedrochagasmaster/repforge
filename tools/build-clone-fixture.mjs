@@ -1,7 +1,6 @@
 // Generates test/fixtures/install-transfer-clone-v1.json through the real
-// compiler, loader, and storage writer/reader boundary. Phase 0 proves the
-// durable-state section here. DraftV2 and transfer import remain pending under
-// Plans 051 and 053 because those consumers do not exist yet.
+// generator, loader, and storage writer/reader boundary. The durable-state
+// section is a Plan 067 generated program; transfer consumers prove the rest.
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,12 +12,6 @@ const require2 = createRequire(import.meta.url);
 // Minimal browser shell so app.js evaluates without a DOM.
 globalThis.window = {
   RepForgeI18n: { t: (k) => k, detectLang: () => "en", setLang() {}, normalizeLang: (v) => (v === 'pt' ? 'pt' : 'en'), },
-  RepForgeProgression: null,
-  RepForgeProgramEntry: null,
-  RepForgeSharedSetup: null,
-  RepForgeSchedule: null,
-  RepForgeNotify: null,
-  RepForgeProgramEntryAdapter: { DAY_MERGE_VOCABULARY: { primary: "primary", secondary: "secondary", none: "none" } },
   matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
   addEventListener() {},
 };
@@ -26,6 +19,7 @@ globalThis.document = {
   querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
   addEventListener() {}, hidden: false,
   documentElement: { setAttribute() {}, style: {}, dataset: {} },
+  head: { append() {}, appendChild() {} },
   body: { classList: { add() {}, remove() {}, contains: () => false } },
   createElement: () => ({ style: {}, setAttribute() {}, appendChild() {}, classList: { add() {}, remove() {} }, addEventListener() {} }),
 };
@@ -49,6 +43,7 @@ globalThis.indexedDB = {
     const request = {};
     queueMicrotask(() => {
       request.result = {
+        objectStoreNames: { contains: () => true },
         createObjectStore() {},
         close() {},
         transaction() {
@@ -87,72 +82,110 @@ globalThis.indexedDB = {
 };
 globalThis.requestAnimationFrame = (f) => setTimeout(f, 0);
 globalThis.CustomEvent = class CustomEvent {};
-globalThis.fetch = async () => ({ ok: false });
+// The only fetch app boot needs here is the local catalog asset, served as-is.
+const CATALOG_BYTES = readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8");
+globalThis.fetch = async (url) => String(url).includes("assets/exercise-catalog.json")
+  ? { ok: true, status: 200, text: async () => CATALOG_BYTES } : { ok: false, status: 404 };
 globalThis.caches = { open: async () => ({ match: async () => undefined }) };
 
-// Load the library and compiler first (app.js expects them on window).
-const exercisesSrc = readFileSync(join(ROOT, "exercises.js"), "utf8");
-new Function(exercisesSrc).call(globalThis);
-const Compiler = require2(join(ROOT, "program-compiler.js"));
-globalThis.window.RepForgeProgramCompiler = Compiler;
+// Load every runtime script index.html declares before app.js, in order, as
+// the page does, and mirror their globals onto the shell window app.js reads.
+// Vendored motion/drag runtimes are optional and skipped.
+const scripts = [...readFileSync(join(ROOT, "index.html"), "utf8").matchAll(/<script[^>]*src="([^"?]+)/g)]
+  .map((match) => match[1]).filter((file) => file.endsWith(".js") && file !== "app.js" && !file.startsWith("vendor/"));
+for (const file of scripts) {
+  try { new Function("module", "exports", readFileSync(join(ROOT, file), "utf8")).call(globalThis, undefined, undefined); }
+  catch (error) { if (!["posthog-config.js", "posthog-init.js"].includes(file)) throw error; }
+  // Modules attach to window or globalThis; the page has one object for both.
+  for (const [from, to] of [[globalThis, globalThis.window], [globalThis.window, globalThis]])
+    for (const key of Object.keys(from)) if (/^RepForge|^Taurifer|^EXERCISE_/.test(key) && !(key in to)) to[key] = from[key];
+}
+const Compiler = globalThis.window.RepForgeProgramCompiler;
 globalThis.ProgramCompiler = Compiler;
-// withExplicitProgramStructure reads the bare global first, then window.
+const Adapter = globalThis.window.RepForgeProgramEntryAdapter;
+await globalThis.window.RepForgeExerciseCatalog.load();
+const catalogSnapshot = globalThis.window.RepForgeExerciseCatalog.snapshot();
 
-// Compile a REAL growth_3_v1 program through the actual compiler, then let
-// the app normalize it — no hand-built state anywhere.
-const context = {
-  schemaVersion: 1, familyId: "growth", frequency: 3, sessionMinutes: 90,
-  equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
-  environment: ["safe_pull", "training_support"],
-  loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
-};
-const EXERCISE_LIBRARY = require2(join(ROOT, "exercises.js")).EXERCISE_LIBRARY;
-const compiled = Compiler.compile(context, EXERCISE_LIBRARY);
-if (compiled.kind !== "compiled") throw new Error("compiler returned " + compiled.kind);
+// Generate a REAL program through the canonical generator from Generate's own
+// answer mapping, then let the app project and normalize it.
+const mapped = Adapter.programRequestFromAnswers({
+  desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 2, sessionMinutes: 40,
+  environment: { kind: "limited_home" },
+}, catalogSnapshot);
+if (!mapped.ok) throw new Error("request mapping failed");
+// One cycle keeps the documented example small; the contract is per cycle.
+mapped.value.cycles = 1;
+const generated = Compiler.generateProgram(mapped.value, catalogSnapshot, "clone-fixture-v1");
+if (!generated.ok) throw new Error("generator returned conflicts");
+const programDefinition = generated.value;
 
 const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
 // The production file invokes boot() as its final expression. Omit only that
 // auto-start while loading the same runtime functions so this fixture can
 // drive the persistence boundary without a concurrent application boot write.
-const appRuntimeSrc = appSrc.replace(/\nboot\(\);\s*$/, "\n");
-const api = new Function(appRuntimeSrc + "\n;return { Program: typeof Program !== 'undefined' ? Program : null, normalizeLoaded: typeof normalizeLoaded !== 'undefined' ? normalizeLoaded : null, uid: typeof uid === 'function' ? uid : null, buildProgramMeta: typeof buildProgramMeta === 'function' ? buildProgramMeta : null, storageIO: typeof storageIO !== 'undefined' ? storageIO : null, readLocalStatus: typeof readLocalStatus === 'function' ? readLocalStatus : null, readIdbStatus: typeof readIdbStatus === 'function' ? readIdbStatus : null, chooseSnapshot: typeof chooseSnapshot === 'function' ? chooseSnapshot : null }; ").call(globalThis);
-const { Program, normalizeLoaded, uid, buildProgramMeta, storageIO, readLocalStatus, readIdbStatus, chooseSnapshot } = api;
+// The catalog is installed the way a successful load() would install it.
+const appRuntimeSrc = appSrc.replace(/\nboot\(\);\s*$/, "\n") + "\n;rawExerciseCatalog=globalThis.__cloneFixtureCatalog;";
+globalThis.__cloneFixtureCatalog = catalogSnapshot;
+const api = new Function(appRuntimeSrc + "\n;return { Program: typeof Program !== 'undefined' ? Program : null, normalizeLoaded: typeof normalizeLoaded !== 'undefined' ? normalizeLoaded : null, uid: typeof uid === 'function' ? uid : null, buildProgramMeta: typeof buildProgramMeta === 'function' ? buildProgramMeta : null, storageIO: typeof storageIO !== 'undefined' ? storageIO : null, readLocalStatus: typeof readLocalStatus === 'function' ? readLocalStatus : null, readIdbStatus: typeof readIdbStatus === 'function' ? readIdbStatus : null, chooseSnapshot: typeof chooseSnapshot === 'function' ? chooseSnapshot : null, durableProgramRows: typeof durableProgramRows === 'function' ? durableProgramRows : null }; ").call(globalThis);
+const { normalizeLoaded, storageIO, readLocalStatus, readIdbStatus, chooseSnapshot, durableProgramRows } = api;
 
-// Turn compiler output into raw rows the app loader accepts (as backup import does).
-const rawProgram = [];
-let order = 0;
-const labels = {};
-for (const day of compiled.days) {
-  for (const slot of day.slots) {
-    const row = {
-      id: "ex_" + slot.slotId.replace(/[^a-z0-9]/gi, "_"),
-      day: day.label, order: order++,
-      name: slot.exercise.name, sets: slot.prescription.sets,
-      min: slot.prescription.repMin, max: slot.prescription.repMax,
-      primary: slot.exercise.primary, secondary: slot.exercise.secondary,
-      notes: "", alternates: [],
-      slotId: slot.slotId, dayId: day.dayId,
-      libraryId: slot.exercise.id, movementId: "library:" + slot.exercise.id,
-      progressionType: `${slot.prescription.progression.strategy.id}@${slot.prescription.progression.strategy.version}`,
-      targetRirStart: slot.prescription.targetRirMin, targetRirEnd: slot.prescription.targetRirMax,
-      minSets: slot.prescription.sets[0] ?? 2, maxSets: slot.prescription.sets[1] ?? 4,
-      jumpAmount: slot.prescription.progression.params?.jumpAmount ?? null,
-      compilerProvenance: slot.provenance ?? null,
-    };
-    if (row.jumpAmount == null) delete row.jumpAmount;
-    if (row.compilerProvenance == null) delete row.compilerProvenance;
-    rawProgram.push(row);
-  }
-  labels[day.dayId] = day.label;
-}
-const logRow = {
-  session: "2026-09-08_Day 1_seed01", date: "2026-09-08", day: "Day 1",
-  name: rawProgram[0].name, exerciseId: rawProgram[0].id, set: 1,
-  load: 120, reps: 10, rir: 2, notes: "", created: "2026-09-08T18:00:00.000Z",
-  primary: rawProgram[0].primary, secondary: rawProgram[0].secondary,
-  performedName: rawProgram[0].name, performedPrimary: rawProgram[0].primary,
-  performedSecondary: rawProgram[0].secondary, performedLibraryId: rawProgram[0].libraryId,
+const programMeta = {
+  id: "pm_seed01", name: "Build Muscle", started: "2026-09-07",
+  created: "2026-09-07T08:00:00.000Z", updated: "2026-09-28T08:00:00.000Z",
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 2,
+  splitType: null, equipment: [], priorityMuscles: [],
+  sessionLength: 40, mesocycleLengthWeeks: programDefinition.cycles, mesocycleStatus: "active",
+  completedAt: null, onboarded: true,
+  progressionRelations: [], progressionModifiers: [],
+  progressionIncompatibilities: [], programStructure: null, entrySource: null,
+  programDefinition,
 };
+const rawProgram = durableProgramRows(programDefinition, [], programMeta);
+// One completed set of the first slot, compiled to a History row by the real
+// DraftV2 aggregate, so the fixture's log carries the current metric schema.
+const WorkoutDraft = globalThis.window.RepForgeWorkoutDraft;
+const firstDay = programDefinition.days.find((day) => day.kind === "training");
+const firstSlot = firstDay.slots[0];
+const firstRow = rawProgram[0];
+const slotSets = firstSlot.prescriptionsByCycle[0].sets;
+const loadingConvention = "external";
+let seedDraft = WorkoutDraft.create({
+  programId: programMeta.id, programFingerprint: "clone-fixture", durableRevision: 1,
+  dayId: firstDay.id, dayLabel: firstDay.name, scheduleDate: "2026-09-08", unit: "kg", rirMode: "numeric",
+  exercises: [{
+    exerciseInstanceId: firstRow.id, sourceExerciseId: firstSlot.id, libraryId: firstSlot.exerciseId,
+    displayName: firstRow.name, sets: slotSets.length, setIds: slotSets.map((_, index) => `set-${index + 1}`),
+    minReps: firstRow.min, maxReps: firstRow.max, targetRir: 1, notes: "",
+    primary: firstRow.primary, secondary: firstRow.secondary, sourceFingerprint: "clone-fixture-slot",
+    metricOrigin: "source_catalog", metricDefinitions: firstSlot.metricDefinitions,
+    loadingModel: firstSlot.loadingModel, loadingConvention,
+    loadingContext: { loadingConvention, bodyweightKg: null, bodyweightContributionEnabled: null,
+      externalLoadMultiplier: 1, bodyweightCoefficient: firstSlot.loadingModel.bodyweightCoefficient },
+    programmedSets: slotSets.map((set) => ({ targetRir: set.rir, metricDefinitions: firstSlot.metricDefinitions,
+      targets: set.targets, restSeconds: set.restSeconds })),
+  }],
+}, {
+  draftId: "2026-09-08_Day 1_seed01", startedAt: "2026-09-08T17:30:00.000Z", selectedExerciseId: firstRow.id,
+  writer: { installationId: "clone-fixture", tabId: "clone-fixture", operationId: "seed-create" },
+  updatedAt: "2026-09-08T17:30:00.000Z", scheduleDate: "2026-09-08", bodyweight: "", notes: "",
+}, {});
+if (WorkoutDraft.isDomainError(seedDraft)) throw new Error(`seed draft rejected: ${JSON.stringify(seedDraft)}`);
+let seedOperation = 0;
+const seedApply = (type, values) => {
+  const next = WorkoutDraft.reduce(seedDraft, { ...values, type, operationId: `seed-${++seedOperation}`,
+    expectedRevision: seedDraft.revision, updatedAt: "2026-09-08T18:00:00.000Z",
+    writer: { installationId: "clone-fixture", tabId: "clone-fixture", operationId: `seed-${seedOperation}` } });
+  if (WorkoutDraft.isDomainError(next)) throw new Error(`${type} rejected: ${JSON.stringify(next)}`);
+  seedDraft = next;
+};
+for (const metric of firstSlot.metricDefinitions)
+  seedApply("editMetricValue", { exerciseInstanceId: firstRow.id, setId: "set-1", metricId: metric.id,
+    value: metric.semantic === "reps" ? "10" : "120" });
+seedApply("editSetField", { exerciseInstanceId: firstRow.id, setId: "set-1", field: "rir", value: "2" });
+seedApply("completeSet", { exerciseInstanceId: firstRow.id, setId: "set-1", completedAt: "2026-09-08T18:00:00.000Z" });
+seedApply("beginFinish", {});
+const [logRow] = WorkoutDraft.toHistoryRows(seedDraft, "2026-09-08T18:00:00.000Z");
+if (!logRow?.metricValues) throw new Error("seed history row has no metric values");
 const customExercise = {
   id: "custom:c01", name: "Landmine press", namePt: "Desenvolvimento landmine",
   archived: false, equipment: ["barbell"], primary: "Chest", secondary: "Triceps",
@@ -161,26 +194,9 @@ const customExercise = {
 };
 
 // The raw input state (pre-normalization).
-// Seed programStructure the way the production activation path does (the
-// compiler result is persisted with the program), so post-normalization
-// provenance is the real compiler provenance, not legacy_migration.
-const structureSeed = Compiler.migrateLegacyStructure(rawProgram, {
-  schemaVersion: 1,
-  days: compiled.days.map((day) => ({ dayId: day.dayId, label: day.label })),
-  provenance: compiled.provenance,
-});
 const rawState = {
   settings: { unit: "kg", lang: "en", restSec: 120, rirMode: "numeric" },
-  programMeta: {
-    id: "pm_seed01", name: "Build Muscle", started: "2026-09-07",
-    created: "2026-09-07T08:00:00.000Z", updated: "2026-09-28T08:00:00.000Z",
-    goal: "muscle_growth", experience: "6_to_24m", daysPerWeek: 3,
-    splitType: null, equipment: ["commercial_gym"], priorityMuscles: [],
-    sessionLength: 60, mesocycleLengthWeeks: 6, mesocycleStatus: "active",
-    completedAt: null, onboarded: true,
-    progressionRelations: [], progressionModifiers: [],
-    progressionIncompatibilities: [], programStructure: structureSeed.structure, entrySource: null,
-  },
+  programMeta,
   program: rawProgram,
   log: [logRow],
   programHistory: [],
@@ -210,7 +226,7 @@ if (!storageIO || !readLocalStatus || !readIdbStatus || !chooseSnapshot) {
   throw new Error("production persistence API is unavailable");
 }
 const writeResult = await storageIO.writeLocal(normalized);
-if (writeResult !== undefined) throw new Error("unexpected local writer result");
+if (writeResult !== true) throw new Error("unexpected local writer result");
 await storageIO.writeIdb(normalized);
 const localRead = readLocalStatus();
 const idbRead = await readIdbStatus();

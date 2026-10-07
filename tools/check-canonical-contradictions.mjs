@@ -486,20 +486,13 @@ required("docs/recovery-week-policy.md", [
     const { execFileSync } = await import("node:child_process");
     execFileSync(process.execPath, ["tools/canonical-clone-hash.mjs", "--check"], { cwd: ROOT, stdio: "pipe" });
     execFileSync(process.execPath, ["tools/check-canonical-hash-semantics.mjs"], { cwd: ROOT, stdio: "pipe" });
-    // The ADR's displayed example envelope must equal the fixture and hash
-    // to the digest the ADR records.
+    // The ADR records the fixture's digest; the fixture must hash to it.
     const { clonePayloadHashOf } = await import(join(ROOT, "tools", "canonical-clone-hash.mjs"));
-    const adrExample = JSON.parse([...adr.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1])[0]);
     const fixture = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "install-transfer-clone-v1.json"), "utf8"));
-    check(
-      JSON.stringify(adrExample) === JSON.stringify(fixture),
-      "ADR 0013: displayed envelope differs from test/fixtures/install-transfer-clone-v1.json",
-    );
-    const computed = clonePayloadHashOf(adrExample);
-    check(
-      computed === adrExample.integrity.canonicalPayloadHash,
-      `ADR 0013: envelope hashes to ${computed.slice(0, 12)}…, integrity claims ${String(adrExample.integrity.canonicalPayloadHash).slice(0, 12)}…`,
-    );
+    const recorded = adr.match(/Fixture digest: `([0-9a-f]{64})`/)?.[1];
+    const computed = clonePayloadHashOf(fixture);
+    check(recorded === computed && computed === fixture.integrity.canonicalPayloadHash,
+      `ADR 0013: recorded fixture digest ${String(recorded).slice(0, 12)}… differs from the fixture's ${computed.slice(0, 12)}…`);
   } catch {
     failures.push("clone hashing: fixture digest does not verify with the documented rule");
   }

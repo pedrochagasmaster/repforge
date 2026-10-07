@@ -5,8 +5,8 @@
  * A fresh device answers the Generate questions, reviews the generated
  * program, and activates it; the stored ProgramDefinition is exactly the
  * canonical generator output for the mapped request and the draft's seed, and
- * survives reload. Cancelling leaves no program. Every answer combination the
- * UI offers is feasible; impossible requests are proved by the compiler suite.
+ * survives reload. Cancelling leaves no program, and a request the generator
+ * cannot fit shows its conflict instead of a partial program.
  */
 import { createRequire } from "node:module";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
@@ -60,6 +60,19 @@ async function answerGenerate(page, { days = 4, minutes = 60, environment = "com
   await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
   if ((await entry(page)).step === "priorities") await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
+}
+
+async function impossible(browser) {
+  const run = await fresh(browser);
+  await answerGenerate(run.page, { days: 2, minutes: 20 });
+  const notice = run.page.locator("#onbBody .entry__notice[role=alert]");
+  await notice.waitFor({ state: "visible", timeout: 15000 });
+  const text = await notice.innerText();
+  check(/session length|more time per session/i.test(text) && !await run.page.locator("#entryActivate").count(),
+    "two full-body days in up to 20 minutes show the time conflict and offer no program", text);
+  check(!(await state(run.page)).programMeta.programDefinition, "a conflicting request writes no program");
+  await run.context.close();
+  return run.errors;
 }
 
 async function main() {
@@ -129,6 +142,7 @@ async function main() {
     check(JSON.stringify(resumed) === JSON.stringify(first), "the setup draft keeps the reviewed program across a reload");
     await again.context.close();
 
+    allErrors.push(await impossible(browser));
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {
     failures.push(String(error?.stack || error));

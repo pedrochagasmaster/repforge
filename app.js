@@ -1734,10 +1734,25 @@ function exerciseFieldsFromLibrary(entry){
   return{name:libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary"),
     notes:entry.notes||"",libraryId:entry.id,displayName:null}}
 
+/* The compiler owns the custom-definition schema. Device state carries more
+   (archive flag, patterns, timestamps), so project exactly its keys; a custom
+   movement without a configured composition has an empty one. */
+function compilerCustomDefinitions(list){
+  return(Array.isArray(list)?list:[]).filter(isPlainStateObject).map(entry=>{
+    const metrics=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions,{allowEmpty:true});
+    const out={id:String(entry.id||""),name:String(entry.name||"")};
+    if(typeof entry.namePt==="string"&&entry.namePt.trim())out.namePt=entry.namePt;
+    out.equipment=Array.isArray(entry.equipment)?entry.equipment.filter(item=>typeof item==="string"&&item.trim()):[];
+    out.primary=typeof entry.primary==="string"?entry.primary:"";
+    out.secondary=typeof entry.secondary==="string"?entry.secondary:"";
+    out.notes=typeof entry.notes==="string"?entry.notes:"";
+    out.metricIds=metrics?.ok?cloneSnapshot(entry.metricIds):[];
+    out.metricDefinitions=metrics?.ok?cloneSnapshot(entry.metricDefinitions):[];
+    return out})}
 function canonicalProgramDefinition(value,customDefinitions=customExercises()){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
   if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
-  const checked=compiler.validateProgramDefinition(value,rawExerciseCatalog,customDefinitions);
+  const checked=compiler.validateProgramDefinition(value,rawExerciseCatalog,compilerCustomDefinitions(customDefinitions));
   return checked?.ok?cloneSnapshot(value):null}
 function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=customExercises()){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
@@ -3180,7 +3195,12 @@ function normalizeCustomExercises(list){
       primary,secondary,
       notes:String(entry.notes??"").trim(),
       patterns:[],beginnerFriendly:true,custom:true,
-      created:typeof entry.created==="string"?entry.created:new Date().toISOString()})}
+      created:typeof entry.created==="string"?entry.created:new Date().toISOString(),
+      // A custom movement's configured metric composition is its identity for
+      // logging; keep it whenever it is a valid ordered definition list.
+      ...(()=>{const checked=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions,{allowEmpty:true});
+        return checked?.ok&&Array.isArray(entry.metricIds)
+          ?{metricIds:cloneSnapshot(entry.metricIds),metricDefinitions:cloneSnapshot(entry.metricDefinitions)}:{}})()})}
   return out}
 function normalizeProgramHistory(history,lookup){
   return(Array.isArray(history)?history:[]).map(entry=>{
@@ -9350,7 +9370,7 @@ function transitionPredecessor(snapshot){
   if(!meta?.id||!meta.programDefinition)return null;
   return{programId:meta.id,durableRevision:readRevision(snapshot),
     programDefinition:cloneSnapshot(meta.programDefinition),
-    customExerciseDefinitions:cloneSnapshot(Array.isArray(snapshot.customExercises)?snapshot.customExercises:[])}}
+    customExerciseDefinitions:compilerCustomDefinitions(snapshot.customExercises)}}
 /* Sets a volume reduction removes from the current cycle, by slot. A draft
    that already holds progress in one of those sets blocks the confirmation. */
 function reducedSetCounts(proposal,snapshot){
@@ -15248,11 +15268,10 @@ function renderBackgroundStep(){
 /* Schedule values are numbers, so they are set as numbers: a Mono value over its
    unit, in a grid of equal cards with no radio mark. Nothing is preselected. */
 function entryScheduleGroups({browse=false}={}){
-  const minuteUnit=n=>t(`entry.schedule.minutes.${n}`).replace(/^[\d+]+\s*/,"").trim()||t(`entry.schedule.minutes.${n}`);
   return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
     entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
-    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`}
+    [20,40,60,90,120,150].map(n=>entryOpt("sessionMinutes",n,n===150?"120+":String(n),t(n===150?"entry.schedule.minutes.over":"entry.schedule.minutes.at_most"))).join("")+`</div>`}
 function renderScheduleStep(){
   return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
     entryScheduleGroups({browse:entryState.route==="browse"})}
@@ -15806,7 +15825,14 @@ const ENTRY_CODE_COPY=Object.freeze({
     time_ceiling_conflict:"entry.issue.time_ceiling",ignored_muscle_required:"entry.issue.ignored_required",
     required_slot_unresolved:"entry.issue.required_slot",
     exercise_preference_conflict:"entry.issue.include_avoid",must_have_avoided:"entry.issue.include_avoid",
-    must_have_unavailable:"entry.result.must_unavailable_title"}),
+    must_have_unavailable:"entry.result.must_unavailable_title",
+    // Canonical generator conflicts and Generate's own answer mapping.
+    time_ceiling_exceeded:"entry.issue.time_ceiling_generated",no_eligible_exercise:"entry.issue.required_slot",
+    no_complete_program:"entry.issue.compile",generated_program_invalid:"entry.issue.compile",
+    policy_identity_unresolved:"entry.issue.compile",invalid_request:"entry.issue.compile",invalid_catalog:"entry.issue.compile",
+    generation_conflict:"entry.issue.compile",rules_changed:"entry.issue.generic",catalog_unavailable:"entry.issue.compile",
+    goal_required:"entry.issue.generic",experience_required:"entry.issue.generic",days_unsupported:"entry.issue.generic",
+    environment_required:"entry.issue.generic"}),
   readiness:Object.freeze({
     live_revision_required:"entry.issue.generic",active_program_changed:"entry.conflict.body",
     preview_not_ready:"entry.issue.review_first",candidate_incomplete:"entry.editor.incomplete",
@@ -15886,7 +15912,7 @@ function entryChipList(){
   if(a.structuredExperience)add("exp",t(`entry.background.experience.${a.structuredExperience}`));
   if(a.recentConsistency)add("cons",t(`entry.chip.cons.${a.recentConsistency}`));
   if(a.daysPerWeek)add("days",t("entry.chip.days",{n:a.daysPerWeek}));
-  if(a.sessionMinutes)add("minutes",a.sessionMinutes>=90?t("entry.chip.minutes_90"):t("entry.chip.minutes",{n:a.sessionMinutes}));
+  if(a.sessionMinutes)add("minutes",a.sessionMinutes>120?t("entry.chip.minutes_over",{n:120}):t("entry.chip.minutes",{n:a.sessionMinutes}));
   if(Object.prototype.hasOwnProperty.call(a,"preferredRestSeconds"))add("rest",t(`entry.chip.rest.${a.preferredRestSeconds===null?"auto":a.preferredRestSeconds}`));
   if(a.environment?.kind){
     const base=ProgramEntryAdapter?.defaultEnvironment?.(a.environment.kind),env=entryEnvironmentValue();
@@ -16648,7 +16674,7 @@ function renderEntryRail(){
   if(a.desiredResult)add("desired_result",t("entry.rail.what.goal"),t(`entry.desired_result.${a.desiredResult}.label`));
   if(a.structuredExperience)add("background",t("entry.rail.what.background"),t(`entry.background.experience.${a.structuredExperience}`));
   if(a.daysPerWeek&&a.sessionMinutes)add("schedule",t("entry.rail.what.schedule"),
-    t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>=90?"90+":a.sessionMinutes}));
+    t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>120?"120+":a.sessionMinutes}));
   if(a.environment?.kind)add("environment",t("entry.rail.what.environment"),entryEnvironmentLabel());
   return chips.length?`<div class="entry-rail" role="group" aria-label="${esc(t("entry.rail.label"))}">${chips.join("")}</div>`:""}
 /* The rail sits under the screen's title and lede, never above it: the title keeps its place at every

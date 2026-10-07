@@ -52,7 +52,8 @@
   const DESIRED_RESULTS = new Set(["muscle_growth", "balanced", "strength"]);
   const STRUCTURED_EXPERIENCE = new Set(["first", "under_6m", "6_to_24m", "over_24m"]);
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
-  const SESSION_MINUTES = new Set([30, 45, 60, 75, 90]);
+  // Generator time ceilings: up to 20, 20–40, 40–60, 60–90, 90–120, over 120 (150).
+  const SESSION_MINUTES = new Set([20, 40, 60, 90, 120, 150]);
   const PREFERRED_REST_SECONDS = new Set([null, 60, 90, 120, 180]);
   const ENTRY_ENVIRONMENTS = Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]);
   const ENVIRONMENTS = new Set(ENTRY_ENVIRONMENTS);

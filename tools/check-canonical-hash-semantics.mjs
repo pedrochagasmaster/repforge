@@ -58,7 +58,7 @@ function clonePreimage(value) {
 }
 
 const expectedProposalHash = "9d3a50cceccb4592b2296c8407f14665612cf0dc5de5e1b2aeb4982a29e30b4c";
-const expectedCloneHash = "a2989b2293c1c700a8dd9087b1ae856d5ed80c7eda8e2eefd048584c51812915";
+const expectedCloneHash = "50a5af9270bd9fe4518f6aba6a466885cb14e8bba9d8f978d5cf30569736ae30";
 const proposalOracleHash = digest(proposalPreimage(proposal));
 const cloneOracleHash = digest(clonePreimage(clone));
 assert(proposalOracleHash === expectedProposalHash, `independent proposal oracle drifted: ${proposalOracleHash}`);
