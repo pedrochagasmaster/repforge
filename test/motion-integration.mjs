@@ -956,7 +956,7 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
       "focus is on the program's name and Use this program is enabled under the print", JSON.stringify(printed));
     assert(printed.lines.length === 4 && /4/.test(printed.lines[1]) && /60/.test(printed.lines[2]),
       "its lines come from the lifter's own answers (days, then minutes)", JSON.stringify(printed.lines));
-    assert(printed.doneAt700 >= 1 && /^\d\.\ds$/.test(printed.time || ""), "the lines tick one by one, each stamped with its time", JSON.stringify(printed));
+    assert(printed.doneAt700 >= 1 && /^\d\d\.\ds$/.test(printed.time || ""), "the lines tick one by one, each stamped with its time (\"00.6s\")", JSON.stringify(printed));
   }
 
   phase(`O3: when the print ends, the program is drawn in reading order${tag}`);

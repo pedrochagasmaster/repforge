@@ -15936,13 +15936,15 @@ function renderResultStep(){
     `<p class="entry__hint">${esc(t("entry.result.alternative_reason.compatible_split_variation"))}</p></section>`;
   const progressionIssue=entryPreviewHasProgressionIssue(preview);
   return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
-    `<p class="entry__eyebrow">${esc(resultTitle)}</p>`+
+    /* The ledger page's eyebrow carries the week stamp the mockup draws
+       ("Your program · Week 1"); the route's own title names the job first. */
+    `<p class="entry__eyebrow">${esc(resultTitle)} · ${monoNums(t("entry.ledger.week"))}</p>`+
     `<h2 class="onb__q entry__progname" id="entryHeading" tabindex="-1">${esc(entryResultName(result)||t("untitled_program"))}</h2>`+
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
     renderEntryFactsStrip(preview)+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    `<h2 class="entry__section-head entry__section-head--ledger" id="entryWeekLab">${esc(t("entry.preview.days"))}${entrySlipCount(preview)}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
+    `<h2 class="entry__section-head entry__section-head--ledger" id="entryWeekLab">${esc(t("entry.ledger.sessions"))}${entrySlipCount(preview)}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
     renderEntryChips()+
     `<section class="entry__why" aria-labelledby="entryWhyLab"><h2 class="entry__section-head" id="entryWhyLab">${esc(t("entry.result.why"))}</h2>`+
     `<ul class="entry__rows entry__rows--reasons">${whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")}</ul>`+
@@ -16230,7 +16232,7 @@ function renderPreviewStep({merged=false}={}){
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p></div>`+
     renderEntryFactsStrip(preview)+
     renderEntryChangeStatement(entryChange)+
-    `<p class="entry__group-lab entry__section-head entry__section-head--ledger">${esc(t("entry.preview.days"))}${entrySlipCount(preview)}</p><div class="onb__review">${days.join("")}</div>`+
+    `<p class="entry__group-lab entry__section-head entry__section-head--ledger">${esc(t("entry.ledger.sessions"))}${entrySlipCount(preview)}</p><div class="onb__review">${days.join("")}</div>`+
     /* Each facet keeps its heading element: the review's heading outline is how
        a screen-reader user jumps between Priorities, Equipment, Progression and
        Compromises, so the redesign restyles `h4` rather than demoting it. */
@@ -16663,7 +16665,7 @@ function renderOnboarding(){
  *  classes come off when the last block lands, and a render that follows draws
  *  the program at rest. Reduced motion shows no interstitial and draws it all at
  *  once with no classes. */
-const ENTRY_PRINT_STEP_MS=560,ENTRY_PRINT_HOLD_MS=320;
+const ENTRY_PRINT_STEP_MS=560,ENTRY_PRINT_HOLD_MS=320,ENTRY_PRINT_TICK_MS=100;
 let entryPrintRun=null;
 function entryPrintLines(){
   const a=entryState?.answers||{};
@@ -16672,10 +16674,13 @@ function entryPrintLines(){
     a.daysPerWeek?t("entry.print.split",{days:a.daysPerWeek}):null,
     minutes?t("entry.print.fit",{minutes}):null,
     t("entry.print.volume")].filter(Boolean)}
+/* The print's clock reads like a ledger stamp: "00.7s". */
+function entryPrintStamp(ms){const s=ms/1000;return `${s<10?"0":""}${s.toFixed(1)}s`}
 function endEntryPrint({build=true}={}){
   const run=entryPrintRun;if(!run)return;
   entryPrintRun=null;
   run.timers.forEach(clearTimeout);
+  clearInterval(run.ticker);
   document.removeEventListener("keydown",run.onKey,true);
   run.el.remove();
   if(build&&run.body.isConnected)runEntryBuild(run.body)}
@@ -16689,28 +16694,47 @@ function playEntryBuild(body){
   if(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches)return;
   const host=$("#onboarding")||document.body;
   const lines=entryPrintLines();
+  /* The print is the page drawn in docs/design/onboarding-experiments/a-ledger.html:
+     the shell's own row (wordmark and a full counter over a full rule), a Skip
+     word, the printer feeding a ruled receipt, a status line, the title and the
+     checklist. It is decorative, so the row is drawn here rather than borrowed
+     from the live header, and Skip is a word, not a control: the whole print is
+     the tap target. */
+  const total=Math.max(entryProgressSections(entryState.route).total,1);
+  const pad2=n=>String(n).padStart(2,"0");
+  const feedWidths=[92,64,80,48,88,72,56,96,68,84];
   const el=document.createElement("div");
   el.className="entry-print";el.id="entryPrint";el.setAttribute("aria-hidden","true");
   el.style.setProperty("--print-steps",String(lines.length));
   el.style.setProperty("--print-step",`${ENTRY_PRINT_STEP_MS}ms`);
   el.innerHTML=`<div class="entry-print__inner">`+
-    `<p class="entry-print__eyebrow">${esc(entrySourceLabel())}</p>`+
+    `<div class="entry-print__top"><span class="entry-print__mark">Taurifer</span><span class="entry-print__count"><b>${pad2(total)}</b>/${pad2(total)}</span></div>`+
+    `<div class="entry-print__bar">${"<i></i>".repeat(total)}</div>`+
+    `<div class="entry-print__skiprow"><span class="entry-print__skip">${esc(t("entry.print.skip"))}</span></div>`+
+    `<div class="entry-print__printer"><div class="entry-print__slot"></div><div class="entry-print__feed">`+
+      feedWidths.map((w,i)=>`<div class="entry-print__ln" style="--k:${i};--w:${w}%"><span>${pad2(i+1)}</span><i></i><span>${3+(i*7)%6}×${5+(i*3)%6}</span></div>`).join("")+
+    `</div></div>`+
+    `<p class="entry-print__status">${esc(t("entry.print.status"))}</p>`+
     `<p class="entry-print__title">${esc(t("entry.print.title"))}</p>`+
-    `<div class="entry-print__paper">${Array.from({length:6},(_,i)=>`<span class="entry-print__rule" style="--rule-i:${i}"></span>`).join("")}</div>`+
-    `<ol class="entry-print__steps">${lines.map(line=>`<li class="entry-print__step"><span class="entry-print__time">—</span>`+
-      `<span class="entry-print__label">${esc(line)}</span><span class="entry-print__tickbox">${ENTRY_TICK_SVG}</span></li>`).join("")}</ol>`+
-    `<p class="entry-print__skip">${esc(t("entry.print.skip"))}</p></div>`;
+    `<ol class="entry-print__steps">${lines.map(line=>`<li class="entry-print__step"><span class="entry-print__time">--.-s</span>`+
+      `<span class="entry-print__label">${esc(line)}</span><span class="entry-print__tickbox">${ENTRY_TICK_SVG}</span></li>`).join("")}</ol></div>`;
   host.appendChild(el);
   /* The key that ends the print does only that: an Escape must not also open Cancel. */
-  const run={el,body,timers:[],onKey:event=>{event.preventDefault();event.stopPropagation();endEntryPrint()}};
+  const run={el,body,timers:[],ticker:null,onKey:event=>{event.preventDefault();event.stopPropagation();endEntryPrint()}};
   entryPrintRun=run;
   el.addEventListener("click",()=>endEntryPrint());
   document.addEventListener("keydown",run.onKey,true);
-  const steps=[...el.querySelectorAll(".entry-print__step")];
+  const steps=[...el.querySelectorAll(".entry-print__step")],status=el.querySelector(".entry-print__status");
+  const t0=performance.now();
   const mark=i=>{
     steps.forEach((step,n)=>{step.classList.toggle("is-done",n<i);step.classList.toggle("is-active",n===i)});
-    if(i>0)steps[i-1].querySelector(".entry-print__time").textContent=`${(i*ENTRY_PRINT_STEP_MS/1000).toFixed(1)}s`};
+    if(i>0)steps[i-1].querySelector(".entry-print__time").textContent=entryPrintStamp(i*ENTRY_PRINT_STEP_MS);
+    if(i>=steps.length){el.classList.add("is-ready");status.textContent=t("entry.print.ready");clearInterval(run.ticker);run.ticker=null}};
   mark(0);
+  /* The active line's stamp runs while the line is being written. */
+  run.ticker=setInterval(()=>{
+    const active=el.querySelector(".entry-print__step.is-active .entry-print__time");
+    if(active)active.textContent=entryPrintStamp(performance.now()-t0)},ENTRY_PRINT_TICK_MS);
   for(let i=1;i<=steps.length;i++)run.timers.push(setTimeout(()=>mark(i),i*ENTRY_PRINT_STEP_MS));
   run.timers.push(setTimeout(()=>endEntryPrint(),steps.length*ENTRY_PRINT_STEP_MS+ENTRY_PRINT_HOLD_MS))}
 function runEntryBuild(body){

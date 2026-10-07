@@ -8400,7 +8400,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -8709,7 +8709,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -9018,7 +9018,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -9327,7 +9327,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -9636,7 +9636,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -9945,7 +9945,7 @@
         },
         {
           "tag": "p",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -10254,7 +10254,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -29168,7 +29168,11 @@
         },
         {
           "tag": "p",
-          "text": "Your custom program"
+          "text": "Your custom program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -29196,7 +29200,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -29630,7 +29634,11 @@
         },
         {
           "tag": "p",
-          "text": "Your custom program"
+          "text": "Your custom program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -29658,7 +29666,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -30092,7 +30100,11 @@
         },
         {
           "tag": "p",
-          "text": "Your custom program"
+          "text": "Your custom program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -30120,7 +30132,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -30554,7 +30566,11 @@
         },
         {
           "tag": "p",
-          "text": "Seu treino personalizado"
+          "text": "Seu treino personalizado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -30582,7 +30598,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -37574,7 +37590,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -37715,7 +37731,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -37856,7 +37872,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -37997,7 +38013,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -38138,7 +38154,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -38279,7 +38295,7 @@
         },
         {
           "tag": "p",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -38420,7 +38436,7 @@
         },
         {
           "tag": "p",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -38561,7 +38577,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -40243,7 +40259,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -40571,7 +40587,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -40899,7 +40915,7 @@
         },
         {
           "tag": "p",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -44627,7 +44643,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -44644,7 +44664,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -45281,7 +45301,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -45298,7 +45322,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -45935,7 +45959,11 @@
         },
         {
           "tag": "p",
-          "text": "Treino recomendado"
+          "text": "Treino recomendado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -45952,7 +45980,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -50471,7 +50499,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -50494,7 +50526,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -50890,7 +50922,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -50913,7 +50949,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -51309,7 +51345,11 @@
         },
         {
           "tag": "p",
-          "text": "Treino recomendado"
+          "text": "Treino recomendado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -51332,7 +51372,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -51728,7 +51768,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -51745,7 +51789,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -52117,7 +52161,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -52134,7 +52182,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -52506,7 +52554,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -52523,7 +52575,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -52895,7 +52947,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -52912,7 +52968,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -53284,7 +53340,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -53301,7 +53361,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -53673,7 +53733,11 @@
         },
         {
           "tag": "p",
-          "text": "Treino recomendado"
+          "text": "Treino recomendado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -53690,7 +53754,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -54062,7 +54126,11 @@
         },
         {
           "tag": "p",
-          "text": "Treino recomendado"
+          "text": "Treino recomendado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -54079,7 +54147,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -54451,7 +54519,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -54468,7 +54540,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -54840,7 +54912,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -54900,7 +54976,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -55310,7 +55386,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -55370,7 +55450,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -55780,7 +55860,11 @@
         },
         {
           "tag": "p",
-          "text": "Treino recomendado"
+          "text": "Treino recomendado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -55840,7 +55924,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -56250,7 +56334,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -56310,7 +56398,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -56718,7 +56806,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -56778,7 +56870,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -57186,7 +57278,11 @@
         },
         {
           "tag": "p",
-          "text": "Treino recomendado"
+          "text": "Treino recomendado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -57246,7 +57342,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -57654,7 +57750,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -57677,7 +57777,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -58073,7 +58173,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -58096,7 +58200,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -58492,7 +58596,11 @@
         },
         {
           "tag": "p",
-          "text": "Treino recomendado"
+          "text": "Treino recomendado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -58515,7 +58623,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -60891,7 +60999,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -60908,7 +61020,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -61304,7 +61416,11 @@
         },
         {
           "tag": "p",
-          "text": "Recommended program"
+          "text": "Recommended program · Week"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -61321,7 +61437,7 @@
         },
         {
           "tag": "h2",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -61717,7 +61833,11 @@
         },
         {
           "tag": "p",
-          "text": "Treino recomendado"
+          "text": "Treino recomendado · Semana"
+        },
+        {
+          "tag": "span",
+          "text": "1"
         },
         {
           "tag": "h2",
@@ -61734,7 +61854,7 @@
         },
         {
           "tag": "h2",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -70768,7 +70888,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -70909,7 +71029,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -71050,7 +71170,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -71191,7 +71311,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -71332,7 +71452,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",
@@ -71473,7 +71593,7 @@
         },
         {
           "tag": "p",
-          "text": "Estrutura semanal"
+          "text": "Sessões"
         },
         {
           "tag": "summary",
@@ -71614,7 +71734,7 @@
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Sessions"
         },
         {
           "tag": "summary",

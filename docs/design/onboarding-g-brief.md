@@ -258,8 +258,10 @@ comment 5927122354, and Plan 064 §8. They are not changes to G's intent.
   perforated slips with Mono badges and focus tags. This supersedes the
   selection-ink rule above for the chosen row's index and Q-E's "no check beat"
   on these surfaces; the card, its mark and its icon stay ink. Route graph,
-  step IDs, K-25 to K-32 and the facts strip are unchanged. The motion record is
-  O2 and O3 in `interaction-runtime-audit.md`.
+  step IDs, K-25 to K-32 and the facts strip's four facts are unchanged; the
+  strip is set as the mockup's one Mono line, and the review's eyebrow carries
+  its week stamp. The motion record is O2 and O3 in
+  `interaction-runtime-audit.md`.
 - Scale snapping. G's weight 650, spacing 20 and 28 and row heights 52 and 68
   snap to the existing weight, spacing and control-height tokens. A value
   that cannot snap stops the slice.
