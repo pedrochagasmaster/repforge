@@ -1948,6 +1948,7 @@
   "entry.result.choose": "Usar este resultado",
   "entry.result.explain": "Este treino usa seu objetivo, o que você tem treinado, sua agenda e sua principal restrição.",
   "entry.result.why": "Por que combina com você",
+  "entry.result.generated_name": "Seu programa de {days} dias",
   "entry.result.why_goal": "Objetivo: {goal}.",
   "entry.result.why_schedule": "Encaixa em {days} dias de treino, cada um limitado a {minutes} minutos.",
   "entry.result.why_environment.commercial_gym": "Feito para uma academia comercial completa.",

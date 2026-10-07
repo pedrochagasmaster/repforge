@@ -1595,9 +1595,6 @@
         const issues = [];
         if (!answers.daysPerWeek) issues.push("days_per_week_required");
         if (!answers.sessionMinutes) issues.push("session_minutes_required");
-        if (state.route !== "browse" && !hasOwn(answers, "preferredRestSeconds")) {
-          issues.push("preferred_rest_required");
-        }
         return issues;
       }
       case "environment": return answers.environment ? [] : ["environment_required"];

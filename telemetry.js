@@ -63,7 +63,7 @@
     app_boot: event({ first_run: boolean, language: values("en", "pt"), platform_class: values("ios", "android", "desktop", "other") }, "Successful app boot", "once_per_boot"),
     program_path_selected: event({ route: values("recommend", "custom", "browse", "build", "import", "shared") }, "Program entry route chosen", "once_per_setup_flow"),
     generator_started: event({ mode: values("baseline") }, "Working baseline generator started", "once_per_setup_flow"),
-    generator_completed: event({ goal: values("muscle_growth", "balanced", "strength"), frequency: values("2", "3", "4", "5", "6"), family: values("legacy", "growth", "balanced", "strength", "home", "foundation") }, "Generator produced a reviewable program", "once_per_setup_flow"),
+    generator_completed: event({ goal: values("muscle_growth", "balanced", "strength"), frequency: values("2", "3", "4", "5", "6"), family: values("legacy", "growth", "balanced", "strength", "home", "foundation", "generated") }, "Generator produced a reviewable program", "once_per_setup_flow"),
     template_selected: event({ family: values("growth_v1", "balanced_v1", "strength_v1", "home_v1") }, "Executable Taurifer template selected", "once_per_setup_flow"),
     program_import_started: event({ source: values("freeform", "file") }, "Program import started", "repeatable"),
     program_import_handoff: event({ method: values("chatgpt", "claude", "copy"), outcome: values("opened", "copied", "copy_failed"), long_prompt: boolean }, "Freeform program import handoff to assistant", "repeatable"),

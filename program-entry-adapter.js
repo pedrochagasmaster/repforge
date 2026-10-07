@@ -145,6 +145,70 @@
     return { added, removed, n: Math.min(total, Math.max(added, removed)), total };
   }
 
+  // ---- Generate answers -> canonical generator request ---------------------
+  const GOALS = Object.freeze({ muscle_growth: "hypertrophy", balanced: "hybrid", strength: "strength" });
+  const EXPERIENCE = Object.freeze({ first: "beginner", under_6m: "beginner", "6_to_24m": "intermediate", over_24m: "advanced" });
+  // The source catalog flags each equipment item for its gym templates.
+  const GYM_FLAGS = Object.freeze({
+    commercial_gym: "commercialGym", basic_gym: "localGym", full_home: "garageGym", limited_home: "homeGym", other: "localGym",
+  });
+  const MUSCLE_NAMES = Object.freeze({
+    chest: "Chest", back: "Upper Back", quads: "Quads", hamstrings: "Hamstrings", glutes: "Glutes",
+    side_delts: "Side Delts", rear_delts: "Rear Delts", front_delts: "Front Delts", biceps: "Biceps",
+    triceps: "Triceps", calves: "Calves", lats: "Lats",
+  });
+  const COMPETENCY_KEYS = Object.freeze([
+    "pullups10", "pullups5", "pushups15", "inclineBarbell10", "overheadPress10", "bodyweightDips10", "benchPress10",
+  ]);
+  const TIME_CEILINGS = Object.freeze([20, 40, 60, 90, 120, 150]);
+
+  function programRequestFromAnswers(answers, catalog) {
+    const conflicts = [];
+    const conflict = (code) => conflicts.push({ field: code.replace(/_(required|unsupported)$/, ""), code });
+    const source = isPlainObject(answers) ? answers : {};
+    if (!catalog || !isPlainObject(catalog.uuidIndex)) return { ok: false, conflicts: [{ field: "catalog", code: "catalog_unavailable" }] };
+    const index = catalog.uuidIndex;
+    const goal = GOALS[source.desiredResult];
+    if (!goal) conflict("goal_required");
+    const experience = EXPERIENCE[source.structuredExperience];
+    if (!experience) conflict("experience_required");
+    const days = source.daysPerWeek;
+    if (!Number.isInteger(days) || days < 2 || days > 6) conflict("days_unsupported");
+    const flag = GYM_FLAGS[source.environment?.kind];
+    if (!flag) conflict("environment_required");
+    if (conflicts.length) return { ok: false, conflicts };
+    const minutes = Number.isFinite(source.sessionMinutes) ? source.sessionMinutes : 60;
+    const ceiling = [...TIME_CEILINGS].reverse().find((value) => value <= minutes) ?? TIME_CEILINGS[0];
+    const ids = (type, predicate) => Object.keys(index).filter((id) => index[id]?.type === type && predicate(index[id])).sort();
+    const muscleIds = (tokens) => (Array.isArray(tokens) ? tokens : []).map((token) =>
+      ids("featureMuscleGroup", (entry) => entry.name === MUSCLE_NAMES[token])[0]).filter(Boolean);
+    const exerciseIds = (values) => (Array.isArray(values) ? values : [])
+      .filter((id) => typeof id === "string" && index[id]?.type === "exercise");
+    const answersIn = isPlainObject(source.competencyAnswers) ? source.competencyAnswers : {};
+    return {
+      ok: true,
+      value: {
+        goal,
+        experience,
+        daysPerWeek: days,
+        timeCeilingMinutes: ceiling,
+        gymProfile: { equipmentIds: ids("equipment", (entry) => entry[flag] === 1) },
+        competencyAnswers: Object.fromEntries(COMPETENCY_KEYS.map((key) =>
+          [key, typeof answersIn[key] === "boolean" ? answersIn[key] : null])),
+        movementConfirmations: {},
+        emphasisMuscleIds: muscleIds(source.primaryMuscles).slice(0, 5),
+        deprioritizedMuscleIds: muscleIds(source.deEmphasizedMuscles).slice(0, 5),
+        excludedExerciseIds: exerciseIds((source.exerciseConstraints || []).map((item) => item?.exerciseId)),
+        excludedMuscleIds: muscleIds(source.ignoredMuscles),
+        preferredExerciseIds: exerciseIds(source.mustHaveExercises),
+        split: "auto",
+        periodization: "static",
+        cycles: 7,
+        deloadCycles: [],
+      },
+    };
+  }
+
   function createProductionServices(options) {
     const opts = isPlainObject(options) ? options : {};
     const Compiler = compilerApi(opts.Compiler);
@@ -162,6 +226,7 @@
 
   const api = Object.freeze({
     createProductionServices,
+    programRequestFromAnswers,
     currentVersions: (Compiler) => currentVersions(compilerApi(Compiler)),
     fingerprint,
     identityDiff,

@@ -129,7 +129,7 @@ export const SUITES = {
     s("test/program-family-fixtures.mjs"),
     s("test/program-compiler-persistence.mjs"),
     s("test/program-compiler-runtime.mjs"),
-    s("test/program-entry-browser.mjs", [], { seconds: 33 }),
+    s("test/generate-program-browser.mjs", [], { domains: ["entry", "persistence"], seconds: 30 }),
     s("test/catalog-metric-program-browser.mjs", [], {
       domains: ["entry", "workout", "history", "persistence"], cost: "long", tier: "candidate", seconds: 180, timeoutMs: 900000,
     }),

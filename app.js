@@ -15188,10 +15188,7 @@ function entryScheduleGroups({browse=false}={}){
   return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
     entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
-    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`+
-    (browse?"":entryGroupLab(t("entry.schedule.rest.label"),"timer",` id="entryRestLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryRestLab">`+
-      entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
-      [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
+    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`}
 function renderScheduleStep(){
   return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
     entryScheduleGroups({browse:entryState.route==="browse"})}
@@ -15201,18 +15198,8 @@ function entryEnvironmentValue(){
   if(Array.isArray(env.equipment)||Array.isArray(env.capabilities))return env;
   return ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||{kind:env.kind,equipment:[],capabilities:[]}}
 function entryEnvironmentBody(){
-  const env=entryEnvironmentValue();
-  const equipment=new Set(env?.equipment||[]);
-  const capabilities=new Set(env?.capabilities||[]);
-  const correction=env?`<details class="entry__disclosure entry__correct">`+
-    `<summary><span>${esc(t("entry.env_correct.summary"))}</span><span class="chevron" aria-hidden="true"></span></summary><div class="entry__disclosure-body">`+
-    `<p class="entry__group-lab">${esc(t("entry.env_correct.equipment"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.equipment"))}">`+
-    ENTRY_EQUIPMENT.map(token=>entryOpt("environmentEquipment",token,t(`entry.equip.${token}`)||token,"",{multi:true,selected:equipment.has(token),role:"checkbox"})).join("")+`</div>`+
-    `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
-    ENTRY_CAPABILITIES.map(token=>entryOpt("environmentCapabilities",token,t(`entry.cap.${token}`)||token,"",{multi:true,selected:capabilities.has(token),role:"checkbox"})).join("")+`</div>`+
-    `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div></details>`:"";
   return `<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
-    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>${correction}`}
+    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>`}
 function renderEnvironmentStep(){
   return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}`+entryEnvironmentBody()}
 function entryMuscleBlocked(key,muscle){
@@ -15407,24 +15394,38 @@ function renderCustomShapeStep(){
   const sole=splits.choices.length===1;
   return entryHeading(t(sole?"entry.custom_shape.title_sole":"entry.custom_shape.title"))+
     `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+entryCustomShapeBody(splits)}
+/* Generate maps the answers to a canonical request, runs the one generator, and
+   previews its ProgramDefinition through the same flat projection as Build. The
+   draft id seeds selection, so a draft regenerates the same program. */
 function compileGeneratorCandidate(from=entryState){
   const services=entryServices();
-  if(!services||!from)return null;
-  let compiled;
-  try{compiled=services.compile({mode:from.route,answers:from.answers,versions:entryVersions()})}
-  catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program candidate rebuild failed",error);return null}
-  if(!compiled.ok){entryCompileError=compiled;return null}
-  const candidate=compiled.candidate||{};
+  if(!services||!from||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
+  const answers=from.answers||{};
+  const mapped=answers.programRequest?{ok:true,value:cloneSnapshot(answers.programRequest)}
+    :ProgramEntryAdapter.programRequestFromAnswers(answers,rawExerciseCatalog);
+  if(!mapped.ok){entryCompileError={code:"rules_changed",conflicts:mapped.conflicts};return null}
+  let generated;
+  try{generated=services.generateProgram({request:mapped.value,seed:String(from.draftId||"taurifer")})}
+  catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program generation failed",error);return null}
+  if(!generated?.ok){entryCompileError={code:"generation_conflict",conflicts:generated?.conflicts||[]};return null}
+  const definition=generated.value,program=flatProgramFromDefinition(definition,[],1);
+  const days=definition.days.filter(day=>day.kind==="training").map((day,index)=>({dayId:day.id,label:day.name,order:index+1,
+    exercises:program.filter(row=>row.dayId===day.id).map(cloneSnapshot)}));
+  const preview={source:from.route,frequency:days.length,program,programDefinition:definition,
+    programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"generated"}},
+    days,customExercises:[],primaryMuscles:[]};
+  const name=t("entry.result.generated_name",{days:days.length});
   return{
-    fingerprint:compiled.fingerprint,
-    name:compiled.name,
-    namePt:compiled.namePt,
-    selected:compiled.selected,
-    candidates:compiled.candidates,
-    alternative:candidate.alternative||null,
-    preview:candidate.draft||compiled.preview,
-    telemetry:compiled.telemetry,
-    explanation:compiled.explanation};
+    fingerprint:services.fingerprint({route:from.route,request:mapped.value,seed:definition.seed}),
+    name,
+    selected:{id:"generated",source:"generator",daysPerWeek:days.length},
+    candidates:[],
+    alternative:null,
+    preview,
+    telemetry:{goal:answers.desiredResult,frequency:String(days.length),family:"generated"},
+    explanation:{desiredResult:answers.desiredResult,structuredExperience:answers.structuredExperience,
+      recentConsistency:answers.recentConsistency,daysPerWeek:days.length,
+      sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}};
 }
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
