@@ -1521,7 +1521,7 @@
           capturedLoadingContext.loadingConvention = loadingConvention;
           capturedLoadingContext.bodyweightKg = draft.session.bodyweight == null || draft.session.bodyweight === ""
             ? null : Number(draft.session.bodyweight);
-          if (!hasOwn(capturedLoadingContext, "bodyweightContributionEnabled")) capturedLoadingContext.bodyweightContributionEnabled = null;
+
           if (!hasOwn(capturedLoadingContext, "externalLoadMultiplier")) {
             capturedLoadingContext.externalLoadMultiplier = loadingConvention === "per_side" ? null
               : loadingConvention === "bodyweight" ? 0 : 1;
@@ -1529,6 +1529,12 @@
           if (!hasOwn(capturedLoadingContext, "bodyweightCoefficient") &&
             hasOwn(programmed.loadingModel || {}, "bodyweightCoefficient")) {
             capturedLoadingContext.bodyweightCoefficient = programmed.loadingModel.bodyweightCoefficient;
+          }
+          // Whether bodyweight counted toward this set's load is a fact of the set,
+          // so progression can compare it; it needs a coefficient and a bodyweight.
+          if (typeof capturedLoadingContext.bodyweightContributionEnabled !== "boolean") {
+            capturedLoadingContext.bodyweightContributionEnabled = (capturedLoadingContext.bodyweightCoefficient ?? 0) > 0 &&
+              capturedLoadingContext.bodyweightKg > 0;
           }
           row.loadingContext = capturedLoadingContext;
           row.metricType = set.programmed.metricType;

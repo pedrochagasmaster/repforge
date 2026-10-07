@@ -3090,7 +3090,18 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
   if(compilerContext!=null)metaObj.compilerContext=compilerContext;
   if(transitionIn!=null)metaObj.transitionIn=transitionIn;
+  const loadSteps=normalizeLoadingConfiguration(m.loadingConfiguration);
+  if(loadSteps)metaObj.loadingConfiguration=loadSteps;
   return metaObj;}
+/* Per-movement smallest load change in canonical kg; anything else is dropped. */
+function normalizeLoadingConfiguration(value){
+  const source=isPlainStateObject(value)&&isPlainStateObject(value.byExerciseId)?value.byExerciseId:null;
+  if(!source)return null;
+  const byExerciseId={};
+  for(const [exerciseId,entry] of Object.entries(source).slice(0,2048)){
+    const step=entry?.loadStepKg;
+    if(exerciseId&&exerciseId.length<=256&&Number.isFinite(step)&&step>0&&step<=100)byExerciseId[exerciseId]={loadStepKg:step}}
+  return Object.keys(byExerciseId).length?{byExerciseId}:null}
 
 function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
@@ -5709,12 +5720,38 @@ function progressionCurrentSession(prescription){
       :rawRir==null?null:Number(rawRir);
     const loadingContext=cloneSnapshot(exercise.programmed?.loadingContext||{});
     loadingContext.loadingConvention=exercise.programmed?.loadingConvention||loadingContext.loadingConvention;
-    loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null?null:Number(activeWorkoutDraft.session.bodyweight);
+    loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
+    if(typeof loadingContext.bodyweightContributionEnabled!=="boolean")
+      loadingContext.bodyweightContributionEnabled=(loadingContext.bodyweightCoefficient??0)>0&&loadingContext.bodyweightKg>0;
     sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
       rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
       loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
       loadingContext})}
   return sets}
+/* The lifter's smallest load change for a movement owns its candidate loads:
+   set per exercise in the program editor, else the global minimum jump. */
+function loadStepKg(exerciseId){
+  const own=+state.programMeta?.loadingConfiguration?.byExerciseId?.[exerciseId]?.loadStepKg;
+  if(Number.isFinite(own)&&own>0)return own;
+  const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5}
+function loadGridKg(step){
+  const loads=[];
+  for(let k=1;k<=2000&&k*step<=1000+1e-9;k++)loads.push(Math.round(k*step*1000)/1000);
+  return loads}
+function sessionBodyweightKg(){
+  const live=activeWorkoutDraft?.session?.bodyweight;
+  if(live!=null&&live!==""&&+live>0)return+live;
+  const rows=(state.log||[]).filter(row=>+row.bodyweight>0);
+  if(!rows.length)return null;
+  return+rows.reduce((latest,row)=>compareLogChronology(latest,row)<0?row:latest).bodyweight}
+/* Per-side loads stay manual: their multiplier is never assumed. Bodyweight
+   counts only when the movement has a coefficient and a bodyweight is known. */
+function slotLoadingContext(slot){
+  const{loadingConvention}=metricLoading(slot.metricDefinitions||[],rawExercise(slot.exerciseId),slot.loadingModel);
+  const coefficient=+slot.loadingModel?.bodyweightCoefficient||0,bodyweight=sessionBodyweightKg();
+  return{equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),loadingConvention,
+    bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
+    externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1}}
 function recommendation(ex){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
   const engine=typeof window!=="undefined"?window.RepForgeProgression:null;
@@ -5727,9 +5764,7 @@ function recommendation(ex){
   if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
   const first=prescriptions[0],history=progressionHistoryFor(first.exerciseId,first.metricIds);
   const currentSession=progressionCurrentSession(first);
-  // Never infer an equipment grid or a per-side multiplier. Missing source-gym
-  // configuration stays a manual prescription while the set remains loggable.
-  const loadingContext={bySlotId:state.programMeta?.loadingConfiguration?.bySlotId||{}};
+  const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
     weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false});
   const targetSets=prescriptions.map((prescription,index)=>{
@@ -6010,9 +6045,25 @@ function applyAcknowledgedSuggestions(ex,draft){
     if(!set.touched.load&&Object.prototype.hasOwnProperty.call(draft,`${key}_load`)){const li=$(`[data-k="${key}_load"]`);if(li)li.value=draft[`${key}_load`]??""}
     if(!set.touched.reps&&Object.prototype.hasOwnProperty.call(draft,`${key}_reps`)){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=draft[`${key}_reps`]??""}}}
 const hasCommittedSets=ex=>{for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
+/* Recommended metric values fill only pending sets the lifter has not touched. */
+function metricSuggestionUpdates(stored,rec){
+  const updates=[];
+  for(const setId of stored.setOrder){
+    const set=stored.sets[setId];
+    if(!set||set.role==="warmup"||set.completion!=="pending")continue;
+    const target=rec.targetSets?.find(item=>item.prescription.setIndex===set.ordinal);
+    if(target?.status!=="recommended")continue;
+    const metrics={};
+    for(const metric of set.programmed.metrics||[]){
+      const value=target.result.targets?.[metric.semantic];
+      if(typeof value==="number"&&!set.touched.metrics?.[metric.id])metrics[metric.id]=canonicalNumberText(value)}
+    if(Object.keys(metrics).length)updates.push({exerciseInstanceId:stored.exerciseInstanceId,setId,fields:{metrics}})}
+  return updates}
 function suggestionUpdatesFor(ex,draft){
   const stored=activeWorkoutDraft?.exercises?.[ex.id];
   if(!stored||stored.status==="skipped")return[];
+  if(stored.setOrder.some(setId=>Array.isArray(stored.sets[setId]?.programmed?.metrics)))
+    return metricSuggestionUpdates(stored,recommendation(ex));
   const rec=recommendation(ex),prev=last(ex),updates=[];
   for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`,setId=stored.setOrder.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
@@ -6888,6 +6939,9 @@ async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.
   if(prepared.status!=="ready"){
     showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
+  // Recommendations fill the day's untouched pending values before the first paint.
+  const firstExercise=exercises(day)[0];
+  if(firstExercise)await refreshSuggestions(firstExercise.id);
   workoutLeft=false;setWorkoutActive(true);
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   // Focus is the sole workout route.
@@ -10558,6 +10612,15 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);
     return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_exercise"};
   }
+  if(kind==="load_step"){
+    const exerciseId=String(edit.exerciseId||""),after=edit.after;
+    if(!exerciseId||(after!==null&&!(Number.isFinite(after)&&after>0&&after<=100)))return{conflict:true};
+    document.programMeta=document.programMeta||{};
+    const byExerciseId={...(document.programMeta.loadingConfiguration?.byExerciseId||{})};
+    if(after===null)delete byExerciseId[exerciseId];else byExerciseId[exerciseId]={loadStepKg:after};
+    document.programMeta.loadingConfiguration={...(document.programMeta.loadingConfiguration||{}),byExerciseId};
+    return{ok:true};
+  }
   if(kind==="day_remove"){
     const day=String(edit.targetDay||"");
     if(check&&!editorDocumentDays(document).includes(day))return{conflict:true};
@@ -10957,6 +11020,7 @@ function createInstalledProgramEditorAdapter(){
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
     ...editorMetricAdapter({cycleIndex:()=>mesocycleLifecycle(state.programMeta).current||1}),
+    defaultLoadStepKg:()=>{const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5},
     context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
     status:()=>"",
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,

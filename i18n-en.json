@@ -360,6 +360,8 @@
   "program.editor.metric_target_max_aria": "{cycle}, {set}, {metric} maximum",
   "program.editor.metric_rir": "RIR",
   "program.editor.metric_rest_seconds": "Rest (seconds)",
+  "program.editor.load_step": "Smallest load change",
+  "program.editor.load_step_hint": "Suggested loads move in steps of this size.",
   "program.editor.prescription_field_aria": "{cycle}, {set}, {field}",
   "program.editor.leave.title": "Unsaved changes",
   "program.editor.leave.body": "Your changes have not been applied.",

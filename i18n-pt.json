@@ -360,6 +360,8 @@
   "program.editor.metric_target_max_aria": "{cycle}, {set}, {metric} máximo",
   "program.editor.metric_rir": "RIR",
   "program.editor.metric_rest_seconds": "Descanso (segundos)",
+  "program.editor.load_step": "Menor variação de carga",
+  "program.editor.load_step_hint": "As cargas sugeridas mudam em passos deste tamanho.",
   "program.editor.prescription_field_aria": "{cycle}, {set}, {field}",
   "program.editor.leave.title": "Alterações não aplicadas",
   "program.editor.leave.body": "Suas alterações ainda não foram aplicadas.",

@@ -17,7 +17,7 @@
     "program_name", "day_name", "day_add", "exercise_field", "prescription",
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
     "alternates", "exercise_move", "metric_target", "metric_composition",
-    "prescription_field", "save_draft", "apply", "apply_discard_workout",
+    "prescription_field", "load_step", "save_draft", "apply", "apply_discard_workout",
   ]);
   const INTENT_SET = new Set(PROGRAM_EDITOR_INTENTS);
   const METRIC_DOMAIN = root?.RepForgeExerciseMetrics ||
@@ -76,6 +76,8 @@
     metricTargetMinAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric} minimum`,
     metricTargetMaxAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric} maximum`,
     metricRir: "Target RIR",
+    loadStep: "Smallest load change",
+    loadStepHint: "Suggested loads move in steps of this size.",
     metricRestSeconds: "Rest between sets (seconds)",
     prescriptionFieldAria: ({ cycle, set, field }) => `${cycle}, ${set}, ${field}`,
   });
@@ -101,7 +103,7 @@
     metricSet: "program.editor.metric_set", metricComposition: "program.editor.metric_composition",
     metricUnconfigured: "program.editor.metric_unconfigured", metricTargetAria: "program.editor.metric_target_aria",
     metricTargetMinAria: "program.editor.metric_target_min_aria", metricTargetMaxAria: "program.editor.metric_target_max_aria",
-    metricRir: "program.editor.metric_rir", metricRestSeconds: "program.editor.metric_rest_seconds",
+    metricRir: "program.editor.metric_rir", loadStep: "program.editor.load_step", loadStepHint: "program.editor.load_step_hint", metricRestSeconds: "program.editor.metric_rest_seconds",
     prescriptionFieldAria: "program.editor.prescription_field_aria",
   });
 
@@ -916,6 +918,45 @@
       updateExerciseSummary(input.dataset.id);
       return Promise.resolve(result).then(value => { updateExerciseSummary(input.dataset.id); return value; });
     }
+    // The lifter's smallest load change per movement owns the adaptive engine's
+    // candidate loads. Only hosts that persist it offer the field.
+    const LOAD_SEMANTICS = new Set(["loadKg", "assistanceKg", "loadPerSideKg", "persistentLoadPerSideKg"]);
+    function slotLoadMetric(slot) {
+      return (slot?.metricDefinitions || []).find(definition => LOAD_SEMANTICS.has(definition.semantic)) || null;
+    }
+    function renderLoadStep(exercise, slot) {
+      const loadMetric = slotLoadMetric(slot);
+      if (!loadMetric || typeof adapter.defaultLoadStepKg !== "function") return "";
+      const own = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg;
+      const value = Number.isFinite(own) ? own : adapter.defaultLoadStepKg();
+      const unit = metricDisplayUnit(adapter, loadMetric);
+      return `<label class="program-editor__metric-field program-editor__load-step"><span>${esc(label("loadStep"))}${unit ? ` <small>${esc(unit)}</small>` : ""}</span>` +
+        `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${esc(formatMetricValue(adapter, loadMetric, value))}"></label>` +
+        `<p class="program-editor__hint">${esc(label("loadStepHint"))}</p>`;
+    }
+    function editLoadStep(input) {
+      const slot = definitionSlot(document, input.dataset.slotId), loadMetric = slotLoadMetric(slot);
+      if (!slot || !loadMetric) return;
+      const raw = input.value.trim();
+      let after = null;
+      if (raw) {
+        const parsed = parseMetricInput(adapter, loadMetric, raw);
+        after = hasOwn(parsed || {}, "value") ? parsed.value : NaN;
+        if (!Number.isFinite(after) || after <= 0 || after > 100) {
+          setStatus(label("invalid"), { error: true });
+          return;
+        }
+      }
+      const before = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg ?? null;
+      if (Object.is(before, after)) return;
+      const next = clone(document);
+      next.programMeta = next.programMeta || {};
+      const byExerciseId = { ...(next.programMeta.loadingConfiguration?.byExerciseId || {}) };
+      if (after == null) delete byExerciseId[slot.exerciseId];
+      else byExerciseId[slot.exerciseId] = { loadStepKg: after };
+      next.programMeta.loadingConfiguration = { ...(next.programMeta.loadingConfiguration || {}), byExerciseId };
+      return stage(next, { kind: "load_step", exerciseId: slot.exerciseId, before, after }, { redraw: false });
+    }
     function editPrescriptionField(input) {
       const slotId = input.dataset.slotId, cycleIndex = Number(input.dataset.cycleIndex);
       const setIndex = Number(input.dataset.setIndex), field = input.dataset.field;
@@ -1003,6 +1044,7 @@
           </div>
           ${legacyRepControls}
           ${renderMetricTargets(exercise)}
+          ${renderLoadStep(exercise, slot)}
           <div class="program-editor__exercise-actions">
             <button type="button" class="program-editor__replace" data-role="replace" data-action-role="replacement" data-id="${esc(exercise.id)}">${esc(label("replaceExercise"))}</button>
             <button type="button" class="program-editor__remove" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(label("removeExercise"))}</button>
@@ -1127,6 +1169,7 @@
       });
       host.querySelectorAll('[data-role="metric-target"]').forEach(input => input.addEventListener("change", () => editMetricTarget(input)));
       host.querySelectorAll('[data-role="prescription-field"]').forEach(input => input.addEventListener("change", () => editPrescriptionField(input)));
+      host.querySelectorAll('[data-role="load-step"]').forEach(input => input.addEventListener("change", () => editLoadStep(input)));
       host.querySelectorAll('[data-role="metric-composition"]').forEach(select => select.addEventListener("change", () => editMetricComposition(select)));
       host.querySelectorAll('[data-role="metric-cycle"]').forEach(details => details.addEventListener("toggle", () => {
         const slotId = details.closest('[data-role="metric-targets"]')?.dataset.slotId;

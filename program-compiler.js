@@ -1096,7 +1096,7 @@
         if (!cycle) continue;
         for (const set of cycle.sets || []) results.push({
           ...clone(set), slotId: slot.id, purposeId: slot.purposeId, exerciseId: slot.exerciseId,
-          role: slot.role, dayId: day.id, dayName: day.name,
+          role: slot.role, loadingModel: clone(slot.loadingModel), dayId: day.id, dayName: day.name,
         });
       }
     }

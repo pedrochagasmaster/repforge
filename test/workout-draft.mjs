@@ -582,6 +582,30 @@ console.log("\nMetric compositions without repetitions carry no flat rep range")
   assert(Draft.isDomainError(halfResult), "a metric-backed exercise cannot carry half a flat rep range", JSON.stringify(halfResult));
 }
 
+console.log("\nHistory rows record whether bodyweight contributed to the load");
+{
+  const rowFor = (sourceId, bodyweight) => {
+    let draft = Draft.create(metricProgramContext(sourceId, "bw-slot"), { ...sessionSelection(), draftId: `bw-${sourceId}-${bodyweight}`, selectedExerciseId: "bw-slot" }, {});
+    const metricIds = rawExercise(sourceId).exerciseMetrics;
+    for (const [index, metricId] of metricIds.entries()) {
+      draft = apply(draft, "editMetricValue", { exerciseInstanceId: "bw-slot", setId: "bw-slot-set-1", metricId, value: index === 0 ? "8" : "20" });
+    }
+    draft = apply(draft, "editSetField", { exerciseInstanceId: "bw-slot", setId: "bw-slot-set-1", field: "rir", value: "2" });
+    draft = apply(draft, "completeSet", { exerciseInstanceId: "bw-slot", setId: "bw-slot-set-1", completedAt: "2026-08-15T10:30:00.000Z" });
+    if (bodyweight != null) draft = apply(draft, "setBodyweight", { value: String(bodyweight) });
+    draft = apply(draft, "beginFinish");
+    return Draft.toHistoryRows(draft, "2026-08-15T11:00:00.000Z")[0];
+  };
+  const assisted = "2a95c6f170d8805e8b27cb88e703eac7";
+  const external = "1a15c6f170d88074b3d4e1548e32c508";
+  assert(rowFor(assisted, 82.5)?.loadingContext?.bodyweightContributionEnabled === true,
+    "a bodyweight-loaded movement with a session bodyweight records the contribution as enabled");
+  assert(rowFor(assisted, null)?.loadingContext?.bodyweightContributionEnabled === false,
+    "without a session bodyweight the contribution is recorded as not applied");
+  assert(rowFor(external, 82.5)?.loadingContext?.bodyweightContributionEnabled === false,
+    "a movement with no bodyweight coefficient records no contribution");
+}
+
 console.log("\nMetric-aware substitution preserves completed work and reprograms only untouched sets");
 const originalMetricSource = "2a15c6f170d88066b38fd65f8757716f";
 const replacementMetricSource = "2aa5c6f170d880c08fcbf27e03a0e2dc";

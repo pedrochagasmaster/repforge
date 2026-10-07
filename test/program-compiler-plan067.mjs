@@ -394,4 +394,11 @@ assert.equal(unilateralEstimate - bilateralEstimate, 120,
 assert.ok(Compiler.estimateDaySeconds(standard.value.days.find((day) => day.kind === "training")) > 180,
   "day estimates use final cycle prescriptions instead of treating every generated day as empty");
 
+// The progression engine reads each prescription's bodyweight coefficient;
+// a projection without it makes every set configuration-required.
+for (const projected of Compiler.prescriptionsForCycle(standard.value, 1)) {
+  const slot = standard.value.days.flatMap((day) => day.slots).find((candidate) => candidate.id === projected.slotId);
+  assert.deepEqual(projected.loadingModel, slot.loadingModel, "cycle prescriptions carry their slot's loading model");
+}
+
 console.log("PASS Plan 067 program compiler algorithm contract");
