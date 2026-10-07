@@ -44,9 +44,10 @@ test("production services pass the typed request, raw snapshot and explicit seed
   assert.deepEqual(Object.keys(actual).sort(), ["conflicts", "explanations", "ok", "value"]);
 });
 
-test("production services expose no family, browse, split, or legacy compile façade", () => {
+test("production services expose no family, browse, or legacy compile façade", () => {
   const services = Adapter.createProductionServices({ Compiler, catalog: Catalog });
-  for (const method of ["compile", "splitChoices", "browseCatalogue", "answersToCompilerContext", "resolveFamilyId", "sharedMovementId"]) {
+  // splitChoices remains: it offers the generator's authored splits (see below).
+  for (const method of ["compile", "browseCatalogue", "answersToCompilerContext", "resolveFamilyId", "sharedMovementId"]) {
     assert.equal(services[method], undefined, `${method} is retired from the production service surface`);
   }
   assert.equal(typeof services.generateProgram, "function");
@@ -181,4 +182,14 @@ test("incomplete or unsupported Generate answers are explicit conflicts", () => 
   assert.deepEqual(codes(answersFor({ structuredExperience: undefined })), ["experience_required"]);
   assert.deepEqual(codes(answersFor({ daysPerWeek: 7 })), ["days_unsupported"]);
   assert.deepEqual(codes(answersFor({ environment: null })), ["environment_required"]);
+});
+
+test("split choices are the generator's authored splits compatible with the day count", () => {
+  const services = Adapter.createProductionServices({ Compiler, catalog: Catalog });
+  assert.deepEqual(services.splitChoices({ daysPerWeek: 3 }).choices.map((choice) => choice.id), ["full_body"]);
+  assert.deepEqual(services.splitChoices({ daysPerWeek: 4 }).choices.map((choice) => choice.id), ["upper_lower"]);
+  assert.deepEqual(services.splitChoices({}).choices, []);
+  assert.equal(Adapter.programRequestFromAnswers(answersFor({ splitPreference: "upper_lower" }), Catalog).value.split, "upper_lower");
+  assert.equal(Adapter.programRequestFromAnswers(answersFor({ daysPerWeek: 3, splitPreference: "upper_lower" }), Catalog).value.split, "auto",
+    "an incompatible split falls back to the generator's own choice");
 });

@@ -232,7 +232,7 @@ function generatedCandidateFixture() {
 
 test("module imports in Node without browser globals", () => {
   assert.equal(typeof Entry.createState, "function");
-  assert.deepEqual(Entry.ROUTES, ["recommend", "custom", "browse", "build", "import", "shared"]);
+  assert.deepEqual(Entry.ROUTES, ["recommend", "custom", "build", "import", "shared"]);
   assert.deepEqual(Entry.ENTRY_MOVEMENTS, ["squat", "hinge", "press", "shoulder_press", "row", "pulldown"]);
 });
 
@@ -325,14 +325,9 @@ test("switching Recommend and Custom preserves shared facts but drops results", 
   assert.equal(custom.answers.daysPerWeek, answers.daysPerWeek);
 });
 
-test("Browse keeps compatibility context and manual routes inherit no prescription", () => {
+test("manual routes inherit no prescription and the retired Browse route is refused", () => {
   let state = Entry.setAnswers(Entry.selectRoute(fresh(), "custom"), validAnswers("custom"));
-  const browse = Entry.selectRoute(state, "browse");
-  assert.deepEqual(Object.keys(browse.answers).sort(), [
-    "daysPerWeek",
-    "environment",
-    "sessionMinutes",
-  ]);
+  assert.throws(() => Entry.selectRoute(state, "browse"));
   for (const route of ["build", "import", "shared"]) {
     assert.deepEqual(Entry.selectRoute(state, route).answers, {});
   }
@@ -359,17 +354,6 @@ test("reusable context prefill is scoped to each route's visible inputs", () => 
   const custom = Entry.selectRoute(fresh(), "custom", { reusableContext: context });
   assert.deepEqual(custom.answers.deEmphasizedMuscles, context.deEmphasizedMuscles);
   assert.deepEqual(custom.answers.ignoredMuscles, context.ignoredMuscles);
-
-  const browse = Entry.selectRoute(fresh(), "browse", { reusableContext: context });
-  assert.deepEqual(Object.keys(browse.answers).sort(), [
-    "daysPerWeek",
-    "environment",
-    "sessionMinutes",
-  ]);
-  for (const key of ["desiredResult", "structuredExperience", "recentConsistency", "preferredRestSeconds",
-    "primaryMuscles", "priorityMovements", "exerciseConstraints", "deEmphasizedMuscles", "ignoredMuscles"]) {
-    assert.equal(browse.answers[key], undefined, `Browse must not prefill ${key}`);
-  }
 
   for (const route of ["build", "import", "shared"]) {
     assert.deepEqual(Entry.selectRoute(fresh(), route, { reusableContext: context }).answers, {});

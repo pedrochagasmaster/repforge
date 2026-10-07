@@ -157,8 +157,38 @@ async function main() {
     const seeded = await state(page);
     check(training(seeded.programMeta.programDefinition).length === 4, "a generated four-day program is active");
 
-    // Reduce volume -------------------------------------------------------
+    // Reduce volume: an open workout's typed value in a removed set blocks it
     await finishBlock(page);
+    const accessory = training((await state(page)).programMeta.programDefinition)
+      .map((day) => ({ day, slot: day.slots.find((slot) => /Accessory$/.test(slot.role) && slot.prescriptionsByCycle[0].sets.length >= 2) }))
+      .find((item) => item.slot);
+    if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), accessory.day.name)) throw new Error("could not enter workout");
+    const lastSet = accessory.slot.prescriptionsByCycle[0].sets.length;
+    const typed = await page.evaluate(async ({ slotId, ordinal }) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[slotId];
+      const setId = exercise.setOrder.find((id) => exercise.sets[id].ordinal === ordinal);
+      const metric = exercise.sets[setId].programmed.metrics[0];
+      const result = await window.__repforgeWorkoutDraft.dispatch("editMetricValue",
+        { exerciseInstanceId: slotId, setId, metricId: metric.id, value: "12" });
+      await window.__repforgeWorkoutDraft.flush();
+      return result.status;
+    }, { slotId: accessory.slot.id, ordinal: lastSet });
+    check(typed === "applied", "the open workout holds a typed value in a set the reduction removes", typed);
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    await openReview(page);
+    await page.locator('[data-review-action="reduce-volume"]').click();
+    await page.locator("[data-volume-confirm]").click();
+    const guarded = await replicas(page);
+    await page.locator("[data-preview-confirm]").click();
+    await page.locator("#reviewPanel .review__error").waitFor({ state: "visible", timeout: 15000 });
+    const afterGuard = await replicas(page);
+    check(afterGuard.local.programMeta.id === guarded.local.programMeta.id &&
+      JSON.stringify(afterGuard.local.programMeta.programDefinition) === JSON.stringify(guarded.local.programMeta.programDefinition),
+    "volume reduction refuses to strand the workout's typed value and changes nothing");
+    // Discarding the workout through the production clear releases the guard.
+    check(await page.evaluate(() => clearDraft()) !== false, "the lifter can discard the open workout");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
     await openReview(page);
     await page.locator('[data-review-action="reduce-volume"]').click();
     await page.locator("[data-volume-confirm]").click();

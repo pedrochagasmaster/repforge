@@ -69,7 +69,8 @@
     "recentConsistency",
     "simpleStart",
   ]);
-  const ROUTES = Object.freeze(["recommend", "custom", "browse", "build", "import", "shared"]);
+  // Browse offered the retired family catalogue; it is no longer a route.
+  const ROUTES = Object.freeze(["recommend", "custom", "build", "import", "shared"]);
   const ROUTE_SET = new Set(ROUTES);
   const ROUTE_STEPS = Object.freeze({
     recommend: Object.freeze([

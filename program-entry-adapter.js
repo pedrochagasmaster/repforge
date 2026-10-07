@@ -162,6 +162,20 @@
   ]);
   const TIME_CEILINGS = Object.freeze([20, 40, 60, 90, 120, 150]);
 
+  // Explicit split choices are the generator's authored splits for this day count.
+  function splitChoices(answers, Compiler) {
+    const days = answers?.daysPerWeek;
+    if (!Number.isInteger(days)) return { choices: [] };
+    return { choices: Object.entries(Compiler.SPLITS || {})
+      .filter(([, split]) => split.compatibleDays.includes(days))
+      .map(([id], index) => ({ id, default: index === 0 })) };
+  }
+
+  function compatibleSplit(preference, days) {
+    const split = compilerApi().SPLITS?.[preference];
+    return split && split.compatibleDays.includes(days) ? preference : "auto";
+  }
+
   function programRequestFromAnswers(answers, catalog) {
     const conflicts = [];
     const conflict = (code) => conflicts.push({ field: code.replace(/_(required|unsupported)$/, ""), code });
@@ -201,7 +215,7 @@
         excludedExerciseIds: exerciseIds((source.exerciseConstraints || []).map((item) => item?.exerciseId)),
         excludedMuscleIds: muscleIds(source.ignoredMuscles),
         preferredExerciseIds: exerciseIds(source.mustHaveExercises),
-        split: "auto",
+        split: compatibleSplit(source.splitPreference, days),
         periodization: "static",
         cycles: 7,
         deloadCycles: [],
@@ -219,6 +233,7 @@
       currentVersions: () => ({ ...versions }),
       generateProgram: ({ request, seed } = {}) => Compiler.generateProgram(request, catalog, seed),
       buildEmptyProgram: (answers) => buildEmptyProgram(answers, Compiler, catalog),
+      splitChoices: (answers) => splitChoices(answers, Compiler),
       fingerprint,
       identityDiff,
     });

@@ -2,14 +2,15 @@
 /** Real two-page active-program replacement conflict proof. */
 import assert from "node:assert/strict";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_program_setup_draft_v1";
 const state = {
   settings: { unit: "kg", lang: "en", jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120 },
-  programMeta: { id: "conflict-active", name: "Current block", started: "2026-08-01", created: "2026-08-01T00:00:00.000Z", updated: "2026-08-01T00:00:00.000Z", onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6, daysPerWeek: 1, goal: "hypertrophy", equipment: ["barbell"] },
-  program: [{ id: "conflict-row", day: "Day 1", order: 1, name: "Barbell row", sets: 2, min: 6, max: 10, primary: "Mid/upper back", secondary: "Biceps", notes: "", alternates: [], libraryId: "rw_bb" }],
+  programMeta: seedProgramMeta({ id: "conflict-active", name: "Current block", started: "2026-08-01" }),
+  program: seedProgram(),
   log: [], programHistory: [], customExercises: [], _storageRevision: 7,
 };
 

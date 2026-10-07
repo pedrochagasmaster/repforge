@@ -2824,7 +2824,7 @@ function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
     return exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
       return set.ordinal>nextSets&&(set.completion!=="pending"||set.role==="warmup"||
-        set.touched.load||set.touched.reps||set.touched.effort)})}
+        set.touched.load||set.touched.reps||set.touched.effort||Object.values(set.touched.metrics||{}).some(Boolean))})}
   const marked=new Set(["__done","__touched","__warm"].flatMap(k=>Array.isArray(d[k])?d[k]:[]));
   for(let n=nextSets+1;n<=currentSets;n++){
     const key=`${exerciseId}_${n}`;
@@ -15187,10 +15187,10 @@ function renderEntryHelp(){
   const opt=(q,val,label)=>{
     const on=entryHelp[q]===val;
     return `<button type="button" class="entry-help__opt${on?" is-selected":""}" role="radio" aria-checked="${on}" data-entry-help="${q}" data-entry-help-val="${val}">${esc(label)}</button>`};
-  const q2=entryHelp.q1==="no"?{label:t("entry.help.q2_no"),opts:["recommend","custom","browse"]}
+  const q2=entryHelp.q1==="no"?{label:t("entry.help.q2_no"),opts:["recommend","custom"]}
     :entryHelp.q1==="yes"?{label:t("entry.help.q2_yes"),opts:["import","build"]}:null;
   const target=q2&&q2.opts.includes(entryHelp.q2)?entryHelp.q2:null;
-  const q2Labels={recommend:t("entry.help.q2.recommend"),custom:t("entry.help.q2.custom"),browse:t("entry.help.q2.browse"),import:t("entry.help.q2.import"),build:t("entry.help.q2.build")};
+  const q2Labels={recommend:t("entry.help.q2.recommend"),custom:t("entry.help.q2.custom"),import:t("entry.help.q2.import"),build:t("entry.help.q2.build")};
   return `<div class="entry-help" id="entryHelp" role="group" aria-labelledby="entryHelpToggle">`+
     `<p class="entry-help__q" id="entryHelpQ1">${esc(t("entry.help.q1"))}</p>`+
     `<div class="entry-help__opts" role="radiogroup" aria-labelledby="entryHelpQ1">${opt("q1","no",t("entry.help.q1_no"))}${opt("q1","yes",t("entry.help.q1_yes"))}</div>`+
@@ -15225,9 +15225,6 @@ function renderEntryHub(){
       group(t("entry.hub.group.written"),"entryGroupCustom",
         entryDoor("custom",{icon:"sliders",title:t("entry.hub.custom.title"),kind:"secondary entry-card--subordinate",
           ask:t("entry.hub.cost.custom",{n:6}),get:t("entry.hub.get.custom")}))+
-      group(t("entry.hub.group.browse"),"entryGroupBrowse",
-        entryDoor("browse",{icon:"search",title:t("entry.hub.browse.title"),
-          ask:t("entry.hub.cost.browse",{n:entrySections("browse").length}),get:t("entry.hub.get.browse")}))+
       `<div class="entry-hubgroup" role="group" aria-labelledby="entryGroupOwn"><p class="entry__group-lab" id="entryGroupOwn">${esc(t("entry.hub.group.own"))}</p>`+
       `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-expanded="${entryOwnOpen?"true":"false"}" aria-controls="entryOwnChoices"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
       (entryOwnOpen?`<div class="entry__own" id="entryOwnChoices">`+
