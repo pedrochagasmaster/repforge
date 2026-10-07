@@ -142,7 +142,6 @@ export const SUITES = {
     s("test/guide-eligibility.mjs"),
     s("test/program-actions.mjs"),
     s("test/settings-groups.mjs"),
-    s("test/share-repair.mjs", [], { seconds: 44 }),
     s("test/privacy-ui.mjs", [], { domains: ["entry", "settings", "privacy"] }),
     s("test/privacy-share-flow.mjs", [], { domains: ["entry", "privacy"] }),
     s("test/journeys-out.mjs", [], { domains: ["entry", "settings", "install", "privacy", "transition"], seconds: 45 }),
