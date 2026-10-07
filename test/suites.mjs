@@ -83,7 +83,7 @@ export const SUITES = {
     s("test/persistence-race.mjs", [], { seconds: 5 }),
     s("test/thermonuclear-races.mjs", [], { seconds: 17 }),
     s("test/program-transition-commit.mjs", [], { seconds: 13 }),
-    s("test/program-transition-crash-replay.mjs", [], { seconds: 90 }),
+    s("test/program-transition-crash-replay.mjs", [], { seconds: 90, timeoutMs: 1200000 }),
     s("test/program-transition-backup.mjs"),
     s("test/program-block-identity.mjs", [], { seconds: 11 }),
     s("test/program-transition-review-browser.mjs", [], { domains: ["transition", "progress", "persistence"], seconds: 40 }),

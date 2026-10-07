@@ -9,7 +9,9 @@
  *  - the preview proposal is the sole authority for every commit identity;
  *  - the pure transition module seals with explicit values only (no clock /
  *    random / identity fallback);
- *  - durable entrySource provenance is required, never invented;
+ *  - since Plan 067 a transition is a program_definition_replacement: the
+ *    successor ProgramDefinition is the exact derivation of the hashed change
+ *    from the predecessor's stored definition, validated lock-held;
  *  - the existing program-replacement capture/archive transaction creates the
  *    one linked archive;
  *  - a real intervening durable commit is what proves stale rejection, verified
@@ -23,14 +25,35 @@
  */
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 
 const require = createRequire(import.meta.url);
 const Transition = require("../program-transition.js");
-const Compiler = require("../program-compiler.js");
-const Adapter = require("../program-entry-adapter.js");
-const WorkoutDraft = require("../workout-draft.js");
-const { EXERCISE_LIBRARY } = require("../exercises.js");
+
+const PLAN_DATA = new URL("../plans/067/data/", import.meta.url);
+const gym = JSON.parse(readFileSync(new URL("gym.json", PLAN_DATA), "utf8"));
+const observations = JSON.parse(readFileSync(new URL("programs.json", PLAN_DATA), "utf8"));
+const rawCatalog = JSON.parse(readFileSync(new URL("app_file.json", PLAN_DATA), "utf8"));
+const observedIds = [...new Set(Object.values(observations).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+// A generated four-day, 90-minute hypertrophy program: fewer days regenerates
+// it on three days, shorter sessions under a 60-minute ceiling.
+const REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
+  },
+  movementConfirmations: Object.fromEntries(observedIds.map((id) =>
+    [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+};
+const FEWER_DAYS = { kind: "fewer_days", daysPerWeek: 3 };
+const SHORTER_SESSIONS = { kind: "shorter_sessions", sessionMinutes: 60 };
+const trainingDays = (definition) => (definition?.days || []).filter((day) => day.kind === "training");
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -96,8 +119,7 @@ async function readReplicas(page) {
     revision: s._storageRevision ?? null,
     daysPerWeek: s.programMeta?.daysPerWeek ?? null,
     transitionIn: s.programMeta?.transitionIn ?? null,
-    entrySource: s.programMeta?.entrySource ?? null,
-    compilerContext: s.programMeta?.compilerContext ?? null,
+    programDefinition: s.programMeta?.programDefinition ?? null,
     historyLen: Array.isArray(s.programHistory) ? s.programHistory.length : 0,
     programHistory: s.programHistory ?? [],
     storageDraftTransaction: s._storageDraftTransaction ?? null,
@@ -127,59 +149,71 @@ async function confirmTransition(page, args) {
   return page.evaluate(async (a) => window.__repforgeProgramTransition.confirmTransition(a), args);
 }
 
-// Standalone activation of a real balanced 4-day/90-minute Recommend program.
-// The preserved happy path (Step 1) keeps its own inline activation unchanged;
-// this duplicate exists only for the isolated fresh-context case (Step 10),
-// which needs its own predecessor whose id collides with a bare archive row.
-async function activateBalancedRecommendPredecessor(page) {
-  return page.evaluate(async () => {
-    if (!window.RepForgeProgramEntryAdapter || !window.RepForgeProgramCompiler) {
-      return { ok: false, error: "compiler or entry adapter unavailable in window" };
+// Activate a generated four-day/90-minute program through the production
+// finalization seam, with the answers the entry flow derives from it.
+async function activateGeneratedPredecessor(page) {
+  return page.evaluate(async (request) => {
+    if (!window.RepForgeProgramCompiler || !window.RepForgeExerciseCatalog) {
+      return { ok: false, error: "program generator or exercise catalog unavailable in window" };
     }
-    const services = window.RepForgeProgramEntryAdapter.createProductionServices({
-      Compiler: window.RepForgeProgramCompiler,
-      catalogue: window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY,
-    });
-    const compiled = services.compile({
-      mode: "recommend",
+    const generated = window.RepForgeProgramCompiler.generateProgram(
+      request, window.RepForgeExerciseCatalog.snapshot(), "p6a-transition-commit");
+    if (!generated.ok) return { ok: false, error: "generation failed", issues: generated.conflicts };
+    const definition = generated.value;
+    const finalized = await window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition,
+      name: "Generated 4-Day",
       answers: {
-        desiredResult: "balanced", structuredExperience: "6_to_24m", recentConsistency: "most",
-        daysPerWeek: 4, sessionMinutes: 90, preferredRestSeconds: 90,
-        environment: { kind: "commercial_gym" },
-        primaryMuscles: [], deEmphasizedMuscles: [], ignoredMuscles: [],
-        priorityMovements: [], mustHaveExercises: [], exerciseConstraints: [],
+        daysPerWeek: definition.days.filter((day) => day.kind === "training").length,
+        goal: definition.request.goal,
+        experience: definition.request.experience,
+        splitType: definition.request.split,
+        mesocycleLengthWeeks: definition.cycles,
       },
-      versions: services.currentVersions(),
-    });
-    if (!compiled.ok) return { ok: false, error: "compilation failed", issues: compiled.issues };
-    const baseProposal = window.__repforgeWorkoutDraft.state();
-    baseProposal.programMeta = baseProposal.programMeta || {};
-    baseProposal.programMeta.progressionRelations = JSON.parse(JSON.stringify(compiled.preview.progressionRelations || []));
-    baseProposal.programMeta.progressionModifiers = [];
-    baseProposal.programMeta.progressionIncompatibilities = [];
-    baseProposal.programMeta.programStructure = JSON.parse(JSON.stringify(compiled.preview.programStructure));
-    baseProposal.programMeta.compilerContext = JSON.parse(JSON.stringify(compiled.compilerContext));
-    await window.__repforgeFinalizeProgramSetup({
-      exercises: compiled.preview.program, name: compiled.name || "Balanced 4-Day",
-      answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
       destination: "log", origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
-      entryTelemetry: compiled.telemetry,
-      entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
-      programStructure: compiled.preview.programStructure, compilerContext: compiled.compilerContext,
-      baseProposal,
+      entrySource: { route: "recommend", fingerprint: "p6a-transition-commit" },
     });
     await window.__repforgeStorage.flush();
-    return { ok: true };
-  });
+    return { ok: !!(finalized?.localOk || finalized?.idbOk), finalized };
+  }, REQUEST);
 }
 
-async function proposeLowerFrequencySibling(page, overrides = {}) {
-  return page.evaluate(async (args) => window.__repforgeProgramTransition.proposeSibling(args), {
-    targetConstraint: { frequency: 3 },
-    diagnosis: {
-      kind: "fewer_days", answers: { availableDays: 3 },
-      eligibleEvidenceIds: ["sessions-14d-6-of-3"], insufficientEvidenceReasons: [],
-    },
+// Edit the first set's first programmed metric, complete it, and add notes.
+async function populateDraft(page, { value, notes, complete = true }) {
+  return page.evaluate(async ({ value, notes, complete }) => {
+    const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day;
+    if (!dayLabel || !await window.__repforgeEnterWorkout({ day: dayLabel })) {
+      return { ok: false, error: "production workout entry failed" };
+    }
+    const hook = window.__repforgeWorkoutDraft;
+    const draft = hook.current();
+    const exId = draft?.exerciseOrder?.[0];
+    const setId = draft?.exercises?.[exId]?.setOrder?.[0];
+    const metrics = draft?.exercises?.[exId]?.sets?.[setId]?.programmed?.metrics || [];
+    if (!exId || !setId || !metrics.length) return { ok: false, error: "draft has no programmed metric to edit" };
+    const results = [];
+    for (const [index, metric] of metrics.entries()) {
+      results.push(await hook.dispatch("editMetricValue",
+        { exerciseInstanceId: exId, setId, metricId: metric.id, value: index === 0 ? value : "8" }));
+    }
+    if (complete) results.push(await hook.dispatch("completeSet", { exerciseInstanceId: exId, setId, completedAt: new Date().toISOString() }));
+    results.push(await hook.dispatch("setSessionNotes", { value: notes }));
+    await hook.flush();
+    if (results.some((result) => result?.status !== "applied")) {
+      return { ok: false, error: "draft command refused", results: results.map((result) => ({ status: result?.status, code: result?.code })) };
+    }
+    return {
+      ok: true,
+      raw: localStorage.getItem("repforge_draft_v1"),
+      checkpointRaw: localStorage.getItem("repforge_draft_v1:v2-checkpoint"),
+      draft: hook.current(),
+    };
+  }, { value, notes, complete });
+}
+
+async function proposeChange(page, change, overrides = {}) {
+  return page.evaluate(async (args) => window.__repforgeProgramTransition.proposeChange(args), {
+    change,
     transitionId: "tr_p6a_link_case",
     successorProgramId: "prog_p6a_link_succ",
     createdAt: "2026-10-02T14:00:00.000Z",
@@ -246,7 +280,7 @@ async function releaseStorageLock(page) {
 }
 
 async function setupPredecessorWithSentinelAndDraft(page, tag = "p6b") {
-  const act = await activateBalancedRecommendPredecessor(page);
+  const act = await activateGeneratedPredecessor(page);
   if (!act.ok) throw new Error(`Activation failed in setupPredecessor: ${JSON.stringify(act)}`);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
@@ -280,33 +314,14 @@ async function setupPredecessorWithSentinelAndDraft(page, tag = "p6b") {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
 
-  const draftSetup = await page.evaluate(async () => {
-    const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
-    await window.__repforgeEnterWorkout({ day: dayLabel});
-    const hook = window.__repforgeWorkoutDraft;
-    const draft = hook.current();
-    const exIds = Object.keys(draft.exercises || {});
-    const ex0Id = exIds[0];
-    const setIds = Object.keys(draft.exercises[ex0Id].sets || {});
-    const set0Id = setIds[0];
-    await hook.dispatch("editSetField", { exerciseInstanceId: ex0Id, setId: set0Id, field: "reps", value: "11" });
-    await hook.dispatch("editSetField", { exerciseInstanceId: ex0Id, setId: set0Id, field: "load", value: "72.5" });
-    await hook.dispatch("completeSet", { exerciseInstanceId: ex0Id, setId: set0Id, completedAt: new Date().toISOString() });
-    await hook.dispatch("setSessionNotes", { value: "Draft session notes before race transition" });
-    await hook.flush();
-    return {
-      ok: true,
-      raw: localStorage.getItem("repforge_draft_v1"),
-      checkpointRaw: localStorage.getItem("repforge_draft_v1:v2-checkpoint"),
-    };
-  });
+  const draftSetup = await populateDraft(page, { value: "72.5", notes: "Draft session notes before race transition" });
   if (!draftSetup.ok) throw new Error(`Draft setup failed: ${JSON.stringify(draftSetup)}`);
 
   const s = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
   return {
     predecessorProgramId: s.programMeta?.id,
     predecessorRevision: s._storageRevision,
-    predecessorEntrySource: s.programMeta?.entrySource,
+    predecessorDefinition: s.programMeta?.programDefinition,
     logSentinel: s.log || [],
     preDraftRaw: draftSetup.raw,
     preCheckpointRaw: draftSetup.checkpointRaw,
@@ -333,63 +348,9 @@ async function main() {
     // Step 1: Activate a real balanced 4-day/90-minute Recommend program
     // through the production finalization seam.
     // -------------------------------------------------------------------------
-    console.log("\n1. Activate real balanced 4-day/90-minute Recommend program");
-    const activationResult = await page.evaluate(async () => {
-      if (!window.RepForgeProgramEntryAdapter || !window.RepForgeProgramCompiler) {
-        return { ok: false, error: "compiler or entry adapter unavailable in window" };
-      }
-      const services = window.RepForgeProgramEntryAdapter.createProductionServices({
-        Compiler: window.RepForgeProgramCompiler,
-        catalogue: window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY,
-      });
-      const compiled = services.compile({
-        mode: "recommend",
-        answers: {
-          desiredResult: "balanced",
-          structuredExperience: "6_to_24m",
-          recentConsistency: "most",
-          daysPerWeek: 4,
-          sessionMinutes: 90,
-          preferredRestSeconds: 90,
-          environment: { kind: "commercial_gym" },
-          primaryMuscles: [],
-          deEmphasizedMuscles: [],
-          ignoredMuscles: [],
-          priorityMovements: [],
-          mustHaveExercises: [],
-          exerciseConstraints: [],
-        },
-        versions: services.currentVersions(),
-      });
-      if (!compiled.ok) return { ok: false, error: "compilation failed", issues: compiled.issues };
-
-      const baseProposal = window.__repforgeWorkoutDraft.state();
-      baseProposal.programMeta = baseProposal.programMeta || {};
-      baseProposal.programMeta.progressionRelations = JSON.parse(JSON.stringify(compiled.preview.progressionRelations || []));
-      baseProposal.programMeta.progressionModifiers = [];
-      baseProposal.programMeta.progressionIncompatibilities = [];
-      baseProposal.programMeta.programStructure = JSON.parse(JSON.stringify(compiled.preview.programStructure));
-      baseProposal.programMeta.compilerContext = JSON.parse(JSON.stringify(compiled.compilerContext));
-
-      const finalized = await window.__repforgeFinalizeProgramSetup({
-        exercises: compiled.preview.program,
-        name: compiled.name || "Balanced 4-Day",
-        answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
-        destination: "log",
-        origin: "first-run",
-        draftConfirmed: true,
-        telemetryRoute: "recommend",
-        entryTelemetry: compiled.telemetry,
-        entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
-        programStructure: compiled.preview.programStructure,
-        compilerContext: compiled.compilerContext,
-        baseProposal,
-      });
-      await window.__repforgeStorage.flush();
-      return { ok: true, finalized };
-    });
-
-    check(activationResult.ok, "predecessor compiled and activated through production finalization seam", activationResult.issues || activationResult.error);
+    console.log("\n1. Activate a generated 4-day/90-minute program");
+    const activationResult = await activateGeneratedPredecessor(page);
+    check(activationResult.ok, "predecessor generated and activated through production finalization seam", activationResult.issues || activationResult.error);
     if (!activationResult.ok) {
       throw new Error(`Step 1 failed: ${activationResult.error}`);
     }
@@ -397,11 +358,9 @@ async function main() {
     const predecessorMetaBeforeReload = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.programMeta);
     check(predecessorMetaBeforeReload?.onboarded === true, "predecessor is onboarded");
     check(predecessorMetaBeforeReload?.daysPerWeek === 4, "predecessor has 4 days per week");
-    check(predecessorMetaBeforeReload?.compilerContext?.frequency === 4, "predecessor holds compilerContext with frequency 4");
-    check(predecessorMetaBeforeReload?.compilerContext?.sessionMinutes === 90, "predecessor holds compilerContext with 90 minutes");
-    check(predecessorMetaBeforeReload?.programStructure?.provenance?.blueprintId === "balanced_4_v1", "predecessor blueprint is balanced_4_v1");
-    check(predecessorMetaBeforeReload?.entrySource?.route === "recommend" && typeof predecessorMetaBeforeReload?.entrySource?.fingerprint === "string",
-      "predecessor carries a durable recommend entrySource with a fingerprint");
+    check(trainingDays(predecessorMetaBeforeReload?.programDefinition).length === 4 &&
+      predecessorMetaBeforeReload?.programDefinition?.request?.timeCeilingMinutes === 90,
+      "predecessor holds a four-day, 90-minute ProgramDefinition");
 
     // -------------------------------------------------------------------------
     // Step 1b: Commit one schema-valid nonempty log row through the production
@@ -447,21 +406,18 @@ async function main() {
         storageRevision: s?._storageRevision,
         meta: s?.programMeta,
         programLength: (s?.program || []).length,
-        compilerContext: s?.programMeta?.compilerContext,
         log: s?.log || [],
       };
     });
     check(predecessorHead.meta?.onboarded === true, "predecessor survived reload onboarded");
     check(predecessorHead.programLength > 0, "predecessor has program rows", predecessorHead.programLength);
-    check(predecessorHead.compilerContext?.frequency === 4, "durable compiler context frequency matches 4", predecessorHead.compilerContext);
-    check(predecessorHead.compilerContext?.sessionMinutes === 90, "durable compiler context sessionMinutes matches 90");
-    check(predecessorHead.meta?.programStructure?.provenance?.familyId === "balanced", "durable structure provenance family is balanced");
-    check(predecessorHead.meta?.entrySource?.route === "recommend", "durable entrySource route is recommend");
+    check(isDeepStrictEqual(predecessorHead.meta?.programDefinition, predecessorMetaBeforeReload?.programDefinition),
+      "the durable ProgramDefinition survives reload unchanged");
     check(predecessorHead.log.length === 1 && predecessorHead.log[0].session === logSeed.sessionId, "durable log holds exactly the sentinel session");
 
     const predecessorProgramId = predecessorHead.meta?.id;
     const predecessorRevision = predecessorHead.storageRevision;
-    const predecessorEntrySource = predecessorHead.meta?.entrySource;
+    const predecessorDefinition = predecessorHead.meta?.programDefinition;
     const logSentinel = predecessorHead.log;
 
     const replicasAtPredecessor = await readReplicas(page);
@@ -474,38 +430,9 @@ async function main() {
     // Step 2: Populate active workout draft state via RepForgeWorkoutDraft
     // -------------------------------------------------------------------------
     console.log("\n2. Populate active workout draft with edits, notes, and checkpoint");
-    const draftSetup = await page.evaluate(async () => {
-      const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
-      if (!window.__repforgeWorkoutDraft || typeof window.__repforgeEnterWorkout !== "function") {
-        return { ok: false, error: "workout draft or enter workout unavailable" };
-      }
-      await window.__repforgeEnterWorkout({ day: dayLabel});
-      const hook = window.__repforgeWorkoutDraft;
-      const draft = hook.current();
-      if (!draft || !draft.exercises) return { ok: false, error: "draft not initialized" };
+    const draftSetup = await populateDraft(page, { value: "72.5", notes: "Draft session notes before sibling transition" });
 
-      const exIds = Object.keys(draft.exercises);
-      if (!exIds.length) return { ok: false, error: "no exercises in draft" };
-      const ex0Id = exIds[0];
-      const setIds = Object.keys(draft.exercises[ex0Id].sets || {});
-      if (!setIds.length) return { ok: false, error: "no sets in exercise" };
-      const set0Id = setIds[0];
-
-      await hook.dispatch("editSetField", { exerciseInstanceId: ex0Id, setId: set0Id, field: "reps", value: "11" });
-      await hook.dispatch("editSetField", { exerciseInstanceId: ex0Id, setId: set0Id, field: "load", value: "72.5" });
-      await hook.dispatch("completeSet", { exerciseInstanceId: ex0Id, setId: set0Id, completedAt: new Date().toISOString() });
-      await hook.dispatch("setSessionNotes", { value: "Draft session notes before sibling transition" });
-      await hook.flush();
-
-      return {
-        ok: true,
-        raw: localStorage.getItem("repforge_draft_v1"),
-        checkpointRaw: localStorage.getItem("repforge_draft_v1:v2-checkpoint"),
-        draft: hook.current(),
-      };
-    });
-
-    check(draftSetup.ok, "workout draft populated and flushed", draftSetup.error);
+    check(draftSetup.ok, "workout draft populated and flushed", draftSetup.ok ? undefined : draftSetup);
     if (!draftSetup.ok) throw new Error(`Step 2 failed: ${draftSetup.error}`);
 
     const preDraftRaw = draftSetup.raw;
@@ -519,45 +446,46 @@ async function main() {
     // -------------------------------------------------------------------------
     // Step 3: Propose sibling transition through production transition adapter
     // -------------------------------------------------------------------------
-    console.log("\n3. Propose sibling transition through production transition adapter");
+    console.log("\n3. Propose a fewer-days replacement through the production transition adapter");
     const transitionHookAvailable = await page.evaluate(() =>
       typeof window.__repforgeProgramTransition === "object" && window.__repforgeProgramTransition !== null);
     check(transitionHookAvailable, "window.__repforgeProgramTransition is defined");
     if (!transitionHookAvailable) throw new Error("production transition adapter not implemented");
 
-    const diagnosisInput = {
-      kind: "fewer_days",
-      answers: { availableDays: 3 },
-      eligibleEvidenceIds: ["sessions-14d-6-of-3"],
-      insufficientEvidenceReasons: [],
-    };
     const transitionId = "tr_p6a_test_b4_to_b3";
     const successorProgramId = "prog_balanced_3_p6a_succ";
     const proposalCreatedAt = "2026-10-02T14:00:00.000Z";
 
     const proposeArgs = {
-      targetConstraint: { frequency: 3 },
-      diagnosis: diagnosisInput,
+      change: FEWER_DAYS,
       transitionId,
       successorProgramId,
       createdAt: proposalCreatedAt,
     };
     const proposalResult = await page.evaluate(async (args) =>
-      window.__repforgeProgramTransition.proposeSibling(args), proposeArgs);
+      window.__repforgeProgramTransition.proposeChange(args), proposeArgs);
 
-    check(proposalResult?.ok === true, "proposeSibling succeeds", proposalResult?.code || proposalResult?.error);
+    check(proposalResult?.ok === true, "proposeChange succeeds", proposalResult?.code || proposalResult?.error);
     if (!proposalResult?.ok) throw new Error(`Step 3 failed: ${JSON.stringify(proposalResult)}`);
 
     const proposal = proposalResult.proposal;
-    check(proposalResult.status === "preview", "proposal status is preview");
-    check(proposal.kind === "lower_frequency_sibling", "proposal kind is lower_frequency_sibling");
+    check(proposal.status === "preview", "proposal status is preview");
+    check(proposal.kind === Transition.KIND && proposal.kind === "program_definition_replacement",
+      "proposal kind is program_definition_replacement");
+    check(isDeepStrictEqual(proposal.change, FEWER_DAYS), "proposal carries the requested change", proposal.change);
     check(proposal.predecessor?.programId === predecessorProgramId, "proposal predecessor programId matches head");
     check(proposal.predecessor?.durableRevision === revisionAtProposal, "proposal pins the durable revision it was built at");
+    check(proposal.predecessor?.definitionFingerprint === await Transition.fingerprintProgramDefinition(predecessorDefinition, []),
+      "proposal pins the fingerprint of the stored predecessor definition");
     check(proposal.successor?.programId === successorProgramId, "proposal successor programId matches requested");
-    check(Array.isArray(proposal.diff?.exercises) && proposal.diff.exercises.length === 24, "proposal has 24 exercise diff rows");
+    check(trainingDays(proposal.successor?.programDefinition).length === 3 &&
+      proposal.successor?.programDefinition?.request?.daysPerWeek === 3 &&
+      proposal.successor?.programDefinition?.request?.timeCeilingMinutes === 90,
+      "successor definition is regenerated on three days and keeps the 90-minute ceiling");
+    check(proposal.successor?.definitionFingerprint ===
+      await Transition.fingerprintProgramDefinition(proposal.successor.programDefinition, proposal.successor.customExerciseDefinitions),
+      "successor fingerprint matches its definition");
     check(typeof proposal.proposalHash === "string" && proposal.proposalHash.length === 64, "proposal carries 64-char proposalHash");
-    check(proposalResult.successorCompilerContext?.frequency === 3, "successor compiler context frequency is 3");
-    check(proposalResult.successorCompilerContext?.sessionMinutes === 90, "successor compiler context retains 90 min session");
 
     const expectedHash = await Transition.hashProposal(proposal);
     check(proposal.proposalHash === expectedHash, "proposalHash matches independent hashProposal calculation");
@@ -622,7 +550,7 @@ async function main() {
     // -------------------------------------------------------------------------
     console.log("\n4b. Re-propose from the advanced durable revision");
     const reproposeResult = await page.evaluate(async (args) =>
-      window.__repforgeProgramTransition.proposeSibling(args), proposeArgs);
+      window.__repforgeProgramTransition.proposeChange(args), proposeArgs);
     check(reproposeResult?.ok === true, "re-proposal from R+1 succeeds", reproposeResult?.code);
     if (!reproposeResult?.ok) throw new Error(`Step 4b failed: ${JSON.stringify(reproposeResult)}`);
     const freshProposal = reproposeResult.proposal;
@@ -670,7 +598,7 @@ async function main() {
         args: { proposal: { nonsense: true }, transitionId: freshProposal.transitionId,
           successorProgramId: freshProposal.successor.programId, confirmedAt: "2026-10-02T14:06:00.000Z",
           proposalHash: freshProposal.proposalHash, acknowledgedDraftRaw: freshDraftRaw },
-        expect: (r) => r.invalid === true && (r.code === "proposal_not_preview" || r.code === "proposal_missing"),
+        expect: (r) => r.invalid === true && r.code === "unsupported_transition_kind",
       },
       {
         name: "missing acknowledgedDraftRaw key",
@@ -688,12 +616,16 @@ async function main() {
       check(r.localOk === false && r.idbOk === false && r.committed === false, `negative pin left nothing committed: ${nc.name}`, r);
     }
 
-    // Freshly rehashed semantic-invalid proposal (tampered diff, valid hash).
-    const invalidProposal = await page.evaluate((p) => {
-      const cloned = JSON.parse(JSON.stringify(p));
-      cloned.diff.prescriptions[0].after.sets = 999;
-      return cloned;
-    }, freshProposal);
+    // Freshly rehashed semantic-invalid proposal: the successor definition is
+    // tampered (one more set on a slot) and both its fingerprint and the
+    // proposal hash are recomputed, so only the lock-held derivation check can
+    // tell it is not the derivation of the hashed change.
+    const invalidProposal = JSON.parse(JSON.stringify(freshProposal));
+    const tamperedSlot = trainingDays(invalidProposal.successor.programDefinition)[0].slots[0];
+    const tamperedSets = tamperedSlot.prescriptionsByCycle[0].sets;
+    tamperedSets.push({ ...tamperedSets[tamperedSets.length - 1], id: `${tamperedSets[tamperedSets.length - 1].id}~tampered` });
+    invalidProposal.successor.definitionFingerprint = await Transition.fingerprintProgramDefinition(
+      invalidProposal.successor.programDefinition, invalidProposal.successor.customExerciseDefinitions);
     const invalidHash = await Transition.hashProposal(invalidProposal);
     invalidProposal.proposalHash = invalidHash;
     const invalidResult = await confirmTransition(page, {
@@ -706,7 +638,8 @@ async function main() {
     });
     check(invalidResult?.localOk === false && invalidResult?.idbOk === false && invalidResult?.committed === false,
       "freshly rehashed semantic-invalid proposal rejected in lock-held preflight", invalidResult);
-    check(invalidResult?.invalid === true || String(invalidResult?.code || "").includes("mismatch"),
+    check(invalidResult?.invalid === true &&
+      (invalidResult?.code === "successor_derivation_mismatch" || invalidResult?.code === "program_definition_invalid"),
       "semantic-invalid proposal returns a typed invalid result", invalidResult);
 
     // Draft-mismatch is still a typed conflict.
@@ -767,15 +700,16 @@ async function main() {
 
     check(postLive?.programMeta?.id === successorProgramId, "active program is the successor programId");
     check(postLive?.programMeta?.daysPerWeek === 3, "successor daysPerWeek is 3");
-    check(postLive?.programMeta?.compilerContext?.frequency === 3, "successor compilerContext frequency is 3");
-    check(postLive?.programMeta?.compilerContext?.sessionMinutes === 90, "successor compilerContext sessionMinutes is 90");
-    check(postLive?.programMeta?.programStructure?.provenance?.blueprintId === "balanced_3_v1", "successor blueprint is balanced_3_v1");
-
-    // Successor carries the predecessor's EXACT entrySource object (J52-10).
-    check(isDeepStrictEqual(postLive?.programMeta?.entrySource, predecessorEntrySource),
-      "successor entrySource is the predecessor's exact object (no invented fingerprint)", {
-        successor: postLive?.programMeta?.entrySource, predecessor: predecessorEntrySource,
-      });
+    check(isDeepStrictEqual(postLive?.programMeta?.programDefinition, freshProposal.successor.programDefinition),
+      "successor programMeta holds exactly the proposal's successor definition");
+    check(postLive?.programMeta?.mesocycleLengthWeeks === freshProposal.successor.programDefinition.cycles,
+      "successor block length follows the successor definition's cycles");
+    check(typeof postLive?.programMeta?.blockId === "string" && postLive.programMeta.blockId !== predecessorHead.meta?.blockId,
+      "successor starts a new block identity");
+    const successorSlotIds = new Set(trainingDays(postLive?.programMeta?.programDefinition).flatMap((day) => day.slots.map((slot) => slot.id)));
+    check((postLive?.program || []).length === successorSlotIds.size &&
+      (postLive?.program || []).every((row) => successorSlotIds.has(row.slotId || row.id)),
+      "program rows are the successor definition's projection");
 
     const transitionIn = postLive?.programMeta?.transitionIn;
     check(isPlainObject(transitionIn), "successor programMeta carries transitionIn object");
@@ -795,7 +729,9 @@ async function main() {
     check(archive?.transitionOut?.transitionId === transitionId, "archive transitionOut transitionId matches");
     check(archive?.transitionOut?.proposalHash === freshProposal.proposalHash, "archive transitionOut proposalHash matches");
     check(archive?.transitionOut?.successorProgramId === successorProgramId, "archive transitionOut successorProgramId matches");
-    check(isDeepStrictEqual(archive?.program, undefined) === false, "archive retains the predecessor program definition");
+    check(Array.isArray(archive?.program) && archive.program.length === predecessorHead.programLength &&
+      isDeepStrictEqual(archive?.meta?.programDefinition, predecessorDefinition),
+      "archive retains the predecessor program rows and its exact ProgramDefinition");
 
     // Both replicas agree on the semantic transition fields and revision.
     check(replicas.local.programId === successorProgramId, "localStorage replica has successor programId");
@@ -820,10 +756,12 @@ async function main() {
     check(postDraftRaw === preDraftRaw, "DraftV2 raw in localStorage is byte-for-byte identical to pre-transition");
     check(postCheckpointRaw === preCheckpointRaw, "DraftV2 checkpoint raw in localStorage is byte-for-byte identical to pre-transition");
 
-    const parsedDraft = WorkoutDraft.parse(postDraftRaw);
+    // The draft binds catalog metrics, so it is parsed by the production
+    // module in the page, where the raw exercise catalog is loaded.
+    const parsedDraft = await page.evaluate((raw) => window.RepForgeWorkoutDraft.parse(raw), postDraftRaw);
     check(parsedDraft?.kind === "valid" && parsedDraft?.draft?.program?.programId === predecessorProgramId,
       "workout draft remains bound to predecessor programId", {
-        kind: parsedDraft?.kind, draftProgramId: parsedDraft?.draft?.program?.programId, predecessorProgramId,
+        kind: parsedDraft?.kind, code: parsedDraft?.code, path: parsedDraft?.path, draftProgramId: parsedDraft?.draft?.program?.programId, predecessorProgramId,
       });
     check(parsedDraft?.draft?.session?.notes === "Draft session notes before sibling transition", "draft notes preserved");
 
@@ -997,8 +935,8 @@ async function main() {
     await page2.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page2, { base: BASE });
 
-    const act2 = await activateBalancedRecommendPredecessor(page2);
-    check(act2.ok, "isolated predecessor compiled and activated", act2.issues || act2.error);
+    const act2 = await activateGeneratedPredecessor(page2);
+    check(act2.ok, "isolated predecessor generated and activated", act2.issues || act2.error);
     if (!act2.ok) throw new Error(`Step 10 activation failed: ${JSON.stringify(act2)}`);
     await page2.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page2, { base: BASE });
@@ -1006,18 +944,7 @@ async function main() {
     const pred2Id = await page2.evaluate(() => window.__repforgeWorkoutDraft.state()?.programMeta?.id);
     check(typeof pred2Id === "string" && pred2Id.length > 0, "isolated predecessor has a durable program id");
 
-    const draft2 = await page2.evaluate(async () => {
-      const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
-      await window.__repforgeEnterWorkout({ day: dayLabel});
-      const hook = window.__repforgeWorkoutDraft;
-      const d = hook.current();
-      const exId = Object.keys(d.exercises)[0];
-      const setId = Object.keys(d.exercises[exId].sets || {})[0];
-      await hook.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "reps", value: "9" });
-      await hook.dispatch("setSessionNotes", { value: "Draft before occupied-archive rejection" });
-      await hook.flush();
-      return { raw: localStorage.getItem("repforge_draft_v1"), checkpoint: localStorage.getItem("repforge_draft_v1:v2-checkpoint") };
-    });
+    const draft2 = await populateDraft(page2, { value: "9", notes: "Draft before occupied-archive rejection", complete: false });
     check(typeof draft2.raw === "string" && draft2.raw.length > 0, "isolated DraftV2 populated");
 
     // Inject a bare archive row that occupies the intended archive identity
@@ -1045,8 +972,8 @@ async function main() {
     check(preConfirm2.historyLen === 1 && preConfirm2.row0?.id === pred2Id && preConfirm2.row0?.hasOut === false,
       "the occupying archive row is present with no transition-out link", preConfirm2.row0);
 
-    const propose2 = await proposeLowerFrequencySibling(page2);
-    check(propose2?.ok === true, "isolated sibling proposal succeeds", propose2?.code);
+    const propose2 = await proposeChange(page2, FEWER_DAYS);
+    check(propose2?.ok === true, "isolated fewer-days proposal succeeds", propose2?.code);
     if (!propose2?.ok) throw new Error(`Step 10 proposal failed: ${JSON.stringify(propose2)}`);
     const proposal2 = propose2.proposal;
     check(proposal2.predecessor.programId === pred2Id, "isolated proposal predecessor is the occupied program id");
@@ -1120,7 +1047,7 @@ async function main() {
     }
 
     const env1 = await setupPredecessorWithSentinelAndDraft(pageA, "race1");
-    const propRes1 = await proposeLowerFrequencySibling(pageA, {
+    const propRes1 = await proposeChange(pageA, FEWER_DAYS, {
       transitionId: "tr_p6b_dup_race",
       successorProgramId: "prog_p6b_dup_succ",
       createdAt: "2026-10-02T14:00:00.000Z",
@@ -1240,24 +1167,20 @@ async function main() {
 
     const env2 = await setupPredecessorWithSentinelAndDraft(pageA2, "race2");
 
-    const propResA2 = await pageA2.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
-      targetConstraint: { frequency: 3 },
-      diagnosis: { kind: "fewer_days", answers: { availableDays: 3 }, eligibleEvidenceIds: ["sessions-14d-6-of-3"], insufficientEvidenceReasons: [] },
+    const propResA2 = await proposeChange(pageA2, FEWER_DAYS, {
       transitionId: "tr_p6b_compete_freq",
       successorProgramId: "prog_p6b_compete_freq",
       createdAt: "2026-10-02T14:00:00.000Z",
-    }));
+    });
     check(propResA2?.ok === true, "competing proposal A (fewer_days) created", propResA2?.code);
     const proposalA2 = propResA2.proposal;
 
-    const propResB2 = await pageA2.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
-      targetConstraint: { sessionMinutes: 60 },
-      diagnosis: { kind: "sessions_too_long", answers: { sessionMinutes: 60 }, eligibleEvidenceIds: ["session-time-avg-105-of-90"], insufficientEvidenceReasons: [] },
+    const propResB2 = await proposeChange(pageA2, SHORTER_SESSIONS, {
       transitionId: "tr_p6b_compete_time",
       successorProgramId: "prog_p6b_compete_time",
       createdAt: "2026-10-02T14:00:00.000Z",
-    }));
-    check(propResB2?.ok === true, "competing proposal B (shorter_session) created", propResB2?.code);
+    });
+    check(propResB2?.ok === true, "competing proposal B (shorter_sessions) created", propResB2?.code);
     const proposalB2 = propResB2.proposal;
 
     check(proposalA2.predecessor.programId === env2.predecessorProgramId && proposalB2.predecessor.programId === env2.predecessorProgramId,
@@ -1362,7 +1285,7 @@ async function main() {
     await waitForAppBoot(page3, { base: BASE });
 
     const env3 = await setupPredecessorWithSentinelAndDraft(page3, "fp3");
-    const propRes3 = await proposeLowerFrequencySibling(page3, {
+    const propRes3 = await proposeChange(page3, FEWER_DAYS, {
       transitionId: "tr_p6b_fp_pin",
       successorProgramId: "prog_p6b_fp_succ",
       createdAt: "2026-10-02T14:00:00.000Z",
@@ -1372,19 +1295,15 @@ async function main() {
     const predId3 = proposal3.predecessor.programId;
     const predRev3 = proposal3.predecessor.durableRevision;
 
-    // Inject predecessor program fingerprint mismatch into both replicas
-    // while keeping proposal ID and durableRevision pinned.
+    // Inject a predecessor definition mismatch into both replicas while keeping
+    // the proposal's program ID and durableRevision pinned: the stored
+    // definition is no longer the one the proposal fingerprinted.
     const injFp = await page3.evaluate(async ({ key, predId, predRev, dbName }) => {
       const raw = localStorage.getItem(key);
       const parsed = JSON.parse(raw);
       if (!parsed || parsed.programMeta?.id !== predId) return { ok: false, error: "pred mismatch" };
-      if (Array.isArray(parsed.program) && parsed.program.length > 0) {
-        parsed.program[0].sets = 17;
-        parsed.program[0].name = String(parsed.program[0].name) + " Injected Mismatch";
-      }
-      if (parsed.programMeta?.compilerContext?.answers) {
-        parsed.programMeta.compilerContext.answers.structuredExperience = "0_to_6m";
-      }
+      if (!parsed.programMeta?.programDefinition) return { ok: false, error: "no stored definition" };
+      parsed.programMeta.programDefinition.seed = `${parsed.programMeta.programDefinition.seed}-injected-mismatch`;
       parsed._storageRevision = predRev;
       parsed.programMeta.id = predId;
       localStorage.setItem(key, JSON.stringify(parsed));
@@ -1426,8 +1345,8 @@ async function main() {
       "fingerprint mismatch rejected without commit", fpResult);
     check(fpResult?.localOk === false && fpResult?.idbOk === false,
       "fingerprint mismatch wrote neither replica", fpResult);
-    const isFpTyped = fpResult?.invalid === true || fpResult?.stale === true || fpResult?.duplicate === true || fpResult?.conflict === true;
-    check(isFpTyped, "fingerprint mismatch returns typed outcome", fpResult);
+    check(fpResult?.stale === true && fpResult?.code === "predecessor_definition_changed",
+      "definition fingerprint mismatch returns typed stale predecessor_definition_changed", fpResult);
 
     await page3.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page3, { base: BASE });
@@ -1482,7 +1401,7 @@ async function main() {
     const revA = env14.predecessorRevision;
 
     // Transition 1: A -> B (lower frequency: 4 -> 3)
-    const propResAB = await proposeLowerFrequencySibling(page14, {
+    const propResAB = await proposeChange(page14, FEWER_DAYS, {
       transitionId: "tr_p6c_chain_ab",
       successorProgramId: "prog_p6c_chain_b",
       createdAt: "2026-10-03T10:00:00.000Z",
@@ -1528,12 +1447,8 @@ async function main() {
       await window.__repforgeStorage.flush();
 
       // Propose B->C on this state
-      const pRes = await window.__repforgeProgramTransition.proposeSibling({
-        targetConstraint: { sessionMinutes: 60 },
-        diagnosis: {
-          kind: "sessions_too_long", answers: { sessionMinutes: 60 },
-          eligibleEvidenceIds: ["session-time-avg-105-of-90"], insufficientEvidenceReasons: [],
-        },
+      const pRes = await window.__repforgeProgramTransition.proposeChange({
+        change: { kind: "shorter_sessions", sessionMinutes: 60 },
         transitionId: "tr_p6c_chain_coll",
         successorProgramId: "prog_p6c_chain_c_coll",
         createdAt: "2026-10-03T11:00:00.000Z",
@@ -1566,17 +1481,12 @@ async function main() {
     const curReplicasB = await readReplicas(page14);
     const revB = curReplicasB.local.revision;
 
-    const propResBC = await page14.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
-      targetConstraint: { sessionMinutes: 60 },
-      diagnosis: {
-        kind: "sessions_too_long", answers: { sessionMinutes: 60 },
-        eligibleEvidenceIds: ["session-time-avg-105-of-90"], insufficientEvidenceReasons: [],
-      },
+    const propResBC = await proposeChange(page14, SHORTER_SESSIONS, {
       transitionId: "tr_p6c_chain_bc",
       successorProgramId: "prog_p6c_chain_c",
       createdAt: "2026-10-03T11:00:00.000Z",
-    }));
-    check(propResBC?.ok === true, "proposal B->C created with real compiler pair", propResBC?.code);
+    });
+    check(propResBC?.ok === true, "proposal B->C (shorter sessions) derived from B's stored definition", propResBC?.code);
     const proposalBC = propResBC.proposal;
     check(proposalBC.predecessor.programId === "prog_p6c_chain_b",
       "proposal B->C correctly identifies B as predecessor");
@@ -1610,6 +1520,11 @@ async function main() {
       { expected: revB + 1, local: replicasC.local.revision, idb: replicasC.idb.revision });
     check(replicasC.local.historyLen === 2 && replicasC.idb.historyLen === 2,
       "exactly two archive entries exist in both replicas after B->C");
+    check(trainingDays(replicasC.local.programDefinition).length === 3 &&
+      replicasC.local.programDefinition?.request?.timeCeilingMinutes === 60 &&
+      isDeepStrictEqual(replicasC.local.programDefinition, proposalBC.successor.programDefinition) &&
+      isDeepStrictEqual(replicasC.idb.programDefinition, proposalBC.successor.programDefinition),
+      "C keeps B's three days under a 60-minute ceiling in both replicas");
 
     // Successor C transitionIn identity and links
     check(replicasC.local.transitionIn?.status === "committed" &&
