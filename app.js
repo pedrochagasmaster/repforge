@@ -13884,10 +13884,18 @@ function importCandidate(draft){
     progressionIncompatibilities,"program-import");
   const progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers,{
     preserveInvalid:true,incompatibilities:progressionData.incompatibilities,source:"program-json"});
+  // An imported program becomes a Build definition over the matched catalog
+  // movements and custom definitions; the preview rows are its projection.
+  const programDefinition=manualProgramDefinitionFromRows(program,labels,candidateCustomExercises);
+  const projected=programDefinition?flatProgramFromDefinition(programDefinition,candidateCustomExercises,1):program;
+  const projectedDays=programDefinition?programDefinition.days.filter(day=>day.kind==="training").map((day,index)=>({
+    dayId:day.id,label:day.name,order:index+1,exercises:projected.filter(row=>row.dayId===day.id).map(cloneSnapshot)})):days;
   return{
-    program,
-    days,
-    programStructure:structure,
+    program:projected,
+    days:projectedDays,
+    ...(programDefinition?{programDefinition}:{}),
+    programStructure:programDefinition?{schemaVersion:1,days:projectedDays.map(({dayId,label,order})=>({dayId,label,order})),
+      provenance:{source:"import"}}:structure,
     progressionRelations:progressionData.relations,
     progressionModifiers,
     progressionIncompatibilities:progressionData.incompatibilities,
