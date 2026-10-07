@@ -2299,6 +2299,39 @@ function workoutDayId(label){
   const structured=state.programMeta?.programStructure?.days;
   const matched=Array.isArray(structured)?structured.find(item=>String(item?.label||item?.dayId||"")===label):null;
   return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
+function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
+  loadingModel=loadingModel||{
+    bodyweightCoefficient:Number.isFinite(sourceExercise?.bodyweight)?sourceExercise.bodyweight:null,
+    assistanceDirection:"subtract"};
+  const semantics=new Set((metricDefinitions||[]).map(metric=>metric.semantic));
+  const loadingConvention=semantics.has("assistanceKg")?"assistance":
+    semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
+      metricDefinitions?.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
+  const loadingContext={bodyweightContributionEnabled:null,
+    externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1,
+    ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")
+      ?{bodyweightCoefficient:loadingModel.bodyweightCoefficient}:{})};
+  return{loadingModel,loadingConvention,loadingContext}}
+/* A mid-session swap to a catalog movement reprograms the slot's pending sets
+   with the replacement's own metric composition. Targets carry over only for
+   metrics both movements share; the rest stay for the lifter to enter. */
+function substitutionProgram(id,libraryRef){
+  const draftExercise=activeWorkoutDraft?.exercises?.[id],source=libraryRef?rawExercise(libraryRef):null;
+  if(!draftExercise?.programmed?.metricOrigin||!source)return null;
+  const metricDefinitions=rawMetricDefinitions(libraryRef);
+  if(!metricDefinitions)return null;
+  const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,source);
+  const semantics=new Set(metricDefinitions.map(metric=>metric.semantic));
+  const programmedSets=draftExercise.setOrder.map(setId=>{
+    const programmed=draftExercise.sets[setId].programmed;
+    const targets=Object.fromEntries(Object.entries(programmed.targets||{}).filter(([semantic])=>semantics.has(semantic)));
+    const repTarget=targets.reps??targets.repsPerSide,reps=Number.isSafeInteger(repTarget?.min??repTarget);
+    return{metricDefinitions,targets,restSeconds:programmed.restSeconds??null,targetRir:programmed.targetRir??null,
+      minReps:reps?repTarget?.min??repTarget:null,maxReps:reps?repTarget?.max??repTarget:null,
+      suggestedReps:reps?repTarget?.min??repTarget:null,previousMetrics:[]}});
+  return{sourceLibraryId:libraryRef,metricOrigin:"source_catalog",metricIds:metricDefinitions.map(metric=>metric.id),
+    metricDefinitions,loadingModel,loadingConvention,loadingContext:{loadingConvention,bodyweightKg:null,...loadingContext},
+    equipmentId:null,programmedSets}}
 function workoutProgramContext(label=day){
   const slots=exercises(label),empty={};
   const definition=state.programMeta?.programDefinition,cycleNumber=mesocycleLifecycle(state.programMeta).current||1;
@@ -2314,18 +2347,7 @@ function workoutProgramContext(label=day){
       const cycle=canonicalSlot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber);
       const metricDefinitions=canonicalSlot?.metricDefinitions||rawMetricDefinitions(ex.libraryId)||null;
       const metricOrigin=canonicalSlot?.metricOrigin||(rawExercise(ex.libraryId)?"source_catalog":"user_defined");
-      const sourceExercise=rawExercise(ex.libraryId);
-      const loadingModel=canonicalSlot?.loadingModel||{
-        bodyweightCoefficient:Number.isFinite(sourceExercise?.bodyweight)?sourceExercise.bodyweight:null,
-        assistanceDirection:"subtract"};
-      const semantics=new Set((metricDefinitions||[]).map(metric=>metric.semantic));
-      const loadingConvention=semantics.has("assistanceKg")?"assistance":
-        semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
-          metricDefinitions?.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
-      const loadingContext={bodyweightContributionEnabled:null,
-        externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1,
-        ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")
-          ?{bodyweightCoefficient:loadingModel.bodyweightCoefficient}:{})};
+      const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,rawExercise(ex.libraryId),canonicalSlot?.loadingModel);
       const programmedSets=cycle?cycle.sets.map((prescription,i)=>{
         const old=prev.find(row=>row.set===i+1),repTarget=prescription.targets?.reps??prescription.targets?.repsPerSide;
         return{suggestedLoad:null,suggestedReps:repTarget?.min??repTarget??null,targetRir:prescription.rir,
@@ -2884,8 +2906,11 @@ async function applyCustomSub(id,raw,libraryRef=null){
   const progName=prog.find(id)?.name;
   if(!activeWorkoutDraft)return false;
   const restore=!name||name===progName,type=restore?"restoreOriginalExercise":"substituteExercise";
-  const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString()}
-  const result=await WorkoutSession.dispatch(type,payload);if(result.status!=="applied")return false;
+  const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString();
+    const program=substitutionProgram(id,libraryRef);if(program)payload.replacementProgram=program}
+  const result=await WorkoutSession.dispatch(type,payload);
+  if(result.status==="domain-error"&&result.error?.code==="substitution-touched-pending-set")toast(t("toast.substitute_started_sets"));
+  if(result.status!=="applied")return false;
   renderWorkout();return true}
 function sessionExercise(ex){
   if(!ex||!substituted.has(ex.id))return ex;

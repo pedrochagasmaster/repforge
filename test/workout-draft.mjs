@@ -531,13 +531,13 @@ assert(effortRows[0].rir === 0, "effort mode compiles its locale-neutral value t
 
 console.log("\nDeterministic current-meaning History compilation");
 let historyDraft = fresh();
+historyDraft = apply(historyDraft, "substituteExercise", { exerciseInstanceId: "slot-squat", replacement, selectedAt: "2026-08-15T10:19:00.000Z" });
 historyDraft = apply(historyDraft, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "load", value: "55" });
 historyDraft = apply(historyDraft, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "reps", value: "10" });
 historyDraft = apply(historyDraft, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "rir", value: "2" });
 historyDraft = apply(historyDraft, "completeSet", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", completedAt: "2026-08-15T10:20:00.000Z" });
 historyDraft = apply(historyDraft, "markWarmup", { exerciseInstanceId: "slot-squat", setId: "squat-set-2" });
 historyDraft = apply(historyDraft, "repeatPreviousSetValues", { exerciseInstanceId: "slot-curl", values: [{ ordinal: 1, load: 35, reps: 12, rir: 2 }] });
-historyDraft = apply(historyDraft, "substituteExercise", { exerciseInstanceId: "slot-squat", replacement, selectedAt: "2026-08-15T10:21:00.000Z" });
 historyDraft = apply(historyDraft, "setExerciseNotes", { exerciseInstanceId: "slot-squat", value: "Rack 7, shoulder blades down." });
 historyDraft = apply(historyDraft, "setSessionNotes", { value: "  Plan 051 parity session  " });
 historyDraft = apply(historyDraft, "setBodyweight", { value: "82.5" });

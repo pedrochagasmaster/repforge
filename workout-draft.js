@@ -1303,17 +1303,49 @@
             exerciseInstanceId: command.replacement.exerciseInstanceId,
           });
         }
-        item.exercise.substitution = {
-          original: item.exercise.substitution?.original || snapshotFromExercise(item.exercise),
+        const exercise = item.exercise;
+        const substitution = {
+          original: exercise.substitution?.original || snapshotFromExercise(exercise),
           replacement: jsonClone(command.replacement),
           selectedAt: command.selectedAt,
         };
-        item.exercise.status = "active";
+        if (command.replacementProgram != null) {
+          const program = validateReplacementProgram(command.replacementProgram, command.replacement, exercise.setOrder.length);
+          if (!program.ok) return error("invalid-substitution-program", { issues: program.issues });
+          // Completed sets keep the composition they were performed under; only
+          // untouched pending sets take the replacement's prescriptions.
+          const pendingIds = exercise.setOrder.filter(setId => exercise.sets[setId].completion === "pending");
+          const touched = pendingIds.filter(setId => {
+            const set = exercise.sets[setId];
+            return set.touched.load || set.touched.reps || set.touched.effort ||
+              Object.values(set.touched.metrics || {}).some(Boolean);
+          });
+          if (touched.length) return error("substitution-touched-pending-set", { setIds: touched });
+          const originalPendingSets = exercise.substitution?.originalPendingSets ||
+            Object.fromEntries(pendingIds.map(setId => [setId, jsonClone(exercise.sets[setId])]));
+          for (const setId of pendingIds) {
+            const set = exercise.sets[setId];
+            const spec = program.value.programmedSets[set.ordinal - 1];
+            const metrics = editedMetricsFromPrevious(program.value, spec);
+            set.programmed = programmedSetFromReplacement(program.value, spec);
+            set.edited = { load: editableText(spec.suggestedLoad), reps: editableText(spec.suggestedReps),
+              rir: null, effort: null, metrics };
+            set.touched = { load: false, reps: false, effort: false,
+              metrics: Object.fromEntries(Object.keys(metrics).map(id => [id, false])) };
+          }
+          substitution.originalPendingSets = originalPendingSets;
+        }
+        exercise.substitution = substitution;
+        exercise.status = "active";
         break;
       }
       case "restoreOriginalExercise": {
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
+        const originals = item.exercise.substitution?.originalPendingSets;
+        for (const [setId, original] of Object.entries(originals || {})) {
+          if (item.exercise.sets[setId]?.completion === "pending") item.exercise.sets[setId] = jsonClone(original);
+        }
         item.exercise.substitution = null;
         break;
       }
@@ -1428,10 +1460,13 @@
       const exercise = draft.exercises[exerciseId];
       if (exercise.status === "skipped") continue;
       const original = snapshotFromExercise(exercise);
-      const performed = exercise.substitution?.replacement || original;
+      const current = exercise.substitution?.replacement || original;
       for (const setId of exercise.setOrder) {
         const set = exercise.sets[setId];
         if (!isCandidate(set)) continue;
+        // A set completed before a substitution keeps the movement it was performed as.
+        const performed = isPlainObject(set.performed) ? set.performed : current;
+        const programmed = { ...exercise.programmed, ...set.programmed };
         const values = numericSetValues(draft, set);
         const metricDefinitions = Array.isArray(set.programmed.metrics) ? set.programmed.metrics : null;
         const metricValues = metricDefinitions ? metricDefinitions.map(metric => ({
@@ -1470,19 +1505,19 @@
         if (metricDefinitions) {
           row.metricIds = metricDefinitions.map(metric => metric.id);
           row.metricDefinitions = jsonClone(metricDefinitions);
-          row.metricOrigin = exercise.programmed.metricOrigin;
-          row.sourceLibraryId = original.libraryId ?? null;
+          row.metricOrigin = programmed.metricOrigin;
+          row.sourceLibraryId = programmed.sourceLibraryId ?? original.libraryId ?? null;
           row.metricValues = metricValues;
-          row.equipmentId = exercise.programmed.equipmentId ?? null;
+          row.equipmentId = programmed.equipmentId ?? null;
           const metricSemantics = new Set(metricDefinitions.map(metric => metric.semantic));
-          const loadingConvention = exercise.programmed.loadingConvention ||
+          const loadingConvention = programmed.loadingConvention ||
             (metricSemantics.has("assistanceKg") ? "assistance"
               : metricSemantics.has("loadPerSideKg") || metricSemantics.has("persistentLoadPerSideKg") ? "per_side"
                 : metricDefinitions.length === 1 && (metricSemantics.has("reps") || metricSemantics.has("repsPerSide")) ? "bodyweight" : "external");
           row.loadingConvention = loadingConvention;
-          if (isPlainObject(exercise.programmed.loadingModel)) row.loadingModel = jsonClone(exercise.programmed.loadingModel);
-          const capturedLoadingContext = isPlainObject(exercise.programmed.loadingContext)
-            ? jsonClone(exercise.programmed.loadingContext) : {};
+          if (isPlainObject(programmed.loadingModel)) row.loadingModel = jsonClone(programmed.loadingModel);
+          const capturedLoadingContext = isPlainObject(programmed.loadingContext)
+            ? jsonClone(programmed.loadingContext) : {};
           capturedLoadingContext.loadingConvention = loadingConvention;
           capturedLoadingContext.bodyweightKg = draft.session.bodyweight == null || draft.session.bodyweight === ""
             ? null : Number(draft.session.bodyweight);
@@ -1492,8 +1527,8 @@
               : loadingConvention === "bodyweight" ? 0 : 1;
           }
           if (!hasOwn(capturedLoadingContext, "bodyweightCoefficient") &&
-            hasOwn(exercise.programmed.loadingModel || {}, "bodyweightCoefficient")) {
-            capturedLoadingContext.bodyweightCoefficient = exercise.programmed.loadingModel.bodyweightCoefficient;
+            hasOwn(programmed.loadingModel || {}, "bodyweightCoefficient")) {
+            capturedLoadingContext.bodyweightCoefficient = programmed.loadingModel.bodyweightCoefficient;
           }
           row.loadingContext = capturedLoadingContext;
           row.metricType = set.programmed.metricType;

@@ -1191,6 +1191,7 @@
   "draft.recovery.copied": "Copied",
   "draft.recovery.copy_failed": "Could not copy. Keep this tab open and try again.",
   "toast.rir_locked_draft": "Finish or discard this workout before changing effort mode.",
+  "toast.substitute_started_sets": "Clear the values you've entered for this exercise's remaining sets, then swap it.",
   "toast.set_count_locked_draft": "Finish or discard this workout before reducing sets you've started.",
   "toast.chart_missing_lift": "Log this lift to chart it.",
   "toast.all_sets_saved": "All sets already saved for this exercise.",
