@@ -213,12 +213,137 @@
     };
   }
 
+  // ---- Block-end Review changes -------------------------------------------
+  // Each change derives a complete successor ProgramDefinition from the stored
+  // one. Regeneration needs the generator request a Build program never had;
+  // those programs go to guided editing instead.
+  const CHANGE_KINDS = Object.freeze(["fewer_days", "shorter_sessions", "reduce_volume", "recovery_week"]);
+  const PROTECTED_ROLE = /PrimaryCompound$|SecondaryCompound$/;
+
+  function unavailable(code, extra = {}) {
+    return { ok: false, status: "unavailable", code, ...extra };
+  }
+
+  function validChange(change) {
+    if (!plainRecord(change) || !CHANGE_KINDS.includes(change.kind)) return false;
+    if (change.kind === "fewer_days") return ownKeysAre(change, ["kind", "daysPerWeek"]) && Number.isSafeInteger(change.daysPerWeek);
+    if (change.kind === "shorter_sessions") return ownKeysAre(change, ["kind", "sessionMinutes"]) && Number.isSafeInteger(change.sessionMinutes);
+    return ownKeysAre(change, ["kind"]);
+  }
+
+  function regenerate(definition, overrides, catalog, compiler) {
+    if (definition.provenance?.source === "manual" || !plainRecord(definition.request) || !definition.request.goal) {
+      return unavailable("manual_program");
+    }
+    const current = new Set(definition.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId)));
+    const preferred = [...new Set([...(definition.request.preferredExerciseIds || []), ...current])].sort();
+    const request = { ...copyJson(definition.request, "request"), ...overrides, preferredExerciseIds: preferred };
+    delete request.seed;
+    const generated = compiler.generateProgram(request, catalog, definition.seed);
+    if (!generated.ok) return unavailable("generation_conflict", { conflicts: generated.conflicts || [] });
+    return { ok: true, value: generated.value };
+  }
+
+  function reduceVolume(definition) {
+    let changed = false;
+    const next = copyJson(definition, "programDefinition");
+    for (const day of next.days) for (const slot of day.slots) {
+      if (PROTECTED_ROLE.test(slot.role)) continue;
+      for (const cycle of slot.prescriptionsByCycle) {
+        if (cycle.sets.length > 1) { cycle.sets.pop(); changed = true; }
+      }
+    }
+    return changed ? { ok: true, value: next } : unavailable("volume_floor");
+  }
+
+  function insertRecoveryWeek(definition) {
+    if (definition.cycles >= 12) return unavailable("cycles_limit");
+    const next = copyJson(definition, "programDefinition");
+    next.cycles = definition.cycles + 1;
+    next.deloadCycles = [1, ...definition.deloadCycles.map((cycle) => cycle + 1)];
+    if (plainRecord(next.request) && next.request.goal) {
+      next.request.cycles = next.cycles;
+      next.request.deloadCycles = [...next.deloadCycles];
+    }
+    for (const day of next.days) for (const slot of day.slots) {
+      const first = slot.prescriptionsByCycle[0];
+      const deload = {
+        cycleIndex: 1,
+        sets: first.sets.slice(0, Math.ceil(first.sets.length / 2)).map((set) => ({
+          ...set,
+          id: `${set.id}~recovery`,
+          cycleIndex: 1,
+          rir: set.rir == null ? null : Math.min(4, set.rir + 2),
+          provenance: { ...set.provenance, deload: true },
+        })),
+      };
+      const shifted = slot.prescriptionsByCycle.map((cycle) => ({
+        cycleIndex: cycle.cycleIndex + 1,
+        sets: cycle.sets.map((set) => ({ ...set, cycleIndex: cycle.cycleIndex + 1 })),
+      }));
+      slot.prescriptionsByCycle = [deload, ...shifted];
+    }
+    return { ok: true, value: next };
+  }
+
+  function deriveSuccessor(input) {
+    let copied;
+    try { copied = copyJson(input, "input"); } catch { return resultInvalid("derive_input_invalid"); }
+    if (!plainRecord(copied) || !validChange(copied.change)) return unavailable("unsupported_change");
+    const catalog = catalogFrom(copied.catalogSnapshot);
+    const custom = copied.customExerciseDefinitions;
+    const current = validateProgramDefinition(copied.programDefinition, custom, catalog);
+    if (!current.ok) return resultInvalid(current.code);
+    const definition = current.value;
+    const compiler = compilerApi();
+    const { change } = copied;
+    let derived;
+    if (change.kind === "fewer_days") {
+      if (change.daysPerWeek < 2 || change.daysPerWeek > 6) return unavailable("days_unsupported");
+      const trainingDays = definition.days.filter((day) => day.kind === "training").length;
+      if (change.daysPerWeek >= trainingDays) return unavailable("not_fewer_days");
+      derived = regenerate(definition, { daysPerWeek: change.daysPerWeek, split: "auto" }, catalog, compiler);
+    } else if (change.kind === "shorter_sessions") {
+      if (change.sessionMinutes < 15 || change.sessionMinutes > 240) return unavailable("minutes_unsupported");
+      const ceilings = compiler.TIME_CEILINGS;
+      const ceiling = [...ceilings].reverse().find((value) => value <= change.sessionMinutes) ?? ceilings[0];
+      if (definition.request?.goal && ceiling >= definition.request.timeCeilingMinutes) return unavailable("not_shorter_sessions");
+      derived = regenerate(definition, { timeCeilingMinutes: ceiling }, catalog, compiler);
+    } else if (change.kind === "reduce_volume") {
+      derived = reduceVolume(definition);
+    } else {
+      derived = insertRecoveryWeek(definition);
+    }
+    if (!derived.ok) return derived;
+    const checked = validateProgramDefinition(derived.value, custom, catalog);
+    if (!checked.ok) return resultInvalid("derived_definition_invalid");
+    return { ok: true, value: { programDefinition: checked.value, customExerciseDefinitions: custom, change } };
+  }
+
+  async function derivationMatches(change, predecessor, successor, catalog) {
+    const derived = deriveSuccessor({
+      change,
+      programDefinition: predecessor.programDefinition,
+      customExerciseDefinitions: predecessor.customExerciseDefinitions,
+      catalogSnapshot: catalog,
+    });
+    if (!derived.ok) return false;
+    return await fingerprintProgramDefinition(derived.value.programDefinition, derived.value.customExerciseDefinitions) ===
+      await fingerprintProgramDefinition(successor.programDefinition, successor.customExerciseDefinitions);
+  }
+
   async function createReplacementProposal(input) {
     try {
       const copied = copyJson(input, "input");
       const catalog = catalogFrom(copied.catalogSnapshot);
+      const change = copied.change;
+      delete copied.change;
+      if (change !== undefined && !validChange(change)) return resultInvalid("unsupported_change");
       const normalized = canonicalInput(copied, catalog);
       if (!normalized.ok) return resultInvalid(normalized.code || "replacement_input_invalid");
+      if (change !== undefined && !await derivationMatches(change, normalized.value.predecessor, normalized.value.successor, catalog)) {
+        return resultInvalid("successor_derivation_mismatch");
+      }
       const proposal = {
         schemaVersion: SCHEMA_VERSION,
         kind: KIND,
@@ -243,6 +368,7 @@
           customExerciseDefinitions: normalized.value.successor.customExerciseDefinitions,
         },
       };
+      if (change !== undefined) proposal.change = change;
       proposal.proposalHash = await hashProposal(proposal);
       deepFreeze(proposal);
       replacementCapabilities.add(proposal);
@@ -253,7 +379,8 @@
   }
 
   function proposalShape(proposal) {
-    const top = ["schemaVersion", "kind", "status", "transitionId", "createdAt", "predecessor", "successor", "proposalHash"];
+    const top = ["schemaVersion", "kind", "status", "transitionId", "createdAt", "predecessor", "successor", "proposalHash",
+      ...(Object.hasOwn(proposal || {}, "change") ? ["change"] : [])];
     const predecessor = ["programId", "durableRevision", "definitionFingerprint"];
     const successor = ["programId", "definitionFingerprint", "programDefinition", "customExerciseDefinitions"];
     return ownKeysAre(proposal, top) && ownKeysAre(proposal.predecessor, predecessor) &&
@@ -264,7 +391,7 @@
       validIdentity(proposal.predecessor.definitionFingerprint) && validIdentity(proposal.successor.programId) &&
       proposal.successor.programId !== proposal.predecessor.programId &&
       validIdentity(proposal.successor.definitionFingerprint) && typeof proposal.proposalHash === "string" &&
-      /^[0-9a-f]{64}$/.test(proposal.proposalHash);
+      /^[0-9a-f]{64}$/.test(proposal.proposalHash) && (!Object.hasOwn(proposal, "change") || validChange(proposal.change));
   }
 
   async function validateProposal(proposal, current) {
@@ -310,6 +437,9 @@
     if (safeCurrent.predecessor.durableRevision !== safeProposal.predecessor.durableRevision) return resultStale("predecessor_revision_changed");
     if (predecessorFingerprint !== safeProposal.predecessor.definitionFingerprint) return resultStale("predecessor_definition_changed");
     if (successorFingerprint !== safeProposal.successor.definitionFingerprint) return resultInvalid("successor_definition_mismatch");
+    if (Object.hasOwn(safeProposal, "change") && !await derivationMatches(safeProposal.change,
+      { programDefinition: currentDefinition.value, customExerciseDefinitions: safeCurrent.predecessor.customExerciseDefinitions },
+      safeProposal.successor, catalog)) return resultInvalid("successor_derivation_mismatch");
     deepFreeze(safeProposal);
     replacementCapabilities.add(safeProposal);
     return { ok: true, status: "preview", proposal: safeProposal };
@@ -364,6 +494,8 @@
     canonicalProposalJson: (proposal) => canonicalJson(proposalPreimage(proposal)),
     hashProposal,
     fingerprintProgramDefinition,
+    CHANGE_KINDS,
+    deriveSuccessor,
     createReplacementProposal,
     validateProposal,
     commitRecord,

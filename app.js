@@ -1795,6 +1795,11 @@ function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=cust
   const definition={schemaVersion:1,generatorVersion:"manual@1",seed:"manual",request:{},days,
     cycles:7,deloadCycles:[],provenance:{source:"manual",policyVersion:"manual@1"}};
   return canonicalProgramDefinition(definition,customDefinitions)}
+/* Durable program rows are stored exactly as an accepted snapshot normalizes
+   them, so the lock-held program fingerprint of the stored head matches the
+   in-memory state for the rest of the session. */
+function durableProgramRows(definition,customDefinitions,meta){
+  return makeProgram(flatProgramFromDefinition(definition,customDefinitions,1),null,meta).toJSON()}
 function flatProgramFromDefinition(definition,customDefinitions=customExercises(),cycleNumber=1){
   if(!definition||!Array.isArray(definition.days))return[];
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
@@ -3114,7 +3119,8 @@ function canonicalizeLinkedMuscleRows(list,customList){
   return list.map(row=>{
     if(!isPlainStateObject(row)||row.libraryId==null)return row;
     const entry=lookup(row.libraryId);
-    return entry?{...row,primary:entry.primary||"",secondary:entry.secondary||""}:row})}
+    return entry?{...row,primary:libraryMuscleAttribution(entry,"primary"),
+      secondary:libraryMuscleAttribution(entry,"secondary")}:row})}
 function canonicalizeProgramStructureMuscles(structure,program,customList=[]){
   if(!isPlainStateObject(structure))return structure;
   const bySlot=new Map();
@@ -3552,11 +3558,10 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   if(!Model){legacyReviewPanel(el);return}
   const meta=state.programMeta||{};
-  const recoveryEvidence=reviewRecoveryEvidence();
   const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
     {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
      mesocycleStatus:meta.mesocycleStatus,evidenceRecords:reviewObservedOutcomes(),
-     recoveryEligible:recoveryEvidence.qualifyingPatterns.length>=2},
+     recoveryEligible:true},
     state.log,today());
   const life=mesocycleLifecycle(meta);
   const weekLine=life.isComplete?t("meso.complete"):life.isFinalWeek&&life.current!=null?t("meso.week_ready",{n:life.current,total:life.total}):t("review.week_of",{n:life.current??"—",total:life.total});
@@ -3574,61 +3579,18 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
     ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
   if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  el.innerHTML=`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
     `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
     evidenceNote+readOnlyNote+actions;
-  bindReviewActions();bindRecoveryStatus()}
+  bindReviewActions()}
 // Observed outcomes are engine facts (paired-exposure comparison), never
 // representation-derived. Insufficient lifts never enter this list.
 function reviewObservedOutcomes(){
   return strengthEvidenceRecords("current-block")}
-function reviewRecoveryEvidence(){
-  const instance=recoveryCompilerInstance(state,typeof ProgramCompiler!=="undefined"?ProgramCompiler:null,
-    typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null);
-  const outcomesByPattern={},facts=strengthFactsByLift();
-  if(!instance)return{outcomesByPattern,qualifyingPatterns:[]};
-  const patternMap={squat:"knee-dominant",press:"horizontal press",incline_press:"horizontal press",hinge:"hip/hinge"};
-  const candidates=new Map();
-  for(const day of instance.days||[])for(const slot of day.slots||[]){
-    const pattern=patternMap[slot.contract?.patterns?.[0]];
-    const row=(state.program||[]).find(item=>(item.slotId||item.id)===slot.slotId);
-    const outcome=row?facts[exerciseLiftKey(row)]:null;
-    if(!pattern||!outcome)continue;
-    if(!candidates.has(pattern))candidates.set(pattern,[]);
-    candidates.get(pattern).push(outcome)}
-  for(const pattern of ["knee-dominant","horizontal press","hip/hinge"]){
-    const observed=candidates.get(pattern)||[];
-    outcomesByPattern[pattern]=observed.find(outcome=>outcome==="maintained"||outcome==="declined")||observed[0]||"insufficient"}
-  const qualifyingPatterns=Object.entries(outcomesByPattern)
-    .filter(([,outcome])=>outcome==="maintained"||outcome==="declined").map(([pattern])=>pattern);
-  return{outcomesByPattern,qualifyingPatterns}}
-function activeReviewRecovery(){
-  const blockId=snapshotBlockId(state);
-  if(!activeRecoveryRecord||activeRecoveryRecordBlockId!==blockId)return null;
-  return activeRecoveryRecord.diff?.recoveryWeek?.blockId===blockId?activeRecoveryRecord:null}
-function reviewRecoveryStatusHtml(){
-  const record=activeReviewRecovery();if(!record)return"";
-  const overlay=record.diff.recoveryWeek,week=mesocycleLifecycle(state.programMeta).elapsedWeek;
-  if(week===1)return`<section class="review__recovery" role="status"><p class="section-label">${esc(t("review.recovery.week1_title"))}</p><p>${esc(t("review.recovery.week1_body"))}</p></section>`;
-  const outcome=overlay.reassessmentOutcome;
-  if(outcome!==null)return`<section class="review__recovery" role="status"><p class="section-label">${esc(t("review.recovery.result_title"))}</p><p>${esc(t("review.recovery.result",{outcome:t(`review.recovery.outcome.${outcome}`)}))}</p></section>`;
-  if(Number.isInteger(week)&&week>=2)return`<section class="review__recovery"><p class="section-label">${esc(t("review.recovery.reassess_title"))}</p>`+
-    `<p>${esc(t("review.recovery.reassess_question"))}</p><div class="review__actions" role="group" aria-label="${esc(t("review.recovery.reassess_title"))}">`+
-    ["Better","About the same","Worse"].map(outcome=>`<button type="button" class="btn btn--steel" data-recovery-outcome="${esc(outcome)}">${esc(t(`review.recovery.outcome.${outcome}`))}</button>`).join("")+`</div></section>`;
-  return""}
-function bindRecoveryStatus(){
-  $$('[data-recovery-outcome]').forEach(button=>button.onclick=async()=>{
-    const record=activeReviewRecovery();if(!record)return;
-    button.disabled=true;
-    const result=await repforgeProgramTransitionAdapter.reassessRecovery({
-      expectedRevision:readRevision(state),blockId:snapshotBlockId(state),transitionId:record.transitionId,
-      proposalHash:record.proposalHash,acknowledgedRecord:cloneSnapshot(record),outcome:button.dataset.recoveryOutcome});
-    if(result?.committed){toast(t("review.recovery.reassessed"));render()}
-    else{toast(t(result?.code==="recovery_reassessment_closed"?"review.recovery.closed":"review.error.failed"),{assertive:true});renderReview()}})}
 // Structural actions appear only at a completed boundary (Plan 056/P5). Each
 // kind renders only when its production flow is wired in this packet; the
 // eligibility contract itself lives in progress-model.js.
@@ -3686,14 +3648,13 @@ function renderReviewFlow(el){
     const confirm=$("[data-volume-confirm]",el);if(confirm)confirm.onclick=proposeVolumeReductionFlow;
     bindFlowCancel(el);return}
   if(flow.stage==="recovery-question"){
-    const evidence=reviewRecoveryEvidence(),eligible=evidence.qualifyingPatterns.length>=2;
     el.innerHTML=`<p class="section-label">${esc(t("review.recovery.title"))}</p>`+
       `<p>${esc(t("review.recovery.question"))}</p>`+
       `<div class="review__actions" role="group" aria-label="${esc(t("review.recovery.question"))}">`+
       ["Yes","No","Not sure"].map(answer=>`<button type="button" class="btn btn--steel" data-recovery-answer="${esc(answer)}">${esc(t(`review.recovery.answer.${answer}`))}</button>`).join("")+`</div>`+
       (flow.message?`<p class="review__readonly" role="status">${esc(t(flow.message))}</p>`:"")+
       `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer,eligible,evidence));
+    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer));
     bindFlowCancel(el);return}
   if(flow.stage==="staged"){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
@@ -3739,108 +3700,85 @@ async function continueScheduleDiagnosis(){
   const valid=flow.kind==="fewer_days"?Number.isInteger(n)&&n>=1&&n<=7:Number.isInteger(n)&&n>=15&&n<=240;
   if(!valid){flow.error=flow.kind==="fewer_days"?"review.diagnosis.days_invalid":"review.diagnosis.minutes_invalid";renderReview();return}
   const answers=flow.kind==="fewer_days"?{availableDays:n}:{sessionMinutes:n};
-  const diagnosis={kind:flow.kind,answers,eligibleEvidenceIds:["explicit_schedule_repair"],insufficientEvidenceReasons:[]};
-  if(flow.action==="guided-edit")return stageGuidedRepairFlow(diagnosis,null);
-  const res=await repforgeProgramTransitionAdapter.proposeSibling({diagnosis,transitionId:uid(),successorProgramId:uid()});
+  const diagnosis={kind:flow.kind,answers};
+  if(flow.action==="guided-edit")return stageGuidedRepairFlow(diagnosis);
+  const change=flow.kind==="fewer_days"?{kind:"fewer_days",daysPerWeek:n}:{kind:"shorter_sessions",sessionMinutes:n};
+  const res=await repforgeProgramTransitionAdapter.proposeChange({change});
+  // A change the generator cannot make (a Build program, or a request with
+  // no eligible fit) becomes guided editing of the live program.
   if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal};renderReview()}
-  else await stageGuidedRepairFlow(diagnosis,res)}
-async function stageGuidedRepairFlow(diagnosis,unavailable){
-  const staged=await window.__repforgeStageGuidedManualRepair(unavailable
-    ?{diagnosis,unavailable,openEditor:false}:{diagnosis,openEditor:false});
+  else await stageGuidedRepairFlow(diagnosis)}
+async function stageGuidedRepairFlow(diagnosis){
+  const staged=await window.__repforgeStageGuidedManualRepair({diagnosis,openEditor:false});
   if(staged?.ok){reviewFlow={stage:"staged"};renderReview()}
   else{reviewFlow={stage:"error",action:"guided-edit",code:staged?.code||"guided_staging_failed"};renderReview()}}
 async function proposeVolumeReductionFlow(){
-  const result=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
-    diagnosis:{kind:"reduce_training_volume",answers:{confirmed:true},
-      eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]},
-    transitionId:uid(),successorProgramId:uid()});
+  const result=await repforgeProgramTransitionAdapter.proposeChange({change:{kind:"reduce_volume"}});
   reviewFlow=result?.ok?{stage:"preview",action:"reduce-volume",proposal:result.proposal}
     :{stage:"error",action:"reduce-volume",code:result?.code||"volume_reduction_unavailable"};
   renderReview()}
-async function answerRecoveryQuestion(answer,eligible,evidence){
+/* A recovery week is the lifter's call: a Yes schedules it, nothing infers it. */
+async function answerRecoveryQuestion(answer){
   if(answer!=="Yes"){
     reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
       message:answer==="No"?"review.recovery.answer_no":"review.recovery.answer_unsure"};renderReview();return}
-  if(!eligible){reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
-    message:"review.recovery.insufficient"};renderReview();return}
-  const result=await repforgeProgramTransitionAdapter.proposeRecoveryWeek({
-    evidence:{outcomesByPattern:evidence.outcomesByPattern,checkpointAnswer:"Yes"},transitionId:uid()});
+  const result=await repforgeProgramTransitionAdapter.proposeChange({change:{kind:"recovery_week"}});
   reviewFlow=result?.ok?{stage:"preview",action:"recovery-week",proposal:result.proposal}
-    :{stage:"error",action:"recovery-week",code:result?.code||"recovery_ineligible"};
+    :{stage:"error",action:"recovery-week",code:result?.code||"recovery_unavailable"};
   renderReview()}
-function reviewDiffMovement(entry){
-  const slotId=entry?.successorSlot||entry?.predecessorSlot;
-  const live=(state.program||[]).find(row=>(row.slotId||row.id)===slotId);
-  return reviewMovementLabel(entry?.movement||live?.libraryId||live?.movementId)||live?.name||slotId||"—"}
-function reviewPrescriptionText(snapshot){
-  if(!snapshot)return"—";
-  const reps=(snapshot.reps||[]).join("–"),rir=(snapshot.rir||[]).join("–");
-  return t("review.preview.prescription",{sets:snapshot.sets,reps,rir,rest:snapshot.restSeconds,
-    strategy:snapshot.strategy,kind:snapshot.prescriptionClass})}
+function definitionMovementLabel(slot){
+  const entry=slot?.exerciseId?libraryEntry(slot.exerciseId):null;
+  return slot?.displayName||libraryName(entry)||slot?.exerciseId||"—"}
+/* What the lifter sees before confirming: the first cycle of each program,
+   compared slot by slot, then movement by movement. */
+function definitionPreviewLines(before,after){
+  const training=definition=>(definition?.days||[]).filter(day=>day.kind==="training");
+  const setsOf=slot=>slot.prescriptionsByCycle?.[0]?.sets.length??0;
+  const lines=[],beforeDays=training(before),afterDays=training(after);
+  for(let index=0;index<Math.max(beforeDays.length,afterDays.length);index++){
+    const was=beforeDays[index],now=afterDays[index];
+    if(was&&now&&was.name===now.name&&was.slots.length===now.slots.length)continue;
+    lines.push(t("review.preview.day_change",{before:was?`${was.name} · ${was.slots.length}`:"—",after:now?`${now.name} · ${now.slots.length}`:"—"}))}
+  const slots=definition=>training(definition).flatMap(day=>day.slots);
+  const remaining=slots(after).slice();
+  for(const slot of slots(before)){
+    const index=remaining.findIndex(candidate=>candidate.id===slot.id||candidate.exerciseId===slot.exerciseId);
+    if(index<0){lines.push(t("review.preview.exercise_removed",{movement:definitionMovementLabel(slot),sets:setsOf(slot)}));continue}
+    const [match]=remaining.splice(index,1);
+    if(setsOf(match)!==setsOf(slot))lines.push(t("review.preview.sets_change",{movement:definitionMovementLabel(slot),before:setsOf(slot),after:setsOf(match)}))}
+  for(const slot of remaining)lines.push(t("review.preview.exercise_added",{movement:definitionMovementLabel(slot),sets:setsOf(slot)}));
+  return lines}
 function renderSiblingPreview(el,flow){
-  const p=flow.proposal||{},diff=p.diff||{};
-  if(p.kind==="recovery_week")return renderRecoveryPreview(el,flow);
-  const beforeDays=[...new Set(state.program.map(r=>r.day))].length;
-  const afterDays=(diff.days||[]).filter(d=>d.after).length;
-  const beforeMinutes=Number(state.programMeta?.compilerContext?.sessionMinutes)||0;
-  const afterMinutes=p.kind==="shorter_session_sibling"?Number(p.diagnosis?.answers?.sessionMinutes)||0:beforeMinutes;
-  const added=(diff.exercises||[]).filter(e=>!e.before&&e.after);
-  const removed=(diff.exercises||[]).filter(e=>e.before&&!e.after);
-  const changed=(diff.prescriptions||[]).filter(x=>x.reason==="prescription changed");
-  const lines=[];
-  for(const x of diff.days||[]){
-    if(x.before&&x.after&&x.before.label===x.after.label&&x.before.index===x.after.index&&x.before.slots===x.after.slots)continue;
-    lines.push(`<li>${esc(t("review.preview.day_change",{before:x.before?`${x.before.label} · ${x.before.slots}`:"—",
-      after:x.after?`${x.after.label} · ${x.after.slots}`:"—"}))}</li>`)}
-  for(const x of changed)lines.push(`<li>${esc(t("review.preview.prescription_change",{movement:reviewDiffMovement(x),
-    before:reviewPrescriptionText(x.before),after:reviewPrescriptionText(x.after)}))}</li>`);
-  for(const x of added)lines.push(`<li>${esc(t("review.preview.exercise_added",{movement:reviewDiffMovement(x),sets:x.after.sets}))}</li>`);
-  for(const x of removed)lines.push(`<li>${esc(t("review.preview.exercise_removed",{movement:reviewDiffMovement(x),sets:x.before.sets}))}</li>`);
-  el.innerHTML=`<p class="section-label">${esc(t("review.preview.title"))}</p>`+
-    `<p><b>${esc(t("review.preview.frequency",{before:beforeDays,after:afterDays}))}</b></p>`+
-    (beforeMinutes&&afterMinutes?`<p><b>${esc(t("review.preview.duration",{before:beforeMinutes,after:afterMinutes}))}</b></p>`:"")+
-    `<p class="lede">${esc(t("review.preview.provenance"))}</p>`+
-    (lines.length?`<ul class="review__diff">${lines.join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`)+
+  const p=flow.proposal||{},change=p.change||{};
+  const before=state.programMeta?.programDefinition,after=p.successor?.programDefinition;
+  const trainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
+  const recovery=change.kind==="recovery_week";
+  const lines=recovery?[]:definitionPreviewLines(before,after);
+  const summary=recovery
+    ?`<p>${esc(t("review.recovery.preview_body"))}</p><p><b>${esc(t("review.recovery.preview_weeks",{before:before?.cycles,after:after?.cycles}))}</b></p>`
+    :(change.kind==="fewer_days"?`<p><b>${esc(t("review.preview.frequency",{before:trainingDays(before),after:trainingDays(after)}))}</b></p>`:"")+
+      (change.kind==="shorter_sessions"?`<p><b>${esc(t("review.preview.duration",{before:before?.request?.timeCeilingMinutes,after:after?.request?.timeCeilingMinutes}))}</b></p>`:"")+
+      (change.kind==="fewer_days"||change.kind==="shorter_sessions"?`<p class="lede">${esc(t("review.preview.provenance"))}</p>`:"")+
+      (lines.length?`<ul class="review__diff">${lines.map(line=>`<li>${esc(line)}</li>`).join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`);
+  el.innerHTML=`<p class="section-label">${esc(t(recovery?"review.recovery.preview_title":"review.preview.title"))}</p>`+summary+
     `<p class="lede"><code class="review__hash">${esc(String(p.proposalHash||""))}</code></p>`+
     `<p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
-    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.preview.confirm"))}</button>`+
+    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t(recovery?"review.recovery.confirm":"review.preview.confirm"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);
   if(confirm)confirm.onclick=async()=>{
     confirm.disabled=true;
-    const confirmedAt=new Date().toISOString();
     const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
       proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
-      successorProgramId:p.successor?.programId,confirmedAt,
+      successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
       acknowledgedDraftRaw:readDraftRaw()});
     if(persisted?.committed){
-      reviewFlow={stage:"done",doneKey:p.kind==="reduce_training_volume"?"review.volume.committed":"review.done.committed"};
-      day=days()[0]||"Day 1";toast(t(reviewFlow.doneKey));render();
+      const doneKey=recovery?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
+      reviewFlow={stage:"done",doneKey};
+      day=days()[0]||"Day 1";toast(t(doneKey));render();
     }else{
-      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.staleRevision};
+      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
       render()}}
-  bindFlowCancel(el)}
-function renderRecoveryPreview(el,flow){
-  const p=flow.proposal,overlay=p.diff.recoveryWeek;
-  const evidence=overlay.eligibilityEvidence;
-  const entries=overlay.entries.map(entry=>`<li>${esc(reviewDiffMovement({movement:entry.movement,predecessorSlot:entry.slot}))}: `+
-    `${esc(t("review.recovery.set_change",{before:entry.baseWorkingSets,after:entry.effectiveWorkingSets}))} · `+
-    `${esc(t(`review.recovery.reason.${entry.reason}`))}</li>`).join("");
-  const evidenceRows=evidence.qualifyingPatterns.map(pattern=>
-    `<li>${esc(t(`review.recovery.pattern.${pattern}`))}: ${esc(t(EVIDENCE_OUTCOME_KEYS[evidence.outcomesByPattern[pattern]]))}</li>`).join("");
-  el.innerHTML=`<p class="section-label">${esc(t("review.recovery.preview_title"))}</p>`+
-    `<p><b>${esc(t("review.recovery.policy",{version:overlay.policyVersion}))}</b></p>`+
-    `<p>${esc(t("review.recovery.week2"))}</p><ul class="review__diff">${evidenceRows}${entries}</ul>`+
-    `<p class="lede"><code class="review__hash">${esc(p.proposalHash)}</code></p><p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
-    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.recovery.confirm"))}</button>`+
-    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
-  const confirm=$("[data-preview-confirm]",el);if(confirm)confirm.onclick=async()=>{
-    confirm.disabled=true;
-    const confirmedAt=new Date().toISOString(),due=new Date(Date.parse(confirmedAt)+7*86400000).toISOString();
-    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({proposal:p,proposalHash:p.proposalHash,
-      transitionId:p.transitionId,confirmedAt,reassessmentDueAt:due,acknowledgedDraftRaw:readDraftRaw()});
-    if(persisted?.committed){reviewFlow={stage:"done",doneKey:"review.recovery.committed"};toast(t(reviewFlow.doneKey));render()}
-    else{reviewFlow={stage:"error",action:"recovery-week",code:persisted?.code,stale:!!persisted?.stale||!!persisted?.staleRevision};render()}};
   bindFlowCancel(el)}
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
@@ -5256,19 +5194,7 @@ function scheduledProgramRows(){
     const projected=flatProgramFromDefinition(state.programMeta.programDefinition,
       Array.isArray(state.customExercises)?state.customExercises:[],week);
     if(projected)return projected}
-  let rows=state.program;
-  if(week!=null&&typeof ProgramCompiler?.projectProgramForWeek==="function")
-    rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,week);
-  if(activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)&&week!=null){
-    const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
-    const projected=Transition?.projectRecoveryProgram?.(state.program,activeRecoveryRecord,{
-      blockId:activeRecoveryRecordBlockId,
-      elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
-      baseProgramFingerprint:activeRecoveryRecord.diff.recoveryWeek.baseProgramFingerprint,
-    });
-    if(projected?.ok&&projected.active)rows=projected.rows;
-  }
-  return rows}
+  return state.program}
 function exercises(d=day){return scheduledProgramRows().filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function exerciseNameTokens(ex){
   const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
@@ -5573,7 +5499,6 @@ window.__repforgeProgressEvidence={
   chartPresentation:n=>n>=3?"trend":n===2?"comparison":"snapshot",
   keyForExerciseId:exId=>{const ex=prog.find(exId);return ex?exerciseLiftKey(ex):null}};
 window.__repforgeProgressReview={
-  activeRecovery:()=>activeReviewRecovery(),
   scheduledProgram:()=>scheduledProgramRows(),
 };
 
@@ -9363,300 +9288,59 @@ function classifyCommittedTransition(snapshot, proposal, archiveId) {
 
   return "conflict";
 }
-function classifyCommittedRecovery(snapshot, proposal){
-  const target=proposal?.diff?.recoveryWeek?.blockId;
-  const transitionId=proposal?.transitionId,proposalHash=proposal?.proposalHash;
-  if(typeof target!=="string"||!target||typeof transitionId!=="string"||!transitionId||
-    typeof proposalHash!=="string"||!proposalHash)return "conflict";
-  const records=recoveryCarrierRecords(snapshot);
-  const matches=records.filter(record=>record.transitionId===transitionId&&
-    record.proposalHash===proposalHash&&record.diff?.recoveryWeek?.blockId===target);
-  if(snapshot?.programMeta?.blockId===target&&matches.length===1)return "match";
-  if(snapshot?.programMeta?.blockId===proposal?.predecessor?.blockId&&
-    !records.some(record=>record.transitionId===transitionId||record.diff?.recoveryWeek?.blockId===target))return "absent";
-  return records.some(record=>record.diff?.recoveryWeek?.blockId===target||record.transitionId===transitionId)
-    ? "conflict" : "absent";
-}
-async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
-  const invalid=(code,extra={})=>({ok:false,committed:false,invalid:true,code,...extra,
-    localOk:false,idbOk:false,revision:readRevision(state)});
-  const proposal=params?.proposal;
-  if(!isPlainStateObject(proposal)||proposal.kind!=="recovery_week")return invalid("unsupported_transition_kind");
-  if(proposal.status!=="preview")return invalid("proposal_not_preview");
-  if(typeof proposal.proposalHash!=="string"||!proposal.proposalHash)return invalid("proposal_hash_absent");
-  if(params.proposalHash!==proposal.proposalHash)return invalid("proposal_hash_mismatch");
-  if(params.transitionId!==proposal.transitionId)return invalid("transition_id_mismatch");
-  if(typeof params.confirmedAt!=="string"||!params.confirmedAt)return invalid("confirmed_at_missing");
-  if(typeof params.reassessmentDueAt!=="string"||!params.reassessmentDueAt)return invalid("reassessment_due_missing");
-  if(!Object.prototype.hasOwnProperty.call(params,"acknowledgedDraftRaw")||
-    !(params.acknowledgedDraftRaw===null||typeof params.acknowledgedDraftRaw==="string"))return invalid("acknowledged_draft_missing");
-  const predecessor=proposal.predecessor,target=proposal.diff?.recoveryWeek?.blockId;
-  if(!isPlainStateObject(predecessor)||!isValidBlockId(predecessor.blockId,predecessor.programId))return invalid("legacy_block_ineligible");
-  if(typeof target!=="string"||!target||target===predecessor.blockId)return invalid("recovery_target_equals_source");
-  const preIdem=classifyCommittedRecovery(state,proposal);
-  if(preIdem==="match")return{ok:true,committed:true,alreadyCommitted:true,revision:readRevision(state),localOk:true,idbOk:true,kind:"committed"};
-  if(preIdem==="conflict")return invalid("conflicting_recovery_record");
-  if(params.acknowledgedDraftRaw!==readDraftRaw())return invalid("draft_mismatch",{draftConflict:true,conflict:true});
-  const guard=blockStartDraftGuard();
-  if(guard)return invalid(guard.code,{draftConflict:true,conflict:true});
-  const expectedSourceBlock=predecessor.blockId;
-  const initialInstance=recoveryCompilerInstance(state,Compiler,catalogue);
-  const initialRoute=state?.programMeta?.entrySource?.route;
-  if(!initialInstance||!initialRoute||!TRANSITION_SOURCE_ROUTES.includes(initialRoute)||
-    proposal.predecessor.source!==transitionContractSource(initialRoute))return invalid("transition_source_changed",{stale:true});
-  const initialValidation=await Transition.validateRecoveryProposal(proposal,{
-    predecessor:{programId:state.programMeta.id,durableRevision:predecessor.durableRevision,source:predecessor.source,blockId:expectedSourceBlock},
-    predecessorInstance:initialInstance,
-    approvedPolicy:Transition.approvedRecoveryPolicy(),
-    supportedVersions:Compiler.VERSIONS,
-    existingRecoveryRecords:recoveryCarrierRecords(state),
-  });
-  if(!initialValidation.ok)return invalid(initialValidation.code||"invalid_recovery_proposal",{
-    stale:initialValidation.status==="stale",invalid:initialValidation.status!=="stale"});
-  let initialCommitted;
-  try{initialCommitted=Transition.commitRecord(initialValidation.proposal,{confirmedAt:params.confirmedAt,reassessmentDueAt:params.reassessmentDueAt,archiveId:null})}
-  catch(error){return invalid("invalid_recovery_lifecycle",{error:String(error?.message||error)})}
-  const initialCarrier=isValidRecoveryTransitions(state.recoveryTransitions)
-    ?cloneSnapshot(state.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
-  const initialProposal=cloneSnapshot(state);
-  const blockStarted=params.confirmedAt.slice(0,10);
-  initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target,started:blockStarted,
-    mesocycleStatus:"active",updated:params.confirmedAt};
-  // Recovery starts a new overlay block. Its block-to-date aggregate must be
-  // rebuilt from the recovery prescription, never inherited from the source
-  // block's historical totals.
-  delete initialProposal.programMeta.plannedVolumeHistory;
-  initialProposal.recoveryTransitions={schemaVersion:1,records:[...initialCarrier.records,cloneSnapshot(initialCommitted)],quarantine:cloneSnapshot(initialCarrier.quarantine)};
-  const preflight=async({head})=>{
-    const lockedIdem=classifyCommittedRecovery(head,proposal);
-    if(lockedIdem==="match")return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
-    if(lockedIdem==="conflict")return{reject:true,result:invalid("conflicting_recovery_record")};
-    if(head?.programMeta?.id!==predecessor.programId||readRevision(head)!==predecessor.durableRevision||
-      snapshotBlockId(head)!==expectedSourceBlock)
-      return{reject:true,result:{ok:false,committed:false,stale:true,staleRevision:readRevision(head)!==predecessor.durableRevision,
-        code:readRevision(head)!==predecessor.durableRevision?"stale_proposal":"predecessor_changed",localOk:false,idbOk:false}};
-    const lockedGuard=blockStartDraftGuard(head);
-    if(lockedGuard)return{reject:true,result:{ok:false,committed:false,draftConflict:true,conflict:true,code:lockedGuard.code,localOk:false,idbOk:false}};
-    const instance=recoveryCompilerInstance(head,Compiler,catalogue);
-    if(!instance)return{reject:true,result:{ok:false,committed:false,invalid:true,code:"predecessor_reconstruction_failed",localOk:false,idbOk:false}};
-    const route=head.programMeta?.entrySource?.route;
-    if(!route||!TRANSITION_SOURCE_ROUTES.includes(route)||proposal.predecessor.source!==transitionContractSource(route))
-      return{reject:true,result:{ok:false,committed:false,stale:true,code:"transition_source_changed",localOk:false,idbOk:false}};
-    const validation=await Transition.validateRecoveryProposal(proposal,{
-      predecessor:{programId:head.programMeta.id,durableRevision:predecessor.durableRevision,source:predecessor.source,blockId:expectedSourceBlock},
-      predecessorInstance:instance,
-      approvedPolicy:Transition.approvedRecoveryPolicy(),
-      supportedVersions:Compiler.VERSIONS,
-      existingRecoveryRecords:recoveryCarrierRecords(head),
-    });
-    if(!validation.ok)return{reject:true,result:{ok:false,committed:false,stale:validation.status==="stale",invalid:validation.status!=="stale",code:validation.code||"invalid_recovery_proposal",localOk:false,idbOk:false}};
-    let committed;
-    try{committed=Transition.commitRecord(validation.proposal,{confirmedAt:params.confirmedAt,reassessmentDueAt:params.reassessmentDueAt,archiveId:null})}
-    catch(error){return{reject:true,result:{ok:false,committed:false,invalid:true,code:"invalid_recovery_lifecycle",error:String(error?.message||error),localOk:false,idbOk:false}}}
-    const existing=isValidRecoveryTransitions(head.recoveryTransitions)
-      ?cloneSnapshot(head.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
-    const next=cloneSnapshot(head);
-    next.programMeta={...cloneSnapshot(head.programMeta),blockId:target,started:blockStarted,
-      mesocycleStatus:"active",updated:params.confirmedAt};
-    delete next.programMeta.plannedVolumeHistory;
-    next.recoveryTransitions={schemaVersion:1,records:[...existing.records,cloneSnapshot(committed)],quarantine:cloneSnapshot(existing.quarantine)};
-    return{proposal:next};
-  };
-  const result=await commitProposedState(initialProposal,storageIO,{
-    expectedProgramId:predecessor.programId,
-    expectedProgramFingerprint:draftProgramFingerprint(state),
-    expectedBlockId:expectedSourceBlock,
-    expectedStorageRevision:predecessor.durableRevision,
-    recoveryTransaction:true,
-    preflight,
-  });
-  if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
-  return{ok:false,committed:false,...result};
-}
+function transitionDomain(){
+  return typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition
+    :(typeof window!=="undefined"?window.RepForgeProgramTransition:null)}
+function transitionPredecessor(snapshot){
+  const meta=snapshot?.programMeta;
+  if(!meta?.id||!meta.programDefinition)return null;
+  return{programId:meta.id,durableRevision:readRevision(snapshot),
+    programDefinition:cloneSnapshot(meta.programDefinition),
+    customExerciseDefinitions:cloneSnapshot(Array.isArray(snapshot.customExercises)?snapshot.customExercises:[])}}
+/* Sets a volume reduction removes from the current cycle, by slot. A draft
+   that already holds progress in one of those sets blocks the confirmation. */
+function reducedSetCounts(proposal,snapshot){
+  const cycle=mesocycleLifecycle(snapshot?.programMeta).current||1;
+  const counts=definition=>new Map((definition?.days||[]).flatMap(day=>day.slots).map(slot=>
+    [slot.id,slot.prescriptionsByCycle.find(item=>item.cycleIndex===cycle)?.sets.length??0]));
+  const before=counts(snapshot?.programMeta?.programDefinition),after=counts(proposal?.successor?.programDefinition);
+  return[...before].filter(([slotId,sets])=>(after.get(slotId)??0)<sets)
+    .map(([slotId,sets])=>({slotId,beforeSets:sets,afterSets:after.get(slotId)??0}))}
 const repforgeProgramTransitionAdapter = {
-  async proposeSibling(input = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    if (!Transition) {
-      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
-    }
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-
-    const liveMeta = state?.programMeta;
-    if (!liveMeta?.compilerContext) {
-      return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
-    }
-    // Durable source is required, never invented. A normalized entrySource always
-    // carries both a route and a fingerprint; anything outside the reconstructable
-    // set is typed Unavailable rather than defaulted to Recommend.
-    const entrySource = liveMeta.entrySource;
-    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
-        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
-      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
-    }
-    const predContext = liveMeta.compilerContext;
-    const source = transitionContractSource(entrySource.route);
-
-    const diagnosis = input.diagnosis;
-    const kind = (diagnosis?.kind === "sessions_too_long")
-      ? "shorter_session_sibling"
-      : "lower_frequency_sibling";
-
-    const targetConstraint = input.targetConstraint !== undefined
-      ? input.targetConstraint
-      : (kind === "lower_frequency_sibling" ? { frequency: diagnosis?.answers?.availableDays } : null);
-
-    const fullInput = {
-      kind,
-      targetConstraint,
-      diagnosis,
-      transitionId: input.transitionId,
-      successorProgramId: input.successorProgramId,
-      createdAt: input.createdAt || new Date().toISOString(),
-      catalogue,
-      Compiler,
-      compilerContext: predContext,
-      predecessor: {
-        programId: liveMeta.id,
-        durableRevision: readRevision(state),
-        source,
-        compilerProvenance: liveMeta.programStructure?.provenance,
-      },
-    };
-
-    return await Transition.proposeSibling(fullInput);
-  },
-
-  async proposeRecoveryWeek(input = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    if (!Transition || typeof Transition.proposeRecoveryWeek !== "function" ||
-        typeof Transition.approvedRecoveryPolicy !== "function") {
-      return { ok: false, status: "unavailable", code: "recovery_proposal_seam_missing", unavailable: true };
-    }
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-    const liveMeta = state?.programMeta;
-    const sourceBlockId = snapshotBlockId(state);
-    if (!isValidBlockId(sourceBlockId, liveMeta?.id)) {
-      return { ok: false, status: "unavailable", code: "legacy_block_ineligible", unavailable: true };
-    }
-    const compilerProvenance = classifyCompilerTransitionProvenance(liveMeta);
-    if (compilerProvenance !== "present") {
-      return { ok: false, status: "unavailable", code: compilerProvenance === "invalid"
-        ? "compiler_provenance_unavailable" : "compiler_provenance_absent", unavailable: true };
-    }
-    const entrySource = liveMeta.entrySource;
-    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
-        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
-      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
-    }
-    const predecessorInstance = recoveryCompilerInstance(state, Compiler, catalogue);
-    if (!predecessorInstance) {
-      return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
-    }
-    const evidence = isPlainStateObject(input.evidence) ? {
-      ...cloneSnapshot(input.evidence),
-      sourceBlockId,
-    } : { sourceBlockId };
-    return await Transition.proposeRecoveryWeek({
-      predecessorInstance,
-      predecessor: {
-        programId: liveMeta.id,
-        durableRevision: readRevision(state),
-        source: transitionContractSource(entrySource.route),
-        blockId: sourceBlockId,
-        compilerProvenance: liveMeta.programStructure?.provenance,
-      },
-      evidence,
-      approvedPolicy: input.approvedPolicy || Transition.approvedRecoveryPolicy(),
-      transitionId: input.transitionId || uid(),
-      blockId: allocateBlockId(),
-      createdAt: input.createdAt || new Date().toISOString(),
-      supportedVersions: Compiler.VERSIONS,
-      existingRecoveryRecords: recoveryCarrierRecords(state),
+  // Every Review change is a derived successor ProgramDefinition, previewed and
+  // confirmed by its proposal hash. The domain refuses a Build program's
+  // regeneration with "manual_program"; the flow then stages guided editing.
+  async proposeChange(input = {}) {
+    const Transition = transitionDomain();
+    if (!Transition?.deriveSuccessor) return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    const catalogSnapshot = rawExerciseCatalog;
+    if (!catalogSnapshot) return { ok: false, status: "unavailable", code: "catalog_unavailable", unavailable: true };
+    const predecessor = transitionPredecessor(state);
+    if (!predecessor) return { ok: false, status: "unavailable", code: "program_definition_unavailable", unavailable: true };
+    const derived = Transition.deriveSuccessor({
+      change: input.change, programDefinition: predecessor.programDefinition,
+      customExerciseDefinitions: predecessor.customExerciseDefinitions, catalogSnapshot,
     });
-  },
-
-  async proposeVolumeReduction(input = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    if (!Transition) {
-      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
-    }
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-
-    const liveMeta = state?.programMeta;
-    const compilerProvenance = classifyCompilerTransitionProvenance(liveMeta);
-    if (compilerProvenance !== "present") {
-      return { ok: false, status: "unavailable", code: compilerProvenance === "invalid"
-        ? "compiler_provenance_unavailable" : "compiler_provenance_absent", unavailable: true };
-    }
-    if (!liveMeta?.compilerContext) {
-      return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
-    }
-    const entrySource = liveMeta.entrySource;
-    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
-        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
-      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
-    }
-    const predecessorInstance = Compiler.compile(liveMeta.compilerContext, catalogue);
-    if (!predecessorInstance || predecessorInstance.kind !== "compiled") {
-      return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
-    }
-    if (!compilerProgramMatchesLive(state.program, predecessorInstance.program, state.customExercises)) {
-      return { ok: false, status: "unavailable", code: "live_program_mismatch", unavailable: true };
-    }
-    const diagnosis = input.diagnosis;
-    return await Transition.proposeVolumeReduction({
-      predecessorInstance,
-      predecessor: {
-        programId: liveMeta.id,
-        durableRevision: readRevision(state),
-        source: transitionContractSource(entrySource.route),
-      },
-      transitionId: input.transitionId,
-      successorProgramId: input.successorProgramId,
+    if (!derived.ok) return { ...derived, unavailable: derived.status === "unavailable" };
+    return Transition.createReplacementProposal({
+      transitionId: input.transitionId || uid(),
       createdAt: input.createdAt || new Date().toISOString(),
-      diagnosis,
-      policyVersion: input.policyVersion === undefined
-        ? Transition.VOLUME_REDUCTION_POLICY_VERSION
-        : input.policyVersion,
-      supportedVersions: Compiler.VERSIONS,
+      predecessor,
+      successor: {
+        programId: input.successorProgramId || uid(),
+        programDefinition: derived.value.programDefinition,
+        customExerciseDefinitions: derived.value.customExerciseDefinitions,
+      },
+      change: derived.value.change,
+      catalogSnapshot,
     });
   },
 
   async confirmTransition(params = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    const Transition = transitionDomain();
     if (!Transition) {
       return { ok: false, status: "unavailable", code: "transition_domain_unavailable", committed: false, localOk: false, idbOk: false };
     }
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-
     const { proposal, proposalHash, transitionId, successorProgramId, confirmedAt } = params;
     const hasAck = Object.prototype.hasOwnProperty.call(params, "acknowledgedDraftRaw");
     const acknowledgedDraftRaw = params.acknowledgedDraftRaw;
@@ -9664,17 +9348,11 @@ const repforgeProgramTransitionAdapter = {
       ok: false, committed: false, invalid: true, code,
       localOk: false, idbOk: false, revision: readRevision(state),
     });
-
-    if (proposal?.kind === "recovery_week") {
-      return confirmRecoveryTransition(params,Transition,Compiler,catalogue);
-    }
-
-    // ---------------------------------------------------------------------
     // The proposal is the authority. Every supplied identity must equal the
-    // proposal field byte-for-byte before idempotency or any transaction, and
-    // there is no public archiveId input — its identity is the predecessor.
-    // ---------------------------------------------------------------------
+    // proposal field before idempotency or any transaction; its archive
+    // identity is the predecessor program id.
     if (!isPlainStateObject(proposal)) return invalid("proposal_missing");
+    if (proposal.kind !== Transition.KIND) return invalid("unsupported_transition_kind");
     if (proposal.status !== "preview") return invalid("proposal_not_preview");
     if (typeof proposal.proposalHash !== "string" || !proposal.proposalHash) return invalid("proposal_hash_absent");
     if (typeof proposalHash !== "string" || proposalHash !== proposal.proposalHash) return invalid("proposal_hash_mismatch");
@@ -9685,56 +9363,39 @@ const repforgeProgramTransitionAdapter = {
     const predecessorProgramId = proposal?.predecessor?.programId;
     if (typeof predecessorProgramId !== "string" || !predecessorProgramId) return invalid("predecessor_id_absent");
     if (!Number.isInteger(proposal?.predecessor?.durableRevision)) return invalid("predecessor_revision_absent");
-
-    // Archive identity is deterministic: the predecessor program id.
     const archiveId = predecessorProgramId;
 
-    // ---- Exact, read-only idempotency — only after the full pin contract ----
     const preIdem = classifyCommittedTransition(state, proposal, archiveId);
     if (preIdem === "match") {
       return { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(state), localOk: true, idbOk: true, kind: "committed" };
     }
     if (preIdem === "conflict") return invalid("conflicting_transition_record");
-
-    // Fast typed draft-acknowledgement result; the preservation effect re-guards
-    // this atomically under the lock.
-    const currentDraftRaw = readDraftRaw();
-    if (acknowledgedDraftRaw !== currentDraftRaw) {
+    if (acknowledgedDraftRaw !== readDraftRaw()) {
       return { ok: false, committed: false, draftConflict: true, conflict: true, code: "draft_mismatch", localOk: false, idbOk: false, revision: readRevision(state) };
     }
-
-    // Permanent volume reduction cannot strand completed or edited sets in
-    // slots the proposal removes or reduces. Keep the existing DraftV2 guard
-    // at the production confirmation boundary, before the replacement journal
-    // is armed, so an unsafe proposal has zero durable side effects.
-    if (proposal.kind === "reduce_training_volume") {
+    // Permanent volume reduction cannot strand completed or edited sets the
+    // successor removes. Check before the replacement journal is armed, so an
+    // unsafe proposal has zero durable side effects.
+    if (proposal.change?.kind === "reduce_volume") {
       let draft = {};
       try {
         const parsed = JSON.parse(acknowledgedDraftRaw || "{}");
         if (isPlainStateObject(parsed)) draft = parsed;
       } catch {}
-      const currentBySlot = new Map((state.program || []).map((row) => [row.slotId || row.id, row]));
-      const blocked = (proposal.diff?.exercises || []).some((change) => {
-        const current = currentBySlot.get(change.predecessorSlot);
-        if (!current) return false;
-        const beforeSets = Number(change.before?.sets ?? current.sets);
-        const afterSets = change.after === null ? 0 : Number(change.after?.sets ?? beforeSets);
-        return Number.isFinite(beforeSets) && Number.isFinite(afterSets) &&
-          draftHasProgressInRemovedSets(current.id || current.slotId, afterSets, beforeSets, draft);
-      });
-      if (blocked) {
+      const rows = new Map((state.program || []).map((row) => [row.slotId || row.id, row]));
+      if (reducedSetCounts(proposal, state).some(({ slotId, beforeSets, afterSets }) => {
+        const row = rows.get(slotId);
+        return row && draftHasProgressInRemovedSets(row.id || row.slotId, afterSets, beforeSets, draft);
+      })) {
         return { ok: false, committed: false, draftConflict: true, conflict: true,
           code: "draft_conflict", localOk: false, idbOk: false, revision: readRevision(state) };
       }
     }
 
-    // ---- Existing program-replacement capture/archive transaction owns it ----
     const capture = captureProgramReplacement(state);
     if (!capture || capture.oldProgramId !== predecessorProgramId) return invalid("predecessor_unavailable");
-    // The capture stands in for "the predecessor exactly as the proposal saw it".
-    // Pin its revision to the proposal's durableRevision so a real intervening
-    // durable commit fails the lock-held precondition and leaves the prepared
-    // archive non-durable.
+    // Pin the capture to the proposal's revision so an intervening durable
+    // commit fails the lock-held precondition and the archive stays non-durable.
     capture.storageRevision = proposal.predecessor.durableRevision;
     capture.archiveId = archiveId;
     capture.transitionOut = {
@@ -9743,12 +9404,10 @@ const repforgeProgramTransitionAdapter = {
       proposalHash: proposal.proposalHash,
       successorProgramId: proposal.successor.programId,
     };
-
     const effect = draftPreservationEffect(acknowledgedDraftRaw);
     const baseProposal = cloneSnapshot(state);
 
     const preflight = async ({ head, proposal: draftProposal }) => {
-      // Read-only idempotency re-check under the lock.
       const lockedIdem = classifyCommittedTransition(head, proposal, archiveId);
       if (lockedIdem === "match") {
         return { reject: true, result: { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(head), localOk: true, idbOk: true, kind: "committed" } };
@@ -9756,372 +9415,88 @@ const repforgeProgramTransitionAdapter = {
       if (lockedIdem === "conflict") {
         return { reject: true, result: { invalid: true, code: "conflicting_transition_record", localOk: false, idbOk: false } };
       }
-      // Exact predecessor preconditions.
       if (head.programMeta?.id !== predecessorProgramId) {
         return { reject: true, result: { stale: true, code: "predecessor_changed", localOk: false, idbOk: false } };
       }
       if (readRevision(head) !== proposal.predecessor.durableRevision) {
         return { reject: true, result: { stale: true, staleRevision: true, code: "stale_proposal", localOk: false, idbOk: false } };
       }
-      const route = head.programMeta?.entrySource?.route;
-      if (!route || !TRANSITION_SOURCE_ROUTES.includes(route)) {
-        return { reject: true, result: { invalid: true, code: "transition_source_unavailable", localOk: false, idbOk: false } };
-      }
-      const compilerProvenance = classifyCompilerTransitionProvenance(head.programMeta);
-      if (compilerProvenance !== "present") {
-        return { reject: true, result: { invalid: true,
-          code: compilerProvenance === "invalid" ? "compiler_provenance_unavailable" : "compiler_provenance_absent",
-          localOk: false, idbOk: false } };
-      }
-      const predContext = head.programMeta?.compilerContext;
-      if (!predContext) {
-        return { reject: true, result: { invalid: true, code: "missing_compiler_context", localOk: false, idbOk: false } };
-      }
-      const predInstance = Compiler.compile(predContext, catalogue);
-      if (!predInstance || predInstance.kind !== "compiled") {
-        return { reject: true, result: { invalid: true, code: "predecessor_reconstruction_failed", localOk: false, idbOk: false } };
-      }
-      if (!compilerProgramMatchesLive(head.program, predInstance.program, head.customExercises)) {
-        return { reject: true, result: { invalid: true, code: "live_program_mismatch", localOk: false, idbOk: false } };
-      }
-
-      let succContext;
-      let succInstance;
-      if (proposal.kind === "lower_frequency_sibling") {
-        succContext = { ...cloneSnapshot(predContext), frequency: proposal.diagnosis?.answers?.availableDays };
-        delete succContext.splitId;
-      } else if (proposal.kind === "shorter_session_sibling") {
-        succContext = { ...cloneSnapshot(predContext), sessionMinutes: proposal.diagnosis?.answers?.sessionMinutes };
-      } else if (proposal.kind === "reduce_training_volume") {
-        const derived = await Transition.proposeVolumeReduction({
-          predecessorInstance: predInstance,
-          predecessor: {
-            programId: head.programMeta.id,
-            durableRevision: readRevision(head),
-            source: transitionContractSource(route),
-          },
-          transitionId: proposal.transitionId,
-          successorProgramId: proposal.successor?.programId,
-          createdAt: proposal.createdAt,
-          diagnosis: proposal.diagnosis,
-          policyVersion: proposal.derivation?.policyVersions?.volumeReduction,
-          supportedVersions: Compiler.VERSIONS,
-        });
-        if (!derived.ok) {
-          return { reject: true, result: { invalid: true, code: derived.code || "invalid_volume_proposal", localOk: false, idbOk: false } };
-        }
-        succInstance = derived.successorInstance;
-        succContext = cloneSnapshot(predContext);
-      } else {
-        return { reject: true, result: { invalid: true, code: "unsupported_transition_kind", localOk: false, idbOk: false } };
-      }
-
-      if (!succInstance) {
-        const checkedSuccContext = Compiler.validateContext(succContext);
-        if (!checkedSuccContext.ok) {
-          return { reject: true, result: { invalid: true, code: "invalid_successor_context", localOk: false, idbOk: false } };
-        }
-        succInstance = Compiler.compile(succContext, catalogue);
-      }
-      if (!succInstance || succInstance.kind !== "compiled") {
-        return { reject: true, result: { invalid: true, code: "successor_compilation_failed", localOk: false, idbOk: false } };
-      }
-
-      // Semantic validation runs here, lock-held. No archive is pushed in preflight.
-      const validation = await Transition.validateProposal(proposal, {
-        predecessor: {
-          programId: head.programMeta.id,
-          durableRevision: readRevision(head),
-          source: transitionContractSource(route),
-        },
-        predecessorInstance: predInstance,
-        successorInstance: succInstance,
-        predecessorCompilerContext: predContext,
-        successorCompilerContext: succContext,
-      });
+      const current = transitionPredecessor(head);
+      if (!current) return { reject: true, result: { invalid: true, code: "program_definition_unavailable", localOk: false, idbOk: false } };
+      // Semantic validation runs lock-held: hash, predecessor fingerprint, and
+      // that the successor is exactly the derivation of the hashed change.
+      const validation = await Transition.validateProposal(proposal, { predecessor: current, catalogSnapshot: rawExerciseCatalog });
       if (!validation.ok) {
         const typed = validation.status === "stale" ? { stale: true } : { invalid: true };
         return { reject: true, result: { ...typed, code: validation.code || "invalid_proposal", localOk: false, idbOk: false } };
       }
-
-      // Pure sealing with explicit, non-environment values.
-      const committedRecord = Transition.commitRecord(proposal, { confirmedAt, archiveId });
-
+      const committedRecord = Transition.commitRecord(validation.proposal, { confirmedAt, archiveId });
+      const definition = cloneSnapshot(validation.proposal.successor.programDefinition);
       const successorMeta = {
         ...cloneSnapshot(head.programMeta),
         id: proposal.successor.programId,
-        // A compiler-backed transition is a real replacement block. Allocate
-        // its target identity only after the lock-held proposal validation;
-        // the resulting proposal/journal carries this candidate through
-        // replay, while the durable write remains the single confirmation.
         blockId: allocateBlockId(),
-        started: confirmedAt.slice(0,10),
+        started: confirmedAt.slice(0, 10),
         mesocycleStatus: "active",
-        daysPerWeek: succInstance.frequency,
-        sessionLength: String(succContext.sessionMinutes),
-        programStructure: cloneSnapshot(succInstance.programStructure),
-        progressionRelations: (succInstance.relations || []).filter(r => r.state === "attached").map(r => ({
-          schemaVersion: 1,
-          id: r.id,
-          type: "paired_exposure",
-          version: 1,
-          movementId: `library:${r.movementId}`,
-          members: [
-            { exerciseId: r.heavySlotId, role: "heavy" },
-            { exerciseId: r.volumeSlotId, role: "volume" },
-          ],
-        })),
-        compilerContext: cloneSnapshot(succContext),
-        // The successor carries the predecessor's exact entrySource object. Its
-        // compiler fingerprint/provenance already live on the transition-in record.
-        entrySource: cloneSnapshot(head.programMeta.entrySource),
+        daysPerWeek: definition.days.filter((day) => day.kind === "training").length,
+        mesocycleLengthWeeks: definition.cycles,
+        programDefinition: definition,
         transitionIn: committedRecord,
         updated: confirmedAt,
       };
-      // This is a new block, so historical volume belongs to the archived
-      // predecessor. The successor's aggregate begins when its own weeks are
-      // observed; copying it would make block-to-date totals double-count.
+      // A new block's volume aggregate begins with its own observed weeks.
       delete successorMeta.plannedVolumeHistory;
-
-      draftProposal.program = new Program(succInstance.program, snapshotLookup(draftProposal.customExercises)).toJSON();
       draftProposal.programMeta = successorMeta;
-      // draftProposal.programHistory already carries the single archive entry that
-      // archiveCapturedProgram(capture) pushed before the lock — leave it untouched.
+      draftProposal.program = durableProgramRows(definition, draftProposal.customExercises || [], successorMeta);
       return { proposal: draftProposal };
     };
 
     const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
-
-    if (res.localOk || res.idbOk) {
-      return { ok: true, committed: true, ...res };
-    }
+    if (res.localOk || res.idbOk) return { ok: true, committed: true, ...res };
     return { ok: false, committed: false, ...res };
   },
 
-  async reassessRecovery(params = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-    const invalid=(code,extra={})=>({ok:false,committed:false,invalid:true,code,...extra,localOk:false,idbOk:false,revision:readRevision(state)});
-    if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
-      typeof Transition.reassessRecoveryRecord!=="function"||typeof Transition.approvedRecoveryPolicy!=="function")
-      return invalid("recovery_reassessment_seam_missing");
-    const {expectedRevision,blockId,transitionId,proposalHash,acknowledgedRecord,outcome}=params;
-    if(!Number.isInteger(expectedRevision)||expectedRevision<0)return invalid("stale");
-    if(typeof blockId!=="string"||!blockId.trim()||typeof transitionId!=="string"||!transitionId.trim()||
-      typeof proposalHash!=="string"||!proposalHash.trim())return invalid("recovery_reassessment_invalid");
-    if(!isPlainStateObject(acknowledgedRecord))return invalid("recovery_reassessment_invalid");
-    if(!["Better","About the same","Worse"].includes(outcome))return invalid("recovery_reassessment_invalid");
-    if(readRevision(state)!==expectedRevision||snapshotBlockId(state)!==blockId)return invalid("stale",{stale:true,staleRevision:readRevision(state)!==expectedRevision});
-    const initialRecords=recoveryCarrierRecords(state);
-    const initialMatches=initialRecords.map((record,index)=>({record,index})).filter(({record})=>
-      record.transitionId===transitionId&&record.proposalHash===proposalHash);
-    if(initialMatches.length!==1)return invalid("stale",{stale:true});
-    const initialMatch=initialMatches[0];
-    if(initialMatch.record.diff?.recoveryWeek?.blockId!==blockId)return invalid("stale",{stale:true});
-    if(initialMatch.record.diff?.recoveryWeek?.reassessmentOutcome!==null)return invalid("recovery_reassessment_closed");
-    if(!storageSnapshotsEqual(initialMatch.record,acknowledgedRecord))return invalid("stale",{stale:true});
-    const initialInstance=recoveryCompilerInstance(state,Compiler,catalogue);
-    if(!initialInstance)return invalid("predecessor_reconstruction_failed");
-    const initialValidation=await Transition.validateRecoveryRecord(initialMatch.record,{
-      predecessor:cloneSnapshot(initialMatch.record.predecessor),
-      predecessorInstance:initialInstance,
-      approvedPolicy:Transition.approvedRecoveryPolicy(),
-      supportedVersions:Compiler.VERSIONS,
-      existingRecoveryRecords:initialRecords,
-    });
-    if(!initialValidation.ok)return invalid(initialValidation.code||"recovery_reassessment_invalid",{stale:initialValidation.status==="stale"});
-    const initialReassessed=Transition.reassessRecoveryRecord(initialValidation.record,outcome,{
-      blockId,elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
-    });
-    if(!initialReassessed.ok)return invalid(initialReassessed.code||"recovery_reassessment_invalid");
-    const initialProposal=cloneSnapshot(state);
-    initialProposal.recoveryTransitions.records[initialMatch.index]=cloneSnapshot(initialReassessed.record);
-    const preflight=async({head})=>{
-      if(readRevision(head)!==expectedRevision)return{reject:true,result:{ok:false,committed:false,stale:true,staleRevision:true,code:"stale",localOk:false,idbOk:false}};
-      if(snapshotBlockId(head)!==blockId)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
-      const records=recoveryCarrierRecords(head);
-      const matches=records.map((record,index)=>({record,index})).filter(({record})=>
-        record.transitionId===transitionId&&record.proposalHash===proposalHash);
-      if(matches.length!==1)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
-      const {record,index}=matches[0];
-      if(record.diff?.recoveryWeek?.blockId!==blockId)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
-      if(record.diff?.recoveryWeek?.reassessmentOutcome!==null)
-        return{reject:true,result:{ok:false,committed:false,code:"recovery_reassessment_closed",localOk:false,idbOk:false}};
-      if(!storageSnapshotsEqual(record,acknowledgedRecord))
-        return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
-      const instance=recoveryCompilerInstance(head,Compiler,catalogue);
-      if(!instance)return{reject:true,result:{ok:false,committed:false,invalid:true,code:"predecessor_reconstruction_failed",localOk:false,idbOk:false}};
-      const validation=await Transition.validateRecoveryRecord(record,{
-        predecessor:cloneSnapshot(record.predecessor),
-        predecessorInstance:instance,
-        approvedPolicy:Transition.approvedRecoveryPolicy(),
-        supportedVersions:Compiler.VERSIONS,
-        existingRecoveryRecords:records,
-      });
-      if(!validation.ok)return{reject:true,result:{ok:false,committed:false,stale:validation.status==="stale",invalid:validation.status!=="stale",code:validation.code||"recovery_reassessment_invalid",localOk:false,idbOk:false}};
-      const elapsedWeek=mesocycleLifecycle(head.programMeta).elapsedWeek;
-      const reassessed=Transition.reassessRecoveryRecord(validation.record,outcome,{blockId,elapsedWeek});
-      if(!reassessed.ok)return{reject:true,result:{ok:false,committed:false,code:reassessed.code||"recovery_reassessment_invalid",localOk:false,idbOk:false}};
-      const next=cloneSnapshot(head);
-      next.recoveryTransitions.records[index]=cloneSnapshot(reassessed.record);
-      return{proposal:next};
-    };
-    const result=await commitProposedState(initialProposal,storageIO,{
-      expectedProgramId:state?.programMeta?.id||null,
-      expectedProgramFingerprint:draftProgramFingerprint(state),
-      expectedBlockId:blockId,
-      expectedStorageRevision:expectedRevision,
-      recoveryTransaction:true,
-      preflight,
-    });
-    if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
-    return{ok:false,committed:false,...result};
-  },
-
+  // Guided editing stages the live program as a Build draft so the lifter can
+  // make the change by hand. It never archives or replaces anything itself.
   async stageGuidedManualRepair(params = {}, io = storageIO) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    if (!Transition) {
-      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
-    }
-    if (!ProgramEntry) {
-      return { ok: false, status: "unavailable", code: "program_entry_unavailable", unavailable: true };
-    }
-
-    // The injected IO is honoured only so a deliberate setup-draft write
-    // failure can be proven; lock ownership stays on the production path.
-    const targetIO = io || storageIO;
-
-    // The production boundary derives the guided candidate strictly from the
-    // live active program and the live durable revision after a genuine typed
-    // sibling Unavailable. It accepts no caller-supplied guided result, active
-    // snapshot, or durable revision — only the typed Unavailable and its
-    // diagnosis. createGuidedManualRepair still fails typed on any stale or
-    // mismatched input and mutates nothing.
-    let unavailable = params.unavailable || (params.siblingResult?.ok === false ? params.siblingResult : null);
+    if (!ProgramEntry) return { ok: false, status: "unavailable", code: "program_entry_unavailable", unavailable: true };
     const diagnosis = params.diagnosis;
-    if (!unavailable && diagnosis && typeof this.proposeSibling === "function") {
-      const targetConstraint = diagnosis.targetConstraint || (
-        diagnosis.kind === "sessions_too_long"
-          ? { sessionMinutes: diagnosis.answers?.sessionMinutes ?? diagnosis.sessionMinutes }
-          : { frequency: diagnosis.answers?.availableDays ?? diagnosis.answers?.daysPerWeek ?? diagnosis.daysPerWeek }
-      );
-      const siblingRes = await this.proposeSibling({
-        diagnosis,
-        targetConstraint,
-        transitionId: uid(),
-        successorProgramId: uid(),
-      });
-      if (siblingRes?.ok === false) unavailable = siblingRes;
-    }
-
-    const liveRevision = readRevision(state);
-    const created = Transition.createGuidedManualRepair({
-      unavailable,
-      diagnosis,
-      activeProgram: state,
-      durableRevision: liveRevision,
-      versions: entryVersions(),
-      customExercises: customExercises(),
-    });
-    if (!created.ok) return created;
-    const guidedResult = created;
-
     const diagKind = diagnosis?.kind;
     if (diagKind !== "fewer_days" && diagKind !== "sessions_too_long") {
       return { ok: false, status: "unavailable", code: "diagnosis_invalid", unavailable: true, invalid: true };
     }
-
-    const targetDays = diagnosis?.answers?.availableDays ?? diagnosis?.answers?.daysPerWeek ?? diagnosis?.targetConstraint?.frequency ?? diagnosis?.daysPerWeek;
-    const targetMins = diagnosis?.answers?.sessionMinutes ?? diagnosis?.targetConstraint?.sessionMinutes ?? diagnosis?.sessionMinutes;
-
-    const diagnosticsFacts = {
-      mainConstraint: diagKind,
-    };
-    if (diagKind === "fewer_days") {
-      if (!Number.isInteger(targetDays)) {
-        return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
-      }
-      diagnosticsFacts.daysPerWeek = targetDays;
-    } else if (diagKind === "sessions_too_long") {
-      if (!Number.isInteger(targetMins)) {
-        return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
-      }
-      diagnosticsFacts.sessionMinutes = targetMins;
+    const targetDays = diagnosis?.answers?.availableDays;
+    const targetMins = diagnosis?.answers?.sessionMinutes;
+    if (diagKind === "fewer_days" ? !Number.isInteger(targetDays) : !Number.isInteger(targetMins)) {
+      return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
     }
-
-    const candidate = guidedResult.candidate || guidedResult;
-    const model = makeProgram(candidate.program, snapshotLookup(candidate.customExercises), state?.programMeta);
-    const structure = candidate.programStructure ? cloneSnapshot(candidate.programStructure) : null;
-    const structureDays = structure?.days || [];
-    const previewDays = structureDays.length
-      ? structureDays.map((item) => ({
-          dayId: item.dayId,
-          label: item.label,
-          ...(item.displayNameKey ? { displayNameKey: item.displayNameKey } : {}),
-          ...(item.nameOverride ? { nameOverride: item.nameOverride } : {}),
-          ...(item.order !== undefined ? { order: item.order } : {}),
-          exercises: model.forDay(item.label || item.dayId).map((e) => cloneSnapshot(e)),
-        }))
-      : model.days().map((label, idx) => ({
-          dayId: label,
-          label,
-          order: idx + 1,
-          exercises: model.forDay(label).map((e) => cloneSnapshot(e)),
-        }));
-
-    const preview = {
-      source: "build",
-      program: cloneSnapshot(candidate.program),
-      programStructure: structure,
-      progressionRelations: cloneSnapshot(candidate.progressionRelations || []),
-      progressionModifiers: cloneSnapshot(candidate.progressionModifiers || []),
-      progressionIncompatibilities: cloneSnapshot(candidate.progressionIncompatibilities || []),
-      days: previewDays,
-      customExercises: cloneSnapshot(candidate.customExercises || []),
-    };
-
-    const name = state?.programMeta?.name || "RepForge Program";
-    const fingerprint = entryCandidateFingerprint("build", name, preview);
-
+    const definition = state?.programMeta?.programDefinition;
+    if (!definition) return { ok: false, status: "unavailable", code: "program_definition_unavailable", unavailable: true };
+    const custom = cloneSnapshot(customExercises());
+    const program = flatProgramFromDefinition(definition, custom, 1);
+    const days = definition.days.filter((day) => day.kind === "training").map((day, index) => ({
+      dayId: day.id, label: day.name, order: index + 1,
+      exercises: program.filter((row) => row.dayId === day.id).map(cloneSnapshot),
+    }));
+    const preview = { source: "build", program: cloneSnapshot(program), programDefinition: cloneSnapshot(definition),
+      days, customExercises: custom };
+    const name = state?.programMeta?.name || "Taurifer program";
     const result = {
       schemaVersion: ProgramEntry.SCHEMA_VERSION,
       route: "build",
-      fingerprint,
+      fingerprint: entryCandidateFingerprint("build", name, preview),
       name,
-      selected: {
-        id: "manual_build",
-        source: "manual_build",
-      },
-      diagnostics: diagnosticsFacts,
+      selected: { id: "manual_build", source: "manual_build" },
+      diagnostics: diagKind === "fewer_days"
+        ? { mainConstraint: diagKind, daysPerWeek: targetDays }
+        : { mainConstraint: diagKind, sessionMinutes: targetMins },
       preview,
     };
-
-    // Pin the staged draft to the same live durable revision the candidate was
-    // derived from. Activation re-checks it via activationReadiness/CAS.
-    const draftRevision = Number.isInteger(guidedResult.durableRevision)
-      ? guidedResult.durableRevision
-      : liveRevision;
-
-    const answers = {
-      programName: name,
-      daysPerWeek: previewDays.length,
-    };
-    if (diagKind === "fewer_days" && Number.isInteger(targetDays) && targetDays >= 2 && targetDays <= 6) {
-      answers.daysPerWeek = targetDays;
-    }
-
+    const answers = { programName: name, daysPerWeek: days.length };
+    if (diagKind === "fewer_days" && targetDays >= 2 && targetDays <= 6) answers.daysPerWeek = targetDays;
     let draftState = ProgramEntry.createState({
       draftId: uid(),
-      activeProgramRevisionAtStart: draftRevision,
+      activeProgramRevisionAtStart: readRevision(state),
       now: entryNow(),
       versions: entryVersions(),
     });
@@ -10129,37 +9504,21 @@ const repforgeProgramTransitionAdapter = {
     draftState = ProgramEntry.setAnswers(draftState, answers);
     draftState = ProgramEntry.setResult(draftState, result);
     draftState = { ...draftState, step: "editor" };
-
-    const saveResult = await persistSetupDraft(draftState, targetIO);
+    const saveResult = await persistSetupDraft(draftState, io || storageIO);
     if (!saveResult?.ok) {
       return {
-        ok: false,
-        staged: false,
-        conflict: !!saveResult?.conflict,
-        writeFailed: !!saveResult?.writeFailed,
-        invalid: !!saveResult?.invalid,
+        ok: false, staged: false,
+        conflict: !!saveResult?.conflict, writeFailed: !!saveResult?.writeFailed, invalid: !!saveResult?.invalid,
         code: saveResult?.conflict ? "save_conflict" : (saveResult?.writeFailed ? "save_failed" : "draft_invalid"),
       };
     }
-
-    if (params.openEditor !== false) {
-      openEntryDraftEditor();
-    }
-
-    return {
-      ok: true,
-      staged: true,
-      kind: "guided_manual_repair",
-      envelope: saveResult.envelope,
-      draftState: entryState,
-    };
+    if (params.openEditor !== false) openEntryDraftEditor();
+    return { ok: true, staged: true, kind: "guided_manual_repair", envelope: saveResult.envelope, draftState: entryState };
   },
 };
 if (typeof window !== "undefined") {
   window.__repforgeProgramTransition = repforgeProgramTransitionAdapter;
   window.__repforgeProgressReview={
-    recoveryEvidence:()=>cloneSnapshot(reviewRecoveryEvidence()),
-    activeRecovery:()=>cloneSnapshot(activeReviewRecovery()),
     scheduledProgram:()=>cloneSnapshot(scheduledProgramRows()),
     flow:()=>cloneSnapshot(reviewFlow),
   };
@@ -17994,7 +17353,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   meta.blockId=allocateBlockId();
   meta.programDefinition=checkedDefinition;
   meta.mesocycleLengthWeeks=checkedDefinition.cycles;
-  proposal.program=flatProgramFromDefinition(checkedDefinition,proposal.customExercises||[]);
+  proposal.program=durableProgramRows(checkedDefinition,proposal.customExercises||[],meta);
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
   meta.progressionIncompatibilities=Array.isArray(baseProposal?.programMeta?.progressionIncompatibilities)

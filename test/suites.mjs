@@ -103,6 +103,7 @@ export const SUITES = {
     s("test/program-transition-recovery-carrier.mjs"),
     s("test/program-transition-recovery-corruption.mjs", [], { seconds: 16 }),
     s("test/program-transition-r7-boundary.mjs", [], { seconds: 13 }),
+    s("test/program-transition-review-browser.mjs", [], { domains: ["transition", "progress", "persistence"], seconds: 40 }),
     s("test/install-transfer-client-browser.mjs"),
     s("test/install-transfer-clone.mjs"),
     s("test/install-transfer-import.mjs", [], { seconds: 77 }),
