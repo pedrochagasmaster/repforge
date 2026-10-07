@@ -255,11 +255,18 @@
   function rawCatalogExercise(libraryId) {
     if (!isText(libraryId, { max: MAX_ID })) return null;
     try {
-      const catalog = root?.RepForgeExerciseCatalog?.snapshot?.();
+      const catalog = root?.RepForgeExerciseCatalog?.snapshot?.() || bundledCatalog();
       return catalog?.exercises?.find(exercise => exercise?.id === libraryId) || null;
     } catch {
       return null;
     }
+  }
+
+  // Module consumers without the page loader (the install-transfer Worker and
+  // its contract) validate against the same raw catalog the page loads.
+  function bundledCatalog() {
+    if (typeof require !== "function") return null;
+    try { return require("./assets/exercise-catalog.json"); } catch { return null; }
   }
 
   function expectedLoadingConvention(metricDefinitions) {

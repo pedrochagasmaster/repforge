@@ -582,6 +582,23 @@ console.log("\nMetric compositions without repetitions carry no flat rep range")
   assert(Draft.isDomainError(halfResult), "a metric-backed exercise cannot carry half a flat rep range", JSON.stringify(halfResult));
 }
 
+console.log("\nModule consumers without the page catalog loader validate metric drafts");
+{
+  // The install-transfer Worker loads this module with no browser globals.
+  const created = Draft.create(metricProgramContext("1a15c6f170d88074b3d4e1548e32c508", "worker-slot"),
+    { ...sessionSelection(), draftId: "worker-draft", selectedExerciseId: "worker-slot" }, {});
+  const { spawnSync } = await import("node:child_process");
+  const probe = spawnSync(process.execPath, ["-e", `
+    const Draft = require(${JSON.stringify(require.resolve("../workout-draft.js"))});
+    const input = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+    const result = Draft.validate(input);
+    process.stdout.write(JSON.stringify({ global: typeof globalThis.RepForgeExerciseCatalog, ok: !!result?.ok, issues: result?.issues?.slice(0, 3) }));
+  `], { input: JSON.stringify(created), encoding: "utf8" });
+  const outcome = JSON.parse(probe.stdout || "{}");
+  assert(!Draft.isDomainError(created) && outcome.global === "undefined" && outcome.ok === true,
+    "a metric draft validates through the module alone, without RepForgeExerciseCatalog", probe.stdout + probe.stderr);
+}
+
 console.log("\nHistory rows record whether bodyweight contributed to the load");
 {
   const rowFor = (sourceId, bodyweight) => {

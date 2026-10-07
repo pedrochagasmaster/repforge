@@ -8080,7 +8080,9 @@ function shelfReveal(input){
   if(!input?.matches?.(".shelf__input"))return input;
   const field=input.closest(".shelf__field");
   if(!field||field.classList.contains("is-editing"))return input;
-  shelfSelect(field.dataset.set,field.dataset.field,true);
+  // A metric field is selected by its metric-specific id, not its generic kind.
+  const id=field.dataset.metric?`metric_${field.dataset.metric}`:field.dataset.field;
+  shelfSelect(field.dataset.set,id,true);
   if(!refreshShelf())return input;
   return $(`#workout .shelf__input[data-k="${CSS.escape(input.dataset.k)}"]`)||input}
 

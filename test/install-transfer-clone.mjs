@@ -220,7 +220,7 @@ async function enterAndEditDraft(page) {
   // bottom navigation before entering the workout; enterWorkout is a log
   // surface action and deliberately does not mutate Settings view state.
   await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
-  await page.waitForTimeout(40);
+  await page.waitForSelector("#log.active", { timeout: 5000 });
   const entered = await page.evaluate(async () => window.__repforgeEnterWorkout({}));
   if (!entered) {
     const diagnostic = await page.evaluate(() => ({
@@ -239,14 +239,32 @@ async function enterAndEditDraft(page) {
   // wait for attachment, then let Playwright wait for the fields to become
   // actionable below.
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
-  const load = page.locator("#workout [data-k$='_load']").first();
-  const reps = page.locator("#workout [data-k$='_reps']").first();
-  const rir = page.locator("#workout [data-k$='_rir']").first();
-  await load.fill("123");
-  if (await reps.count()) await reps.fill("10");
-  if (await rir.count()) await rir.fill("2");
-  await page.locator("#workout .saveset").first().click();
+  // The fixture program is a metric-backed ProgramDefinition: the first
+  // exercise records its catalog metrics (Weight, Reps per side), not the
+  // retired flat load/reps pair. Fill each metric through the focus shelf.
+  const current = page.locator("#workout .exercise.is-current");
+  await current.waitFor({ state: "visible", timeout: 8000 });
+  const exerciseId = await current.getAttribute("data-ex");
+  const metricIds = await current.locator(".focus-shelf input[data-metric-id]")
+    .evaluateAll((inputs) => inputs.map((input) => input.dataset.metricId));
+  if (metricIds.length < 2) throw new Error(`expected two metric inputs, saw ${metricIds.length}`);
+  const values = [123, 10];
+  for (const [index, metricId] of metricIds.slice(0, 2).entries()) {
+    const input = current.locator(`.focus-shelf input[data-metric-id="${metricId}"]`);
+    if (await input.getAttribute("aria-hidden") === "true")
+      await current.locator(`.focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    await input.fill(String(values[index]));
+  }
+  const rir = current.locator(`.focus-shelf input[data-k="${exerciseId}_1_rir"]`);
+  if (await rir.count()) {
+    if (await rir.getAttribute("aria-hidden") === "true")
+      await current.locator('.focus-shelf [data-shelf-field="rir"]').click();
+    await rir.fill("2");
+  }
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  await current.locator(`[data-save="${exerciseId}_1"]`).click();
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  return { exerciseId, metricIds: metricIds.slice(0, 2), values };
 }
 
 async function saveWorkoutAndReload(page) {
@@ -306,7 +324,7 @@ async function runBrowserCharacterization() {
     assert(analyticsEnabled === EXPECTATIONS.analytics.enabled, "analytics consent remains available as a separate clone section");
     assert(same(telemetryIdentity, EXPECTATIONS.telemetryIdentity), "stable telemetry identity remains available without regeneration");
 
-    await enterAndEditDraft(page);
+    const edited = await enterAndEditDraft(page);
     const beforeReload = await draftObservation(page);
     assert(beforeReload.current?.schemaVersion === 2, "real app creates an active DraftV2 through the browser path");
     assert(beforeReload.checkpoint.status === "valid" && beforeReload.checkpoint.value.kind === "committed", "draft checkpoint acknowledges the active aggregate");
@@ -324,9 +342,12 @@ async function runBrowserCharacterization() {
     const logBeforeSave = (await appState(page))?.log?.length || 0;
     await saveWorkoutAndReload(page);
     const afterWorkoutSave = await appState(page);
-    const savedRow = afterWorkoutSave?.log?.find((row) => Number(row.load) === 123 && Number(row.reps) === 10);
+    const metricValue = (row, metricId) => row.metricValues?.find((entry) => entry.metricId === metricId)?.value;
+    const savedRow = afterWorkoutSave?.log?.find((row) => row.exerciseId === edited.exerciseId &&
+      edited.metricIds.every((metricId, index) => Number(metricValue(row, metricId)) === edited.values[index]));
     assert((afterWorkoutSave?.log?.length || 0) > logBeforeSave, "real Finish workout persists a new log row");
-    assert(!!savedRow, "real saved workout retains edited load and reps");
+    assert(!!savedRow, "real saved workout retains the edited metric values");
+    assert(same(savedRow?.metricIds?.slice(0, 2), edited.metricIds), "real saved workout records the metric schema it was logged with");
     const afterWorkoutSaveDraft = await draftObservation(page);
     assert(trustedDraftAbsence(afterWorkoutSaveDraft), "real saved workout leaves a trusted empty draft read");
     assert(afterWorkoutSaveDraft.checkpoint.status === "valid" && afterWorkoutSaveDraft.checkpoint.value.kind === "tombstone", "real saved workout leaves an acknowledged tombstone checkpoint");
