@@ -428,6 +428,10 @@
     {
       "id": "install",
       "label": "Install"
+    },
+    {
+      "id": "catalog-recovery",
+      "label": "Exercise catalog recovery"
     }
   ],
   "screens": [
@@ -1599,6 +1603,20 @@
       "label": "Substituted exercise actions",
       "scenario": "workout/substituted-actions",
       "variants": "demandingText"
+    },
+    {
+      "id": "unavailable",
+      "flow": "catalog-recovery",
+      "label": "Exercise catalog unavailable",
+      "scenario": "The required offline exercise catalog fails to load. Saved data remains in place and a blocking retry dialog explains what happened.",
+      "variants": "localized"
+    },
+    {
+      "id": "retry-failed",
+      "flow": "catalog-recovery",
+      "label": "Exercise catalog retry failed",
+      "scenario": "The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available.",
+      "variants": "localized"
     }
   ]
 }

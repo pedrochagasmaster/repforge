@@ -68,3 +68,34 @@ Its six corruptions exercise dangling references, incorrect tiers, a missing
 compact-program set, missing equipment, an unexpected nested personal field, and uniformly wrong rep ranges.
 These checks prove artifact integrity and selected observations. They do not
 prove the future generator, progression engine, persistence, or UI.
+
+## Application catalog artifacts
+
+`node tools/build-exercises.mjs` generates two committed files from
+`data/app_file.json` and `tools/exercise-catalog-curation.json`. The 304 KB
+`exercises.js` is the synchronous picker index: canonical UUID and name,
+reviewed Portuguese display/search aliases, source alternative-name search
+terms, optional source search boost, and reviewed media fields. It deliberately
+does not repeat equipment, metric, muscle, movement, ROM/stability, or
+recommendation data. Those details stay in the 3.8 MB minified
+`assets/exercise-catalog.json`, which preserves the complete source object.
+`node tools/build-exercises.mjs --check` confirms both generated files match
+their inputs.
+
+`exercise-catalog.js` exposes `RepForgeExerciseCatalog`. Call `await load()`
+before reading full details; concurrent calls share one fetch of the local JSON
+asset (`./assets/exercise-catalog.json?v=067`) so an older worker cannot serve
+an unversioned detail file. `snapshot()` returns the raw
+`{exercises, uuidIndex, generatedAt}` object.
+`getExercise`, `getObject`, `metricsFor`, and equipment checks resolve against
+that raw snapshot. Names are lookup/search terms only: `resolveName` prefers an
+exact canonical name and returns an ambiguous result when several aliases
+match. `equipmentClosure` follows `pluralOf` links; each resistance or support
+list is an OR of alternatives, while every member of a referenced equipment
+group is required. Both resistance and support lists must pass.
+
+Twenty existing illustrations have an explicit UUID mapping whose raw name is
+guarded against the reviewed source name during generation. The other 1,325
+exercises show the existing empty media tile. The repository retains the 96
+licensed illustration files; 76 have no exact reviewed match and remain
+unreferenced.

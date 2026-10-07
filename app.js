@@ -50,6 +50,49 @@ function mountFallbackGestures() {
 }
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const WorkoutDraft=window.RepForgeWorkoutDraft;
+const ExerciseCatalog=window.RepForgeExerciseCatalog;
+const ExerciseMetrics=window.RepForgeExerciseMetrics;
+let rawExerciseCatalog=null,exerciseCatalogError=null;
+function rawCatalogObject(id){return ExerciseCatalog?.getObject?.(String(id??""))||null}
+function rawExercise(id){return ExerciseCatalog?.getExercise?.(String(id??""))||null}
+function rawMetricDefinitions(id){
+  const record=rawExercise(id);
+  if(!record||!Array.isArray(record.exerciseMetrics))return record?[]:null;
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  return record.exerciseMetrics.map(metricId=>{
+    const source=rawCatalogObject(metricId),mapped=source&&compiler?.metricDefinitionForName?.(source.name);
+    return source?.type==="exerciseMetric"&&mapped?{id:String(metricId),sourceName:source.name,
+      semantic:mapped.semantic,unit:mapped.unit}:null}).filter(Boolean)}
+async function loadExerciseCatalog(){
+  if(!ExerciseCatalog?.load)return false;
+  try{rawExerciseCatalog=await ExerciseCatalog.load();exerciseCatalogError=null;return true}
+  catch(error){exerciseCatalogError=error;return false}}
+let exerciseCatalogRetryBusy=false;
+function showExerciseCatalogUnavailable(){
+  const dialog=$("#exerciseCatalogRecovery"),retry=$("#retryExerciseCatalog");
+  const title=$("#exerciseCatalogRecoveryTitle"),body=$("#exerciseCatalogRecoveryBody"),status=$("#exerciseCatalogRecoveryStatus");
+  if(!dialog||!retry||!title||!body||!status)return false;
+  if(!dialog.dataset.guarded){dialog.addEventListener("cancel",event=>event.preventDefault());dialog.dataset.guarded="1"}
+  window.__repforgeCatalogUnavailable=String(exerciseCatalogError?.message||"catalog-unavailable");
+  title.textContent=t("catalog.unavailable.title");
+  body.textContent=t("catalog.unavailable.body");
+  status.textContent="";
+  retry.textContent=t("catalog.unavailable.retry");
+  retry.disabled=false;
+  retry.onclick=async()=>{
+    if(exerciseCatalogRetryBusy)return;
+    exerciseCatalogRetryBusy=true;retry.disabled=true;status.textContent=t("catalog.unavailable.retrying");
+    const loaded=await loadExerciseCatalog();
+    if(!loaded){
+      window.__repforgeCatalogUnavailable=String(exerciseCatalogError?.message||"catalog-unavailable");
+      status.textContent=t("catalog.unavailable.retry_failed");retry.disabled=false;exerciseCatalogRetryBusy=false;return}
+    window.__repforgeCatalogUnavailable=null;
+    if(dialog.open)dialog.close();
+    try{await boot()}finally{exerciseCatalogRetryBusy=false}
+  };
+  if(!dialog.open)dialog.showModal();
+  retry.focus();
+  return true}
 const InstallPolicy=window.RepForgeInstallPolicy;
 const GuideRegistry=window.RepForgeGuideRegistry;
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
@@ -364,6 +407,7 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
 }
 function isSafeProgressionFields(value){
   if(!isPlainStateObject(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"hasRepTarget")&&typeof value.hasRepTarget!=="boolean")return false;
   if(!isValidMuscleDomainTree(value))return false;
   for(const key of ["primary","secondary"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&!isValidStoredMuscleField(value[key]))return false;
@@ -372,7 +416,7 @@ function isSafeProgressionFields(value){
   for(const key of ["progression","progressionIncompatibility"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
   return true}
-function isSafeProgressionMeta(value){
+function isSafeProgressionMeta(value,customDefinitions=[]){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
   if(!isValidMuscleDomainTree(value))return false;
@@ -385,6 +429,8 @@ function isSafeProgressionMeta(value){
       (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
   if(Object.prototype.hasOwnProperty.call(value,"programStructure")&&value.programStructure!=null&&
     !isBoundedProgressionValue(value.programStructure))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"programDefinition")&&value.programDefinition!=null&&
+    !canonicalProgramDefinition(value.programDefinition,customDefinitions))return false;
   if(Object.prototype.hasOwnProperty.call(value,"plannedVolumeHistory")&&value.plannedVolumeHistory!=null&&
     !isValidPlannedVolumeHistory(value.plannedVolumeHistory))return false;
   return true}
@@ -392,11 +438,13 @@ function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"transitionOut")&&entry.transitionOut!=null&&
     !DurableState.isCoherentV1TransitionOut(entry.transitionOut))return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta,entry.customExercises||[]))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"setIndex")&&
+    (!Number.isInteger(entry.setIndex)||entry.setIndex<0))return false;
   if(!isValidMuscleDomainTree(entry))return false;
   for(const key of ["primary","secondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key],true))return false;
@@ -407,6 +455,55 @@ function isSafeLogRow(entry){
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"sourceLibraryId")&&entry.sourceLibraryId!==null&&typeof entry.sourceLibraryId!=="string")return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"metricOrigin")&&!["source_catalog","user_defined"].includes(entry.metricOrigin))return false;
+  const metricFields=["metricType","metricIds","metricDefinitions","metricValues","equipmentId","loadingConvention","loadingContext","restSeconds"];
+  const hasMetricFields=metricFields.some(key=>Object.prototype.hasOwnProperty.call(entry,key));
+  if(hasMetricFields){
+    if(!Number.isInteger(entry.setIndex)||entry.setIndex<0||entry.metricType!=="source_metrics@1"||!Array.isArray(entry.metricIds)||!Array.isArray(entry.metricDefinitions)||
+      !Array.isArray(entry.metricValues)||entry.metricIds.length===0||
+      !["source_catalog","user_defined"].includes(entry.metricOrigin)||typeof entry.sourceLibraryId!=="string"||!entry.sourceLibraryId||
+      !["external","assistance","per_side","bodyweight"].includes(entry.loadingConvention)||
+      !(entry.equipmentId===null||typeof entry.equipmentId==="string")||
+      (entry.restSeconds!==null&&(!Number.isSafeInteger(entry.restSeconds)||entry.restSeconds<0)))return false;
+    const definitions=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions);
+    const values=ExerciseMetrics?.validateMetricValues?.(entry.metricIds,entry.metricValues);
+    if(!definitions?.ok||!values?.ok||entry.metricValues.some(value=>typeof value?.value!=="number"||!Number.isFinite(value.value)))return false;
+    const sourceExercise=rawExercise(entry.sourceLibraryId);
+    const sourceBinding=ExerciseMetrics?.validateExerciseSourceBinding?.({metricOrigin:entry.metricOrigin,
+      metricIds:entry.metricIds,metricDefinitions:entry.metricDefinitions,sourceId:entry.sourceLibraryId,
+      sourceExercise,bodyweightCoefficient:entry.loadingModel?.bodyweightCoefficient??null});
+    if(!sourceBinding?.ok)return false;
+    const loading=WorkoutDraft?.validateLoadingContext?.(entry.loadingContext);
+    if(!loading?.ok||!Object.prototype.hasOwnProperty.call(entry.loadingContext,"bodyweightKg")||
+      !Object.prototype.hasOwnProperty.call(entry.loadingContext,"bodyweightContributionEnabled")||
+      !Object.prototype.hasOwnProperty.call(entry.loadingContext,"externalLoadMultiplier"))return false;
+    if(entry.loadingModel!=null&&(!isPlainStateObject(entry.loadingModel)||
+      Object.keys(entry.loadingModel).some(key=>!["bodyweightCoefficient","assistanceDirection"].includes(key))||
+      (entry.loadingModel.bodyweightCoefficient!=null&&(!Number.isFinite(entry.loadingModel.bodyweightCoefficient)||entry.loadingModel.bodyweightCoefficient<0||entry.loadingModel.bodyweightCoefficient>1))||
+      (entry.loadingModel.assistanceDirection!=null&&entry.loadingModel.assistanceDirection!=="subtract")))return false;
+    const modelCoefficient=entry.loadingModel?.bodyweightCoefficient??null;
+    const contextCoefficient=entry.loadingContext?.bodyweightCoefficient??null;
+    if(modelCoefficient!==contextCoefficient)return false;
+    const semantics=new Set(entry.metricDefinitions.map(definition=>definition.semantic));
+    const expectedConvention=semantics.has("assistanceKg")?"assistance":
+      semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
+        entry.metricIds.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
+    if(entry.loadingConvention!==expectedConvention)return false;
+    if(entry.loadingContext.loadingConvention!==entry.loadingConvention)return false;
+    if(entry.loadingConvention==="bodyweight"&&entry.loadingContext.externalLoadMultiplier!==0)return false;
+    if(entry.loadingContext.externalLoadMultiplier!=null&&entry.loadingConvention!=="per_side"&&
+      entry.loadingConvention!=="bodyweight"&&entry.loadingContext.externalLoadMultiplier!==1)return false;
+    if(entry.loadingModel?.bodyweightCoefficient!=null&&entry.loadingContext.bodyweightCoefficient!==entry.loadingModel.bodyweightCoefficient)return false;
+    if(entry.loadingContext.bodyweightKg!==(entry.bodyweight??null))return false;
+    if(entry.rir!==null&&(!Number.isFinite(entry.rir)||entry.rir<0))return false;
+    const load=entry.metricDefinitions.find(definition=>definition.semantic==="loadKg");
+    const reps=entry.metricDefinitions.find(definition=>definition.semantic==="reps");
+    const loadValue=load?entry.metricValues.find(value=>value.metricId===load.id)?.value:null;
+    const repsValue=reps?entry.metricValues.find(value=>value.metricId===reps.id)?.value:null;
+    if(entry.load!==loadValue||entry.reps!==repsValue)return false;
+    if(entry.equipmentId!=null&&rawCatalogObject(entry.equipmentId)?.type!=="equipment")return false;
+  }
   return true}
 function isSafeCustomExercise(entry){
   if(!isPlainStateObject(entry))return false;
@@ -415,9 +512,11 @@ function isSafeCustomExercise(entry){
     if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key]))return false;
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
 function isValidSetupActivationMarker(marker){
+  const maxRaw=Number.isSafeInteger(ProgramEntry?.MAX_DRAFT_ENVELOPE_BYTES)
+    ?ProgramEntry.MAX_DRAFT_ENVELOPE_BYTES:70000;
   return isPlainStateObject(marker)&&marker.version===1&&
     typeof marker.programId==="string"&&marker.programId.length>0&&marker.programId.length<=128&&
-    typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=70000&&
+    typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=maxRaw&&
     (!Object.prototype.hasOwnProperty.call(marker,"revision")||
       (Number.isInteger(marker.revision)&&marker.revision>=1))}
 function setupActivationMarker(raw,programId){
@@ -434,7 +533,7 @@ function isValidStateShape(s){
     // relabeling or dropping unknown historical muscle identity.
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
-    if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta,s.customExercises||[]))return false;
     if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN)&&!isValidSetupActivationMarker(s[STORAGE_SETUP_TXN]))return false;
@@ -1610,9 +1709,119 @@ const rowMuscles=row=>{
    setup notes are copied rather than looked up through libraryId, so the audit
    and every other reader keep reading the template exactly as before — and the
    lifter stays free to edit any of it afterwards without detaching the slot. */
+const SOURCE_FEATURE_TO_LEGACY_MUSCLE=Object.freeze({
+  "chest":"Chest","lats":"Lats","upper back":"Mid/upper back","upper traps":"Traps",
+  "front delts":"Front delts","side delts":"Side delts","rear delts":"Rear delts",
+  "biceps":"Biceps","triceps":"Triceps","forearms":"Forearms","quads":"Quads",
+  "hamstrings":"Hamstrings","glutes":"Glutes","adductors":"Adductors","abductors":"Abductors",
+  "calves":"Calves","tibs":"Tibs","hip flexors":"Hip flexors","lower back":"Spinal erectors",
+  "neck":"Neck","serratus":"Serratus","abs":"Abs","obliques":"Obliques",
+});
+function sourceFeatureAttribution(ids){
+  const tokens=[];
+  for(const id of Array.isArray(ids)?ids:[]){
+    const name=rawCatalogObject(id)?.name;
+    const token=SOURCE_FEATURE_TO_LEGACY_MUSCLE[String(name||"").trim().toLowerCase()];
+    if(token&&!tokens.includes(token))tokens.push(token)}
+  return tokens.join(",")}
+function libraryMuscleAttribution(entry,field){
+  const record=entry?.id?rawExercise(entry.id):null;
+  if(record){
+    const sourceField=field==="primary"?record.primaryFeatureMuscle:record.secondaryFeatureMuscle;
+    return sourceFeatureAttribution(sourceField)}
+  return String(entry?.[field]||"")}
 function exerciseFieldsFromLibrary(entry){
-  return{name:libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||"",
+  return{name:libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary"),
     notes:entry.notes||"",libraryId:entry.id,displayName:null}}
+
+function canonicalProgramDefinition(value,customDefinitions=customExercises()){
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
+  const checked=compiler.validateProgramDefinition(value,rawExerciseCatalog,customDefinitions);
+  return checked?.ok?cloneSnapshot(value):null}
+function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=customExercises()){
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
+  const byDay=new Map();
+  for(const row of Array.isArray(rows)?rows:[]){
+    const label=String(row?.day||"Day 1");
+    if(!byDay.has(label))byDay.set(label,[]);
+    byDay.get(label).push(row)}
+  const labels=[...new Set([...(Array.isArray(dayNames)?dayNames:[]).map(String),...byDay.keys()])].filter(Boolean);
+  if(labels.length>7)return null;
+  const orderedLabels=labels,days=[];
+  for(let index=0;index<7;index++){
+    const label=orderedLabels[index]||`${isPt()?"Descanso":"Rest"} ${index+1}`;
+    const entries=(byDay.get(label)||[]).slice().sort((a,b)=>(+a.order||0)-(+b.order||0));
+    const slots=entries.map((row,slotIndex)=>{
+      const exerciseId=String(row.libraryId||row.exerciseId||"");
+      const raw=rawExercise(exerciseId),custom=customDefinitions.find(item=>item.id===exerciseId)||null;
+      const definitions=raw?rawMetricDefinitions(exerciseId)||[]:
+        (Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[]);
+      const metricIds=definitions.map(metric=>metric.id);
+      const primary=Array.isArray(raw?.primaryFeatureMuscle)?raw.primaryFeatureMuscle:[];
+      const secondary=Array.isArray(raw?.secondaryFeatureMuscle)?raw.secondaryFeatureMuscle:[];
+      const patterns=Array.isArray(raw?.movementPattern)?raw.movementPattern:[];
+      const typeId=raw?.exerciseType||custom?.exerciseTypeId||null;
+      const count=Number(row.sets);
+      if(!Number.isInteger(count)||count<1||count>100)return null;
+      const repsSemantic=definitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
+      const authoredMin=Object.prototype.hasOwnProperty.call(row,"min")?Number(row.min):6;
+      const authoredMax=Object.prototype.hasOwnProperty.call(row,"max")?Number(row.max):10;
+      if(repsSemantic&&(!Number.isSafeInteger(authoredMin)||authoredMin<1||!Number.isSafeInteger(authoredMax)||authoredMax<authoredMin))return null;
+      const targets=repsSemantic?{[repsSemantic]:{min:authoredMin,max:authoredMax}}:{};
+      const configurationRequired=definitions.length===0;
+      const prescriptionsByCycle=Array.from({length:7},(_,cycleOffset)=>{
+        const cycleIndex=cycleOffset+1;
+        return{cycleIndex,sets:Array.from({length:count},(_,setIndex)=>({
+          id:`manual-${String(row.slotId||row.id||index+1)}-${cycleIndex}-${setIndex+1}`,
+          cycleIndex,setIndex:setIndex+1,metricType:"source_metrics@1",
+          metricIds:[...metricIds],metricDefinitions:definitions.map(cloneSnapshot),targets:cloneSnapshot(targets),
+          rir:null,restSeconds:null,status:configurationRequired?"configuration_required":"manual",
+          provenance:{source:"manual",policyVersion:"manual@1"}}))}});
+      return{id:String(row.slotId||row.id||`manual-slot-${index+1}-${slotIndex+1}`),
+        purposeId:"manual",exerciseId,sourceExerciseIds:[exerciseId],role:"manual",
+        musclePurposeIds:[...new Set([...primary,...secondary])],movementPatternIds:[...new Set(patterns)],
+        exerciseTypeId:typeId,order:slotIndex+1,metricOrigin:raw?"source_catalog":"user_defined",
+        metricIds,metricDefinitions:definitions.map(cloneSnapshot),
+        ...(row.displayName?{displayName:String(row.displayName)}:{}),
+        setupNotes:String(row.notes||""),
+        ...(!raw?{manualAttribution:{primary:String(row.primary||""),secondary:String(row.secondary||"")}}:{}),
+        loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,
+          assistanceDirection:"subtract"},
+        prescriptionsByCycle};});
+    if(slots.some(slot=>!slot))return null;
+    days.push({id:`manual-day-${index+1}`,name:label,kind:entries.length?"training":"rest",order:index+1,slots})}
+  const definition={schemaVersion:1,generatorVersion:"manual@1",seed:"manual",request:{},days,
+    cycles:7,deloadCycles:[],provenance:{source:"manual",policyVersion:"manual@1"}};
+  return canonicalProgramDefinition(definition,customDefinitions)}
+function flatProgramFromDefinition(definition,customDefinitions=customExercises(),cycleNumber=1){
+  if(!definition||!Array.isArray(definition.days))return[];
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  const sourceSets=new Map((compiler?.prescriptionsForCycle?.(definition,cycleNumber)||[])
+    .reduce((all,set)=>{if(!all.has(set.slotId))all.set(set.slotId,[]);all.get(set.slotId).push(set);return all},new Map()));
+  const customById=new Map(customDefinitions.map(entry=>[entry.id,entry]));
+  const rows=[];
+  for(const day of definition.days){
+    if(day.kind!=="training")continue;
+    for(const slot of day.slots){
+      const raw=rawExercise(slot.exerciseId),custom=customById.get(slot.exerciseId),index=LIBRARY_BY_ID.get(slot.exerciseId);
+      const cycle=slot.prescriptionsByCycle?.find(entry=>entry.cycleIndex===cycleNumber);
+      if(!cycle||!cycle.sets.length)continue;
+      const sets=sourceSets.get(slot.id)||cycle.sets;
+      const reps=sets.map(set=>set.targets?.reps??set.targets?.repsPerSide).find(value=>value!=null);
+      const minimum=typeof reps==="number"?reps:Number.isFinite(reps?.min)?reps.min:1;
+      const maximum=typeof reps==="number"?reps:Number.isFinite(reps?.max)?reps.max:minimum;
+      const row={id:slot.id,slotId:slot.id,day:day.name,dayId:day.id,order:slot.order||rows.length+1,
+        name:index?.name||custom?.name||raw?.name||slot.exerciseId,libraryId:slot.exerciseId,
+        sets:sets.length,hasRepTarget:reps!=null,
+        displayName:slot.displayName||null,
+        primary:slot.manualAttribution?.primary??sourceFeatureAttribution(raw?.primaryFeatureMuscle||[]),
+        secondary:slot.manualAttribution?.secondary??sourceFeatureAttribution(raw?.secondaryFeatureMuscle||[]),
+        notes:String(slot.setupNotes||"")};
+      if(reps!=null){row.min=minimum;row.max=maximum}
+      rows.push(row)}}
+  return rows}
 
 function normalizeProgressionEnvelope(value){
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
@@ -1624,6 +1833,10 @@ function progressionIncompatibility(kind,value,checked,source){
 function normalizeProgressionRelations(value,program=[],options={}){
   if(value!=null&&!Array.isArray(value))throw new TypeError("progressionRelations: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionRelations: structure exceeds safety bounds");
+  // Empty released compatibility collections carry no executable intent.
+  // They remain an empty projection after retiring the old validator instead
+  // of being misclassified as an unsupported user-authored relation.
+  if(value==null||value.length===0)return[];
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateRelations?.(value,{slots:program});
   if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
@@ -1636,6 +1849,7 @@ function candidateProgressionData(value,program,existing=[],source="candidate"){
 function normalizeProgressionModifiers(value,options={}){
   if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
+  if(value==null||value.length===0)return[];
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateModifiers?.(value);
   if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
@@ -1658,6 +1872,8 @@ class Exercise{
     this.order=Number.isFinite(+d.order)?+d.order:1;
     this.name=String(d.name??"").trim()||"Exercise";
     this.sets=Exercise.posInt(d.sets,2);
+    this.hasRepTarget=d.hasRepTarget===false?false:
+      d.hasRepTarget===true||Number.isFinite(Number(d.min))||Number.isFinite(Number(d.max));
     this.min=Exercise.posInt(d.min,4);
     this.max=Math.max(this.min,Exercise.posInt(d.max,8));
     this.primary=String(d.primary??"");
@@ -1710,10 +1926,12 @@ class Exercise{
       // diagnosis; no reader may silently turn this into a different movement.
       return this}
     this.name=this.displayName||libraryName(entry);
-    this.primary=entry.primary||"";
-    this.secondary=entry.secondary||"";
+    this.primary=libraryMuscleAttribution(entry,"primary");
+    this.secondary=libraryMuscleAttribution(entry,"secondary");
     return this}
-  toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+  toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+    if(!this.hasRepTarget)o.hasRepTarget=false;
+    if(this.hasRepTarget){o.min=this.min;o.max=this.max}
     if(this.slotId!==undefined)o.slotId=this.slotId;
     if(this.dayId!==undefined)o.dayId=this.dayId;
     if(this.libraryId!==undefined)o.libraryId=this.libraryId;
@@ -1758,8 +1976,8 @@ class Program{
   toJSON(){return this.exercises.map(e=>e.toJSON())}
   update(id,field,value){const e=this.find(id);if(!e)return;
     if(field==="sets")e.sets=Exercise.posInt(value,e.sets);
-    else if(field==="min"){e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
-    else if(field==="max"){e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
+    else if(field==="min"){e.hasRepTarget=true;e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
+    else if(field==="max"){e.hasRepTarget=true;e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
     else if(field==="alternates")e.alternates=String(value??"").split(",").map(s=>s.trim()).filter(Boolean);
     else if(field==="name"){
       const next=String(value??"").trim();
@@ -1815,7 +2033,10 @@ class Program{
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
 }
 
-const DAY_TYPES=window.RepForgeProgramEntryAdapter.DAY_MERGE_VOCABULARY;
+/* Family-slot vocabulary belonged to the retired family generator. Canonical
+   ProgramDefinitions carry their own ordered slots; keep this empty value only
+   for old display-only paths that still ask for a day type during migration. */
+const DAY_TYPES=Object.freeze({});
 const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
 const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
 /* The exercise library. exercises.js is generated (see tools/README.md) and
@@ -1844,7 +2065,7 @@ function libraryEntry(id,snapshot=state){
   if(id==null)return null;
   const key=String(id);
   if(isCustomLibraryId(key))return customExercises(snapshot).find(e=>e.id===key)||null;
-  return LIBRARY_BY_ID.get(key)||LIBRARY_BY_ID.get(LEGACY_LIBRARY_IDS[key])||null}
+  return LIBRARY_BY_ID.get(key)||null}
 /* Everything a picker can offer: the lifter's own movements first, because a
    custom entry exists precisely because the library did not have it. */
 function pickableExercises(snapshot=state){
@@ -2080,6 +2301,8 @@ function workoutDayId(label){
   return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
 function workoutProgramContext(label=day){
   const slots=exercises(label),empty={};
+  const definition=state.programMeta?.programDefinition,cycleNumber=mesocycleLifecycle(state.programMeta).current||1;
+  const canonicalDays=new Map((definition?.days||[]).map(item=>[item.name,item]));
   const context={
     programId:String(state.programMeta?.id||"local-program"),
     programFingerprint:workoutProgramFingerprint(state),
@@ -2087,15 +2310,41 @@ function workoutProgramContext(label=day){
     dayId:workoutDayId(label),dayLabel:label,scheduleDate:today(),
     unit:state.settings.unit==="lb"?"lb":"kg",rirMode:isEffortMode()?"effort":"numeric",
     exercises:slots.map((ex,index)=>{const rec=recommendation(ex),prev=last(ex);
-      const programmedSets=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(row=>row.set===n),sg=setSuggestion(ex,n,rec,empty,old);
-        return{suggestedLoad:sg.load??null,suggestedReps:sg.reps??ex.min,targetRir:old?.rir??1,
-          suggestedEffort:effortForRir(old?.rir??1),minReps:ex.min,maxReps:ex.max}});
+      const canonicalDay=canonicalDays.get(ex.day),canonicalSlot=canonicalDay?.slots?.find(slot=>slot.id===(ex.slotId||ex.id));
+      const cycle=canonicalSlot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber);
+      const metricDefinitions=canonicalSlot?.metricDefinitions||rawMetricDefinitions(ex.libraryId)||null;
+      const metricOrigin=canonicalSlot?.metricOrigin||(rawExercise(ex.libraryId)?"source_catalog":"user_defined");
+      const sourceExercise=rawExercise(ex.libraryId);
+      const loadingModel=canonicalSlot?.loadingModel||{
+        bodyweightCoefficient:Number.isFinite(sourceExercise?.bodyweight)?sourceExercise.bodyweight:null,
+        assistanceDirection:"subtract"};
+      const semantics=new Set((metricDefinitions||[]).map(metric=>metric.semantic));
+      const loadingConvention=semantics.has("assistanceKg")?"assistance":
+        semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
+          metricDefinitions?.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
+      const loadingContext={bodyweightContributionEnabled:null,
+        externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1,
+        ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")
+          ?{bodyweightCoefficient:loadingModel.bodyweightCoefficient}:{})};
+      const programmedSets=cycle?cycle.sets.map((prescription,i)=>{
+        const old=prev.find(row=>row.set===i+1),repTarget=prescription.targets?.reps??prescription.targets?.repsPerSide;
+        return{suggestedLoad:null,suggestedReps:repTarget?.min??repTarget??null,targetRir:prescription.rir,
+          suggestedEffort:prescription.rir==null?null:effortForRir(prescription.rir),
+          minReps:repTarget?.min??repTarget??ex.min,maxReps:repTarget?.max??repTarget??ex.max,
+          metricDefinitions,targets:cloneSnapshot(prescription.targets||{}),restSeconds:prescription.restSeconds,
+          role:prescription.status==="configuration_required"?"configuration_required":"working",
+          previousMetrics:old?.metricValues||old?.metrics||[]}}):
+        Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(row=>row.set===n),sg=setSuggestion(ex,n,rec,empty,old);
+          return{suggestedLoad:sg.load??null,suggestedReps:sg.reps??ex.min,targetRir:old?.rir??1,
+            suggestedEffort:effortForRir(old?.rir??1),minReps:ex.min,maxReps:ex.max,
+            metricDefinitions,targets:{}}});
       return{legacyExerciseId:ex.id,exerciseInstanceId:ex.id,
         sourceExerciseId:String(ex.slotId||ex.libraryId||ex.movementId||ex.id),
         libraryId:ex.libraryId, movementId:ex.movementId,displayName:ex.name,sets:ex.sets,
         setIds:Array.from({length:ex.sets},(_,i)=>`set-${i+1}`),minReps:ex.min,maxReps:ex.max,
         targetRir:1,notes:ex.notes||"",primary:ex.primary||"",secondary:ex.secondary||"",
         progressionStrategy:strategyIdFor(ex),movementPattern:ex.loadingMode||null,
+        metricDefinitions,metricOrigin,loadingModel,loadingConvention,loadingContext,
         sourceFingerprint:workoutProgramFingerprint({programMeta:{id:ex.id},program:[ex]}),programmedSets,index}})
   };
   if(Object.prototype.hasOwnProperty.call(state.programMeta||{},"blockId"))context.blockId=state.programMeta.blockId;
@@ -2131,9 +2380,13 @@ function workoutDraftProjection(draft=activeWorkoutDraft){
       if(set.role==="warmup")out.__warm.push(key)}}
   return out}
 function draftTargetFromKey(key){
-  for(const exId of activeWorkoutDraft?.exerciseOrder||[]){const match=String(key).match(new RegExp(`^${exId.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}_(\\d+)(?:_(load|reps|rir|effort))?$`));
-    if(!match)continue;const ex=activeWorkoutDraft.exercises[exId],ordinal=+match[1],setId=ex.setOrder.find(id=>ex.sets[id].ordinal===ordinal);
-    if(setId)return{exerciseInstanceId:exId,setId,field:match[2],ordinal}}
+  const text=String(key);
+  for(const exId of activeWorkoutDraft?.exerciseOrder||[]){
+    const prefix=exId+"_";if(!text.startsWith(prefix))continue;
+    const match=text.slice(prefix.length).match(/^(\d+)(?:_(load|reps|rir|effort)|_metric_([a-f0-9]{32}))?$/i);
+    if(!match)continue;
+    const ex=activeWorkoutDraft.exercises[exId],ordinal=+match[1],setId=ex.setOrder.find(id=>ex.sets[id].ordinal===ordinal);
+    if(setId)return{exerciseInstanceId:exId,setId,field:match[3]?"metric":match[2],metricId:match[3]||null,ordinal}}
   return null}
 function canonicalDraftField(field,value){
   const raw=String(value??"");
@@ -2705,6 +2958,7 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
   else if(row.performedName===row.name){
     if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
     if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
+  if(Array.isArray(row.metricValues))continue;
   const ld=posNum(row.load),rp=posNum(row.reps);
   const missingRir=row.rir==null||row.rir==="",parsedRir=parseDec(row.rir);
   const explicitStrategy=ex?.progression?.strategy?.id;
@@ -2771,6 +3025,9 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   if(m.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(m.plannedVolumeHistory))
     throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
   const plannedVolumeHistory=m.plannedVolumeHistory==null?null:cloneSnapshot(m.plannedVolumeHistory);
+  const programDefinition=m.programDefinition==null?null:canonicalProgramDefinition(
+    m.programDefinition,options.customExercises||customExercises());
+  if(m.programDefinition!=null&&!programDefinition)throw new TypeError("programDefinition: invalid Plan 067 definition");
   const entrySource=normalizeProgramEntrySource(m.entrySource);
   let compilerContext=null;
   if(m.compilerContext!=null){
@@ -2799,6 +3056,7 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
   if(plannedVolumeHistory!=null)metaObj.plannedVolumeHistory=plannedVolumeHistory;
+  if(programDefinition)metaObj.programDefinition=programDefinition;
   if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
   if(compilerContext!=null)metaObj.compilerContext=compilerContext;
   if(transitionIn!=null)metaObj.transitionIn=transitionIn;
@@ -2921,7 +3179,7 @@ function normalizeLoaded(s,options={}){
   // Resolved against this snapshot's own custom definitions: during an import
   // or a boot they are not in live state yet.
   out.program=new Program(s.program,lookup).toJSON();
-  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,options);
+  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,{...options,customExercises:customs});
   const structured=withExplicitProgramStructure(out.program,out.programMeta);
   out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
@@ -4969,6 +5227,10 @@ function syncProgramStructureFromProgram(proposal,program,previousProgram=null,p
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
+  if(state.programMeta?.programDefinition&&week!=null){
+    const projected=flatProgramFromDefinition(state.programMeta.programDefinition,
+      Array.isArray(state.customExercises)?state.customExercises:[],week);
+    if(projected)return projected}
   let rows=state.program;
   if(week!=null&&typeof ProgramCompiler?.projectProgramForWeek==="function")
     rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,week);
@@ -5453,37 +5715,93 @@ function strategyRecommendation(ex,result,id){
     reason:result.reasonCodes[0],strategy:id,engineSets:sets,
     cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,
     lastLoad:result.facts.latestLoad??result.facts.representativeLoad}}
+function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefinition){
+  if(!definition||!Array.isArray(definition.days))return null;
+  const id=String(ex?.slotId||ex?.id||"");
+  for(const day of definition.days)for(const slot of day.slots||[])if(slot.id===id)return{day,slot};
+  return null}
+function enginePerformedRow(row,exerciseId,metricIds){
+  const performedId=String(row?.performedLibraryId||row?.performedMovementId||"");
+  if(performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
+    !Array.isArray(row.metricIds)||JSON.stringify(row.metricIds)!==JSON.stringify(metricIds)||
+    !Array.isArray(row.metricValues)||!Number.isInteger(row.setIndex)||row.setIndex<0)return null;
+  const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
+  if(!values?.ok)return null;
+  const rir=typeof row.rir==="number"&&Number.isFinite(row.rir)&&row.rir>=0?row.rir:null;
+  return{exerciseId,completed:true,setIndex:row.setIndex,rir,equipmentId:row.equipmentId??null,
+    loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
+    loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null}}
+function progressionHistoryFor(exerciseId,metricIds){
+  const grouped=new Map();
+  for(const row of state.log||[]){
+    const performed=enginePerformedRow(row,exerciseId,metricIds);if(!performed)continue;
+    const sessionId=String(row.session||"");if(!sessionId)continue;
+    if(!grouped.has(sessionId))grouped.set(sessionId,{sessionId,date:row.date,created:row.created,completed:true,sets:[]});
+    grouped.get(sessionId).sets.push(performed)}
+  return[...grouped.values()].sort(compareLogChronology).map(session=>({
+    sessionId:session.sessionId,completed:true,sets:session.sets.sort((a,b)=>a.setIndex-b.setIndex)}))}
+function progressionCurrentSession(prescription){
+  if(!activeWorkoutDraft?.exercises)return[];
+  const exercise=activeWorkoutDraft.exercises[prescription.slotId]||
+    Object.values(activeWorkoutDraft.exercises).find(item=>item.libraryId===prescription.exerciseId||item.sourceExerciseId===prescription.exerciseId);
+  if(!exercise||exercise.status==="skipped")return[];
+  const sets=[];
+  for(const setId of exercise.setOrder||[]){
+    const set=exercise.sets?.[setId];if(!set||set.completion==="pending"||set.role==="warmup")continue;
+    const values=[];let valid=true;
+    for(const metric of set.programmed?.metrics||[]){
+      const parsed=ExerciseMetrics?.parseMetricValue?.(metric,set.edited?.metrics?.[metric.id]);
+      if(!parsed?.ok){valid=false;break}
+      values.push({metricId:metric.id,value:parsed.value,unit:metric.unit})}
+    if(!valid||JSON.stringify(values.map(value=>value.metricId))!==JSON.stringify(prescription.metricIds))continue;
+    const rawRir=set.edited?.rir??set.programmed?.targetRir;
+    const rir=activeWorkoutDraft.program?.rirMode==="effort"?EFFORT_RIR[set.edited?.effort]
+      :rawRir==null?null:Number(rawRir);
+    const loadingContext=cloneSnapshot(exercise.programmed?.loadingContext||{});
+    loadingContext.loadingConvention=exercise.programmed?.loadingConvention||loadingContext.loadingConvention;
+    loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null?null:Number(activeWorkoutDraft.session.bodyweight);
+    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
+      rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
+      loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
+      loadingContext})}
+  return sets}
 function recommendation(ex){
-  const strategy=strategyIdFor(ex);
-  const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
-  if(strategy==="rep_goal"||strategy==="effort_target"||strategy==="anchor_backoff"){
-    if(result.kind==="recommendation"||result.kind==="insufficient_evidence")
-      return strategyRecommendation(ex,result,strategy)}
-  const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
-  if(result.kind==="manual"||result.kind==="incompatible"||result.kind==="invalid")return{status:"manual",heat:0,label:"",text:"",load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,reason:codes[0]};
-  // No history, or evidence the locked strategy will not act on: the same
-  // "start here" card the app has always drawn, with no invented number.
-  if(!ui||ui.reason==="new")return{status:"new",heat:.12,label:t("rec.new.label"),
-    text:isEffortMode()
-      ?t("rec.new.text_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
-      :t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),
-    load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true,reason:"new"};
-  const copy=rangeCopy(ex,ui.reason);
-  const rec={status:ui.status,heat:ui.heat,label:copy.label,text:copy.text,load:facts.targetLoad,
-    stalled:ui.reason==="stalled"?true:ui.reason==="below_range"?facts.stalled:false,
-    pushReps:facts.pushReps,reason:ui.reason};
-  if(facts.jumpMultiplier>0)rec.jumpMult=facts.jumpMultiplier;
-  // Weak block tempering: a block that is losing strength should not double-jump.
-  if(codes.includes("range.block_tempered")){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
-    rec.text=t("rec.add.tempered.text");rec.jumpMult=facts.jumpMultiplier;rec.temperedBlock=true}
-  const trend={dir:facts.blockTrend.direction,sessions:facts.blockTrend.sessionCount};
-  if(facts.blockTrend.ratio!=null)trend.ratio=facts.blockTrend.ratio;
-  rec.block=trend;rec.blockNote=blockTrendNote(trend);
-  rec.cap=facts.capacityE1rm;rec.typRir=facts.typicalRir;
-  // Read-only inputs the "why this weight" sheet narrates; nothing here steers a trigger.
-  rec.cr=facts.capacityReps;rec.lastLoad=facts.latestLoad;rec.lastMedReps=facts.latestMedianReps;
-  rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,facts.latestLoad);
-  return rec;
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  const engine=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
+  if(!compiler?.prescriptionsForCycle||!engine?.recommendSets||!matched)
+    return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
+  const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
+  const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
+  const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
+  if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
+  const first=prescriptions[0],history=progressionHistoryFor(first.exerciseId,first.metricIds);
+  const currentSession=progressionCurrentSession(first);
+  // Never infer an equipment grid or a per-side multiplier. Missing source-gym
+  // configuration stays a manual prescription while the set remains loggable.
+  const loadingContext={bySlotId:state.programMeta?.loadingConfiguration?.bySlotId||{}};
+  const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
+    weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false});
+  const targetSets=prescriptions.map((prescription,index)=>{
+    const result=results[index]||null;
+    return{prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
+      rir:prescription.rir,status:result?.status||"manual"}});
+  const firstActual=targetSets.find(item=>item.prescription.setIndex===1)||targetSets[0];
+  const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
+  const repMetric=definitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide");
+  const loadMetric=definitions.find(metric=>["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
+  const authored=firstActual?.prescription.targets||{};
+  const repTarget=repMetric?authored[repMetric.semantic]:null,repValue=firstActual?.targets?.[repMetric?.semantic];
+  const manual=result?.status!=="recommended";
+  const newLift=result?.reasonCodes?.includes("no_comparable_history")&&!result?.reasonCodes?.includes("configuration_required");
+  return{status:manual?(newLift?"new":"manual"):"hold",engineStatus:result?.status||"manual",
+    reason:result?.reasonCodes?.[0]||"manual_prescription",reasonCodes:result?.reasonCodes||[],
+    label:manual?"":t("today.recommendation"),text:"",load:!manual&&loadMetric?firstActual.targets?.[loadMetric.semantic]??null:null,
+    reps:typeof repValue==="number"?repValue:repValue?.min??(typeof repTarget==="number"?repTarget:repTarget?.min??null),
+    targetSets,engineResults:results,metricDefinitions:definitions,slotId:matched.slot.id,
+    stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
+    prescription:cloneSnapshot(first),historyAnchor:result?.historyAnchor||null,fatigue:result?.fatigue||null,
+    loadingAssumptions:result?.loadingAssumptions||null};
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
 // minus the lifter's own habitual RIR, clamped into the range. Replaces the blind
@@ -6730,6 +7048,7 @@ function rxSetsLine(sets,withUnit){
   return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
     :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
 function rxTargetText(ex,rec){
+  if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
   if(rec.status==="manual")return `${ex.sets} × ${ex.min}–${ex.max}`;
   if(strategy==="rep_goal")return t("today.target.total",{n:params.repGoal});
@@ -7455,6 +7774,7 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
 function focusExMeta(ex){
+  if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
   const sets=+p.workingSets||+ex.sets||1;
   const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
@@ -7477,7 +7797,7 @@ function focusExMeta(ex){
    ever, and the one action is the `.saveset` handler. Which field is selected,
    and whether it is a live input, is this transient state alone. */
 let shelfUi={key:"",field:"reps",editing:false};
-const shelfFor=key=>shelfUi.key===key?shelfUi:{key,field:"reps",editing:false};
+const shelfFor=(key,firstField="reps")=>shelfUi.key===key?shelfUi:{key,field:firstField,editing:false};
 const shelfSelect=(key,field,editing=false)=>{shelfUi={key,field,editing}};
 /** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
 const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):String(raw??"")};
@@ -7485,6 +7805,89 @@ const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):Str
 function shelfLoadStep(){
   const kg=parseDec(state.settings.minJump)||2.5;
   return fmt(Math.round(toDisplay(kg)*10)/10)}
+
+function focusMetricDefinitions(exId,n){
+  const exercise=activeWorkoutDraft?.exercises?.[exId];if(!exercise)return[];
+  const setId=exercise.setOrder.find(id=>exercise.sets[id].ordinal===n);
+  const metrics=setId?exercise.sets[setId].programmed.metrics:null;
+  return Array.isArray(metrics)?metrics:[]}
+function metricTextValue(raw,metric){
+  if(raw==null||raw==="")return"";
+  const number=parseDec(raw);
+  if(!Number.isFinite(number))return String(raw);
+  return ["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
+    ?fmtPlain(toDisplay(number)):fmtPlain(number)}
+function canonicalMetricInput(metric,raw){
+  const text=String(raw??"");if(text.trim()==="")return"";
+  const parsed=parseDec(text);if(!Number.isFinite(parsed))return text;
+  const value=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
+    ?fromDisplay(parsed):parsed;
+  return canonicalNumberText(value)}
+function metricTargetText(target){
+  if(target==null)return"";
+  const show=value=>fmt(value);
+  if(typeof target==="number")return show(target);
+  if(Number.isFinite(target.min)&&Number.isFinite(target.max))return target.min===target.max?show(target.min):`${show(target.min)}–${show(target.max)}`;
+  return""}
+function canonicalMetricTargetText(metric,target){
+  if(target==null)return"";
+  const loadMetric=metric?.unit==="kg";
+  const show=value=>fmt(loadMetric?toDisplay(value):value);
+  const unit=metricDisplayUnit(metric);
+  let value="";
+  if(typeof target==="number")value=show(target);
+  else if(Number.isFinite(target.min)&&Number.isFinite(target.max))
+    value=target.min===target.max?show(target.min):`${show(target.min)}–${show(target.max)}`;
+  return value?`${metricLabel(metric)} ${value}${unit?` ${unit}`:""}`:""}
+function programPrescriptionSummary(ex,cycleNumber=mesocycleLifecycle(state?.programMeta).current||1){
+  const match=canonicalPrescriptionSlot(ex),slot=match?.slot;
+  const cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber)||slot?.prescriptionsByCycle?.[0];
+  const set=cycle?.sets?.[0],definitions=slot?.metricDefinitions||[];
+  const targets=definitions.map(metric=>canonicalMetricTargetText(metric,set?.targets?.[metric.semantic])).filter(Boolean);
+  const setLabel=ex?.sets===1?t("history.sets.one",{n:1}):t("entry.catalogue.sets_exact",{n:+ex?.sets||0});
+  return targets.length?`${setLabel} · ${targets.join(" · ")}`:setLabel}
+function metricLabel(metric){
+  const keys={loadKg:"focus.metric.load_kg",assistanceKg:"focus.metric.assistance_kg",reps:"focus.metric.reps",
+    durationSeconds:"focus.metric.duration_seconds",distanceShortMeters:"focus.metric.distance_short_meters",
+    distanceLongMeters:"focus.metric.distance_long_meters",loadPerSideKg:"focus.metric.load_per_side_kg",
+    repsPerSide:"focus.metric.reps_per_side",durationPerSideSeconds:"focus.metric.duration_per_side_seconds",
+    persistentLoadPerSideKg:"focus.metric.persistent_load_per_side_kg",distanceShortPerSideMeters:"focus.metric.distance_short_per_side_meters"};
+  return keys[metric.semantic]?t(keys[metric.semantic]):metric.sourceName}
+function metricDisplayUnit(metric){
+  if(metric?.unit==="kg")return unitLabel();
+  if(metric?.unit==="metres")return"m";
+  if(metric?.unit==="seconds")return"s";
+  return""}
+function parseHistoryMetricInput(metric,raw){
+  const semantics={reps:"validation.reps",repsPerSide:"validation.reps",
+    loadKg:"validation.load",assistanceKg:"validation.load",loadPerSideKg:"validation.load",
+    persistentLoadPerSideKg:"validation.load"};
+  const key=semantics[metric?.semantic]||"validation.metric";
+  const displayed=parseDec(raw);
+  if(!Number.isFinite(displayed))return{field:"metric",key};
+  const value=metric?.unit==="kg"?fromDisplay(displayed):displayed;
+  const checked=ExerciseMetrics?.parseMetricValue?.(metric,value);
+  return checked?.ok?{value:checked.value}:{field:"metric",key};}
+function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek}){
+  const key=`${ex.id}_${n}`,fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`,selected=ui.field===fieldId;
+  const live=selected&&ui.editing&&!peek;
+  const pending=pendingFields.get(inputKey)?.value;
+  const raw=pending??set.edited.metrics?.[metric.id]??"";
+  const shown=raw!==""?metricTextValue(raw,metric):metricTargetText(set.programmed.targets?.[metric.semantic]);
+  const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
+  const unit=metric.unit==="kg"?unitLabel():metric.unit==="metres"?"m":metric.unit==="seconds"?"s":metric.unit;
+  const label=`${metricLabel(metric)}${unit?` (${unit})`:""}`;
+  const name=`${label}, ${t("focus.set_label",{n})}`;
+  const soft=!touched.metrics?.[metric.id]&&!pendingFields.has(inputKey);
+  const cls=`shelf__field${selected?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
+  const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
+  if(peek)return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}"><span class="shelf__fieldbtn">${face}</span></div>`;
+  const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${esc(fieldId)}" data-set="${esc(key)}" aria-pressed="${selected?"true":"false"}">${face}</button>`;
+  const input=`<input class="shelf__input" data-k="${esc(inputKey)}" data-metric-id="${esc(metric.id)}" type="text" inputmode="${metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"}" `+
+    `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(metricTextValue(raw,metric))}" placeholder="${esc(target)}"`+
+    `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
+  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(label)}</span>`:"";
+  return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}" data-set="${esc(key)}"><span data-lv="${esc(fieldId)}"></span>${button}${input}${caption}</div>`}
 
 function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const key=`${ex.id}_${n}`,sel=ui.field===id;
@@ -7520,6 +7923,18 @@ function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
     const at=Math.max(0,EFFORT_STEPS.indexOf(vals.effortVal));
     return [-1,1].map(dir=>{const to=EFFORT_STEPS[at+dir],word=effortLabel(to||vals.effortVal);
       return pad(dir,t("focus.shelf.pad_effort",{sign:sign(dir),effort:word}),{attrs:` data-effstep="${esc(key)}"`,off:!to})}).join("")}
+  const metricId=id.startsWith("metric_")?id.slice(7):null;
+  const metric=metricId?focusMetricDefinitions(ex.id,n).find(item=>item.id===metricId):null;
+  if(metric){
+    const reps=metric.semantic==="reps"||metric.semantic==="repsPerSide";
+    const load=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic);
+    const unit=metricDisplayUnit(metric),step=load?shelfLoadStep():"1";
+    const attrs=' data-step="'+key+"_metric_"+metric.id+'"';
+    return [-1,1].map(dir=>{
+      const text=reps?t("focus.shelf.pad_reps",{sign:dir>0?"+":"−"})
+        :load?t("focus.shelf.pad_load",{sign:dir>0?"+":"−",step,unit})
+          :(dir>0?"+":"−")+"1"+(unit?" "+unit:"");
+      return pad(dir,text,{attrs})}).join("")}
   const attrs=` data-step="${esc(key)}_${id}"`;
   return [-1,1].map(dir=>pad(dir,id==="load"?t("focus.shelf.pad_load",{sign:sign(dir),step:shelfLoadStep(),unit:unitLabel()})
     :id==="reps"?t("focus.shelf.pad_reps",{sign:sign(dir)}):t("focus.shelf.pad_rir",{sign:sign(dir)}),{attrs})).join("")}
@@ -7550,12 +7965,16 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     return `<div class="focus-shelf workshelf is-done" role="region" aria-label="${esc(title)}">`+
       `<div class="focus-done${rise}"><p class="focus-done__title">${esc(title)}</p><p class="focus-done__sub">${esc(sub)}</p></div>`+cta+`</div>`}
   const effortMode=isEffortMode();
-  const key=`${ex.id}_${n}`,ui=shelfFor(key);
+  const key=`${ex.id}_${n}`,metricDefinitions=focusMetricDefinitions(ex.id,n),ui=shelfFor(key,metricDefinitions[0]?"metric_"+metricDefinitions[0].id:"reps");
   const editing=!!(focusEdit&&focusEdit.exId===ex.id);
   const vals=setFieldVals(ex,n,r,draft,prev);
   const touched=shelfTouched(ex.id,n);
   const label=editing?t("log.save_set_aria",{n}):t("focus.shelf.log_set",{n});
-  const fields=["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
+  const setId=activeWorkoutDraft?.exercises?.[ex.id]?.setOrder?.find(id=>activeWorkoutDraft.exercises[ex.id].sets[id].ordinal===n);
+  const set=activeWorkoutDraft?.exercises?.[ex.id]?.sets?.[setId];
+  const fields=metricDefinitions.length
+    ?metricDefinitions.map(metric=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek})).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
+    :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${fields}</div>`+
     focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing})+
@@ -7917,8 +8336,13 @@ function bindWorkout(){
     // those rebuilds, and the acknowledgement is applied to the control that is on screen then, not to this node.
     const key=i.dataset.k,token=holdPendingField(key,i.value);
     let result;
-    try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
+    try{
+      if(target.metricId){
+        const metric=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].programmed.metrics.find(item=>item.id===target.metricId);
+        result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
+          setId:target.setId,metricId:target.metricId,value:canonicalMetricInput(metric,i.value)},{pendingValue:i.value})
+      }else result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+        setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
     finally{releasePendingField(key,token)}
     if(result.status!=="applied")return;
     const live=liveShelfInput(key);
@@ -7958,7 +8382,13 @@ function bindWorkout(){
   $w(".stepbtn").forEach(b=>b.onclick=async()=>{if(!b.dataset.step)return;
     const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const key=b.dataset.step||"",dir=+b.dataset.dir||0;
-    if(/_reps$|_rir$/.test(key)){
+    const target=draftTargetFromKey(key);
+    if(target?.metricId){
+      const metric=activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.programmed?.metrics?.find(item=>item.id===target.metricId);
+      const cur=parseDec(inp.value)||0,load=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric?.semantic);
+      const step=load?(parseDec(shelfLoadStep())||1):1;
+      inp.value=fmtPlain(Math.max(0,Math.round((cur+step*dir)*10)/10));
+    }else if(/_reps$|_rir$/.test(key)){
       const cur=parseDec(inp.value)||0;inp.value=fmtPlain(Math.max(0,cur+dir));
     }else{
       const incKg=parseDec(state.settings.minJump)||2.5,curKg=fromDisplay(inp.value||0),
@@ -8800,6 +9230,7 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgeInstallTransferImport=(envelope,options)=>importInstallTransfer(envelope,options);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
+window.__repforgeEntryPersistenceDiagnostic=()=>cloneSnapshot(entryPersistenceDiagnostic);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
 window.__repforgeCreateOnboardingProgramEditorAdapter=()=>createOnboardingProgramEditorAdapter();
 window.__repforgeStageGuidedManualRepair=(params,io)=>repforgeProgramTransitionAdapter.stageGuidedManualRepair(params,io);
@@ -10179,6 +10610,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
+  metricLabel, metricDisplayValue:metricTextValue, metricDisplayUnit, parseHistoryMetricInput,
   weekdayLetters, table, today, uid, readRevision,
   commitProposedState:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
   readDurableState:()=>DurableState.readDurableState(),
@@ -10282,7 +10714,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
+    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · RIR 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
     artHtml+
     recHtml+
     `<div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
@@ -10650,7 +11082,8 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     const current=!!model.days().includes(old);
     if(check&&!current)return{conflict:true};
     if(!model.renameDay(old,next))return{conflict:true};
-    document.program=model.toJSON();syncProgramStructureFromProgram(document,model);return{ok:true}}
+    document.program=model.toJSON();syncProgramStructureFromProgram(document,model);
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true}}
   if(kind==="day_add"){
     const day=String(edit.after||edit.targetDay||"").trim();
     if(!day)return{conflict:true};
@@ -10658,8 +11091,12 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     const structure=(document.programMeta?.programStructure?.days||[]).slice();
     structure.push({dayId:`manual_d${structure.length+1}`,label:day,order:structure.length+1});
     document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),days:structure}};
-    return{ok:true};
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true};
   }
+  if(kind==="metric_target"||kind==="metric_composition"||kind==="prescription_field"||
+    kind==="prescription"&&edit.field==="sets"){
+    return syncEditorCanonicalIntent(document,document,edit,{cycleIndex:Number(edit.cycleIndex)||1})
+      ?{ok:true}:{conflict:true,code:"invalid_canonical_prescription"}}
   if(kind==="exercise_field"||kind==="prescription"||kind==="alternates"){
     const exercise=document.program?.find(item=>item.id===edit.targetId);
     if(!exercise)return{conflict:true};
@@ -10672,6 +11109,8 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     }
     if(edit.field==="min"&&Number(exercise.max)<Number(exercise.min))exercise.max=exercise.min;
     if(edit.field==="max"&&Number(exercise.min)>Number(exercise.max))exercise.min=exercise.max;
+    if(document.programMeta?.programDefinition&&!syncEditorCanonicalIntent(document,document,edit))
+      return{conflict:true,code:"invalid_canonical_exercise_field"};
     return{ok:true}}
   if(kind==="exercise_move"){
     const exercise=document.program?.find(item=>item.id===edit.targetId);if(!exercise)return{conflict:true};
@@ -10697,7 +11136,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
       source.forEach((item,index)=>{item.order=index+1});
       target.forEach((item,index)=>{item.day=targetDay;item.order=index+1});
     }
-    return{ok:true}}
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_move"}}
   if(kind==="exercise_add"){
     if(check&&document.program?.some(item=>item.id===edit.targetId))return{conflict:true};
     if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
@@ -10706,6 +11145,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
         return{conflict:true,code:"missing_custom_definition"};
       document.program=(document.program||[]).concat(cloneSnapshot(edit.exercise));
       syncProgramStructureFromProgram(document,makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta));
+      if(!syncEditorCanonicalIntent(document,document,edit))return{conflict:true,code:"invalid_canonical_exercise"};
     }
     return{ok:true};
   }
@@ -10724,13 +11164,15 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     if(edit.exercise){
       if(!editorHasCustomDefinition(document,edit.exercise.libraryId))
         return{conflict:true,code:"missing_custom_definition"};
-      Object.assign(existing,cloneSnapshot(edit.exercise))}
+      Object.assign(existing,cloneSnapshot(edit.exercise));
+      if(!syncEditorCanonicalIntent(document,document,edit))return{conflict:true,code:"invalid_canonical_exercise"}}
     return{ok:true};
   }
   if(kind==="exercise_remove"){
     const existing=document.program?.find(item=>item.id===edit.targetId);
     if(check&&!existing)return{conflict:true};
-    document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);return{ok:true};
+    document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_exercise"};
   }
   if(kind==="day_remove"){
     const day=String(edit.targetDay||"");
@@ -10738,7 +11180,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     document.program=(document.program||[]).filter(item=>item.day!==day);
     const structure=document.programMeta?.programStructure;
     if(structure?.days)document.programMeta.programStructure={...structure,days:structure.days.filter(item=>String(item?.label||item?.dayId||"")!==day)};
-    return{ok:true};
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_exercise"};
   }
   return{ok:true};
 }
@@ -10752,6 +11194,266 @@ function editorRebaseDocument(session,head){
   for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);
     if(result?.conflict)return{conflict:true,code:result.code||"editor_intent_conflict"};}
   return{document:rebased,conflict:false}}
+function editorMetricDefinitionList(id){
+  const source=rawMetricDefinitions(id);
+  if(source!==null)return source;
+  const custom=(customExercises()||[]).find(entry=>entry.id===String(id??""));
+  return Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[]}
+function editorMetricTargetText(definition,target){
+  const show=value=>metricTextValue(value,definition);
+  if(typeof target==="number")return show(target);
+  if(isPlainStateObject(target)&&Number.isFinite(target.min)&&Number.isFinite(target.max)){
+    const low=show(target.min),high=show(target.max);
+    return target.min===target.max?low:`${low}–${high}`}
+  return""}
+function editorMetricAdapter({cycleIndex}={}){
+  return{
+    metricLabel:definition=>metricLabel(definition),
+    formatMetricValue:(definition,value)=>editorMetricTargetText(definition,value),
+    metricDisplayUnit:definition=>metricDisplayUnit(definition),
+    parseMetricInput:(definition,raw)=>parseHistoryMetricInput(definition,raw),
+    metricDefinitionsForExercise:id=>editorMetricDefinitionList(id),
+    metricOptions:()=>cloneSnapshot(ExerciseMetrics?.DEFINITIONS||[]),
+    metricCompositions:()=>cloneSnapshot(ExerciseMetrics?.SOURCE_COMPOSITIONS||[]),
+    cycleIndex:typeof cycleIndex==="function"?cycleIndex:()=>1,
+  }}
+function editorDefinitionAndSlot(document,slotId){
+  const definition=document?.programMeta?.programDefinition;
+  for(const day of definition?.days||[]){
+    const slot=(day.slots||[]).find(candidate=>candidate?.id===slotId);
+    if(slot)return{definition,day,slot}}
+  return{definition,day:null,slot:null}}
+function editorSetByCoordinates(definition,slotId,cycleIndex,setIndex){
+  for(const day of definition?.days||[]){
+    const slot=(day.slots||[]).find(candidate=>candidate?.id===slotId);
+    const cycle=slot?.prescriptionsByCycle?.find(candidate=>candidate?.cycleIndex===cycleIndex);
+    const set=cycle?.sets?.find(candidate=>candidate?.setIndex===setIndex);
+    if(set)return{slot,cycle,set}}
+  return{slot:null,cycle:null,set:null}}
+function editorCycleSetCount(slot,cycleIndex){
+  return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets?.length||0}
+function editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,metricDefinitions,targets={},status){
+  return{id:`manual-${uid()}`,cycleIndex,setIndex,metricType:"source_metrics@1",metricIds:cloneSnapshot(metricIds),
+    metricDefinitions:cloneSnapshot(metricDefinitions),targets:cloneSnapshot(targets),rir:null,restSeconds:null,
+    status:status||(metricIds.length?"manual":"configuration_required"),
+    provenance:{source:"manual",policyVersion:"manual@1"}}}
+function editorSlotForRow(row,document,slotId,order,existing=null){
+  const exerciseId=String(row?.libraryId||row?.exerciseId||"");
+  if(!exerciseId)return null;
+  const raw=rawExercise(exerciseId),custom=(document?.customExercises||[]).find(entry=>entry.id===exerciseId)||null;
+  const definitions=raw?rawMetricDefinitions(exerciseId)||[]:
+    Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[];
+  const metricIds=definitions.map(definition=>definition.id);
+  const origin=raw?"source_catalog":"user_defined";
+  const sourceSetsByCycle=new Map((existing?.prescriptionsByCycle||[]).map(cycle=>[cycle.cycleIndex,cycle]));
+  const cycles=Number.isInteger(document?.programMeta?.programDefinition?.cycles)
+    ?document.programMeta.programDefinition.cycles:1;
+  const reps=definitions.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
+  const targets={};
+  if(reps&&Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min)
+    targets[reps.semantic]={min:row.min,max:row.max};
+  const setCount=Math.max(1,Math.min(100,Number.isInteger(row.sets)?row.sets:3));
+  const prescriptionsByCycle=[];
+  for(let cycleIndex=1;cycleIndex<=cycles;cycleIndex++){
+    const previous=sourceSetsByCycle.get(cycleIndex)?.sets||[];
+    const sets=[];
+    for(let setIndex=1;setIndex<=setCount;setIndex++){
+      const old=previous[setIndex-1];
+      const retainedTargets=existing&&old?cloneSnapshot(old.targets||{}):cloneSnapshot(targets);
+      const filteredTargets=Object.fromEntries(Object.entries(retainedTargets).filter(([semantic])=>
+        definitions.some(definition=>definition.semantic===semantic)));
+      const built=editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,definitions,filteredTargets,
+        definitions.length?(origin==="user_defined"?"manual":old?.status==="ready"?"ready":"manual"):"configuration_required");
+      if(existing&&old){built.id=old.id;built.rir=old.rir??null;built.restSeconds=old.restSeconds??null;
+        built.provenance=cloneSnapshot(old.provenance||built.provenance)}
+      sets.push(built)}
+    prescriptionsByCycle.push({cycleIndex,sets})}
+  const primaryIds=Array.isArray(raw?.primaryFeatureMuscle)?raw.primaryFeatureMuscle:[];
+  const secondaryIds=Array.isArray(raw?.secondaryFeatureMuscle)?raw.secondaryFeatureMuscle:[];
+  const patternIds=Array.isArray(raw?.movementPattern)?raw.movementPattern:[];
+  const sourceType=raw?.exerciseType||null;
+  const prior=existing||{};
+  return{...prior,id:slotId,purposeId:"manual",exerciseId,sourceExerciseIds:[exerciseId],role:"manual",
+    musclePurposeIds:[...new Set([...primaryIds,...secondaryIds])],movementPatternIds:[...new Set(patternIds)],
+    ...(sourceType?{exerciseTypeId:sourceType}:{}),order,metricOrigin:origin,metricIds,metricDefinitions:definitions,
+    ...(row.displayName?{displayName:String(row.displayName)}:{}),setupNotes:String(row.notes||""),
+    ...(!raw?{manualAttribution:{primary:String(row.primary||""),secondary:String(row.secondary||"")}}:{}),
+    loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,assistanceDirection:"subtract"},
+    prescriptionsByCycle}}
+function syncEditorRowFromCanonical(document,slot,cycleIndex=1){
+  const row=(document?.program||[]).find(candidate=>(candidate.slotId||candidate.id)===slot?.id);
+  if(!row||!slot)return;
+  const cycle=slot.prescriptionsByCycle?.find(candidate=>candidate.cycleIndex===cycleIndex)||slot.prescriptionsByCycle?.[0];
+  const rep=slot.metricDefinitions?.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
+  const repTarget=cycle?.sets?.map(set=>set.targets?.[rep?.semantic]).find(value=>value!=null);
+  row.sets=cycle?.sets?.length||row.sets;
+  row.hasRepTarget=!!rep;
+  if(rep){
+    row.min=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.min)?repTarget.min:row.min;
+    row.max=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.max)?repTarget.max:row.max;
+  }else{delete row.min;delete row.max}}
+function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={}){
+  const meta=document.programMeta||(document.programMeta={});
+  let definition=meta.programDefinition;
+  const baseDefinition=baseDocument?.programMeta?.programDefinition;
+  if(!definition){
+    if(!setupEditorOpen||entryState?.route!=="build"||edit?.kind!=="exercise_add")return false;
+    const dayNames=(meta.programStructure?.days||[]).map(item=>item?.label||item?.dayId).filter(Boolean);
+    definition=cloneSnapshot(baseDefinition||manualProgramDefinitionFromRows(
+      baseDocument?.program||[],dayNames,document.customExercises||[]));
+    if(!definition)return false;
+    meta.programDefinition=definition}
+  const find=slotId=>editorDefinitionAndSlot(document,slotId);
+  const slotId=String(edit?.slotId||edit?.targetId||"");
+  const beforeRef=editorDefinitionAndSlot({programMeta:{programDefinition:baseDefinition}},slotId);
+  if(edit?.kind==="metric_target"){
+    const {slot}=find(slotId),{set}=editorSetByCoordinates(definition,slotId,Number(edit.cycleIndex),Number(edit.setIndex));
+    const metric=slot?.metricDefinitions?.find(item=>item.id===edit.metricId);
+    if(!slot||!set||!metric||metric.semantic!==edit.semantic||
+      !changeValueEqualForEditor(slot.metricIds,edit.metricIds)||!changeValueEqualForEditor(slot.metricDefinitions,edit.metricDefinitions))return false;
+    const current=Object.prototype.hasOwnProperty.call(set.targets||{},edit.semantic)
+      ?{present:true,value:set.targets[edit.semantic]}:{present:false,value:null};
+    if(!changeValueEqualForEditor(current,edit.after)&&!changeValueEqualForEditor(current,edit.before))return false;
+    if(edit.after?.present)set.targets[edit.semantic]=cloneSnapshot(edit.after.value);
+    else delete set.targets[edit.semantic];
+    set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"};
+    syncEditorRowFromCanonical(document,slot,Number(edit.cycleIndex));
+  }else if(edit?.kind==="metric_composition"){
+    const {slot}=find(slotId);
+    if(!slot||(slot.metricOrigin!=="user_defined"&&slot.metricIds?.length))return false;
+    const alreadyApplied=changeValueEqualForEditor(slot.metricIds,edit.metricIds)&&
+      changeValueEqualForEditor(slot.metricDefinitions,edit.metricDefinitions);
+    const matchesBefore=changeValueEqualForEditor(slot.metricIds,edit.beforeMetricIds)&&
+      changeValueEqualForEditor(slot.metricDefinitions,edit.beforeMetricDefinitions);
+    if(!alreadyApplied&&!matchesBefore)return false;
+    const checkedMetrics=ExerciseMetrics?.validateDefinitions?.(edit.metricIds,edit.metricDefinitions,{allowEmpty:true});
+    const supported=ExerciseMetrics?.SOURCE_COMPOSITIONS?.some(composition=>
+      changeValueEqualForEditor(composition,edit.metricIds));
+    if(!checkedMetrics?.ok||!supported)return false;
+    if(!alreadyApplied){
+      slot.metricIds=cloneSnapshot(edit.metricIds);slot.metricDefinitions=cloneSnapshot(edit.metricDefinitions);
+      for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
+        set.metricIds=cloneSnapshot(edit.metricIds);set.metricDefinitions=cloneSnapshot(edit.metricDefinitions);
+        set.targets=Object.fromEntries(Object.entries(set.targets||{}).filter(([semantic])=>
+          edit.metricDefinitions.some(metric=>metric.semantic===semantic)));
+        set.status=edit.metricIds.length?"manual":"configuration_required";
+        set.provenance={source:"manual",policyVersion:"manual@1"}}
+    }
+    else for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
+      if(!changeValueEqualForEditor(set.metricIds,edit.metricIds)||
+        !changeValueEqualForEditor(set.metricDefinitions,edit.metricDefinitions))return false}
+    for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
+      set.status=edit.metricIds.length?"manual":"configuration_required";
+      set.provenance={source:"manual",policyVersion:"manual@1"}}
+    slot.metricOrigin=String(slot.exerciseId||"").startsWith("custom:")||edit.metricIds.length?"user_defined":"source_catalog";
+    const custom=(document.customExercises||[]).find(item=>item.id===slot.exerciseId);
+    if(custom){custom.metricIds=cloneSnapshot(edit.metricIds);custom.metricDefinitions=cloneSnapshot(edit.metricDefinitions)}
+    syncEditorRowFromCanonical(document,slot,cycleIndex);
+  }else if(edit?.kind==="exercise_field"){
+    const row=(document.program||[]).find(item=>item.id===edit.targetId);
+    if(!row)return false;
+    const {slot}=find(String(row.slotId||row.id));
+    if(!slot)return !definition;
+    if(edit.field==="notes")slot.setupNotes=String(row.notes||"");
+    else if(edit.field==="name"){
+      const alias=String(row.displayName||"").trim();
+      if(alias)slot.displayName=alias;else delete slot.displayName;
+    }else if((edit.field==="primary"||edit.field==="secondary")&&slot.metricOrigin==="user_defined"){
+      slot.manualAttribution={...(slot.manualAttribution||{}),[edit.field]:String(row[edit.field]||"")};
+    }
+  }else if(edit?.kind==="prescription_field"){
+    const {slot,cycle,set}=editorSetByCoordinates(definition,slotId,Number(edit.cycleIndex),Number(edit.setIndex));
+    if(!slot||!cycle||!set||!["rir","restSeconds"].includes(edit.field))return false;
+    const current=set[edit.field]??null;
+    if(current!==edit.before&&current!==edit.after)return false;
+    if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>4))return false;
+    if(edit.field==="restSeconds"&&edit.after!==null&&(!Number.isSafeInteger(edit.after)||edit.after<0||edit.after>86400))return false;
+    set[edit.field]=edit.after;
+    set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"};
+    const {slot:rowSlot}=find(slotId);syncEditorRowFromCanonical(document,rowSlot,Number(edit.cycleIndex));
+  }else if(edit?.kind==="prescription"&&edit.field==="sets"){
+    const {slot}=find(slotId);
+    const cycleIndex=Number(edit.cycleIndex||cycleIndex),cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleIndex);
+    if(!slot||!cycle)return false;
+    const desired=Number(edit.after),before=Number(edit.before);
+    if(!Number.isInteger(desired)||desired<1||desired>100)return false;
+    const beforeIds=edit.beforeSetIds,currentIds=cycle.sets.map(item=>item.id);
+    if(!Array.isArray(beforeIds)||beforeIds.length!==before||beforeIds.some(id=>typeof id!=="string")||
+      new Set(beforeIds).size!==before)return false;
+    const added=edit.addedSets||[],addedIds=added.map(item=>item?.id);
+    if(desired>before&&(added.length!==desired-before||addedIds.some(id=>typeof id!=="string")||new Set(addedIds).size!==addedIds.length))return false;
+    if(desired<=before&&added.length)return false;
+    const expectedRemoved=beforeIds.slice(desired);
+    if(!changeValueEqualForEditor(expectedRemoved,edit.removedSetIds||[]))return false;
+    const expectedIds=desired>before?[...beforeIds,...addedIds]:beforeIds.slice(0,desired);
+    if(cycle.sets.length===before&&changeValueEqualForEditor(currentIds,beforeIds)){
+      while(cycle.sets.length<desired){
+        const added=edit.addedSets?.find(item=>item.setIndex===cycle.sets.length+1);
+        if(!added||added.cycleIndex!==cycleIndex||!changeValueEqualForEditor(added.metricIds,slot.metricIds)||
+          !changeValueEqualForEditor(added.metricDefinitions,slot.metricDefinitions))return false;
+        cycle.sets.push(cloneSnapshot(added))}
+      if(cycle.sets.length>desired){
+        const removed=cycle.sets.slice(desired).map(item=>item.id);
+        if(!changeValueEqualForEditor(removed,expectedRemoved))return false;
+        cycle.sets=cycle.sets.slice(0,desired)}
+      cycle.sets.forEach((item,index)=>{item.setIndex=index+1})
+    }else if(!changeValueEqualForEditor(currentIds,expectedIds))return false;
+    if(!changeValueEqualForEditor(cycle.sets.map(item=>item.id),expectedIds))return false;
+    const row=(document.program||[]).find(item=>(item.slotId||item.id)===slotId);
+    if(row)row.sets=desired;
+    syncEditorRowFromCanonical(document,slot,cycleIndex);
+  }else if(edit?.kind==="exercise_add"||edit?.kind==="exercise_replace"){
+    const row=(document.program||[]).find(item=>item.id===edit.targetId);
+    if(!row)return false;
+    if(edit.kind==="exercise_add"&&find(slotId).slot)return false;
+    const targetDay=String(row.day||edit.targetDay||"");
+    let day=(definition.days||[]).find(item=>item.name===targetDay&&item.kind==="training");
+    if(!day){
+      day=(definition.days||[]).find(item=>item.name===targetDay&&item.kind==="rest"&&!item.slots?.length)||
+        (definition.days||[]).find(item=>item.kind==="rest"&&!item.slots?.length);
+      if(!day)return false;
+      day.name=targetDay;day.kind="training"}
+    const oldSlot=edit.kind==="exercise_replace"?beforeRef.slot:null;
+    const newSlot=editorSlotForRow(row,document,slotId,Number(row.order)||day.slots.length+1,oldSlot);
+    if(!newSlot)return false;
+    if(edit.kind==="exercise_replace"){
+      for(const container of definition.days||[])container.slots=container.slots.filter(slot=>slot.id!==slotId)}
+    const current=day.slots.findIndex(item=>item.id===slotId);
+    if(current>=0)day.slots[current]=newSlot;else day.slots.push(newSlot);
+    day.slots.sort((a,b)=>a.order-b.order);
+    day.slots.forEach((item,index)=>{item.order=index+1});
+    syncEditorRowFromCanonical(document,newSlot,cycleIndex);
+  }else if(edit?.kind==="exercise_remove"){
+    if(!beforeRef.slot)return false;
+    for(const day of definition.days||[])day.slots=day.slots.filter(slot=>slot.id!==slotId);
+  }else if(edit?.kind==="exercise_move"){
+    const {slot}=find(slotId);if(!slot)return false;
+    const row=(document.program||[]).find(item=>item.id===edit.targetId);
+    if(!row)return false;
+    for(const day of definition.days||[])day.slots=day.slots.filter(item=>item.id!==slotId);
+    const day=(definition.days||[]).find(item=>item.name===row.day);if(!day)return false;
+    day.slots.splice(Math.max(0,Math.min(day.slots.length,Number(row.order)-1)),0,slot);
+    day.slots.forEach((item,index)=>{item.order=index+1});
+  }else if(edit?.kind==="day_name"){
+    const target=(definition.days||[]).find(item=>item.name===edit.before);
+    if(!target)return false;
+    target.name=String(edit.after||"");
+  }else if(edit?.kind==="day_add"){
+    const nextName=String(edit.after||edit.targetDay||"").trim();
+    if(!nextName)return false;
+    if((definition.days||[]).some(day=>day.name===nextName&&day.kind==="training"))return false;
+    const target=(definition.days||[]).find(day=>day.kind==="rest"&&!day.slots?.length);
+    if(!target)return false;
+    target.name=nextName;target.kind="training";
+  }else if(edit?.kind==="day_remove"){
+    const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
+    if(!target)return false;
+    target.kind="rest";target.slots=[];
+  }
+  const checked=canonicalProgramDefinition(definition,document.customExercises||[]);
+  if(!checked)return false;
+  meta.programDefinition=checked;
+  return true}
 function installedEditorImpact(document,base=state,edits=[]){
   const current=editorDocumentFromSnapshot(base),next=editorDocumentFromSnapshot(document);
   const active=draftHasProgress(),draftRaw=readDraftRaw();
@@ -10800,10 +11502,14 @@ function createInstalledProgramEditorAdapter(){
     },
     async commit({expectedToken,nextDocument,intent}){
       if(intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
-        if(!installedEditorSession)installedEditorSession={document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:[]};
-        installedEditorSession.document=cloneSnapshot(nextDocument);
+        const baseline=installedEditorSession?.document||installedEditorDocument();
+        const staged=cloneSnapshot(nextDocument);
+        if(!syncEditorCanonicalIntent(staged,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||mesocycleLifecycle(state.programMeta).current||1}))
+          return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
+        if(!installedEditorSession)installedEditorSession={document:cloneSnapshot(baseline),token:cloneSnapshot(expectedToken),edits:[]};
+        installedEditorSession.document=staged;
         installedEditorSession.edits.push(cloneSnapshot(intent));
-        return{ok:true,staged:true,token:cloneSnapshot(expectedToken)}
+        return{ok:true,staged:true,document:cloneSnapshot(staged),token:cloneSnapshot(expectedToken)}
       }
       const session=installedEditorSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
       const refreshed=await refreshPersistenceHead();
@@ -10866,6 +11572,7 @@ function createInstalledProgramEditorAdapter(){
     exerciseLabel:(exercise)=>exercise?.name,
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
+    ...editorMetricAdapter({cycleIndex:()=>mesocycleLifecycle(state.programMeta).current||1}),
     context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
     status:()=>"",
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
@@ -10878,14 +11585,19 @@ window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await re
 function createOnboardingProgramEditorAdapter(){
   return{
     read(){return{document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
-    async commit({nextDocument}){
+    async commit({nextDocument,intent}){
+      const baseline=editorDocumentFromSnapshot(programEditorSnapshot()),document=cloneSnapshot(nextDocument);
+      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1}))
+        return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
       const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
-      proposal.programMeta=cloneSnapshot(nextDocument.programMeta||proposal.programMeta);
-      proposal.customExercises=cloneSnapshot(nextDocument.customExercises||proposal.customExercises||[]);
+      proposal.program=cloneSnapshot(document.program||[]);
+      proposal.programMeta=cloneSnapshot(document.programMeta||proposal.programMeta);
+      proposal.customExercises=cloneSnapshot(document.customExercises||proposal.customExercises||[]);
       syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
       const result=await commitProgramEditorProposal(proposal);
       updateOnboardingEditorActions();
-      return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,token:{draftRevision:entryState?.revision||0}};
+      return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,
+        document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}};
     },
     chooseExercise:editorChooseExercise,
     t:editorAdapterTranslate,
@@ -10895,6 +11607,7 @@ function createOnboardingProgramEditorAdapter(){
     exerciseLabel:(exercise)=>exercise?.name,
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
+    ...editorMetricAdapter({cycleIndex:()=>1}),
     context:()=>"",
     status:()=>editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved"),
     confirm:()=>true,
@@ -11037,6 +11750,7 @@ function programEditorSnapshot(){
   snapshot.program=candidateProgram;
   snapshot.programMeta={...defaultProgramMeta([]),name:entryResultName()||entryState?.answers?.programName||"",
     daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
+    ...(preview.programDefinition?{programDefinition:cloneSnapshot(preview.programDefinition)}:{}),
     programStructure:cloneSnapshot(preview.programStructure||null),
     progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
     progressionModifiers:cloneSnapshot(preview.progressionModifiers||[]),
@@ -11062,38 +11776,54 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
       state.program,state.programMeta);
     return commitProposedState(proposal,io,opts);
   }
-  if(!entryState?.result?.preview)return{localOk:false,idbOk:false,setupDraftInvalid:true};
+  if(!entryState?.result?.preview){
+    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"editor-preview-missing",issues:[]};
+    return{localOk:false,idbOk:false,setupDraftInvalid:true,code:"editor-preview-missing"}}
+  const definition=canonicalProgramDefinition(proposal.programMeta?.programDefinition,
+    proposal.customExercises||[]);
+  if(!definition){
+    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"program_definition_required",issues:[]};
+    return{localOk:false,idbOk:false,setupDraftInvalid:true,code:"program_definition_required"}}
+  proposal.programMeta={...(proposal.programMeta||{}),programDefinition:definition};
+  // ProgramDefinition owns slot identity and prescriptions. The legacy Program
+  // model remains useful here for validating linked muscle attribution, but it
+  // is not a publication format: serializing it would drop slot/day identity
+  // and leak legacy-only fields back into the setup candidate.
+  const program=flatProgramFromDefinition(definition,proposal.customExercises||[],1);
+  const model=makeProgram(program,snapshotLookup(proposal.customExercises),proposal.programMeta);
   // Compiler previews intentionally use the compiler's internal lowercase
   // muscle ids while they are staged outside durable state. Resolve linked
   // built-ins/customs here before validating the editor result, so the setup
   // draft may retain its preview representation but every edited candidate
   // crossing toward activation already has the durable canonical domain.
-  const lookup=snapshotLookup(proposal.customExercises);
-  const model=makeProgram(proposal.program,lookup,proposal.programMeta);
   const canonicalProgram=model.toJSON();
   if(!Array.isArray(proposal.customExercises)||
     !proposal.customExercises.every(isSafeCustomExercise)||
-    !isValidMuscleDomainTree({program:canonicalProgram,customExercises:proposal.customExercises}))
-    return invalidMuscleDomainCommit(proposal);
+    !isValidMuscleDomainTree({program:canonicalProgram,customExercises:proposal.customExercises})){
+    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"invalid-muscle-domain",issues:[]};
+    return invalidMuscleDomainCommit(proposal)}
   const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
   const structureDays=structure?.days||[];
+  const rowsForDay=label=>program.filter(exercise=>exercise.day===label).map(cloneSnapshot);
   const previewDays=entryState.route==="shared"
-    ?sharedPreviewDays(model.toJSON(),structure,entryState.result.preview.sharedSettings)
+    ?sharedPreviewDays(program,structure,entryState.result.preview.sharedSettings)
     :(structureDays.length?structureDays.map(item=>({dayId:item.dayId,label:item.label,
       ...(item.displayNameKey?{displayNameKey:item.displayNameKey}:{}),
       ...(item.nameOverride?{nameOverride:item.nameOverride}:{}),
-      exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)})):
-      model.days().map(label=>({dayId:label,label,exercises:model.forDay(label).map(cloneSnapshot)})));
-  const program=model.toJSON();
+      exercises:rowsForDay(item.label||item.dayId)})):
+      [...new Set(program.map(exercise=>exercise.day))].map(label=>({dayId:label,label,exercises:rowsForDay(label)})));
   const progressionData=candidateProgressionData(proposal.programMeta?.progressionRelations,program,
     proposal.programMeta?.progressionIncompatibilities,"candidate-editor");
   const referencedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
-  const preview={...cloneSnapshot(entryState.result.preview),program,programStructure:structure,
+  const preview={...cloneSnapshot(entryState.result.preview),program,
+    ...(proposal.programMeta?.programDefinition?{programDefinition:cloneSnapshot(proposal.programMeta.programDefinition)}:{}),
+    programStructure:structure,
     progressionRelations:progressionData.relations,
     progressionIncompatibilities:progressionData.incompatibilities,
     days:previewDays,
     customExercises:(entryState.result.preview?.customExercises||[])
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
+  const previousEntryState=entryState;
   const result={...cloneSnapshot(entryState.result),preview};
   const nextName=proposal.programMeta?.name||entryState.result.name;
   if(nextName){result.name=nextName;delete result.namePt}else delete result.name;
@@ -11101,11 +11831,16 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   entryPinnedVersionsExecutable=false;
   entryState=ProgramEntry.setResult(entryState,result);
   const saved=await persistSetupDraft(entryState);
+  entryPersistenceDiagnostic={operation:"editor-commit",ok:!!saved?.ok,
+    code:saved?.code||(saved?.conflict?"setup-draft-conflict":saved?.writeFailed?"setup-draft-write-failed":saved?.invalid?"setup-draft-invalid":null),
+    issues:(saved?.issues||[]).slice(0,12).map(issue=>String(issue).slice(0,240))};
+  if(!saved?.ok)entryState=previousEntryState;
   if(saved?.ok&&progressionData.incompatibilities.length){
     entryEditorStatusFocusPending=true;
     setTimeout(()=>focusEntryEditorStatus(),reducedMotion()?0:320)}
   return saved?.ok?{revision:saved.envelope?.revision||0,localOk:true,idbOk:true,setupDraft:true}:
-    {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict}}
+    {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict,
+      code:saved?.code||null,issues:Array.isArray(saved?.issues)?saved.issues.slice(0,12):[]}}
 function openEntryDraftEditor(){
   if(!entryState?.result?.preview)return;
   setupEditorOpen=true;programEditMode=false;
@@ -11194,7 +11929,7 @@ function programRowHtml(e){
   const word=move==="up"?t("rec.add.label"):move==="down"?t("rec.reduce.label"):"";
   return `<button type="button" class="rxrow" data-exopen="${esc(e.id)}" data-action-role="navigation">`+
     `<span class="rxrow__name">${esc(exerciseDisplayName(e))}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
-    `<span class="rxrow__target">${e.sets} × ${e.min}–${e.max}</span>`+
+    `<span class="rxrow__target">${esc(e.hasRepTarget===false?programPrescriptionSummary(e):`${e.sets} × ${e.min}–${e.max}`)}</span>`+
     `<span class="rxrow__load"${showLoad?` data-parity-target="${esc(e.id)}"`:""}>${showLoad?mark+(word?`<span class="visually-hidden">${esc(word)} </span>`:"")+esc(fmtLoad(rec.load)):""}</span></button>`}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth();
@@ -11956,7 +12691,9 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function referencedCustomExercises(list){
   const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
   return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
-const SHARED_EQUIPMENT=window.RepForgeProgramEntryAdapter.SHARED_EQUIPMENT;
+/* Historical shared-setup metadata used this small vocabulary. New setup links
+   carry the canonical ProgramDefinition and do not project equipment through it. */
+const SHARED_EQUIPMENT=Object.freeze({machine:"machines",cable:"cables",dumbbell:"dumbbells",barbell:"barbells",bodyweight:"bodyweight"});
 function sharedRelationForPayload(relation,program){
   const members=Array.isArray(relation?.members)?relation.members:[];
   const rows=members.map(member=>program.find(ex=>ex?.id===member?.exerciseId));
@@ -12259,10 +12996,17 @@ async function shareSetupLinkNow(){
    Portuguese lifter still types "bench press" for a machine whose plate says
    so, and an English one still finds "supino". */
 const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-const MUSCLE_TOKENS=window.RepForgeProgramEntryAdapter.MUSCLE_TOKENS;
-const PICKER_EQUIPMENT=window.RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT;
+const MUSCLE_TOKENS=window.RepForgeProgramEntry.MUSCLE_TOKENS;
+const PICKER_EQUIPMENT=window.RepForgeProgramEntry.KNOWN_EQUIPMENT;
 /* Muscle filters lifters actually think in, each covering the tokens under it. */
-const PICKER_MUSCLE_GROUPS=window.RepForgeProgramEntryAdapter.PICKER_MUSCLE_GROUPS;
+const PICKER_MUSCLE_GROUPS=Object.freeze([
+  ["chest",["Chest"]],
+  ["back",["Lats","Mid/upper back","Traps"]],
+  ["shoulders",["Front delts","Side delts","Rear delts"]],
+  ["arms",["Biceps","Triceps","Forearms"]],
+  ["legs",["Quads","Hamstrings","Glutes","Adductors","Abductors","Calves"]],
+  ["core",["Abs","Obliques","Spinal erectors"]],
+]);
 
 let pickerState=null,pickerReturn=null,customState=null,customReturn=null;
 
@@ -14493,13 +15237,14 @@ function mergeLog(s){return mergeImportedLog(s)}
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
 const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
 const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
-const ENTRY_MUSCLES=ProgramEntryAdapter.ENTRY_MUSCLES;
-const ENTRY_MOVEMENTS=ProgramEntryAdapter.ENTRY_MOVEMENTS;
-const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
-const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
-const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
-const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
+const ENTRY_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
+const ENTRY_MOVEMENTS=ProgramEntry.ENTRY_MOVEMENTS;
+const ENTRY_ENVIRONMENTS=ProgramEntry.ENTRY_ENVIRONMENTS;
+const ENTRY_EQUIPMENT=ProgramEntry.KNOWN_EQUIPMENT;
+const ENTRY_CAPABILITIES=ProgramEntry.KNOWN_CAPABILITIES;
+const ENTRY_AVOID_REASONS=ProgramEntry.CONSTRAINT_REASONS;
 let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
+let entryPersistenceDiagnostic=null;
 /* Entry presentation state: the confirm dialog on screen ("restart", "replace";
    "cancel" is `entryUiNotice` because other flows already ask for it), and the
    route-help panel on the hub. None of it is part of the draft. */
@@ -14517,9 +15262,8 @@ let entryDraftHandle=null;
 let setupDraftWriteQueue=Promise.resolve();
 function entryServices(){
   if(typeof window!=="undefined"&&window.__repforgeProgramEntryServicesOverride)return window.__repforgeProgramEntryServicesOverride;
-  if(!ProgramEntryAdapter)return null;
-  const history=[...loggedExerciseRefs().ids].sort().map(libraryId=>({libraryId}));
-  return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY,history})}
+  if(!ProgramEntryAdapter||!ProgramCompiler||!rawExerciseCatalog)return null;
+  return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalog:rawExerciseCatalog})}
 function entryCandidateFingerprint(route,name,preview){
   const semanticPreview=cloneSnapshot(preview||{});
   if(Array.isArray(semanticPreview.customExercises)){
@@ -14624,8 +15368,13 @@ function persistSetupDraft(next,io=storageIO){
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
   const draftProjection=setupDraftPersistenceProjection(stamped);
   const normalized=ProgramEntry.normalizeSetupDraft(draftProjection);
-  if(!normalized.ok)return Promise.resolve({ok:false,invalid:true});
+  if(!normalized.ok){
+    entryPersistenceDiagnostic={operation:"normalize",ok:false,code:normalized.code||"setup-draft-invalid",
+      issues:(normalized.issues||[]).slice(0,12).map(issue=>String(issue).slice(0,240))};
+    return Promise.resolve({ok:false,invalid:true,code:normalized.code||"setup-draft-invalid",
+      issues:(normalized.issues||[]).slice(0,12)})}
   const queuedState=normalized.value;
+  entryPersistenceDiagnostic={operation:"normalize",ok:true,code:null,issues:[]};
   // The staged draft omits attribution that is derivable from its current
   // program to stay within the setup-draft contract. Keep the richer in-memory
   // candidate for the editor and let the durable commit boundary restore the
@@ -16227,8 +16976,8 @@ function renderEntryWeek(preview){
     const open=index===0||exercises.some(exercise=>added.has(exercise.id));
     return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
     `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`)}</span></summary>`+
-    exercises.map(ex=>{const isNew=added.has(ex.id);
-      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
+    exercises.map(ex=>{const isNew=added.has(ex.id),summary=ex.hasRepTarget===false?programPrescriptionSummary(ex):`${ex.sets}×${ex.min}–${ex.max}`;
+      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${esc(summary)}`:""}</div>`}).join("")+
     (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`})}
 function renderEntryMore(){
@@ -17127,6 +17876,23 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   if(Array.isArray(preview?.customExercises)&&preview.customExercises.length){
     const merged=mergeImportedCustomExercises(preview.customExercises,exercises,baseProposal);
     baseProposal.customExercises=merged.customExercises}
+  let programDefinition=preview?.programDefinition||preview?.definition||
+    (route==="shared"?baseProposal.programMeta?.programDefinition:null);
+  if(!programDefinition&&route==="build"){
+    const names=Array.isArray(programStructure?.days)?programStructure.days.map(item=>item?.label||item?.name).filter(Boolean):
+      (preview?.days||[]).map(item=>item?.name||item?.label).filter(Boolean);
+    programDefinition=manualProgramDefinitionFromRows(exercises,names,baseProposal.customExercises||[])}
+  programDefinition=canonicalProgramDefinition(programDefinition,baseProposal.customExercises||[]);
+  if(!programDefinition){
+    toast(t("entry.issue.compile"),{assertive:true});
+    renderOnboarding();
+    return{invalid:true,code:"program-definition-required"}}
+  exercises=flatProgramFromDefinition(programDefinition,baseProposal.customExercises||[]);
+  answersForMeta.daysPerWeek=programDefinition.days.filter(item=>item.kind==="training").length;
+  answersForMeta.goal=programDefinition.request.goal||answersForMeta.goal;
+  answersForMeta.experience=programDefinition.request.experience||answersForMeta.experience;
+  answersForMeta.splitType=programDefinition.request.split||answersForMeta.splitType;
+  answersForMeta.mesocycleLengthWeeks=programDefinition.cycles;
   if(context?.ok)baseProposal.programmingContext=context.value;
   baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
   baseProposal.programMeta.progressionRelations=cloneSnapshot(preview?.progressionRelations||[]);
@@ -17149,6 +17915,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryTelemetry:entryState.result?.telemetry||null,
     entrySource:{route,fingerprint:entryState.result?.fingerprint},
     programStructure,
+    programDefinition,
     compilerContext,
     expectedSetupDraftRaw:activationDraftHandle?.raw??null,
     replace:route==="shared",
@@ -17172,7 +17939,7 @@ function telemetryGeneratedProgram(goal){
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,programDefinition=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -17190,6 +17957,8 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
   const proposal=cloneSnapshot(baseProposal||state);
+  const checkedDefinition=canonicalProgramDefinition(programDefinition,proposal.customExercises||[]);
+  if(!checkedDefinition)return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true,code:"program-definition-required"};
   if(originEff==="block"){
     if(!blockCap)return blockTransitionResult("failed");
     if(proposal.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate")}
@@ -17198,7 +17967,9 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   // values remain blockless; the candidate is captured once in this proposal
   // and replay thereafter reads the journaled value.
   meta.blockId=allocateBlockId();
-  proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
+  meta.programDefinition=checkedDefinition;
+  meta.mesocycleLengthWeeks=checkedDefinition.cycles;
+  proposal.program=flatProgramFromDefinition(checkedDefinition,proposal.customExercises||[]);
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
   meta.progressionIncompatibilities=Array.isArray(baseProposal?.programMeta?.progressionIncompatibilities)
@@ -17693,9 +18464,9 @@ function closeFirstRunInstall(){
    below are the only authored numbers: what the example lifter logged. */
 const LANDING_UNIT="kg";
 const LANDING_CASES={
-  add:{ex:"pr_bb",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
-  hold:{ex:"sq_bb",sets:3,repMin:5,repMax:8,logged:[[100,8,1],[100,7,0],[100,6,0]]},
-  reduce:{ex:"pr_bb",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
+	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
+	hold:{ex:"1a25c6f170d8803d8231d083fdd65458",sets:3,repMin:5,repMax:8,logged:[[100,8,1],[100,7,0],[100,6,0]]},
+	reduce:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
 /** The squat history behind the chart image: four sessions, one rung up each week. */
 const LANDING_CHART={exerciseId:"ex-squat",libraryId:"sq_bb",started:"2026-08-03",
   dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
@@ -17743,17 +18514,30 @@ function landingList(values){
   catch{return items.join(", ")}}
 function landingEvaluate(c){
   const engine=typeof RepForgeProgression!=="undefined"?RepForgeProgression:null;
-  if(!engine)return null;
-  const raw=+DEFAULTS.minJump;
-  const result=engine.evaluateProgression({engineVersion:1,
-    prescription:{schemaVersion:1,strategy:{id:"range",version:1,params:{workingSets:c.sets,repMin:c.repMin,repMax:c.repMax}},modifiers:[]},
-    relation:null,modifiers:[],
-    settings:{minLoadIncrement:Number.isFinite(raw)&&raw>0?raw:2.5,jumpPercent:+DEFAULTS.jumpPct||0,hardRir:+DEFAULTS.hardRir||4},
-    history:[{sessionId:"landing-case",date:"2026-09-01",sets:c.logged.map(([load,reps,rir])=>({load,reps,rir}))}],
-    currentSession:[],
-    context:{weekNumber:1,blockLength:defaultProgramMeta().mesocycleLengthWeeks,blockStart:null}});
-  if(result?.kind!=="recommendation")return null;
-  return{status:result.status,load:result.facts.targetLoad,reps:result.facts.targetReps}}
+  const exercise=rawExercise(c.ex),definitions=rawMetricDefinitions(c.ex);
+  if(!engine?.recommendSets||!exercise||!definitions?.length)return null;
+  const loadMetric=definitions.find(definition=>definition.semantic==="loadKg");
+  const repsMetric=definitions.find(definition=>definition.semantic==="reps");
+  if(!loadMetric||!repsMetric)return null;
+  const slotId=`landing:${c.ex}`,equipmentId="landing-demo-barbell";
+  const prescription={id:`${slotId}:cycle-1:set-1`,slotId,exerciseId:c.ex,setIndex:1,
+    metricType:"source_metrics@1",metricIds:[...exercise.exerciseMetrics],metricDefinitions:definitions,
+    targets:{reps:{min:c.repMin,max:c.repMax}},rir:1,status:"ready",loadingModel:{bodyweightCoefficient:0}};
+  const sets=c.logged.map(([load,reps,rir],setIndex)=>({exerciseId:c.ex,completed:true,setIndex,rir,equipmentId,
+    loadingConvention:"external",metricIds:[...exercise.exerciseMetrics],
+    metricValues:definitions.map(definition=>({metricId:definition.id,
+      value:definition.semantic==="loadKg"?load:definition.semantic==="reps"?reps:null,unit:definition.unit})),
+    loadingContext:{loadingConvention:"external",bodyweightContributionEnabled:false,bodyweightKg:null,
+      bodyweightCoefficient:0,externalLoadMultiplier:1}}));
+  const increment=Number.isFinite(+DEFAULTS.minJump)&&+DEFAULTS.minJump>0?+DEFAULTS.minJump:2.5;
+  const maxLoad=Math.max(...c.logged.map(([load])=>load))+increment*12;
+  const availableLoadsKg=Array.from({length:Math.ceil(maxLoad/increment)+1},(_,index)=>index*increment);
+  const result=engine.recommendSets([prescription],[{sessionId:`${slotId}:history`,completed:true,sets}],[],
+    {bySlotId:{[slotId]:{equipmentId,availableLoadsKg,loadingConvention:"external",
+      bodyweightContributionEnabled:false,bodyweightKg:null,externalLoadMultiplier:1}}},
+    {weightMatch:false,expandRepRange:true})[0];
+  if(result?.status!=="recommended")return null;
+  return{status:result.status,load:result.targets.loadKg,reps:result.targets.reps}}
 /** Strength-trend figures for the chart, from the Progress model. */
 function landingChartFigures(){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
@@ -18946,12 +19730,12 @@ function init(){
     const progEx=id?prog.find(id):null;
     const prevSets=progEx?last(sessionExercise(progEx)):[];
     if(!prevSets.length||!activeWorkoutDraft)return;
-    const values=prevSets.map(s=>({
+    const values=prevSets.map(s=>Array.isArray(s.metricValues)?({
       ordinal:s.set,
-      load:canonicalNumberText(s.load),
-      reps:canonicalNumberText(s.reps),
-      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
-    }));
+      metrics:Object.fromEntries(s.metricValues.map(value=>[value.metricId,canonicalNumberText(value.value)])),
+      ...(s.rir==null?{}:isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
+    }):({ordinal:s.set,load:canonicalNumberText(s.load),reps:canonicalNumberText(s.reps),
+      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
     const res=await WorkoutSession.dispatch("repeatPreviousSetValues",{exerciseInstanceId:id,values});
     if(res.status==="applied"){
       renderWorkout();
@@ -19366,10 +20150,16 @@ async function installTransferBootNeedsLock(){
     return !!transfer.readTransferCookie({document});
   }catch{return false}}
 async function boot(){
+  // The full source catalog is an offline shell asset. Load it before state
+  // normalization or any program surface can consume metric/taxonomy details;
+  // the synchronous exercise index remains available for first-paint search.
+  // A missing producer dependency is not a damaged durable snapshot: stop here
+  // before replica resolution, normalization, journal replay or healing writes.
+  if(I18N)I18N.setLang(I18N.detectLang());
+  if(!await loadExerciseCatalog()){showExerciseCatalogUnavailable();return}
   // Program metadata and the first render are built from the loaded state, so
   // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
-  if(I18N)I18N.setLang(I18N.detectLang());
   installTransferGuardTelemetry();
   const transferWork=async()=>{
     const importMarker=await installTransferReadMarker();

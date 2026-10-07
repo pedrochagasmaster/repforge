@@ -3,6 +3,9 @@ import { createRequire } from "node:module";
 import fc from "fast-check";
 
 const require = createRequire(import.meta.url);
+const ExerciseMetrics = require("../exercise-metrics.js");
+const rawExerciseCatalog = require("../assets/exercise-catalog.json");
+globalThis.RepForgeExerciseCatalog = { snapshot: () => rawExerciseCatalog };
 const Draft = require("../workout-draft.js");
 
 const results = { passed: 0, failed: 0 };
@@ -119,6 +122,112 @@ function apply(draft, type, values) {
 
 function same(value, expected) {
   return JSON.stringify(value) === JSON.stringify(expected);
+}
+
+function rawExercise(id) {
+  return rawExerciseCatalog.exercises.find(exercise => exercise.id === id);
+}
+
+function metricProgramContext(sourceId, exerciseInstanceId = "metric-slot") {
+  const source = rawExercise(sourceId);
+  const metricIds = source.exerciseMetrics;
+  const metricDefinitions = ExerciseMetrics.definitionsForIds(metricIds).value;
+  const semantics = new Set(metricDefinitions.map(metric => metric.semantic));
+  const loadingConvention = semantics.has("assistanceKg") ? "assistance"
+    : semantics.has("loadPerSideKg") || semantics.has("persistentLoadPerSideKg") ? "per_side"
+      : metricDefinitions.length === 1 && (semantics.has("reps") || semantics.has("repsPerSide")) ? "bodyweight" : "external";
+  const coefficient = source.bodyweight ?? null;
+  const loadingModel = { bodyweightCoefficient: coefficient };
+  const loadingContext = {
+    loadingConvention,
+    bodyweightKg: null,
+    bodyweightContributionEnabled: null,
+    externalLoadMultiplier: loadingConvention === "per_side" ? null : loadingConvention === "bodyweight" ? 0 : 1,
+    bodyweightCoefficient: coefficient,
+  };
+  const targets = Object.fromEntries(metricDefinitions.map(metric => [metric.semantic,
+    metric.semantic.startsWith("reps") ? 10 : metric.semantic.startsWith("load") ? 50 : 30]));
+  return {
+    programId: "program-metric-swap",
+    programFingerprint: "fingerprint-metric-swap",
+    durableRevision: 4,
+    dayId: "metric-day",
+    dayLabel: "Metric day",
+    scheduleDate: "2026-08-15",
+    unit: "kg",
+    rirMode: "numeric",
+    exercises: [{
+      exerciseInstanceId,
+      sourceExerciseId: `source-${exerciseInstanceId}`,
+      libraryId: sourceId,
+      displayName: source.name,
+      sets: 2,
+      setIds: [`${exerciseInstanceId}-set-1`, `${exerciseInstanceId}-set-2`],
+      minReps: 6,
+      maxReps: 15,
+      targetRir: 2,
+      notes: "",
+      primary: "Quads",
+      secondary: "Glutes",
+      movementPattern: "squat",
+      progressionStrategy: "double_progression",
+      sourceFingerprint: `source-fingerprint-${exerciseInstanceId}`,
+      metricOrigin: "source_catalog",
+      metricDefinitions,
+      loadingModel,
+      loadingConvention,
+      loadingContext,
+      programmedSets: [1, 2].map(() => ({
+        suggestedReps: 10,
+        minReps: 6,
+        maxReps: 15,
+        targetRir: 2,
+        metricDefinitions,
+        targets,
+        restSeconds: 120,
+      })),
+    }],
+  };
+}
+
+function metricReplacementProgram(sourceId, setCount = 2) {
+  const source = rawExercise(sourceId);
+  const metricIds = [...source.exerciseMetrics];
+  const metricDefinitions = ExerciseMetrics.definitionsForIds(metricIds).value;
+  const semantics = new Set(metricDefinitions.map(metric => metric.semantic));
+  const loadingConvention = semantics.has("assistanceKg") ? "assistance"
+    : semantics.has("loadPerSideKg") || semantics.has("persistentLoadPerSideKg") ? "per_side"
+      : metricDefinitions.length === 1 && (semantics.has("reps") || semantics.has("repsPerSide")) ? "bodyweight" : "external";
+  const coefficient = source.bodyweight ?? null;
+  const loadingModel = { bodyweightCoefficient: coefficient };
+  const loadingContext = {
+    loadingConvention,
+    bodyweightKg: null,
+    bodyweightContributionEnabled: null,
+    externalLoadMultiplier: loadingConvention === "per_side" ? null : loadingConvention === "bodyweight" ? 0 : 1,
+    bodyweightCoefficient: coefficient,
+  };
+  const targets = Object.fromEntries(metricDefinitions.map(metric => [metric.semantic,
+    metric.semantic.startsWith("reps") ? 8 : metric.semantic.startsWith("load") ? 45 : 24]));
+  return {
+    sourceLibraryId: sourceId,
+    metricOrigin: "source_catalog",
+    metricIds,
+    metricDefinitions,
+    loadingModel,
+    loadingConvention,
+    loadingContext,
+    equipmentId: null,
+    programmedSets: Array.from({ length: setCount }, () => ({
+      metricDefinitions,
+      targets,
+      restSeconds: 150,
+      minReps: 6,
+      maxReps: 10,
+      suggestedReps: 8,
+      previousMetrics: [],
+    })),
+  };
 }
 
 console.log("DraftV2 creation and serialization");
@@ -444,6 +553,160 @@ assert(rows[1].warmup === true && rows[2].exerciseId === "slot-curl" && rows[2].
 assert(rows.every((row) => row.day === "Day 1" && row.exerciseId !== "source-squat" &&
   row.notes === "Plan 051 parity session" && row.bodyweight === 82.5 && row.session === "draft-051"),
   "History uses display day, actual program-slot identity, trimmed notes, and stable draft identity");
+
+console.log("\nMetric compositions without repetitions carry no flat rep range");
+{
+  const replessSource = "1a35c6f170d88025a7a1f34e94c394c5";
+  const context = metricProgramContext(replessSource, "repless-slot");
+  const [exercise] = context.exercises;
+  exercise.minReps = null;
+  exercise.maxReps = null;
+  for (const spec of exercise.programmedSets) {
+    delete spec.suggestedReps;
+    spec.minReps = null;
+    spec.maxReps = null;
+  }
+  const created = Draft.create(context, { ...sessionSelection(), draftId: "repless-draft", selectedExerciseId: "repless-slot" }, {});
+  assert(!Draft.isDomainError(created) && created.exercises["repless-slot"].programmed.minReps == null &&
+    created.exercises["repless-slot"].programmed.maxReps == null,
+    "a source-catalog weight + per-side distance movement creates a draft without inventing a rep range", JSON.stringify(created));
+  const legacy = programContext();
+  legacy.exercises[0].minReps = null;
+  legacy.exercises[0].maxReps = null;
+  const rejected = Draft.create(legacy, sessionSelection(), {});
+  assert(Draft.isDomainError(rejected), "a legacy flat exercise without metric definitions still requires its rep range", JSON.stringify(rejected));
+  const half = metricProgramContext(replessSource, "repless-half");
+  half.exercises[0].minReps = null;
+  for (const spec of half.exercises[0].programmedSets) { delete spec.suggestedReps; spec.minReps = null; spec.maxReps = null; }
+  const halfResult = Draft.create(half, { ...sessionSelection(), draftId: "repless-half-draft", selectedExerciseId: "repless-half" }, {});
+  assert(Draft.isDomainError(halfResult), "a metric-backed exercise cannot carry half a flat rep range", JSON.stringify(halfResult));
+}
+
+console.log("\nMetric-aware substitution preserves completed work and reprograms only untouched sets");
+const originalMetricSource = "2a15c6f170d88066b38fd65f8757716f";
+const replacementMetricSource = "2aa5c6f170d880c08fcbf27e03a0e2dc";
+const originalMetricIds = rawExercise(originalMetricSource).exerciseMetrics;
+const replacementMetricIds = rawExercise(replacementMetricSource).exerciseMetrics;
+const metricSlotId = "metric-slot";
+const metricDraftId = "metric-swap-draft";
+const makeMetricDraft = () => Draft.create(metricProgramContext(originalMetricSource, metricSlotId), {
+  ...sessionSelection(),
+  draftId: metricDraftId,
+  selectedExerciseId: metricSlotId,
+}, {});
+const metricOriginal = rawExercise(originalMetricSource);
+const metricReplacement = rawExercise(replacementMetricSource);
+const replacementSnapshot = {
+  exerciseInstanceId: "replacement-metric-movement",
+  sourceExerciseId: replacementMetricSource,
+  libraryId: replacementMetricSource,
+  displayName: metricReplacement.name,
+  primary: "Quads",
+  secondary: "Glutes",
+};
+const replacementProgram = metricReplacementProgram(replacementMetricSource);
+let sourceBoundDraft = makeMetricDraft();
+assert(!Draft.isDomainError(sourceBoundDraft), "metric source creates a complete DraftV2 source context", JSON.stringify(sourceBoundDraft));
+if (!Draft.isDomainError(sourceBoundDraft)) {
+  for (const [index, metricId] of originalMetricIds.entries()) {
+    sourceBoundDraft = apply(sourceBoundDraft, "editMetricValue", {
+      exerciseInstanceId: metricSlotId,
+      setId: `${metricSlotId}-set-1`,
+      metricId,
+      value: index === 0 ? "12" : "18",
+    });
+  }
+  sourceBoundDraft = apply(sourceBoundDraft, "completeSet", {
+    exerciseInstanceId: metricSlotId,
+    setId: `${metricSlotId}-set-1`,
+    completedAt: "2026-08-15T10:30:00.000Z",
+  });
+  const swappedCommand = command(sourceBoundDraft, "substituteExercise", {
+    exerciseInstanceId: metricSlotId,
+    replacement: replacementSnapshot,
+    replacementProgram,
+    selectedAt: "2026-08-15T10:31:00.000Z",
+  });
+  assert(!Draft.isDomainError(swappedCommand.result), "a valid source-bound metric replacement is accepted", JSON.stringify(swappedCommand.result));
+  if (!Draft.isDomainError(swappedCommand.result)) {
+    sourceBoundDraft = swappedCommand.result;
+    const slot = sourceBoundDraft.exercises[metricSlotId];
+    const completed = slot.sets[`${metricSlotId}-set-1`];
+    const pending = slot.sets[`${metricSlotId}-set-2`];
+    assert(same(slot.setOrder, [`${metricSlotId}-set-1`, `${metricSlotId}-set-2`]) &&
+      same(slot.sets[`${metricSlotId}-set-1`].programmed.metricIds, originalMetricIds) &&
+      same(pending.programmed.metricIds, replacementMetricIds),
+      "substitution keeps stable set identity, keeps the completed source composition, and applies the replacement composition only to pending sets");
+    assert(completed.performed?.libraryId === originalMetricSource &&
+      pending.programmed.sourceLibraryId === replacementMetricSource &&
+      pending.programmed.loadingConvention === "external" &&
+      pending.programmed.loadingModel?.bodyweightCoefficient === metricReplacement.bodyweight &&
+      same(pending.programmed.targets, replacementProgram.programmedSets[1].targets),
+      "completed movement provenance stays captured while pending prescriptions and loading context switch to the replacement");
+    for (const metricId of replacementMetricIds) {
+      sourceBoundDraft = apply(sourceBoundDraft, "editMetricValue", {
+        exerciseInstanceId: metricSlotId,
+        setId: `${metricSlotId}-set-2`,
+        metricId,
+        value: metricId === replacementMetricIds[0] ? "45" : "8",
+      });
+    }
+    sourceBoundDraft = apply(sourceBoundDraft, "beginFinish");
+    const metricRows = Draft.toHistoryRows(sourceBoundDraft, "2026-08-15T11:00:00.000Z");
+    const completedRow = metricRows.find(row => row.set === 1);
+    const replacementRow = metricRows.find(row => row.set === 2);
+    assert(completedRow?.sourceLibraryId === originalMetricSource &&
+      completedRow?.performedLibraryId === originalMetricSource &&
+      same(completedRow?.metricIds, originalMetricIds) && completedRow?.loadingConvention === "per_side" &&
+      completedRow?.loadingModel?.bodyweightCoefficient === metricOriginal.bodyweight,
+      "completed History row retains its original source identity, ordered metrics, and loading context");
+    assert(replacementRow?.exerciseId === metricSlotId &&
+      replacementRow?.sourceLibraryId === replacementMetricSource &&
+      replacementRow?.performedLibraryId === replacementMetricSource &&
+      same(replacementRow?.metricIds, replacementMetricIds) && replacementRow?.loadingConvention === "external" &&
+      replacementRow?.loadingModel?.bodyweightCoefficient === metricReplacement.bodyweight,
+      "pending History row uses replacement-bound ordered metrics, performed identity, and exact raw loading coefficient");
+  }
+}
+
+let touchedPendingDraft = makeMetricDraft();
+if (!Draft.isDomainError(touchedPendingDraft)) {
+  touchedPendingDraft = apply(touchedPendingDraft, "editMetricValue", {
+    exerciseInstanceId: metricSlotId,
+    setId: `${metricSlotId}-set-2`,
+    metricId: originalMetricIds[0],
+    value: "13",
+  });
+  const touchedBeforeSwap = JSON.stringify(touchedPendingDraft);
+  const touchedSwap = command(touchedPendingDraft, "substituteExercise", {
+    exerciseInstanceId: metricSlotId,
+    replacement: replacementSnapshot,
+    replacementProgram,
+    selectedAt: "2026-08-15T10:32:00.000Z",
+  }).result;
+  assert(Draft.isDomainError(touchedSwap) && touchedSwap.code === "substitution-touched-pending-set" &&
+    JSON.stringify(touchedPendingDraft) === touchedBeforeSwap,
+    "substitution refuses an affected pending set with lifter-owned metric input");
+}
+
+const invalidMetricBinding = structuredClone(replacementProgram);
+invalidMetricBinding.metricIds = [...originalMetricIds];
+invalidMetricBinding.metricDefinitions = ExerciseMetrics.definitionsForIds(originalMetricIds).value;
+invalidMetricBinding.programmedSets = invalidMetricBinding.programmedSets.map(spec => ({
+  ...spec,
+  metricDefinitions: invalidMetricBinding.metricDefinitions,
+}));
+let invalidBindingDraft = makeMetricDraft();
+if (!Draft.isDomainError(invalidBindingDraft)) {
+  const invalidSwap = command(invalidBindingDraft, "substituteExercise", {
+    exerciseInstanceId: metricSlotId,
+    replacement: replacementSnapshot,
+    replacementProgram: invalidMetricBinding,
+    selectedAt: "2026-08-15T10:33:00.000Z",
+  }).result;
+  assert(Draft.isDomainError(invalidSwap) && invalidSwap.code === "invalid-substitution-program",
+    "a valid metric UUID set from the wrong raw source exercise is rejected", JSON.stringify(invalidSwap));
+}
 
 console.log("\nProperty checks: immutability, round-trip, and identity preservation");
 try {

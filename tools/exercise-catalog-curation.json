@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "source": "plans/067/data/app_file.json",
+  "entries": {
+    "1a25c6f170d8803d8231d083fdd65458": {
+      "sourceName": "Barbell back squat",
+      "namePt": "Agachamento livre com barra",
+      "aliases": ["Agachamento com barra", "Agachamento livre"],
+      "mediaId": "sq_bb"
+    },
+    "19f5c6f170d8808bb424e98de4472a7e": {
+      "sourceName": "Barbell bench press",
+      "namePt": "Supino reto com barra",
+      "aliases": ["Supino", "Supino com barra"],
+      "mediaId": "pr_bb"
+    },
+    "1a35c6f170d88059b804ff16ff621a1c": {
+      "sourceName": "Barbell hip thrust",
+      "namePt": "Elevação pélvica com barra",
+      "aliases": ["Hip thrust", "Elevação pélvica"],
+      "mediaId": "ht_bb"
+    },
+    "1a05c6f170d880c5ad11c99b302b1bf9": {
+      "sourceName": "Barbell overhead press",
+      "namePt": "Desenvolvimento militar com barra",
+      "aliases": ["Desenvolvimento com barra", "Press militar com barra"],
+      "mediaId": "sp_bb"
+    },
+    "1a35c6f170d880bebc64f4dce0d5f5f1": {
+      "sourceName": "Barbell Romanian deadlift",
+      "namePt": "Levantamento terra romeno com barra",
+      "aliases": ["Terra romeno", "RDL"],
+      "mediaId": "hg_bb"
+    },
+    "1a15c6f170d88061b074caacc5a76081": {
+      "sourceName": "Barbell shrug",
+      "namePt": "Encolhimento com barra",
+      "aliases": ["Encolhimento de ombros"],
+      "mediaId": "sh_bb"
+    },
+    "1a15c6f170d880b6adcbff83e8bb6b0f": {
+      "sourceName": "Chin-up",
+      "namePt": "Barra fixa supinada",
+      "aliases": ["Barra fixa com pegada supinada", "Chin-up"],
+      "mediaId": "chn_bw"
+    },
+    "2775c6f170d8801eb7ccd455a85f58ff": {
+      "sourceName": "Dead bug",
+      "namePt": "Dead bug",
+      "aliases": [],
+      "mediaId": "abdb_bw"
+    },
+    "1a05c6f170d8803ba48ec1443eab5978": {
+      "sourceName": "Dumbbell bench press",
+      "namePt": "Supino reto com halteres",
+      "aliases": ["Supino", "Supino com halteres"],
+      "mediaId": "pr_db"
+    },
+    "1a05c6f170d8806ab70ee93a5c79d733": {
+      "sourceName": "Dumbbell fly",
+      "namePt": "Crucifixo com halteres",
+      "aliases": ["Crucifixo", "Fly com halteres"],
+      "mediaId": "cf_db"
+    },
+    "1a15c6f170d8808b9721ff65d549d8ba": {
+      "sourceName": "Dumbbell pullover",
+      "namePt": "Pullover com halteres",
+      "aliases": ["Pullover com halteres"],
+      "mediaId": "pv_db"
+    },
+    "1a35c6f170d880489b7be1d31faff56b": {
+      "sourceName": "Dumbbell Romanian deadlift",
+      "namePt": "Levantamento terra romeno com halteres",
+      "aliases": ["Terra romeno", "RDL"],
+      "mediaId": "hg_db"
+    },
+    "1a25c6f170d880e09445d806733a82a2": {
+      "sourceName": "Dumbbell step-up",
+      "namePt": "Subida no banco com halteres",
+      "aliases": ["Step-up com halteres"],
+      "mediaId": "su_db"
+    },
+    "1a25c6f170d8802c992bda97ded323ba": {
+      "sourceName": "Goblet squat",
+      "namePt": "Agachamento goblet",
+      "aliases": ["Goblet squat"],
+      "mediaId": "sq_db"
+    },
+    "1a25c6f170d880c59f17ce7802758fc3": {
+      "sourceName": "Leg extension",
+      "namePt": "Cadeira extensora",
+      "aliases": ["Extensão de pernas", "Leg extension"],
+      "mediaId": "le_mc"
+    },
+    "1a45c6f170d8801cbc4de021fccb0fd8": {
+      "sourceName": "Machine back extension",
+      "namePt": "Extensão lombar na máquina",
+      "aliases": ["Hiperextensão na máquina"],
+      "mediaId": "be_mc"
+    },
+    "2985c6f170d8800b94d6cc7918bfe6db": {
+      "sourceName": "Machine triceps extension",
+      "namePt": "Extensão de tríceps na máquina",
+      "aliases": ["Tríceps máquina", "Extensão de cotovelo na máquina"],
+      "mediaId": "tr_mc"
+    },
+    "1a05c6f170d880a5b43fe13bcb1b6f3a": {
+      "sourceName": "Push-up",
+      "namePt": "Flexão de braço",
+      "aliases": ["Flexão"],
+      "mediaId": "pu_bw"
+    },
+    "1a05c6f170d88058a3a0c07e098a9605": {
+      "sourceName": "Smith machine bench press",
+      "namePt": "Supino reto no Smith",
+      "aliases": ["Supino", "Supino Smith"],
+      "mediaId": "pr_sm"
+    },
+    "1a05c6f170d880dfb155db9048527b8b": {
+      "sourceName": "Triceps dip",
+      "namePt": "Mergulho de tríceps",
+      "aliases": ["Paralela para tríceps", "Dips"],
+      "mediaId": "trd_bw"
+    }
+  }
+}

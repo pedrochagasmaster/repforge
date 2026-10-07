@@ -377,6 +377,13 @@ const view = async (page, name) => {
   await sleep(page, 500);
 };
 
+async function reloadWithUnavailableExerciseCatalog(page) {
+  await page.route("**/assets/exercise-catalog.json*", route => route.abort("failed"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#exerciseCatalogRecovery[open]", { timeout: 20000 });
+  await page.waitForFunction(() => window.__repforgeBooted !== true);
+}
+
 async function enterWorkout(page, options = {}) {
   await page.evaluate((opts) => window.__repforgeEnterWorkout(opts), options);
   await sleep(page, 600);
@@ -699,6 +706,18 @@ function whyOnMixedDay(exerciseId, leads) {
 }
 
 export const APP_SCENARIOS = {
+  "catalog-recovery/unavailable": reloadWithUnavailableExerciseCatalog,
+  "catalog-recovery/retry-failed": async page => {
+    await reloadWithUnavailableExerciseCatalog(page);
+    await page.click("#retryExerciseCatalog");
+    await page.waitForFunction(() => !!document.querySelector("#exerciseCatalogRecoveryStatus")?.textContent.trim(), undefined, { timeout: 10000 });
+    const state = await page.evaluate(() => ({
+      open: document.querySelector("#exerciseCatalogRecovery")?.open === true,
+      retryEnabled: document.querySelector("#retryExerciseCatalog")?.disabled === false,
+      booted: window.__repforgeBooted === true,
+    }));
+    if (!state.open || !state.retryEnabled || state.booted) throw new Error(`Failed retry lost its recovery path: ${JSON.stringify(state)}`);
+  },
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/ready": async (page) => {
     await dismissChrome(page);

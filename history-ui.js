@@ -73,6 +73,8 @@
       displayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
       parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
       toast, formatLongDate, fmtLoad, sum, kfmt, toDisplay, unitLabel,
+      metricLabel: metricLabelDep, metricDisplayValue, metricDisplayUnit,
+      parseHistoryMetricInput,
       weekdayLetters, table, fmt, today, uid, readRevision, commitProposedState,
       readDurableState, settleHistoryAlreadyCommitted, settlePendingJournal, getState,
       renderApp, captureEvent,
@@ -80,11 +82,59 @@
     /* What a row's lift reads as on screen: the host may show a library movement's name in the
        lifter's language. Grouping, sorting and searching keep using displayName (the stored name). */
     const shownName=typeof deps.exerciseDisplayName==="function"?deps.exerciseDisplayName:displayName;
+    const historyMetricLabel=metric=>typeof metricLabelDep==="function"?metricLabelDep(metric):String(metric?.sourceName||metric?.semantic||"");
+    const historyMetricUnit=metric=>typeof metricDisplayUnit==="function"?metricDisplayUnit(metric)
+      :metric?.unit==="kg"?unitLabel():metric?.unit==="metres"?"m":metric?.unit==="seconds"?"s":String(metric?.unit||"");
+    const historyMetricText=(value,metric)=>typeof metricDisplayValue==="function"
+      ?metricDisplayValue(value,metric):String(value??"");
+    const isSourceMetricRow=row=>row?.metricType==="source_metrics@1"||Array.isArray(row?.metricIds)||Array.isArray(row?.metricValues);
+    function historyMetricRecords(row){
+      if(!isSourceMetricRow(row))return null;
+      if(!Array.isArray(row?.metricIds)||!Array.isArray(row?.metricDefinitions)||!Array.isArray(row?.metricValues)||
+        row.metricIds.length!==row.metricDefinitions.length||row.metricIds.length!==row.metricValues.length)return[];
+      const records=row.metricIds.map((id,index)=>{
+        const definition=row.metricDefinitions[index],value=row.metricValues[index];
+        if(definition?.id!==id||value?.metricId!==id||typeof value.value!=="number"||!Number.isFinite(value.value))return null;
+        return{definition,value:value.value,unit:value.unit};
+      });
+      return records.every(Boolean)?records:[]}
+    function historyHasLoadAndReps(row){
+      if(!isSourceMetricRow(row))return true;
+      const semantics=new Set((historyMetricRecords(row)||[]).map(metric=>metric.definition.semantic));
+      return semantics.has("loadKg")&&semantics.has("reps")}
+    function historyHasStrengthMetrics(row){
+      if(!isSourceMetricRow(row))return true;
+      const semantics=new Set((historyMetricRecords(row)||[]).map(metric=>metric.definition.semantic));
+      return["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg","reps","repsPerSide"].some(semantic=>semantics.has(semantic))}
+    function historyHasRir(rows){return(rows||[]).some(row=>Number.isFinite(row?.rir)||row?.rirMeasured===true)}
+    function historyMetricProjection(row,metricId,value){
+      const metric=historyMetricRecords(row)?.find(item=>item.definition.id===metricId)?.definition;
+      if(metric?.semantic==="loadKg")row.load=value;
+      if(metric?.semantic==="reps")row.reps=value}
+    function historyMetricCell(row,record){
+      const id=record.definition.id,label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
+      return`<span class="fx-col history-metric" data-history-metric-id="${esc(id)}" data-metric-value="${esc(record.value)}" data-metric-unit="${esc(record.unit||record.definition.unit||"")}" aria-label="${esc(`${label}: ${shown}${unit?` ${unit}`:""}`)}">`+
+        `<span class="history-metric__value">${esc(shown||"–")}</span><span class="history-metric__unit">${esc(unit)}</span></span>`}
+    function historyMetricHeader(records){
+      return(records||[]).map(record=>{
+        const unit=historyMetricUnit(record.definition),label=historyMetricLabel(record.definition);
+        return`<span class="fx-col">${esc(label)}${unit?` (${esc(unit)})`:""}</span>`}).join("")}
+    function historyMetricSummary(row){
+      const records=historyMetricRecords(row);
+      if(records===null)return"";
+      return records.map(record=>{
+        const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
+        return`${label}: ${shown}${unit?` ${unit}`:""}`}).join(" · ")}
+    const historyMetricErrorKey=metric=>["reps","repsPerSide"].includes(metric?.semantic)?"validation.reps"
+      :["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric?.semantic)?"validation.load":"validation.metric";
+    const parseHistoryMetric=typeof parseHistoryMetricInput==="function"
+      ?(metric,raw)=>parseHistoryMetricInput(metric,raw)
+      :(metric)=>({field:"metric",key:historyMetricErrorKey(metric)});
     const state=new Proxy({}, {get(_target,key){return getState()?.[key]}});
     const render=()=>renderApp();
     const emptyHistorySelection=()=>({mode:"calendar",sessionId:null,originalFingerprint:"",
       desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
-      operation:null,operationId:null});
+      baselineRows:null,operation:null,operationId:null});
     let historySelection=emptyHistorySelection();
     let histMonth=null,histQuery="";
     const historyOutcome=(action,status)=>{try{if(typeof captureEvent==="function")captureEvent("history_session_outcome",{action,status})}catch{}};
@@ -205,7 +255,11 @@ function historySelectionFor(sid,mode="reading",source=state.log){
   const rows=historySessionRows(source,sid);if(!rows.length)return null;
   return{mode,sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
     desiredFingerprint:null,workingCopy:mode==="editing"?cloneSnapshot(rows):null,
+    baselineRows:mode==="editing"?cloneSnapshot(rows):null,
     removedRowIndices:[],dirty:false,validation:null,operation:null,operationId:null}}
+function historyInputEdit(selection,input){
+  const key=String(input?.dataset?.ek||""),edits=selection?.inputEdits;
+  return edits&&Object.hasOwn(edits,key)?edits[key]:null}
 function historySelectedRecord(source=state.log){
   const sid=historySelection.sessionId;if(!sid)return null;
   return historyIndexFor(source).sessions.find(item=>String(item.session)===String(sid))||null}
@@ -285,7 +339,7 @@ function historyStartReading(sid){
 function historyStartEditing(){
   const sid=historySelection.sessionId,rows=historySessionRows(state.log,sid);if(!rows.length)return false;
   historySetSelection({mode:"editing",sessionId:String(sid),originalFingerprint:historySelection.originalFingerprint,
-    desiredFingerprint:null,workingCopy:cloneSnapshot(rows),removedRowIndices:[],dirty:false,validation:null,
+    desiredFingerprint:null,workingCopy:cloneSnapshot(rows),baselineRows:cloneSnapshot(rows),inputEdits:{},removedRowIndices:[],dirty:false,validation:null,
     operation:null,operationId:null});
   renderHistory();
   // The editor is a new page: it opens at its top, whatever the read page was scrolled to, so the heading focus lands in view (R7 J-06).
@@ -298,12 +352,34 @@ function historySessionFromWorkingCopy(card){
   const removed=new Set((selection.removedRowIndices||[]).map(Number));
   for(const rowEl of card.querySelectorAll(".edrow[data-edidx]")){
     const i=Number(rowEl.dataset.edidx);if(removed.has(i))continue;
-    const src=source[i];if(!src)continue;
-    const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]'),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
-    const loadP=parseLoadDisplay(loadEl?.value);if(loadP.field)return{error:{field:loadEl,key:loadP.key},dateP};
-    const repsP=parseRepsValue(repsEl?.value);if(repsP.field)return{error:{field:repsEl,key:repsP.key},dateP};
-    const rirP=parseRirValue(rirEl?.value);if(rirP.field)return{error:{field:rirEl,key:rirP.key},dateP};
-    const next=cloneSnapshot(src);next.load=loadP.value;next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;out.push(next)}
+    const src=source[i],baseline=selection.baselineRows?.[i]||src;if(!src||!baseline)continue;
+    const next=cloneSnapshot(baseline),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
+    if(isSourceMetricRow(baseline)){
+      const records=historyMetricRecords(baseline)||[],inputs=[...rowEl.querySelectorAll('[data-ek^="metric|"]')];
+      if(!records.length)return{error:{field:rowEl,key:"validation.metric"},dateP};
+      if(inputs.length!==records.length)return{error:{field:inputs[0]||rowEl,key:"validation.metric"},dateP};
+      for(let metricIndex=0;metricIndex<records.length;metricIndex++){
+        const record=records[metricIndex],input=inputs[metricIndex],parts=String(input.dataset.ek||"").split("|");
+        if(parts[0]!=="metric"||parts[2]!==record.definition.id)return{error:{field:input,key:"validation.metric"},dateP};
+        const edit=historyInputEdit(selection,input);
+        if(!edit)continue;
+        if(edit.valid!==true||typeof edit.value!=="number"||!Number.isFinite(edit.value))return{error:{field:input,key:edit.key||historyMetricErrorKey(record.definition)},dateP};
+        const valueRecord=next.metricValues?.[metricIndex];
+        if(!valueRecord||valueRecord.metricId!==record.definition.id)return{error:{field:input,key:"validation.metric"},dateP};
+        valueRecord.value=edit.value;historyMetricProjection(next,record.definition.id,edit.value)}
+      if(rirEl){
+        const edit=historyInputEdit(selection,rirEl);
+        if(edit){
+          if(edit.valid!==true)return{error:{field:rirEl,key:edit.key||"validation.rir"},dateP};
+          next.rir=edit.value;
+          if(edit.value==null)delete next.rirMeasured;else next.rirMeasured=true}}
+    }else{
+      const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]');
+      const loadEdit=historyInputEdit(selection,loadEl),repsEdit=historyInputEdit(selection,repsEl),rirEdit=historyInputEdit(selection,rirEl);
+      if(loadEdit){if(loadEdit.valid!==true)return{error:{field:loadEl,key:loadEdit.key||"validation.load"},dateP};next.load=loadEdit.value}
+      if(repsEdit){if(repsEdit.valid!==true)return{error:{field:repsEl,key:repsEdit.key||"validation.reps"},dateP};next.reps=repsEdit.value}
+      if(rirEdit){if(rirEdit.valid!==true)return{error:{field:rirEl,key:rirEdit.key||"validation.rir"},dateP};next.rir=rirEdit.value;next.rirMeasured=true}}
+    next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
 }
 // An invalid value keeps its reason on the page (Plan 064 R3j2): the field takes the
@@ -332,11 +408,30 @@ function historyApplyWorkingInput(event){
   // The reason under a field goes when that field holds a usable value again.
   const fixed=()=>{if(target.getAttribute("aria-invalid")==="true")historyClearErrors(card)};
   const row=target.closest(".edrow[data-edidx]");if(row){const i=Number(row.dataset.edidx),key=String(target.dataset.ek||"").split("|")[0];
-    const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value):key==="rir"?parseRirValue(target.value):null;
+    const parts=String(target.dataset.ek||"").split("|"),src=historySelection.workingCopy?.[i];
+    const metric=key==="metric"?historyMetricRecords(src)?.find(record=>record.definition.id===parts[2]):null;
+    const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value)
+      :key==="rir"?(isSourceMetricRow(src)&&String(target.value??"").trim()===""?{value:null}:parseRirValue(target.value))
+      :metric?parseHistoryMetric(metric.definition,target.value):null;
+    if(key&&parsed){
+      const editKey=String(target.dataset.ek||"");
+      historySelection.inputEdits||={};
+      historySelection.inputEdits[editKey]=parsed.field
+        ?{valid:false,key:parsed.key}
+        :{valid:true,value:parsed.value};
+    }
     if(parsed&&!parsed.field)fixed();
-    if(historySelection.workingCopy?.[i]&&key&&parsed&&!parsed.field){historySelection.workingCopy[i][key]=parsed.value;
+    if(historySelection.workingCopy?.[i]&&key&&parsed&&!parsed.field){
+      if(key==="metric"&&metric){
+        const valueRecord=historySelection.workingCopy[i].metricValues?.find(value=>value.metricId===parts[2]);
+        if(valueRecord&&typeof parsed.value==="number"&&Number.isFinite(parsed.value)){
+          valueRecord.value=parsed.value;historyMetricProjection(historySelection.workingCopy[i],parts[2],parsed.value)}}
+      else if(key==="rir"){
+        historySelection.workingCopy[i].rir=parsed.value;
+        if(parsed.value==null)delete historySelection.workingCopy[i].rirMeasured;else historySelection.workingCopy[i].rirMeasured=true}
+      else historySelection.workingCopy[i][key]=parsed.value;
       // A valid RIR entry is the user's explicit correction, so it is measured evidence.
-      if(key==="rir")historySelection.workingCopy[i].rirMeasured=true}}
+    }}
   if(target.matches('[data-ed="date"]')){
     const parsed=parseCalendarDate(target.value);
     if(!parsed.field){fixed();for(const row of historySelection.workingCopy||[])row.date=parsed.value}}
@@ -486,8 +581,11 @@ function historyWeekOf(date){
   return null}
 /** "100 × 8, 8, 8" when one load, otherwise one "load × reps" per set. */
 function historySetsLine(rows){
-  const work=rows.filter(r=>isWork(r)&&+r.load>0&&+r.reps>0).sort((a,b)=>Number(a.set)-Number(b.set));
+  const work=rows.filter(r=>isSourceMetricRow(r)?isWork(r):isWork(r)&&+r.load>0&&+r.reps>0)
+    .sort((a,b)=>Number(a.set)-Number(b.set));
   if(!work.length)return"";
+  if(work.some(row=>isSourceMetricRow(row)&&!historyHasLoadAndReps(row)))
+    return work.map(row=>`${row.set}: ${isSourceMetricRow(row)?historyMetricSummary(row):`${fmtLoad(row.load)} × ${row.reps}`}`).join("; ");
   const same=work.every(r=>+r.load===+work[0].load);
   return same?`${fmtLoad(work[0].load)} × ${work.map(r=>r.reps).join(", ")}`
     :work.map(r=>`${fmtLoad(r.load)} × ${r.reps}`).join(", ")}
@@ -501,7 +599,9 @@ function historyOutcomeMark(group,sid){
     (kind?`<span class="verdictmark__glyph" aria-hidden="true"></span>`:"")+`${esc(cmp.label)}</span>`}
 function historyReadingView(s,rows){
   const sid=String(s.session),index=historyIndexFor(state.log);
-  const volume=sum(rows.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
+  const volumeRows=rows.filter(row=>isWork(row)&&(!isSourceMetricRow(row)||historyHasLoadAndReps(row)));
+  const volume=sum(volumeRows.map(x=>(+x.load||0)*(+x.reps||0)));
+  const hasStrengthProjection=volumeRows.length>0;
   const prLifts=historyPrLifts(index).get(sid)||new Set();
   const groups=[],byLift=new Map();
   for(const row of rows){
@@ -510,25 +610,34 @@ function historyReadingView(s,rows){
     byLift.get(key).rows.push(row)}
   const setCount=rows.length;
   const lifts=groups.map(g=>{
+    const exerciseId=g.rows[0].performedLibraryId||g.rows[0].performedMovementId||g.rows[0].exerciseId||g.key;
     const pred=index.liftPred.get(`${sid}|${g.key}`)||[];
     const before=pred.length?t("history.before",{date:historyShortDate(pred[0].date),sets:historySetsLine(pred)}):"";
     const record=prLifts.has(g.key)
       ?`<span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("history.pr"))}</span>`:"";
-    const setRows=g.rows.map(row=>`<div class="ledgerline"><span class="ledgerline__idx">${esc(row.warmup?"W"+row.set:row.set)}</span>`+
-      `<span class="ledgerline__vals"><span class="fx-col">${esc(fmtLoad(row.load))}</span>`+
-      `<span class="fx-col">${esc(row.reps==null||row.reps===""?"–":row.reps)}</span>`+
-      `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span></span></div>`).join("");
-    return`<section class="histlift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>`+
+    const metricRows=isSourceMetricRow(g.rows[0]),records=metricRows?historyMetricRecords(g.rows[0])||[]:[];
+    const showRir=metricRows?(historyHasStrengthMetrics(g.rows[0])||historyHasRir(g.rows)):true;
+    const count=metricRows?records.length+(showRir?1:0):3;
+    const headers=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`:""):
+      `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`;
+    const setRows=g.rows.map(row=>{
+      const cells=metricRows?(historyMetricRecords(row)||[]).map(record=>historyMetricCell(row,record)).join("")+
+        (showRir?`<span class="fx-col">${row.rir==null||row.rir===""?"–":esc(fmt(row.rir))}</span>`:""):
+        `<span class="fx-col">${esc(fmtLoad(row.load))}</span><span class="fx-col">${esc(row.reps==null||row.reps===""?"–":row.reps)}</span>`+
+        `<span class="fx-col">${esc(row.rir==null||row.rir===""?"–":fmt(row.rir))}</span>`;
+      return`<div class="ledgerline"><span class="ledgerline__idx">${esc(row.warmup?"W"+row.set:row.set)}</span>`+
+        `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${cells}</span></div>`}).join("");
+    const groupHeader=`<div class="ledgerline__head histpage__cols"><span>${esc(t("log.set"))}</span>`+
+      `<span class="ledgerline__vals history-metric-grid" style="--history-metric-count:${count}">${headers}</span></div>`;
+    return`<section class="histlift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>`+
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
-      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
+      (before?`<p class="histlift__before">${esc(before)}</p>`:"")+groupHeader+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
   const total=(value,label)=>`<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
+  const totals=total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
+    (hasStrengthProjection?total(historyInt(toDisplay(volume)),t("summary.stat.moved",{unit:unitLabel()}))+
+      total(historyInt(prLifts.size),t("stats.metric.prs")):"");
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
-    `<div class="histpage__totals">`+
-    total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
-    total(historyInt(toDisplay(volume)),t("summary.stat.moved",{unit:unitLabel()}))+
-    total(historyInt(prLifts.size),t("stats.metric.prs"))+`</div>`+
-    `<div class="ledgerline__head histpage__cols"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
-    `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span></span></div>`+
+    `<div class="histpage__totals">${totals}</div>`+
     lifts+
     `<div class="histpage__actions"><button type="button" class="btn btn--steel" data-history-edit="${esc(sid)}"><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span>${esc(t("history.session.edit"))}</button>`+
     `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
@@ -644,7 +753,8 @@ function historyMonthHeading(index,date){
     `<span>${esc(t("history.month_summary",{sessions:historyCountText("sessions",bucket.sessions.size),sets:historyCountText("sets",bucket.sets)}))}</span></h3>`}
 
 function historyRowHtml(s,prLifts){
-  const sets=s.rows,work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
+  const sets=s.rows,work=sets.filter(isWork),volumeRows=work.filter(row=>!isSourceMetricRow(row)||historyHasLoadAndReps(row)),
+    vol=sum(volumeRows.map(x=>(+x.load||0)*(+x.reps||0)));
   const d=new Date(`${s.date}T12:00:00`),valid=!Number.isNaN(+d);
   const muscles=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3).map(muscleLabel);
   const prs=prLifts.get(String(s.session))?.size||0;
@@ -654,7 +764,7 @@ function historyRowHtml(s,prLifts){
     `<span class="hist-sess__d">${valid?`<small>${esc(t("weekday."+d.getDay()))}</small><b>${d.getDate()}</b>`:""}</span>`+
     `<span class="hist-sess__m"><b>${esc(dayLabel(s.day))}</b>${muscles.length?`<small>${historyNameList(muscles)}</small>`:""}</span>`+
     `<span class="hist-sess__n"><span>${esc(historySetsText(sets.length))}</span>`+
-    `<span><b>${esc(historyInt(toDisplay(vol)))}</b> ${esc(unitLabel())}</span>`+
+    (volumeRows.length?`<span><b>${esc(historyInt(toDisplay(vol)))}</b> ${esc(unitLabel())}</span>`:"")+
     (prs?`<span class="hist-sess__pr">${esc(historyPrText(prs))}</span>`:"")+`</span></button></article>`}
 
 function historyListHtml(index,shown){
@@ -813,7 +923,14 @@ function renderHistory(source=state.log){
     const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();historyStartReading(b.dataset.edit)});
-  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:shownName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
+  const hasSourceMetrics=index.tableRows.some(isSourceMetricRow);
+  const rows=index.tableRows.map(x=>hasSourceMetrics
+    ?{[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:shownName(x),
+      [t("stats.table.set")]:x.warmup?"W"+x.set:x.set,
+      [t("history.metrics")]:isSourceMetricRow(x)?historyMetricSummary(x)
+        :`${fmtLoad(x.load)} ${unitLabel()} × ${x.reps}`,
+      [t("stats.table.rir")]:x.rir==null?"":fmt(x.rir)}
+    :{[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:shownName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)});
   $("#historyTable").innerHTML=table(rows);
 }
 
@@ -841,25 +958,36 @@ function sessionEditor(s,sets){
     const key=liftKey(r),last=groups[groups.length-1];
     if(last&&last.key===key)last.rows.push({r,i});else groups.push({key,rows:[{r,i}]})});
   const lifts=groups.map(g=>{
-    const name=shownName(g.rows[0].r);
+    const first=g.rows[0].r,name=shownName(first),metricRows=isSourceMetricRow(first),records=metricRows?historyMetricRecords(first)||[]:[],
+      showRir=metricRows?(historyHasStrengthMetrics(first)||historyHasRir(g.rows.map(item=>item.r))):true,count=metricRows?records.length+(showRir?1:0):3,
+      exerciseId=first.performedLibraryId||first.performedMovementId||first.exerciseId||g.key,
+      headerValues=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`:""):
+        `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`,
+      header=`<div class="ledgerline__head histedit__cols"><span>${esc(t("log.set"))}</span>`+
+        `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${headerValues}</span><span></span></div>`;
     const rows=g.rows.map(({r,i})=>{
       const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set"),
         mark=r.warmup?"W"+r.set:r.set,aria=`${esc(shownName(r))} ${esc(t("log.set").toLowerCase())} ${esc(mark)}`;
-      return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
-        `<span class="ledgerline__vals edrow__vals">`+
-        `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
+      let fields="";
+      if(metricRows){
+        fields=(historyMetricRecords(r)||[]).map(record=>{
+          const metric=record.definition,metricLabel=historyMetricLabel(metric),unit=historyMetricUnit(metric),numeric=metric.semantic==="reps"||metric.semantic==="repsPerSide",
+            value=historyMetricText(record.value,metric),fieldLabel=`${aria} ${esc(metricLabel)}${unit?` (${esc(unit)})`:""}`;
+          return`<input class="edrow__in" data-ek="metric|${i}|${esc(metric.id)}" type="text" inputmode="${numeric?"numeric":"decimal"}" enterkeyhint="next" value="${esc(value)}" aria-label="${fieldLabel}"${disabled}>`}).join("")+
+          (showRir?`<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${r.rir==null?"":esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("glossary.term.RIR"))}"${disabled}>`:"")
+      }else fields=`<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
         `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${aria} ${esc(t("log.reps"))}"${disabled}>`+
-        `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("glossary.term.RIR"))}"${disabled}></span>`+
+        `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("glossary.term.RIR"))}"${disabled}>`;
+      return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
+        `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${fields}</span>`+
         `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
-    return`<section class="histlift histedit__lift" data-lift="${esc(g.key)}"><div class="histlift__head"><h3 class="histlift__name edgroup__name">${esc(name)}</h3></div>${rows}</section>`}).join("");
+    return`<section class="histlift histedit__lift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name edgroup__name">${esc(name)}</h3></div>${header}${rows}</section>`}).join("");
   return`<div class="session session--edit histedit" data-editing="${esc(s.session)}" data-history-state="editing">`+
     `<p class="histedit__eyebrow" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</p>`+
     `<h2 class="page-title histpage__title">${esc(dayLabel(s.day))}</h2>`+
     `<p class="histpage__lede" data-history-editing-status role="status" aria-live="polite">${esc(t("history.editing_status"))}</p>`+
     `<div class="histedit__date"><label class="sheetfield"><span class="sheetfield__cap">${esc(t("stats.table.date"))}</span>`+
     `<input class="sheetfield__input" data-ed="date" type="date" value="${esc(sets[0]?.date||s.date)}"></label></div>`+
-    `<div class="ledgerline__head histedit__cols"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals edrow__vals">`+
-    `<span class="fx-col">${unitLabel()}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span></span><span></span></div>`+
     lifts+
     `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div>`+
     `<div class="histedit__bar workshelf"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+

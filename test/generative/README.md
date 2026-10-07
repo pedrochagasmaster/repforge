@@ -1,161 +1,64 @@
-# Taurifer generative & model-based testing
+# Taurifer generative properties
 
-This directory is Taurifer's second testing paradigm. The deterministic
-Playwright/simulation suites in `test/*.mjs` answer *"does this known
-scenario behave correctly?"*; this layer answers a different question:
+These properties exercise the current browser-free production modules with
+fast-check. They cover protocol and algorithm boundaries that are costly to
+enumerate in a browser. Product journeys remain in the production-backed
+Playwright suites.
 
-> Given all valid — and strategically invalid — states and action sequences
-> Taurifer can encounter, can an automated search find a counterexample to
-> the product's invariants?
-
-The engine is [fast-check](https://fast-check.dev), installed as a pinned
-test-only dependency in `test/package.json` alongside Playwright. Nothing
-here adds a production dependency, a build step, or any file served by the
-app.
-
-## Status
-
-**Phase 0 (testability audit) and Phase 1 (fast-check foundation) are done.**
-Phases 2–7 are scoped below and intentionally not started.
+The test dependency is pinned under `test/`. The app gains no dependency,
+build step, or served file.
 
 ## Running
 
 ```bash
 cd test
-
-node generative/run.mjs                      # smoke profile (100 runs) — default
-node generative/run.mjs --profile ci         # 300 runs, what CI executes
-node generative/run.mjs --profile deep       # 1000 runs, local exploration
-node generative/run.mjs --profile campaign   # 5000 runs, adversarial search
-node generative/run.mjs --list               # list suites
+node generative/run.mjs
+node generative/run.mjs --profile ci
+node generative/run.mjs --profile deep
+node generative/run.mjs --profile campaign
+node generative/run.mjs --list
 node generative/run.mjs --filter "setup links" --seed 12345
 ```
 
-Profiles: `REPFORGE_GENERATIVE_PROFILE` selects the default;
-`REPFORGE_GENERATIVE_SEED` pins the master seed. In required CI, when no
-explicit seed is supplied, the runner deterministically derives the master seed
-from the exact `CI_SOURCE_SHA`; the same candidate therefore exercises the
-same sample on replay. Ordinary local runs without either value remain
-randomized for exploration. Every suite derives its own seed from
-`(masterSeed ^ fnv1a(suiteName))` so suites stay independent.
+The default profile runs 100 examples. CI runs 300. Deep and campaign profiles
+run 1,000 and 5,000. `REPFORGE_GENERATIVE_PROFILE` selects the default profile;
+`REPFORGE_GENERATIVE_SEED` pins the master seed. CI derives a stable seed from
+the exact source SHA when no explicit seed is supplied. A property failure
+prints its seed and shrink path for replay.
 
-Everything here is pure Node: no browser, no static server, no `python3`.
+These tests use pure Node and do not start a browser or static server.
 
-## Layout
+## Test surface
 
-```
-generative/
-├── run.mjs                    profile-driven runner + failure reports
-├── arbitraries/
-│   ├── numbers.mjs            boundary-biased ints/doubles, hostile numerics
-│   ├── setup-payload.mjs      valid setup payloads + privacy-polluted twins
-│   └── malformed.mjs          junk JSON, mutation ops, envelope attack shapes
-├── model/
-│   └── canonicalize.mjs       stableStringify/deepEqual oracle, path utils
-├── adapters/
-│   └── domain-adapter.mjs     Node-reachable domain surface (today: shared-setup.js, exercises.js)
-├── properties/                Phase 1 property suites (see below)
-└── regressions/               frozen counterexamples from real findings
-```
+`adapters/domain-adapter.mjs` loads `shared-setup.js`, `program-compiler.js`,
+`progression-engine.js`, `exercise-metrics.js`, and the committed
+`assets/exercise-catalog.json`. The compiler receives that same raw UUID
+snapshot and remains the sole owner of ProgramDefinition validation. Metric
+IDs, definitions, units, and compositions come from `exercise-metrics.js`.
+No property scrapes `app.js`.
 
-`model/canonicalize.mjs` is deliberately independent of
-`shared-setup.js`'s own `canonicalize`: an oracle must not trust the code
-under test to define equality.
-
-## Property catalogue (Phase 1)
-
-| Suite | Invariant |
+| Property module | Contract exercised |
 | --- | --- |
-| `canonicalization.mjs` | canonical form is idempotent, independent of input key order, preserves key sets/array order, never mutates input, rejects JSON-unsafe leaves with `TypeError` |
-| `setup-links.mjs` | decode(encode(p)) equals validate(p) exactly; hand-built v1 ≡ selected envelope (v1/v2 differential); history/UI/storage pollution never reaches the shared document (**INV-013**); size ceilings fail only with typed codes; validate is idempotent |
-| `schema-boundaries.mjs` | hostile numerics are rejected or bounded; arbitrary junk gets typed results without throwing or mutating; prototype-dangerous keys anywhere → `invalid-schema`, no global pollution; version fuzzing is typed |
-| `identity.mjs` | library ids survive the whole pipeline verbatim (**INV-005**); unknown ids and legacy aliases rejected; custom refs require carried definitions (**INV-006**); unreferenced customs dropped; customs cannot shadow built-ins |
-| `malformed-inputs.mjs` | decode is total over adversarial envelopes — typed result or well-formed success, never a throw; oversize inputs rejected up front |
+| `canonicalization.mjs` | Canonicalization is idempotent, independent of input key order, preserves keys and array order, does not mutate input, and rejects unsafe leaves. |
+| `setup-links.mjs` | v4 encode/decode preserves the canonical proposal, validates to a fixed point, refuses performed/device-state pollution, and respects the hard size ceiling. |
+| `schema-boundaries.mjs` | Current settings and ProgramDefinition numeric fields stay finite and bounded; junk, dangerous keys, versions, and deep structures fail safely. |
+| `identity.mjs` | Exact raw exercise UUIDs, source metric order, and compiler-approved custom definitions survive v4; unknown IDs and retired short aliases never resolve. |
+| `malformed-inputs.mjs` | v4 decode is total over hostile input, over-limit envelopes fail early, and unsupported v1/v2/v3 inputs preserve their exact source string. |
+| `progression-metrics.mjs` | The current metric recommendation API is deterministic and pure over source metric compositions, preserves actual value records, and never invents load/repetition targets for time/distance movements. |
+| `program-compiler.mjs` | The actual compiler replays seeded requests against the raw UUID catalog, validates every result, preserves exact source metrics and null coefficients, and returns typed failures for arbitrary JSON. |
 
-The full invariant numbering (INV-001 … INV-016) lives in the architecture
-proposal; suites reference it in comments as they come to cover it.
+The setup arbitraries create small complete seven-day ProgramDefinitions so
+the v4 lossless properties usually exercise successful URL encodes. Larger
+payload refusal and the representative ≤700-character URL are proven in
+`test/shared-setup-unit.mjs`.
 
-## Failure reproducibility
+## Failure records
 
-Failures print a standardized block:
+When search finds a real defect, add a readable deterministic test beside the
+production module when possible. Keep a seed/path record only for failures that
+depend on a pathological shape, long action sequence, or rare ordering. A
+regression fixture must describe a current production contract; old fixture
+schemas do not stay merely because they once had a property.
 
-```
-PROPERTY / PROFILE / MASTER SEED / SUITE SEED
-COUNTEREXAMPLE / DETAILS   ← fast-check's shrunk counterexample + seed/path
-REPLAY                     ← exact command to reproduce
-```
-
-Replaying uses the master seed; the runner re-derives per-suite seeds, so a
-single number reproduces every suite deterministically.
-
-### Regression corpus policy (`regressions/`)
-
-When generative search finds a real bug:
-
-1. Fix the bug.
-2. Prefer converting the minimized counterexample into a **readable
-   deterministic test** next to its subject (e.g. `test/shared-setup-unit.mjs`)
-   — those are useful forever.
-3. If the case only makes sense generatively (e.g. a pathological generated
-   shape), freeze its seed/path as a skipped-until-broken regression file
-   here instead.
-
-Seeds reproduce; human-readable tests remember.
-
-## Test-surface map (Phase 0 audit)
-
-Node-reachable today (used by Phase 1):
-
-- `shared-setup.js` — UMD module: `validate`, `encode`, `decode`,
-  `canonicalize`, fragment/cookie helpers. Pure, promise-based for
-  encode/decode, fully schema-typed error codes.
-- `exercises.js` — `EXERCISE_LIBRARY`, `LEGACY_LIBRARY_IDS` (legacy→current
-  map). Frozen identity vocabulary.
-
-Pending seams (still embedded in `app.js`; do **not** scrape internals):
-
-- progression/recommendation engine (determinism, provenance, monotonicity)
-- backup export/import round trip (INV-011, INV-012)
-- workout draft lifecycle and destructive-program transactions (INV-016)
-- persistence replicas / write-ahead journal (INV-010)
-
-Long term these should be exposed through a small intentional test surface
-(continuing the `window.__repforge*` precedent) or extracted into
-dependency-free modules — never by importing app.js into Node.
-
-## Roadmap
-
-| Phase | Scope | Layer |
-| --- | --- | --- |
-| ~~0~~ | ~~Testability audit (this map)~~ | — |
-| ~~1~~ | ~~Pure properties over shared-setup/exercises~~ | L2 |
-| 2 | Workout state machine: StartWorkout/LogSet/EditSet/DeleteSet/Reload/Finish/Cancel via fast-check `fc.commands`; model = programs, workout state, sessions, hasDraft | L3 |
-| 3 | Program/history interaction: rename, add/remove/reorder exercises, custom exercise lifecycle vs completed history | L3 |
-| 4 | Import/export state machine: atomicity, non-mutation on rejection | L3/L5 |
-| 5 | Persistence model: localStorage mirror, IndexedDB, revision, pending writes | L4 |
-| 6 | Scheduler/race exploration with fast-check's async scheduler | L4 |
-| 7 | Cross-tab generation over two Playwright contexts | L4/L5 |
-
-Command profiles then follow the proposal: separate *workout lifecycle*,
-*program mutation*, *history stability*, *import/export*, and *persistence*
-machines rather than one giant command set, with per-profile run budgets
-(smoke ≈100 runs/≤20 commands, main ≈500–1000/≤50, campaign ≥10k/≤250).
-
-Browser-backed generation stays selective: thousands of examples through
-the domain adapter, tens-to-hundreds through Playwright.
-
-## Principles
-
-1. Model Taurifer's truths, not Taurifer's implementation — no duplicated
-   algorithms inside models or oracles.
-2. Don't assert implementation details (`state._someArray.length`) — assert
-   observable semantics ("four completed sessions remain").
-3. Keep hostile values out of valid-state generators; robustness properties
-   get their own arbitraries so "must preserve semantics" and "must fail
-   safely" never blur.
-4. Boundary-biased generation beats uniform randomness: min/min+1/max−1/max,
-   zero, empty, huge, Unicode, duplicates.
-5. Track what the search explores, not line coverage; if `FinishWorkout`
-   executes 0.3% of the time, tune the generator.
-6. A discovered bug graduates into the deterministic corpus — generative
-   discovery, regression memory.
+`model/canonicalize.mjs` remains independent of `shared-setup.js`, so equality
+checks do not trust the implementation under test to define its own oracle.

@@ -1,6 +1,6 @@
 # Plan 067: Replace program generation, exercise ontology, and progression
 
-- **Status:** Specification and evidence package prepared for review. Application implementation pending.
+- **Status:** Application replacement in progress on `impl/067-engine-replacement`.
 - **Owner direction:** 5 October 2026 conversation. Closest practicable mirror,
   full usable catalog and ontology, generation and progression replacement,
   explicit approximations, no existing users requiring migration, one complete
@@ -235,6 +235,56 @@ Use authored source inputs for generated files; keep runtime dependencies unchan
 The release is one coherent replacement, not a user-facing sequence of mixed engines.
 Internal commits may land only as coherent verified slices; do not expose unfinished
 replacement choices. Final launch/device gates remain with Plan 059.
+
+## Acceptance contract
+
+- **Plan and governing requirement:** Plan 067 and the Taurifer repository contract
+  in `AGENTS.md`; this replacement supersedes the legacy family/compiler and
+  selectable progression semantics in one release.
+- **Base SHA:** `11cb3a9d` (Plan 067 corpus authority); current implementation
+  head is recorded by the verification runner when each browser proof executes.
+- **Contract owner and authoritative representation:** the checked-in raw catalog
+  snapshot is authoritative for exercise identity and metrics; `ProgramDefinition`
+  is authoritative for scheduled prescriptions; DraftV2 and saved log rows are
+  authoritative for performed values. Flat editor rows are a display projection.
+- **Consumers and generated examples:** the catalog loader, Build and Generate,
+  workout draft, save path, history/Stats, backup, setup sharing, install transfer,
+  and offline shell. The exact browser assertion must compare the same metric IDs,
+  canonical values, prescription tree, and actual rows before and after reload or
+  round-trip.
+- **First complete slice:** manually choose real catalog movements, build a program,
+  record a weighted set including zero external load, an assistance set, unilateral
+  per-side work, duration, and distance, save, reload, inspect History, then export
+  and re-import a backup. A deliberately invalid metric composition and malformed
+  backup must be refused while preserving the original bytes and local state.
+
+| ID | Required observable result | Real producer/consumer | Command and assertion location | Deliberate failing case | Evidence or pending reason |
+|---|---|---|---|---|---|
+| P067-S1-CATALOG | The complete raw catalog loads offline and Build resolves selected UUIDs to the same canonical records and licensed media mappings. | `RepForgeExerciseCatalog.load()` → Build → ProgramDefinition. | Pending registered production browser journey in `test/catalog-metric-program-browser.mjs`; assert selected raw IDs and resolved record fields. | Unknown UUID and malformed catalog entry cannot become a program slot. | Planned; first implementation slice. |
+| P067-S1-METRICS | Prescription and performed values remain separate, preserve source metric UUIDs, and use kg/metres/seconds including zero load, assistance, per-side, duration, and distance. | ProgramDefinition → DraftV2 commands → saved `log` rows. | Same browser journey; assert live draft, committed log, and rendered History values. | Unsupported composition, non-finite value, or incompatible context blocks save without dropping draft bytes. | Planned; first implementation slice. |
+| P067-S1-RELOAD | The canonical program, per-cycle prescriptions, and performed metric values survive normal reload and ordinary backup export/import. | durable state normalizer/loader → backup codec → production import path. | Same browser journey; compare parsed values before save, after reload, and after import. | Malformed/unsupported backup is rejected; original file bytes and current local state remain intact. | Planned; first implementation slice. |
+| P067-SHARE-VERSION | New shared payloads carry the replacement schema under a new semantic version; unsupported old semantics are actionable and preserve source bytes. | setup encode/decode and first-run/Share surfaces. | Pending versioned-sharing browser proof; assert 3,072-character refusal without truncation and consent gate before writes. | Legacy payload, malformed version, or over-limit payload is refused without mutating state or deleting source. | Planned; integration slice. |
+| P067-DRAFT-COMMANDS | Completion, edit, reopen, and substitution preserve slot identity and recompute only eligible untouched future values. | UI actions → real DraftV2 commands → progression recommendations. | Pending production draft journey plus engine-owned algorithm proofs. | Conflicting tab edit or invalid context leaves the acknowledged draft and recovery bytes available. | Planned; slices 2–3. |
+| P067-FULL-INTEGRATION | Editor, transitions, import, backup, share, transfer, offline, accessibility, and EN/PT consume the same model. | Current app surfaces and actual data round-trips. | Exact owning registered suites and updated UI screen catalog. | Unsupported import/transfer clone shape, stale worker schema, or inaccessible interaction is detected. | Planned; integration/release slice. |
+
+### Gate boundaries
+
+- **Required for this PR:** one coherent current-schema release; raw catalog
+  loader and index; manual Build → complete metric log → save/reload/history/backup
+  proof; migrated UI consumers; versioned sharing and explicit legacy refusal;
+  focused owning proofs and final-head CI.
+- **Required later, with owning plan:** device launch checks remain under Plan 059;
+  further managed distribution and commercialization remain behind the strategy
+  evidence gates.
+- **Owner decisions held:** none for this replacement. The documented defaults
+  remain approximations where source formulas were not recovered.
+
+### Review findings
+
+| ID | Requirement or concrete failure | Reproduction | Blocking reason | Status and closing evidence |
+|---|---|---|---|---|
+| P067-R1 | Legacy setup/backup semantics can silently coerce old flat prescriptions into the new metric model. | Feed a released old-schema payload through the production import path. | Could change a lift's meaning or hide unsupported fields. | Open; close with actionable refusal and retained source bytes. |
+| P067-R2 | Existing row projections can diverge from the complete ProgramDefinition. | Edit, save, reload, export/import, and compare slots, prescriptions, and metrics. | A round-trip could lose or invent scheduled or performed data. | Open; close with canonical equality assertions in the production browser proof. |
 
 A bounded AOT investigation may replace approximations only with recovered executable
 logic and reproducible cases. Check Dart 3.13.3 tool compatibility, then inspect named

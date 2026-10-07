@@ -1,91 +1,117 @@
-import { createRequire } from "node:module";
+/** The production ProgramCompiler generates from the exact committed raw UUID snapshot. */
 import fc from "fast-check";
+import { loadDomain } from "../adapters/domain-adapter.mjs";
+import { jsonJunkArbitrary } from "../arbitraries/malformed.mjs";
+import { stableStringify } from "../model/canonicalize.mjs";
 
-const require = createRequire(import.meta.url);
-const Compiler = require("../../../program-compiler.js");
-const { EXERCISE_LIBRARY } = require("../../../exercises.js");
+const domain = loadDomain();
+const { CATALOG_SNAPSHOT, Compiler, EXERCISES_BY_ID, Metrics, RAW_EQUIPMENT_IDS } = domain;
 
-const family = fc.constantFrom(...Compiler.FAMILY_IDS);
-const frequency = fc.constantFrom(...Compiler.FREQUENCIES);
-const minutes = fc.integer({ min: 10, max: 120 });
-const recentConsistency = fc.constantFrom("consistent", "interrupted", "returning");
-const intersects = (left, right) => left.some((value) => right.includes(value));
+const movementConfirmations = Object.fromEntries(CATALOG_SNAPSHOT.exercises
+  .filter((exercise) => Array.isArray(exercise.preconditions) && exercise.preconditions.length > 0)
+  .map((exercise) => [
+  exercise.id,
+  [...(exercise.preconditions || [])],
+]));
+const competencyAnswers = Object.freeze({
+  pullups10: null,
+  pullups5: null,
+  pushups15: null,
+  inclineBarbell10: null,
+  overheadPress10: null,
+  bodyweightDips10: null,
+  benchPress10: null,
+});
 
-function resolvedSlotContractIssues(slot, normalizedContext) {
-  const exercise = slot.exercise;
-  const contract = slot.contract;
-  const capabilities = new Set(normalizedContext.environment);
-  if (normalizedContext.equipment.some((item) => item !== "bodyweight")) capabilities.add("external_resistance");
-  const issues = [];
-  if (!intersects(exercise.patterns, contract.patterns)) issues.push("movement pattern");
-  if (!intersects(
-    [...exercise.primaryMuscles, ...exercise.secondaryMuscles],
-    [...contract.primaryMuscles, ...contract.secondaryMuscles],
-  )) issues.push("authored muscle intent");
-  if (!normalizedContext.equipment.includes(exercise.equipment)) issues.push("equipment");
-  if (!exercise.environmentRequirements.every((requirement) => normalizedContext.environment.includes(requirement))) {
-    issues.push("environment");
+const requestArbitrary = fc.record({
+  goal: fc.constantFrom(...Compiler.GOALS),
+  experience: fc.constantFrom(...Compiler.EXPERIENCES),
+  daysPerWeek: fc.integer({ min: 3, max: 6 }),
+  timeCeilingMinutes: fc.constantFrom(...Compiler.TIME_CEILINGS.filter((minutes) => minutes >= 40 && minutes <= 120)),
+  cycles: fc.integer({ min: 1, max: 12 }),
+  seed: fc.integer({ min: 0, max: 0xffffffff }),
+  requestDeload: fc.boolean(),
+}).map(({ goal, experience, daysPerWeek, timeCeilingMinutes, cycles, seed, requestDeload }) => ({
+  seed: String(seed),
+  request: {
+    goal,
+    experience,
+    daysPerWeek,
+    timeCeilingMinutes,
+    gymProfile: { equipmentIds: [...RAW_EQUIPMENT_IDS] },
+    competencyAnswers: { ...competencyAnswers },
+    movementConfirmations,
+    emphasisMuscleIds: [],
+    deprioritizedMuscleIds: [],
+    excludedExerciseIds: [],
+    excludedMuscleIds: [],
+    preferredExerciseIds: [],
+    split: "auto",
+    periodization: "static",
+    cycles,
+    deloadCycles: requestDeload ? [Math.max(1, Math.ceil(cycles / 2))] : [],
+  },
+}));
+
+function assertSourceIdentity(program) {
+  if (!Array.isArray(program.days) || program.days.length !== 7) throw new Error("compiler did not return a seven-day definition");
+  for (const day of program.days) for (const slot of day.slots || []) {
+    const exercise = EXERCISES_BY_ID.get(slot.exerciseId);
+    if (!exercise) throw new Error(`compiler selected unknown raw UUID ${slot.exerciseId}`);
+    if (!slot.sourceExerciseIds.includes(slot.exerciseId)) throw new Error(`slot source IDs lost selected UUID ${slot.exerciseId}`);
+    if (JSON.stringify(slot.metricIds) !== JSON.stringify(exercise.exerciseMetrics || [])) {
+      throw new Error(`slot metric IDs drifted from source composition ${slot.exerciseId}`);
+    }
+    const definitions = Metrics.definitionsForIds(slot.metricIds);
+    if (!definitions.ok || stableStringify(definitions.value) !== stableStringify(slot.metricDefinitions)) {
+      throw new Error(`slot metric definitions are not canonical for ${slot.exerciseId}`);
+    }
+    const coefficient = Number.isFinite(exercise.bodyweight) ? exercise.bodyweight : null;
+    if (slot.loadingModel?.bodyweightCoefficient !== coefficient) {
+      throw new Error(`unknown or captured source bodyweight coefficient changed for ${slot.exerciseId}`);
+    }
+    for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) {
+      if (JSON.stringify(set.metricIds) !== JSON.stringify(slot.metricIds)
+        || stableStringify(set.metricDefinitions) !== stableStringify(slot.metricDefinitions)) {
+        throw new Error(`set lost ordered slot metric identity ${slot.exerciseId}`);
+      }
+      if (Object.hasOwn(set, "actual") || Object.hasOwn(set, "metricValues") || Object.hasOwn(set, "performedValues")) {
+        throw new Error("compiler put performed data in a prescription");
+      }
+    }
   }
-  if (!contract.requiredCapabilities.every((capability) => capabilities.has(capability))) {
-    issues.push("required capability");
-  }
-  for (const [key, values] of Object.entries(contract.requiredCharacteristics || {})) {
-    if (!values.includes(exercise[key])) issues.push(`required characteristic: ${key}`);
-  }
-  return issues;
-}
-
-function context(familyId, days, sessionMinutes, consistency) {
-  const home = familyId === "home";
-  return {
-    schemaVersion: 1,
-    familyId,
-    frequency: days,
-    sessionMinutes,
-    profile: "standard",
-    recentConsistency: consistency,
-    reentryEnabled: true,
-    equipment: home ? [] : ["barbell", "dumbbell", "machine", "cable", "smith"],
-    environment: home ? [] : ["safe_pull", "training_support"],
-    loadIncrements: home ? {} : { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
-  };
 }
 
 export function buildSuites() {
   return [
     {
-      name: "program compiler: generated valid contexts are deterministic and never drift frequency",
-      property: fc.property(family, frequency, minutes, recentConsistency, (familyId, days, sessionMinutes, consistency) => {
-        const input = context(familyId, days, sessionMinutes, consistency);
-        const first = Compiler.compile(input, EXERCISE_LIBRARY);
-        const second = Compiler.compile(structuredClone(input), EXERCISE_LIBRARY);
-        if (JSON.stringify(first) !== JSON.stringify(second)) throw new Error("equal semantic inputs drifted");
-        if (first.familyId !== familyId || first.frequency !== days) throw new Error("family or frequency changed");
-        if (first.kind === "compiled") {
-          if (first.days.length !== days) throw new Error("compiled day count changed");
-          if (JSON.stringify(first).toLowerCase().includes("deload")) throw new Error("compiler scheduled a deload");
-          const normalized = Compiler.validateContext(input).value;
-          for (const slot of first.days.flatMap((day) => day.slots)) {
-            if (slot.prescription.sets < 1 || slot.prescription.sets > 3) throw new Error("set bounds escaped");
-            if (slot.role === "isolation_accessory" && slot.prescription.repMax > 15) throw new Error("isolation ceiling escaped");
-            const issues = resolvedSlotContractIssues(slot, normalized);
-            if (issues.length) throw new Error(`${slot.slotId}: ${issues.join(", ")} escaped candidate contract`);
-          }
-          for (const day of first.days) {
-            if (Compiler.estimateDaySeconds(day) > normalized.sessionMinutes * 60) {
-              throw new Error(`${day.dayId}: estimate escaped session ceiling`);
-            }
-          }
-        } else if (first.kind !== "conflict") throw new Error(`valid context returned ${first.kind}`);
+      name: "program compiler: generated requests replay deterministically against the raw UUID catalog",
+      property: fc.property(requestArbitrary, ({ request, seed }) => {
+        const before = stableStringify(request);
+        const first = Compiler.generateProgram(request, CATALOG_SNAPSHOT, seed);
+        const second = Compiler.generateProgram(structuredClone(request), CATALOG_SNAPSHOT, seed);
+        if (!first || typeof first.ok !== "boolean") throw new Error("compiler omitted its typed result");
+        if (!first.ok) throw new Error(`feasible generated request conflicted: ${stableStringify(first.conflicts).slice(0, 600)}`);
+        if (!second.ok) throw new Error(`replayed request conflicted: ${stableStringify(second.conflicts).slice(0, 600)}`);
+        if (stableStringify(first.value) !== stableStringify(second.value)) throw new Error("same request and seed changed ProgramDefinition");
+        if (stableStringify(request) !== before) throw new Error("compiler mutated its request");
+        const checked = Compiler.validateProgramDefinition(first.value, CATALOG_SNAPSHOT);
+        if (!checked.ok) throw new Error(`generated ProgramDefinition did not validate: ${checked.issues.join("; ")}`);
+        assertSourceIdentity(first.value);
       }),
     },
     {
-      name: "program compiler: hostile bounded context values fail typed rather than throw",
-      property: fc.property(fc.jsonValue({ maxDepth: 5 }), (value) => {
+      name: "program compiler: arbitrary JSON requests fail with typed results instead of throwing",
+      property: fc.property(jsonJunkArbitrary(), (request) => {
         let result;
-        try { result = Compiler.compile(value, EXERCISE_LIBRARY); }
-        catch (error) { throw new Error(`compiler threw: ${error.message}`); }
-        if (!result || !["invalid", "conflict", "compiled"].includes(result.kind)) throw new Error("compiler returned an untyped result");
+        try { result = Compiler.generateProgram(request, CATALOG_SNAPSHOT, "hostile-json"); }
+        catch (error) { throw new Error(`compiler threw on a JSON request: ${error.message}`); }
+        if (!result || typeof result.ok !== "boolean") throw new Error("compiler returned an untyped result");
+        if (result.ok) {
+          const checked = Compiler.validateProgramDefinition(result.value, CATALOG_SNAPSHOT);
+          if (!checked.ok) throw new Error(`accepted generation result failed canonical validation: ${checked.issues.join("; ")}`);
+          assertSourceIdentity(result.value);
+        } else if (!Array.isArray(result.conflicts)) throw new Error("compiler rejection omitted conflicts");
       }),
     },
   ];

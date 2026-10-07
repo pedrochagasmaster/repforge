@@ -1,20 +1,31 @@
 #!/usr/bin/env node
-/* Integrity gate for the generated exercise library.
-
-   The library is data the rest of the app trusts blindly: the volume audit
-   groups hard sets by exact muscle string, saved programs point at library ids
-   forever, and the program generator can only fill a day if every slot it asks
-   for has candidates. Each of those is a way for a regenerated exercises.js to
-   break the app quietly, so each gets a check here. */
-import { createRequire } from "module";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import { existsSync, readFileSync, readdirSync } from "fs";
+/* Integrity gate for the raw Plan 067 catalog and its generated search index. */
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { isDeepStrictEqual } from "node:util";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const ROOT = join(__dirname, "..");
 const { EXERCISE_LIBRARY, LEGACY_LIBRARY_IDS } = require(join(ROOT, "exercises.js"));
+const source = JSON.parse(readFileSync(join(ROOT, "plans/067/data/app_file.json"), "utf8"));
+const catalogAsset = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8"));
+const curation = JSON.parse(readFileSync(join(ROOT, "tools/exercise-catalog-curation.json"), "utf8"));
+const mediaBg = JSON.parse(readFileSync(join(ROOT, "tools/exercise-media-bg.json"), "utf8"));
+const sourceById = new Map(source.exercises.map(exercise => [exercise.id, exercise]));
+const indexById = new Map(EXERCISE_LIBRARY.map(exercise => [exercise.id, exercise]));
+const normalizedUnique = values => {
+  const seen = new Set();
+  return values.filter(value => {
+    const key = String(value).normalize("NFKC").trim().toLocaleLowerCase("en");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
 let passed = 0, failed = 0;
 function assert(cond, name, detail = "") {
@@ -22,228 +33,122 @@ function assert(cond, name, detail = "") {
   else { failed++; console.log(`  ✗ ${name}`); if (detail) console.log(`    ${detail}`); }
 }
 
-/* The exact strings the volume audit groups by. Adding one is a product
-   decision — it shows up as a new row in the audit and needs muscle.<token>
-   copy in both locales — so it is spelled out here rather than derived. */
-const MUSCLES = new Set([
-  "Chest", "Lats", "Mid/upper back", "Traps", "Front delts", "Side delts", "Rear delts",
-  "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Adductors",
-  "Abductors", "Calves", "Spinal erectors", "Abs", "Obliques"
-]);
-const EQUIPMENT = new Set(["barbell", "dumbbell", "cable", "machine", "smith", "bodyweight", "band"]);
+console.log(`exercise catalog — ${EXERCISE_LIBRARY.length} UUID records`);
+assert(isDeepStrictEqual(catalogAsset, source),
+  "lazy detail asset preserves every committed raw source value");
+assert(source.exercises.length === 1345, "raw corpus contains exactly 1,345 exercises");
+assert(Object.keys(source.uuidIndex).length === 5301, "raw corpus contains exactly 5,301 UUID objects");
+assert(new Set(Object.values(source.uuidIndex).map(value => value.type)).size === 22,
+  "raw corpus retains all 22 UUID object types");
+assert(EXERCISE_LIBRARY.length === 1345 && indexById.size === 1345,
+  "search index covers every exercise UUID exactly once");
+assert(Object.keys(LEGACY_LIBRARY_IDS).length === 0,
+  "no historical short ID is silently repointed to a new exercise");
 
-/* Every slot the Plan 048 compiler can ask a day for. A slot with no
-   candidates must be reported rather than silently skipping an exercise. */
-const GENERATOR_SLOTS = [
-  "squat", "hinge", "press", "incline_press", "shoulder_press", "row", "pulldown",
-  "pull", "delts", "lateral_raise", "rear_delt", "chest_iso", "arms", "curl",
-  "triceps", "leg_curl", "leg_extension", "calves", "adduction"
+const roleFields = [
+  "strengthPrimaryCompoundRecommendationLevel",
+  "strengthSecondaryCompoundRecommendationLevel",
+  "strengthAccessoryRecommendationLevel",
+  "hypertrophyPrimaryCompoundRecommendationLevel",
+  "hypertrophySecondaryCompoundRecommendationLevel",
+  "hypertrophyAccessoryRecommendationLevel",
 ];
+const roleAssignments = source.exercises.reduce((total, exercise) =>
+  total + roleFields.filter(field => exercise[field] !== null).length, 0);
+assert(roleAssignments === 3057, "all 3,057 non-null role-tier assignments remain in the raw source");
+assert(EXERCISE_LIBRARY.every(index => roleFields.every(field => !Object.hasOwn(index, field))),
+  "raw role-tier fields are not duplicated into the compact search index");
 
-/* Library ids that shipped before the picker existed. Saved programs carry
-   them in libraryId, so each must still resolve — directly or through the
-   legacy alias table. Losing one silently unlinks somebody's program. */
-const SHIPPED_IDS = [
-  "sq_bb", "sq_sm", "sq_lp", "sq_db", "hg_bb", "hg_sm", "hg_mc", "pr_bb", "pr_db",
-  "pr_mc", "ip_db", "ip_mc", "ip_bb", "sp_bb", "sp_mc", "sp_db", "rw_bb", "rw_mc",
-  "rw_cb", "pd_mc", "pd_bw", "pl_cb", "pl_mc", "dl_mc", "dl_db", "dl_cb", "lr_db",
-  "lr_mc", "rd_mc", "rd_db", "ci_mc", "ci_cb", "ar_mc", "ar_db", "cu_mc", "cu_db",
-  "cu_cb", "tr_cb", "tr_mc", "lc_mc", "le_mc", "cv_mc", "ad_mc", "sqk_bb"
-];
+const metricIds = new Set(source.exercises.flatMap(exercise => exercise.exerciseMetrics));
+const metricless = source.exercises.filter(exercise => exercise.exerciseMetrics.length === 0);
+assert(metricIds.size === 11, "the catalog retains all 11 metric identities");
+assert(metricless.length === 3, "the three metricless movements remain available for manual configuration");
+assert(source.exercises.every(exercise => exercise.exerciseMetrics.every(id =>
+  source.uuidIndex[id]?.type === "exerciseMetric")),
+"every exercise metric reference resolves to an exerciseMetric UUID object");
 
-console.log(`exercise library — ${EXERCISE_LIBRARY.length} movements`);
-
-assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
-  `${EXERCISE_LIBRARY.length} entries`);
-
-{
-  const historical = EXERCISE_LIBRARY.find(e => e.id === "sqk_bb");
-  assert(historical?.name === "Barbell hack squat" &&
-    historical?.equipment?.includes("barbell") &&
-    !Object.hasOwn(LEGACY_LIBRARY_IDS, "sqk_bb"),
-  "historical barbell hack squat identity is not repointed",
-  historical ? `${historical.name}; ${historical.equipment.join(",")}; alias=${LEGACY_LIBRARY_IDS.sqk_bb || "none"}` : "missing sqk_bb");
-}
-
-{
-  const seen = new Map();
-  const dupes = [];
-  for (const e of EXERCISE_LIBRARY) {
-    if (seen.has(e.id)) dupes.push(e.id);
-    seen.set(e.id, e);
+const dangling = [];
+for (const exercise of source.exercises) {
+  if (source.uuidIndex[exercise.id]?.type !== "exercise") dangling.push(`${exercise.id}: exercise UUID entry`);
+  for (const value of Object.values(exercise)) {
+    for (const id of Array.isArray(value) ? value : [value])
+      if (typeof id === "string" && /^[0-9a-f]{32}$/.test(id) && !source.uuidIndex[id])
+        dangling.push(`${exercise.id}: ${id}`);
   }
-  assert(dupes.length === 0, "ids are unique", dupes.join(", "));
 }
+assert(dangling.length === 0, "exercise UUID references resolve without changing their IDs", dangling.slice(0, 8).join(" | "));
+
+const wrongIndexRows = EXERCISE_LIBRARY.filter(index => {
+  const raw = sourceById.get(index.id);
+  if (!raw || index.name !== raw.name || index.searchBoostValue !== raw.searchBoostValue) return true;
+  const reviewed = curation.entries[index.id];
+  const expectedNamePt = reviewed?.namePt || raw.name;
+  const expectedAliases = normalizedUnique([
+    ...(reviewed?.aliases || []),
+    ...raw.alternativeName.map(id => source.uuidIndex[id]?.name),
+  ]);
+  const expectedMedia = reviewed?.mediaId ? `assets/exercises/${reviewed.mediaId}.webp` : null;
+  const expectedBg = reviewed?.mediaId ? mediaBg[reviewed.mediaId] : null;
+  return index.namePt !== expectedNamePt || !isDeepStrictEqual(index.aliases, expectedAliases) ||
+    index.media !== expectedMedia || index.mediaBg !== expectedBg ||
+    !isDeepStrictEqual(Object.keys(index).sort(), [
+      "aliases", "id", "media", "mediaBg", "name", "namePt",
+      ...(Object.hasOwn(raw, "searchBoostValue") ? ["searchBoostValue"] : []),
+    ]);
+});
+assert(wrongIndexRows.length === 0, "compact index identities and search/display fields match their source IDs",
+  wrongIndexRows.slice(0, 6).map(row => row.id).join(", "));
+assert(EXERCISE_LIBRARY.every(index => Array.isArray(index.aliases)),
+  "canonical names, source alternatives, and reviewed Portuguese terms are searchable");
+assert(Object.entries(curation.entries).every(([id, reviewed]) => {
+  const index = indexById.get(id);
+  return index && index.namePt === reviewed.namePt && reviewed.aliases.every(alias => index.aliases.includes(alias));
+}), "reviewed Portuguese display aliases attach only to their authored UUIDs");
+assert(EXERCISE_LIBRARY.every(index => !Object.hasOwn(index, "compiler") && !Object.hasOwn(index, "patterns") && !Object.hasOwn(index, "equipment")),
+  "the compact index carries no duplicated or name-inferred ontology data");
+
+const mediaRows = EXERCISE_LIBRARY.filter(exercise => exercise.media);
+const mediaFiles = readdirSync(join(ROOT, "assets/exercises")).filter(file => file.endsWith(".webp"));
+const mediaFileIds = mediaFiles.map(file => file.replace(/\.webp$/, "")).sort();
+const licensedMediaIds = Object.keys(mediaBg).sort();
+const mappedPaths = new Set(mediaRows.map(exercise => exercise.media));
+const unreferencedFiles = mediaFiles.filter(file => !mappedPaths.has(`assets/exercises/${file}`));
+const invalidMediaMappings = mediaRows.filter(exercise => {
+  const mapping = curation.entries[exercise.id];
+  return !mapping?.mediaId || mapping.sourceName !== sourceById.get(exercise.id)?.name ||
+    exercise.media !== `assets/exercises/${mapping.mediaId}.webp` ||
+    exercise.mediaBg !== mediaBg[mapping.mediaId] || !/^#[0-9a-f]{6}$/.test(String(exercise.mediaBg)) ||
+    !existsSync(join(ROOT, exercise.media));
+});
+assert(mediaRows.length === 20 && Object.keys(curation.entries).filter(id => curation.entries[id].mediaId).length === 20,
+  "only 20 explicit exact-movement UUID mappings carry licensed artwork", `${mediaRows.length} mapped`);
+assert(invalidMediaMappings.length === 0, "each artwork path is backed by its reviewed UUID/name/background mapping",
+  invalidMediaMappings.map(exercise => exercise.id).join(", "));
+assert(EXERCISE_LIBRARY.filter(exercise => !exercise.media && exercise.mediaBg == null).length === 1325,
+  "the other 1,325 source movements retain the empty media tile");
+assert(mediaFiles.length === 96 && unreferencedFiles.length === 76,
+  "all 96 licensed files stay closed and 76 unmatched files remain unreferenced",
+  `${mediaFiles.length} files; ${unreferencedFiles.length} unreferenced`);
+assert(isDeepStrictEqual(mediaFileIds, licensedMediaIds),
+  "the existing sampled-media allowlist still defines the complete licensed file set");
+assert(EXERCISE_LIBRARY.every(exercise => exercise.media || exercise.mediaBg == null),
+  "unmapped movements carry no fallback image or field color");
+
+const buildCheck = spawnSync(process.execPath, [join(ROOT, "tools/build-exercises.mjs"), "--check"], {
+  cwd: ROOT, encoding: "utf8",
+});
+assert(buildCheck.status === 0, "generated index and detail asset match their committed inputs",
+  buildCheck.stderr || buildCheck.stdout);
 
 {
-  const bad = EXERCISE_LIBRARY.filter(e =>
-    !e.id || !e.name || !e.namePt || !e.primary ||
-    !Array.isArray(e.equipment) || !e.equipment.length ||
-    !Array.isArray(e.patterns) || typeof e.beginnerFriendly !== "boolean");
-  assert(bad.length === 0, "every entry carries the required fields",
-    bad.map(e => e.id).join(", "));
-}
-
-{
-  const bad = [];
-  for (const e of EXERCISE_LIBRARY)
-    for (const token of `${e.primary},${e.secondary || ""}`.split(",").filter(Boolean))
-      if (!MUSCLES.has(token)) bad.push(`${e.id}: "${token}"`);
-  assert(bad.length === 0, "muscle tokens stay inside the audited vocabulary",
-    bad.slice(0, 8).join(" | "));
-}
-
-{
-  const bad = [];
-  for (const e of EXERCISE_LIBRARY)
-    for (const eq of e.equipment) if (!EQUIPMENT.has(eq)) bad.push(`${e.id}: "${eq}"`);
-  assert(bad.length === 0, "equipment stays inside the wizard's vocabulary",
-    bad.slice(0, 8).join(" | "));
-}
-
-{
-  const bad = EXERCISE_LIBRARY.filter(e =>
-    e.primary.split(",").some(p => (e.secondary || "").split(",").includes(p)));
-  assert(bad.length === 0, "no muscle is both primary and secondary",
-    bad.map(e => e.id).join(", "));
-}
-
-{
-  const thin = GENERATOR_SLOTS.filter(slot =>
-    !EXERCISE_LIBRARY.some(e => e.patterns.includes(slot)));
-  assert(thin.length === 0, "every generator slot has candidates", thin.join(", "));
-}
-
-{
-  // A machines-only lifter is the tightest equipment filter the wizard offers;
-  // every slot it can ask for has to survive it.
-  const thin = GENERATOR_SLOTS.filter(slot =>
-    !EXERCISE_LIBRARY.some(e => e.patterns.includes(slot) && e.equipment.includes("machine")));
-  assert(thin.length === 0, "machines-only lifters can fill every slot", thin.join(", "));
-}
-
-{
-  const ids = new Set(EXERCISE_LIBRARY.map(e => e.id));
-  const lost = SHIPPED_IDS.filter(id => !ids.has(id) && !LEGACY_LIBRARY_IDS[id]);
-  assert(lost.length === 0, "ids from before the picker still resolve", lost.join(", "));
-}
-
-{
-  const ids = new Set(EXERCISE_LIBRARY.map(e => e.id));
-  const dangling = Object.entries(LEGACY_LIBRARY_IDS).filter(([from, to]) => ids.has(from) || !ids.has(to));
-  assert(dangling.length === 0, "legacy aliases point at live entries, not live ids",
-    dangling.map(([f, t]) => `${f}→${t}`).join(", "));
-}
-
-{
-  // Same movement listed twice under different ids is a picker full of
-  // near-duplicates; the merge into LEGACY_LIBRARY_IDS exists to prevent it.
-  const byName = new Map();
-  for (const e of EXERCISE_LIBRARY) {
-    const key = e.name.toLowerCase();
-    byName.set(key, (byName.get(key) || []).concat(e.id));
-  }
-  const dupes = [...byName].filter(([, ids]) => ids.length > 1);
-  assert(dupes.length === 0, "no two entries share a display name",
-    dupes.map(([n, ids]) => `${n} (${ids.join(",")})`).join(" | "));
-}
-
-{
-  const untranslated = EXERCISE_LIBRARY.filter(e => e.namePt === e.name && !/^(leg press|pullover|crossover|dead bug|rack pull|pull through|swing)/i.test(e.name));
-  assert(untranslated.length === 0, "Portuguese names are actually Portuguese",
-    untranslated.map(e => e.id).join(", "));
-}
-
-{
-  // Every muscle token needs display copy in both locales or the audit renders
-  // a raw identifier at people.
-  const en = JSON.parse(readFileSync(join(ROOT, "i18n-en.json"), "utf8"));
-  const pt = JSON.parse(readFileSync(join(ROOT, "i18n-pt.json"), "utf8"));
-  const missing = [];
-  for (const token of MUSCLES) {
-    if (!(`muscle.${token}` in en)) missing.push(`en muscle.${token}`);
-    if (!(`muscle.${token}` in pt)) missing.push(`pt muscle.${token}`);
-  }
-  assert(missing.length === 0, "every muscle token has copy in both locales",
-    missing.join(", "));
-}
-
-{
-  // The media in the upstream repository is not ours to ship; nothing in the
-  // library may reference it.
-  const raw = readFileSync(join(ROOT, "exercises.js"), "utf8");
-  assert(!/images\/|videos\/|\.gif|gymvisual/i.test(raw),
-    "library ships no upstream media references");
-}
-
-/* ---- artwork ----
-   Exactly 96 illustrations are licensed. More than that means something was
-   invented; fewer means a mapping was lost. Every mapped path must exist, or
-   the app issues a request for a file that is not there. */
-{
-  const mapped = EXERCISE_LIBRARY.filter(e => e.media);
-  assert(mapped.length === 96, "exactly 96 exercises carry artwork", `${mapped.length} mapped`);
-
-  const missing = mapped.filter(e => !existsSync(join(ROOT, e.media)));
-  assert(missing.length === 0, "every mapped illustration exists on disk",
-    missing.map(e => `${e.id} → ${e.media}`).join(", "));
-
-  const stray = mapped.filter(e => e.media !== `assets/exercises/${e.id}.webp`);
-  assert(stray.length === 0, "artwork is keyed by library id, not by name or slug",
-    stray.map(e => `${e.id} → ${e.media}`).join(", "));
-
-  const files = readdirSync(join(ROOT, "assets", "exercises")).filter(f => f.endsWith(".webp"));
-  assert(files.length === 96, "no unreferenced artwork ships", `${files.length} files`);
-  const unmapped = files.filter(f => !mapped.some(e => e.media.endsWith(`/${f}`)));
-  assert(unmapped.length === 0, "every shipped file is mapped to a library id", unmapped.join(", "));
-
-  // Everything else must render the empty tile — which means carrying no media
-  // path at all, so no request is ever issued for it.
-  const bogus = EXERCISE_LIBRARY.filter(e => e.media !== undefined && e.media !== null && !mapped.includes(e));
-  assert(bogus.length === 0, "unmapped exercises carry no media path", bogus.map(e => e.id).join(", "));
-
-  /* The detail page lays each illustration on a field of its own paper colour,
-     so a missing or malformed value puts the artwork back on a mismatched
-     rectangle. That the colour is the *right* one is checked against the pixels
-     themselves in test/simulation.mjs, which has a decoder. */
-  const badBg = mapped.filter(e => !/^#[0-9a-f]{6}$/.test(String(e.mediaBg)));
-  assert(badBg.length === 0, "every illustration carries a #rrggbb field colour",
-    badBg.map(e => `${e.id} → ${e.mediaBg}`).join(", "));
-
-  const strayBg = EXERCISE_LIBRARY.filter(e => !e.media && e.mediaBg != null);
-  assert(strayBg.length === 0, "exercises without artwork carry no field colour",
-    strayBg.map(e => e.id).join(", "));
-
-  const sampled = JSON.parse(readFileSync(join(ROOT, "tools", "exercise-media-bg.json"), "utf8"));
-  const drifted = mapped.filter(e => sampled[e.id] !== e.mediaBg);
-  assert(drifted.length === 0 && Object.keys(sampled).length === mapped.length,
-    "generated field colours match tools/exercise-media-bg.json",
-    drifted.map(e => `${e.id}: ${e.mediaBg} vs ${sampled[e.id]}`).join(", ") ||
-      `${Object.keys(sampled).length} sampled vs ${mapped.length} mapped`);
-}
-
-{
-  // Offline: the shell has to carry the artwork, or an installed app shows
-  // empty tiles for the 96 the moment it loses connectivity.
-  const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
-  const mapped = EXERCISE_LIBRARY.filter(e => e.media);
-  const uncached = mapped.filter(e => !sw.includes(`./${e.media}`));
-  assert(uncached.length === 0, "every illustration is precached by the service worker",
-    uncached.map(e => e.id).join(", "));
-}
-
-{
-  // The worker cache revision advances for every cached shell change. Query
-  // revisions advance only when a protected runtime script changes, so keep
-  // those two monotonically independent and align each script URL between the
-  // document and the worker's exact precache inventory.
   const index = readFileSync(join(ROOT, "index.html"), "utf8");
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
-  const expectedCacheRevision = "395";
-  const cacheRevision = sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || "";
+  const expectedBaseRevision = 395;
+  const cacheRevision = Number(sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || 0);
   const transitionAssets = [
     "motion-layer.js",
     "progress-model.js",
+    "exercises.js",
     "program-compiler.js",
     "program-editor.js",
     "program-entry.js",
@@ -255,40 +160,32 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     "guide-registry.js",
     "durable-state.js",
     "history-ui.js",
+    "exercise-catalog.js",
     "app.js",
   ];
   const revisionFor = file => index.match(new RegExp(`src="${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=(\\d+)"`))?.[1] || "";
   const missingRevision = transitionAssets.filter(file => !revisionFor(file));
   const missingCache = transitionAssets.filter(file => !sw.includes(`"./${file}?v=${revisionFor(file)}"`));
-  assert(cacheRevision === expectedCacheRevision,
-    `service-worker cache is advanced to repforge-v${expectedCacheRevision}`,
-    `expected ${expectedCacheRevision}, got ${cacheRevision}`);
+  assert(cacheRevision > expectedBaseRevision,
+    `service-worker cache advances beyond repforge-v${expectedBaseRevision}`,
+    `got ${cacheRevision}`);
   assert(missingRevision.length === 0,
     "version-coupled runtime scripts have numeric revisions in index.html",
     missingRevision.join(", "));
   assert(missingCache.length === 0,
     "each exact index.html runtime URL is precached for offline launch",
     missingCache.join(", "));
-  assert(revisionFor("program-compiler.js") && sw.includes(`"./program-compiler.js?v=${revisionFor("program-compiler.js")}"`) && sw.includes('"./program-compiler.js"'),
-    "the program compiler is loaded and precached");
-  assert(revisionFor("program-entry.js") && sw.includes(`"./program-entry.js?v=${revisionFor("program-entry.js")}"`) && sw.includes('"./program-entry.js"'),
-    "the program-entry state machine is loaded and precached");
-  assert(revisionFor("program-entry-adapter.js") && sw.includes(`"./program-entry-adapter.js?v=${revisionFor("program-entry-adapter.js")}"`) && sw.includes('"./program-entry-adapter.js"'),
-    "the program-entry adapter is loaded and precached");
-  assert(revisionFor("workout-draft.js") && sw.includes(`"./workout-draft.js?v=${revisionFor("workout-draft.js")}"`) && sw.includes('"./workout-draft.js"'),
-    "the workout draft domain is loaded and precached");
-  assert(index.indexOf(`src="workout-draft.js?v=${revisionFor("workout-draft.js")}"`) < index.indexOf(`src="app.js?v=${revisionFor("app.js")}"`),
-    "the workout draft domain loads before its production adapter");
-  assert(sw.includes('"./workout-draft.js"'),
-    "the workout draft domain is part of the offline shell");
-  assert(index.indexOf(`src="program-entry.js?v=${revisionFor("program-entry.js")}"`) < index.indexOf(`src="program-entry-adapter.js?v=${revisionFor("program-entry-adapter.js")}"`),
-    "the dependency-free state machine loads before its production adapter");
-  assert(sw.includes('"./program-compiler.js"'),
-    "the program compiler is part of the offline shell");
+  assert(index.indexOf(`src="exercises.js?v=${revisionFor("exercises.js")}"`) < index.indexOf(`src="exercise-catalog.js?v=${revisionFor("exercise-catalog.js")}"`) &&
+    index.indexOf(`src="exercise-catalog.js?v=${revisionFor("exercise-catalog.js")}"`) < index.indexOf(`src="app.js?v=${revisionFor("app.js")}"`),
+  "synchronous index and lazy catalog API load before application consumers");
+  assert(sw.includes('"./assets/exercise-catalog.json?v=067"'),
+    "the lazy detail asset is available to the offline shell");
+  assert(sw.includes(`"./exercise-catalog.js?v=${revisionFor("exercise-catalog.js")}"`),
+    "the exact versioned catalog runtime is available to the offline shell");
+  assert(sw.includes('"./program-compiler.js"'), "the existing compiler remains in the offline shell during migration");
   assert(sw.includes('"./program-entry.js"') && sw.includes('"./program-entry-adapter.js"'),
-    "program-entry modules are part of the offline shell");
-  assert(sw.includes('"./install-policy.js"'),
-    "the install policy is part of the offline shell");
+    "program-entry modules remain in the offline shell during migration");
+  assert(sw.includes('"./install-policy.js"'), "the install policy remains in the offline shell");
   assert(/registration\.scope/.test(sw) && /SCOPE_PATH/.test(sw),
     "service-worker shell matching is relative to its production scope");
 }

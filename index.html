@@ -1229,6 +1229,15 @@ Triceps pushdown 3x12-15</pre>
     <div id="storageRecoveryCopies"></div>
     <div id="storageRecoveryActions" class="btnrow"></div>
   </dialog>
+  <dialog id="exerciseCatalogRecovery" class="exercise-catalog-recovery" aria-modal="true"
+    aria-labelledby="exerciseCatalogRecoveryTitle" aria-describedby="exerciseCatalogRecoveryBody">
+    <h2 id="exerciseCatalogRecoveryTitle" class="importchoice__title" data-i18n="catalog.unavailable.title">Exercise library unavailable</h2>
+    <p id="exerciseCatalogRecoveryBody" class="importchoice__body" data-i18n="catalog.unavailable.body">Taurifer could not load the exercise library. Your saved program and workout data are untouched. Retry to open your saved training.</p>
+    <p id="exerciseCatalogRecoveryStatus" class="exercise-catalog-recovery__status" role="status" aria-live="polite"></p>
+    <div class="btnrow">
+      <button type="button" id="retryExerciseCatalog" class="btn btn--cta" data-i18n="catalog.unavailable.retry">Retry</button>
+    </div>
+  </dialog>
   <dialog id="programEditorLeave" class="program-editor-leave" aria-modal="true" aria-labelledby="programEditorLeaveTitle">
     <h2 id="programEditorLeaveTitle">Unsaved changes</h2>
     <p id="programEditorLeaveBody">Your changes have not been applied.</p>
@@ -1257,7 +1266,9 @@ Triceps pushdown 3x12-15</pre>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
   <script src="i18n.js"></script>
-  <script src="exercises.js"></script>
+  <script src="exercises.js?v=067"></script>
+  <script src="exercise-catalog.js?v=067"></script>
+  <script src="exercise-metrics.js?v=067"></script>
   <script src="progression-engine.js"></script>
   <!-- Both third-party runtimes are vendored and precached, never fetched from
        a CDN: the app has to behave identically on a plane. They load before the
@@ -1273,7 +1284,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="program-entry-adapter.js?v=308"></script>
   <script src="program-editor.js?v=310"></script>
   <script src="shared-setup.js?v=307"></script>
-  <script src="workout-draft.js?v=307"></script>
+  <script src="workout-draft.js?v=308"></script>
   <script src="program-transition.js?v=308"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
@@ -1282,6 +1293,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=309"></script>
   <script src="progress-model.js?v=308"></script>
   <script src="history-ui.js?v=313"></script>
-  <script src="app.js?v=353"></script>
+  <script src="app.js?v=355"></script>
 </body>
 </html>

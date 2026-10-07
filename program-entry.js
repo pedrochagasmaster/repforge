@@ -4,13 +4,18 @@
   const SCHEMA_VERSION = 1;
   const CONTEXT_SCHEMA_VERSION = 1;
   const MAX_CONTEXT_BYTES = 16384;
-  const MAX_DRAFT_BYTES = 65536;
-  const MAX_DRAFT_ENVELOPE_BYTES = MAX_DRAFT_BYTES + 1024;
-  const MAX_STRUCTURE_DEPTH = 12;
-  const MAX_STRUCTURE_NODES = 2048;
+  // Canonical generated definitions carry every cycle and set once. A bounded
+  // 1 MiB logical draft accommodates the largest supported 12-cycle program;
+  // the outer storage envelope gets a small fixed allowance for its metadata.
+  const MAX_DRAFT_BYTES = 1048576;
+  const MAX_DRAFT_ENVELOPE_BYTES = MAX_DRAFT_BYTES + 4096;
+  const MAX_NOTE_BYTES = 65536;
+  const MAX_STRUCTURE_DEPTH = 20;
+  const MAX_STRUCTURE_NODES = 65536;
   const MAX_TOKEN_LENGTH = 96;
   const MAX_PROGRAM_NAME_LENGTH = 80;
   const MAX_LIST_LENGTH = 32;
+  const MAX_CATALOG_SELECTIONS = 2048;
   const MAX_MUSCLE_CONTROLS = 10;
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
   // These closed entry-domain vocabularies belong to the pure contract. The
@@ -24,7 +29,7 @@
   // accept a label that the bounded historical aggregate cannot represent.
   const MUSCLE_TOKENS = Object.freeze(["Chest", "Lats", "Mid/upper back", "Traps", "Front delts", "Side delts", "Rear delts",
     "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Adductors", "Abductors", "Calves",
-    "Spinal erectors", "Abs", "Obliques"]);
+    "Spinal erectors", "Abs", "Obliques", "Hip flexors", "Neck", "Serratus", "Tibs"]);
   const MUSCLE_TOKEN_SET = new Set(MUSCLE_TOKENS);
   const MUSCLE_ATTRIBUTION_MAX_LENGTH = 500;
   const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "shoulder_press", "row", "pulldown"]);
@@ -32,6 +37,18 @@
   const KNOWN_CAPABILITIES_SET = new Set(KNOWN_CAPABILITIES);
   const ENTRY_MUSCLES_SET = new Set(ENTRY_MUSCLES);
   const ENTRY_MOVEMENTS_SET = new Set(ENTRY_MOVEMENTS);
+  const COMPETENCY_ANSWERS = Object.freeze([
+    "pullups10", "pullups5", "pushups15", "inclineBarbell10", "overheadPress10", "bodyweightDips10", "benchPress10",
+  ]);
+  const PROGRAM_REQUEST_KEYS = new Set([
+    "goal", "experience", "daysPerWeek", "timeCeilingMinutes", "gymProfile", "competencyAnswers",
+    "movementConfirmations", "emphasisMuscleIds", "deprioritizedMuscleIds", "excludedExerciseIds",
+    "excludedMuscleIds", "preferredExerciseIds", "split", "periodization", "cycles", "deloadCycles",
+    "executionContexts",
+  ]);
+  const PROGRAM_REQUEST_LISTS = Object.freeze([
+    "emphasisMuscleIds", "deprioritizedMuscleIds", "excludedExerciseIds", "excludedMuscleIds", "preferredExerciseIds",
+  ]);
   const DESIRED_RESULTS = new Set(["muscle_growth", "balanced", "strength"]);
   const STRUCTURED_EXPERIENCE = new Set(["first", "under_6m", "6_to_24m", "over_24m"]);
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
@@ -122,6 +139,24 @@
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
+  }
+
+  function runtimeProgramCompiler() {
+    if (root?.RepForgeProgramCompiler) return root.RepForgeProgramCompiler;
+    if (typeof require === "function") {
+      try { return require("./program-compiler.js"); } catch { return null; }
+    }
+    return null;
+  }
+
+  function runtimeCatalog() {
+    if (root?.RepForgeExerciseCatalog?.snapshot) {
+      try { return root.RepForgeExerciseCatalog.snapshot(); } catch { return null; }
+    }
+    if (typeof require === "function") {
+      try { return require("./assets/exercise-catalog.json"); } catch { return null; }
+    }
+    return null;
   }
 
   function clone(value) {
@@ -263,7 +298,7 @@
 
   function validToken(value) {
     return typeof value === "string" && value.length > 0 && value.length <= MAX_TOKEN_LENGTH &&
-      /^[a-z0-9][a-z0-9_.:-]*$/.test(value);
+      /^[a-z0-9][a-z0-9_.:@-]*$/.test(value);
   }
 
   function normalizeTokenList(value, path, issues, maxLength) {
@@ -471,6 +506,84 @@
     return schemaResult("programming-context", issues, output);
   }
 
+  function normalizeProgramRequest(raw, issues) {
+    const path = "$.answers.programRequest";
+    if (!isPlainObject(raw)) {
+      issues.push(`${path}:not_object`);
+      return raw;
+    }
+    rejectUnknownKeys(raw, PROGRAM_REQUEST_KEYS, path, issues);
+    const output = clone(raw);
+    if (hasOwn(raw, "goal") && !["hypertrophy", "strength", "hybrid"].includes(raw.goal)) issues.push(`${path}.goal:invalid`);
+    if (hasOwn(raw, "experience") && !["beginner", "intermediate", "advanced"].includes(raw.experience)) issues.push(`${path}.experience:invalid`);
+    if (hasOwn(raw, "daysPerWeek") && (!Number.isInteger(raw.daysPerWeek) || raw.daysPerWeek < 2 || raw.daysPerWeek > 6)) issues.push(`${path}.daysPerWeek:invalid`);
+    if (hasOwn(raw, "timeCeilingMinutes") && ![20, 40, 60, 90, 120, 150].includes(raw.timeCeilingMinutes)) issues.push(`${path}.timeCeilingMinutes:invalid`);
+    if (hasOwn(raw, "gymProfile")) {
+      if (!isPlainObject(raw.gymProfile)) issues.push(`${path}.gymProfile:not_object`);
+      else {
+        rejectUnknownKeys(raw.gymProfile, new Set(["equipmentIds", "equipmentLoadsKg"]), `${path}.gymProfile`, issues);
+        if (hasOwn(raw.gymProfile, "equipmentIds") && (!Array.isArray(raw.gymProfile.equipmentIds)
+          || raw.gymProfile.equipmentIds.length > MAX_CATALOG_SELECTIONS
+          || raw.gymProfile.equipmentIds.some((id) => !validToken(id)))) issues.push(`${path}.gymProfile.equipmentIds:invalid`);
+        if (hasOwn(raw.gymProfile, "equipmentLoadsKg")) {
+          const loads = raw.gymProfile.equipmentLoadsKg;
+          if (!isPlainObject(loads) || Object.keys(loads).length > MAX_CATALOG_SELECTIONS) issues.push(`${path}.gymProfile.equipmentLoadsKg:invalid`);
+          else for (const [id, values] of Object.entries(loads)) {
+            if (!validToken(id) || !Array.isArray(values) || values.length > 64
+              || values.some((value) => typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+              issues.push(`${path}.gymProfile.equipmentLoadsKg.${id}:invalid`);
+            }
+          }
+        }
+      }
+    }
+    if (hasOwn(raw, "competencyAnswers")) {
+      const answers = raw.competencyAnswers;
+      if (!isPlainObject(answers)) issues.push(`${path}.competencyAnswers:not_object`);
+      else {
+        rejectUnknownKeys(answers, new Set(COMPETENCY_ANSWERS), `${path}.competencyAnswers`, issues);
+        for (const [key, value] of Object.entries(answers)) {
+          if (![true, false, null].includes(value)) issues.push(`${path}.competencyAnswers.${key}:invalid`);
+        }
+      }
+    }
+    if (hasOwn(raw, "movementConfirmations")) {
+      const confirmations = raw.movementConfirmations;
+      if (!isPlainObject(confirmations) || Object.keys(confirmations).length > MAX_CATALOG_SELECTIONS) {
+        issues.push(`${path}.movementConfirmations:invalid`);
+      } else for (const [exerciseId, prerequisiteIds] of Object.entries(confirmations)) {
+        if (!validToken(exerciseId) || !Array.isArray(prerequisiteIds) || prerequisiteIds.length > MAX_CATALOG_SELECTIONS
+          || prerequisiteIds.some((id) => !validToken(id)) || new Set(prerequisiteIds).size !== prerequisiteIds.length) {
+          issues.push(`${path}.movementConfirmations.${exerciseId}:invalid`);
+        }
+      }
+    }
+    for (const key of PROGRAM_REQUEST_LISTS) {
+      if (hasOwn(raw, key) && (!Array.isArray(raw[key]) || raw[key].length > MAX_CATALOG_SELECTIONS
+        || raw[key].some((id) => !validToken(id)) || new Set(raw[key]).size !== raw[key].length)) {
+        issues.push(`${path}.${key}:invalid`);
+      }
+    }
+    if (hasOwn(raw, "split") && (typeof raw.split !== "string" || !["auto", "full_body", "upper_lower", "push_pull_legs_upper_lower", "push_pull_legs"].includes(raw.split))) {
+      issues.push(`${path}.split:invalid`);
+    }
+    if (hasOwn(raw, "periodization") && !["static", "linear", "reverse_linear", "undulating"].includes(raw.periodization)) issues.push(`${path}.periodization:invalid`);
+    if (hasOwn(raw, "cycles") && (!Number.isInteger(raw.cycles) || raw.cycles < 1 || raw.cycles > 12)) issues.push(`${path}.cycles:invalid`);
+    if (hasOwn(raw, "deloadCycles")) {
+      if (!Array.isArray(raw.deloadCycles) || raw.deloadCycles.length > 12
+        || raw.deloadCycles.some((cycle) => !Number.isInteger(cycle) || cycle < 1 || cycle > (raw.cycles || 12))
+        || new Set(raw.deloadCycles).size !== raw.deloadCycles.length) issues.push(`${path}.deloadCycles:invalid`);
+    }
+    if (hasOwn(raw, "executionContexts")) {
+      const contexts = raw.executionContexts;
+      if (!isPlainObject(contexts) || Object.keys(contexts).length > MAX_CATALOG_SELECTIONS) issues.push(`${path}.executionContexts:invalid`);
+      else for (const [exerciseId, mode] of Object.entries(contexts)) {
+        if (!validToken(exerciseId) || !["bilateral", "unilateral"].includes(mode)) issues.push(`${path}.executionContexts.${exerciseId}:invalid`);
+      }
+    }
+    return output;
+  }
+
   function normalizeAnswers(raw, issues) {
     if (!isPlainObject(raw)) {
       issues.push("$.answers:not_object");
@@ -483,9 +596,11 @@
       "programName",
       "importReady",
       "sharedReady",
+      "programRequest",
     ]);
     rejectUnknownKeys(raw, allowed, "$.answers", issues);
     const output = {};
+    if (hasOwn(raw, "programRequest")) output.programRequest = normalizeProgramRequest(raw.programRequest, issues);
     if (hasOwn(raw, "desiredResult")) {
       if (!DESIRED_RESULTS.has(raw.desiredResult)) issues.push("$.answers.desiredResult:invalid");
       else output.desiredResult = raw.desiredResult;
@@ -601,14 +716,14 @@
   const ALTERNATIVE_REASON_KEYS = new Set(["code", "facts"]);
   const ALTERNATIVE_REASON_CODES = new Set(["compatible_split_variation"]);
   const PREVIEW_KEYS = Object.freeze({
-    recommend: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
-    custom: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
-    browse: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
-    build: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises"]),
-    import: new Set(["source", "format", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles"]),
-    shared: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
+    recommend: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
+    custom: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
+    browse: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
+    build: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises"]),
+    import: new Set(["source", "format", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles"]),
+    shared: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
-  const PROGRAM_ROW_KEYS = new Set(["id", "slotId", "dayId", "day", "order", "name", "displayName", "libraryId", "movementId", "sets", "min", "max", "primary", "secondary", "notes", "alternates", "targetRirStart", "targetRirEnd", "minSets", "maxSets", "priority", "loadingMode", "loadIncrement", "progression", "progressionIncompatibility", "rest", "rir", "tempo", "progressionType"]);
+  const PROGRAM_ROW_KEYS = new Set(["id", "slotId", "dayId", "day", "order", "name", "displayName", "libraryId", "sets", "hasRepTarget", "min", "max", "primary", "secondary", "notes"]);
   const DAY_KEYS = new Set(["id", "dayId", "label", "order", "estimateMinutes", "exercises", "displayNameKey", "nameOverride"]);
   const STRUCTURE_KEYS = new Set(["schemaVersion", "days", "provenance", "weekPrescriptions", "customizedFrom"]);
   // Display names are keyed by the compiler's stable blueprint-day identity.
@@ -625,7 +740,7 @@
   const MODIFIER_KEYS = new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params"]);
   const RELATION_KEYS = new Set(["schemaVersion", "id", "type", "version", "movementId", "members"]);
   const MEMBER_KEYS = new Set(["exerciseId", "role"]);
-  const CUSTOM_EXERCISE_KEYS = new Set(["id", "name", "namePt", "equipment", "primary", "secondary", "notes", "archived", "patterns", "beginnerFriendly", "custom", "created"]);
+  const CUSTOM_EXERCISE_KEYS = new Set(["id", "name", "namePt", "equipment", "primary", "secondary", "notes", "archived", "patterns", "beginnerFriendly", "custom", "created", "metricIds", "metricDefinitions"]);
   const SHARED_SETTINGS_KEYS = new Set(["jumpPct", "minJump", "rirHigh", "hardRir", "restSec", "unit", "lang", "rirMode"]);
   const SHARED_META_KEYS = new Set(["name", "goal", "experience", "daysPerWeek", "splitType", "equipment", "priorityMuscles", "sessionLength", "mesocycleLengthWeeks"]);
 
@@ -799,7 +914,8 @@
       if (!isPlainObject(item)) { issues.push(`${itemPath}:not_object`); return; }
       rejectUnknownKeys(item, CUSTOM_EXERCISE_KEYS, itemPath, issues);
       if (!validToken(item.id)) issues.push(`${itemPath}.id:invalid`);
-      for (const key of ["name", "namePt", "notes"]) if (item[key] !== undefined) optionalString(item[key], `${itemPath}.${key}`, issues, key === "notes" ? MAX_DRAFT_BYTES : 256);
+      for (const key of ["name", "namePt"]) if (item[key] !== undefined) optionalString(item[key], `${itemPath}.${key}`, issues, 256);
+      if (hasOwn(item, "notes") && (typeof item.notes !== "string" || utf8Bytes(item.notes) > MAX_NOTE_BYTES)) issues.push(`${itemPath}.notes:invalid`);
       for (const key of ["primary", "secondary"]) {
         if (item[key] !== undefined) item[key] = normalizeMuscleField(item[key], `${itemPath}.${key}`, issues);
       }
@@ -809,6 +925,13 @@
       if (item.custom !== undefined && typeof item.custom !== "boolean") issues.push(`${itemPath}.custom:invalid`);
       if (item.created !== undefined) optionalString(item.created, `${itemPath}.created`, issues, 64);
       if (item.patterns !== undefined && !Array.isArray(item.patterns)) issues.push(`${itemPath}.patterns:invalid`);
+      if (item.metricIds !== undefined && (!Array.isArray(item.metricIds) || item.metricIds.length > 11
+        || item.metricIds.some((id) => !validToken(id)) || new Set(item.metricIds).size !== item.metricIds.length)) {
+        issues.push(`${itemPath}.metricIds:invalid`);
+      }
+      if (item.metricDefinitions !== undefined && (!Array.isArray(item.metricDefinitions) || item.metricDefinitions.length > 11)) {
+        issues.push(`${itemPath}.metricDefinitions:invalid`);
+      }
     });
   }
 
@@ -871,7 +994,8 @@
       else value[key] = normalizeMuscleField(value[key], `${path}.${key}`, issues);
     }
     for (const key of ["name", "displayName"]) if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues, 256);
-    if (hasOwn(value, "notes")) optionalString(value.notes, `${path}.notes`, issues, MAX_DRAFT_BYTES);
+    if (hasOwn(value, "notes") && (typeof value.notes !== "string" || utf8Bytes(value.notes) > MAX_NOTE_BYTES)) issues.push(`${path}.notes:invalid`);
+    if (hasOwn(value, "hasRepTarget") && typeof value.hasRepTarget !== "boolean") issues.push(`${path}.hasRepTarget:invalid`);
     for (const key of ["order", "sets", "min", "max", "targetRirStart", "targetRirEnd", "minSets", "maxSets", "loadIncrement"]) {
       if (hasOwn(value, key) && (typeof value[key] !== "number" || !Number.isFinite(value[key]))) issues.push(`${path}.${key}:invalid`);
     }
@@ -880,16 +1004,86 @@
     if (hasOwn(value, "progressionIncompatibility")) validateProgressionIncompatibility(value.progressionIncompatibility, `${path}.progressionIncompatibility`, issues);
   }
 
+  function definitionSlots(programDefinition) {
+    if (!isPlainObject(programDefinition) || !Array.isArray(programDefinition.days)) return [];
+    return programDefinition.days.flatMap((day) => day?.kind === "training" && Array.isArray(day.slots)
+      ? day.slots.map((slot) => ({ day, slot })) : []);
+  }
+
+  function validateFlatProgramProjection(preview, path, issues) {
+    if (!Array.isArray(preview.program)) {
+      issues.push(`${path}.program:required_projection`);
+      return;
+    }
+    const slots = definitionSlots(preview.programDefinition);
+    if (preview.program.length !== slots.length) {
+      issues.push(`${path}.program:definition_mismatch`);
+      return;
+    }
+    const seen = new Set();
+    slots.forEach(({ day, slot }, index) => {
+      const row = preview.program[index];
+      const cycle = Array.isArray(slot.prescriptionsByCycle)
+        ? slot.prescriptionsByCycle.find((item) => item.cycleIndex === 1) : null;
+      const definitions = Array.isArray(slot.metricDefinitions) ? slot.metricDefinitions : [];
+      const hasRepTarget = definitions.some((definition) =>
+        definition.semantic === "reps" || definition.semantic === "repsPerSide");
+      if (!isPlainObject(row) || row.id !== slot.id || row.slotId !== slot.id || row.dayId !== day.id
+        || row.day !== day.name || row.order !== slot.order || row.libraryId !== slot.exerciseId
+        || !cycle || !Array.isArray(cycle.sets) || row.sets !== cycle.sets.length
+        || row.hasRepTarget !== hasRepTarget || seen.has(slot.id)) {
+        issues.push(`${path}.program[${index}]:definition_mismatch`);
+      }
+      if (row && typeof row === "object") seen.add(slot.id);
+      const hasBounds = hasOwn(row || {}, "min") || hasOwn(row || {}, "max");
+      if (hasRepTarget && (!Number.isInteger(row?.min) || row.min < 1
+        || !Number.isInteger(row?.max) || row.max < row.min)) {
+        issues.push(`${path}.program[${index}]:rep_target_required`);
+      } else if (!hasRepTarget && hasBounds) {
+        issues.push(`${path}.program[${index}]:non_rep_bounds`);
+      }
+    });
+  }
+
   function validatePreview(value, route, path, issues) {
     if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
     rejectUnknownKeys(value, PREVIEW_KEYS[route] || PREVIEW_KEYS.recommend, path, issues);
     for (const key of ["source", "family", "familyId", "blueprintId", "format"]) if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues);
     if (hasOwn(value, "frequency") && (!Number.isInteger(value.frequency) || value.frequency < 1 || value.frequency > 7)) issues.push(`${path}.frequency:invalid`);
+    if (!hasOwn(value, "programDefinition")) {
+      issues.push(`${path}.programDefinition:required`);
+    } else {
+      const compiler = runtimeProgramCompiler(), catalog = runtimeCatalog();
+      if (!compiler?.validateProgramDefinition || !catalog) {
+        issues.push(`${path}.programDefinition:validator_unavailable`);
+      } else {
+        const customDefinitions = (Array.isArray(value.customExercises) ? value.customExercises : []).map((item) => {
+          if (!isPlainObject(item)) return item;
+          return {
+            id: item.id,
+            name: item.name,
+            ...(item.namePt !== undefined ? { namePt: item.namePt } : {}),
+            ...(item.equipment !== undefined ? { equipment: item.equipment } : {}),
+            ...(item.primary !== undefined ? { primary: item.primary } : {}),
+            ...(item.secondary !== undefined ? { secondary: item.secondary } : {}),
+            ...(item.notes !== undefined ? { notes: item.notes } : {}),
+            metricIds: Array.isArray(item.metricIds) ? item.metricIds : [],
+            metricDefinitions: Array.isArray(item.metricDefinitions) ? item.metricDefinitions : [],
+          };
+        });
+        const checked = compiler.validateProgramDefinition(value.programDefinition, catalog, customDefinitions);
+        if (!checked?.ok) {
+          const details = Array.isArray(checked?.issues) ? checked.issues.slice(0, 3).join("|") : "";
+          issues.push(`${path}.programDefinition:invalid${details ? `:${details}` : ""}`);
+        }
+      }
+    }
     const allowInternalMuscles = value.source === "compiler";
     if (hasOwn(value, "program")) {
       if (!Array.isArray(value.program) || value.program.length > MAX_LIST_LENGTH * 16) issues.push(`${path}.program:invalid`);
       else value.program.forEach((row, index) => validateProgramRow(row, `${path}.program[${index}]`, issues, { allowInternalMuscles }));
     }
+    if (hasOwn(value, "programDefinition")) validateFlatProgramProjection(value, path, issues);
     if (hasOwn(value, "days")) {
       if (!Array.isArray(value.days) || value.days.length > 7) issues.push(`${path}.days:invalid`);
       else value.days.forEach((day, index) => {
@@ -1291,6 +1485,7 @@
   function compatibleAnswers(answers, fromRoute, toRoute) {
     if (toRoute === "recommend" || toRoute === "custom") {
       const kept = copyKeys(answers, SHARED_GENERATOR_KEYS);
+      if (hasOwn(answers, "programRequest")) kept.programRequest = clone(answers.programRequest);
       if (toRoute === "custom" && fromRoute === "custom") {
         Object.assign(kept, copyKeys(answers, CUSTOM_KEYS));
       }
@@ -1352,7 +1547,7 @@
   function setAnswers(state, patch) {
     assertState(state);
     if (!isPlainObject(patch)) throw new TypeError("Answer patch must be an object");
-    const structural = inspectJson(patch, MAX_CONTEXT_BYTES);
+    const structural = inspectJson(patch, MAX_DRAFT_BYTES);
     if (structural.length) throw new TypeError(`Invalid answer patch: ${structural.join(",")}`);
     const issues = [];
     const normalized = normalizeAnswers(patch, issues);
@@ -1371,7 +1566,9 @@
     assertState(state);
     if (result === null || result === undefined) throw new TypeError("Result is required");
     const structural = inspectJson(result, MAX_DRAFT_BYTES);
-    if (structural.length || !isPlainObject(result)) throw new TypeError("Invalid program-entry result");
+    if (structural.length || !isPlainObject(result)) {
+      throw new TypeError(`Invalid program-entry result${structural.length ? `: ${structural.join(",")}` : ""}`);
+    }
     const next = clone(result);
     // Stamp the binding at the pure state boundary. Callers cannot persist a
     // preview produced for a different answer set, and old callers that only
@@ -1519,6 +1716,37 @@
     const preview = state.result?.preview;
     const program = Array.isArray(preview?.program) ? preview.program : [];
     const issues = [];
+    const definition = preview?.programDefinition;
+    if (!isPlainObject(definition)) {
+      issues.push("program_definition_required");
+      return issues;
+    }
+    const compiler = runtimeProgramCompiler();
+    const catalog = runtimeCatalog();
+    if (!compiler?.validateProgramDefinition || !catalog) {
+      issues.push("program_definition_validator_unavailable");
+      return issues;
+    }
+    const customDefinitions = (Array.isArray(preview.customExercises) ? preview.customExercises : []).map((item) => {
+      if (!isPlainObject(item)) return item;
+      return {
+        id: item.id,
+        name: item.name,
+        ...(item.namePt !== undefined ? { namePt: item.namePt } : {}),
+        ...(item.equipment !== undefined ? { equipment: item.equipment } : {}),
+        ...(item.primary !== undefined ? { primary: item.primary } : {}),
+        ...(item.secondary !== undefined ? { secondary: item.secondary } : {}),
+        ...(item.notes !== undefined ? { notes: item.notes } : {}),
+        metricIds: Array.isArray(item.metricIds) ? item.metricIds : [],
+        metricDefinitions: Array.isArray(item.metricDefinitions) ? item.metricDefinitions : [],
+      };
+    });
+    const checked = compiler.validateProgramDefinition(definition, catalog, customDefinitions);
+    if (!checked?.ok) {
+      issues.push("program_definition_invalid");
+      return issues;
+    }
+    validateFlatProgramProjection(preview, "$.result.preview", issues);
     if (Array.isArray(preview?.progressionIncompatibilities) && preview.progressionIncompatibilities.length) {
       issues.push("progression_incompatible:program");
     }
@@ -1526,24 +1754,24 @@
     for (const exercise of program) {
       if (!exercise || typeof exercise !== "object" || !String(exercise.name || "").trim() ||
         !Number.isInteger(exercise.sets) || exercise.sets < 1 ||
-        !Number.isInteger(exercise.min) || exercise.min < 1 ||
-        !Number.isInteger(exercise.max) || exercise.max < exercise.min) {
+        (exercise.hasRepTarget && (!Number.isInteger(exercise.min) || exercise.min < 1 ||
+          !Number.isInteger(exercise.max) || exercise.max < exercise.min)) ||
+        (!exercise.hasRepTarget && (hasOwn(exercise, "min") || hasOwn(exercise, "max")))) {
         issues.push(`exercise_invalid:${String(exercise?.id || "unknown")}`);
       }
-      if (exercise?.progressionIncompatibility) {
-        issues.push(`progression_incompatible:${String(exercise?.id || "unknown")}`);
+    }
+    for (const { slot } of definitionSlots(definition)) {
+      const cycle = slot.prescriptionsByCycle?.find((item) => item.cycleIndex === 1);
+      if (!slot.metricIds?.length || !Array.isArray(cycle?.sets)
+        || cycle.sets.some((set) => set.status === "configuration_required")) {
+        issues.push(`metric_configuration_required:${slot.id}`);
       }
     }
     if (state.route !== "build") return issues;
-    const structureDays = Array.isArray(preview?.programStructure?.days)
-      ? preview.programStructure.days
-      : [];
-    if (!structureDays.length) return ["program_days_required"];
-    for (const day of structureDays) {
-      const dayId = String(day?.dayId || "");
-      const label = String(day?.label || dayId);
-      const rows = program.filter((exercise) => exercise?.day === label || exercise?.day === dayId);
-      if (!rows.length) issues.push(`day_empty:${dayId || label}`);
+    const trainingDays = definition.days.filter((day) => day.kind === "training");
+    if (!trainingDays.length) issues.push("program_days_required");
+    for (const day of trainingDays) {
+      if (!Array.isArray(day.slots) || !day.slots.length) issues.push(`day_empty:${day.id || day.name}`);
     }
     return issues;
   }

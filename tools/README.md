@@ -327,71 +327,65 @@ node tools/canonical-clone-hash.mjs --check   # always verify after regenerating
 
 ## build-exercises.mjs
 
-Generates `exercises.js` — the exercise library the picker and the program
-generator read — from `exercise-curation.json` plus the upstream dataset.
+Generates the compact synchronous picker index in `exercises.js` and the full
+local detail asset at `assets/exercise-catalog.json` from the committed Plan
+067 corpus. It has no package dependencies and makes no network requests.
 
 ```bash
-git clone --depth 1 https://github.com/hasaneyldrm/exercises-dataset /tmp/exdb
-node tools/build-exercises.mjs --src /tmp/exdb
+node tools/build-exercises.mjs
+node tools/build-exercises.mjs --check
+node tools/build-exercises.mjs --report
 ```
 
-`--report` prints the movement names whose Portuguese still contains English
-words instead of writing the file. A clean run reports zero: every name either
-composes from the phrase tables or carries a `namePt` override in the curation
-file.
+`exercises.js` holds only the UUID and canonical name, display name, searchable
+aliases, optional source search boost, and reviewed media path/background. Its
+aliases include the source's alternative-name records plus explicit Portuguese
+terms. The full raw object retains every equipment, metric, muscle, movement,
+ROM/stability, prerequisite, role-tier, and reference field in
+`assets/exercise-catalog.json`. The latter is fetched locally only when a
+consumer calls `RepForgeExerciseCatalog.load()`. `exercises.js` embeds a
+generated SHA-256 pin of the exact detail-asset bytes; the runtime verifies it
+before exposing a snapshot, so a stale or malformed asset cannot be paired with
+the current compact index.
 
-The upstream clone is only needed to regenerate. `exercises.js` is committed,
-so contributors and CI never fetch the dataset.
+### Reviewed mappings
 
-### What the script decides, and what the curation file decides
+`exercise-catalog-curation.json` maps raw exercise UUIDs to Portuguese display
+names, Portuguese search aliases, and optional existing illustration IDs. Each
+mapping names the exact canonical source name too; generation stops if that
+identity changes. Names are never used to join an exercise to another record.
 
-`exercise-curation.json` is the reviewed part. Each record names an upstream
-row and the movement patterns it belongs to:
+The generator does not translate or infer muscle, pattern, equipment, or
+progression labels. It leaves uncurated display names in their canonical source
+language and uses exact UUID references from the raw snapshot when resolving
+alternative names or detail objects.
 
-```json
-{ "id": "pr_bb", "src": "exdb:0025", "patterns": ["press"],
-  "name": "Barbell bench press", "beginnerFriendly": false }
-```
+The runtime is `exercise-catalog.js`, exposed as
+`window.RepForgeExerciseCatalog` and through CommonJS for Node proofs. It shares
+one promise for the versioned local asset fetch. `snapshot()` returns the raw
+`{exercises, uuidIndex, generatedAt}` object after load. Lookups return raw
+records; `metricsFor()` resolves metric UUIDs to their original objects.
+`equipmentClosure()` expands plural-to-singular links transitively.
+`isAvailable()` treats each resistance/support list as OR alternatives, each
+referenced group as requiring all members, and requires both lists to pass.
+`resolveName()` matches canonical names before display/source aliases and
+returns all matches when an alias is ambiguous; it never fuzzy-matches.
 
-- `id` — Taurifer's stable library id, stored on program templates as
-  `libraryId`. **Never repoint an existing id at a different movement**: the
-  ids of movements Taurifer shipped before the library are still sitting in
-  people's saved programs. Merged duplicates are handled by
-  `LEGACY_LIBRARY_IDS` in the generated file, not by reusing an id.
-- `src` — upstream row. Omit it for a native entry, which then has to carry
-  `name`, `equipment` and `primary` itself; `hg_mc` is one, because Taurifer
-  shipped a Romanian deadlift machine and the dataset has no such row.
-- `patterns` — Taurifer's movement slots. The **first** pattern decides the
-  primary muscle, because the upstream `target` field is unreliable in exactly
-  the places that matter (it calls every squat and Romanian deadlift
-  glute-primary). See `PATTERN_MUSCLES`.
-- `name`, `namePt`, `primary`, `secondary`, `notes`, `beginnerFriendly` —
-  optional overrides, each one winning over the mechanical mapping.
-- `_srcName` — the upstream name, carried along so a reviewer can see what a
-  record was built from. Unused by the app.
+The Plan 067 replacement uses raw UUID identity. `LEGACY_LIBRARY_IDS` remains
+an empty public object during migration so old short IDs are not silently
+repointed to new movements.
 
-Everything else is mechanical and re-runnable: equipment mapping, muscle
-synonym collapsing, deltoid-head splitting by movement name, display-name
-repair, and Portuguese composition.
-
-`tools/exercise-compiler-data.json` holds exactly one compiler block per
-library id. The build rejects missing, extra, or out-of-vocabulary values.
-Values change only by owner decision (Plan 065).
-
-### Muscle tokens are a contract
-
-`test/exercise-library.mjs` pins the vocabulary. The volume audit groups hard
-sets by exact muscle string, and `i18n-en.json` / `i18n-pt.json` carry a
-`muscle.<token>` key per token — so a new token needs a deliberate addition in
-all three places, and a typo'd one silently splits a muscle into two rows.
+`--check` compares both generated files byte for byte with the deterministic
+build output. `test/exercise-library.mjs` checks source counts and references,
+compact-index equality, the empty-tile behavior, the reviewed media map, and
+the browser cache inventory.
 
 ### Artwork
 
-`MEDIA_IDS` in the build script is the closed list of movements with licensed
-illustrations, and the files live in `assets/exercises/<libraryId>.webp`. The
-build fails if a mapped file is missing or a mapped id is not in the library.
-Everything not on that list renders an empty tile and issues no image request —
-`test/exercise-library.mjs` and `test/library-flow.mjs` enforce both halves.
+Twenty of the existing 96 licensed illustrations have explicit raw UUID
+mappings with exact canonical-name guards. The other 1,325 exercises render the
+established empty tile. The remaining 76 licensed files stay unreferenced; no
+new images, initials, silhouettes, or placeholders are generated.
 
 Each mapped entry also carries `mediaBg`, the paper colour that illustration is
 drawn on, which the exercise detail page uses as the field behind the artwork so
