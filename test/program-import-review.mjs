@@ -960,6 +960,27 @@ async function main() {
     assert(!gates.firstRun && !gates.onboarding,
       "a restore answers the setup gate it came through", JSON.stringify(gates));
 
+    // ---- a long-lived install's backup is still restorable ----
+    // Archived blocks each carry a full ProgramDefinition and the log grows
+    // without end, so a whole-state backup is bounded separately from a
+    // program file and well above the old 1 MiB program bound.
+    const bigLog = Array.from({ length: 9000 }, (_, i) => ({
+      session: `2025-01-01_Day 1_${Math.floor(i / 12)}`, date: "2025-01-01", day: "Day 1", name: "Hack squat",
+      set: (i % 12) + 1, load: 100, reps: 8, rir: 2, notes: "",
+    }));
+    const bigBackup = JSON.stringify({
+      settings: { unit: "kg", restSec: 180 }, programMeta: seedProgramMeta({ id: "big-meta", name: "Long history" }),
+      program: seedProgram(), log: bigLog, programHistory: [],
+    });
+    await resetWithProgram(page);
+    await page.setInputFiles("#importJson", { name: "big-backup.json", mimeType: "application/json", buffer: Buffer.from(bigBackup) });
+    await page.waitForFunction(() => !!document.querySelector("#importChoice")?.open, undefined, { timeout: 10000 });
+    choice = await dialogState();
+    assert(Buffer.byteLength(bigBackup) > 1024 * 1024 && choice.open && /9000 sets|9,000 sets/.test(choice.body),
+      "a backup larger than a program file's bound still opens the restore choice",
+      JSON.stringify({ bytes: Buffer.byteLength(bigBackup), body: choice.body }));
+    await page.evaluate(() => document.querySelector("#importChoice").close());
+
     // ---- a backup from before the canonical program model ----
     // Flat rows without a ProgramDefinition cannot be restored as a program the
     // engine reads. The program door re-links its rows through review instead,

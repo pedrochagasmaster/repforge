@@ -38,8 +38,7 @@
  */
 import { readFileSync } from "node:fs";
 import { launchChromium } from "./browser.mjs";
-import { MINIMAL_PAYLOAD } from "./fixtures/shared-setup.mjs";
-import { APP_INDEX, encodeSharedPayload, openAppPage, waitForFirstRun } from "./shared-setup-flow.mjs";
+import { APP_INDEX, buildSetupDocument, encodeSetupDocument, openAppPage, waitForFirstRun } from "./shared-setup-flow.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const IOS_UA =
@@ -469,7 +468,7 @@ async function sharedGateJourney(browser) {
   });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 });
-  const encoded = await encodeSharedPayload(page, MINIMAL_PAYLOAD);
+  const encoded = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Coach program" }));
   check("landing", !!encoded?.ok, `${tag}: a setup link could be built`, encoded);
   await page.goto(`${APP_INDEX}?journeys-out=1#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
   await waitForFirstRun(page);

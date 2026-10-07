@@ -2322,6 +2322,9 @@ function reserveDraftRefresh(){
     cancel(){if(!settled){settled=true;release(()=>Promise.resolve({status:"unchanged"}))}}
   }}
 function workoutDayId(label){
+  // The canonical definition's day id survives renames; it is what a draft keys on.
+  const canonical=state.programMeta?.programDefinition?.days?.find?.(day=>day?.kind==="training"&&day.name===label);
+  if(canonical?.id)return String(canonical.id);
   const structured=state.programMeta?.programStructure?.days;
   const matched=Array.isArray(structured)?structured.find(item=>String(item?.label||item?.dayId||"")===label):null;
   return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
@@ -2424,7 +2427,7 @@ function workoutDraftProjection(draft=activeWorkoutDraft){
       for(const field of ["load","reps","rir","effort"]){const value=set.edited[field];
         if(value!=null)out[`${key}_${field}`]=displayDraftText(field,value)}
       if(set.completion!=="pending"){out.__done.push(key);out.__lastCommitAt=Math.max(out.__lastCommitAt||0,Date.parse(set.completion.completedAt)||0)}
-      if(set.touched.load||set.touched.reps||set.touched.effort)out.__touched.push(key);
+      if(draftSetTouched(set))out.__touched.push(key);
       if(set.role==="warmup")out.__warm.push(key)}}
   return out}
 function draftTargetFromKey(key){
@@ -2804,13 +2807,17 @@ function isDisposableDraft(draft){
       const seed=current?lastExerciseNote(current):"";
       return String(draft.exercises[id]?.setupNotes??"")===String(seed??"")});
   }catch{return false}}
+/* A lifter's typed value on a set, in either the flat or the metric shape. */
+function draftSetTouched(set){
+  return !!(set?.touched?.load||set?.touched?.reps||set?.touched?.effort||
+    Object.values(set?.touched?.metrics||{}).some(Boolean))}
 function draftHasSessionWork(d){
   d=d||loadDraft();
   if(d?.schemaVersion===2)return d.exerciseOrder.some(exerciseId=>{
     const exercise=d.exercises[exerciseId];
     return exercise.status==="skipped"||!!exercise.substitution||exercise.setupNotes!==exercise.programmed.notes||
       exercise.setOrder.some(setId=>{const set=exercise.sets[setId];return set.completion!=="pending"||set.role==="warmup"||
-        set.touched.load||set.touched.reps||set.touched.effort})})||
+        draftSetTouched(set)})})||
       d.session.notes!==""||d.session.bodyweight!=null||d.program.scheduleDate!==today()||
       Object.values(contextFlagsFromDraft(d)).some(Boolean);
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length) return true;
@@ -3053,7 +3060,7 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
   const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
   const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
-  const daysPerWeek=Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:m.daysPerWeek===null?null:base.daysPerWeek;
+  const daysPerWeek=m.daysPerWeek===null?null:Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:base.daysPerWeek;
   const splitType=typeof m.splitType==="string"?m.splitType.trim()||null:m.splitType===null?null:base.splitType;
   const equipment=Array.isArray(m.equipment)?m.equipment.map(s=>String(s).trim()).filter(Boolean):base.equipment;
   const priorityMuscles=Array.isArray(m.priorityMuscles)?m.priorityMuscles.map(s=>String(s).trim()).filter(Boolean):base.priorityMuscles;
@@ -8633,7 +8640,8 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const entered=activeWorkoutDraft?activeWorkoutDraft.exerciseOrder.reduce((count,exId)=>{
     const exercise=activeWorkoutDraft.exercises[exId];return count+exercise.setOrder.filter(setId=>{
       const set=exercise.sets[setId],value=set.edited.load;
-      return set.touched.load&&typeof value==="string"&&value.trim()!==""}).length},0):
+      return set.touched.load&&typeof value==="string"&&value.trim()!==""||
+        Object.entries(set.touched.metrics||{}).some(([id,touched])=>touched&&String(set.edited.metrics?.[id]??"").trim()!=="")}).length},0):
     0;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
@@ -10497,7 +10505,7 @@ function editorDraftExerciseIds(draft){
     const exercise=draft.exercises?.[id];
     return exercise&&(exercise.status==="skipped"||exercise.substitution||exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
-      return set&&(set.completion!=="pending"||set.role==="warmup"||set.touched.load||set.touched.reps||set.touched.effort)}) )}));
+      return set&&(set.completion!=="pending"||set.role==="warmup"||draftSetTouched(set))}) )}));
   const ids=new Set(),addKey=key=>{
     const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
   for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
@@ -11057,18 +11065,18 @@ function createOnboardingProgramEditorAdapter(){
     formatNumber:(value)=>fmt(value),
     ...editorMetricAdapter({cycleIndex:()=>1}),
     context:()=>"",
-    status:()=>editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved"),
+    status:()=>onboardingEditorStatus().message,
+    afterRender:()=>updateOnboardingEditorActions(),
     confirm:()=>true,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
     afterModal:afterModalSettles,
   }
 }
-function updateOnboardingEditorActions(){
-  const button=$("#entryEditorActivate");if(!button||!entryState)return;
-  const issues=ProgramEntry.candidateActivationIssues(entryState);button.disabled=issues.length>0;
-  if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
-  const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
+/* What the Build editor's status line says: the first thing still blocking
+   activation, or that the draft is saved. */
+function onboardingEditorStatus(){
+  const issues=entryState?ProgramEntry.candidateActivationIssues(entryState):[];
   const progression=issues.some(issue=>issue.startsWith("progression_incompatible:"));
   /* Named the way the day rows name them (dayLabel), never as the stored "Day N". */
   const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:")).map(issue=>dayLabel(
@@ -11080,6 +11088,12 @@ function updateOnboardingEditorActions(){
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
         issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
           editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved");
+  return{issues,message}}
+function updateOnboardingEditorActions(){
+  const button=$("#entryEditorActivate");if(!button||!entryState)return;
+  const {issues,message}=onboardingEditorStatus();button.disabled=issues.length>0;
+  if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
+  const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
   status.id="entryEditorStatus";
   status.textContent=message;
   status.hidden=false;
@@ -12117,7 +12131,7 @@ async function exportJson(){
   const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
   const result=await commitProposedState(proposal);
   if(!(result.localOk||result.idbOk))return result;
-  const text=JSON.stringify(exportableState(state),null,2),name=`taurifer_backup_${today()}.json`;
+  const text=JSON.stringify(exportableState(state)),name=`taurifer_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");
   renderSettings();
   return result}
@@ -13119,13 +13133,18 @@ const IMPORT_MAX_DEPTH=32;
 // matches the setup-draft bound that program must already fit.
 const IMPORT_MAX_NODES=65536;
 function importUtf8Bytes(value){return new TextEncoder().encode(String(value||"")).byteLength}
-function boundedImportJson(text){
-  if(importUtf8Bytes(text)>IMPORT_MAX_BYTES)return null;
+// A backup carries every archived block's full ProgramDefinition (a generated
+// program is roughly 300 KB and 25,000 nodes), so whole-state files get their
+// own bound instead of the program-file one.
+const BACKUP_MAX_BYTES=16*1024*1024;
+const BACKUP_MAX_NODES=2000000;
+function boundedImportJson(text,{maxBytes=IMPORT_MAX_BYTES,maxNodes=IMPORT_MAX_NODES}={}){
+  if(importUtf8Bytes(text)>maxBytes)return null;
   let parsed;
   try{parsed=JSON.parse(String(text||""))}catch{return null}
   let nodes=0;
   const visit=(value,depth)=>{
-    if(++nodes>IMPORT_MAX_NODES||depth>IMPORT_MAX_DEPTH)return false;
+    if(++nodes>maxNodes||depth>IMPORT_MAX_DEPTH)return false;
     if(value===null||typeof value!=="object")return true;
     if(Array.isArray(value))return value.every(child=>visit(child,depth+1));
     return Object.keys(value).every(key=>visit(value[key],depth+1))};
@@ -13971,7 +13990,7 @@ async function commitImportReview(){
    read them out of. Recognised here so the program door can offer the restore
    instead of quietly discarding it. */
 function parseBackupFile(text){
-  const parsed=boundedImportJson(text);
+  const parsed=boundedImportJson(text,{maxBytes:BACKUP_MAX_BYTES,maxNodes:BACKUP_MAX_NODES});
   return isImportableState(parsed)?parsed:null}
 
 /* Reading a file no longer changes anything: it opens the review screen. The
@@ -13979,7 +13998,7 @@ function parseBackupFile(text){
    a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{
-    if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
+    if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
     const text=await f.text();
     const parsedBackup=parseBackupFile(text),legacyBackup=isLegacyBackup(parsedBackup);
     const backup=legacyBackup?null:parsedBackup;
@@ -14608,8 +14627,8 @@ function importChoiceContext(s,opener,io){
     newSessions:new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size}}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   try{
-    if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
-    const s=boundedImportJson(await f.text());
+    if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
+    const s=parseBackupFile(await f.text());
     if(!isImportableState(s))throw Error();
     if(isLegacyBackup(s)){toast(t("toast.backup_legacy"));e.target.value="";return}
     openImportChoice(importChoiceContext(s,e.target))}
@@ -17392,6 +17411,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   meta.blockId=allocateBlockId();
   meta.programDefinition=checkedDefinition;
   meta.mesocycleLengthWeeks=checkedDefinition.cycles;
+  meta.daysPerWeek=checkedDefinition.days.filter(day=>day.kind==="training").length;
+  // Write settings in the shape boot reads them, so the first reload after
+  // activation has nothing left to normalize and rewrite.
+  proposal.settings=normalizeSettings(proposal.settings);
   proposal.program=durableProgramRows(checkedDefinition,proposal.customExercises||[],meta);
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
@@ -17724,8 +17747,11 @@ const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft
 const sharedTrainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
 const sharedSetupInvalid=()=>sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported";
 const sharedSetupEligible=()=>firstRunPending()&&!(state.programHistory?.length);
-function sharedSetupErrorKey(code){
-  if(code==="unsupported-version")return"setup.shared.unsupported";
+function sharedSetupErrorKey(code,version=null){
+  // Only a link from a later envelope is "newer". Retired envelopes and links
+  // whose generator this release does not run are asked to be shared again.
+  if(code==="unsupported-version")return Number.isSafeInteger(version)&&version>SharedSetup.ENCODING_VERSION
+    ?"setup.shared.unsupported":"setup.shared.outdated";
   if(code==="decompression-unavailable")return"setup.shared.browser_unsupported";
   return"setup.shared.invalid"}
 function renderFirstRunProgramMode(){
@@ -17743,7 +17769,7 @@ function renderFirstRunProgramMode(){
     if(cap)cap.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
   else if(invalid){
-    if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error));error.classList.remove("hidden")}}
+    if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error,sharedSetupDraft.errorVersion));error.classList.remove("hidden")}}
   else if(error){error.textContent="";error.classList.add("hidden")}}
 function setSharedSetupBusy(busy){
   const button=$("#firstRunSharedStart"),busyEl=$("#firstRunSharedBusy");
@@ -17879,10 +17905,10 @@ function closeFirstRunInstall(){
 const LANDING_UNIT="kg";
 const LANDING_CASES={
 	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
-	hold:{ex:"1a25c6f170d8803d8231d083fdd65458",sets:3,repMin:5,repMax:8,logged:[[100,8,1],[100,7,0],[100,6,0]]},
+	hold:{ex:"1a25c6f170d8803d8231d083fdd65458",sets:3,repMin:5,repMax:8,logged:[[100,7,1],[100,6,0],[100,6,0]]},
 	reduce:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
 /** The squat history behind the chart image: four sessions, one rung up each week. */
-const LANDING_CHART={exerciseId:"ex-squat",libraryId:"sq_bb",started:"2026-08-03",
+const LANDING_CHART={exerciseId:"ex-squat",libraryId:"1a25c6f170d8803d8231d083fdd65458",started:"2026-08-03",
   dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
   ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5,
   /* the capture size per language (the Portuguese figure captions wrap, so it is taller), from tools/capture-landing-proof.mjs */
@@ -17916,7 +17942,7 @@ const LANDING_READ={
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
  *  into assets/brand/landing-proof-spots.json, which test/landing-variants.mjs compares. */
-const LANDING_PASTE_SHOT={dims:{en:[780,1242],pt:[780,1242]},counts:{en:{linked:1,review:3},pt:{linked:0,review:4}},exercise:"pr_bb"};
+const LANDING_PASTE_SHOT={dims:{en:[780,1242],pt:[780,1242]},counts:{en:{linked:1,review:3},pt:{linked:0,review:4}},exercise:"19f5c6f170d8808bb424e98de4472a7e"};
 const landingLang=()=>I18N?.getLang?.()==="pt"?"pt":"en";
 const landingNum=v=>{const s=fmtPlain(v);return landingLang()==="pt"?s.replace(".",","):s};
 const landingKg=v=>`${landingNum(v)} ${LANDING_UNIT}`;
@@ -19523,12 +19549,15 @@ async function prepareSharedSetup(candidate){
     if(source==="cookie"||staged||matchingCookie)SharedSetup.clearHandoffCookie();
     const unsupported=decoded.code==="unsupported-version"||decoded.code==="decompression-unavailable";
     sharedSetupDraft={status:unsupported?"unsupported":"invalid",source,encoded:null,payload:null,
-      error:decoded.code,previousLang:null};
+      error:decoded.code,errorVersion:decoded.version??null,previousLang:null};
     return}
   if(source==="fragment"&&staged){
     const next=SharedSetup.removeSetupFragment();
     history.replaceState({},"",next)}
   if(!sharedSetupEligible()){
+    // The handoff cookie only exists to carry a link into first run. A device
+    // that cannot accept it must not keep it waiting for a later data wipe.
+    if(source==="cookie"||staged||matchingCookie)SharedSetup.clearHandoffCookie();
     sharedSetupDraft={status:source==="fragment"?"existing":"none",source,encoded:null,payload:null,
       error:source==="fragment"?"existing":null,previousLang:null};
     return}

@@ -73,25 +73,26 @@ async function todayView(page) {
   });
 }
 
-/** Drive the Recommend route through activation, as `test/simulation.mjs` does. */
+/** Drive the Generate (recommend) route through review and activation. */
 async function completeOnboarding(page) {
-  // The hub's featured block asks Recommend's goal: one tap chooses the route,
+  const atStep = (steps) => page.waitForFunction(
+    (list) => list.includes(window.__repforgeEntryState?.()?.step), steps, { timeout: 15000 });
+  // The hub's featured block asks Generate's goal: one tap chooses the route,
   // answers the goal and opens the background step.
   await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  await atStep(["background"]);
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
+  await atStep(["schedule"]);
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
   await page.click("#onbNext");
+  await atStep(["environment"]);
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 15000 });
-  if (await page.locator("[data-entry-select-candidate]").count()) {
-    await page.locator("[data-entry-select-candidate]").first().click();
-  }
+  await atStep(["priorities", "result"]);
+  if (await page.evaluate(() => window.__repforgeEntryState?.()?.step === "priorities")) await page.click("#onbNext");
+  await atStep(["result"]);
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
   await page.click("#entryActivate");
   await page.waitForFunction(

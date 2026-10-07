@@ -1129,6 +1129,9 @@
         <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(addDayText)}</span></button>
       </div>`;
       bind();
+      // A host that annotates the status line (an id other controls describe
+      // themselves by, an error state) re-applies it to each fresh render.
+      adapter.afterRender?.(host);
       schedulePendingFocus();
     }
     function bind() {

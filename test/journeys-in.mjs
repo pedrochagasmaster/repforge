@@ -25,8 +25,8 @@
  * Run: node test/journeys-in.mjs   (requires the app served over HTTP)
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
-import { REPRESENTATIVE_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
-import { APP_INDEX, encodeSharedPayload, waitForFirstRun } from "./shared-setup-flow.mjs";
+import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
+import { APP_INDEX, waitForFirstRun } from "./shared-setup-flow.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -149,20 +149,23 @@ async function ui(page) {
 
 const goal = '[data-entry-route="recommend"][data-entry-goal="muscle_growth"]';
 
-/** From the Recommend route's first question to the activation button. */
+/** From the Generate (recommend) route's background question to the activation button. */
 async function walkRecommend(page) {
+  const atStep = (steps) => page.waitForFunction(
+    (list) => list.includes(window.__repforgeEntryState?.()?.step), steps, { timeout: 15000 });
+  await atStep(["background"]);
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
+  await atStep(["schedule"]);
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
   await page.click("#onbNext");
+  await atStep(["environment"]);
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 15000 });
-  if (await page.locator("[data-entry-select-candidate]").count()) await page.locator("[data-entry-select-candidate]").first().click();
+  await atStep(["priorities", "result"]);
+  if (await page.evaluate(() => window.__repforgeEntryState?.()?.step === "priorities")) await page.click("#onbNext");
+  await atStep(["result"]);
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
 }
 
@@ -246,10 +249,22 @@ phase("Journey 5: first session -> summary -> Progress");
   assert(focus.guideState["first-set"] === "shown", "the first-set guide is recorded as shown", JSON.stringify(focus.guideState));
 
   const exId = await page.evaluate(() => Object.keys(window.__repforgeWorkoutDraft.current().exercises)[0]);
-  for (const [field, value] of [["load", "50"], ["reps", "8"], ["rir", "2"]]) {
-    await page.locator(`#workout .exercise.is-current [data-k="${exId}_1_${field}"]`).fill(value);
+  // The first set's metric fields are whatever the movement records (weight and
+  // reps for a generated compound), filled through the Focus shelf.
+  const VALUES = { "2555c6f170d8805cafa6d16d3fdddbaa": "50", "2555c6f170d88072bbf6d9ad3f16ea86": "8" };
+  const shelf = "#workout .exercise.is-current .focus-shelf";
+  const metricIds = await page.locator(`${shelf} input[data-metric-id]`).evaluateAll((inputs) => inputs.map((input) => input.dataset.metricId));
+  assert(metricIds.length > 0, "the first set offers its metric fields", JSON.stringify(metricIds));
+  for (const metricId of metricIds) {
+    const input = page.locator(`${shelf} input[data-metric-id="${metricId}"]`);
+    if (await input.getAttribute("aria-hidden") === "true") await page.locator(`${shelf} [data-shelf-field="metric_${metricId}"]`).click();
+    await input.fill(VALUES[metricId] || "1");
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
+  const rirInput = page.locator(`${shelf} input[data-k="${exId}_1_rir"]`);
+  if (await rirInput.getAttribute("aria-hidden") === "true") await page.locator(`${shelf} [data-shelf-field="rir"]`).click();
+  await rirInput.fill("2");
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${exId}_1"]`).click();
   await page.waitForFunction((id) => {
     const set = Object.values(window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.sets || {}).find((s) => s.ordinal === 1);
@@ -311,7 +326,7 @@ await first.context.close();
 phase("Journey 2: shared link -> gate -> preview -> activation -> Today");
 {
   const probe = await newDevice(browser);
-  const encoded = await encodeSharedPayload(probe.page, cloneFixture(REPRESENTATIVE_PAYLOAD));
+  const encoded = await encodeSetupLink(probe.page, { name: "Força compartilhada", language: "pt" });
   await probe.context.close();
   assert(encoded.ok && typeof encoded.value === "string", "a setup link encodes", JSON.stringify(encoded).slice(0, 160));
 

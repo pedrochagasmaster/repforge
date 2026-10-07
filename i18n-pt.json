@@ -1070,6 +1070,7 @@
   "setup.shared.cap_many": "{name} · {n} dias por semana",
   "setup.shared.invalid": "Este link de treino compartilhado é inválido ou está incompleto.",
   "setup.shared.unsupported": "Este treino compartilhado foi criado por uma versão mais recente do Taurifer.",
+  "setup.shared.outdated": "Este link foi criado por outra versão do Taurifer e não pode ser aberto aqui. Peça para quem enviou compartilhar o treino de novo.",
   "setup.shared.browser_unsupported": "Este navegador não pode abrir links de treinos compartilhados.",
   "setup.shared.too_large": "Este treino é grande demais para caber em um link de configuração.",
   "setup.shared.existing": "Este link só pode ser iniciado durante a configuração inicial.",

@@ -1,29 +1,38 @@
 #!/usr/bin/env node
 /**
- * Browser behaviour for shared setup links (Task 9).
+ * Browser behaviour for shared setup links (ADR 0007, Plan 067 format).
  *
- * Tests the frozen RepForgeSharedSetup API, documented DOM IDs, and the
- * narrow window.__repforgeSharedSetup hook. Implementation may still be
- * missing; failures should be missing public surface, not loosened checks.
+ * A setup link is `index.html#setup=v4.…`: a compressed canonical document
+ * `{kind, version: 2, program: {name, definition, customExercises?},
+ * settings: <eight allowlisted keys>, language}`. This suite holds the
+ * guarantees that outlive the payload format:
  *
- * Run: node test/shared-setup-flow.mjs   (static server on REPFORGE_URL)
+ *   outbound      the share sheet is task-only; Web Share and Copy carry the
+ *                 title and URL only; the link carries the program, the eight
+ *                 settings and the language, never logs or history; a blank
+ *                 name travels as the localized untitled name
+ *   consent       nothing is written before the explicit activation action;
+ *                 Start only stages the common editable preview
+ *   eligibility   only a first-run device without archived history may start a
+ *                 shared program; a concurrent change rejects without a partial write
+ *   handoff       a valid fragment stages the exact bytes in the
+ *                 `repforge_setup_v1` cookie (path, 7 days, SameSite=Lax), is
+ *                 removed from the address, reconstructs the gate from the
+ *                 cookie alone in standalone mode, and is cleared on activation
+ *   refusal       legacy v1/v2/v3 links, malformed, oversized and
+ *                 undecodable sources fail closed without a write and clear a
+ *                 staged cookie
+ *   language      a Portuguese link switches the gate before acceptance and
+ *                 persists only on activation
+ *
+ * Exports keep the helpers other browser suites use to open a shared gate.
+ *
+ * Run: node test/shared-setup-flow.mjs [--only=<case substring>]
  */
 import { pathToFileURL } from "url";
 import { gzipSync } from "zlib";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
-import {
-  BUILT_IN_IDS,
-  CURRENT_SETTINGS_DEFAULTS,
-  INVALID_DECODE_INPUTS,
-  INVALID_PAYLOADS,
-  KIND,
-  MAX_ENCODED_CHARS,
-  MINIMAL_PAYLOAD,
-  REPRESENTATIVE_PAYLOAD,
-  REQUIRED_API,
-  VERSION,
-  cloneFixture,
-} from "./fixtures/shared-setup.mjs";
+import { seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 export const APP_INDEX = new URL("index.html", BASE).href;
@@ -32,9 +41,24 @@ const ONLY = process.argv
   .map((arg) => arg.slice("--only=".length))
   .filter(Boolean);
 const KEY = "repforge_v1";
-const DRAFT = "repforge_draft_v1";
 const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 const HANDOFF_COOKIE = "repforge_setup_v1";
+const MAX_ENCODED_CHARS = 3072;
+const KIND = "taurifer-shared-setup";
+const DOCUMENT_VERSION = 2;
+const ENCODING_VERSION = 4;
+const SETTING_KEYS = ["jumpPct", "minJump", "rirHigh", "hardRir", "restSec", "unit", "lang", "rirMode"];
+const DEFAULT_SHARED_SETTINGS = Object.freeze({
+  jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120, unit: "kg", lang: "en", rirMode: "numeric",
+});
+const PT_SHARED_SETTINGS = Object.freeze({
+  jumpPct: 3.5, minJump: 1.25, rirHigh: 3, hardRir: 5, restSec: 165, unit: "kg", lang: "pt", rirMode: "effort",
+});
+const REQUIRED_API = [
+  "KIND", "VERSION", "ENCODING_VERSION", "MAX_ENCODED_CHARS", "validate", "encode", "decode",
+  "readSetupFragment", "removeSetupFragment", "handoffCookiePath", "readHandoffCookie",
+  "writeHandoffCookie", "clearHandoffCookie", "isSafeHandoffEnvelope",
+];
 
 export const SHARED_DOM = Object.freeze({
   standard: "#firstRunStandardProgram",
@@ -94,14 +118,15 @@ export function assert(cond, name, detail) {
   } else {
     results.failed++;
     console.log(`  ✗ ${name}`);
-    if (detail != null) console.log(`    ${detail}`);
+    if (detail != null) console.log(`    ${typeof detail === "string" ? detail : JSON.stringify(detail)}`);
   }
 }
 
-export function wireFragment(value) {
+/** A gzip+base64url envelope with an arbitrary version prefix, built outside the app's codec. */
+export function wireFragment(value, version = 1) {
   const bytes = typeof value === "string" ? Buffer.from(value, "utf8") : Buffer.from(JSON.stringify(value), "utf8");
   const b64 = gzipSync(bytes).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  return `v1.${b64}`;
+  return `v${version}.${b64}`;
 }
 
 const setupUrl = (fragment, testCase) =>
@@ -172,12 +197,10 @@ export function readSharedHook() {
     present: true,
     status: field("status"),
     source: field("source"),
-    encoded: field("encoded"),
     error: field("error"),
     summary: field("summary"),
     hasBuild: typeof hook.build === "function",
     hasCommit: typeof hook.commit === "function",
-    hasProposal: typeof hook.proposal === "function" || typeof hook.proposalFromSharedSetup === "function",
   };
 }
 
@@ -194,113 +217,12 @@ export function readDurableState() {
     .find((part) => part.startsWith("repforge_setup_v1="));
   return {
     state: parsed,
-    draft: localStorage.getItem("repforge_draft_v1"),
+    setupDraft: localStorage.getItem("repforge_program_setup_draft_v1"),
     cookie: cookie ? decodeURIComponent(cookie.slice("repforge_setup_v1=".length)) : null,
     hash: location.hash,
     search: location.search,
     pathname: location.pathname,
   };
-}
-
-function configuredState(overrides = {}) {
-  return {
-    settings: {
-      ...CURRENT_SETTINGS_DEFAULTS,
-      lang: "en",
-      ...(overrides.settings || {}),
-    },
-    programMeta: {
-      id: overrides.programId || "prog-existing",
-      name: overrides.name || "Existing split",
-      started: "2026-01-01",
-      created: "2026-01-01T00:00:00.000Z",
-      updated: "2026-01-01T00:00:00.000Z",
-      onboarded: overrides.onboarded !== undefined ? overrides.onboarded : true,
-      mesocycleStatus: "active",
-      mesocycleLengthWeeks: 6,
-      goal: "hypertrophy",
-      experience: "intermediate",
-      daysPerWeek: 3,
-      splitType: "full_body",
-      equipment: ["machines"],
-      priorityMuscles: [],
-      sessionLength: "normal",
-      completedAt: null,
-      ...(overrides.programMeta || {}),
-    },
-    program: overrides.program || [
-      {
-        id: "ex-existing",
-        name: "Press",
-        day: "Day 1",
-        order: 1,
-        sets: 3,
-        min: 8,
-        max: 12,
-        primary: "Chest",
-        secondary: "",
-        libraryId: overrides.libraryId || "pr_mc",
-      },
-    ],
-    log: overrides.log !== undefined ? overrides.log : [
-      {
-        session: "s1",
-        date: "2026-01-02",
-        day: "Day 1",
-        name: "Press",
-        exerciseId: "ex-existing",
-        set: 1,
-        load: 60,
-        reps: 10,
-        rir: 1,
-        notes: "",
-        created: "2026-01-02T00:00:00.000Z",
-        primary: "Chest",
-        secondary: "",
-      },
-    ],
-    programHistory: overrides.programHistory || [],
-    customExercises: overrides.customExercises || [],
-    _storageRevision: overrides.revision || 4,
-  };
-}
-
-async function persistState(page, state) {
-  await page.evaluate(
-    async ({ k, blob }) => {
-      localStorage.setItem(k, JSON.stringify(blob));
-      const db = await new Promise((res, rej) => {
-        const r = indexedDB.open("repforge", 1);
-        r.onupgradeneeded = () => r.result.createObjectStore("kv");
-        r.onsuccess = () => res(r.result);
-        r.onerror = () => rej(r.error);
-      });
-      await new Promise((res, rej) => {
-        const tx = db.transaction("kv", "readwrite");
-        tx.objectStore("kv").put(blob, k);
-        tx.oncomplete = () => res();
-        tx.onerror = () => rej(tx.error);
-      });
-      db.close();
-    },
-    { k: KEY, blob: state }
-  );
-}
-
-async function clearSite(page) {
-  await page.evaluate(
-    async ({ k, d, setup, ui }) => {
-      localStorage.removeItem(k);
-      localStorage.removeItem(d);
-      localStorage.removeItem(setup);
-      localStorage.removeItem(ui);
-      await new Promise((res) => {
-        const req = indexedDB.deleteDatabase("repforge");
-        req.onsuccess = req.onerror = req.onblocked = () => res();
-      });
-    },
-    { k: KEY, d: DRAFT, setup: SETUP_DRAFT, ui: "repforge_ui_v1" }
-  );
 }
 
 function standaloneInit() {
@@ -375,22 +297,99 @@ export async function openAppPage(browser, {
   return { context, page, errors };
 }
 
-export async function encodeSharedPayload(page, payload) {
-  return page.evaluate(async ({ payload, ids }) => {
+/**
+ * A current setup document, built in the page from the app's own catalog. One
+ * training day uses the seed fixture's Build definition with its other training
+ * days turned into rest days; two to six days use a real generated program,
+ * which the codec carries as its generator request and seed.
+ */
+export async function buildSetupDocument(page, {
+  name = "Coach program",
+  settings = DEFAULT_SHARED_SETTINGS,
+  trainingDays = 1,
+  seed = "shared-setup-flow",
+} = {}) {
+  const shared = Object.fromEntries(SETTING_KEYS.map((key) => [key, settings[key] ?? DEFAULT_SHARED_SETTINGS[key]]));
+  const seedDefinition = trainingDays === 1 ? seedProgramMeta().programDefinition : null;
+  return page.evaluate(({ name, settings, trainingDays, seed, seedDefinition }) => {
     const api = window.RepForgeSharedSetup;
-    if (!api || typeof api.encode !== "function") {
-      return { ok: false, code: "missing-module", missing: true };
+    let definition;
+    if (seedDefinition) {
+      let kept = 0;
+      definition = {
+        ...seedDefinition,
+        days: seedDefinition.days.map((day, index) => {
+          if (day.kind !== "training" || kept++ === 0) return day;
+          return { ...day, kind: "rest", name: `Rest ${index + 1}`, slots: [] };
+        }),
+      };
+    } else {
+      const catalog = window.RepForgeExerciseCatalog.snapshot();
+      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+        desiredResult: "muscle_growth", structuredExperience: "6_to_24m",
+        daysPerWeek: Math.min(6, Math.max(2, trainingDays)), sessionMinutes: 60,
+        environment: { kind: "commercial_gym" },
+      }, catalog).value;
+      definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, seed).value;
     }
-    const result = await api.encode(payload, { builtInIds: new Set(ids) });
+    return { kind: api.KIND, version: api.VERSION, program: { name, definition }, settings, language: settings.lang };
+  }, { name, settings: shared, trainingDays, seed, seedDefinition });
+}
+
+/** Encode a current setup document with the app's codec and its production options. */
+export async function encodeSetupDocument(page, document) {
+  return page.evaluate(async (document) => {
+    const api = window.RepForgeSharedSetup;
+    const compiler = window.RepForgeProgramCompiler;
+    if (!api || typeof api.encode !== "function") return { ok: false, code: "missing-module", missing: true };
+    const result = await api.encode(document, {
+      catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
+      validateProgramDefinition: compiler.validateProgramDefinition,
+      generateProgram: compiler.generateProgram,
+      generatorVersion: compiler.GENERATOR_VERSION,
+    });
     return result && typeof result === "object" ? result : { ok: false, code: "invalid-result" };
-  }, { payload, ids: [...BUILT_IN_IDS] });
+  }, document);
+}
+
+/** Decode a link fragment with the app's codec and its production options. */
+async function decodeSetup(page, encoded) {
+  return page.evaluate(async (encoded) => {
+    const api = window.RepForgeSharedSetup;
+    const compiler = window.RepForgeProgramCompiler;
+    return api.decode(encoded, {
+      catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
+      validateProgramDefinition: compiler.validateProgramDefinition,
+      generateProgram: compiler.generateProgram,
+      generatorVersion: compiler.GENERATOR_VERSION,
+    });
+  }, encoded);
+}
+
+/**
+ * Encode a setup link for browser suites that only need a shared gate. A
+ * current document (`program.definition`) is encoded as it is. A retired
+ * flat-program fixture is translated: its name, eight settings, language and
+ * training-day count become a current document; its exercise rows do not.
+ */
+export async function encodeSharedPayload(page, payload) {
+  if (payload?.program?.definition) return encodeSetupDocument(page, payload);
+  const exercises = Array.isArray(payload?.program?.exercises) ? payload.program.exercises : [];
+  const document = await buildSetupDocument(page, {
+    name: payload?.program?.meta?.name ?? payload?.program?.name ?? "Coach program",
+    settings: { ...DEFAULT_SHARED_SETTINGS, ...(payload?.settings || {}) },
+    trainingDays: Math.max(1, new Set(exercises.map((exercise) => exercise.day)).size),
+  });
+  return encodeSetupDocument(page, document);
 }
 
 async function waitForShareSetupLink(page) {
   await page.waitForFunction(() => {
     const copy = document.querySelector("#shareSetupCopy");
-    return copy && !copy.disabled;
-  }, null, { timeout: 10000 }).catch(() => {});
+    const status = document.querySelector("#shareSetupStatus");
+    return (copy && !copy.disabled) ||
+      (status && !status.classList.contains("hidden") && !/preparing|preparando/i.test(status.textContent || ""));
+  }, null, { timeout: 15000 });
 }
 
 async function readShareSetupLink(page) {
@@ -398,15 +397,6 @@ async function readShareSetupLink(page) {
     const link = document.querySelector("#shareSetupLink");
     return ((link && ("value" in link ? link.value : link.textContent)) || "").trim();
   });
-}
-
-async function resolveV2Envelope(page, payloads) {
-  for (const payload of payloads) {
-    const encoded = await encodeSharedPayload(page, payload);
-    if (!encoded.ok || typeof encoded.value !== "string") continue;
-    if (encoded.value.startsWith("v2.")) return { value: encoded.value, payload };
-  }
-  return null;
 }
 
 export async function waitForFirstRun(page, timeout = 15000) {
@@ -435,55 +425,15 @@ async function clickSharedStart(page, { activate = true } = {}) {
   if (activate) {
     await page.click("#entryActivate");
     await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
   }
   return true;
 }
 
-// A first-run-eligible durable state (not onboarded, no logs or history) seeded
-// with recipient-owned custom definitions before a shared link is opened, so the
-// rebase runs against a head that owns those recipient definitions.
-function firstRunEligibleState(customs = [], settings = {}) {
-  return configuredState({
-    onboarded: false,
-    log: [],
-    programHistory: [],
-    customExercises: customs,
-    settings,
-  });
-}
-
-// Write a newer, still-eligible durable head to BOTH replicas — the concurrent
-// change another tab persists after tab A stages its proposal.
-async function commitConcurrentHead(page, spec) {
-  return page.evaluate(
-    async ({ key, spec }) => {
-      const current = JSON.parse(localStorage.getItem(key) || "{}");
-      const newer = JSON.parse(JSON.stringify(current));
-      newer.customExercises = Array.isArray(newer.customExercises) ? newer.customExercises : [];
-      if (Array.isArray(spec.removeCustomIds))
-        newer.customExercises = newer.customExercises.filter((c) => !spec.removeCustomIds.includes(c.id));
-      if (Array.isArray(spec.editCustoms))
-        newer.customExercises = newer.customExercises.map((c) => {
-          const edit = spec.editCustoms.find((e) => e.id === c.id);
-          return edit ? Object.assign({}, c, edit.patch) : c;
-        });
-      if (Array.isArray(spec.addCustoms)) newer.customExercises = newer.customExercises.concat(spec.addCustoms);
-      newer.settings = Object.assign({}, newer.settings);
-      if (spec.settings) Object.assign(newer.settings, spec.settings);
-      if (spec.notify) newer.settings.notify = Object.assign({}, newer.settings.notify, spec.notify);
-      if (spec.voiceInputEnabled !== undefined) newer.settings.voiceInputEnabled = spec.voiceInputEnabled;
-      if (spec.lastExport !== undefined) newer.settings.lastExport = spec.lastExport;
-      newer.log = Array.isArray(newer.log) ? newer.log : [];
-      newer.programHistory = Array.isArray(newer.programHistory) ? newer.programHistory : [];
-      if (Array.isArray(spec.addLog)) newer.log = newer.log.concat(spec.addLog);
-      if (Array.isArray(spec.addHistory)) newer.programHistory = newer.programHistory.concat(spec.addHistory);
-      if (Array.isArray(spec.program)) newer.program = spec.program;
-      newer._storageRevision = (Number.isInteger(newer._storageRevision) ? newer._storageRevision : 0) + 1;
-      if (newer.programMeta) {
-        newer.programMeta.onboarded = spec.onboarded === true;
-        if (typeof spec.programId === "string") newer.programMeta.id = spec.programId;
-      }
-      localStorage.setItem(key, JSON.stringify(newer));
+async function persistState(page, state) {
+  await page.evaluate(
+    async ({ k, blob }) => {
+      localStorage.setItem(k, JSON.stringify(blob));
       const db = await new Promise((res, rej) => {
         const r = indexedDB.open("repforge", 1);
         r.onupgradeneeded = () => r.result.createObjectStore("kv");
@@ -492,15 +442,69 @@ async function commitConcurrentHead(page, spec) {
       });
       await new Promise((res, rej) => {
         const tx = db.transaction("kv", "readwrite");
-        tx.objectStore("kv").put(newer, key);
+        tx.objectStore("kv").put(blob, k);
         tx.oncomplete = () => res();
         tx.onerror = () => rej(tx.error);
       });
       db.close();
-      return newer;
     },
-    { key: KEY, spec }
+    { k: KEY, blob: state }
   );
+}
+
+/** Wipe every store that affects boot, then boot again onto a fresh device. */
+async function freshDevice(page) {
+  await page.evaluate(
+    async ({ k, setup }) => {
+      localStorage.removeItem(k);
+      localStorage.removeItem(setup);
+      localStorage.removeItem("repforge_draft_v1");
+      localStorage.removeItem("repforge_ui_v1");
+      await new Promise((res) => {
+        const req = indexedDB.deleteDatabase("repforge");
+        req.onsuccess = req.onerror = req.onblocked = () => res();
+      });
+    },
+    { k: KEY, setup: SETUP_DRAFT }
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { timeout: 15000, base: BASE });
+}
+
+/** Activate a real generated program through the production finalize path. */
+async function activateGeneratedProgram(page, { name = "Coach program", daysPerWeek = 3, seed = "sender" } = {}) {
+  const ok = await page.evaluate(async ({ name, daysPerWeek, seed }) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek, sessionMinutes: 60,
+      environment: { kind: "commercial_gym" },
+    }, catalog).value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, seed).value;
+    const result = await window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition, name, answers: {}, destination: "log", origin: "first-run",
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: seed },
+    });
+    await window.__repforgeStorage.flush();
+    return !!(result?.localOk || result?.idbOk);
+  }, { name, daysPerWeek, seed });
+  if (!ok) throw new Error("the generated program did not activate");
+}
+
+/** Rewrite part of the durable state on both replicas, then boot onto it. */
+async function editDurableState(page, edit) {
+  const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), KEY);
+  edit(state);
+  await persistState(page, state);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { timeout: 15000, base: BASE });
+}
+
+async function openShareSheet(page) {
+  await page.click('nav button[data-view="program"]');
+  await page.waitForSelector("#program.view.active");
+  await page.click(SHARED_DOM.shareRow);
+  await page.waitForSelector("#shareSetupSheet:not(.hidden)", { timeout: 10000 });
+  await waitForShareSetupLink(page);
 }
 
 async function readBothReplicas(page) {
@@ -531,1625 +535,15 @@ async function readBothReplicas(page) {
   }, { key: KEY });
 }
 
-// What the recipient can actually see after an acceptance: the live in-memory
-// program and settings the app rendered, not the durable replicas.
-async function readLiveAcceptance(page) {
-  return page.evaluate(() => {
-    const gate = document.querySelector("#firstRun");
-    const gateOpen = !!gate && !gate.hidden && !gate.classList.contains("hidden");
-    return {
-      gateOpen,
-      customs: (window.__repforgeCustomExercises?.() || []).map((row) => row.id),
-      htmlLang: document.documentElement.lang || null,
-      dayChips: Array.from(document.querySelectorAll("#dayTabs button")).map((btn) => btn.textContent.trim()),
-    };
-  });
-}
-
-function canonicalJson(value) {
-  const seen = new WeakSet();
-  const walk = (node) => {
-    if (node && typeof node === "object") {
-      if (seen.has(node)) return null;
-      seen.add(node);
-      if (Array.isArray(node)) return node.map(walk);
-      return Object.keys(node)
-        .sort()
-        .reduce((acc, key) => {
-          acc[key] = walk(node[key]);
-          return acc;
-        }, {});
-    }
-    return node;
-  };
-  return JSON.stringify(walk(value));
-}
-
-// Keep the expected value independent from the app's preview helper. The
-// compiler's public timing contract supplies the released constants; the
-// arithmetic here is the shared-link contract's intentionally smaller model
-// (working sets plus between-set rest, then the released buffer).
-function expectedSharedPreviewMinutes(payload, timing) {
-  const restSec = Number(payload?.settings?.restSec);
-  const workingSetSeconds = Number(timing?.workingSetSeconds);
-  const bufferMinimumSeconds = Number(timing?.bufferMinimumSeconds);
-  const bufferPercent = Number(timing?.bufferPercent);
-  if (![restSec, workingSetSeconds, bufferMinimumSeconds, bufferPercent].every(Number.isFinite)) return [];
-  const days = [...new Set((payload?.program?.exercises || []).map((exercise) => exercise.day))];
-  return days.map((dayId) => {
-    const exercises = (payload.program.exercises || []).filter((exercise) => exercise.day === dayId);
-    const subtotal = exercises.reduce((total, exercise) => {
-      const sets = Number(exercise.sets);
-      return total + sets * workingSetSeconds + Math.max(0, sets - 1) * restSec;
-    }, 0);
-    return {
-      dayId,
-      estimateMinutes: Math.ceil(
-        (subtotal + Math.max(bufferMinimumSeconds, Math.ceil(subtotal * bufferPercent / 100))) / 60,
-      ),
-    };
-  });
-}
-
-function customById(state, id) {
-  return (state?.customExercises || []).filter((row) => row.id === id);
-}
-
-function programCustomRefs(state) {
-  return (state?.program || []).map((ex) => ex.libraryId).filter((id) => String(id || "").startsWith("custom:"));
-}
-
-function unresolvedRecoveryVisible() {
-  const dialog = document.querySelector("#storageRecovery");
-  if (!dialog) return false;
-  return dialog.open === true || (!dialog.classList.contains("hidden") && dialog.hasAttribute("open"));
-}
-
-function sharedPayloadAbsent(state, payload) {
-  if (!state) return { ok: false, reason: "no-state" };
-  const name = payload.program.meta.name;
-  const customIds = (payload.program.customExercises || []).map((row) => row.id);
-  const settings = payload.settings || {};
-  const hits = [];
-  if (state.programMeta?.name === name) hits.push("programMeta.name");
-  if (state.settings?.lang === settings.lang && settings.lang && state.programMeta?.onboarded) hits.push("settings.lang+onboarded");
-  if (state.settings?.restSec === settings.restSec && settings.restSec !== CURRENT_SETTINGS_DEFAULTS.restSec) hits.push("settings.restSec");
-  if (state.settings?.rirMode === "effort" && settings.rirMode === "effort" && state.programMeta?.onboarded) hits.push("settings.rirMode");
-  const customs = state.customExercises || [];
-  for (const id of customIds) {
-    if (customs.some((row) => row.id === id)) hits.push(`custom:${id}`);
-  }
-  const program = state.program || [];
-  if (payload.program.exercises.length === 1) {
-    const only = payload.program.exercises[0];
-    if (program.length === 1 && program[0]?.libraryId === only.libraryId && state.programMeta?.onboarded) {
-      hits.push("single-shared-slot");
-    }
-  }
-  return { ok: hits.length === 0, hits, onboarded: !!state.programMeta?.onboarded, lang: state.settings?.lang, name: state.programMeta?.name };
-}
-
-async function runCase(name, fn) {
-  if (ONLY.length && !ONLY.some((needle) => name.toLowerCase().includes(needle.toLowerCase()))) return;
-  console.log(`\n${name}`);
-  try {
-    await fn();
-  } catch (err) {
-    assert(false, `${name} (uncaught)`, String(err && err.stack || err));
-  }
-}
-
-async function dismissGates(page) {
-  await page.evaluate(() => {
-    window.closeFirstRun?.();
-    const el = document.querySelector("#onboarding");
-    if (el?.classList.contains("active") && typeof window.closeOnboarding === "function") window.closeOnboarding();
-    const tour = document.querySelector("#tour");
-    if (tour && !tour.classList.contains("hidden") && typeof window.closeTour === "function") window.closeTour();
-  });
-}
-
-export async function runSharedSetupFlow(browser) {
-  console.log("Shared setup flow");
-  console.log(`Target: ${APP_INDEX}\n`);
-
-  await runCase("Frozen module API is present", async () => {
-    const { context, page } = await openAppPage(browser);
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const api = await page.evaluate((required) => {
-      const mod = window.RepForgeSharedSetup;
-      if (!mod) return { present: false, keys: [] };
-      return {
-        present: true,
-        keys: required.map((name) => [name, mod[name] == null ? "missing" : typeof mod[name]]),
-        kind: mod.KIND,
-        version: mod.VERSION,
-        maxEncoded: mod.MAX_ENCODED_CHARS,
-      };
-    }, REQUIRED_API);
-    assert(api.present, "window.RepForgeSharedSetup is loaded", JSON.stringify(api));
-    if (api.present) {
-      assert(api.kind === KIND && api.version === VERSION, "KIND/VERSION match the frozen contract", JSON.stringify(api));
-      assert(api.maxEncoded === MAX_ENCODED_CHARS, "MAX_ENCODED_CHARS is 3072", String(api.maxEncoded));
-      const missing = (api.keys || []).filter(([, kind]) => kind === "missing");
-      assert(missing.length === 0, "every REQUIRED_API member exists", JSON.stringify(missing));
-    }
-    await context.close();
-  });
-
-  await runCase("Coach can build an English setup link", async () => {
-    const { context, page } = await openAppPage(browser);
-    await clearSite(page);
-    await persistState(page, configuredState({
-      name: "Coach program",
-      libraryId: "pr_mc",
-      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en", unit: "kg", rirMode: "numeric" },
-    }));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => {
-      try { return !!window.__repforgeSharedSetup?.build?.(); } catch { return false; }
-    }, null, { timeout: 15000 });
-    await dismissGates(page);
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active");
-    const built = await page.evaluate((ids) => {
-      const hook = window.__repforgeSharedSetup;
-      if (!hook || typeof hook.build !== "function") return { missing: true };
-      try {
-        return { payload: hook.build(), ids };
-      } catch (err) {
-        return { error: String(err) };
-      }
-    }, [...BUILT_IN_IDS]);
-    assert(!built.missing, "window.__repforgeSharedSetup.build is the payload builder", JSON.stringify(built));
-    const payload = built.payload;
-    assert(payload?.kind === KIND && payload?.version === VERSION, "built payload is v1 taurifer-shared-setup", JSON.stringify(payload));
-    assert(payload?.settings?.lang === "en" && payload?.settings?.unit === "kg", "English numeric kg settings survive", JSON.stringify(payload?.settings));
-    assert(payload && !payload.log && !payload.programHistory, "builder omits log and history", JSON.stringify({ log: payload?.log, history: payload?.programHistory, payload: !!payload }));
-    const encoded = await encodeSharedPayload(page, payload || MINIMAL_PAYLOAD);
-    assert(
-      encoded.ok === true && typeof encoded.value === "string" && /^v[123]\./.test(encoded.value),
-      "encode returns an install-safe supported envelope",
-      JSON.stringify(encoded)
-    );
-    if (encoded.ok) {
-      assert(encoded.value.length <= MAX_ENCODED_CHARS, "encoded English link fits the 3072-character ceiling", String(encoded.value.length));
-    }
-    const row = await page.evaluate((sel) => !!document.querySelector(sel), SHARED_DOM.shareRow);
-    assert(row, "#shareProgramSetup is rendered on Program when a day exists");
-    await context.close();
-  });
-
-  await runCase("Coach can build a Portuguese non-default setup", async () => {
-    const { context, page } = await openAppPage(browser, { locale: "pt-BR" });
-    await clearSite(page);
-    const representative = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    await persistState(page, configuredState({
-      name: representative.program.meta.name,
-      settings: { ...CURRENT_SETTINGS_DEFAULTS, ...representative.settings },
-      program: representative.program.exercises.map((ex, index) => ({
-        id: `ex-${index}`,
-        name: ex.displayName || ex.libraryId,
-        day: ex.day,
-        order: ex.order,
-        sets: ex.sets,
-        min: ex.min,
-        max: ex.max,
-        libraryId: ex.libraryId,
-        primary: "",
-        secondary: "",
-      })),
-      customExercises: representative.program.customExercises,
-      log: [],
-    }));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await dismissGates(page);
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active");
-    const built = await page.evaluate(() => {
-      const hook = window.__repforgeSharedSetup;
-      if (!hook?.build) return { missing: true };
-      try {
-        return { payload: hook.build() };
-      } catch (err) {
-        return { error: String(err) };
-      }
-    });
-    assert(!built.missing, "Portuguese builder hook exists", JSON.stringify(built));
-    const settings = built.payload?.settings;
-    assert(
-      settings?.lang === "pt" && settings?.rirMode === "effort" && settings?.restSec === 165 && settings?.jumpPct === 3.5,
-      "non-default PT settings are in the built payload",
-      JSON.stringify(settings)
-    );
-    const encoded = built.payload ? await encodeSharedPayload(page, built.payload) : { ok: false };
-    assert(encoded.ok === true, "Portuguese payload encodes", JSON.stringify(encoded));
-    await context.close();
-  });
-
-  await runCase("Blank program names use the localized untitled name in setup links", async () => {
-    for (const [lang, expected] of [["en", "Untitled program"], ["pt", "Treino sem título"]]) {
-      const { context, page } = await openAppPage(browser, { locale: lang === "pt" ? "pt-BR" : "en-US" });
-      await clearSite(page);
-      await persistState(page, configuredState({
-        name: "   ",
-        libraryId: "pr_mc",
-        settings: { ...CURRENT_SETTINGS_DEFAULTS, lang },
-      }));
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await dismissGates(page);
-      await page.click('nav button[data-view="program"]');
-      await page.waitForSelector("#program.view.active");
-      await page.click(SHARED_DOM.shareRow);
-      await page.waitForFunction(() => {
-        const copy = document.querySelector("#shareSetupCopy");
-        return copy && !copy.disabled;
-      }, null, { timeout: 10000 }).catch(() => {});
-      const result = await page.evaluate(async () => {
-        const link = document.querySelector("#shareSetupLink");
-        const value = link && ("value" in link ? link.value : link.textContent) || "";
-        const status = document.querySelector("#shareSetupStatus")?.textContent || "";
-        const setup = value ? new URL(value).hash.slice(1).split("setup=")[1] : "";
-        const decoded = setup
-          ? await window.RepForgeSharedSetup.decode(setup, {
-              builtInIds: new Set((window.RepForgeExercises?.library || []).map((entry) => entry.id)),
-            })
-          : null;
-        return { value, status, decoded };
-      });
-      assert(!!result.value, `${lang} blank-name program produces a setup link`, JSON.stringify(result));
-      assert(result.decoded?.ok === true, `${lang} blank-name setup link decodes`, JSON.stringify(result.decoded));
-      assert(
-        result.decoded?.value?.program?.meta?.name === expected,
-        `${lang} blank-name setup link uses the localized untitled name`,
-        JSON.stringify(result.decoded?.value?.program?.meta),
-      );
-      assert(
-        result.status === "",
-        `${lang} blank-name setup link avoids the generic invalid-program error`,
-        result.status,
-      );
-      await context.close();
-    }
-  });
-
-  await runCase("Web Share and its sheet stay task-only", async () => {
-    const { context, page } = await openAppPage(browser, { webShare: true, clipboard: true });
-    await clearSite(page);
-    await persistState(page, configuredState({
-      name: "Coach program",
-      libraryId: "pr_mc",
-      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
-    }));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await dismissGates(page);
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active");
-    await page.click(SHARED_DOM.shareRow);
-    await waitForShareSetupLink(page);
-    const sheet = await page.evaluate(() => {
-      const body = document.querySelector("#shareSetupBody");
-      const share = document.querySelector("#shareSetupShare");
-      const hidden = (node) =>
-        !node || node.hidden === true || node.classList.contains("hidden") || !!node.closest(".hidden,[hidden]");
-      return {
-        body: (body?.textContent || "").trim(),
-        bodyVisible: !hidden(body),
-        shareHidden: hidden(share),
-        shareDisabled: !!share?.disabled,
-      };
-    });
-    const link = await readShareSetupLink(page);
-    assert(
-      sheet.bodyVisible && sheet.body === SHARED_COPY.en.shareBody,
-      "share sheet keeps only task guidance",
-      sheet.body
-    );
-    assert(!!link && /#setup=/.test(link), "share sheet shows the generated setup URL", link);
-    assert(!sheet.shareHidden && !sheet.shareDisabled, "Share link is available when Web Share exists", JSON.stringify(sheet));
-    await page.click(SHARED_DOM.shareShare);
-    await page.waitForTimeout(200);
-    const shared = await page.evaluate(() => window.__repforgeShareCalls || []);
-    assert(shared.length === 1, "navigator.share is invoked once", JSON.stringify(shared));
-    const payload = shared[0] || {};
-    assert(payload.title === SHARED_COPY.en.shareTitle, "Web Share title is the share-sheet title", payload.title);
-    assert(payload.url === link, "Web Share URL is the generated setup link", payload.url);
-    assert(!Object.prototype.hasOwnProperty.call(payload, "text"), "Web Share payload has no text property", JSON.stringify(payload));
-    assert(Object.keys(payload).sort().join(",") === "title,url", "Web Share payload is title and URL only", JSON.stringify(payload));
-    await page.evaluate(() => {
-      window.__copiedSetupLink = null;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText = async (text) => {
-          window.__copiedSetupLink = text;
-        };
-      }
-    });
-    await page.click(SHARED_DOM.shareCopy);
-    await page.waitForTimeout(200);
-    const copied = await page.evaluate(() => window.__copiedSetupLink);
-    assert(copied === link, "Copy continues to copy only the URL", copied);
-    await context.close();
-  });
-
-  await runCase("App-generated setup link is accepted whether encode selects v1, v2, or v3", async () => {
-    const coach = await openAppPage(browser);
-    await clearSite(coach.page);
-    await persistState(coach.page, configuredState({
-      name: "Opaque coach program",
-      libraryId: "pr_mc",
-      log: [],
-      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
-    }));
-    await coach.page.reload({ waitUntil: "domcontentloaded" });
-    await dismissGates(coach.page);
-    await coach.page.click('nav button[data-view="program"]');
-    await coach.page.waitForSelector("#program.view.active");
-    await coach.page.click(SHARED_DOM.shareRow);
-    await waitForShareSetupLink(coach.page);
-    const generated = await coach.page.evaluate(() => {
-      const node = document.querySelector("#shareSetupLink");
-      const value = ((node && ("value" in node ? node.value : node.textContent)) || "").trim();
-      let fragment = "";
-      try { fragment = new URL(value).hash.replace(/^#setup=/, ""); } catch {}
-      return { value, fragment };
-    });
-    await coach.context.close();
-    assert(
-      !!generated.fragment && /^v\d+\./.test(generated.fragment),
-      "app-generated link uses the opaque encode prefix",
-      JSON.stringify(generated)
-    );
-    const { context, page } = await openAppPage(browser, { ua: IOS_UA });
-    await clearSite(page);
-    await page.goto(`${APP_INDEX}#setup=${generated.fragment}`, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
-    assert(gate.startVisible && !gate.sharedHidden, "app-generated encoded link opens the shared gate", JSON.stringify(gate));
-    assert(gate.startCap === SHARED_COPY.en.capOne("Opaque coach program"), "shared gate shows the generated program", gate.startCap);
-    await context.close();
-  });
-
-  await runCase("Shared Start stages an editable preview before activation", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    if (!encoded.ok) {
-      assert(false, "encode required for shared preview staging", JSON.stringify(encoded));
-      await context.close();
-      return;
-    }
-    await page.goto(setupUrl(encoded.value, "preview-before-activation"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const before = await page.evaluate(readDurableState);
-    await clickSharedStart(page, { activate: false });
-    const stagedDurable = await page.evaluate(readDurableState);
-    const staged = await page.evaluate(() => ({
-      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-      firstRun: !document.querySelector("#firstRun")?.classList.contains("hidden"),
-      activate: !!document.querySelector("#entryActivate") && !document.querySelector("#entryActivate").disabled,
-      edit: !!document.querySelector("#entryEdit") && !document.querySelector("#entryEdit").disabled,
-      source: document.querySelector(".entry__source")?.textContent || "",
-    }));
-    assert(
-      canonicalJson(stagedDurable.state) === canonicalJson(before.state),
-      "shared Start leaves durable active state byte-identical",
-      JSON.stringify({ before: before.state, staged: stagedDurable.state })
-    );
-    assert(staged.onboarding && !staged.firstRun, "shared Start opens the common preview", JSON.stringify(staged));
-    assert(staged.activate && staged.edit && /shared/i.test(staged.source), "shared preview exposes separate activation and edit actions", JSON.stringify(staged));
-    await page.click("#entryActivate");
-    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
-    const after = await page.evaluate(readDurableState);
-    assert(after.state?.programMeta?.onboarded === true, "shared preview activates only after its explicit CTA", JSON.stringify(after.state?.programMeta));
-    await context.close();
-  });
-
-  await runCase("Shared preview renders released metadata and exact, input-sensitive per-day duration", async () => {
-    const { context, page } = await openAppPage(browser);
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    assert(encoded.ok, "released representative payload encodes for the preview regression", JSON.stringify(encoded));
-    if (!encoded.ok) {
-      await context.close();
-      return;
-    }
-    await page.goto(setupUrl(encoded.value, "preview-released-facts"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    await clickSharedStart(page, { activate: false });
-    const rendered = await page.evaluate(() => ({
-      preview: window.__repforgeEntryState?.()?.result?.preview || null,
-      timing: window.RepForgeProgramCompiler?.RULES?.time || null,
-      review: document.querySelector("#onbBody")?.innerText || "",
-      days: [...document.querySelectorAll(".onb__day")].map((day) => day.textContent || ""),
-    }));
-    const estimates = rendered.preview?.days?.map((day) => ({ dayId: day.dayId, estimateMinutes: day.estimateMinutes })) || [];
-    const expected = expectedSharedPreviewMinutes(payload, rendered.timing);
-    assert(
-      JSON.stringify(estimates) === JSON.stringify(expected),
-      "shared preview estimates match released set counts, rest, and compiler timing contract",
-      JSON.stringify({ expected, actual: estimates, timing: rendered.timing }),
-    );
-    assert(
-      ["Peito", "Costas", "Quadríceps"].every((priority) => rendered.review.includes(priority)),
-      "shared preview renders released priority metadata",
-      rendered.review,
-    );
-    assert(
-      ["Máquina", "Cabo", "Halteres", "Barra"].every((equipment) => rendered.review.includes(equipment)),
-      "shared preview renders released equipment assumptions",
-      rendered.review,
-    );
-    assert(
-      rendered.days.length === expected.length && rendered.days.every((day) => /about \d+ minutes|cerca de \d+ minutos/.test(day)),
-      "shared preview renders each factual duration beside its day",
-      JSON.stringify(rendered.days),
-    );
-
-    const perturbed = cloneFixture(payload);
-    perturbed.settings.restSec = 60;
-    perturbed.program.exercises[0].sets += 1;
-    const perturbedEncoded = await encodeSharedPayload(page, perturbed);
-    assert(perturbedEncoded.ok, "perturbed timing payload encodes for the sensitivity regression", JSON.stringify(perturbedEncoded));
-    if (perturbedEncoded.ok) {
-      await clearSite(page);
-      await page.goto(setupUrl(perturbedEncoded.value, "preview-released-facts-perturbed"), { waitUntil: "domcontentloaded" });
-      await waitForFirstRun(page);
-      await clickSharedStart(page, { activate: false });
-      const perturbedRendered = await page.evaluate(() => ({
-        preview: window.__repforgeEntryState?.()?.result?.preview || null,
-        timing: window.RepForgeProgramCompiler?.RULES?.time || null,
-      }));
-      const perturbedEstimates = perturbedRendered.preview?.days?.map((day) => ({ dayId: day.dayId, estimateMinutes: day.estimateMinutes })) || [];
-      const perturbedExpected = expectedSharedPreviewMinutes(perturbed, perturbedRendered.timing);
-      assert(
-        JSON.stringify(perturbedEstimates) === JSON.stringify(perturbedExpected),
-        "shared preview recomputes exact estimates after rest and set-count changes",
-        JSON.stringify({ expected: perturbedExpected, actual: perturbedEstimates, timing: perturbedRendered.timing }),
-      );
-      assert(
-        perturbedEstimates.some((day, index) => day.estimateMinutes !== estimates[index]?.estimateMinutes),
-        "shared preview duration responds to changed timing inputs",
-        JSON.stringify({ before: estimates, after: perturbedEstimates }),
-      );
-    }
-    await context.close();
-  });
-
-  await runCase("Compiler-generated paired programs round-trip through shared build and validation", async () => {
-    const { context, page } = await openAppPage(browser);
-    await clearSite(page);
-    const generated = await page.evaluate(() => {
-      const compiler = window.RepForgeProgramCompiler;
-      const library = window.RepForgeExercises?.library || window.EXERCISE_LIBRARY || [];
-      const result = compiler?.compile({
-        schemaVersion: 2,
-        familyId: "balanced",
-        frequency: 3,
-        sessionMinutes: 90,
-        preferredRestSeconds: 120,
-        equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
-        environment: ["safe_pull", "training_support"],
-        loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
-        preferences: [],
-        dislikes: [],
-        history: [],
-        primaryMuscles: [],
-        deEmphasizedMuscles: [],
-        ignoredMuscles: [],
-        priorityMovements: [],
-        profile: "standard",
-        recentConsistency: "consistent",
-        reentryEnabled: false,
-        weekNumber: 1,
-      }, library);
-      if (!result || result.kind !== "compiled") return { kind: result?.kind || null };
-      return {
-        kind: result.kind,
-        program: result.program.map((row) => {
-          const entry = library.find((candidate) => candidate.id === row.libraryId);
-          return entry ? { ...row, primary: entry.primary, secondary: entry.secondary } : row;
-        }),
-        programStructure: result.programStructure,
-        relations: (result.relations || []).filter((relation) => relation.state === "attached").map((relation) => ({
-          schemaVersion: 1,
-          id: relation.id,
-          type: "paired_exposure",
-          version: 1,
-          movementId: `library:${relation.movementId}`,
-          members: [
-            { exerciseId: relation.heavySlotId, role: "heavy" },
-            { exerciseId: relation.volumeSlotId, role: "volume" },
-          ],
-        })),
-      };
-    });
-    assert(generated.kind === "compiled", "compiler produces a paired-program fixture", JSON.stringify(generated));
-    if (generated.kind !== "compiled") {
-      await context.close();
-      return;
-    }
-    await persistState(page, configuredState({
-      name: "Generated paired program",
-      onboarded: true,
-      program: generated.program,
-      log: [],
-      programHistory: [],
-      programMeta: {
-        daysPerWeek: 3,
-        programStructure: generated.programStructure,
-        progressionRelations: generated.relations,
-      },
-    }));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await dismissGates(page);
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active");
-    const roundTrip = await page.evaluate(() => {
-      try {
-        const payload = window.__repforgeSharedSetup?.build?.();
-        const checked = payload
-          ? window.RepForgeSharedSetup?.validate?.(payload, {
-              builtInIds: new Set((window.RepForgeExercises?.library || []).map((entry) => entry.id)),
-            })
-          : null;
-        return {
-          payload,
-          checked,
-          relationMovementIds: (payload?.program?.meta?.progressionRelations || []).map((relation) => relation.movementId),
-          pairedSlots: (payload?.program?.exercises || []).filter((exercise) => exercise.movementId).map((exercise) => exercise.movementId),
-        };
-      } catch (error) {
-        return { error: String(error) };
-      }
-    });
-    assert(!roundTrip.error && roundTrip.payload, "shared builder emits the generated paired program", JSON.stringify(roundTrip));
-    assert(roundTrip.checked?.ok === true, "generated paired payload passes strict shared validation", JSON.stringify(roundTrip.checked));
-    assert(
-      roundTrip.relationMovementIds.length > 0 && roundTrip.relationMovementIds.every((id) => !String(id).startsWith("library:")),
-      "shared paired relation identities use bare canonical library IDs",
-      JSON.stringify(roundTrip.relationMovementIds),
-    );
-    assert(
-      roundTrip.pairedSlots.length > 0 && roundTrip.pairedSlots.every((id) => !String(id).startsWith("library:")),
-      "shared paired slot identities use bare canonical library IDs",
-      JSON.stringify(roundTrip.pairedSlots),
-    );
-    await context.close();
-  });
-
-  await runCase("Full compiler-generated v3 payload retains safe provenance and modifiers", async () => {
-    const { context, page } = await openAppPage(browser);
-    await clearSite(page);
-    const generated = await page.evaluate(() => {
-      const compiler = window.RepForgeProgramCompiler;
-      const library = window.RepForgeExercises?.library || window.EXERCISE_LIBRARY || [];
-      const compilerContext = {
-        schemaVersion: 2,
-        familyId: "balanced",
-        frequency: 4,
-        sessionMinutes: 90,
-        preferredRestSeconds: 120,
-        equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
-        environment: ["safe_pull", "training_support"],
-        loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
-        preferences: [],
-        dislikes: [],
-        history: [],
-        primaryMuscles: [],
-        deEmphasizedMuscles: [],
-        ignoredMuscles: [],
-        priorityMovements: [],
-        profile: "standard",
-        recentConsistency: "consistent",
-        reentryEnabled: false,
-        weekNumber: 1,
-      };
-      const result = compiler?.compile(compilerContext, library);
-      if (!result || result.kind !== "compiled") return { kind: result?.kind || null };
-      return {
-        kind: result.kind,
-        rows: result.program.length,
-        program: result.program.map((row) => {
-          const entry = library.find((candidate) => candidate.id === row.libraryId);
-          return entry ? { ...row, primary: entry.primary, secondary: entry.secondary } : row;
-        }),
-        programStructure: result.programStructure,
-        compilerContext,
-        relations: (result.relations || []).filter((relation) => relation.state === "attached").map((relation) => ({
-          schemaVersion: 1,
-          id: relation.id,
-          type: "paired_exposure",
-          version: 1,
-          movementId: `library:${relation.movementId}`,
-          members: [
-            { exerciseId: relation.heavySlotId, role: "heavy" },
-            { exerciseId: relation.volumeSlotId, role: "volume" },
-          ],
-        })),
-        modifier: {
-          id: "pending-modifier",
-          version: 1,
-          compatibleStrategies: ["range@1"],
-          weekNumber: 1,
-          target: "repMin",
-          params: { pending: true },
-        },
-      };
-    });
-    assert(generated.kind === "compiled" && generated.rows === 16,
-      "full compiler fixture is the real 16-row producer shape", JSON.stringify(generated));
-    if (generated.kind !== "compiled" || generated.rows !== 16) {
-      await context.close();
-      return;
-    }
-    await persistState(page, configuredState({
-      name: "Full compiler v3 program",
-      program: generated.program,
-      log: [],
-      programHistory: [],
-      programMeta: {
-        daysPerWeek: 4,
-        splitType: "upper_lower",
-        goal: "strength_hypertrophy",
-        experience: "advanced",
-        equipment: ["machines", "cables", "dumbbells", "barbells"],
-        priorityMuscles: ["Chest", "Back", "Quads"],
-        sessionLength: "long",
-        mesocycleLengthWeeks: 8,
-        programStructure: generated.programStructure,
-        progressionRelations: generated.relations,
-        progressionModifiers: [generated.modifier],
-        compilerContext: generated.compilerContext,
-        entrySource: { route: "recommend", fingerprint: "full-v3" },
-      },
-    }));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await dismissGates(page);
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active");
-    const roundTrip = await page.evaluate(async () => {
-      try {
-        const payload = window.__repforgeSharedSetup?.build?.();
-        const checked = payload
-          ? window.RepForgeSharedSetup?.validate?.(payload, {
-              builtInIds: new Set((window.RepForgeExercises?.library || []).map((entry) => entry.id)),
-            })
-          : null;
-        const encoded = payload && window.RepForgeSharedSetup?.encode
-          ? await window.RepForgeSharedSetup.encode(payload, {
-              builtInIds: new Set((window.RepForgeExercises?.library || []).map((entry) => entry.id)),
-            })
-          : null;
-        return { payload, checked, encoded };
-      } catch (error) {
-        return { error: String(error) };
-      }
-    });
-    assert(!roundTrip.error && roundTrip.payload, "full compiler state crosses the shared builder", JSON.stringify(roundTrip));
-    assert(roundTrip.payload?.program?.exercises?.length === 16,
-      "full compiler v3 payload retains all 16 exercises", JSON.stringify(roundTrip.payload?.program));
-    assert(roundTrip.checked?.ok === true && roundTrip.encoded?.ok === true && roundTrip.encoded.value.startsWith("v3."),
-      "full compiler v3 payload passes strict validation and selects the v3 envelope", JSON.stringify(roundTrip));
-    assert(
-      JSON.stringify(roundTrip.payload?.program?.meta?.programStructure) === JSON.stringify(generated.programStructure) &&
-        JSON.stringify(roundTrip.payload?.program?.meta?.progressionModifiers) === JSON.stringify([generated.modifier]),
-      "full compiler v3 payload retains exact safe structure and nonempty modifier",
-      JSON.stringify(roundTrip.payload?.program?.meta),
-    );
-    assert(
-      JSON.stringify(roundTrip.payload?.program?.meta?.progressionRelations) === JSON.stringify(generated.relations.map((relation) => ({
-        ...relation,
-        movementId: relation.movementId.replace(/^library:/, ""),
-      }))),
-      "full compiler v3 payload retains exact paired relation identities",
-      JSON.stringify(roundTrip.payload?.program?.meta?.progressionRelations),
-    );
-    assert(
-      !Object.prototype.hasOwnProperty.call(roundTrip.payload?.program?.meta || {}, "compilerContext") &&
-        !Object.prototype.hasOwnProperty.call(roundTrip.payload?.program?.meta || {}, "entrySource") &&
-        !Object.prototype.hasOwnProperty.call(roundTrip.payload || {}, "log") &&
-        !Object.prototype.hasOwnProperty.call(roundTrip.payload || {}, "programHistory"),
-      "full compiler v3 payload excludes private compiler and lifecycle state",
-      JSON.stringify(roundTrip.payload),
-    );
-    await context.close();
-  });
-
-  await runCase("Valid v2 fragment stages cookie bytes, drops the hash, and accepts", async () => {
-    const { context, page } = await openAppPage(browser, {
-      ua: ANDROID_UA,
-      standalone: true,
-    });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const named = cloneFixture(MINIMAL_PAYLOAD);
-    named.program.meta.name = "V2 staged program";
-    const v2 = await resolveV2Envelope(page, [named]);
-    assert(!!v2, "compact payload selects a native v2 envelope");
-    if (!v2) { await context.close(); return; }
-    await page.goto(setupUrl(v2.value, "v2-accept"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const staged = await page.evaluate(readDurableState);
-    const gate = await page.evaluate(sharedGateSnapshot);
-    const hook = await page.evaluate(readSharedHook);
-    assert(staged.cookie === v2.value, "valid v2 fragment stages the exact cookie bytes", JSON.stringify({ cookie: staged.cookie, v2: v2.value }));
-    assert(!/#setup=/.test(staged.hash), "valid v2 fragment is removed after capture", staged.hash);
-    assert(gate.startVisible && hook.status === "ready", "valid v2 fragment renders the shared gate", JSON.stringify({ gate, hook }));
-    assert(
-      gate.startCap === SHARED_COPY.en.capOne(v2.payload.program.meta.name),
-      "v2 gate names the proposed program",
-      gate.startCap
-    );
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForFunction(() => document.querySelector("#firstRun")?.classList.contains("hidden"), null, { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(400);
-    const after = await page.evaluate(readDurableState);
-    assert(after.state?.programMeta?.onboarded === true, "v2 acceptance onboards atomically", JSON.stringify(after.state?.programMeta));
-    assert(after.state?.programMeta?.name === v2.payload.program.meta.name, "v2 acceptance persists the program name", after.state?.programMeta?.name);
-    assert(!after.cookie, "standalone v2 acceptance clears the handoff cookie", after.cookie);
-    await context.close();
-  });
-
-  await runCase("Outbound legacy aliases become current library IDs", async () => {
-    const { context, page } = await openAppPage(browser);
-    await clearSite(page);
-    await persistState(page, configuredState({
-      libraryId: "dl_mc",
-      program: [{
-        id: "ex-legacy",
-        name: "Seated leg curl",
-        day: "Day 1",
-        order: 1,
-        sets: 3,
-        min: 8,
-        max: 12,
-        primary: "Hamstrings",
-        secondary: "",
-        libraryId: "dl_mc",
-      }],
-      log: [],
-    }));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => {
-      try { return !!window.__repforgeSharedSetup?.build?.(); } catch { return false; }
-    }, null, { timeout: 15000 });
-    await dismissGates(page);
-    const built = await page.evaluate(() => window.__repforgeSharedSetup?.build?.() || null);
-    const ids = (built?.program?.exercises || []).map((ex) => ex.libraryId);
-    assert(built != null, "builder is available for a legacy-alias program");
-    assert(ids.includes("lr_mc") && !ids.includes("dl_mc"), "generated payload emits lr_mc, not dl_mc", JSON.stringify(ids));
-    await context.close();
-  });
-
-  await runCase("Fresh English link: shared gate, starter snapshot only", async () => {
-    const { context, page } = await openAppPage(browser, { ua: IOS_UA });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    assert(encoded.ok === true, "minimal English payload encodes before navigation", JSON.stringify(encoded));
-    if (!encoded.ok) {
-      await context.close();
-      return;
-    }
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
-    assert(gate.gate && gate.hero, "first-run hero remains on a shared link", JSON.stringify(gate));
-    assert(gate.install, "iOS Safari still offers the install card", JSON.stringify(gate));
-    assert(gate.standardHidden || !gate.createVisible, "Create is hidden in shared mode", JSON.stringify(gate));
-    assert(!gate.importVisible && !gate.createFocusable && !gate.importFocusable, "Create/Import are not exposed", JSON.stringify(gate));
-    assert(gate.startVisible && !gate.sharedHidden, "Start this program is the only program action", JSON.stringify(gate));
-    assert(gate.startTitle === SHARED_COPY.en.title, "shared row title is Start this program", gate.startTitle);
-    assert(gate.startCap === SHARED_COPY.en.capOne("Coach program"), "caption uses cap_one", gate.startCap);
-    assert(gate.lede === SHARED_COPY.en.lede, "shared install-available lede", gate.lede);
-    assert(!gate.onboarding, "the generator is not opened", JSON.stringify(gate));
-    const durable = await page.evaluate(readDurableState);
-    const absence = sharedPayloadAbsent(durable.state, MINIMAL_PAYLOAD);
-    assert(absence.ok, "durable state has no shared program/settings before acceptance", JSON.stringify(absence));
-    assert(durable.state?.programMeta?.onboarded !== true, "starter snapshot is not onboarded", JSON.stringify(durable.state?.programMeta));
-    assert(!/#setup=/.test(durable.hash), "valid fragment is removed after capture", durable.hash);
-    const hook = await page.evaluate(readSharedHook);
-    assert(hook.present && hook.status === "ready", "transient hook reports ready", JSON.stringify(hook));
-    await context.close();
-  });
-
-  await runCase("Portuguese link switches gate language before acceptance", async () => {
-    const { context, page } = await openAppPage(browser, { ua: IOS_UA, locale: "en-US" });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(REPRESENTATIVE_PAYLOAD));
-    assert(encoded.ok === true, "representative PT payload encodes", JSON.stringify(encoded));
-    if (!encoded.ok) {
-      await context.close();
-      return;
-    }
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
-    assert(gate.i18n === "pt" || /^pt/i.test(gate.langAttr || ""), "runtime language is Portuguese before accept", JSON.stringify(gate));
-    assert(gate.lede === SHARED_COPY.pt.lede, "PT shared lede before accept", gate.lede);
-    assert(gate.startTitle === SHARED_COPY.pt.title, "PT shared title before accept", gate.startTitle);
-    assert(
-      gate.startCap === SHARED_COPY.pt.capMany("Força compartilhada", 4),
-      "PT caption uses cap_many",
-      gate.startCap
-    );
-    const durable = await page.evaluate(readDurableState);
-    assert(
-      durable.state?.settings?.lang !== "pt" || durable.state?.programMeta?.onboarded !== true,
-      "shared lang is not durable before acceptance",
-      JSON.stringify({ lang: durable.state?.settings?.lang, onboarded: durable.state?.programMeta?.onboarded })
-    );
-    await context.close();
-  });
-
-  await runCase("Continue in Safari keeps the shared row", async () => {
-    const { context, page } = await openAppPage(browser, { ua: IOS_UA });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    if (!encoded.ok) {
-      assert(false, "encode required for continue-in-Safari", JSON.stringify(encoded));
-      await context.close();
-      return;
-    }
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    await page.click("#firstRunContinue");
-    await page.waitForTimeout(200);
-    const after = await page.evaluate(sharedGateSnapshot);
-    assert(after.gate && after.startVisible, "Continue leaves the shared action standing", JSON.stringify(after));
-    assert(!after.install && !after.continueShown, "Continue removes only the install offer", JSON.stringify(after));
-    assert(!after.createVisible && !after.importVisible, "Create/Import stay hidden after Continue", JSON.stringify(after));
-    const durable = await page.evaluate(readDurableState);
-    assert(durable.cookie, "browser acceptance keeps the handoff cookie until expiry", durable.cookie);
-    await context.close();
-  });
-
-  await runCase("Pre-value Chrome install capability leaves only the shared action", async () => {
-    const { context, page } = await openAppPage(browser, { ua: ANDROID_UA });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    if (!encoded.ok) {
-      assert(false, "encode required for Chrome shared install", JSON.stringify(encoded));
-      await context.close();
-      return;
-    }
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    await page.evaluate(() => window.__fireInstall());
-    const gated = await page.evaluate(sharedGateSnapshot);
-    assert(gated.gate && gated.startVisible, "captured Chrome capability keeps the shared row", JSON.stringify(gated));
-    assert(!gated.install, "pre-value Chrome does not promote installation", JSON.stringify(gated));
-    assert(!gated.createVisible, "Create stays hidden on the shared route", JSON.stringify(gated));
-    const durable = await page.evaluate(readDurableState);
-    assert(durable.cookie, "suppressed Chrome promotion preserves the setup handoff cookie", durable.cookie);
-    await context.close();
-  });
-
-  await runCase("Cookie-only standalone reconstructs the shared gate", async () => {
-    const { context, page } = await openAppPage(browser, { ua: ANDROID_UA });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    if (!encoded.ok) {
-      assert(false, "encode required for cookie handoff", JSON.stringify(encoded));
-      await context.close();
-      return;
-    }
-    const written = await page.evaluate(async (value) => {
-      const api = window.RepForgeSharedSetup;
-      if (!api?.writeHandoffCookie) {
-        document.cookie = `repforge_setup_v1=${value}; path=${new URL("index.html", location.href).pathname}; max-age=604800; SameSite=Lax`;
-        return { fallback: true };
-      }
-      api.writeHandoffCookie(value);
-      return { fallback: false, read: api.readHandoffCookie?.() || null, path: api.handoffCookiePath?.() || null };
-    }, encoded.value);
-    await context.close();
-
-    const standalone = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
-    await clearSite(standalone.page);
-    await standalone.page.evaluate((value) => {
-      const api = window.RepForgeSharedSetup;
-      if (api?.writeHandoffCookie) api.writeHandoffCookie(value);
-      else {
-        document.cookie = `repforge_setup_v1=${value}; path=${new URL("index.html", location.href).pathname}; max-age=604800; SameSite=Lax`;
-      }
-    }, encoded.value);
-    await standalone.page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(standalone.page);
-    const gate = await standalone.page.evaluate(sharedGateSnapshot);
-    const hook = await standalone.page.evaluate(readSharedHook);
-    assert(gate.startVisible && gate.gate, "standalone cookie launch shows the shared gate", JSON.stringify({ gate, written, hook }));
-    assert(!gate.install && !gate.continueShown, "standalone shared gate has no install section", JSON.stringify(gate));
-    assert(gate.lede === SHARED_COPY.en.ledeInstalled, "standalone shared lede is installed copy", gate.lede);
-    assert(hook.source === "cookie" || hook.status === "ready", "hook source is the handoff cookie", JSON.stringify(hook));
-    await standalone.context.close();
-  });
-
-  await runCase("Start persists allowlisted fields, exclusions, and fresh identities", async () => {
-    const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const dirty = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    dirty.log = [{ session: "coach-log", date: "2020-01-01", load: 999 }];
-    dirty.programHistory = [{ id: "coach-history", program: [] }];
-    dirty.settings.notify = { enabled: true, timer: false, session: false, unfinished: false, missed: false };
-    dirty.settings.voiceInputEnabled = true;
-    dirty.settings.lastExport = "2020-01-01T00:00:00.000Z";
-    dirty.program.meta.id = "coach-program-id";
-    dirty.program.meta.started = "2020-01-01";
-    dirty.program.meta.created = "2020-01-01T00:00:00.000Z";
-    dirty.program.meta.onboarded = true;
-    dirty.program.exercises[0].id = "coach-slot-id";
-    dirty.program.exercises[0].movementId = "coach-movement";
-    const encoded = await encodeSharedPayload(page, dirty);
-    const fragment = encoded.ok ? encoded.value : wireFragment(dirty);
-    await page.goto(setupUrl(fragment, "accept"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const before = await page.evaluate(readDurableState);
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForFunction(() => document.querySelector("#firstRun")?.classList.contains("hidden"), null, { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(400);
-    const after = await page.evaluate(readDurableState);
-    const gate = await page.evaluate(sharedGateSnapshot);
-    const state = after.state || {};
-    assert(state.programMeta?.onboarded === true, "acceptance onboards the recipient", JSON.stringify(state.programMeta));
-    assert(state.programMeta?.name === "Força compartilhada", "program name persists", state.programMeta?.name);
-    assert(state.programMeta?.daysPerWeek === 4 && state.programMeta?.mesocycleLengthWeeks === 8, "allowlisted metadata persists", JSON.stringify(state.programMeta));
-    assert(
-      state.settings?.lang === "pt" &&
-        state.settings?.rirMode === "effort" &&
-        state.settings?.restSec === 165 &&
-        state.settings?.jumpPct === 3.5 &&
-        state.settings?.minJump === 1.25 &&
-        state.settings?.unit === "kg",
-      "all eight allowlisted settings persist, including lang",
-      JSON.stringify(state.settings)
-    );
-    assert((state.log || []).length === 0, "payload logs do not persist", JSON.stringify(state.log));
-    assert((state.programHistory || []).length === 0, "payload history does not persist", JSON.stringify(state.programHistory));
-    assert(state.settings?.notify?.enabled !== true, "notification permission stays device-owned", JSON.stringify(state.settings?.notify));
-    assert(state.settings?.voiceInputEnabled !== true, "voice preference is not imported", String(state.settings?.voiceInputEnabled));
-    assert(state.programMeta?.id !== "coach-program-id", "program id is minted locally", state.programMeta?.id);
-    assert(state.programMeta?.started !== "2020-01-01", "started date is local", state.programMeta?.started);
-    assert(!(state.program || []).some((ex) => ex.id === "coach-slot-id"), "exercise slot ids are minted locally", JSON.stringify((state.program || []).map((ex) => ex.id)));
-    assert((state.customExercises || []).some((ex) => ex.id === "custom:coach-row"), "embedded custom definition is committed", JSON.stringify(state.customExercises));
-    assert(gate.logActive && !gate.gate, "acceptance lands on Today", JSON.stringify(gate));
-    const toast = await page.evaluate(() => {
-      const el = document.querySelector("#toast");
-      return el && !el.classList.contains("hidden") ? el.textContent : null;
-    });
-    assert(!toast || toast === SHARED_COPY.pt.saved || toast === SHARED_COPY.en.saved, "success uses the existing onboarding toast, not a second dialog", toast);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(500);
-    const reloaded = await page.evaluate(sharedGateSnapshot);
-    assert(!reloaded.gate, "the gate stays closed after reload", JSON.stringify(reloaded));
-    const cookieAfter = await page.evaluate(readDurableState);
-    assert(!cookieAfter.cookie, "standalone acceptance clears the handoff cookie", cookieAfter.cookie);
-    assert(before.state?.programMeta?.onboarded !== true, "pre-accept snapshot was not already onboarded", JSON.stringify(before.state?.programMeta));
-    await context.close();
-  });
-
-  await runCase("Double click produces one transition", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    if (!encoded.ok) {
-      assert(false, "encode required for double-click", JSON.stringify(encoded));
-      await context.close();
-      return;
-    }
-    await page.goto(setupUrl(encoded.value, "double"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const beforeRev = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}")._storageRevision || 0);
-    await page.evaluate(() => {
-      const btn = document.querySelector("#firstRunSharedStart");
-      btn?.click();
-      btn?.click();
-    });
-    await page.waitForSelector("#entryActivate", { timeout: 10000 });
-    await page.click("#entryActivate");
-    await page.waitForTimeout(1200);
-    const after = await page.evaluate(() => {
-      const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-      return {
-        onboarded: state.programMeta?.onboarded,
-        ids: [state.programMeta?.id],
-        revision: state._storageRevision,
-        name: state.programMeta?.name,
-      };
-    });
-    assert(after.onboarded === true && after.name === "Coach program", "one Start press commits the shared program", JSON.stringify(after));
-    assert(after.revision === beforeRev + 1 || after.revision > beforeRev, "busy guard yields a single durable transition", JSON.stringify({ beforeRev, after }));
-    await context.close();
-  });
-
-  await runCase("Injected replica success and total write failure", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    if (!encoded.ok) {
-      assert(false, "encode required for persistence adapters", JSON.stringify(encoded));
-      await context.close();
-      return;
-    }
-    await page.goto(setupUrl(encoded.value, "replica-local"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-
-    const localOnly = await page.evaluate(async (key) => {
-      const hook = window.__repforgeSharedSetup;
-      if (!hook?.commit) return { missing: true };
-      const io = {
-        writeLocal(snapshot) { localStorage.setItem(key, JSON.stringify(snapshot)); },
-        async writeIdb() { throw new Error("idb fail"); },
-      };
-      const staged = await hook.commit(io);
-      const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io });
-      const state = JSON.parse(localStorage.getItem(key) || "{}");
-      return { staged, result, name: state.programMeta?.name, onboarded: state.programMeta?.onboarded,
-        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null };
-    }, KEY);
-    assert(!localOnly.missing, "commit hook accepts an explicit adapter", JSON.stringify(localOnly));
-    assert(
-      localOnly.staged?.staged === true && localOnly.result?.localOk && !localOnly.result?.idbOk &&
-      localOnly.result?.kind === "degraded_committed" && localOnly.result?.accepted === true &&
-      localOnly.result?.committed === false && localOnly.onboarded === true &&
-      localOnly.onboarding && localOnly.setupDraft,
-      "local-only activation remains open until replica recovery settles",
-      JSON.stringify(localOnly)
-    );
-    await context.close();
-
-    const idbPage = await openAppPage(browser, { standalone: true });
-    await clearSite(idbPage.page);
-    await idbPage.page.reload({ waitUntil: "domcontentloaded" });
-    const encoded2 = await encodeSharedPayload(idbPage.page, cloneFixture(MINIMAL_PAYLOAD));
-    await idbPage.page.goto(setupUrl(encoded2.value, "replica-idb"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(idbPage.page);
-    const idbOnly = await idbPage.page.evaluate(async (key) => {
-      const hook = window.__repforgeSharedSetup;
-      if (!hook?.commit) return { missing: true };
-      const io = {
-        writeLocal() { throw new Error("ls fail"); },
-        async writeIdb(snapshot) {
-          const db = await new Promise((res, rej) => {
-            const r = indexedDB.open("repforge", 1);
-            r.onupgradeneeded = () => r.result.createObjectStore("kv");
-            r.onsuccess = () => res(r.result);
-            r.onerror = () => rej(r.error);
-          });
-          await new Promise((res, rej) => {
-            const tx = db.transaction("kv", "readwrite");
-            tx.objectStore("kv").put(structuredClone(snapshot), key);
-            tx.oncomplete = () => res();
-            tx.onerror = () => rej(tx.error);
-          });
-          db.close();
-        },
-      };
-      const staged = await hook.commit(io);
-      const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io });
-      return { staged, result, hook: window.__repforgeSharedSetup?.status,
-        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null };
-    }, KEY);
-    assert(idbOnly.staged?.staged === true && idbOnly.result?.idbOk && !idbOnly.result?.localOk &&
-      idbOnly.result?.kind === "degraded_committed" && idbOnly.result?.accepted === true &&
-      idbOnly.result?.committed === false && idbOnly.onboarding && idbOnly.setupDraft,
-    "IDB-only activation remains open until replica recovery settles", JSON.stringify(idbOnly));
-    await idbPage.context.close();
-
-    const deferredPage = await openAppPage(browser, { standalone: true });
-    await clearSite(deferredPage.page);
-    await deferredPage.page.reload({ waitUntil: "domcontentloaded" });
-    const encodedDeferred = await encodeSharedPayload(deferredPage.page, cloneFixture(MINIMAL_PAYLOAD));
-    await deferredPage.page.goto(setupUrl(encodedDeferred.value, "finalization-deferred"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(deferredPage.page);
-    const deferredActivation = await deferredPage.page.evaluate(async (draftKey) => {
-      const hook = window.__repforgeSharedSetup;
-      const staged = await hook.commit();
-      const originalRemoveItem = Storage.prototype.removeItem;
-      Storage.prototype.removeItem = function (key) {
-        if (String(key).startsWith(`${draftKey}:closing:`)) throw new Error("injected closing-marker failure");
-        return originalRemoveItem.apply(this, arguments);
-      };
-      let result;
-      try {
-        result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true });
-      } finally {
-        Storage.prototype.removeItem = originalRemoveItem;
-      }
-      const toast = document.querySelector("#toast");
-      return {
-        staged,
-        result,
-        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-        preview: !!document.querySelector("#entryActivate"),
-        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
-        toast: toast && !toast.classList.contains("hidden") ? toast.textContent : null,
-        closingKeys: Object.keys(localStorage).filter((key) => key.startsWith(`${draftKey}:closing:`)),
-      };
-    }, DRAFT);
-    assert(deferredActivation.staged?.staged === true &&
-      deferredActivation.result?.kind === "deferred_pending" &&
-      deferredActivation.result?.committed === false && deferredActivation.result?.settled === false &&
-      deferredActivation.result?.finalizationPending === true && deferredActivation.onboarding &&
-      deferredActivation.preview && deferredActivation.setupDraft && deferredActivation.closingKeys.length === 1 &&
-      !/program saved/i.test(deferredActivation.toast || ""),
-    "deferred activation keeps its reviewed candidate and setup draft open for recovery",
-    JSON.stringify(deferredActivation));
-    await deferredPage.page.click("#entryActivate");
-    await deferredPage.page.waitForTimeout(400);
-    const settledActivation = await deferredPage.page.evaluate(async (draftKey) => {
-      const before = window.__repforgeWorkoutDraft.read().raw;
-      await window.__repforgeEnterWorkout({});
-      const current = window.__repforgeWorkoutDraft.current();
-      const dispatched = current ? await window.__repforgeWorkoutDraft.dispatch("setSessionNotes", {
-        value: "post-setup closing-marker proof",
-      }) : null;
-      await window.__repforgeWorkoutDraft.flush();
-      return {
-        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1"),
-        before,
-        dispatched,
-        canonical: localStorage.getItem(draftKey),
-        checkpoint: localStorage.getItem(`${draftKey}:v2-checkpoint`),
-        artifacts: Object.keys(localStorage).filter((key) =>
-          key.startsWith("repforge_pending_v1:") || key.startsWith(`${draftKey}:closing:`) ||
-          key.startsWith(`${draftKey}:pending:`)),
-      };
-    }, DRAFT);
-    assert(!settledActivation.onboarding && settledActivation.setupDraft === null &&
-      settledActivation.artifacts.length === 0,
-    "an immediate retry removes the orphan closing marker before closing review",
-    JSON.stringify(settledActivation));
-    assert(settledActivation.dispatched?.status === "applied" &&
-      settledActivation.canonical?.includes("post-setup closing-marker proof") &&
-      settledActivation.checkpoint?.includes("post-setup closing-marker proof"),
-    "the next DraftV2 command reaches canonical storage and its checkpoint",
-    JSON.stringify(settledActivation));
-    await deferredPage.context.close();
-
-    const failPage = await openAppPage(browser, { standalone: true });
-    await clearSite(failPage.page);
-    await failPage.page.reload({ waitUntil: "domcontentloaded" });
-    const encoded3 = await encodeSharedPayload(failPage.page, cloneFixture(MINIMAL_PAYLOAD));
-    await failPage.page.goto(setupUrl(encoded3.value, "replica-failure"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(failPage.page);
-    const failed = await failPage.page.evaluate(async () => {
-      const hook = window.__repforgeSharedSetup;
-      if (!hook?.commit) return { missing: true };
-      const staged = await hook.commit();
-      const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io: {
-        writeLocal() { throw new Error("ls fail"); },
-        async writeIdb() { throw new Error("idb fail"); },
-      } });
-      const activate = document.querySelector("#entryActivate");
-      const toast = document.querySelector("#toast");
-      const failure = {
-        staged,
-        result,
-        gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
-        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-        preview: !!activate,
-        onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded,
-        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
-        enabled: activate && !activate.disabled,
-        busy: activate?.getAttribute("aria-busy") === "true",
-        status: hook.status,
-        toast: toast && !toast.classList.contains("hidden") ? toast.textContent : null,
-      };
-      const retry = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true });
-      const afterRetry = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-      const retryState = {
-        onboarded: afterRetry.programMeta?.onboarded,
-        history: afterRetry.programHistory?.length,
-        revision: afterRetry._storageRevision,
-        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1"),
-        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-      };
-      const duplicate = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true });
-      const afterDuplicate = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-      return { failure, retry, retryState, duplicate, afterDuplicate: {
-        revision: afterDuplicate._storageRevision,
-        history: afterDuplicate.programHistory?.length,
-      } };
-    });
-    assert(failed.failure?.staged?.staged === true && failed.failure.onboarding && failed.failure.preview &&
-      failed.failure.onboarded !== true && failed.failure.setupDraft && failed.failure.enabled && !failed.failure.busy &&
-      failed.failure.result?.kind === "rejected_failure" && failed.failure.result?.accepted === false &&
-      /storage/i.test(failed.failure.toast || ""),
-    "total activation write failure keeps the editable preview", JSON.stringify(failed));
-    assert(failed.retry?.localOk && failed.retry?.idbOk && failed.retryState?.onboarded === true &&
-      failed.retryState.history === 0 && failed.retryState.setupDraft === null && !failed.retryState.onboarding,
-    "a later retry activates exactly once and consumes the staged candidate", JSON.stringify(failed));
-    assert(failed.duplicate == null && failed.afterDuplicate?.revision === failed.retryState?.revision &&
-      failed.afterDuplicate?.history === failed.retryState?.history,
-    "a post-success retry cannot duplicate activation or archive", JSON.stringify(failed));
-    await failPage.context.close();
-  });
-
-  await runCase("In-progress draft requires destructive confirmation", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    if (!encoded.ok) {
-      assert(false, "encode required for draft confirmation", JSON.stringify(encoded));
-      await context.close();
-      return;
-    }
-    await page.goto(setupUrl(encoded.value, "draft-confirm"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    await page.evaluate((d) => {
-      localStorage.setItem("repforge_draft_v1", JSON.stringify({
-        __day: "Day 1",
-        __touched: ["ex1_1"],
-        ex1_1_load: "60",
-        ex1_1_reps: "8",
-        ex1_1_rir: "2",
-      }));
-    }, DRAFT);
-    if (!(await clickSharedStart(page, { activate: false }))) {
-      await context.close();
-      return;
-    }
-    page.once("dialog", (dialog) => dialog.dismiss());
-    await page.click("#entryActivate");
-    await page.waitForTimeout(400);
-    const after = await page.evaluate(() => ({
-      draft: localStorage.getItem("repforge_draft_v1"),
-      onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded,
-      preview: !!document.querySelector("#entryActivate"),
-      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-    }));
-    assert(after.onboarding && after.preview, "cancelling the draft confirm leaves the shared preview", JSON.stringify(after));
-    assert(after.onboarded !== true, "cancellation does not commit", JSON.stringify(after));
-    assert(/ex1_1_load/.test(after.draft || ""), "the in-progress draft is preserved", after.draft);
-    await context.close();
-  });
-
-  await runCase("Cancel on the shared preview asks keep or discard and never returns to the gate silently", async () => {
-    /* Plan 064 R4c, owner decision Q-C: the preview's Cancel keeps the
-       keep-or-discard question, drawn as the entry dialog. Going back to the
-       gate would undo the lifter's Start without erasing the staged draft, so
-       it is not offered. */
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    if (!encoded.ok) {
-      assert(false, "encode required for the cancel dialog", JSON.stringify(encoded));
-      await context.close();
-      return;
-    }
-    await page.goto(setupUrl(encoded.value, "cancel-dialog"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    if (!(await clickSharedStart(page, { activate: false }))) {
-      await context.close();
-      return;
-    }
-    const snapshot = () => page.evaluate(() => {
-      const dialog = document.querySelector("#entryDialog");
-      return {
-        open: !!dialog?.open,
-        title: dialog?.querySelector(".entry-dialog__title")?.textContent || "",
-        actions: [...(dialog?.querySelectorAll(".entry-dialog__actions button") || [])].map((button) => button.id),
-        gate: !!document.querySelector("#firstRun:not(.hidden)"),
-        preview: !!document.querySelector("#onboarding.active #entryActivate"),
-        onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true,
-        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
-        focus: document.activeElement?.id || "",
-      };
-    });
-    await page.click("#onbCancel");
-    await page.waitForSelector("#entryDialog[open] #entryCancelKeep", { timeout: 5000 });
-    const asking = await snapshot();
-    assert(asking.open && JSON.stringify(asking.actions) === JSON.stringify(["entryCancelKeep", "entryCancelDiscard", "entryCancelContinue"]),
-      "Cancel on the shared preview asks keep, discard or continue", JSON.stringify(asking));
-    assert(!asking.gate && asking.preview && !asking.onboarded,
-      "while it asks, the preview stays and the gate does not come back", JSON.stringify(asking));
-    await page.click("#entryCancelContinue");
-    await page.waitForFunction(() => !document.querySelector("#entryDialog")?.open, null, { timeout: 5000 });
-    const continued = await snapshot();
-    assert(!continued.open && continued.preview && !continued.gate && continued.setupDraft && continued.focus === "onbCancel",
-      "continuing closes the dialog on the same preview and returns focus to Cancel", JSON.stringify(continued));
-    await page.click("#onbCancel");
-    await page.waitForSelector("#entryDialog[open] #entryCancelDiscard", { timeout: 5000 });
-    await page.click("#entryCancelDiscard");
-    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
-    const discarded = await snapshot();
-    assert(!discarded.setupDraft && !discarded.onboarded,
-      "discarding drops the staged draft and activates nothing", JSON.stringify(discarded));
-    await context.close();
-  });
-
-  await runCase("Invalid, unsupported, and oversized sources fail closed", async () => {
-    const cases = [
-      ["unsupported-version", INVALID_DECODE_INPUTS["unsupported-version"], SHARED_COPY.en.unsupported],
-      ["invalid-base64", INVALID_DECODE_INPUTS["invalid-base64"], SHARED_COPY.en.invalid],
-      ["invalid-gzip", INVALID_DECODE_INPUTS["invalid-gzip"], SHARED_COPY.en.invalid],
-      ["encoded-too-large", INVALID_DECODE_INPUTS["encoded-too-large"], SHARED_COPY.en.invalid],
-      ["invalid-schema", wireFragment(INVALID_PAYLOADS["invalid-schema"]), SHARED_COPY.en.invalid],
-      ["unknown-library-id", wireFragment({
-        ...cloneFixture(MINIMAL_PAYLOAD),
-        program: {
-          ...MINIMAL_PAYLOAD.program,
-          exercises: [{ ...MINIMAL_PAYLOAD.program.exercises[0], libraryId: "not_a_real_id" }],
-        },
-      }), SHARED_COPY.en.invalid],
-      ["missing-custom", wireFragment({
-        ...cloneFixture(MINIMAL_PAYLOAD),
-        program: {
-          ...MINIMAL_PAYLOAD.program,
-          exercises: [{ ...MINIMAL_PAYLOAD.program.exercises[0], libraryId: "custom:missing" }],
-          customExercises: [],
-        },
-      }), SHARED_COPY.en.invalid],
-    ];
-    for (const [label, fragment, message] of cases) {
-      const { context, page } = await openAppPage(browser, { ua: IOS_UA });
-      await clearSite(page);
-      await page.evaluate((value) => {
-        document.cookie = `repforge_setup_v1=${value}; path=${new URL("index.html", location.href).pathname}; max-age=604800; SameSite=Lax`;
-      }, fragment);
-      await page.goto(`${APP_INDEX}#setup=${fragment}`, { waitUntil: "domcontentloaded" });
-      await waitForFirstRun(page).catch(() => {});
-      const gate = await page.evaluate(sharedGateSnapshot);
-      const durable = await page.evaluate(readDurableState);
-      const absence = sharedPayloadAbsent(durable.state, MINIMAL_PAYLOAD);
-      assert(gate.createVisible && gate.importVisible, `${label}: standard Create/Import are restored`, JSON.stringify(gate));
-      assert(!gate.startVisible || gate.sharedHidden, `${label}: shared action is not offered`, JSON.stringify(gate));
-      assert(gate.errorVisible && gate.errorRole === "status", `${label}: inline error uses role=status`, JSON.stringify(gate));
-      assert(gate.errorText === message, `${label}: localized error copy`, gate.errorText);
-      assert(absence.ok || durable.state?.programMeta?.onboarded !== true, `${label}: no shared application state is written`, JSON.stringify({ absence, lang: durable.state?.settings?.lang }));
-      assert(!durable.cookie, `${label}: invalid staged handoff cookie is cleared`, durable.cookie);
-      await context.close();
-    }
-  });
-
-  await runCase("Missing Compression Streams keep ordinary exports working", async () => {
-    const { context, page } = await openAppPage(browser, { noCompression: true });
-    await clearSite(page);
-    await persistState(page, configuredState({ log: [] }));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await dismissGates(page);
-    const encodeResult = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
-    assert(encodeResult.ok === false && encodeResult.code === "compression-unavailable", "encode reports compression-unavailable", JSON.stringify(encodeResult));
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active");
-    await page.click(SHARED_DOM.shareRow).catch(() => {});
-    await page.waitForTimeout(300);
-    const shareUi = await page.evaluate((unsupported) => {
-      const body = document.body.innerText;
-      return {
-        unsupported: body.includes(unsupported),
-        shareDisabled: document.querySelector("#shareSetupShare")?.disabled !== false,
-      };
-    }, SHARED_COPY.en.shareUnsupported);
-    assert(shareUi.unsupported, "share sheet shows program.share_setup_unsupported", JSON.stringify(shareUi));
-    await page.click("#shareSetupClose");
-    await page.click("#programEditToggle");
-    await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 }).catch(() => {});
-    const [programDownload] = await Promise.all([
-      page.waitForEvent("download", { timeout: 8000 }).catch(() => null),
-      page.evaluate(() => document.querySelector("#exportProgram")?.click()),
-    ]);
-    assert(!!programDownload, "program JSON export still works without CompressionStream");
-    const [backupDownload] = await Promise.all([
-      page.waitForEvent("download", { timeout: 8000 }).catch(() => null),
-      page.evaluate(() => document.querySelector("#exportJson")?.click()),
-    ]);
-    assert(!!backupDownload, "backup JSON export still works without CompressionStream");
-    await context.close();
-
-    const openPage = await openAppPage(browser, { noCompression: true, ua: IOS_UA });
-    await clearSite(openPage.page);
-    await openPage.page.goto(`${APP_INDEX}#setup=${wireFragment(MINIMAL_PAYLOAD)}`, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(openPage.page).catch(() => {});
-    const gate = await openPage.page.evaluate(sharedGateSnapshot);
-    assert(gate.createVisible && gate.importVisible, "decompression-unavailable restores standard choices", JSON.stringify(gate));
-    assert(gate.errorText === SHARED_COPY.en.browserUnsupported, "browser_unsupported copy is used", gate.errorText);
-    await openPage.context.close();
-  });
-
-  await runCase("Configured state and archived history refuse replacement", async () => {
-    for (const [label, seed] of [
-      ["onboarded program", configuredState()],
-      ["archived history", configuredState({
-        onboarded: false,
-        log: [],
-        programHistory: [{ id: "old-prog", name: "Archived", program: [] }],
-      })],
-    ]) {
-      const { context, page } = await openAppPage(browser, { locale: "en-US" });
-      await clearSite(page);
-      await persistState(page, seed);
-      await page.reload({ waitUntil: "domcontentloaded" });
-      // The same-document #setup navigation below is handled by the app's
-      // hashchange listener, which boot() registers only after its async
-      // startup. Wait for the boot contract so the navigation is not lost.
-      await waitForAppBoot(page, { timeout: 15000, base: BASE });
-      await dismissGates(page);
-      const encoded = await encodeSharedPayload(page, cloneFixture(REPRESENTATIVE_PAYLOAD));
-      const fragment = encoded.ok ? encoded.value : wireFragment(REPRESENTATIVE_PAYLOAD);
-      const before = await page.evaluate(readDurableState);
-      await page.evaluate(() => {
-        const history = window.__repforgeObservedToasts = [];
-        const capture = () => {
-          const el = document.querySelector("#toast");
-          if (el && !el.classList.contains("hidden") && el.textContent) history.push(el.textContent);
-        };
-        const observer = new MutationObserver(capture);
-        observer.observe(document.documentElement, {
-          attributes: true,
-          childList: true,
-          characterData: true,
-          subtree: true,
-        });
-        window.__repforgeToastObserver = observer;
-      });
-      await page.goto(`${APP_INDEX}#setup=${fragment}`, { waitUntil: "domcontentloaded" });
-      await page.waitForFunction(
-        (expected) => {
-          return window.__repforgeObservedToasts?.includes(expected);
-        },
-        SHARED_COPY.en.existing,
-        { timeout: 15000 }
-      );
-      const after = await page.evaluate(readDurableState);
-      const gate = await page.evaluate(sharedGateSnapshot);
-      const toast = await page.evaluate(() => {
-        const el = document.querySelector("#toast");
-        return el && !el.classList.contains("hidden") ? el.textContent : null;
-      });
-      assert(!gate.gate, `${label}: first-run gate does not open`, JSON.stringify(gate));
-      assert(after.state?.programMeta?.id === before.state?.programMeta?.id, `${label}: program identity is unchanged`, JSON.stringify(after.state?.programMeta));
-      assert(after.state?.programMeta?.name !== "Força compartilhada", `${label}: shared name is not applied`, after.state?.programMeta?.name);
-      assert(after.state?.settings?.lang !== "pt", `${label}: language is not switched`, after.state?.settings?.lang);
-      assert(JSON.stringify(after.state?.programHistory || []) === JSON.stringify(before.state?.programHistory || []), `${label}: history is not cleared`);
-      assert(toast === SHARED_COPY.en.existing || await page.evaluate((expected) =>
-        window.__repforgeObservedToasts?.includes(expected), SHARED_COPY.en.existing),
-      `${label}: existing-state notice`, toast);
-      await context.close();
-    }
-  });
-
-  await runCase("Un-onboarded device with a program archives it on setup-link activation", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await persistState(page, firstRunEligibleState([]));
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "unonboarded-archive"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const local = (await readBothReplicas(page)).local || {};
-    const history = Array.isArray(local.programHistory) ? local.programHistory : [];
-    assert(local.programMeta?.onboarded === true && local.programMeta?.id !== "prog-existing", "the shared program is now active", JSON.stringify({ id: local.programMeta?.id, name: local.programMeta?.name }));
-    const archived = history.find((row) => row.id === "prog-existing");
-    assert(!!archived, "the un-onboarded predecessor is archived into programHistory", JSON.stringify(history.map((row) => ({ id: row.id, name: row.meta?.name }))));
-    assert(archived?.meta?.name === "Existing split", "the archived entry keeps the predecessor name", JSON.stringify(archived?.meta));
-    assert((archived?.program || []).some((row) => row.id === "ex-existing"), "the archived entry keeps the predecessor exercise", JSON.stringify(archived?.program));
-    await context.close();
-  });
-
-  await runCase("Custom-definition collisions remap or reuse, never overwrite", async () => {
-    const { context, page } = await openAppPage(browser);
-    await clearSite(page);
-    await persistState(page, configuredState({ log: [], onboarded: false }));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const table = await page.evaluate(({ payload, current }) => {
-      const hook = window.__repforgeSharedSetup;
-      const proposalOf = hook?.proposal || hook?.proposalFromSharedSetup;
-      if (typeof proposalOf !== "function") return { missing: true };
-      const sharedCustom = payload.program.customExercises[0];
-      const sameDef = { ...sharedCustom };
-      const differentDef = { ...sharedCustom, name: "Local cable row", primary: "Lats" };
-      const otherId = { ...sharedCustom, id: "custom:local-row" };
-      const clash = proposalOf(payload, {
-        settings: { ...current, lang: "en" },
-        programMeta: { onboarded: false },
-        program: [],
-        log: [],
-        programHistory: [],
-        customExercises: [differentDef],
-      });
-      const reuse = proposalOf(payload, {
-        settings: { ...current, lang: "en" },
-        programMeta: { onboarded: false },
-        program: [],
-        log: [],
-        programHistory: [],
-        customExercises: [sameDef],
-      });
-      const twin = proposalOf(payload, {
-        settings: { ...current, lang: "en" },
-        programMeta: { onboarded: false },
-        program: [],
-        log: [],
-        programHistory: [],
-        customExercises: [otherId],
-      });
-      const slot = (proposal) => (proposal.program || []).find((ex) => String(ex.libraryId || "").startsWith("custom:"));
-      const def = (proposal, id) => (proposal.customExercises || []).find((ex) => ex.id === id);
-      return {
-        clashKeptLocal: def(clash, "custom:coach-row")?.name === "Local cable row",
-        clashRemapped: slot(clash)?.libraryId && slot(clash).libraryId !== "custom:coach-row",
-        reuseSame: slot(reuse)?.libraryId === "custom:coach-row" && def(reuse, "custom:coach-row")?.name === sharedCustom.name,
-        twinReusesLocal: slot(twin)?.libraryId === "custom:local-row",
-      };
-    }, { payload, current: CURRENT_SETTINGS_DEFAULTS });
-    assert(!table.missing, "proposal hook inspects custom collisions", JSON.stringify(table));
-    assert(table.clashKeptLocal && table.clashRemapped, "same ID, different definition: keep local, remap slots", JSON.stringify(table));
-    assert(table.reuseSame, "same ID, same definition: reuse", JSON.stringify(table));
-    assert(table.twinReusesLocal, "different ID, same definition: reuse recipient ID", JSON.stringify(table));
-    await context.close();
-  });
-
-  await runCase("Stale shared accept preserves newer eligible device state", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "stale-accept"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const ready = await page.evaluate(readSharedHook);
-    assert(ready.status === "ready", "tab A holds a ready proposal", JSON.stringify(ready));
-    const recipientCustom = {
-      id: "custom:recipient-only",
-      name: "Recipient machine press",
-      namePt: "Recipient machine press",
-      equipment: ["machine"],
-      primary: "Chest",
-      secondary: "",
-      notes: "",
-    };
-    await page.evaluate(async ({ key, custom }) => {
-      const current = JSON.parse(localStorage.getItem(key) || "{}");
-      const newer = JSON.parse(JSON.stringify(current));
-      newer.settings = Object.assign({}, newer.settings, {
-        voiceInputEnabled: true,
-        notify: { enabled: true, timer: false, session: true, unfinished: false, missed: true },
-      });
-      newer.customExercises = (newer.customExercises || []).concat([custom]);
-      newer.log = Array.isArray(newer.log) ? newer.log : [];
+/** Write a newer durable head to BOTH replicas: the change another tab persists after this tab staged its proposal. */
+async function commitConcurrentHead(page, spec) {
+  return page.evaluate(
+    async ({ key, spec }) => {
+      const newer = JSON.parse(localStorage.getItem(key) || "{}");
       newer.programHistory = Array.isArray(newer.programHistory) ? newer.programHistory : [];
+      if (Array.isArray(spec.addHistory)) newer.programHistory = newer.programHistory.concat(spec.addHistory);
       newer._storageRevision = (Number.isInteger(newer._storageRevision) ? newer._storageRevision : 0) + 1;
-      if (newer.programMeta) newer.programMeta.onboarded = false;
+      if (newer.programMeta && spec.onboarded !== undefined) newer.programMeta.onboarded = spec.onboarded;
       localStorage.setItem(key, JSON.stringify(newer));
       const db = await new Promise((res, rej) => {
         const r = indexedDB.open("repforge", 1);
@@ -2164,642 +558,660 @@ export async function runSharedSetupFlow(browser) {
         tx.onerror = () => rej(tx.error);
       });
       db.close();
-      window.__repforgeNotifyAdapter = {
-        canUse: () => true,
-        permission: () => "granted",
-        request: async () => "granted",
-      };
-    }, { key: KEY, custom: recipientCustom });
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
+      return newer;
+    },
+    { key: KEY, spec }
+  );
+}
+
+function canonicalJson(value) {
+  const walk = (node) => {
+    if (Array.isArray(node)) return node.map(walk);
+    if (node && typeof node === "object") {
+      return Object.keys(node).sort().reduce((acc, key) => {
+        acc[key] = walk(node[key]);
+        return acc;
+      }, {});
     }
-    await page.waitForFunction(() => document.querySelector("#firstRun")?.classList.contains("hidden"), null, { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(400);
+    return node;
+  };
+  return JSON.stringify(walk(value));
+}
+
+/** The handoff cookie as the browser stores it, with its attributes. */
+async function handoffCookie(context) {
+  return (await context.cookies()).find((cookie) => cookie.name === HANDOFF_COOKIE) || null;
+}
+
+async function runCase(name, fn) {
+  if (ONLY.length && !ONLY.some((needle) => name.toLowerCase().includes(needle.toLowerCase()))) return;
+  console.log(`\n${name}`);
+  try {
+    await fn();
+  } catch (err) {
+    assert(false, `${name} (uncaught)`, String(err && err.stack || err));
+  }
+}
+
+/** A flat-program payload in the retired v1/v2/v3 shape. */
+const LEGACY_PAYLOAD = Object.freeze({
+  kind: KIND,
+  version: 1,
+  program: {
+    meta: { name: "Legacy coach program", daysPerWeek: 1 },
+    exercises: [{ day: "Day 1", order: 1, libraryId: "pr_mc", sets: 3, min: 8, max: 12 }],
+    customExercises: [],
+  },
+  settings: { ...PT_SHARED_SETTINGS },
+});
+
+/** Durable evidence that a refused link wrote nothing a shared program would. */
+function noSharedWrite(before, after, name) {
+  const hits = [];
+  if (canonicalJson(after.state) !== canonicalJson(before.state)) hits.push("durable state changed");
+  if (after.state?.programMeta?.name === name) hits.push("shared name");
+  if (after.state?.programMeta?.programDefinition) hits.push("program definition");
+  if (after.setupDraft !== null) hits.push("setup draft");
+  return hits;
+}
+
+export async function runSharedSetupFlow(browser) {
+  console.log("Shared setup flow");
+  console.log(`Target: ${APP_INDEX}\n`);
+
+  await runCase("Module API is present", async () => {
+    const { context, page } = await openAppPage(browser);
+    const api = await page.evaluate((required) => {
+      const mod = window.RepForgeSharedSetup;
+      if (!mod) return { present: false, keys: [] };
+      return {
+        present: true,
+        missing: required.filter((name) => mod[name] == null),
+        kind: mod.KIND,
+        version: mod.VERSION,
+        encoding: mod.ENCODING_VERSION,
+        maxEncoded: mod.MAX_ENCODED_CHARS,
+      };
+    }, REQUIRED_API);
+    assert(api.present, "window.RepForgeSharedSetup is loaded", api);
+    assert(api.kind === KIND && api.version === DOCUMENT_VERSION && api.encoding === ENCODING_VERSION,
+      "the codec carries taurifer-shared-setup document version 2 in v4 envelopes", api);
+    assert(api.maxEncoded === MAX_ENCODED_CHARS, "MAX_ENCODED_CHARS is 3072", api.maxEncoded);
+    assert(api.missing?.length === 0, "every public codec member exists", api.missing);
+    await context.close();
+  });
+
+  await runCase("Outbound link carries the program, eight settings and language; the share is title and URL only", async () => {
+    const { context, page } = await openAppPage(browser, { webShare: true, clipboard: true });
+    await freshDevice(page);
+    await activateGeneratedProgram(page, { name: "Coach program" });
+    const sent = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).programMeta.programDefinition, KEY);
+    await openShareSheet(page);
+    const sheet = await page.evaluate(() => {
+      const body = document.querySelector("#shareSetupBody");
+      const share = document.querySelector("#shareSetupShare");
+      const hidden = (node) =>
+        !node || node.hidden === true || node.classList.contains("hidden") || !!node.closest(".hidden,[hidden]");
+      return { body: (body?.textContent || "").trim(), bodyVisible: !hidden(body), shareHidden: hidden(share), shareDisabled: !!share?.disabled };
+    });
+    const link = await readShareSetupLink(page);
+    const url = link ? new URL(link) : null;
+    const fragment = url?.hash.startsWith("#setup=") ? url.hash.slice("#setup=".length) : "";
+    assert(sheet.bodyVisible && sheet.body === SHARED_COPY.en.shareBody, "share sheet keeps only task guidance", sheet.body);
+    assert(url?.pathname.endsWith("/index.html") && url.search === "" && fragment.startsWith("v4.") && fragment.length <= MAX_ENCODED_CHARS,
+      "the link is index.html#setup=v4.… within the 3072-character limit", { link, length: fragment.length });
+    const decoded = await decodeSetup(page, fragment);
+    const value = decoded.value || {};
+    assert(decoded.ok === true, "the app's own link decodes", decoded.code);
+    assert(canonicalJson(Object.keys(value).sort()) === canonicalJson(["kind", "language", "program", "settings", "version"]),
+      "the document holds only kind, version, program, settings and language: no logs or history", Object.keys(value));
+    assert(canonicalJson(Object.keys(value.settings || {}).sort()) === canonicalJson([...SETTING_KEYS].sort()) &&
+      value.settings?.lang === "en" && value.language === "en",
+    "exactly the eight allowlisted settings travel, with the sender's language", value.settings);
+    assert(value.program?.name === "Coach program" && canonicalJson(value.program?.definition) === canonicalJson(sent),
+      "the link carries the sender's program name and identical definition", value.program?.name);
+    assert(!sheet.shareHidden && !sheet.shareDisabled, "Share link is available when Web Share exists", sheet);
+    await page.click(SHARED_DOM.shareShare);
+    await page.waitForFunction(() => (window.__repforgeShareCalls || []).length > 0, null, { timeout: 5000 });
+    const shared = await page.evaluate(() => window.__repforgeShareCalls || []);
+    const payload = shared[0] || {};
+    assert(shared.length === 1, "navigator.share is invoked once", shared);
+    assert(payload.title === SHARED_COPY.en.shareTitle && payload.url === link, "Web Share carries the sheet title and the link", payload);
+    assert(Object.keys(payload).sort().join(",") === "title,url", "Web Share payload is title and URL only", payload);
+    await page.evaluate(() => {
+      window.__copiedSetupLink = null;
+      navigator.clipboard.writeText = async (text) => { window.__copiedSetupLink = text; };
+    });
+    await page.click(SHARED_DOM.shareCopy);
+    await page.waitForFunction(() => window.__copiedSetupLink != null, null, { timeout: 5000 });
+    assert(await page.evaluate(() => window.__copiedSetupLink) === link, "Copy copies only the URL");
+    await context.close();
+  });
+
+  await runCase("A Portuguese sender's non-default settings and language travel in the link", async () => {
+    const { context, page } = await openAppPage(browser, { locale: "pt-BR" });
+    await freshDevice(page);
+    await activateGeneratedProgram(page, { name: "Força compartilhada" });
+    await editDurableState(page, (state) => {
+      state.settings = { ...state.settings, ...PT_SHARED_SETTINGS, voiceInputEnabled: true };
+    });
+    await openShareSheet(page);
+    const link = await readShareSetupLink(page);
+    const decoded = await decodeSetup(page, new URL(link).hash.slice("#setup=".length));
+    assert(decoded.ok === true && canonicalJson(decoded.value.settings) === canonicalJson(PT_SHARED_SETTINGS) && decoded.value.language === "pt",
+      "the eight non-default Portuguese settings and the language are in the link, nothing device-owned", decoded.value?.settings || decoded.code);
+    await context.close();
+  });
+
+  await runCase("Blank program names use the localized untitled name in setup links", async () => {
+    for (const [lang, expected] of [["en", "Untitled program"], ["pt", "Treino sem título"]]) {
+      const { context, page } = await openAppPage(browser, { locale: lang === "pt" ? "pt-BR" : "en-US" });
+      await freshDevice(page);
+      await activateGeneratedProgram(page, { name: "Named first" });
+      await editDurableState(page, (state) => {
+        state.programMeta.name = "";
+        state.settings = { ...state.settings, lang };
+      });
+      await openShareSheet(page);
+      const link = await readShareSetupLink(page);
+      const status = await page.evaluate(() => document.querySelector("#shareSetupStatus")?.textContent || "");
+      const decoded = link ? await decodeSetup(page, new URL(link).hash.slice("#setup=".length)) : null;
+      assert(decoded?.ok === true && status === "", `${lang}: a blank-name program still produces a setup link`, { status, code: decoded?.code });
+      assert(decoded?.value?.program?.name === expected, `${lang}: the link uses the localized untitled name`, decoded?.value?.program?.name);
+      await context.close();
+    }
+  });
+
+  await runCase("Fresh English link: shared gate, staged cookie, fragment removed, nothing written", async () => {
+    const { context, page } = await openAppPage(browser, { ua: IOS_UA });
+    await freshDevice(page);
+    await waitForFirstRun(page);
+    const before = await page.evaluate(readDurableState);
+    const encoded = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Coach program" }));
+    assert(encoded.ok === true, "a one-day document encodes", encoded.code);
+    await page.goto(setupUrl(encoded.value, "fresh-en"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const gate = await page.evaluate(sharedGateSnapshot);
+    assert(gate.gate && gate.hero, "first-run hero remains on a shared link", gate);
+    assert(gate.install, "iOS Safari still offers the install card", gate);
+    assert(!gate.createVisible && !gate.importVisible && !gate.createFocusable && !gate.importFocusable,
+      "Create and Import are not exposed in shared mode", gate);
+    assert(gate.startVisible && !gate.sharedHidden && gate.startTitle === SHARED_COPY.en.title,
+      "Start this program is the only program action", gate);
+    assert(gate.startCap === SHARED_COPY.en.capOne("Coach program"), "the caption names the program and its one day", gate.startCap);
+    assert(gate.lede === SHARED_COPY.en.lede, "shared install-available lede", gate.lede);
+    assert(!gate.onboarding, "the generator is not opened", gate);
+    const after = await page.evaluate(readDurableState);
+    const hits = noSharedWrite(before, after, "Coach program");
+    assert(hits.length === 0, "nothing is written before the explicit activation", hits);
+    assert(!/setup=/.test(after.hash) && after.search === "?shared-test=fresh-en", "the setup fragment is removed after capture; the query stays", { hash: after.hash, search: after.search });
+    const cookie = await handoffCookie(context);
+    const sevenDays = Date.now() / 1000 + 604800;
+    assert(cookie?.value === encoded.value, "the handoff cookie stages the exact link bytes", cookie?.value?.slice(0, 20));
+    assert(cookie?.path === new URL(APP_INDEX).pathname && cookie?.sameSite === "Lax" && cookie.httpOnly === false &&
+      Math.abs(cookie.expires - sevenDays) < 120,
+    "the handoff cookie is scoped to index.html, SameSite=Lax, for seven days", cookie && { path: cookie.path, sameSite: cookie.sameSite, expires: cookie.expires });
+    const hook = await page.evaluate(readSharedHook);
+    assert(hook.status === "ready" && hook.source === "fragment" && hook.summary?.name === "Coach program" && hook.summary?.daysPerWeek === 1,
+      "the hook reports a ready fragment proposal", hook);
+    await context.close();
+  });
+
+  await runCase("Start stages an editable preview; activation commits the shared program and clears the cookie", async () => {
+    const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
+    await freshDevice(page);
+    const document = await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 4 });
+    const encoded = await encodeSetupDocument(page, document);
+    await page.goto(setupUrl(encoded.value, "accept"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const before = await page.evaluate(readDurableState);
+    await clickSharedStart(page, { activate: false });
+    const staged = await page.evaluate(() => ({
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+      firstRun: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+      activate: !!document.querySelector("#entryActivate") && !document.querySelector("#entryActivate").disabled,
+      edit: !!document.querySelector("#entryEdit") && !document.querySelector("#entryEdit").disabled,
+    }));
+    const stagedDurable = await page.evaluate(readDurableState);
+    assert(canonicalJson(stagedDurable.state) === canonicalJson(before.state), "Start leaves the durable state byte-identical",
+      { before: before.state?.programMeta, staged: stagedDurable.state?.programMeta });
+    assert(staged.onboarding && !staged.firstRun && staged.activate && staged.edit,
+      "Start opens the common preview with separate activation and edit actions", staged);
+    assert(!!stagedDurable.cookie, "the handoff cookie survives until activation", stagedDurable.cookie);
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
     const after = await page.evaluate(readDurableState);
     const state = after.state || {};
-    const customIds = (state.customExercises || []).map((row) => row.id);
-    const notify = state.settings?.notify || {};
-    assert(state.programMeta?.onboarded === true, "tab A accept reports success by onboarding", JSON.stringify({ name: state.programMeta?.name }));
-    assert(state.settings?.voiceInputEnabled === true, "device-owned voiceInputEnabled survives the stale accept", String(state.settings?.voiceInputEnabled));
-    assert(
-      notify.enabled === true && notify.timer === false && notify.unfinished === false,
-      "device-owned nested notify survives the stale accept",
-      JSON.stringify(notify)
-    );
-    assert(customIds.includes("custom:recipient-only"), "recipient-only custom survives with collision-safe merge", JSON.stringify(customIds));
-    assert(customIds.includes("custom:coach-row"), "payload custom is still merged", JSON.stringify(customIds));
-    assert(
-      state.settings?.lang === "pt" && state.settings?.restSec === 165 && state.settings?.jumpPct === 3.5,
-      "allowlisted payload settings still apply",
-      JSON.stringify(state.settings)
-    );
-    assert((state.log || []).length === 0 && (state.programHistory || []).length === 0, "first-run log/history protection still holds", JSON.stringify({
-      log: (state.log || []).length,
-      history: (state.programHistory || []).length,
-    }));
-    await context.close();
-  });
-
-  await runCase("Concurrent deletion of an unreferenced recipient custom is not reversed", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    const recipientCustom = {
-      id: "custom:recipient-stale",
-      name: "Recipient machine press",
-      namePt: "Recipient machine press",
-      equipment: ["machine"],
-      primary: "Chest",
-      secondary: "",
-      notes: "Recipient only",
-    };
-    await persistState(page, firstRunEligibleState([recipientCustom]));
-    const payload = cloneFixture(MINIMAL_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "concurrent-delete"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const ready = await page.evaluate(readSharedHook);
-    assert(ready.status === "ready", "tab A holds a ready proposal (delete)", JSON.stringify(ready));
-    await commitConcurrentHead(page, { removeCustomIds: ["custom:recipient-stale"] });
-    const beforeAccept = await readBothReplicas(page);
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const both = await readBothReplicas(page);
-    const local = both.local || {};
-    const accepted = local.programMeta?.onboarded === true;
-    const deletedAbsent = customById(local, "custom:recipient-stale").length === 0;
-    if (accepted) {
-      assert(deletedAbsent, "acceptance succeeds and the deleted recipient custom stays absent", JSON.stringify((local.customExercises || []).map((r) => r.id)));
-    } else {
-      assert(
-        deletedAbsent && canonicalJson(both.local) === canonicalJson(beforeAccept.local) && canonicalJson(both.idb) === canonicalJson(beforeAccept.idb),
-        "acceptance rejects cleanly and the newer durable state is byte-for-byte intact",
-        JSON.stringify({ local: (local.customExercises || []).map((r) => r.id) })
-      );
-    }
-    assert(deletedAbsent, "the concurrently deleted definition is never resurrected", JSON.stringify((local.customExercises || []).map((r) => r.id)));
-    await context.close();
-  });
-
-  await runCase("Concurrent edit of an unreferenced recipient custom keeps only the newer definition", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    const recipientCustom = {
-      id: "custom:recipient-stale",
-      name: "Stale name",
-      namePt: "Stale name",
-      equipment: ["machine"],
-      primary: "Chest",
-      secondary: "",
-      notes: "Stale notes",
-    };
-    await persistState(page, firstRunEligibleState([recipientCustom]));
-    const payload = cloneFixture(MINIMAL_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "concurrent-edit"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const ready = await page.evaluate(readSharedHook);
-    assert(ready.status === "ready", "tab A holds a ready proposal (edit)", JSON.stringify(ready));
-    await commitConcurrentHead(page, {
-      editCustoms: [{ id: "custom:recipient-stale", patch: { name: "Edited name", primary: "Mid/upper back", secondary: "Biceps", notes: "Edited notes" } }],
-    });
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const both = await readBothReplicas(page);
-    const local = both.local || {};
-    const matches = customById(local, "custom:recipient-stale");
-    const edited = matches[0] || {};
-    assert(local.programMeta?.onboarded === true, "concurrent-edit acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
-    assert(matches.length === 1, "exactly one definition keeps the recipient identity", JSON.stringify((local.customExercises || []).map((r) => r.id)));
-    assert(
-      edited.name === "Edited name" && edited.primary === "Mid/upper back" && edited.notes === "Edited notes",
-      "the surviving definition holds the newer durable values",
-      JSON.stringify(edited)
-    );
-    const staleDuplicate = (local.customExercises || []).some((row) => row.id !== "custom:recipient-stale" && row.name === "Stale name");
-    assert(!staleDuplicate, "no extra UUID is minted for the stale definition", JSON.stringify((local.customExercises || []).map((r) => ({ id: r.id, name: r.name }))));
-    assert(!programCustomRefs(local).includes("custom:recipient-stale"), "the replacement program does not reference the recipient definition", JSON.stringify(programCustomRefs(local)));
-    await context.close();
-  });
-
-  await runCase("Unknown and nested device-owned settings survive shared acceptance", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await persistState(page, firstRunEligibleState([]));
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "future-settings"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const ready = await page.evaluate(readSharedHook);
-    assert(ready.status === "ready", "tab A holds a ready proposal (settings)", JSON.stringify(ready));
-    await commitConcurrentHead(page, {
-      voiceInputEnabled: true,
-      lastExport: "2026-06-01T00:00:00.000Z",
-      settings: { futureDeviceSetting: { enabled: true, mode: "recipient", nested: { value: 42 } } },
-      notify: { enabled: true, timer: false, session: false, unfinished: false, missed: false, futureChannel: { enabled: true } },
-    });
-    // Granted permission keeps reconcileNotifyPermission from force-disabling and
-    // re-normalizing notify, so the rebase's preserved values are the ones observed.
-    await page.evaluate(() => {
-      window.__repforgeNotifyAdapter = { canUse: () => true, permission: () => "granted", request: async () => "granted" };
-    });
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const local = (await readBothReplicas(page)).local || {};
-    const settings = local.settings || {};
-    const notify = settings.notify || {};
-    assert(local.programMeta?.onboarded === true, "future-settings acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
-    assert(
-      canonicalJson(settings.futureDeviceSetting) === canonicalJson({ enabled: true, mode: "recipient", nested: { value: 42 } }),
-      "unknown top-level recipient setting is preserved deeply",
-      JSON.stringify(settings.futureDeviceSetting)
-    );
-    assert(
-      canonicalJson(notify.futureChannel) === canonicalJson({ enabled: true }),
-      "unknown nested notify key is preserved deeply",
-      JSON.stringify(notify.futureChannel)
-    );
-    assert(settings.voiceInputEnabled === true, "voiceInputEnabled comes from the refreshed head", String(settings.voiceInputEnabled));
-    assert(settings.lastExport === "2026-06-01T00:00:00.000Z", "lastExport comes from the refreshed head", String(settings.lastExport));
-    assert(
-      notify.enabled === true && notify.timer === false && notify.session === false && notify.unfinished === false && notify.missed === false,
-      "known notification preferences come from the refreshed head",
-      JSON.stringify(notify)
-    );
-    assert(
-      settings.lang === "pt" && settings.restSec === 165 && settings.jumpPct === 3.5 && settings.minJump === 1.25 &&
-        settings.rirHigh === 3 && settings.hardRir === 5 && settings.unit === "kg" && settings.rirMode === "effort",
-      "the eight allowlisted fields come from the payload",
-      JSON.stringify(settings)
-    );
-    const shared = payload.settings || {};
-    const extraPayloadKey = Object.keys(settings).find((key) => key in shared === false && ["jumpPct", "minJump", "rirHigh", "hardRir", "restSec", "unit", "lang", "rirMode"].includes(key) === false && key === "coachOnlyKey");
-    assert(!extraPayloadKey && !("coachOnlyKey" in settings), "no ninth payload setting is accepted", JSON.stringify(Object.keys(settings)));
-    await context.close();
-  });
-
-  await runCase("Genuine shared custom collision keeps the recipient definition and remaps the payload", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    const recipientCollision = {
-      id: "custom:coach-row",
-      name: "Recipient bent row",
-      namePt: "Recipient bent row",
-      equipment: ["barbell"],
-      primary: "Lats",
-      secondary: "",
-      notes: "Recipient movement",
-    };
-    await persistState(page, firstRunEligibleState([recipientCollision]));
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "genuine-collision"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const ready = await page.evaluate(readSharedHook);
-    assert(ready.status === "ready", "tab A holds a ready proposal (collision)", JSON.stringify(ready));
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const local = (await readBothReplicas(page)).local || {};
-    const recipientKept = customById(local, "custom:coach-row");
-    const refs = programCustomRefs(local);
-    const remappedId = refs.find((id) => id !== "custom:coach-row");
-    const remappedDefs = remappedId ? customById(local, remappedId) : [];
-    assert(local.programMeta?.onboarded === true, "collision acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
-    assert(recipientKept.length === 1 && recipientKept[0].name === "Recipient bent row", "recipient definition remains unchanged under its id", JSON.stringify(recipientKept));
-    assert(!!remappedId && remappedId !== "custom:coach-row", "shared definition received a safe remapped id", JSON.stringify(refs));
-    assert(remappedDefs.length === 1 && remappedDefs[0].name === "Coach cable row", "the remapped shared definition exists exactly once", JSON.stringify(remappedDefs));
-    assert(refs.every((id) => customById(local, id).length === 1), "every custom reference in the program resolves once", JSON.stringify(refs));
-    await context.close();
-  });
-
-  await runCase("Interrupted journal clear recovers idempotently without a second remap", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await persistState(page, firstRunEligibleState([]));
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "journal-recovery"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page);
-    const ready = await page.evaluate(readSharedHook);
-    assert(ready.status === "ready", "tab A holds a ready proposal (journal)", JSON.stringify(ready));
-    // Concurrent head introduces a same-id, different-definition custom that only
-    // collides against the refreshed head, forcing a rebase-level remap.
-    await commitConcurrentHead(page, {
-      addCustoms: [{
-        id: "custom:coach-row",
-        name: "Recipient bent row",
-        namePt: "Recipient bent row",
-        equipment: ["barbell"],
-        primary: "Lats",
-        secondary: "",
-        notes: "Recipient movement",
-      }],
-    });
-    // Suppress removal of the pending-journal key so the successor is written to
-    // both replicas but its journal is left behind (interruption before clear).
-    await page.evaluate((prefix) => {
-      const proto = window.Storage.prototype;
-      const original = proto.removeItem;
-      window.__origRemoveItem = original;
-      proto.removeItem = function (key) {
-        if (typeof key === "string" && key.startsWith(prefix)) return;
-        return original.call(this, key);
-      };
-    }, "repforge_pending_v1");
-    if (!(await clickSharedStart(page, { activate: false }))) {
-      await context.close();
-      return;
-    }
-    await page.click("#entryActivate");
-    await page.waitForTimeout(500);
-    await page.evaluate(() => {
-      if (window.__origRemoveItem) window.Storage.prototype.removeItem = window.__origRemoveItem;
-    });
-    const beforeReload = (await readBothReplicas(page)).local || {};
-    const refsBefore = programCustomRefs(beforeReload);
-    const remappedBefore = refsBefore.find((id) => id !== "custom:coach-row");
-    const journalPresent = await page.evaluate((prefix) => {
-      for (let i = 0; i < localStorage.length; i++) if ((localStorage.key(i) || "").startsWith(prefix)) return true;
-      return false;
-    }, "repforge_pending_v1:");
-    assert(journalPresent, "the interruption leaves a pending journal behind", String(journalPresent));
-    assert(!!remappedBefore, "the successor written before the interruption carries a remapped id", JSON.stringify(refsBefore));
+    const gate = await page.evaluate(sharedGateSnapshot);
+    assert(state.programMeta?.onboarded === true && state.programMeta?.name === "Força compartilhada",
+      "activation onboards the recipient with the shared name", state.programMeta?.name);
+    assert(canonicalJson(state.programMeta?.programDefinition) === canonicalJson(document.program.definition),
+      "the recipient's program is the identical shared definition");
+    assert(SETTING_KEYS.every((key) => state.settings?.[key] === PT_SHARED_SETTINGS[key]),
+      "all eight allowlisted settings persist, including the language", state.settings);
+    assert(state.settings?.voiceInputEnabled !== true && state.settings?.notify?.enabled !== true,
+      "device-owned settings stay the recipient's", state.settings);
+    assert((state.log || []).length === 0 && (state.programHistory || []).length === 0, "no logs or history arrive with a link");
+    assert(!after.cookie && !(await handoffCookie(context)), "activation clears the handoff cookie", after.cookie);
+    assert(gate.logActive && !gate.gate, "activation lands on Today", gate);
+    const trainingDays = document.program.definition.days.filter((day) => day.kind === "training").length;
+    assert(trainingDays === 4 && state.programMeta?.daysPerWeek === trainingDays,
+      "programMeta.daysPerWeek is the shared definition's training-day count", { stored: state.programMeta?.daysPerWeek, trainingDays });
+    const rawBefore = await page.evaluate((k) => localStorage.getItem(k), KEY);
+    const replicasBefore = await readBothReplicas(page);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
+    await waitForAppBoot(page, { timeout: 15000, base: BASE });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
-    await page.waitForTimeout(300);
-    const noRecovery = await page.evaluate(unresolvedRecoveryVisible);
-    const both = await readBothReplicas(page);
-    const local = both.local || {};
-    const refsAfter = programCustomRefs(local);
-    const remappedAfter = refsAfter.find((id) => id !== "custom:coach-row");
-    assert(!noRecovery, "no unresolved-replica screen appears for two equivalent replicas", String(noRecovery));
-    assert(canonicalJson(both.local) === canonicalJson(both.idb), "both replicas converge after recovery", JSON.stringify({ local: refsAfter }));
-    assert(remappedAfter === remappedBefore, "recovery keeps the same remapped id (deterministic reconstruction)", JSON.stringify({ before: remappedBefore, after: remappedAfter }));
-    assert(!!remappedAfter && customById(local, remappedAfter).length === 1, "no second remapped custom id is created", JSON.stringify(refsAfter));
-    assert(customById(local, "custom:coach-row").length === 1, "the recipient definition is not resurrected or duplicated", JSON.stringify((local.customExercises || []).map((r) => r.id)));
-    assert(refsAfter.every((id) => customById(local, id).length === 1), "every accepted program custom reference resolves after recovery", JSON.stringify(refsAfter));
-    const journalGone = await page.evaluate((prefix) => {
-      for (let i = 0; i < localStorage.length; i++) if ((localStorage.key(i) || "").startsWith(prefix)) return false;
-      return true;
-    }, "repforge_pending_v1:");
-    assert(journalGone, "recovery drains the pending journal", String(journalGone));
-    assert(
-      !("_sharedSetupImport" in local),
-      "journal recovery leaves no transient payload-ownership record behind",
-      JSON.stringify(Object.keys(local))
-    );
-    // A second reload is a pure no-op.
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
-    await page.evaluate(() => window.__repforgeStorage?.flush?.());
-    await page.waitForTimeout(200);
-    const second = (await readBothReplicas(page)).local || {};
-    assert(canonicalJson(second) === canonicalJson(local), "repeated reload is idempotent", JSON.stringify(programCustomRefs(second)));
+    assert(!(await page.evaluate(sharedGateSnapshot)).gate, "the gate stays closed after reload");
+    const rawAfter = await page.evaluate((k) => localStorage.getItem(k), KEY);
+    const replicasAfter = await readBothReplicas(page);
+    assert(rawAfter === rawBefore && canonicalJson(replicasAfter.idb) === canonicalJson(replicasBefore.idb),
+      "the first reload after activation does not rewrite storage", { before: JSON.parse(rawBefore)?._storageRevision, after: JSON.parse(rawAfter)?._storageRevision });
     await context.close();
   });
 
-  await runCase("A deferred journal close keeps activation open until recovery", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await persistState(page, firstRunEligibleState([]));
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "deferred-close"), { waitUntil: "domcontentloaded" });
+  await runCase("Portuguese link switches gate language before acceptance", async () => {
+    const { context, page } = await openAppPage(browser, { ua: IOS_UA, locale: "en-US" });
+    await freshDevice(page);
+    const encoded = await encodeSetupDocument(page,
+      await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 4 }));
+    await page.goto(setupUrl(encoded.value, "pt-gate"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const ready = await page.evaluate(readSharedHook);
-    assert(ready.status === "ready", "tab A holds a ready proposal (deferred close)", JSON.stringify(ready));
-    // The successor lands in both replicas, but clearing the pending journal
-    // fails, so the transaction settles durably while its close is deferred.
-    await page.evaluate((prefix) => {
-      const proto = window.Storage.prototype;
-      const original = proto.removeItem;
-      window.__origRemoveItem = original;
-      proto.removeItem = function (key) {
-        if (typeof key === "string" && key.startsWith(prefix)) return;
-        return original.call(this, key);
-      };
-    }, "repforge_pending_v1");
-    if (!(await clickSharedStart(page, { activate: false }))) {
-      await context.close();
-      return;
-    }
-    await page.click("#entryActivate");
-    await page.waitForTimeout(600);
-    await page.evaluate(() => {
-      if (window.__origRemoveItem) window.Storage.prototype.removeItem = window.__origRemoveItem;
-    });
-    const durable = (await readBothReplicas(page)).local || {};
-    const live = await readLiveAcceptance(page);
-    const recoveryUi = await page.evaluate(() => ({
-      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
-      preview: !!document.querySelector("#entryActivate"),
-      setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
-    }));
-    assert(
-      durable.programMeta?.name === payload.program.meta.name,
-      "the shared program is durable after the deferred close",
-      JSON.stringify({ name: durable.programMeta?.name })
-    );
-    assert(recoveryUi.onboarding && recoveryUi.preview && recoveryUi.setupDraft,
-      "the reviewed candidate stays open while journal cleanup is pending", JSON.stringify(recoveryUi));
-    assert(
-      live.dayChips.length === 1,
-      "the app does not render the successor as completed before journal cleanup settles",
-      JSON.stringify(live.dayChips)
-    );
-    assert(
-      live.customs.includes("custom:coach-row"),
-      "live custom definitions include the accepted shared movement",
-      JSON.stringify(live.customs)
-    );
-    assert(live.htmlLang === "pt-BR", "the accepted language applies to the live UI", String(live.htmlLang));
-    await page.click("#entryActivate");
-    await page.waitForTimeout(400);
-    const retried=await page.evaluate(() => ({
-      onboarding:document.querySelector("#onboarding")?.classList.contains("active"),
-      setupDraft:localStorage.getItem("repforge_program_setup_draft_v1"),
-      artifacts:Object.keys(localStorage).filter(key=>
-        key.startsWith("repforge_pending_v1:")||key.startsWith("repforge_draft_v1:closing:"))
-    }));
-    assert(!retried.onboarding&&retried.setupDraft===null,
-      "an immediate retry closes only after the setup draft is consumed",JSON.stringify(retried));
-    assert(retried.artifacts.length===0,
-      "an immediate retry settles the retained journal before closing",JSON.stringify(retried.artifacts));
+    const gate = await page.evaluate(sharedGateSnapshot);
+    assert(gate.i18n === "pt" && /^pt/i.test(gate.langAttr || ""), "runtime language is Portuguese before accept", gate);
+    assert(gate.lede === SHARED_COPY.pt.lede && gate.startTitle === SHARED_COPY.pt.title, "Portuguese shared gate copy before accept", gate);
+    assert(gate.startCap === SHARED_COPY.pt.capMany("Força compartilhada", 4), "Portuguese caption names four days", gate.startCap);
+    const durable = await page.evaluate(readDurableState);
+    assert(durable.state?.settings?.lang !== "pt", "the shared language is not durable before acceptance", durable.state?.settings?.lang);
     await context.close();
   });
 
-  await runCase("An equivalent recipient definition deleted after the gate opened is not resurrected", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    // Equal to the payload definition on every field the merge compares (folded
-    // name, primary, secondary, equipment) but carrying recipient-only notes, so
-    // the gate-time proposal reuses the recipient id.
-    const recipientTwin = {
-      id: "custom:local-row",
-      name: "Coach cable row",
-      namePt: "Remada local",
-      equipment: ["cable"],
-      primary: "Mid/upper back",
-      secondary: "Biceps",
-      notes: "Recipient private note",
-    };
-    await persistState(page, firstRunEligibleState([recipientTwin]));
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "twin-deleted"), { waitUntil: "domcontentloaded" });
+  await runCase("Continue in Safari keeps the shared row and the cookie", async () => {
+    const { context, page } = await openAppPage(browser, { ua: IOS_UA });
+    await freshDevice(page);
+    const encoded = await encodeSetupDocument(page, await buildSetupDocument(page));
+    await page.goto(setupUrl(encoded.value, "continue"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const ready = await page.evaluate(readSharedHook);
-    assert(ready.status === "ready", "tab A holds a ready proposal (twin)", JSON.stringify(ready));
-    await commitConcurrentHead(page, { removeCustomIds: ["custom:local-row"] });
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const local = (await readBothReplicas(page)).local || {};
-    const customs = local.customExercises || [];
-    const refs = programCustomRefs(local);
-    const owned = refs.length ? customById(local, refs[0])[0] : null;
-    assert(local.programMeta?.onboarded === true, "twin acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
-    assert(
-      customById(local, "custom:local-row").length === 0,
-      "the deleted recipient definition is not resurrected",
-      JSON.stringify(customs.map((row) => row.id))
-    );
-    assert(
-      !customs.some((row) => row.notes === "Recipient private note"),
-      "no recipient-owned definition is re-imported as coach data",
-      JSON.stringify(customs)
-    );
-    assert(
-      refs.length === 1 && refs.every((id) => customById(local, id).length === 1),
-      "the shared slot resolves to exactly one definition",
-      JSON.stringify(refs)
-    );
-    assert(
-      owned?.name === "Coach cable row" && owned?.notes === "Neutral handle",
-      "the accepted definition is the payload's own",
-      JSON.stringify(owned)
-    );
-    assert(
-      !("_sharedSetupImport" in local),
-      "the transient payload-ownership record never becomes durable",
-      JSON.stringify(Object.keys(local))
-    );
+    await page.click("#firstRunContinue");
+    await page.waitForFunction(() => document.querySelector("#firstRunContinue")?.classList.contains("hidden") ||
+      document.querySelector("#firstRunInstall")?.classList.contains("hidden"), null, { timeout: 5000 });
+    const after = await page.evaluate(sharedGateSnapshot);
+    assert(after.gate && after.startVisible, "Continue leaves the shared action standing", after);
+    assert(!after.install && !after.continueShown, "Continue removes only the install offer", after);
+    assert(!after.createVisible && !after.importVisible, "Create/Import stay hidden after Continue", after);
+    assert((await page.evaluate(readDurableState)).cookie === encoded.value, "browser acceptance keeps the handoff cookie");
     await context.close();
   });
 
-  await runCase("Preserved future settings survive a reload and the next ordinary write", async () => {
-    const { context, page } = await openAppPage(browser, { standalone: true });
-    await clearSite(page);
-    await persistState(page, firstRunEligibleState([]));
-    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "future-settings-durable"), { waitUntil: "domcontentloaded" });
+  await runCase("Cookie-only standalone launch reconstructs the shared gate", async () => {
+    const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
+    await freshDevice(page);
+    const encoded = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Cookie program" }));
+    const wrote = await page.evaluate((value) => window.RepForgeSharedSetup.writeHandoffCookie(value), encoded.value);
+    assert(wrote === true, "the codec writes a current envelope to the handoff cookie");
+    await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { timeout: 15000, base: BASE });
     await waitForFirstRun(page);
-    const future = { enabled: true, mode: "recipient", nested: { value: 42 } };
-    await commitConcurrentHead(page, {
-      settings: { futureDeviceSetting: future },
-      notify: { enabled: true, futureChannel: { enabled: true } },
-    });
-    await page.evaluate(() => {
-      window.__repforgeNotifyAdapter = { canUse: () => true, permission: () => "granted", request: async () => "granted" };
-    });
-    if (!(await clickSharedStart(page))) {
-      await context.close();
-      return;
-    }
-    await page.waitForTimeout(500);
-    const accepted = ((await readBothReplicas(page)).local || {}).settings || {};
-    assert(
-      canonicalJson(accepted.futureDeviceSetting) === canonicalJson(future),
-      "acceptance preserves the unknown setting",
-      JSON.stringify(accepted.futureDeviceSetting)
-    );
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
-    await page.evaluate(() => window.__repforgeStorage?.flush?.());
-    await page.waitForTimeout(300);
-    const afterReload = ((await readBothReplicas(page)).local || {}).settings || {};
-    // An ordinary write after the reload: the proposal is built from live state,
-    // so anything boot normalization dropped is offered back as a deletion.
-    await page.evaluate(() =>
-      window.__repforgeSaveCustomExercise?.({ name: "Later movement", equipment: ["machine"], primary: "Chest", secondary: "", notes: "" })
-    );
-    await page.evaluate(() => window.__repforgeStorage?.flush?.());
-    await page.waitForTimeout(300);
-    const both = await readBothReplicas(page);
-    const settings = (both.local || {}).settings || {};
-    const notify = settings.notify || {};
-    assert(
-      canonicalJson(afterReload.futureDeviceSetting) === canonicalJson(future),
-      "the unknown setting survives the reload itself",
-      JSON.stringify(afterReload.futureDeviceSetting)
-    );
-    assert(
-      canonicalJson(settings.futureDeviceSetting) === canonicalJson(future),
-      "the unknown setting survives the next ordinary write",
-      JSON.stringify(settings.futureDeviceSetting)
-    );
-    assert(
-      canonicalJson(notify.futureChannel) === canonicalJson({ enabled: true }),
-      "the unknown nested notify key survives the next ordinary write",
-      JSON.stringify(notify.futureChannel)
-    );
-    assert(
-      canonicalJson(both.local) === canonicalJson(both.idb),
-      "both replicas agree after the ordinary write",
-      JSON.stringify({ local: Object.keys(settings), idb: Object.keys((both.idb || {}).settings || {}) })
-    );
+    const gate = await page.evaluate(sharedGateSnapshot);
+    const hook = await page.evaluate(readSharedHook);
+    assert(gate.gate && gate.startVisible && gate.startCap === SHARED_COPY.en.capOne("Cookie program"),
+      "a standalone launch with only the cookie shows the shared gate", { gate, hook });
+    assert(!gate.install && !gate.continueShown && gate.lede === SHARED_COPY.en.ledeInstalled, "the installed gate has no install section", gate);
+    assert(hook.source === "cookie" && hook.status === "ready", "the proposal came from the handoff cookie", hook);
     await context.close();
   });
 
-  await runCase("Concurrent onboarding, program, log, or history changes reject without a partial write", async () => {
-    const scenarios = [
-      ["concurrent onboarding", { onboarded: true }],
-      ["concurrent program identity change", { programId: "prog-elsewhere" }],
-      ["concurrent program fingerprint change", { program: [{ id: "ex-new", name: "Squat", day: "Day 1", order: 1, sets: 3, min: 5, max: 8, primary: "Quads", secondary: "", libraryId: "sq_bb" }] }],
-      ["concurrent logs", { addLog: [{ session: "sX", date: "2026-03-01", day: "Day 1", name: "Press", exerciseId: "ex-existing", set: 1, load: 60, reps: 10, rir: 1, notes: "", created: "2026-03-01T00:00:00.000Z", primary: "Chest", secondary: "" }] }],
-      ["concurrent program history", { addHistory: [{ id: "hist-1", name: "Archived", program: [] }] }],
-    ];
-    for (const [label, spec] of scenarios) {
-      const { context, page } = await openAppPage(browser, { standalone: true });
-      await clearSite(page);
-      await persistState(page, firstRunEligibleState([]));
-      const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
-      const encoded = await encodeSharedPayload(page, payload);
-      const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-      await page.goto(setupUrl(fragment, `reject-${label.replace(/\s+/g, "-")}`), { waitUntil: "domcontentloaded" });
+  await runCase("Legacy v1, v2 and v3 links are refused without any write", async () => {
+    for (const version of [1, 2, 3]) {
+      const label = `v${version}`;
+      const { context, page } = await openAppPage(browser, { ua: IOS_UA });
+      await freshDevice(page);
       await waitForFirstRun(page);
-      const ready = await page.evaluate(readSharedHook);
-      assert(ready.status === "ready", `${label}: tab A holds a ready proposal`, JSON.stringify(ready));
-      await commitConcurrentHead(page, spec);
-      const before = await readBothReplicas(page);
+      const fragment = wireFragment({ ...LEGACY_PAYLOAD, version }, version);
+      const legacyCookieWritten = await page.evaluate((value) => window.RepForgeSharedSetup.writeHandoffCookie(value), fragment);
+      assert(legacyCookieWritten === false, `${label}: the codec refuses to stage a legacy envelope in the cookie`);
+      const before = await page.evaluate(readDurableState);
+      await page.goto(setupUrl(fragment, `legacy-${label}`), { waitUntil: "domcontentloaded" });
+      await waitForFirstRun(page);
+      const gate = await page.evaluate(sharedGateSnapshot);
+      const hook = await page.evaluate(readSharedHook);
+      const after = await page.evaluate(readDurableState);
+      assert(hook.status === "unsupported" && hook.error === "unsupported-version", `${label}: the link is unsupported`, hook);
+      assert(!gate.startVisible && gate.createVisible && gate.importVisible, `${label}: no shared action; standard choices are restored`, gate);
+      const outdated = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.outdated"));
+      assert(gate.errorVisible && gate.errorRole === "status" && outdated !== "setup.shared.outdated" && gate.errorText === outdated,
+        `${label}: an inline status asks for the program to be shared again (setup.shared.outdated)`, gate.errorText);
+      assert(gate.i18n === "en", `${label}: the legacy link's language is not applied`, gate.i18n);
+      const hits = noSharedWrite(before, after, LEGACY_PAYLOAD.program.meta.name);
+      assert(hits.length === 0, `${label}: nothing is written`, hits);
+      assert(!after.cookie && !(await handoffCookie(context)), `${label}: no handoff cookie is staged`, after.cookie);
+      await context.close();
+    }
+
+    // A legacy envelope left in the cookie by an older release is cleared, not applied.
+    const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
+    await freshDevice(page);
+    const legacy = wireFragment(LEGACY_PAYLOAD, 1);
+    await page.evaluate((value) => {
+      document.cookie = `repforge_setup_v1=${value}; path=${new URL("index.html", location.href).pathname}; max-age=604800; SameSite=Lax`;
+    }, legacy);
+    const before = await page.evaluate(readDurableState);
+    await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { timeout: 15000, base: BASE });
+    await waitForFirstRun(page);
+    const hook = await page.evaluate(readSharedHook);
+    const after = await page.evaluate(readDurableState);
+    assert(hook.status === "unsupported" && hook.source === "cookie", "a legacy cookie is read as unsupported", hook);
+    assert(!after.cookie && noSharedWrite({ ...before, cookie: null }, after, LEGACY_PAYLOAD.program.meta.name).length === 0,
+      "the legacy cookie is cleared and nothing is written", after.cookie);
+    await context.close();
+  });
+
+  await runCase("A link from a newer envelope version is refused as newer, without any write", async () => {
+    const { context, page } = await openAppPage(browser, { ua: IOS_UA });
+    await freshDevice(page);
+    await waitForFirstRun(page);
+    const fragment = wireFragment([2, "Future program"], ENCODING_VERSION + 1);
+    const before = await page.evaluate(readDurableState);
+    await page.goto(setupUrl(fragment, "newer-envelope"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const gate = await page.evaluate(sharedGateSnapshot);
+    const hook = await page.evaluate(readSharedHook);
+    const after = await page.evaluate(readDurableState);
+    const unsupported = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.unsupported"));
+    assert(hook.status === "unsupported" && hook.error === "unsupported-version", "a v5 link is unsupported", hook);
+    assert(gate.errorVisible && gate.errorRole === "status" && unsupported !== "setup.shared.unsupported" && gate.errorText === unsupported,
+      "a v5 link says it was made by a newer version (setup.shared.unsupported)", gate.errorText);
+    assert(!gate.startVisible && gate.createVisible && gate.importVisible, "no shared action; standard choices are restored", gate);
+    assert(noSharedWrite(before, after, "Future program").length === 0 && !after.cookie && !(await handoffCookie(context)),
+      "nothing is written and no handoff cookie is staged", { cookie: after.cookie });
+    await context.close();
+  });
+
+  await runCase("Invalid and oversized sources fail closed", async () => {
+    const cases = [
+      ["invalid-base64", "v4.not.base64", SHARED_COPY.en.invalid],
+      ["invalid-gzip", "v4.e30", SHARED_COPY.en.invalid],
+      ["encoded-too-large", `v4.${"a".repeat(MAX_ENCODED_CHARS)}`, SHARED_COPY.en.invalid],
+      ["invalid-envelope", wireFragment([2, "Coach program"], 4), SHARED_COPY.en.invalid],
+      ["invalid-json", wireFragment("{not json", 4), SHARED_COPY.en.invalid],
+    ];
+    for (const [label, fragment, message] of cases) {
+      const { context, page } = await openAppPage(browser, { ua: IOS_UA });
+      await freshDevice(page);
+      await waitForFirstRun(page);
+      await page.evaluate((value) => {
+        document.cookie = `repforge_setup_v1=${value}; path=${new URL("index.html", location.href).pathname}; max-age=604800; SameSite=Lax`;
+      }, fragment);
+      const before = await page.evaluate(readDurableState);
+      await page.goto(setupUrl(fragment, label), { waitUntil: "domcontentloaded" });
+      await waitForFirstRun(page);
+      const gate = await page.evaluate(sharedGateSnapshot);
+      const after = await page.evaluate(readDurableState);
+      const hook = await page.evaluate(readSharedHook);
+      assert(hook.status === "invalid", `${label}: the proposal is invalid`, hook);
+      assert(gate.createVisible && gate.importVisible && !gate.startVisible, `${label}: standard Create/Import are restored`, gate);
+      assert(gate.errorVisible && gate.errorRole === "status" && gate.errorText === message, `${label}: localized inline error with role=status`, gate.errorText);
+      const hits = noSharedWrite(before, after, "Coach program");
+      assert(hits.length === 0, `${label}: nothing is written`, hits);
+      assert(!after.cookie, `${label}: a staged handoff cookie is cleared`, after.cookie);
+      await context.close();
+    }
+  });
+
+  await runCase("Missing Compression Streams fail closed and keep ordinary exports working", async () => {
+    const { context, page } = await openAppPage(browser, { noCompression: true });
+    await freshDevice(page);
+    await activateGeneratedProgram(page);
+    await page.click('nav button[data-view="program"]');
+    await page.waitForSelector("#program.view.active");
+    await page.click(SHARED_DOM.shareRow);
+    await page.waitForSelector("#shareSetupSheet:not(.hidden)", { timeout: 10000 });
+    await waitForShareSetupLink(page);
+    const shareUi = await page.evaluate(() => ({
+      status: document.querySelector("#shareSetupStatus")?.textContent || "",
+      copyDisabled: document.querySelector("#shareSetupCopy")?.disabled !== false,
+      link: (document.querySelector("#shareSetupLink")?.value || "").trim(),
+    }));
+    assert(shareUi.status === SHARED_COPY.en.shareUnsupported && shareUi.copyDisabled && !shareUi.link,
+      "the share sheet says this browser cannot create setup links and offers no link", shareUi);
+    await page.click("#shareSetupClose");
+    await page.locator("#shareSetupSheet").waitFor({ state: "hidden" });
+    await page.click("#programEditToggle");
+    await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+    await page.locator("#programEditorWrap details.advanced > summary").click();
+    const [programDownload] = await Promise.all([
+      page.waitForEvent("download", { timeout: 8000 }).catch(() => null),
+      page.locator("#exportProgram").click(),
+    ]);
+    assert(!!programDownload, "program file export still works without CompressionStream");
+    const [backupDownload] = await Promise.all([
+      page.waitForEvent("download", { timeout: 8000 }).catch(() => null),
+      page.evaluate(() => document.querySelector("#exportJson")?.click()),
+    ]);
+    assert(!!backupDownload, "backup export still works without CompressionStream");
+    await context.close();
+
+    const sender = await openAppPage(browser, { ua: IOS_UA });
+    await freshDevice(sender.page);
+    const encoded = await encodeSetupDocument(sender.page, await buildSetupDocument(sender.page));
+    await sender.context.close();
+    const open = await openAppPage(browser, { noCompression: true, ua: IOS_UA });
+    await freshDevice(open.page);
+    const before = await open.page.evaluate(readDurableState);
+    await open.page.goto(setupUrl(encoded.value, "no-decompression"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(open.page);
+    const gate = await open.page.evaluate(sharedGateSnapshot);
+    const after = await open.page.evaluate(readDurableState);
+    assert(gate.createVisible && gate.importVisible && !gate.startVisible, "a browser without DecompressionStream restores standard choices", gate);
+    assert(gate.errorText === SHARED_COPY.en.browserUnsupported, "browser_unsupported copy is used", gate.errorText);
+    assert(noSharedWrite(before, after, "Coach program").length === 0 && !after.cookie, "nothing is written and no cookie is kept",
+      { hits: noSharedWrite(before, after, "Coach program"), cookie: after.cookie });
+    await open.context.close();
+  });
+
+  await runCase("Onboarded devices and archived history refuse a setup link", async () => {
+    for (const label of ["onboarded program", "archived history"]) {
+      const { context, page } = await openAppPage(browser, { locale: "en-US" });
+      await freshDevice(page);
+      await activateGeneratedProgram(page, { name: "Existing split", seed: "existing-a" });
+      if (label === "onboarded program") {
+        // Activation writes what boot would normalize, so the next boot rewrites nothing.
+        const rawActivated = await page.evaluate((k) => localStorage.getItem(k), KEY);
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(page, { timeout: 15000, base: BASE });
+        await page.evaluate(() => window.__repforgeStorage?.flush?.());
+        const rawReloaded = await page.evaluate((k) => localStorage.getItem(k), KEY);
+        const meta = JSON.parse(rawActivated)?.programMeta;
+        const trainingDays = meta?.programDefinition?.days?.filter((day) => day.kind === "training").length;
+        assert(trainingDays === 3 && meta?.daysPerWeek === trainingDays,
+          `${label}: activation stores daysPerWeek as the training-day count`, { stored: meta?.daysPerWeek, trainingDays });
+        assert(rawReloaded === rawActivated, `${label}: the first reload after activation does not rewrite storage`,
+          { before: JSON.parse(rawActivated)?._storageRevision, after: JSON.parse(rawReloaded)?._storageRevision });
+      }
+      if (label === "archived history") {
+        await activateGeneratedProgram(page, { name: "Existing split", seed: "existing-b" });
+        await editDurableState(page, (state) => { state.programMeta.onboarded = false; });
+      }
+      const encoded = await encodeSetupDocument(page,
+        await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 4 }));
+      const before = await page.evaluate(readDurableState);
+      assert(label !== "archived history" || ((before.state?.programHistory || []).length > 0 && before.state?.programMeta?.onboarded === false),
+        `${label}: the device holds archived history and is not onboarded`, before.state?.programMeta);
+      await page.goto(setupUrl(encoded.value, label.replace(/\s+/g, "-")), { waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { timeout: 15000, base: BASE });
+      await page.waitForFunction(() => window.__repforgeSharedSetup?.status === "existing", null, { timeout: 15000 });
+      await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent === expected,
+        SHARED_COPY.en.existing, { timeout: 10000 });
+      const after = await page.evaluate(readDurableState);
+      const gate = await page.evaluate(sharedGateSnapshot);
+      assert(!gate.startVisible, `${label}: no shared Start is offered`, gate);
+      assert(canonicalJson(after.state) === canonicalJson(before.state), `${label}: the durable state is unchanged`,
+        { before: before.state?.programMeta?.name, after: after.state?.programMeta?.name });
+      assert(after.state?.settings?.lang !== "pt" && gate.i18n !== "pt", `${label}: the link's language is not applied`, gate.i18n);
+      assert(!after.cookie && !(await handoffCookie(context)), `${label}: the staged handoff cookie is cleared after the notice`, after.cookie);
+      await context.close();
+    }
+  });
+
+  await runCase("Double Start produces one preview and one durable transition", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await freshDevice(page);
+    const encoded = await encodeSetupDocument(page, await buildSetupDocument(page));
+    await page.goto(setupUrl(encoded.value, "double"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const beforeRev = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}")._storageRevision || 0);
+    await page.evaluate(() => {
+      const btn = document.querySelector("#firstRunSharedStart");
+      btn?.click();
+      btn?.click();
+    });
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true, null, { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    const after = await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      return { name: state.programMeta?.name, revision: state._storageRevision, history: (state.programHistory || []).length };
+    });
+    assert(after.name === "Coach program" && after.history === 0, "one activation of the shared program", after);
+    assert(after.revision === beforeRev + 1, "the busy guard yields a single durable transition", { beforeRev, after });
+    await context.close();
+  });
+
+  await runCase("Cancel on the shared preview asks keep or discard and never returns to the gate silently", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await freshDevice(page);
+    const encoded = await encodeSetupDocument(page, await buildSetupDocument(page));
+    await page.goto(setupUrl(encoded.value, "cancel-dialog"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    if (!(await clickSharedStart(page, { activate: false }))) {
+      await context.close();
+      return;
+    }
+    const snapshot = () => page.evaluate(() => {
+      const dialog = document.querySelector("#entryDialog");
+      return {
+        open: !!dialog?.open,
+        actions: [...(dialog?.querySelectorAll(".entry-dialog__actions button") || [])].map((button) => button.id),
+        gate: !!document.querySelector("#firstRun:not(.hidden)"),
+        preview: !!document.querySelector("#onboarding.active #entryActivate"),
+        onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true,
+        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+        focus: document.activeElement?.id || "",
+      };
+    });
+    await page.click("#onbCancel");
+    await page.waitForSelector("#entryDialog[open] #entryCancelKeep", { timeout: 5000 });
+    const asking = await snapshot();
+    assert(asking.open && JSON.stringify(asking.actions) === JSON.stringify(["entryCancelKeep", "entryCancelDiscard", "entryCancelContinue"]),
+      "Cancel on the shared preview asks keep, discard or continue", asking);
+    assert(!asking.gate && asking.preview && !asking.onboarded, "while it asks, the preview stays and the gate does not come back", asking);
+    await page.click("#entryCancelContinue");
+    await page.waitForFunction(() => !document.querySelector("#entryDialog")?.open, null, { timeout: 5000 });
+    const continued = await snapshot();
+    assert(!continued.open && continued.preview && !continued.gate && continued.setupDraft && continued.focus === "onbCancel",
+      "continuing closes the dialog on the same preview and returns focus to Cancel", continued);
+    await page.click("#onbCancel");
+    await page.waitForSelector("#entryDialog[open] #entryCancelDiscard", { timeout: 5000 });
+    await page.click("#entryCancelDiscard");
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
+    const discarded = await snapshot();
+    assert(!discarded.setupDraft && !discarded.onboarded, "discarding drops the staged draft and activates nothing", discarded);
+    await context.close();
+  });
+
+  await runCase("A concurrent onboarding or archived history rejects activation without a partial write", async () => {
+    for (const label of ["concurrent onboarding", "concurrent program history"]) {
+      const { context, page } = await openAppPage(browser, { standalone: true });
+      await freshDevice(page);
+      let spec = { onboarded: true };
+      if (label === "concurrent program history") {
+        // A real archive entry: what activating and then replacing a program leaves behind.
+        await activateGeneratedProgram(page, { name: "Archived", seed: "archived-a" });
+        await activateGeneratedProgram(page, { name: "Archived", seed: "archived-b" });
+        spec = { addHistory: (await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).programHistory, KEY)).slice(0, 1) };
+        await freshDevice(page);
+      }
+      const encoded = await encodeSetupDocument(page,
+        await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 4 }));
+      await page.goto(setupUrl(encoded.value, `reject-${label.replace(/\s+/g, "-")}`), { waitUntil: "domcontentloaded" });
+      await waitForFirstRun(page);
+      assert((await page.evaluate(readSharedHook)).status === "ready", `${label}: this tab holds a ready proposal`);
       if (!(await clickSharedStart(page, { activate: false }))) {
         await context.close();
         continue;
       }
+      await commitConcurrentHead(page, spec);
+      const before = await readBothReplicas(page);
       await page.click("#entryActivate");
-      await page.locator("#entryDurableConflictReview, #entryConflictReview").first()
-        .waitFor({ state: "visible", timeout: 10000 });
+      await page.locator("#entryDurableConflictReview, #entryConflictReview").first().waitFor({ state: "visible", timeout: 10000 });
       const after = await readBothReplicas(page);
-      assert(
-        after.local?.programMeta?.name !== "Força compartilhada" && after.idb?.programMeta?.name !== "Força compartilhada",
-        `${label}: the shared program is not committed`,
-        JSON.stringify({ local: after.local?.programMeta?.name, idb: after.idb?.programMeta?.name })
-      );
-      assert(
-        canonicalJson(after.local) === canonicalJson(before.local) && canonicalJson(after.idb) === canonicalJson(before.idb),
-        `${label}: both replicas are byte-for-byte intact (no partial write)`,
-        JSON.stringify({ localChanged: canonicalJson(after.local) !== canonicalJson(before.local), idbChanged: canonicalJson(after.idb) !== canonicalJson(before.idb) })
-      );
+      assert(after.local?.programMeta?.name !== "Força compartilhada" && after.idb?.programMeta?.name !== "Força compartilhada",
+        `${label}: the shared program is not committed`, { local: after.local?.programMeta?.name, idb: after.idb?.programMeta?.name });
+      assert(canonicalJson(after.local) === canonicalJson(before.local) && canonicalJson(after.idb) === canonicalJson(before.idb),
+        `${label}: both replicas are byte-for-byte intact`);
       await context.close();
     }
   });
 
   await runCase("Unrelated hashchange is a no-op after a staged shared setup", async () => {
     const { context, page } = await openAppPage(browser, { ua: IOS_UA });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const first = cloneFixture(MINIMAL_PAYLOAD);
-    const encoded = await encodeSharedPayload(page, first);
-    const fragment = encoded.ok ? encoded.value : wireFragment(first);
-    await page.goto(setupUrl(fragment, "hash-noop"), { waitUntil: "domcontentloaded" });
+    await freshDevice(page);
+    const encoded = await encodeSetupDocument(page, await buildSetupDocument(page));
+    await page.goto(setupUrl(encoded.value, "hash-noop"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const before = await page.evaluate(() => ({
-      status: window.__repforgeSharedSetup?.status,
-      source: window.__repforgeSharedSetup?.source,
-      cookie: document.cookie.split(";").some((part) => part.trim().startsWith("repforge_setup_v1=")),
-      hash: location.hash,
+    const before = await page.evaluate(readSharedHook);
+    assert(before.status === "ready" && (await page.evaluate(readDurableState)).cookie === encoded.value,
+      "ready proposal and staged cookie before an unrelated hash", before);
+    await page.evaluate(() => new Promise((resolve) => {
+      window.addEventListener("hashchange", () => requestAnimationFrame(() => requestAnimationFrame(resolve)), { once: true });
+      location.hash = "section";
     }));
-    assert(before.status === "ready" && before.cookie, "ready proposal and staged cookie before unrelated hash", JSON.stringify(before));
-    await page.evaluate(() => { location.hash = "section"; });
-    await page.waitForTimeout(500);
-    const afterSection = await page.evaluate(sharedGateSnapshot);
+    const afterGate = await page.evaluate(sharedGateSnapshot);
     const afterHook = await page.evaluate(readSharedHook);
-    const afterDur = await page.evaluate(readDurableState);
-    assert(afterHook.status === "ready", "unrelated #section leaves the proposal ready", JSON.stringify(afterHook));
-    assert(afterSection.startVisible && !afterSection.startDisabled, "Start row stays live after #section", JSON.stringify(afterSection));
-    assert(!!afterDur.cookie, "unrelated hash does not clear the staged cookie", afterDur.cookie);
-    assert(afterDur.hash === "#section", "unrelated section hash is kept", afterDur.hash);
-    const second = cloneFixture(MINIMAL_PAYLOAD);
-    second.program.meta.name = "Second coach program";
-    const encoded2 = await encodeSharedPayload(page, second);
-    const fragment2 = encoded2.ok ? encoded2.value : wireFragment(second);
-    await page.evaluate((value) => { location.hash = `setup=${value}`; }, fragment2);
-    await waitForFirstRun(page);
-    const secondHook = await page.evaluate(readSharedHook);
+    const afterDurable = await page.evaluate(readDurableState);
+    assert(afterHook.status === "ready" && afterGate.startVisible && !afterGate.startDisabled,
+      "an unrelated #section leaves the proposal and Start row live", { afterHook, afterGate });
+    assert(afterDurable.cookie === encoded.value && afterDurable.hash === "#section", "the cookie and the unrelated hash are kept", afterDurable.hash);
+    const second = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Second coach program" }));
+    await page.evaluate((value) => { location.hash = `setup=${value}`; }, second.value);
+    await page.waitForFunction(() => window.__repforgeSharedSetup?.summary?.name === "Second coach program", null, { timeout: 10000 });
     const secondGate = await page.evaluate(sharedGateSnapshot);
-    assert(
-      secondHook.status === "ready" && secondHook.summary?.name === "Second coach program",
-      "a later genuine setup fragment still loads",
-      JSON.stringify(secondHook)
-    );
-    assert(secondGate.startVisible && !secondGate.startDisabled, "second genuine fragment keeps a live Start row", JSON.stringify(secondGate));
+    assert(secondGate.startVisible && secondGate.startCap === SHARED_COPY.en.capOne("Second coach program"),
+      "a later genuine setup fragment still loads", secondGate);
     await context.close();
   });
 
   await runCase("Long program names wrap without horizontal overflow", async () => {
     const { context, page } = await openAppPage(browser, { ua: IOS_UA, width: 320, height: 568 });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const long = cloneFixture(MINIMAL_PAYLOAD);
-    long.program.meta.name = "A".repeat(100);
-    const encoded = await encodeSharedPayload(page, long);
-    const fragment = encoded.ok ? encoded.value : wireFragment(long);
-    await page.goto(setupUrl(fragment, "long-name"), { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(page).catch(() => {});
+    await freshDevice(page);
+    const encoded = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "A".repeat(100) }));
+    await page.goto(setupUrl(encoded.value, "long-name"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
     const shape = await page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       cap: document.querySelector("#firstRunSharedStart .firstrun-row__cap")?.textContent || "",
-      capHeight: document.querySelector("#firstRunSharedStart .firstrun-row__cap")?.getBoundingClientRect().height || 0,
     }));
-    assert(!shape.overflow, "320px shared gate has no horizontal overflow", JSON.stringify(shape));
-    assert(shape.cap.includes("A".repeat(20)), "the long name is shown, not truncated out of the row", shape.cap);
+    assert(!shape.overflow, "320px shared gate has no horizontal overflow", shape);
+    assert(shape.cap.includes("A".repeat(100)), "the long name is shown whole", shape.cap.length);
     await context.close();
   });
 
   await runCase("Shared program names render as text, never HTML", async () => {
     const { context, page } = await openAppPage(browser, { width: 390 });
-    await clearSite(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const payload = cloneFixture(MINIMAL_PAYLOAD);
-    payload.program.meta.name = '<img src=x onerror="window.__sharedXss=true">Coach';
-    const encoded = await encodeSharedPayload(page, payload);
-    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
-    await page.goto(setupUrl(fragment, "text-only-name"), { waitUntil: "domcontentloaded" });
+    await freshDevice(page);
+    const name = '<img src=x onerror="window.__sharedXss=true">Coach';
+    const encoded = await encodeSetupDocument(page, await buildSetupDocument(page, { name }));
+    await page.goto(setupUrl(encoded.value, "text-only-name"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     const rendered = await page.evaluate(() => {
       const cap = document.querySelector("#firstRunSharedStart .firstrun-row__cap");
-      return {
-        text: cap?.textContent || "",
-        images: cap?.querySelectorAll("img").length || 0,
-        executed: window.__sharedXss === true,
-      };
+      return { text: cap?.textContent || "", images: cap?.querySelectorAll("img").length || 0, executed: window.__sharedXss === true };
     });
-    assert(rendered.text.includes("<img src=x onerror="), "untrusted program name is displayed literally", rendered.text);
-    assert(rendered.images === 0 && !rendered.executed, "untrusted program name creates no HTML or script execution", JSON.stringify(rendered));
+    assert(rendered.text.includes(name), "untrusted program name is displayed literally", rendered.text);
+    assert(rendered.images === 0 && !rendered.executed, "untrusted program name creates no HTML or script execution", rendered);
     await context.close();
   });
 

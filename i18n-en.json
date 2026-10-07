@@ -1070,6 +1070,7 @@
   "setup.shared.cap_many": "{name} · {n} days per week",
   "setup.shared.invalid": "This shared program link is invalid or incomplete.",
   "setup.shared.unsupported": "This shared program was created by a newer version of Taurifer.",
+  "setup.shared.outdated": "This link was made by a different version of Taurifer and can't be opened here. Ask the sender to share their program again.",
   "setup.shared.browser_unsupported": "This browser cannot open shared program links.",
   "setup.shared.too_large": "This program is too large to share as an install-safe link.",
   "setup.shared.existing": "This setup link can only be started during initial setup.",

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/** Plan 057-P7 / Plan 064 R3k: Program roles, the ledger overview with no readiness route, and editor dock clearance. */
+/** Plan 057-P7 / Plan 064 R3k / Plan 067: Program roles, the ledger overview with no readiness route, its adaptive
+ *  next-load column, and editor dock clearance. */
 import assert from "node:assert/strict";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -24,23 +25,6 @@ function ymd(offsetDays = 0) {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function rowsFor(ids, { ready = true } = {}) {
-  const date = ymd(-2);
-  return ids.flatMap((id) => Array.from({ length: 2 }, (_, index) => ({
-    session: `program-actions-${id}`,
-    date,
-    day: id === "seed-ex-1" ? "Day 1" : "Day 2",
-    exerciseId: id,
-    name: id === "seed-ex-1" ? "Hack squat" : "Leg press",
-    load: 100,
-    reps: ready ? 8 : 6,
-    rir: ready ? 1 : 2,
-    set: index + 1,
-    work: true,
-    created: `${date}T12:0${index}:00.000Z`,
-  })));
 }
 
 async function waitForApp(page) {
@@ -84,17 +68,78 @@ async function openProgram(page) {
   await page.waitForSelector("#program.view.active", { timeout: 5000 });
 }
 
-async function readyOracle(page) {
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+
+/** A real generated program, activated through the production finalize path. */
+async function installGeneratedProgram(page) {
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  return page.evaluate(async ({ weight, reps }) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4,
+      sessionMinutes: 60, environment: { kind: "commercial_gym" },
+    }, catalog).value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "program-actions").value;
+    const found = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
+      .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]));
+    await window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition, name: "Program actions", answers: {}, destination: "log", origin: "first-run",
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "program-actions" },
+    });
+    await window.__repforgeStorage.flush();
+    return found ? { day: found.day.name, slotId: found.slot.id,
+      sets: found.slot.prescriptionsByCycle[0].sets.length } : null;
+  }, { weight: WEIGHT, reps: REPS });
+}
+
+async function fillShelf(page, metricId, value) {
+  const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
+  await input.waitFor({ state: "attached", timeout: 5000 });
+  if (await input.getAttribute("aria-hidden") === "true")
+    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+  await input.fill(String(value));
+}
+
+/** Logs every set of the target's first slot through the focus shelf, then finishes early. */
+async function performSession(page, target, { load, reps, rir }) {
+  await page.click('nav button[data-view="log"]');
+  await page.waitForSelector("#log.view.active", { timeout: 5000 });
+  if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not enter day");
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  for (let ordinal = 1; ordinal <= target.sets; ordinal++) {
+    await fillShelf(page, WEIGHT, load);
+    await fillShelf(page, REPS, reps);
+    const rirInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${target.slotId}_${ordinal}_rir"]`);
+    if (await rirInput.getAttribute("aria-hidden") === "true")
+      await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
+    await rirInput.fill(String(rir));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.locator(`#workout .exercise.is-current [data-save="${target.slotId}_${ordinal}"]`).click();
+    await page.waitForFunction(({ slotId, ordinal }) => {
+      const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[slotId];
+      const setId = exercise?.setOrder?.find((id) => exercise.sets[id].ordinal === ordinal);
+      return typeof exercise?.sets?.[setId]?.completion === "object";
+    }, { slotId: target.slotId, ordinal }, { timeout: 15000 });
+  }
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  await page.locator("#sessionEarlyConfirm").click();
+  await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 15000 });
+  await page.locator("#sumDone").click();
+  await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+}
+
+/** The program rows whose recommendation carries a next load, in program order. */
+async function nextLoadOracle(page) {
   return page.evaluate((key) => {
     const state = JSON.parse(localStorage.getItem(key) || "{}");
-    const ready = (state.program || []).filter((exercise) => {
-      const status = window.__repforgeRecommendation?.(exercise)?.status;
-      return status === "add" || status === "add2";
-    });
-    return {
-      ids: ready.map((exercise) => exercise.id),
-      statuses: ready.map((exercise) => window.__repforgeRecommendation(exercise).status),
-    };
+    const program = state.program || [];
+    const loaded = program.map((exercise) => ({ exercise, rec: window.__repforgeRecommendation(exercise) }))
+      .filter(({ rec }) => rec.status !== "manual" && rec.load != null && Number.isFinite(+rec.load))
+      .map(({ exercise, rec }) => ({ id: exercise.id, load: rec.load, text: String(rec.load) }));
+    return { total: program.length, loaded };
   }, KEY);
 }
 
@@ -152,7 +197,7 @@ try {
   await waitForApp(page);
 
   console.log("Program action roles");
-  await install(page, rowsFor(["seed-ex-1"], { ready: false }));
+  await install(page, []);
   await openProgram(page);
   const overview = await page.evaluate(() => ({
     days: [...document.querySelectorAll("#programOverview .prog-day")].map((day) => ({
@@ -217,26 +262,32 @@ try {
     return row && bar ? { rowBottom: row.bottom, dockTop: bar.top, viewport: innerHeight, clear: row.bottom <= bar.top + 1 } : null;
   });
   check(clearance?.clear === true, "the last editor row clears the persistent dock at scroll end", clearance);
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
 
-  console.log("\nProgram readiness is retired; the next column carries it");
-  await install(page, rowsFor(["seed-ex-1", "seed-ex-2"]));
+  console.log("\nProgram readiness is retired; the next column carries the adaptive recommendation");
+  const target = await installGeneratedProgram(page);
+  if (!target) throw new Error("the generated program has no weighted first slot");
+  await performSession(page, target, { load: 100, reps: 8, rir: 2 });
   await openProgram(page);
-  const oracle = await readyOracle(page);
+  const oracle = await nextLoadOracle(page);
   const rows = await page.evaluate(() => ({
     readyRoute: document.querySelectorAll("#programReadyLink, #programReadyBack, [data-ready-ex]").length,
     positiveChips: [...document.querySelectorAll("#programMeta .pmeta__chip")]
       .filter((node) => /ready|pronto/i.test(node.textContent || "")).length,
-    up: [...document.querySelectorAll("#programOverview .rxrow")]
-      .filter((row) => row.querySelector(".verdictmark--up")).map((row) => row.dataset.exopen),
-    targets: [...document.querySelectorAll("#programOverview [data-parity-target]")].map((node) => node.dataset.parityTarget),
+    targets: [...document.querySelectorAll("#programOverview [data-parity-target]")]
+      .map((node) => ({ id: node.dataset.parityTarget, text: node.textContent.trim() })),
   }));
-  check(oracle.ids.length > 0, "the fixture produces at least one recommendation-owned ready exercise", oracle);
+  check(oracle.loaded.some((entry) => entry.id === target.slotId),
+    "the performed movement carries an adaptive next load from its recommendation", { oracle, target });
+  check(oracle.loaded.length < oracle.total,
+    "movements without history carry no recommended load", oracle);
   check(rows.readyRoute === 0 && rows.positiveChips === 0,
     "no Program readiness route, link or chip exists", rows);
-  check(JSON.stringify(rows.up) === JSON.stringify(oracle.ids),
-    "the up verdict marks exactly the recommendation-owned ready exercises, in program order", { rows, oracle });
-  check(oracle.ids.every((id) => rows.targets.includes(id)),
-    "every ready exercise shows its next load tied to its recommendation", { rows, oracle });
+  check(JSON.stringify(rows.targets.map((entry) => entry.id)) === JSON.stringify(oracle.loaded.map((entry) => entry.id)),
+    "the next column shows a load for exactly the recommendation-owned exercises, in program order", { rows, oracle });
+  check(oracle.loaded.every((entry) => rows.targets.find((row) => row.id === entry.id)?.text.includes(entry.text)),
+    "every shown next load is the load its recommendation computes", { rows, oracle });
   await page.click("#reviewBlockLink");
   await page.waitForSelector('#stats.view.active #statsSeg button[data-seg="review"].active', { timeout: 5000 });
   check(await page.locator("#stats.view.active").count() === 1, "Review block routes through Progress Review", await page.locator("#stats.view.active").count());

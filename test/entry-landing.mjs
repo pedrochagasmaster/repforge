@@ -3,8 +3,8 @@
  * Characterization of entry jobs, activation, and first-run boundaries (Plan 054 packet 054-P1).
  *
  * Proves:
- * (1) Recommend, Custom, Browse, Build, and Import are each reachable through current production controls
- *     and route to their current semantic first step;
+ * (1) Recommend (Generate), Custom, Build, and Import are each reachable through current production controls
+ *     and route to their current semantic first step; the retired Browse route is not offered;
  * (2) Before candidate activation, route staging does not mutate active durable program/settings/log/history
  *     in either replica (localStorage repforge_v1 and IndexedDB repforge/kv), while the owned ordinary setup
  *     draft (repforge_program_setup_draft_v1) may persist;
@@ -28,16 +28,11 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "url";
 import { isDeepStrictEqual } from "node:util";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
-import {
-  BUILT_IN_IDS,
-  CURRENT_SETTINGS_DEFAULTS,
-  REPRESENTATIVE_PAYLOAD,
-  cloneFixture,
-} from "./fixtures/shared-setup.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { decodeSetupLink, encodeSetupLink, encodeSetupPayload } from "./fixtures/setup-link-v4.mjs";
 import {
   APP_INDEX,
   SHARED_COPY,
-  encodeSharedPayload,
   openAppPage,
   sharedGateSnapshot,
   waitForFirstRun,
@@ -55,7 +50,27 @@ const SENTINELS = Object.freeze({
   name: "Sentinel Shared Characterization Program",
   customId: "custom:sentinel-shared-exercise",
   customName: "Sentinel Shared Incline Row",
+  notes: "Sentinel shared setup note",
 });
+
+const CURRENT_SETTINGS_DEFAULTS = Object.freeze({
+  jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120, lastExport: "", unit: "kg", lang: null,
+  rirMode: "numeric", voiceInputEnabled: false,
+  notify: Object.freeze({ enabled: false, timer: true, session: true, unfinished: true, missed: true }),
+});
+
+/** A ready program carrying its canonical ProgramDefinition, under a chosen name and onboarding flag. */
+function seededProgramState({ id, name, onboarded }) {
+  return {
+    settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
+    programMeta: seedProgramMeta({ id, name, onboarded }),
+    program: seedProgram(),
+    log: [],
+    programHistory: [],
+    customExercises: [],
+    _storageRevision: 4,
+  };
+}
 
 const results = { passed: 0, failed: 0 };
 
@@ -184,21 +199,22 @@ async function dismissGates(page) {
   });
 }
 
-function makeSentinelPayload() {
-  const p = cloneFixture(REPRESENTATIVE_PAYLOAD);
-  p.program.meta.name = SENTINELS.name;
-  if (p.program.customExercises?.[0]) {
-    p.program.customExercises[0].id = SENTINELS.customId;
-    p.program.customExercises[0].name = SENTINELS.customName;
-    p.program.customExercises[0].namePt = SENTINELS.customName;
-  }
-  for (const ex of p.program.exercises || []) {
-    if (ex.libraryId === "custom:coach-row") {
-      ex.libraryId = SENTINELS.customId;
-      ex.displayName = SENTINELS.customName;
-    }
-  }
-  return p;
+/**
+ * A v4 link whose program name, custom movement and slot note are sentinels:
+ * none of them may appear in durable state before the lifter starts it.
+ */
+function encodeSentinelLink(page) {
+  // The seed Build program with its third day made a rest day: an edited
+  // program travels in full, and two training days keep it well inside the
+  // link limit.
+  const definition = seedProgramMeta().programDefinition;
+  Object.assign(definition.days.find((day) => day.order === 3), { kind: "rest", slots: [] });
+  return encodeSetupLink(page, {
+    name: SENTINELS.name,
+    language: "pt",
+    definition,
+    custom: { id: SENTINELS.customId, name: SENTINELS.customName, notes: SENTINELS.notes },
+  });
 }
 
 async function readUiPrefsRaw(page) {
@@ -224,18 +240,6 @@ async function observeEntryLandingWrites(page) {
       return original.call(this, key, value);
     };
   }, { uiKey: UIKEY });
-}
-
-async function decodeSharedPayload(page, encodedValue) {
-  return page.evaluate(
-    async ({ value, ids }) => {
-      const api = window.RepForgeSharedSetup;
-      if (!api || typeof api.decode !== "function") return { ok: false, code: "missing-module", missing: true };
-      const result = await api.decode(value, { builtInIds: new Set(ids) });
-      return result && typeof result === "object" ? result : { ok: false, code: "invalid-result" };
-    },
-    { value: encodedValue, ids: [...BUILT_IN_IDS] }
-  );
 }
 
 /**
@@ -519,15 +523,8 @@ try {
     await page.click("#onbBack");
     await page.waitForSelector('[data-entry-route="custom"]', { timeout: 10000 });
 
-    // 3. Browse route
-    await page.click('[data-entry-route="browse"]');
-    await page.waitForSelector('[data-entry-pick="daysPerWeek"]', { timeout: 10000 });
-    entry = await getEntryState();
-    assert(entry?.route === "browse", "Browse route selected");
-    assert(entry?.step === "schedule", "Browse reaches semantic first step schedule");
-
-    // Return to entry hub
-    await page.click("#onbBack");
+    // 3. Browse is retired (Plan 067): the hub offers no route into the old catalogue.
+    assert(await page.locator('[data-entry-route="browse"]').count() === 0, "the hub offers no Browse route");
     await page.waitForSelector("#entryOwnToggle", { timeout: 10000 });
 
     // 4. Build route (behind #entryOwnToggle)
@@ -595,7 +592,6 @@ try {
     await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
     await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
     await page.click("#onbNext");
     await page.waitForSelector('[data-entry-pick="daysPerWeek"]', { timeout: 10000 });
 
@@ -614,14 +610,14 @@ try {
   // ------------------------------------------------------------------------
   phase("Phase 3: Valid shared setup pre-Start isolation (with proof-first fault switch)");
   {
-    const sentinelPayload = makeSentinelPayload();
     const { context, page } = await openAppPage(browser);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
 
-    const encoded = await encodeSharedPayload(page, sentinelPayload);
-    assert(encoded?.ok && typeof encoded.value === "string", "sentinel payload encoded successfully", JSON.stringify(encoded));
+    const encoded = await encodeSentinelLink(page);
+    assert(encoded?.ok && typeof encoded.value === "string" && encoded.value.startsWith("v4."),
+      "sentinel payload encoded successfully as a current v4 link", JSON.stringify(encoded));
     const scopeBeforeSetup = await inspectStorageScope(page);
 
     // Open setup link with hash #setup=<encoded>
@@ -797,49 +793,15 @@ try {
   // ------------------------------------------------------------------------
   phase("Phase 5: Onboarded and history-bearing devices refuse shared setup without mutation");
   {
-    const sentinelPayload = makeSentinelPayload();
 
     // 5A: Onboarded device
     {
       const { context, page } = await openAppPage(browser, { locale: "en-US" });
       await clearSite(page);
 
-      const existingState = {
-        settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
-        programMeta: {
-          id: "existing-prog-id",
-          name: "Established Personal Program",
-          started: "2026-01-01",
-          onboarded: true,
-          created: "2026-01-01T00:00:00.000Z",
-          updated: "2026-01-01T00:00:00.000Z",
-          mesocycleStatus: "active",
-          mesocycleLengthWeeks: 6,
-          goal: "hypertrophy",
-          experience: "intermediate",
-          daysPerWeek: 3,
-          splitType: "full_body",
-          equipment: ["machines"],
-          priorityMuscles: [],
-          sessionLength: "normal",
-        },
-        program: [
-          {
-            id: "ex-1",
-            name: "Bench Press",
-            day: "Day 1",
-            order: 1,
-            sets: 3,
-            min: 8,
-            max: 12,
-            libraryId: "pr_mc",
-          },
-        ],
-        log: [],
-        programHistory: [],
-        customExercises: [],
-        _storageRevision: 4,
-      };
+      const existingState = seededProgramState({
+        id: "existing-prog-id", name: "Established Personal Program", onboarded: true,
+      });
 
       await persistState(page, existingState);
       await page.reload({ waitUntil: "domcontentloaded" });
@@ -849,7 +811,7 @@ try {
       await waitForAppBoot(page, { base: BASE });
       await dismissGates(page);
 
-      const encoded = await encodeSharedPayload(page, sentinelPayload);
+      const encoded = await encodeSentinelLink(page);
       assert(encoded.ok, "sentinel payload encoded for onboarded device check");
       const scopeBeforeRefusal = await inspectStorageScope(page);
 
@@ -923,7 +885,7 @@ try {
       await waitForAppBoot(page, { base: BASE });
       await dismissGates(page);
 
-      const encoded = await encodeSharedPayload(page, sentinelPayload);
+      const encoded = await encodeSentinelLink(page);
       assert(encoded.ok, "sentinel payload encoded for history-bearing device check");
       const scopeBeforeRefusal = await inspectStorageScope(page);
 
@@ -1362,7 +1324,7 @@ try {
     await waitForFirstRun(page);
     await leaveRecommendDraft(page);
     const labels = new Set();
-    for (const route of ["recommend", "custom", "browse", "build", "import", "shared"]) {
+    for (const route of ["recommend", "custom", "build", "import", "shared"]) {
       await page.evaluate(({ k, route }) => {
         const draft = JSON.parse(localStorage.getItem(k));
         draft.state.route = route;
@@ -1375,21 +1337,26 @@ try {
         `the ${route} draft reads its own resume line`, JSON.stringify({ draft: snap.draft, text: snap.resumeText }));
       labels.add(snap.resumeText);
     }
-    assert(labels.size === 6, "the six routes read six different lines", JSON.stringify([...labels]));
+    assert(labels.size === 5, "the five routes read five different lines", JSON.stringify([...labels]));
 
-    await page.evaluate((k) => {
-      const draft = JSON.parse(localStorage.getItem(k));
-      draft.state.route = "no-such-route";
-      localStorage.setItem(k, JSON.stringify(draft));
-    }, SETUP_DRAFT);
-    await reloadToLanding(page);
-    const unknown = await page.evaluate(landingSnapshot);
-    if (unknown.draft === "no-such-route") {
-      assert(unknown.resumeRoute === "no-such-route" && unknown.resumeText === CATALOG.en["landing.returning.resume.generic"],
-        "an unknown saved route falls back to the generic resume line", JSON.stringify(unknown));
-    } else {
-      assert(unknown.resumeRoute === null && unknown.resumeText === CATALOG.en["landing.build"] && unknown.draft === null,
-        "a draft the app cannot read offers no resume action", JSON.stringify(unknown));
+    // A route the app does not offer — an unknown one, or the retired Browse
+    // route left by an older release — never resumes into that route.
+    for (const route of ["no-such-route", "browse"]) {
+      await page.evaluate(({ k, route }) => {
+        const draft = JSON.parse(localStorage.getItem(k));
+        draft.state.route = route;
+        draft.state.step = route === "browse" ? "schedule" : draft.state.step;
+        localStorage.setItem(k, JSON.stringify(draft));
+      }, { k: SETUP_DRAFT, route });
+      await reloadToLanding(page);
+      const unknown = await page.evaluate(landingSnapshot);
+      if (unknown.draft === route) {
+        assert(unknown.resumeRoute === route && unknown.resumeText === CATALOG.en["landing.returning.resume.generic"],
+          `a saved ${route} draft falls back to the generic resume line`, JSON.stringify(unknown));
+      } else {
+        assert(unknown.resumeRoute === null && unknown.resumeText === CATALOG.en["landing.build"] && unknown.draft === null,
+          `a saved ${route} draft the app cannot read offers no resume action`, JSON.stringify(unknown));
+      }
     }
 
     await context.close();
@@ -1397,17 +1364,7 @@ try {
 
   phase("Phase 9e: An onboarded device never boots into the landing, with or without a seen landing or a draft");
   {
-    const program = {
-      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
-      programMeta: {
-        id: "returning-landing-program", name: "Returning Landing Program", started: "2026-01-01", onboarded: true,
-        created: "2026-01-01T00:00:00.000Z", updated: "2026-01-01T00:00:00.000Z", mesocycleStatus: "active",
-        mesocycleLengthWeeks: 6, goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3,
-        splitType: "full_body", equipment: ["machines"], priorityMuscles: [], sessionLength: "normal",
-      },
-      program: [{ id: "ex-1", name: "Bench Press", day: "Day 1", order: 1, sets: 3, min: 8, max: 12, libraryId: "pr_mc" }],
-      log: [], programHistory: [], customExercises: [], _storageRevision: 4,
-    };
+    const program = seededProgramState({ id: "returning-landing-program", name: "Returning Landing Program", onboarded: true });
     const logged = {
       settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
       programMeta: { id: "returning-landing-log", name: "Logged Device", onboarded: false,
@@ -1479,13 +1436,7 @@ try {
 
   phase("Phase 9h: SPEC-03 — a restored program with the onboarded flag unset is real content, not a returning landing");
   {
-    const restored = {
-      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
-      programMeta: { id: "restored-program", name: "Restored Program", started: "2026-01-01", onboarded: false,
-        created: "2026-01-01T00:00:00.000Z", updated: "2026-01-01T00:00:00.000Z", mesocycleStatus: "active", mesocycleLengthWeeks: 6 },
-      program: [{ id: "ex-1", name: "Bench Press", day: "Day 1", order: 1, sets: 3, min: 8, max: 12, libraryId: "pr_mc" }],
-      log: [], programHistory: [], customExercises: [], _storageRevision: 4,
-    };
+    const restored = seededProgramState({ id: "restored-program", name: "Restored Program", onboarded: false });
     for (const seen of [false, true]) {
       const { context, page } = await openAppPage(browser);
       await clearSite(page);
@@ -1518,7 +1469,7 @@ try {
     assert(returning.visit === "returning" && returning.draft === "recommend" && returning.resumeRoute === "recommend",
       "setup: the device is a returning visit with a saved draft", JSON.stringify(returning));
 
-    const encoded = await encodeSharedPayload(page, makeSentinelPayload());
+    const encoded = await encodeSentinelLink(page);
     assert(encoded?.ok, "sentinel payload encoded for the returning-device handoff", JSON.stringify(encoded));
     await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
@@ -1545,10 +1496,9 @@ try {
   }
 
   {
-    const sentinelPayload = makeSentinelPayload();
     const { context, page } = await openAppPage(browser);
     await clearSite(page);
-    const encoded = await encodeSharedPayload(page, sentinelPayload);
+    const encoded = await encodeSentinelLink(page);
     assert(encoded?.ok, "sentinel payload encoded for the fresh shared-route preference check", JSON.stringify(encoded));
 
     await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
@@ -1573,7 +1523,6 @@ try {
   // ------------------------------------------------------------------------
   phase("Phase 10: Valid shared proposal bypasses entryLandingSeen and stays storage-silent before Start (054-P3)");
   {
-    const sentinelPayload = makeSentinelPayload();
     const { context, page } = await openAppPage(browser);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -1586,7 +1535,7 @@ try {
     }, UIKEY);
     const prefsBeforeShared = await readUiPrefsRaw(page);
 
-    const encoded = await encodeSharedPayload(page, sentinelPayload);
+    const encoded = await encodeSentinelLink(page);
     assert(encoded?.ok, "sentinel payload encoded for the already-seen-landing check", JSON.stringify(encoded));
 
     await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
@@ -1669,15 +1618,13 @@ try {
 
     // 11b. Build through the production allowlist, then encode and decode the
     // exact payload that the share route would send.
-    const activeState = await page.evaluate((payload) =>
-      window.__repforgeSharedSetup.buildProposal(payload), cloneFixture(REPRESENTATIVE_PAYLOAD));
-    await persistState(page, activeState);
+    await persistState(page, seededProgramState({ id: "share-source", name: "Share source program", onboarded: true }));
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     const builtPayload = await page.evaluate(() => window.__repforgeSharedSetup.build());
-    const encoded = await encodeSharedPayload(page, builtPayload);
-    assert(encoded?.ok, "representative payload encoded for the proposal isolation check", JSON.stringify(encoded));
-    const decoded = await decodeSharedPayload(page, encoded.value);
+    const encoded = await encodeSetupPayload(page, builtPayload);
+    assert(encoded?.ok, "the app's own Share payload encodes for the proposal isolation check", JSON.stringify(encoded));
+    const decoded = await decodeSetupLink(page, encoded.value);
     assert(decoded?.ok, "encoded proposal decodes cleanly for inspection", JSON.stringify(decoded));
     let proposal = decoded.value;
     if (FAULT === "export-entry-pref") {

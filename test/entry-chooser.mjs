@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * Proof-first browser test boundary for Plan 054 packet 054-P4:
- * Five-job chooser hierarchy and route parity.
+ * Chooser hierarchy and route parity (four jobs since Plan 067 retired Browse).
  *
  * Requirements:
  * 1. Exactly one primary Recommend card.
  * 2. Custom is a visibly subordinate generated-program alternative, not a second primary.
- * 3. Browse is a separate top-level job.
+ * 3. The retired Browse job is not offered anywhere on the hub.
  * 4. Build and Import are grouped together under one Bring-or-build disclosure/control
  *    whose collapsed trigger is keyboard reachable and correctly exposes both actions.
- * 5. All five jobs are reachable by pointer and keyboard, and each lands on its
+ * 5. All four jobs are reachable by pointer and keyboard, and each lands on its
  *    existing semantic route/first step, without activating or mutating durable program state.
  *
  * Independent expected-route oracle: does not scrape production route constants.
@@ -49,7 +49,7 @@ function assert(condition, name, detail) {
 /**
  * Independent expected-route oracle.
  * Declares expected route destinations, initial step identifiers, and semantic
- * DOM landmarks for each of the five entry jobs, independent of production constants.
+ * DOM landmarks for each of the four entry jobs, independent of production constants.
  */
 const INDEPENDENT_ROUTE_ORACLE = Object.freeze({
   // Recommend's first question is the chooser's featured block (Q627): a goal
@@ -67,13 +67,6 @@ const INDEPENDENT_ROUTE_ORACLE = Object.freeze({
     stepRole: "radiogroup",
     stepSelector: '[data-entry-pick="desiredResult"]',
     headingKeywords: ["goal", "desired", "primary", "training"],
-  }),
-  browse: Object.freeze({
-    route: "browse",
-    initialStep: "schedule",
-    stepRole: "radiogroup",
-    stepSelector: '[data-entry-pick="daysPerWeek"]',
-    headingKeywords: ["train", "schedule", "days", "often"],
   }),
   build: Object.freeze({
     route: "build",
@@ -364,7 +357,7 @@ try {
   // =========================================================================
   // Phase 1: Hierarchy — Exactly one primary Recommend card
   // =========================================================================
-  phase("Phase 1: Five-job hierarchy — exactly one primary Recommend card (054-P4)");
+  phase("Phase 1: Chooser hierarchy — exactly one primary Recommend card (054-P4)");
   {
     const { context, page } = await openFreshChooserHub(browser);
     try {
@@ -400,7 +393,7 @@ try {
   // =========================================================================
   // Phase 2: Hierarchy — Custom is a visibly subordinate generated alternative
   // =========================================================================
-  phase("Phase 2: Five-job hierarchy — Custom is a visibly subordinate generated alternative, not a second primary (054-P4)");
+  phase("Phase 2: Chooser hierarchy — Custom is a visibly subordinate generated alternative, not a second primary (054-P4)");
   {
     const { context, page } = await openFreshChooserHub(browser);
     try {
@@ -424,25 +417,17 @@ try {
   }
 
   // =========================================================================
-  // Phase 3: Hierarchy — Browse is a separate top-level job
+  // Phase 3: Browse is retired (Plan 067) — no hub control, collapsed or expanded
   // =========================================================================
-  phase("Phase 3: Five-job hierarchy — Browse is a separate top-level job (054-P4)");
+  phase("Phase 3: The retired Browse job is not offered (Plan 067)");
   {
     const { context, page } = await openFreshChooserHub(browser);
     try {
       const structure = await inspectChooserStructure(page);
-      assert(structure.browseCard !== null, "Browse option is present in the chooser hub");
-
-      // In current production, Browse and Bring-or-build share the group label "Start with a program or empty days"
-      const browseIsDistinctGroup = structure.browseCard &&
-        structure.disclosureInfo &&
-        structure.browseCard.groupLabel !== structure.disclosureInfo.groupLabel;
-
-      assert(
-        browseIsDistinctGroup,
-        "Browse is presented in a distinct top-level group separate from Bring-or-build",
-        `Browse group: "${structure.browseCard?.groupLabel}" vs Disclosure group: "${structure.disclosureInfo?.groupLabel}"`
-      );
+      assert(structure.browseCard == null, "no Browse option on the collapsed hub");
+      await page.click("#onbBody #entryOwnToggle");
+      const expanded = await page.locator('[data-entry-route="browse"]').count();
+      assert(expanded === 0, "no Browse option once Bring-or-build is expanded", String(expanded));
     } finally {
       await context.close();
     }
@@ -451,7 +436,7 @@ try {
   // =========================================================================
   // Phase 4: Hierarchy — Build and Import grouped under Bring-or-build disclosure
   // =========================================================================
-  phase("Phase 4: Five-job hierarchy — Bring-or-build disclosure grouping and accessibility (054-P4)");
+  phase("Phase 4: Chooser hierarchy — Bring-or-build disclosure grouping and accessibility (054-P4)");
   {
     const { context, page } = await openFreshChooserHub(browser);
     try {
@@ -526,11 +511,11 @@ try {
   }
 
   // =========================================================================
-  // Phase 5: Route Parity & Isolation — All five jobs reachable by pointer and keyboard
+  // Phase 5: Route Parity & Isolation — All four jobs reachable by pointer and keyboard
   // =========================================================================
-  phase("Phase 5: Route parity & isolation — all five jobs via pointer and keyboard (054-P4)");
+  phase("Phase 5: Route parity & isolation — all four jobs via pointer and keyboard (054-P4)");
 
-  const routesToTest = ["recommend", "custom", "browse", "build", "import"];
+  const routesToTest = ["recommend", "custom", "build", "import"];
 
   // 5A: Pointer journeys
   for (const routeKey of routesToTest) {
@@ -618,7 +603,7 @@ try {
   }
 
   // Summary
-  console.log(`\nFive-job chooser characterization: ${results.passed} passed, ${results.failed} failed`);
+  console.log(`\nChooser characterization: ${results.passed} passed, ${results.failed} failed`);
   if (results.failures.length > 0) {
     console.log("\nDetected chooser contract failures:");
     results.failures.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
