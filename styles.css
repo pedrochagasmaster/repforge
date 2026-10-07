@@ -7561,54 +7561,78 @@ body.is-entry-editor #entryProgramName,
 /* Progress reads as a ledger counter. */
 #onboarding #onbStepLabel{font-family:var(--font-training-data);letter-spacing:.04em}
 
-/* The print: a full-screen interstitial over a review that is already there. */
+/* The print: a full-screen interstitial over a review that is already there,
+   drawn as the mockup's building page: the shell's row (wordmark, a full
+   counter over a full rule), a Skip word, the printer feeding a ruled receipt,
+   a status line with a blinking mark, the title and the checklist. */
 .entry-print{
-  position:fixed;inset:0;z-index:60;display:grid;place-items:center;cursor:pointer;
-  padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
+  position:fixed;inset:0;z-index:60;overflow:hidden;cursor:pointer;
+  padding:calc(var(--space-12) + env(safe-area-inset-top,0px)) max(var(--gut),env(safe-area-inset-right,0px)) calc(var(--space-26) + env(safe-area-inset-bottom,0px)) max(var(--gut),env(safe-area-inset-left,0px));
   background:var(--bg);color:var(--ink);animation:ledger-print-in .2s ease-out both
 }
-.entry-print__inner{width:100%;max-width:400px;display:flex;flex-direction:column;gap:var(--space-16)}
-.entry-print__eyebrow{margin:0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
-.entry-print__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);text-wrap:balance}
-.entry-print__paper{
-  display:flex;flex-direction:column;gap:10px;padding:18px 16px 14px;background:var(--surface);
-  border:1px solid var(--rule);border-radius:var(--radius-compact);
-  -webkit-mask:radial-gradient(circle at 6px 0,transparent 4px,var(--ink) 4.5px) 0 0/12px 100% repeat-x;
-  mask:radial-gradient(circle at 6px 0,transparent 4px,var(--ink) 4.5px) 0 0/12px 100% repeat-x
+.entry-print__inner{display:flex;flex-direction:column;max-width:var(--maxw);margin:0 auto}
+.entry-print__top{display:flex;align-items:center;min-height:var(--control-target)}
+.entry-print__mark{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.01em}
+.entry-print__count{margin-left:auto;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-variant-numeric:tabular-nums;letter-spacing:.02em;color:var(--ink-faint)}
+.entry-print__count b{font-weight:var(--weight-semibold);color:var(--ink)}
+.entry-print__bar{display:flex;gap:var(--space-12);margin-top:var(--space-4)}
+.entry-print__bar i{display:block;flex:1;height:3px;background:var(--ink)}
+.entry-print__skiprow{display:flex;justify-content:flex-end;padding-top:var(--space-8)}
+.entry-print__skip{font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--control-target);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.entry-print__printer{width:208px;margin:var(--space-8) auto var(--space-4)}
+.entry-print__slot{position:relative;z-index:1;height:12px;border-radius:var(--radius-pill);background:var(--ink)}
+.entry-print__feed{
+  position:relative;height:150px;margin:-6px 12px 0;padding:16px 14px 10px;overflow:hidden;background:var(--surface);
+  -webkit-mask:linear-gradient(var(--ink) 70%,transparent);mask:linear-gradient(var(--ink) 70%,transparent)
 }
-.entry-print__rule{
-  display:block;height:6px;border-radius:var(--radius-compact);background:var(--rule-strong);
-  transform-origin:left center;transform:scaleX(0);
-  animation:ledger-rule calc(var(--print-step) * var(--print-steps) / 6) cubic-bezier(.3,0,.2,1) both;
-  animation-delay:calc(var(--print-step) * var(--print-steps) / 6 * var(--rule-i))
+.entry-print__ln{
+  display:grid;grid-template-columns:20px 1fr 30px;gap:8px;align-items:center;height:14px;
+  font-family:var(--font-training-data);font-size:var(--font-size-label);color:var(--ink-faint);font-variant-numeric:tabular-nums
 }
-.entry-print__rule:nth-child(3n){width:62%}
-.entry-print__rule:nth-child(3n+2){width:84%}
-.entry-print__steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--ink)}
+.entry-print__ln i{position:relative;display:block;height:5px;background:linear-gradient(90deg,var(--rule) 50%,transparent 0) 0 50%/4px 1px repeat-x}
+.entry-print__ln i::after{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:var(--w);background:var(--ink);transform:scaleX(0);transform-origin:left;
+  animation:ledger-feed 3.2s steps(12,end) infinite;animation-delay:calc(var(--k) * .26s)
+}
+.entry-print__ln span:last-child{text-align:right;opacity:0;animation:ledger-feed-fig 3.2s infinite;animation-delay:calc(var(--k) * .26s)}
+.entry-print__status{
+  margin:var(--space-8) 0 0;font-family:var(--font-training-data);font-size:var(--font-size-caption);letter-spacing:.06em;
+  text-transform:uppercase;text-align:center;color:var(--ink-soft)
+}
+.entry-print__status::after{content:"";display:inline-block;width:7px;height:12px;margin-left:6px;vertical-align:-1px;background:var(--accent);animation:ledger-blink 1s steps(1) infinite}
+.entry-print.is-ready .entry-print__status::after{animation:none;background:var(--ink)}
+.entry-print__title{
+  margin:var(--space-18) 0 0;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);
+  line-height:1.12;letter-spacing:-.015em;text-wrap:balance
+}
+.entry-print__steps{list-style:none;margin:var(--space-14) 0 0;padding:0;border-top:1px solid var(--ink)}
 .entry-print__step{
-  display:grid;grid-template-columns:4.5ch minmax(0,1fr) 24px;align-items:center;gap:var(--space-12);
-  min-height:48px;padding:10px 0;border-bottom:1px solid var(--rule);color:var(--ink-faint);transition:color .2s ease
+  display:grid;grid-template-columns:52px minmax(0,1fr) 24px;gap:10px;align-items:center;
+  min-height:52px;padding:10px 0;border-bottom:1px solid var(--rule);color:var(--ink-faint);transition:color .25s ease
 }
 .entry-print__time{font-family:var(--font-training-data);font-size:var(--font-size-caption);font-variant-numeric:tabular-nums;color:var(--ink-faint)}
 .entry-print__label{font-size:var(--font-size-body);line-height:var(--line-standard)}
 .entry-print__step.is-active,.entry-print__step.is-done{color:var(--ink)}
+.entry-print__step.is-active .entry-print__time{color:var(--accent-deep)}
 .entry-print__step.is-active .entry-print__label::after{
-  content:"";display:inline-block;width:.5ch;height:1em;margin-left:3px;vertical-align:-.15em;background:var(--color-action-text);
+  content:"";display:inline-block;width:2px;height:1em;margin:0 -5px 0 3px;vertical-align:-.15em;background:var(--ink);
   animation:ledger-caret .8s steps(1) infinite
 }
 .entry-print__step.is-done .entry-print__time{color:var(--ink-soft)}
-.entry-print__tickbox{display:grid;place-items:center;width:24px;height:24px;border:1.5px solid var(--rule-strong);border-radius:var(--radius-compact)}
-.entry-print__step.is-done .entry-print__tickbox{border-color:var(--ink);background:var(--ink)}
-.entry-print__tickbox .radio-card__tick{width:16px;height:16px;fill:none;stroke:var(--bg);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
-.entry-print__step.is-done .radio-card__tick{animation:ledger-tick .28s cubic-bezier(.65,0,.35,1) both}
-.entry-print__skip{margin:0;font-size:var(--font-size-caption);color:var(--ink-soft);text-align:center}
+.entry-print__tickbox{display:grid;place-items:center;width:22px;height:22px;border:1.5px solid var(--rule-strong);border-radius:var(--radius-compact);transition:border-color .2s ease}
+.entry-print__step.is-active .entry-print__tickbox,.entry-print__step.is-done .entry-print__tickbox{border-color:var(--ink)}
+.entry-print__tickbox .radio-card__tick{width:16px;height:16px;fill:none;stroke:var(--ink);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
+.entry-print__step.is-done .radio-card__tick{animation:ledger-tick .3s cubic-bezier(.2,.7,.2,1) both}
 @keyframes ledger-print-in{from{opacity:0}to{opacity:1}}
-@keyframes ledger-rule{to{transform:scaleX(1)}}
+@keyframes ledger-feed{0%{transform:scaleX(0)}9%,86%{transform:scaleX(1)}96%,100%{transform:scaleX(1);opacity:0}}
+@keyframes ledger-feed-fig{0%,8%{opacity:0}10%,86%{opacity:1}96%,100%{opacity:0}}
+@keyframes ledger-blink{50%{opacity:0}}
 @keyframes ledger-caret{50%{opacity:0}}
+@media (max-height:700px){.entry-print__feed{height:120px}}
 
 /* Slips: each day is a torn ledger slip with a perforated top edge. */
 #onboarding #onbBody.entry-body .onb__day.onb__slip{
-  position:relative;padding:18px 16px 14px;background:var(--surface);border:0;border-radius:0 0 var(--radius-compact) var(--radius-compact);
+  position:relative;padding:18px 16px 14px;background:var(--surface);border:1px solid var(--rule);border-top:0;border-radius:0 0 var(--radius-compact) var(--radius-compact);
   -webkit-mask:radial-gradient(circle at 6px 0,transparent 4px,var(--ink) 4.5px) 0 0/12px 100% repeat-x;
   mask:radial-gradient(circle at 6px 0,transparent 4px,var(--ink) 4.5px) 0 0/12px 100% repeat-x
 }
@@ -7729,14 +7753,21 @@ body.is-entry-editor #entryProgramName,
 }
 #onboarding #onbBody.entry-body .entry__group-lab.entry__question:has(+ .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)){border-bottom:0}
 #onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card{
-  min-height:72px;padding:var(--space-18) var(--space-4) var(--space-18) 0;gap:var(--space-18);
+  position:relative;min-height:84px;padding:var(--space-14) var(--space-4) var(--space-14) var(--space-14);gap:var(--space-12);
   border:0;border-bottom:1px solid var(--boundary-required);border-radius:0;background:transparent;box-shadow:none
 }
 #onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card::before{
   min-width:2ch;font-size:var(--font-size-focal-data);font-weight:var(--weight-regular)
 }
 #onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card.is-selected{
-  background:transparent;box-shadow:none
+  background:var(--well);box-shadow:none
+}
+/* The chosen row is ruled in ink on its leading edge (the mockup's 2px rule) and its title is underlined. */
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card.is-selected::after{
+  content:"";position:absolute;left:0;top:-1px;bottom:-1px;width:2px;background:var(--boundary-selected-quiet)
+}
+#onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card.is-selected .radio-card__title{
+  text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px
 }
 @media (hover: hover) and (pointer: fine){
 #onboarding #onbBody.entry-body .onb__opts:not(.onb__num):not(.onb__grid):not(.onb__opts--reasons):not(.entry__none)>.radio-card:hover:not(:disabled){background:var(--well)}
@@ -7839,13 +7870,16 @@ body.is-entry-editor #entryProgramName,
 #onboarding #onbBody.entry-body .entry__eyebrow::after{content:"";flex:1;height:1px;background:var(--rule)}
 #onboarding #onbBody.entry-body .entry__progname{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-spacing:-.015em}
 #onboarding #onbBody.entry-body .entry__strip{
-  display:flex;flex-wrap:wrap;gap:var(--space-4) var(--space-14);padding:var(--space-8) 0 0;border:0
+  display:flex;flex-wrap:wrap;gap:0;margin:var(--space-4) 0 0;padding:0;border:0;
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-reading);
+  color:var(--ink-soft);font-variant-numeric:tabular-nums
 }
-#onboarding #onbBody.entry-body .entry__strip-cell{display:block;padding:0;line-height:var(--line-standard)}
+/* Each fact wraps as one block; a middle dot closes every fact but the last. */
+#onboarding #onbBody.entry-body .entry__strip-cell{display:block;min-width:0;padding:0;line-height:inherit}
+#onboarding #onbBody.entry-body .entry__strip-cell:not(:last-child)::after{content:"·";margin:0 var(--space-8)}
 #onboarding #onbBody.entry-body .entry__strip-cell>span{display:inline;line-height:inherit}
-#onboarding #onbBody.entry-body .entry__strip-value{margin-right:var(--space-4)}
-#onboarding #onbBody.entry-body .entry__strip-value{font-size:var(--font-size-control);font-weight:var(--weight-semibold)}
-#onboarding #onbBody.entry-body .entry__strip-unit{font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--ink-soft)}
+#onboarding #onbBody.entry-body .entry__strip-value{margin-right:var(--space-4);font-size:inherit;font-weight:var(--weight-semibold);color:var(--ink)}
+#onboarding #onbBody.entry-body .entry__strip-unit{font-family:inherit;font-size:inherit;color:var(--ink-soft)}
 #onboarding #onbBody.entry-body .entry__section-head--ledger{
   display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12);
   margin-top:var(--space-26);padding-bottom:var(--space-12);border-bottom:1px solid var(--ink);
@@ -7880,7 +7914,7 @@ body.is-entry-editor #entryProgramName,
 /* The hub's goal question is the mockup's first entry: flush ruled rows. */
 #onboarding #onbBody.entry-body .entry-feature__goals{gap:0;border-top:1px solid var(--ink);margin-top:var(--space-12)}
 #onboarding #onbBody.entry-body .entry-feature__goals .entry-goal{
-  min-height:80px;padding:var(--space-18) var(--space-4) var(--space-18) 0;gap:var(--space-18);
+  min-height:84px;padding:var(--space-14) var(--space-4) var(--space-14) var(--space-14);gap:var(--space-12);
   border:0;border-bottom:1px solid var(--boundary-required);border-radius:0;background:transparent;box-shadow:none
 }
 #onboarding #onbBody.entry-body .entry-feature__goals .entry-goal::before{font-size:var(--font-size-focal-data);font-weight:var(--weight-regular);min-width:2ch}
@@ -7890,7 +7924,17 @@ body.is-entry-editor #entryProgramName,
 #onboarding #onbBody.entry-body .entry-feature__goals .entry-goal:active{background:color-mix(in srgb,var(--ink) 6%,var(--well))}
 #onboarding #onbBody.entry-body .entry-feature{border:0;padding:0;background:transparent}
 #onboarding #onbBody.entry-body .entry-feature__q{font-size:var(--font-size-section-title);line-height:var(--line-tight)}
-#onboarding #onbBody.entry-body .entry-feature__eyebrow{font-family:var(--font-training-data);font-weight:var(--weight-regular);letter-spacing:.1em;color:var(--ink-soft)}
+#onboarding #onbBody.entry-body .entry-feature__eyebrow{
+  display:flex;align-items:center;gap:var(--space-12);font-family:var(--font-training-data);font-size:var(--font-size-caption);
+  font-weight:var(--weight-regular);letter-spacing:.1em;color:var(--ink-soft)
+}
+#onboarding #onbBody.entry-body .entry-feature__eyebrow::after{content:"";flex:1;min-width:var(--space-18);height:1px;background:var(--rule)}
+/* The hub's goal rows end in the same square tick box as every other ledger answer. */
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal .entry-card__go{
+  width:26px;height:26px;-webkit-mask:none;mask:none;background:var(--surface);
+  border:1.5px solid var(--boundary-required);border-radius:var(--radius-compact)
+}
+#onboarding #onbBody.entry-body .entry-feature__goals .entry-goal .entry-card__title{font-size:var(--font-size-control);font-weight:var(--weight-semibold)}
 #onboarding #onbBody.entry-body .entry-rail__chip{padding:var(--space-4) var(--space-8)}
 /* At large text sizes the wordmark gives way first; Cancel and the counter keep their size. */
 #onboarding:not(.program-editor-onboarding) .onb__bar>#onbCancel,
