@@ -108,6 +108,7 @@ export const SUITES = {
     s("test/generative-entry-runtime.mjs", [], { seconds: 14 }),
     s("test/generate-program-browser.mjs", [], { domains: ["entry", "persistence"], seconds: 30 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 40 }),
+    s("test/share-program-browser.mjs", [], { domains: ["entry", "privacy", "persistence"], seconds: 40 }),
     s("test/catalog-metric-program-browser.mjs", [], {
       domains: ["entry", "workout", "history", "persistence"], cost: "long", tier: "candidate", seconds: 180, timeoutMs: 900000,
     }),

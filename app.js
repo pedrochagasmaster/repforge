@@ -4068,46 +4068,6 @@ function sharedSettingsPatch(raw){
     unit:raw?.unit==="lb"?"lb":"kg",
     lang:I18N?.normalizeLang(raw?.lang)||"en",
     rirMode:raw?.rirMode==="effort"?"effort":"numeric"}}
-function buildSharedProgramMeta(raw,program=[]){
-  const now=new Date().toISOString();
-  return{id:uid(),name:String(raw?.name||"").trim(),started:today(),created:now,updated:now,
-    goal:raw?.goal??null,experience:raw?.experience??null,daysPerWeek:raw?.daysPerWeek??null,
-    splitType:raw?.splitType??null,equipment:Array.isArray(raw?.equipment)?[...raw.equipment]:[],
-    priorityMuscles:Array.isArray(raw?.priorityMuscles)?[...raw.priorityMuscles]:[],
-    sessionLength:raw?.sessionLength??null,mesocycleLengthWeeks:raw?.mesocycleLengthWeeks||6,
-    mesocycleStatus:"active",completedAt:null,onboarded:true,
-    progressionRelations:normalizeProgressionRelations(raw?.progressionRelations,program),
-    progressionModifiers:normalizeProgressionModifiers(raw?.progressionModifiers),
-    blockPromptDismissedId:null,
-    programStructure:raw?.programStructure?cloneSnapshot(raw.programStructure):null}}
-function sharedPreviewMeta(raw){
-  const out={};
-  for(const key of ["name","goal","experience","daysPerWeek","splitType","equipment","priorityMuscles","sessionLength","mesocycleLengthWeeks"])
-    if(Object.prototype.hasOwnProperty.call(raw||{},key))out[key]=cloneSnapshot(raw[key]);
-  return out}
-function proposalFromSharedSetup(payload,baseState=state){
-  if(!SharedSetup)throw new TypeError("Shared setup unavailable");
-  const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
-  if(!checked.ok)throw new TypeError("Invalid shared setup");
-  const clean=checked.value,proposal=cloneSnapshot(baseState);
-  const exercises=clean.program.exercises.map(ex=>sharedExercise(ex,true));
-  const merged=mergeImportedCustomExercises(clean.program.customExercises,exercises,proposal);
-  proposal.customExercises=merged.customExercises;
-  const lookup=snapshotLookup(proposal.customExercises);
-  if(exercises.some(ex=>!lookup(ex.libraryId)))throw new TypeError("Unresolved shared exercise");
-  proposal.program=new Program(exercises,lookup).toJSON();
-  proposal.programMeta=buildSharedProgramMeta(clean.program.meta,proposal.program);
-  proposal.settings={...normalizeSettings(proposal.settings),...sharedSettingsPatch(clean.settings)};
-  proposal.log=[];
-  proposal.programHistory=[];
-  delete proposal[STORAGE_FOLLOWUP];
-  delete proposal[STORAGE_DRAFT_TXN];
-  // The merge above resolved against the base as it stood when the gate opened.
-  // Record what the payload itself contributed so a rebase against a refreshed
-  // head can redo that resolution instead of trusting a stale mapping.
-  proposal[SHARED_IMPORT]={definitions:normalizeCustomExercises(clean.program.customExercises),
-    remap:Object.fromEntries(merged.remap)};
-  return proposal}
 // Only the definitions the replacement program actually references are payload-
 // owned. Everything else in the stale proposal's customExercises is recipient
 // state the refreshed head already owns (including deletions and edits), so it
@@ -12172,65 +12132,29 @@ function sharedRelationForPayload(relation,program){
   if(!identities[0]||identities.some(id=>id!==identities[0])||internalIds.some(id=>id!==current))return relation;
   return{...relation,movementId:identities[0]};
 }
-function sharedProgramMeta(meta,program){
-  const days=program.days();
-  const optional=(value,allowed)=>allowed.includes(value)?value:null;
-  const out={name:String(meta?.name||"").trim()||t("untitled_program")||"Untitled program",
-    goal:optional(meta?.goal,["hypertrophy","strength_hypertrophy","beginner_consistency"]),
-    experience:optional(meta?.experience,["beginner","intermediate","advanced"]),daysPerWeek:days.length,
-    splitType:optional(meta?.splitType,["full_body","machine_only","ppl","upper_lower","bro"]),
-    equipment:[...new Set((Array.isArray(meta?.equipment)?meta.equipment:[])
-      .map(value=>SHARED_EQUIPMENT[String(value).toLowerCase()]).filter(Boolean))],
-    priorityMuscles:[...new Set((Array.isArray(meta?.priorityMuscles)?meta.priorityMuscles:[])
-      .map(value=>String(value).trim()).filter(Boolean))],
-    sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
-    mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks,
-    progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON())
-      .map(relation=>sharedRelationForPayload(relation,program.toJSON())),
-    progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)};
-  if(meta?.programStructure)out.programStructure=cloneSnapshot(meta.programStructure);
-  return out}
-function sharedExercise(ex,preserveIdentity=false){
-  const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
-  const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
-    notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
-  if(preserveIdentity&&ex?.id){out.id=ex.id;const movementId=ProgramEntryAdapter.sharedMovementId(ex,LEGACY_LIBRARY_IDS);if(movementId)out.movementId=movementId}
-  for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
-    if(ex?.[key]!==undefined)out[key]=ex[key];
-  for(const key of ["slotId","dayId","loadingMode","loadIncrement"])
-    if(ex?.[key]!==undefined)out[key]=ex[key];
-  if(ex?.progression!==undefined)out.progression=cloneSnapshot(ex.progression);
-  return out}
-function sharedCustomExercise(entry){
-  return{id:entry.id,name:entry.name,namePt:entry.namePt||entry.name,
-    equipment:Array.isArray(entry.equipment)?[...entry.equipment]:[],primary:entry.primary||"",
-    secondary:entry.secondary||"",notes:entry.notes||""}}
 function sharedSettings(settings){
   return{jumpPct:settings.jumpPct,minJump:settings.minJump,rirHigh:settings.rirHigh,
     hardRir:settings.hardRir,restSec:settings.restSec,unit:settings.unit,
     lang:settings.lang||I18N?.getLang?.()||I18N?.detectLang?.()||"en",rirMode:settings.rirMode}}
+/* The codec validates the canonical definition with the compiler and may carry
+   an unedited generated program as its generator request and seed. */
+function sharedSetupCodecOptions(){
+  return{builtInIds:SHARED_BUILT_IN_IDS,catalogSnapshot:rawExerciseCatalog,
+    validateProgramDefinition:ProgramCompiler?.validateProgramDefinition,
+    generateProgram:ProgramCompiler?.generateProgram,generatorVersion:ProgramCompiler?.GENERATOR_VERSION}}
+/* A setup link shares the active program's canonical definition, the custom
+   movements it references, the eight allowlisted settings and the language. */
 function buildSharedSetupValidation(){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
-  const source=prog.toJSON();
-  const relations=normalizeProgressionRelations(state.programMeta?.progressionRelations,source);
-  const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
-  const diagnostics={};
-  const exercises=source.map(ex=>{
-    const row=sharedExercise(ex,true);
-    // These facts explain unresolved slots at the validation boundary. They
-    // stay beside the payload and are never smuggled through its schema.
-    diagnostics[ex.id]={
-      displayName:ex?.displayName||ex?.name||ex?.libraryId||"",
-      ...(Array.isArray(ex?.equipment)?{equipment:[...ex.equipment]}:{}),
-      ...(ex?.primary!==undefined?{primary:ex.primary}:{}),
-      ...(ex?.secondary!==undefined?{secondary:ex.secondary}:{}),
-    };
-    return row;
-  });
+  const definition=state.programMeta?.programDefinition;
+  if(!definition)throw new TypeError("Shared setup needs a program definition");
+  const referenced=new Set(definition.days.flatMap(day=>day.slots.map(slot=>slot.exerciseId)).filter(isCustomLibraryId));
+  const customs=compilerCustomDefinitions(customExercises().filter(entry=>referenced.has(entry.id)));
+  const settings=sharedSettings(state.settings);
   return{payload:{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
-    program:{meta:sharedProgramMeta(state.programMeta,prog),exercises,
-      customExercises:referencedCustomExercises(exercises).map(sharedCustomExercise)},
-    settings:sharedSettings(state.settings)},diagnostics}
+    program:{name:state.programMeta?.name||t("untitled_program"),definition:cloneSnapshot(definition),
+      ...(customs.length?{customExercises:customs}:{})},
+    settings,language:settings.lang},diagnostics:{}}
 }
 function buildSharedSetupPayload(){return buildSharedSetupValidation().payload}
 function exportProgram(){
@@ -12347,10 +12271,10 @@ async function buildShareSetupLink(){
   if(!SharedSetup){setShareSetupState(t("program.share_setup_unsupported"));return}
   let built;
   try{built=buildSharedSetupValidation()}catch{setShareSetupState(t("program.share_setup_invalid"));return}
-  const checked=SharedSetup.validate(built.payload,{builtInIds:SHARED_BUILT_IN_IDS,diagnostics:built.diagnostics});
+  const checked=SharedSetup.validate(built.payload,{...sharedSetupCodecOptions(),diagnostics:built.diagnostics});
   if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked),{blockers:checked.blockers||[]});return}
   let encoded;
-  try{encoded=await SharedSetup.encode(checked.value,{builtInIds:SHARED_BUILT_IN_IDS})}
+  try{encoded=await SharedSetup.encode(checked.value,sharedSetupCodecOptions())}
   catch{setShareSetupState(t("program.share_setup_unsupported"));return}
   if(!encoded.ok){setShareSetupState(sharedSetupErrorMessage(encoded));return}
   const local=/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(location.hostname);
@@ -17762,6 +17686,7 @@ let sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:
 let firstRunActive=false;
 const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hidden");
 const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft.payload;
+const sharedTrainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
 const sharedSetupInvalid=()=>sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported";
 const sharedSetupEligible=()=>firstRunPending()&&!(state.programHistory?.length);
 function sharedSetupErrorKey(code){
@@ -17776,8 +17701,8 @@ function renderFirstRunProgramMode(){
   shared?.classList.toggle("hidden",!ready);
   $("#firstRun")?.classList.toggle("is-shared",ready);
   if(ready){
-    const name=sharedSetupDraft.payload.program.meta.name;
-    const n=sharedSetupDraft.payload.program.meta.daysPerWeek;
+    const name=sharedSetupDraft.payload.program.name;
+    const n=sharedTrainingDays(sharedSetupDraft.payload.program.definition);
     const title=$("#firstRunSharedTitle"),cap=$("#firstRunSharedCap");
     if(title)title.textContent=t("setup.shared.title");
     if(cap)cap.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
@@ -17794,7 +17719,7 @@ async function commitSharedSetup(io=storageIO){
   if(!sharedSetupEligible()){
     toast(t("setup.shared.existing"),{assertive:true});
     return{revision:readRevision(state),localOk:false,idbOk:false,ineligible:true}}
-  const checked=SharedSetup?.validate(sharedSetupDraft.payload,{builtInIds:SHARED_BUILT_IN_IDS});
+  const checked=SharedSetup?.validate(sharedSetupDraft.payload,sharedSetupCodecOptions());
   if(!checked?.ok){
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();
@@ -17805,30 +17730,20 @@ async function commitSharedSetup(io=storageIO){
   // until the shared preview's explicit activation action.
   setSharedSetupBusy(true);
   try {
-    const proposal=proposalFromSharedSetup(checked.value,state);
-    const payload=checked.value.program;
-    const program=cloneSnapshot(proposal.program||[]);
-    const structure=cloneSnapshot(proposal.programMeta?.programStructure||null);
-    const preview={source:"shared",familyId:null,frequency:payload.meta.daysPerWeek,
-      program,programStructure:structure,
-      // Keep each preview branch detached. The persisted result schema walks
-      // object identity as well as values, so sharing the program row objects
-      // into day summaries would look like a cycle to its bounded validator.
-      days:sharedPreviewDays(program,structure,checked.value.settings),
-      customExercises:cloneSnapshot(proposal.customExercises||[]),
-      progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
-      progressionModifiers:cloneSnapshot(proposal.programMeta?.progressionModifiers||[]),
-      // Shared metadata keeps its released display labels in sharedMeta. The
-      // common draft schema's primaryMuscles field is the generator's closed
-      // token vocabulary, so do not copy human-labelled payload values into it.
-      primaryMuscles:[],
-      sharedMeta:sharedPreviewMeta(payload.meta),
-      sharedSettings:cloneSnapshot(checked.value.settings),
-      sharedImport:cloneSnapshot(proposal[SHARED_IMPORT]||null)};
+    const shared=checked.value.program,definition=cloneSnapshot(shared.definition);
+    const customs=cloneSnapshot(shared.customExercises||[]);
+    const program=flatProgramFromDefinition(definition,customs,1);
+    const days=definition.days.filter(day=>day.kind==="training").map((day,index)=>({dayId:day.id,label:day.name,order:index+1,
+      exercises:program.filter(row=>row.dayId===day.id).map(cloneSnapshot)}));
+    const preview={source:"shared",frequency:days.length,program,programDefinition:definition,
+      programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"shared"}},
+      days,customExercises:customs,primaryMuscles:[],
+      sharedMeta:{name:shared.name,daysPerWeek:days.length,mesocycleLengthWeeks:definition.cycles},
+      sharedSettings:cloneSnapshot(checked.value.settings)};
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
     let next=ProgramEntry.selectRoute(entryState,"shared");
     next=ProgramEntry.setAnswers(next,{sharedReady:true});
-    next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:payload.meta.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:payload.meta.name,preview,telemetry:{family:"shared_v1"}});
+    next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:shared.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:shared.name,preview,telemetry:{family:"shared_v1"}});
     next={...next,step:"preview"};
     entryState=next;
     const saved=await persistSetupDraft(next,io);
@@ -19530,15 +19445,12 @@ window.__repforgeSharedSetup={
   get source(){return sharedSetupDraft.source},
   get error(){return sharedSetupDraft.error},
   get summary(){return sharedSetupDraft.payload?{
-    name:sharedSetupDraft.payload.program.meta.name,
-    daysPerWeek:sharedSetupDraft.payload.program.meta.daysPerWeek,
+    name:sharedSetupDraft.payload.program.name,
+    daysPerWeek:sharedTrainingDays(sharedSetupDraft.payload.program.definition),
     lang:sharedSetupDraft.payload.settings.lang}:null},
   build:buildSharedSetupPayload,
   buildPayload:buildSharedSetupPayload,
   buildValidation:buildSharedSetupValidation,
-  proposal:proposalFromSharedSetup,
-  proposalFromSharedSetup,
-  buildProposal:(payload,base)=>proposalFromSharedSetup(payload,base||state),
   commit:io=>commitSharedSetup(io||storageIO),
   eligible:sharedSetupEligible};
 function captureSharedSetupSource({allowCookie=true}={}){
@@ -19570,7 +19482,7 @@ async function prepareSharedSetup(candidate){
         staged=SharedSetup.readHandoffCookie()===encoded}
     catch{staged=false}}
   let decoded;
-  try{decoded=await SharedSetup.decode(encoded,{builtInIds:SHARED_BUILT_IN_IDS})}
+  try{decoded=await SharedSetup.decode(encoded,sharedSetupCodecOptions())}
   catch{decoded={ok:false,code:"invalid-schema"}}
   if(!decoded.ok){
     if(source==="cookie"||staged||matchingCookie)SharedSetup.clearHandoffCookie();

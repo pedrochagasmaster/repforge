@@ -255,7 +255,41 @@
     };
   }
 
-  function compactProgramDefinition(definition, identityContext) {
+  // An unedited generated program is reproduced exactly by its generator from
+  // the stored request and seed, so the link carries only those. The receiver
+  // must run the same generator version and arrive at the identical definition.
+  function regenerableForm(definition, identityContext, options) {
+    if (typeof options?.generateProgram !== "function" || definition?.provenance?.source === "manual"
+      || !isPlainObject(definition?.request) || typeof definition.request.goal !== "string") return null;
+    const request = cloneCanonical(definition.request);
+    delete request.seed;
+    let regenerated;
+    try { regenerated = options.generateProgram(request, options.catalogSnapshot, definition.seed); }
+    catch { return null; }
+    if (!regenerated?.ok || stableStringify(regenerated.value) !== stableStringify(definition)) return null;
+    return ["g", identityContext.fingerprint, definition.generatorVersion, compactTree(request, identityContext), definition.seed];
+  }
+
+  function regenerate(compact, identityContext, options) {
+    if (compact.length !== 5 || typeof compact[1] !== "string" || typeof compact[2] !== "string"
+      || typeof compact[4] !== "string") return { ok: false, code: "invalid-envelope" };
+    if (!identityContext) return { ok: false, code: "catalog-unavailable" };
+    if (compact[1] !== identityContext.fingerprint) return { ok: false, code: "catalog-mismatch" };
+    if (typeof options?.generateProgram !== "function" || compact[2] !== options.generatorVersion) {
+      return { ok: false, code: "unsupported-version" };
+    }
+    const request = expandTree(compact[3], identityContext.ids);
+    if (!request.ok || !isPlainObject(request.value)) return { ok: false, code: "invalid-envelope" };
+    let generated;
+    try { generated = options.generateProgram(request.value, options.catalogSnapshot, compact[4]); }
+    catch { return { ok: false, code: "invalid-envelope" }; }
+    if (!generated?.ok || generated.value.generatorVersion !== compact[2]) return { ok: false, code: "invalid-envelope" };
+    return { ok: true, value: generated.value };
+  }
+
+  function compactProgramDefinition(definition, identityContext, options) {
+    const regenerable = regenerableForm(definition, identityContext, options);
+    if (regenerable) return regenerable;
     const compact = cloneCanonical(definition);
     for (const day of compact.days || []) {
       for (const slot of day?.slots || []) {
@@ -285,7 +319,8 @@
     return ["c", identityContext.fingerprint, compactTree(compact, identityContext)];
   }
 
-  function expandProgramDefinition(compact, identityContext) {
+  function expandProgramDefinition(compact, identityContext, options) {
+    if (Array.isArray(compact) && compact[0] === "g") return regenerate(compact, identityContext, options);
     let tree = compact;
     let sourceIdentities = null;
     if (Array.isArray(compact) && compact[0] === "c") {
@@ -569,12 +604,12 @@
     }
   }
 
-  function v4Tuple(payload, identityContext) {
+  function v4Tuple(payload, identityContext, options) {
     const settings = payload.settings;
     return [
       VERSION,
       payload.program.name,
-      compactProgramDefinition(payload.program.definition, identityContext),
+      compactProgramDefinition(payload.program.definition, identityContext, options),
       own(payload.program, "customExercises") ? compactTree(payload.program.customExercises, identityContext) : null,
       [
         settings.jumpPct,
@@ -589,7 +624,7 @@
     ];
   }
 
-  function expandV4(value, identityContext) {
+  function expandV4(value, identityContext, options) {
     if (!Array.isArray(value) || value.length !== 6 || value[0] !== VERSION) {
       return { ok: false, code: "invalid-envelope" };
     }
@@ -602,7 +637,9 @@
       || !Number.isInteger(languageCode) || !LANGUAGES[languageCode]) {
       return { ok: false, code: "invalid-envelope" };
     }
-    const expandedDefinition = expandProgramDefinition(compactDefinition, identityContext);
+    const expandedDefinition = expandProgramDefinition(compactDefinition, identityContext, options);
+    // A link from another generator version is unsupported, not malformed.
+    if (!expandedDefinition.ok && expandedDefinition.code === "unsupported-version") return expandedDefinition;
     const expandedCustomExercises = compactCustomExercises === null
       ? { ok: true, value: null }
       : expandTree(compactCustomExercises, identityContext?.ids || null);
@@ -641,7 +678,7 @@
     const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
     if (!identityContext) return { ok: false, code: "catalog-unavailable", issues: [], blockers: [] };
     let json;
-    try { json = JSON.stringify(v4Tuple(checked.value, identityContext)); }
+    try { json = JSON.stringify(v4Tuple(checked.value, identityContext, options)); }
     catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
     const bytes = new TextEncoder().encode(json);
     if (bytes.byteLength > MAX_DECOMPRESSED_BYTES) {
@@ -694,7 +731,7 @@
     try { parsed = JSON.parse(text); }
     catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
     const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
-    const expanded = expandV4(parsed, identityContext);
+    const expanded = expandV4(parsed, identityContext, options);
     if (!expanded.ok) return { ...expanded, issues: [], blockers: [] };
     const checked = buildProposal(expanded.value, options);
     if (!checked.ok) return checked;

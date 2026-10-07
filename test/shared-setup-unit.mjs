@@ -571,4 +571,37 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   assert.equal(Setup.readHandoffCookie(adapters), null);
 }
 
+// R13: a generated program is far larger than a link can carry. An unedited one
+// travels as its generator request and seed; the receiver regenerates it with
+// the same generator version and must arrive at the identical definition.
+{
+  const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
+    generatorVersion: Compiler.GENERATOR_VERSION };
+  // As Generate produces it: no per-movement confirmations.
+  const request = generationRequest({ cycles: 7, timeCeilingMinutes: 90, movementConfirmations: {} });
+  const generated = Compiler.generateProgram(request, source, "share-regenerable");
+  assert.equal(generated.ok, true);
+  const shared = document({ program: { name: "Generated", definition: generated.value } });
+  const full = await Setup.encode(shared, compilerOptions);
+  assert.equal(full.ok, false, "without the generator the full seven-cycle definition does not fit");
+  assert.equal(full.code, "encoded-too-large");
+  const compact = await Setup.encode(shared, generatorOptions);
+  assert.equal(compact.ok, true, `an unedited generated program encodes by request and seed: ${compact.code || ""}`);
+  assert.ok(compact.value.length <= 3072, `regenerable link fits the limit (${compact.value.length})`);
+  const received = await Setup.decode(compact.value, generatorOptions);
+  assert.equal(received.ok, true, `the regenerable link decodes: ${received.code || ""}`);
+  assert.deepEqual(received.value.program.definition, generated.value, "the receiver regenerates the identical definition");
+  const withoutGenerator = await Setup.decode(compact.value, compilerOptions);
+  assert.equal(withoutGenerator.ok, false, "a regenerable link needs the generator to decode");
+  const otherVersion = await Setup.decode(compact.value, { ...generatorOptions, generatorVersion: "999.0" });
+  assert.equal(otherVersion.ok, false, "a different generator version refuses rather than regenerating something else");
+  assert.equal(otherVersion.code, "unsupported-version");
+
+  const edited = structuredClone(generated.value);
+  edited.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
+  const editedResult = await Setup.encode(document({ program: { name: "Edited", definition: edited } }), generatorOptions);
+  assert.equal(editedResult.ok, false, "an edited generated program is not silently replaced by its regeneration");
+  assert.equal(editedResult.code, "encoded-too-large", "it is refused whole, never truncated");
+}
+
 console.log("PASS shared setup v4 protocol contract");
