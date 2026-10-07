@@ -11478,7 +11478,9 @@ function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
 let programJsonSynced=null;
 function syncProgramJson({force=false}={}){
   const box=$("#programJson");if(!box)return;
-  const next=JSON.stringify(programEditorProgram().toJSON(),null,2);
+  // The raw editor edits the canonical definition, the program's one authority.
+  const definition=programEditorSnapshot().programMeta?.programDefinition;
+  const next=JSON.stringify(definition||programEditorProgram().toJSON(),null,2);
   if(!force){
     if(document.activeElement===box)return;
     if(next===programJsonSynced&&box.value!==programJsonSynced)return}
@@ -11879,27 +11881,19 @@ function reconcileLinkedProgramRows(rows,byId){
       ignoredMuscles.add(alias&&alias!==canonical?alias:canonical)}
   return{ignoredMuscles:[...ignoredMuscles]}}
 
-async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
-  const currentSnapshot=programEditorSnapshot(),currentProgram=programEditorProgram();
+async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);
+  const currentSnapshot=programEditorSnapshot();
   const transition=setupEditorOpen?{}:programTransitionPrecondition(state);
-  const byId=new Map(currentProgram.exercises.map(e=>[e.id,e]));
-  for(const row of parsed){if(row.id&&byId.has(row.id))continue;
-    const match=currentProgram.exercises.find(e=>e.name===row.name&&e.day===row.day)||currentProgram.exercises.find(e=>e.name===row.name);
-    if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
-  const{ignoredMuscles}=reconcileLinkedProgramRows(parsed,byId);
+  // Raw JSON is a ProgramDefinition. The compiler validates it whole; rows are
+  // re-projected from it so they can never diverge from the definition.
+  const definition=canonicalProgramDefinition(parsed,currentSnapshot.customExercises||[]);
+  if(!definition){toast(t("toast.program_invalid"),{assertive:true});return}
   const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
   const proposal=currentSnapshot;
-  // Raw JSON lists exercises only. Drop structure days that previously had
-  // exercises but are gone from the payload; keep already-empty containers
-  // (manual build) so Save JSON does not wipe intentional blank days.
-  const prevExDays=new Set((proposal.program||[]).map(e=>e.day));
-  const nextProgram=makeProgram(parsed,null,proposal.programMeta);
-  if(nextProgram._structureDays&&!setupEditorOpen&&proposal.programMeta?.programStructure?.provenance?.source!=="manual_build"){
-    const nextExDays=new Set(nextProgram.exercises.map(e=>e.day));
-    nextProgram._structureDays=nextProgram._structureDays.filter(d=>nextExDays.has(d)||!prevExDays.has(d))}
-  proposal.program=nextProgram.toJSON();
-  syncProgramStructureFromProgram(proposal,nextProgram,currentSnapshot.program,currentSnapshot.programMeta);
+  proposal.programMeta={...(proposal.programMeta||{}),programDefinition:definition,
+    daysPerWeek:definition.days.filter(day=>day.kind==="training").length,mesocycleLengthWeeks:definition.cycles};
+  proposal.program=durableProgramRows(definition,proposal.customExercises||[],proposal.programMeta);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProgramEditorProposal(proposal,storageIO,{effect,...transition});
@@ -11914,10 +11908,7 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   render();
   // The save consumed the box, so show the normalised result over the draft.
   syncProgramJson({force:true});
-  if(!ignoredMuscles.length)toast(t("toast.program_saved"));
-  else toast(ignoredMuscles.length===1
-    ?t("toast.program_saved_muscles_linked",{name:ignoredMuscles[0]})
-    :t("toast.program_saved_muscles_linked_many",{n:ignoredMuscles.length}),{assertive:true});
+  toast(t("toast.program_saved"));
   return result}
   catch{toast(t("toast.program_json_invalid"))}}
 
@@ -12157,18 +12148,17 @@ function buildSharedSetupValidation(){
     settings,language:settings.lang},diagnostics:{}}
 }
 function buildSharedSetupPayload(){return buildSharedSetupValidation().payload}
+/* A program file carries the canonical definition, the custom movements it
+   references and its name. Identity and lifecycle stay in full backups only. */
 function exportProgram(){
-  const exercises=prog.toJSON();
-  const meta=cloneSnapshot(state.programMeta||{});
-  // A program file is a portable template, not an active block/recovery
-  // carrier. Identity and lifecycle provenance stay in full backups only;
-  // activation will mint a fresh local block at the durable boundary.
-  for(const key of ["blockId","transitionIn","plannedVolumeHistory","recoveryTransitions","recoveryQuarantine","recoveryLifecycle"])
-    delete meta[key];
-  const payload={version:3,meta,exercises,
-    customExercises:referencedCustomExercises(exercises)};
+  const definition=state.programMeta?.programDefinition;
+  if(!definition){toast(t("toast.program_import_invalid"));return}
+  const referenced=new Set(definition.days.flatMap(day=>day.slots.map(slot=>slot.exerciseId)).filter(isCustomLibraryId));
+  const payload={kind:PROGRAM_FILE_KIND,version:PROGRAM_FILE_VERSION,name:state.programMeta?.name||"",
+    definition:cloneSnapshot(definition),
+    customExercises:customExercises().filter(entry=>referenced.has(entry.id)).map(cloneSnapshot)};
   const slug=fileSlug(state.programMeta?.name);
-  download(JSON.stringify(payload,null,2),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
+  download(JSON.stringify(payload),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
 
 /* ---- Plain-text program export ----
  * The program as something a lifter can read or paste into a chat: the name and
@@ -13105,7 +13095,9 @@ function parseProgramTextExport(text){
 
 const IMPORT_MAX_BYTES=1024*1024;
 const IMPORT_MAX_DEPTH=32;
-const IMPORT_MAX_NODES=10000;
+// A canonical 12-cycle program file has tens of thousands of nodes; this
+// matches the setup-draft bound that program must already fit.
+const IMPORT_MAX_NODES=65536;
 function importUtf8Bytes(value){return new TextEncoder().encode(String(value||"")).byteLength}
 function boundedImportJson(text){
   if(importUtf8Bytes(text)>IMPORT_MAX_BYTES)return null;
@@ -13167,10 +13159,23 @@ function normalizeImportedRows(rows){
       if(!Object.prototype.hasOwnProperty.call(out,key))continue;
       out[key]=MuscleDomain.normalizeMuscleAttribution(out[key]).value}
     return out})}
+const PROGRAM_FILE_KIND="taurifer-program",PROGRAM_FILE_VERSION=4;
+/* A Taurifer program file is imported as its exact definition: every row is
+   already a catalog or carried custom identity, so nothing is matched by name. */
+function parseCanonicalProgramFile(parsed){
+  if(parsed.version!==PROGRAM_FILE_VERSION)return null;
+  const customs=Array.isArray(parsed.customExercises)?parsed.customExercises:[];
+  if(!customs.every(validImportedCustomExercise))return null;
+  const normalizedCustoms=normalizeCustomExercises(customs);
+  const definition=canonicalProgramDefinition(parsed.definition,normalizedCustoms);
+  if(!definition)return null;
+  return{format:"json",legacy:false,exercises:flatProgramFromDefinition(definition,normalizedCustoms,1),
+    customExercises:normalizedCustoms,meta:{name:String(parsed.name||"").slice(0,80)},definition}}
 function parseProgramSource(text,fileName=""){
   const trimmed=String(text||"").trim();
   if(trimmed.startsWith("{")||trimmed.startsWith("[")){
     const parsed=boundedImportJson(trimmed);if(parsed===null)return null;
+    if(parsed?.kind===PROGRAM_FILE_KIND)return parseCanonicalProgramFile(parsed);
     const imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length||!imp.exercises.every(validRawImportedExerciseRow)||
       !imp.customExercises.every(validImportedCustomExercise))return null;
@@ -13305,7 +13310,8 @@ function buildImportDraft(source,fileName){
       reviewed:status===IMPORT_EXACT||status===IMPORT_ALIAS}});
   return{fileName:String(fileName||""),format:source.format||"json",
     legacy:source.legacy===true,
-    meta:source.meta||null,customExercises:source.customExercises||[],rows}}
+    meta:source.meta||null,customExercises:source.customExercises||[],rows,
+    ...(source.definition?{definition:cloneSnapshot(source.definition)}:{})}}
 
 const importCounts=draft=>{
   const linked=draft.rows.filter(r=>r.decision==="link").length;
@@ -13886,7 +13892,9 @@ function importCandidate(draft){
     preserveInvalid:true,incompatibilities:progressionData.incompatibilities,source:"program-json"});
   // An imported program becomes a Build definition over the matched catalog
   // movements and custom definitions; the preview rows are its projection.
-  const programDefinition=manualProgramDefinitionFromRows(program,labels,candidateCustomExercises);
+  const kept=draft.definition&&draft.rows.every(row=>row.decision==="link"&&row.match?.id===row.raw.libraryId);
+  const programDefinition=kept?canonicalProgramDefinition(draft.definition,candidateCustomExercises)
+    :manualProgramDefinitionFromRows(program,labels,candidateCustomExercises);
   const projected=programDefinition?flatProgramFromDefinition(programDefinition,candidateCustomExercises,1):program;
   const projectedDays=programDefinition?programDefinition.days.filter(day=>day.kind==="training").map((day,index)=>({
     dayId:day.id,label:day.name,order:index+1,exercises:projected.filter(row=>row.dayId===day.id).map(cloneSnapshot)})):days;

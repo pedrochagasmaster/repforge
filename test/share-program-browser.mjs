@@ -6,7 +6,8 @@
  * on a fresh device as the identical ProgramDefinition; a Build program
  * shares in full. An edited generated program that cannot fit is refused
  * whole, never truncated, and a legacy link is refused without writing
- * anything on the receiving device.
+ * anything on the receiving device. A program file carries the same
+ * definition through export and the file import door.
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
@@ -124,6 +125,55 @@ async function main() {
     check(received.name === "Shared generated block", "the shared name is kept");
     await receiver.context.close();
     await sender.context.close();
+
+    // A program file carries the same definition -------------------------------
+    const exporter = await fresh(browser);
+    errors.push(exporter.errors);
+    await activateGenerated(exporter.page);
+    const exported = (await state(exporter.page)).programMeta.programDefinition;
+    await exporter.page.locator('nav button[data-view="program"]').click();
+    await exporter.page.click("#programEditToggle");
+    await exporter.page.waitForSelector("#programEditorWrap:not(.is-hidden)");
+    await exporter.page.locator("#programEditorWrap details.advanced > summary").click();
+    const [download] = await Promise.all([exporter.page.waitForEvent("download"), exporter.page.locator("#exportProgram").click()]);
+    const fileText = await (await import("node:fs/promises")).readFile(await download.path(), "utf8");
+    const file = JSON.parse(fileText);
+    check(file.kind === "taurifer-program" && file.version === 4 && same(file.definition, exported),
+      "the program file is the canonical definition");
+    // The raw JSON editor edits the definition itself.
+    const raw = JSON.parse(await exporter.page.locator("#programJson").inputValue());
+    check(same(raw, exported), "the raw editor shows the canonical definition");
+    const firstSlot = raw.days.find((day) => day.kind === "training").slots[0];
+    firstSlot.setupNotes = "Seat 4";
+    firstSlot.prescriptionsByCycle[0].sets[0].targets.reps = { min: 6, max: 8 };
+    await exporter.page.locator("#programJson").fill(JSON.stringify(raw));
+    await exporter.page.click("#saveProgram");
+    await exporter.page.waitForFunction((slotId) => window.__repforgeWorkoutDraft.state().programMeta.programDefinition
+      .days.flatMap((day) => day.slots).find((slot) => slot.id === slotId)?.setupNotes === "Seat 4", firstSlot.id, { timeout: 15000 });
+    const savedRaw = await state(exporter.page);
+    const row = savedRaw.program.find((entry) => (entry.slotId || entry.id) === firstSlot.id);
+    check(row?.min === 6 && row?.max === 8, "saved raw JSON re-projects the program rows from the definition", row);
+    const broken = structuredClone(raw);
+    broken.days.find((day) => day.kind === "training").slots[0].exerciseId = "not-a-catalog-movement";
+    await exporter.page.locator("#programJson").fill(JSON.stringify(broken));
+    await exporter.page.click("#saveProgram");
+    await exporter.page.waitForFunction(() => /isn't valid|não é válida/.test(document.querySelector("#toast")?.textContent || ""), undefined, { timeout: 10000 });
+    check(same((await state(exporter.page)).programMeta.programDefinition, savedRaw.programMeta.programDefinition),
+      "an invalid definition is refused and nothing is saved");
+    await exporter.context.close();
+    const importer = await fresh(browser);
+    errors.push(importer.errors);
+    await importer.page.click("#firstRunImport");
+    await importer.page.waitForSelector("#importProgram", { state: "attached" });
+    await importer.page.setInputFiles("#importProgram", { name: "program.json", mimeType: "application/json", buffer: Buffer.from(fileText) });
+    await importer.page.waitForSelector("#importReview.active", { timeout: 15000 });
+    await importer.page.click("#importCommit");
+    await importer.page.waitForSelector("#entryActivate", { timeout: 15000 });
+    await importer.page.click("#entryActivate");
+    await importer.page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
+    check(same((await state(importer.page)).programMeta.programDefinition, exported),
+      "importing the file activates the identical definition", firstDifference(exported, (await state(importer.page)).programMeta.programDefinition));
+    await importer.context.close();
 
     // A Build program travels in full ---------------------------------------
     const builder = await fresh(browser);

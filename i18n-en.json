@@ -1148,6 +1148,7 @@
   "toast.program_saved_muscles_linked": "Program saved. {name} uses the library's muscle list. Detach it to edit the muscles.",
   "toast.program_saved_muscles_linked_many": "Program saved. {n} linked exercises use the library's muscle lists. Detach them to edit the muscles.",
   "toast.program_json_invalid": "That JSON didn't parse. Check the brackets and commas.",
+  "toast.program_invalid": "That program definition isn't valid, so nothing was saved.",
   "toast.program_import_cancelled": "Program import cancelled.",
   "toast.program_import_invalid": "That file isn't a Taurifer program export.",
   "toast.freeform_prompt_copied": "Prompt copied. Paste it into the app.",
