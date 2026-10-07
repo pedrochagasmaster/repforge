@@ -15247,9 +15247,7 @@ function renderDesiredResultStep(){
   return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}`+entryGoalGroup()}
 function entryBackgroundGroups(){
   return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
-    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
-    entryGroupLab(t("entry.background.consistency.label"),"cal",` id="entryConLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryConLab">`+
-    ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
+    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`}
 /* The "about" screen: the goal the hub already asked is carried as a band with
    a Change control; with no goal yet, or after Change, the question is open. */
 function entryAboutGoal(){
@@ -15503,9 +15501,9 @@ function compileGeneratorCandidate(from=entryState){
     alternative:null,
     preview,
     telemetry:{goal:answers.desiredResult,frequency:String(days.length),family:"generated"},
-    explanation:{desiredResult:answers.desiredResult,structuredExperience:answers.structuredExperience,
-      recentConsistency:answers.recentConsistency,daysPerWeek:days.length,
-      sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}};
+    explanation:Object.fromEntries(Object.entries({desiredResult:answers.desiredResult,
+      structuredExperience:answers.structuredExperience,daysPerWeek:days.length,
+      sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}).filter(([,value])=>value!==undefined))};
 }
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
@@ -15907,15 +15905,9 @@ function entryChipList(){
   const add=(chip,text)=>out.push({chip,text,what:t(`entry.chip.what.${chip}`)});
   if(a.desiredResult)add("goal",t(`entry.chip.goal.${a.desiredResult}`));
   if(a.structuredExperience)add("exp",t(`entry.background.experience.${a.structuredExperience}`));
-  if(a.recentConsistency)add("cons",t(`entry.chip.cons.${a.recentConsistency}`));
   if(a.daysPerWeek)add("days",t("entry.chip.days",{n:a.daysPerWeek}));
   if(a.sessionMinutes)add("minutes",a.sessionMinutes>120?t("entry.chip.minutes_over",{n:120}):t("entry.chip.minutes",{n:a.sessionMinutes}));
-  if(Object.prototype.hasOwnProperty.call(a,"preferredRestSeconds"))add("rest",t(`entry.chip.rest.${a.preferredRestSeconds===null?"auto":a.preferredRestSeconds}`));
-  if(a.environment?.kind){
-    const base=ProgramEntryAdapter?.defaultEnvironment?.(a.environment.kind),env=entryEnvironmentValue();
-    const same=base&&env&&entrySameSet(base.equipment,env.equipment)&&entrySameSet(base.capabilities,env.capabilities);
-    const label=t(`entry.environment.${a.environment.kind}`);
-    add("env",same?label:t("entry.chip.env_adjusted",{env:label}))}
+  if(a.environment?.kind)add("env",t(`entry.environment.${a.environment.kind}`));
   const avoided=(a.exerciseConstraints||[]).map(item=>item.exerciseId);
   const priorities=entryPriorityLabel(a),none=t("entry.preview.priorities_none");
   if(!custom){

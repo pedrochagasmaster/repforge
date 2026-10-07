@@ -48,7 +48,6 @@ async function answerGenerate(page, { days = 4, minutes = 60, environment = "com
   await page.locator('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]').click();
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
   await pick(page, "structuredExperience", "6_to_24m");
-  await pick(page, "recentConsistency", "most");
   await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
   await pick(page, "daysPerWeek", days);

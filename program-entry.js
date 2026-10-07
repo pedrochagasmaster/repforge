@@ -1590,7 +1590,6 @@
       case "background": {
         const issues = [];
         if (!answers.structuredExperience) issues.push("structured_experience_required");
-        if (!answers.recentConsistency) issues.push("recent_consistency_required");
         return issues;
       }
       case "schedule": {

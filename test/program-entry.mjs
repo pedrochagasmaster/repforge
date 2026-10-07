@@ -302,11 +302,8 @@ test("required omissions block only their owning step", () => {
   assert.deepEqual(Entry.advance(state).issues, ["desired_result_required"]);
   state = Entry.setAnswers(state, { desiredResult: "strength" });
   state = Entry.advance(state).state;
-  assert.deepEqual(Entry.advance(state).issues, ["structured_experience_required", "recent_consistency_required"]);
-  state = Entry.setAnswers(state, {
-    structuredExperience: "over_24m",
-    recentConsistency: "few",
-  });
+  assert.deepEqual(Entry.advance(state).issues, ["structured_experience_required"]);
+  state = Entry.setAnswers(state, { structuredExperience: "over_24m" });
   assert.equal(Entry.advance(state).ok, true);
 });
 

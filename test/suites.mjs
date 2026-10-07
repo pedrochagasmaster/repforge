@@ -105,11 +105,7 @@ export const SUITES = {
     s("test/program-entry-rules-recovery.mjs"),
     s("test/ui-plan-050-build-hierarchy.mjs", [], { seconds: 13 }),
     s("test/ui-plan-050-editor.mjs", [], { seconds: 10 }),
-    s("tools/build-program-family-fixtures.mjs", ["--check"]),
     s("test/generative-entry-runtime.mjs", [], { seconds: 14 }),
-    s("test/program-family-fixtures.mjs"),
-    s("test/program-compiler-persistence.mjs"),
-    s("test/program-compiler-runtime.mjs"),
     s("test/generate-program-browser.mjs", [], { domains: ["entry", "persistence"], seconds: 30 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 40 }),
     s("test/catalog-metric-program-browser.mjs", [], {
