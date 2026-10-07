@@ -659,6 +659,7 @@ try {
         const current = JSON.parse(localStorage.getItem(key));
         return window.__repforgeFinalizeProgramSetup({
           exercises: current.program,
+          programDefinition: current.programMeta.programDefinition,
           name: current.programMeta.name,
           answers: { goal: current.programMeta.goal },
           destination: "log",
