@@ -61,6 +61,17 @@ values, and one language code. The prefix identifies the wire format; the
 semantic document's `version` identifies its object contract. Compression is
 not encryption and does not authenticate the coach.
 
+A generated program that its generator reproduces exactly from the stored
+request and seed travels in a regenerable form instead of the full definition:
+the catalog fingerprint, the generator version, the compacted request, and the
+seed. A seven-cycle generated definition is roughly 290 KB of JSON and could
+never fit a link; the regenerable form does. The receiver regenerates with its
+own generator, and the result must equal the shared definition, so this form is
+only chosen when the sender's regeneration is identical. A link from a
+different generator version decodes as `unsupported-version` rather than
+producing a different program. An edited generated program is never replaced
+by its regeneration: it travels in full, or is refused when too large.
+
 The previous `v1.`, `v2.`, and `v3.` wire formats are explicitly unsupported.
 Decoding one returns an `unsupported-version` result with the exact original
 encoded bytes. The app leaves that fragment or cookie untouched and does not
