@@ -746,10 +746,13 @@
       !["active", "skipped"].includes(value.status) || !validString(value.setupNotes) ||
       !Array.isArray(value.setOrder) || !isPlainObject(value.sets)) return false;
     const programmed = value.programmed;
-    for (const field of ["order", "sets", "minReps", "maxReps"]) {
+    // A metric composition without repetitions carries no flat rep range, as
+    // the draft module allows; every other exercise needs a complete one.
+    const repless = programmed.metricOrigin != null && programmed.minReps == null && programmed.maxReps == null;
+    for (const field of repless ? ["order", "sets"] : ["order", "sets", "minReps", "maxReps"]) {
       if (!Number.isSafeInteger(programmed[field]) || programmed[field] < (field === "order" ? 0 : 1)) return false;
     }
-    if (programmed.minReps > programmed.maxReps || !validString(programmed.notes) ||
+    if (!repless && programmed.minReps > programmed.maxReps || !validString(programmed.notes) ||
       !validString(programmed.primary) || !validString(programmed.secondary) ||
       !validIdentifier(programmed.sourceFingerprint, true) || programmed.sets !== value.setOrder.length) return false;
     const ids = value.setOrder;
@@ -857,6 +860,18 @@
   function validateProgramEntryDraft(value) {
     if (value === null) return null;
     if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (value.schemaVersion !== 1) {
+      return typeof value.schemaVersion === "number"
+        ? ERROR_CODES.UNSUPPORTED_PROGRAM_ENTRY_DRAFT_VERSION
+        : ERROR_CODES.INVALID_SCHEMA_VERSION;
+    }
+    // The wire carries the logical draft, never the local storage wrapper.
+    if (hasOwn(value, "ownerId") || hasOwn(value, "revision") || hasOwn(value, "state")) return ERROR_CODES.FORBIDDEN_FIELD;
+    // A staged candidate from a later program schema is unsupported, not malformed.
+    for (const preview of [value.result?.preview, value.result?.alternative?.preview]) {
+      const version = isPlainObject(preview?.programDefinition) ? preview.programDefinition.schemaVersion : 1;
+      if (version !== 1) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
+    }
     const programEntry = runtimeProgramEntry();
     if (!programEntry || typeof programEntry.normalizeSetupDraftEnvelope !== "function") {
       return ERROR_CODES.CATALOG_UNAVAILABLE;
@@ -1062,11 +1077,52 @@
     return null;
   }
 
+  function validateProgrammingContext(value) {
+    if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
+    const keys = exactKeys(value, [
+      "schemaVersion", "desiredResult", "structuredExperience", "recentConsistency", "availability",
+      "environment", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements",
+      "exerciseConstraints", "reviewedAt",
+    ]);
+    if (keys) return keys === ERROR_CODES.UNKNOWN_SECTION ? keys : ERROR_CODES.INVALID_ENVELOPE;
+    if (value.schemaVersion !== 1) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
+    if (!validString(value.desiredResult, true) || !validString(value.structuredExperience, true) ||
+      !validString(value.recentConsistency, true) || !isUtcIsoTimestamp(value.reviewedAt)) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!isPlainObject(value.availability) || exactKeys(value.availability, ["daysPerWeek", "sessionMinutes", "preferredRestSeconds"]) ||
+      !Number.isInteger(value.availability.daysPerWeek) || value.availability.daysPerWeek < 2 ||
+      !Number.isInteger(value.availability.sessionMinutes) || value.availability.sessionMinutes < 1 ||
+      (value.availability.preferredRestSeconds !== null &&
+        (!Number.isInteger(value.availability.preferredRestSeconds) || value.availability.preferredRestSeconds < 0))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!isPlainObject(value.environment) || Object.keys(value.environment).some(key => !["kind", "capabilities", "equipment"].includes(key)) ||
+      !validString(value.environment.kind, true)) return ERROR_CODES.INVALID_ENVELOPE;
+    for (const field of ["capabilities", "equipment"]) {
+      if (hasOwn(value.environment, field) && (!Array.isArray(value.environment[field]) ||
+        value.environment[field].some(item => !validIdentifier(item, true)))) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    for (const field of ["primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements"]) {
+      if (!Array.isArray(value[field]) || value[field].some(item => !validIdentifier(item, true))) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!Array.isArray(value.exerciseConstraints) || value.exerciseConstraints.some(item =>
+      !isPlainObject(item) || exactKeys(item, ["exerciseId", "reason"]) ||
+      !validIdentifier(item.exerciseId, true) || !validString(item.reason, true))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    return null;
+  }
+
   function validateDurableState(value) {
     if (!isPlainObject(value) || !requiredObject(value, ["settings", "programMeta", "program", "log", "programHistory", "customExercises"])) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
     if (!isPlainObject(value.settings) || !isPlainObject(value.programMeta)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (hasOwn(value, "programmingContext")) {
+      const contextError = validateProgrammingContext(value.programmingContext);
+      if (contextError) return contextError;
+    }
     const collectionChecks = [
       ["log", LIMITS.logRows, ERROR_CODES.LOG_ROW_TOO_LARGE],
       ["program", LIMITS.programRows, ERROR_CODES.PROGRAM_TOO_LARGE],

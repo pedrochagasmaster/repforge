@@ -14,6 +14,7 @@ const { EXERCISE_LIBRARY, LEGACY_LIBRARY_IDS } = require(join(ROOT, "exercises.j
 const source = JSON.parse(readFileSync(join(ROOT, "plans/067/data/app_file.json"), "utf8"));
 const catalogAsset = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8"));
 const curation = JSON.parse(readFileSync(join(ROOT, "tools/exercise-catalog-curation.json"), "utf8"));
+const draftNames = JSON.parse(readFileSync(join(ROOT, "tools/exercise-names-pt-draft.json"), "utf8"));
 const mediaBg = JSON.parse(readFileSync(join(ROOT, "tools/exercise-media-bg.json"), "utf8"));
 const sourceById = new Map(source.exercises.map(exercise => [exercise.id, exercise]));
 const indexById = new Map(EXERCISE_LIBRARY.map(exercise => [exercise.id, exercise]));
@@ -82,9 +83,11 @@ const wrongIndexRows = EXERCISE_LIBRARY.filter(index => {
   const raw = sourceById.get(index.id);
   if (!raw || index.name !== raw.name || index.searchBoostValue !== raw.searchBoostValue) return true;
   const reviewed = curation.entries[index.id];
-  const expectedNamePt = reviewed?.namePt || raw.name;
+  // A reviewed name wins; otherwise the owner-review draft supplies Portuguese.
+  const named = reviewed || draftNames.entries[index.id] || null;
+  const expectedNamePt = named?.namePt || raw.name;
   const expectedAliases = normalizedUnique([
-    ...(reviewed?.aliases || []),
+    ...(named?.aliases || []),
     ...raw.alternativeName.map(id => source.uuidIndex[id]?.name),
   ]);
   const expectedMedia = reviewed?.mediaId ? `assets/exercises/${reviewed.mediaId}.webp` : null;

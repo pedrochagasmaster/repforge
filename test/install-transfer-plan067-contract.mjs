@@ -346,18 +346,64 @@ function currentEnvelope() {
   return envelope;
 }
 
-const legacyBefore = JSON.stringify(fixture);
-const refusedLegacy = await Contract.validateEnvelopeIntegrity(structuredClone(fixture), webcrypto);
+// An older clone: flat rows with family/blueprint provenance and no
+// authoritative ProgramDefinition, sealed with a correct hash so only the
+// schema boundary can refuse it.
+const legacyClone = (() => {
+  const envelope = structuredClone(fixture);
+  delete envelope.durableState.programMeta.programDefinition;
+  envelope.durableState.programMeta.compilerContext = { familyId: "balanced", blueprintId: "balanced_2_v1" };
+  envelope.integrity.canonicalPayloadHash = canonicalHash(envelope);
+  return envelope;
+})();
+const legacyBefore = JSON.stringify(legacyClone);
+const refusedLegacy = await Contract.validateEnvelopeIntegrity(structuredClone(legacyClone), webcrypto);
 assert.equal(refusedLegacy.ok, false,
   "old family/blueprint clones without authoritative ProgramDefinition are refused as unsupported data");
 assert.notEqual(refusedLegacy.code, Contract.ERROR_CODES.INTEGRITY_MISMATCH,
   "legacy refusal is a schema boundary result, not a misleading hash failure");
-assert.equal(JSON.stringify(fixture), legacyBefore, "refusing an old clone leaves its source bytes unchanged");
+assert.equal(JSON.stringify(legacyClone), legacyBefore, "refusing an old clone leaves its source bytes unchanged");
 
 const valid = currentEnvelope();
 const validBefore = JSON.stringify(valid);
 const accepted = await Contract.validateEnvelopeIntegrity(valid, webcrypto);
 assert.equal(accepted.ok, true, `canonical clone passes validation: ${accepted.code || ""}`);
+
+// An open workout on a movement whose composition has no repetitions (here
+// weight plus per-side distance) carries no flat rep range, and still transfers.
+{
+  const replessId = "1a35c6f170d88025a7a1f34e94c394c5";
+  const source = catalogSnapshot.exercises.find((exercise) => exercise.id === replessId);
+  const definitions = Metrics.definitionsForIds(source.exerciseMetrics).value;
+  assert.ok(!definitions.some((metric) => metric.semantic === "reps" || metric.semantic === "repsPerSide"),
+    "the rep-less probe movement records no repetitions");
+  const targets = Object.fromEntries(definitions.map((metric) => [metric.semantic, metric.semantic.startsWith("load") ? 20 : 30]));
+  const replessDraft = WorkoutDraft.create({
+    programId: "program-p067-repless", programFingerprint: "program-p067-repless-fingerprint", durableRevision: 3,
+    dayId: activeDay.id, dayLabel: activeDay.name, scheduleDate: "2026-10-06", unit: "kg", rirMode: "numeric",
+    exercises: [{
+      exerciseInstanceId: "repless-slot", sourceExerciseId: "repless-slot", libraryId: replessId,
+      movementId: `library:${replessId}`, displayName: source.name, sets: 1, setIds: ["repless-set-1"],
+      minReps: null, maxReps: null, notes: "", primary: "", secondary: "",
+      metricDefinitions: structuredClone(definitions), metricOrigin: "source_catalog",
+      loadingModel: { bodyweightCoefficient: source.bodyweight ?? null }, loadingConvention: "external",
+      loadingContext: { bodyweightContributionEnabled: null, externalLoadMultiplier: 1, bodyweightCoefficient: source.bodyweight ?? null },
+      sourceFingerprint: "source-repless-slot",
+      programmedSets: [{ suggestedLoad: null, targetRir: 2, minReps: null, maxReps: null,
+        metricDefinitions: structuredClone(definitions), targets, restSeconds: 90 }],
+    }],
+  }, {
+    draftId: "draft-p067-repless", startedAt: "2026-10-06T09:00:00.000Z", scheduleDate: "2026-10-06",
+    selectedExerciseId: "repless-slot",
+    writer: { installationId: "installation-p067-test", tabId: "tab-p067-test", operationId: "operation-p067-repless" },
+  });
+  assert.equal(WorkoutDraft.isDomainError(replessDraft), false, `the producer creates a rep-less metric draft: ${JSON.stringify(replessDraft)}`);
+  const replessEnvelope = currentEnvelope();
+  replessEnvelope.workoutDraft = WorkoutDraft.logicalCloneSection(replessDraft);
+  replessEnvelope.integrity.canonicalPayloadHash = canonicalHash(replessEnvelope);
+  const replessResult = await Contract.validateEnvelopeIntegrity(replessEnvelope, webcrypto);
+  assert.equal(replessResult.ok, true, `an open rep-less metric workout transfers: ${replessResult.code || ""}`);
+}
 assert.deepEqual(accepted.value.durableState.programMeta.programDefinition, programDefinition,
   "the clone preserves the complete authoritative scheduled definition");
 assert.deepEqual(accepted.value.durableState.log[0], actualRow,
