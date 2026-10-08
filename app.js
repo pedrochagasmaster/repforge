@@ -11990,19 +11990,6 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function referencedCustomExercises(list){
   const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
   return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
-/* Historical shared-setup metadata used this small vocabulary. New setup links
-   carry the canonical ProgramDefinition and do not project equipment through it. */
-const SHARED_EQUIPMENT=Object.freeze({machine:"machines",cable:"cables",dumbbell:"dumbbells",barbell:"barbells",bodyweight:"bodyweight"});
-function sharedRelationForPayload(relation,program){
-  const members=Array.isArray(relation?.members)?relation.members:[];
-  const rows=members.map(member=>program.find(ex=>ex?.id===member?.exerciseId));
-  const current=String(relation?.movementId||"").trim();
-  if(rows.length!==2||rows.some(row=>!row)||!current)return relation;
-  const identities=rows.map(row=>ProgramEntryAdapter.sharedMovementId(row,LEGACY_LIBRARY_IDS));
-  const internalIds=rows.map(row=>String(row.movementId||"").trim());
-  if(!identities[0]||identities.some(id=>id!==identities[0])||internalIds.some(id=>id!==current))return relation;
-  return{...relation,movementId:identities[0]};
-}
 function sharedSettings(settings){
   return{jumpPct:settings.jumpPct,minJump:settings.minJump,rirHigh:settings.rirHigh,
     hardRir:settings.hardRir,restSec:settings.restSec,unit:settings.unit,
@@ -12189,10 +12176,6 @@ function reopenShareAfterRepair(){
   shareRepairFocusIntent=token;
   queueMicrotask(()=>{
     if(shareRepairFocusIntent===token)openShareSetupSheet({repairFocus:token})});
-}
-async function cancelShareRepair(){
-  if(!shareRepairReturn)return;
-  finishInstalledEditor({discard:true});
 }
 async function beginShareRepair(exerciseInstanceId){
   const id=String(exerciseInstanceId||"");
