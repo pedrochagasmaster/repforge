@@ -1,153 +1,131 @@
 #!/usr/bin/env node
 /**
- * Plan 064 audit fixes RT-01, RT-02 and RT-05: the Why sheet tells the truth.
+ * Plan 067: the Why sheet tells the truth about an adaptive recommendation.
  *
- * Each case seeds a real program and log, enters the workout, opens "Why this
- * weight?" from the real control, and reads what the lifter reads. Nothing is
- * stubbed: the loads, reps and verdicts come from `recommendation()` and
- * `setSuggestion()` as the app computes them, and the Focus cue is read from the
- * same card the sheet was opened from.
+ * The old RT-01/RT-02/RT-05 audit fixtures described the retired strategy
+ * engine (percent/minJump load arithmetic, `rec.strategy`, flat program
+ * rows). On a canonical generated program the Why sheet is built by
+ * `engineWhyModel`/`engineWhyRows` in app.js straight from
+ * `recommendation()`'s own facts (`result.historyAnchor`,
+ * `result.loadingAssumptions`, `result.targets`) — there is no load
+ * arithmetic left in the sheet to re-derive and check (RT-02's subject),
+ * so RT-02 is retired outright rather than migrated.
  *
- * - RT-01  the performed sentence names each set's own load (a mixed-load
- *          session never prints one shared load).
- * - RT-02  the worked arithmetic prints the direction the engine took, shows a
- *          nearest-step rounding, and shows the range floor or top that clamped
- *          a rep target.
- * - RT-05  in a session the headline is the cue Focus shows for the set the
- *          shelf is on; the base recommendation stays a labelled, separate line.
+ * RT-01 and RT-05 still describe real product guarantees and are migrated
+ * onto a real generated program (the same request `adaptive-workout-browser.mjs`
+ * uses) with one logged session of history:
+ * - RT-01 the performed sentence in the "What you showed" block names each
+ *   set's own load; a mixed-load session never prints one shared load.
+ * - RT-05 the Why headline is exactly the Focus cue shown on the card the
+ *   sheet was opened from, before any set is logged this session and after
+ *   logging set 1 moves the cue.
+ *
+ * New: the sheet also names the anchor, the target (with RIR and reps), and
+ * the load step — the three facts `engineWhyRows` reports — each checked
+ * against `window.RepForgeI18n.t(...)`, never a hardcoded English string.
  *
  * Run: REPFORGE_URL=http://localhost:8000/ node test/why-sheet.mjs
  */
+import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
-const KEY = "repforge_v1";
-const DRAFT_KEY = "repforge_draft_v1";
+const DATA = new URL("../plans/067/data/", import.meta.url);
+const gym = JSON.parse(readFileSync(new URL("gym.json", DATA), "utf8"));
+const observations = JSON.parse(readFileSync(new URL("programs.json", DATA), "utf8"));
+const catalog = JSON.parse(readFileSync(new URL("app_file.json", DATA), "utf8"));
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+const observedIds = [...new Set(Object.values(observations).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+const REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
+  },
+  movementConfirmations: Object.fromEntries(observedIds.map((id) =>
+    [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+};
+
+/** The same plain-number formatting `fmtPlain`/`fmt` apply in app.js: an
+ *  integer prints bare, anything else to two decimals with trailing zeros
+ *  trimmed. `fmt`/`fmtLoad` are not exposed on `window`, so this is a local
+ *  equivalent for the English, kg-unit case this suite runs in — the i18n
+ *  *text* itself still always comes from `window.RepForgeI18n.t(...)`. */
+function fmtNum(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "";
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
+}
 
 const results = { passed: 0, failed: 0 };
 function assert(cond, name, detail) {
   if (cond) { results.passed++; console.log(`  ✓ ${name}`); }
-  else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${detail}`); }
+  else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)}`); }
 }
 
-const iso = (daysAgo) => {
-  const d = new Date("2026-08-27T12:00:00.000Z");
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
-};
-
-const settings = (lang, { unit = "kg", rirMode = "numeric" } = {}) => ({
-  jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 0, lastExport: "",
-  unit, lang, rirMode, voiceInputEnabled: false,
-  notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
-});
-
-const REP_GOAL = {
-  schemaVersion: 1,
-  strategy: {
-    id: "rep_goal", version: 1,
-    params: {
-      workingSets: 3, repGoal: 30, repFloor: 6, repCeiling: 12, targetRirMin: 1, targetRirMax: 3,
-      minLoadIncrement: 2.5, jumpPercent: 2.5, distributionPolicy: "balanced_frontload_v1",
-    },
-  },
-  modifiers: [],
-};
-
-function slots(list) {
-  return list.map(({ id = "ex0", name = "Bench press", sets = 3, min = 4, max = 8, progression }, index) => ({
-    id, day: "Day 1", order: index + 1, name, sets, min, max,
-    primary: "Chest", secondary: "Triceps", notes: "", alternates: [], ...(progression ? { progression } : {}),
-  }));
-}
-
-/** sessions: [[daysAgo, [[load, reps, rir], ...]], ...] for one exercise. */
-function rows(sessions, { id = "ex0", name = "Bench press" } = {}) {
-  const out = [];
-  for (const [daysAgo, sets] of sessions) {
-    const date = iso(daysAgo);
-    const session = `${date}_Day 1_seed`;
-    sets.forEach(([load, reps, rir], i) => {
-      out.push({
-        session, date, day: "Day 1", name, exerciseId: id, set: i + 1, load, reps, rir, notes: "",
-        created: `${date}T12:00:00.00${i}Z`, primary: "Chest", secondary: "Triceps",
-      });
+async function seed(page) {
+  return page.evaluate(({ request, weight, reps }) => {
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "why-sheet-067");
+    const definition = generated.value;
+    const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
+      .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
+        slot.prescriptionsByCycle[0].sets.length >= 2);
+    return window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition, name: "Why sheet proof", answers: {}, destination: "log", origin: "first-run",
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-sheet-067" },
+    }).then(() => window.__repforgeStorage.flush()).then(() => target && {
+      day: target.day.name, slotId: target.slot.id, exerciseId: target.slot.exerciseId,
     });
-  }
-  return out;
+  }, { request: REQUEST, weight: WEIGHT, reps: REPS });
 }
 
-async function seed(page, blob) {
-  await page.evaluate(async ({ k, d }) => {
-    localStorage.removeItem(k);
-    for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
-    await new Promise((res) => {
-      const req = indexedDB.deleteDatabase("repforge");
-      req.onsuccess = () => res(); req.onerror = () => res(); req.onblocked = () => res();
-    });
-  }, { k: KEY, d: DRAFT_KEY });
-  await page.evaluate(async ({ k, value }) => {
-    localStorage.setItem(k, JSON.stringify(value));
-    const db = await new Promise((res, rej) => {
-      const r = indexedDB.open("repforge", 1);
-      r.onupgradeneeded = () => r.result.createObjectStore("kv");
-      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-    });
-    await new Promise((res, rej) => {
-      const tx = db.transaction("kv", "readwrite");
-      tx.objectStore("kv").put(value, k);
-      tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
-    });
-    db.close();
-  }, { k: KEY, value: blob });
+async function fillShelf(page, metricId, value) {
+  const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
+  await input.waitFor({ state: "attached", timeout: 5000 });
+  if (await input.getAttribute("aria-hidden") === "true")
+    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+  await input.fill(String(value));
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
 
-async function boot(page, { lang = "en", unit = "kg", rirMode = "numeric", program, log }) {
-  await seed(page, {
-    settings: settings(lang, { unit, rirMode }),
-    programMeta: {
-      id: "prog-why", name: "Why fixture", started: iso(90),
-      created: "2026-05-01T00:00:00.000Z", updated: "2026-05-01T00:00:00.000Z",
-      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6,
-      goal: null, experience: null, daysPerWeek: 1, splitType: "full_body",
-      equipment: ["barbell"], priorityMuscles: [], sessionLength: "60", completedAt: null,
-    },
-    program, log, programHistory: [],
-  });
-  await page.reload();
-  await waitForAppBoot(page, { base: BASE });
-  await page.evaluate(() => window.closeFirstRun?.());
-  await page.evaluate(async () => { await window.__repforgeEnterWorkout({}); });
-  await page.waitForSelector("#workout.is-focus article.is-current .focus-shelf");
+async function logSet(page, slotId, ordinal, { load, reps, rir }) {
+  if (load != null) await fillShelf(page, WEIGHT, load);
+  if (reps != null) await fillShelf(page, REPS, reps);
+  const rirInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${slotId}_${ordinal}_rir"]`);
+  if (await rirInput.getAttribute("aria-hidden") === "true")
+    await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
+  await rirInput.fill(String(rir));
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  await page.locator(`#workout .exercise.is-current [data-save="${slotId}_${ordinal}"]`).click();
+  await page.waitForFunction(({ slotId, ordinal }) => {
+    const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[slotId];
+    const setId = exercise?.setOrder?.find((id) => exercise.sets[id].ordinal === ordinal);
+    return typeof exercise?.sets?.[setId]?.completion === "object";
+  }, { slotId, ordinal }, { timeout: 15000 });
+  // A completed set arms the rest timer, which replaces the slot's `.fx-cue`
+  // with a running-rest preview of the same cue (a different surface for the
+  // same facts, not the one RT-05 is about). Skip it so the card's normal cue
+  // is what's on screen right after a save.
+  const skip = page.locator('#workout .exercise.is-current .focus-shelf [data-rest-act="skip"]');
+  if (await skip.count() && await skip.isVisible().catch(() => false)) await skip.click();
 }
 
-const settle = (page, ms = 500) => page.evaluate((n) => new Promise((res) => setTimeout(res, n)), ms);
-
-/** Log the shelf's current set through the real controls. */
-async function logSet(page, { load, reps, rir }) {
-  const before = await page.evaluate(() => {
-    const draft = window.__repforgeWorkoutDraft.current();
-    const ex = draft.exercises[draft.exerciseOrder[0]];
-    return ex.setOrder.filter((id) => ex.sets[id].completion !== "pending").length;
-  });
-  await page.evaluate((values) => {
-    const card = document.querySelector("#workout .exercise.is-current");
-    card.querySelectorAll("input").forEach((el) => {
-      const key = el.dataset.k || "";
-      if (key.endsWith("_load")) el.value = values.load;
-      else if (key.endsWith("_reps")) el.value = values.reps;
-      else if (key.endsWith("_rir")) el.value = values.rir;
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    card.querySelector(".saveset")?.click();
-  }, { load: String(load), reps: String(reps), rir: String(rir) });
-  await page.waitForFunction((n) => {
-    const draft = window.__repforgeWorkoutDraft.current();
-    const ex = draft.exercises[draft.exerciseOrder[0]];
-    return ex.setOrder.filter((id) => ex.sets[id].completion !== "pending").length > n;
-  }, before, { timeout: 8000 });
-  await settle(page);
+async function finishEarly(page) {
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  await page.locator("#sessionEarlyConfirm").click();
+  await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 15000 });
+  await page.locator("#sumDone").click();
+  await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
 }
+
+const settle = (page, ms = 300) => page.evaluate((n) => new Promise((res) => setTimeout(res, n)), ms);
 
 async function focusCue(page) {
   return page.evaluate(() => {
@@ -164,28 +142,14 @@ async function focusCue(page) {
 async function openWhy(page) {
   await page.locator("#workout .exercise.is-current [data-why]").first().click();
   await page.waitForSelector("#whySheet.is-open");
-  await settle(page, 300);
-  return page.evaluate(() => {
-    const i18n = window.RepForgeI18n;
-    const calc = [...document.querySelectorAll("#whyCalc .whycalc__row")].map((row) => ({
-      k: row.querySelector(".whycalc__k")?.textContent?.trim() || "",
-      v: row.querySelector(".whycalc__v")?.textContent?.trim() || "",
-      sum: row.classList.contains("whycalc__row--sum"),
-    }));
-    return {
-      target: document.querySelector("#whyTarget")?.textContent?.trim() || "",
-      mark: [...document.querySelectorAll("#whyTarget .verdictmark")].map((el) => el.className.replace(/.*verdictmark--/, "")),
-      decision: document.querySelector("#whyDecision")?.textContent?.trim() || "",
-      blocks: [...document.querySelectorAll("#whyBody .whysheet__block")].map((el) => ({
-        lead: el.getAttribute("data-lead"), text: el.querySelector(".whysheet__text")?.textContent?.trim() || "",
-      })),
-      calc,
-      keys: {
-        newLoad: i18n.t("why.calc.new_load"), repTarget: i18n.t("why.calc.rep_target"),
-        before: i18n.t("why.decision_before", { label: "\u0000" }).split("\u0000")[0],
-      },
-    };
-  });
+  await settle(page, 200);
+  return page.evaluate(() => ({
+    target: document.querySelector("#whyTarget")?.textContent?.trim() || "",
+    mark: [...document.querySelectorAll("#whyTarget .verdictmark")].map((el) => el.className.replace(/.*verdictmark--/, "")),
+    blocks: [...document.querySelectorAll("#whyBody .whysheet__block")].map((el) => ({
+      lead: el.getAttribute("data-lead"), text: el.querySelector(".whysheet__text")?.textContent?.trim() || "",
+    })),
+  }));
 }
 
 async function closeWhy(page) {
@@ -193,190 +157,167 @@ async function closeWhy(page) {
   await page.waitForSelector("#whySheet", { state: "hidden" });
 }
 
-const row = (why, key) => why.calc.find((item) => item.k === why.keys[key]);
+/** The engine's own truth for the slot's current recommendation, read through
+ *  the same test hook the Log tab and the Why sheet call — nothing re-derived. */
+async function engineTruth(page, slotId) {
+  return page.evaluate((id) => {
+    const P = window.__repforgeProgression;
+    const ex = P.programSlot(id);
+    const rec = P.recommendation(ex);
+    return {
+      status: rec.status, load: rec.load,
+      historyAnchor: rec.historyAnchor, fatigue: rec.fatigue,
+      loadingAssumptions: rec.loadingAssumptions,
+      metricDefinitions: rec.metricDefinitions,
+      firstTargets: rec.targetSets?.[0]?.result?.targets || null,
+      firstRir: rec.targetSets?.[0]?.prescription?.rir ?? null,
+    };
+  }, slotId);
+}
+
+/** i18n text for the block the engine's "anchor" fact produces, built the same
+ *  way `engineWhyRows` builds it, from the engine's own truth values. */
+async function expectedAnchorText(page, truth) {
+  const anchor = truth.historyAnchor || {};
+  const fatigue = truth.fatigue;
+  const cap = Number.isFinite(anchor.capacityKg) ? fmtNum(Math.round(anchor.capacityKg * 2) / 2) : null;
+  const displayLoad = fmtNum(anchor.displayLoadKg);
+  const projected = fatigue?.projectedCapacityKg;
+  const fatigueCap = Number.isFinite(projected) ? fmtNum(Math.round(projected * 2) / 2) : null;
+  const showFatigue = Number.isFinite(projected) && Number.isFinite(anchor.capacityKg) && Math.abs(projected - anchor.capacityKg) > 0.25;
+  return page.evaluate(({ anchor, cap, displayLoad, fatigueCap, showFatigue, unit }) => {
+    const t = (k, v) => window.RepForgeI18n.t(k, v);
+    let text = "";
+    if (anchor.source === "current_session") {
+      text = t("why.engine.anchor_session", { set: (anchor.setIndex ?? 0) + 1, load: displayLoad, cap, unit });
+    } else if (cap) {
+      text = t("why.engine.anchor_history", { n: (anchor.sessionIds || []).length || 1, load: displayLoad, cap, unit });
+    }
+    if (showFatigue) text += ` ${t("why.engine.fatigue", { cap: fatigueCap, unit })}`;
+    return text;
+  }, { anchor, cap, displayLoad, fatigueCap, showFatigue, unit: "kg" });
+}
 
 const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
-  await page.goto(BASE);
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+
+  await page.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
-  const bench = slots([{}]);
+  const target = await seed(page);
+  if (!target) throw new Error("no weighted first slot with 2+ sets in the generated program");
 
-  // ------------------------------------------------------------------ RT-01
+  // ------------------------------------------------------------ session 1
+  // A previous session with two different loads on its two sets, so the next
+  // session's "What you showed" sentence has to name each one separately.
+  if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not enter day");
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await logSet(page, target.slotId, 1, { load: 110, reps: 6, rir: 2 });
+  await logSet(page, target.slotId, 2, { load: 100, reps: 8, rir: 1 });
+  await finishEarly(page);
+
+  // ------------------------------------------------------------ session 2
   console.log("RT-01: the performed sentence names each set's own load");
-  for (const lang of ["en", "pt"]) {
-    const reps = lang === "pt" ? "reps com" : "reps at";
-    await boot(page, { lang, program: bench, log: rows([[7, [[100, 5, 1], [90, 10, 1]]]]) });
-    let why = await openWhy(page);
-    const first = why.blocks[0]?.text || "";
-    assert(first.includes(`5 ${reps} 100 kg`) && first.includes(`10 ${reps} 90 kg`),
-      `RT-01: ${lang} numeric: 100 kg × 5 and 90 kg × 10 each print their own load`, first);
-    assert(!/5 e 10|5 and 10/.test(first), `RT-01: ${lang} numeric: no shared load over "5 and 10 reps"`, first);
-    await closeWhy(page);
+  await page.clock.setFixedTime(new Date("2026-03-04T09:00:00.000Z"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not re-enter day");
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
 
-    await boot(page, { lang, program: bench, log: rows([[7, [[100, 5, 1], [100, 6, 2]]]]) });
-    why = await openWhy(page);
-    const same = why.blocks[0]?.text || "";
-    assert(new RegExp(`5 (e|and) 6 ${reps} 100 kg`).test(same) && !/90/.test(same),
-      `RT-01: ${lang} numeric: identical loads still read as one sentence`, same);
-    await closeWhy(page);
+  const truthBefore = await engineTruth(page, target.slotId);
+  assert(truthBefore.status !== "manual" && truthBefore.status !== "new",
+    "the generated program has a real adaptive recommendation after one session", truthBefore);
 
-    await boot(page, { lang, rirMode: "effort", program: bench, log: rows([[7, [[100, 5, 1], [90, 10, 1]]]]) });
-    why = await openWhy(page);
-    const effort = why.blocks[0]?.text || "";
-    assert(effort.includes(`5 ${reps} 100 kg`) && effort.includes(`10 ${reps} 90 kg`) && !/RIR/.test(effort),
-      `RT-01: ${lang} effort: each set prints its own load, in effort words`, effort);
-    await closeWhy(page);
+  // RT-05, before any set this session: the headline is exactly the Focus cue.
+  const cueBefore = await focusCue(page);
+  const whyBefore = await openWhy(page);
+  assert(cueBefore.line1.length > 0 && whyBefore.target === `${cueBefore.line1}, ${cueBefore.line2}`,
+    "RT-05: before any set this session, the Why headline is the Focus cue",
+    `cue=${JSON.stringify(cueBefore)} why=${JSON.stringify(whyBefore.target)}`);
+  assert(JSON.stringify(cueBefore.mark) === JSON.stringify(whyBefore.mark),
+    "RT-05: before any set this session, the verdict mark is the cue's",
+    `cue=${JSON.stringify(cueBefore.mark)} why=${JSON.stringify(whyBefore.mark)}`);
 
-    await boot(page, { lang, rirMode: "effort", program: bench, log: rows([[7, [[100, 5, 1], [100, 6, 1]]]]) });
-    why = await openWhy(page);
-    const effortSame = why.blocks[0]?.text || "";
-    assert(new RegExp(`5 (e|and) 6 ${reps} 100 kg`).test(effortSame) && !/90/.test(effortSame),
-      `RT-01: ${lang} effort: identical loads read as one sentence`, effortSame);
-    await closeWhy(page);
+  // RT-01: the "What you showed" block (data-lead="engine-anchor") names each
+  // of last session's two sets at its own load — never one shared sentence.
+  const anchorBlock = whyBefore.blocks.find((b) => b.lead === "engine-anchor");
+  assert(!!anchorBlock, "the sheet has a 'what you showed' (engine-anchor) block", whyBefore.blocks);
+  const performedExpectations = await page.evaluate(({ load1, load2 }) => {
+    const t = window.RepForgeI18n.t;
+    return {
+      set1: t("why.performed", { reps: "6", load: load1, unit: "kg", rirs: "2" }),
+      set2: t("why.performed", { reps: "8", load: load2, unit: "kg", rirs: "1" }),
+    };
+  }, { load1: fmtNum(110), load2: fmtNum(100) });
+  assert((anchorBlock?.text || "").includes(performedExpectations.set1) && (anchorBlock?.text || "").includes(performedExpectations.set2),
+    "RT-01: the performed sentence gives the 110 kg set and the 100 kg set each their own load",
+    `text="${anchorBlock?.text}" expected=${JSON.stringify(performedExpectations)}`);
+  assert(!/6 (e|and) 8 reps/.test(anchorBlock?.text || ""),
+    "RT-01: the two different loads never collapse into one shared-load sentence", anchorBlock?.text);
+
+  // The anchor fact itself: the engine's own anchor/fatigue sentence, read
+  // from the same facts `recommendation()` exposes.
+  const expectedAnchor = await expectedAnchorText(page, truthBefore);
+  assert((anchorBlock?.text || "").includes(expectedAnchor),
+    "the sheet names the anchor exactly as the engine computed it (via window.RepForgeI18n.t)",
+    `text="${anchorBlock?.text}" expected substring="${expectedAnchor}"`);
+
+  // The target fact: "engine-target" names the RIR and reps the engine aims for.
+  const targetBlock = whyBefore.blocks.find((b) => b.lead === "engine-target");
+  assert(!!targetBlock, "the sheet has a target (engine-target) block", whyBefore.blocks);
+  if (targetBlock) {
+    const loadMetric = truthBefore.metricDefinitions?.find((m) => m.semantic === "loadKg");
+    const repsMetric = truthBefore.metricDefinitions?.find((m) => m.semantic === "reps");
+    const load = truthBefore.firstTargets?.[loadMetric?.semantic];
+    const rawReps = truthBefore.firstTargets?.[repsMetric?.semantic];
+    const reps = typeof rawReps === "number" ? rawReps : rawReps?.min;
+    const rir = truthBefore.firstRir;
+    const expectedTarget = await page.evaluate(({ rir, reps, load, unit }) => {
+      const t = window.RepForgeI18n.t;
+      return t(rir != null ? "why.engine.target" : "why.engine.target_norir", { rir, reps, load, unit });
+    }, { rir: fmtNum(rir), reps, load: fmtNum(load), unit: "kg" });
+    assert(targetBlock.text === expectedTarget,
+      "the sheet names the target with RIR and reps exactly as window.RepForgeI18n.t renders it",
+      `text="${targetBlock.text}" expected="${expectedTarget}"`);
   }
 
-  // ------------------------------------------------------------------ RT-02
-  console.log("RT-02: the worked arithmetic says what the engine did");
-  const calcCase = async (name, sessions, check, extra = {}) => {
-    await boot(page, { program: extra.program || bench, log: rows(sessions) });
-    const truth = await page.evaluate(() => {
-      const P = window.__repforgeProgression;
-      const ex = P.programSlot("ex0");
-      const rec = P.recommendation(ex);
-      return { load: rec.load, last: rec.lastLoad, reason: rec.reason, status: rec.status,
-        reps: P.setSuggestion(ex, 1, rec, {}, null).reps, min: ex.min, max: ex.max };
-    });
-    const why = await openWhy(page);
-    check(why, truth, name);
-    await closeWhy(page);
-  };
-  await calcCase("explicit-step reduction", [[7, [[100, 2, 1], [100, 2, 1]]]], (why, truth, name) => {
-    const text = row(why, "newLoad")?.v || "";
-    assert(truth.load === 97.5 && truth.last === 100, `RT-02: ${name}: the engine takes 100 kg to 97.5 kg`, JSON.stringify(truth));
-    assert(text === "100 − 2.5 → 97.5", `RT-02: ${name}: the working subtracts, not adds`, text);
-  });
-  await calcCase("floor-clamped rep target", [[7, [[100, 2, 1], [100, 2, 1]]]], (why, truth, name) => {
-    const text = row(why, "repTarget")?.v || "";
-    assert(truth.reps === truth.min, `RT-02: ${name}: the engine target sits on the range floor`, JSON.stringify(truth));
-    assert(/range floor/.test(text) && !/^about 4 − 1 = 4$/.test(text) && /3/.test(text),
-      `RT-02: ${name}: the working shows the subtraction and the range floor`, text);
-  });
-  await calcCase("percentage reduction", [[7, [[200, 2, 1], [200, 2, 1]]]], (why, truth, name) => {
-    const text = row(why, "newLoad")?.v || "";
-    assert(truth.load < truth.last, `RT-02: ${name}: the engine lowers the load`, JSON.stringify(truth));
-    assert(/^200 − 2\.5% → 195$/.test(text), `RT-02: ${name}: the working subtracts the percentage`, text);
-  });
-  await calcCase("explicit-step increase", [[7, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]]], (why, truth, name) => {
-    const text = row(why, "newLoad")?.v || "";
-    assert(truth.load === 102.5, `RT-02: ${name}: the engine adds one step`, JSON.stringify(truth));
-    assert(text === "100 + 2.5 → 102.5", `RT-02: ${name}: the working still adds`, text);
-  });
-  await calcCase("percentage increase", [[7, [[200, 8, 2], [200, 8, 2], [200, 8, 2]]]], (why, truth, name) => {
-    const text = row(why, "newLoad")?.v || "";
-    assert(truth.load === 205, `RT-02: ${name}: the engine adds the percentage`, JSON.stringify(truth));
-    assert(text === "200 + 2.5% → 205", `RT-02: ${name}: the working adds the percentage`, text);
-  });
-  await calcCase("rounded percentage", [[7, [[130, 8, 2], [130, 8, 2], [130, 8, 2]]]], (why, truth, name) => {
-    const text = row(why, "newLoad")?.v || "";
-    assert(truth.load === 132.5, `RT-02: ${name}: the engine rounds 133.25 to the nearest step`, JSON.stringify(truth));
-    assert(/^130 \+ 2\.5% ≈ 133\.25 → 132\.5$/.test(text), `RT-02: ${name}: the working shows the rounding`, text);
-  });
-  await calcCase("unclamped rep target", [[7, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]]], (why, truth, name) => {
-    const text = row(why, "repTarget")?.v || "";
-    assert(/^about \d+(\.\d)? − \d+(\.\d)? = \d+(\.\d)?(, rounded to \d+)?$/.test(text) && !/range/.test(text),
-      `RT-02: ${name}: a target the range did not move prints no clamp (${truth.reps} reps)`, text);
-  });
-  // The same working in Portuguese: the sign and the clamp wording come from the catalog.
-  await boot(page, { lang: "pt", program: bench, log: rows([[7, [[100, 2, 1], [100, 2, 1]]]]) });
-  {
-    const why = await openWhy(page);
-    assert(row(why, "newLoad")?.v === "100 − 2,5 → 97,5", "RT-02: pt: the reduction subtracts with the decimal comma", row(why, "newLoad")?.v);
-    assert(/piso da faixa/.test(row(why, "repTarget")?.v || ""), "RT-02: pt: the floor clamp is named in Portuguese", row(why, "repTarget")?.v);
-    await closeWhy(page);
+  // The assumptions fact: "engine-assumptions" names the load step.
+  const assumptionsBlock = whyBefore.blocks.find((b) => b.lead === "engine-assumptions");
+  assert(!!assumptionsBlock, "the sheet has an assumptions (engine-assumptions) block", whyBefore.blocks);
+  if (assumptionsBlock) {
+    const loads = (truthBefore.loadingAssumptions?.availableLoadsKg || []).slice().sort((a, b) => a - b);
+    const steps = loads.slice(1).map((v, i) => Math.round((v - loads[i]) * 1000) / 1000).filter((s) => s > 0);
+    const step = Math.min(...steps);
+    const expectedStep = await page.evaluate((step) =>
+      window.RepForgeI18n.t("why.engine.step", { step, unit: "kg" }), fmtNum(step));
+    assert(assumptionsBlock.text.includes(expectedStep),
+      "the sheet names the load step exactly as window.RepForgeI18n.t renders it",
+      `text="${assumptionsBlock.text}" expected substring="${expectedStep}"`);
   }
+  await closeWhy(page);
 
-  // ------------------------------------------------------------------ RT-05
-  console.log("RT-05: the in-session headline is the Focus cue");
-  const history = rows([[7, [[50, 7, 1], [50, 7, 1], [50, 7, 1]]]]);
-  const sessionCase = async (name, setOne, { lang = "en", program = bench, log = history, then, relabelled = true } = {}) => {
-    await boot(page, { lang, program, log });
-    const baseCue = await focusCue(page);
-    await logSet(page, setOne);
-    // A correction hides the cue behind "Editing"; the draft reopens the set, so the sheet speaks for that set's own cue.
-    const corrected = then ? await then() : null;
-    const cue = corrected ? baseCue : await focusCue(page);
-    const why = await openWhy(page);
-    const expected = `${cue.line1}, ${cue.line2}`;
-    assert(cue.line1.length > 0 && why.target === expected,
-      `RT-05: ${name}: the Why headline is the Focus cue (${expected})`, `focus=${JSON.stringify(cue)} why=${JSON.stringify(why.target)}`);
-    assert(cue.mark.length === 0 || JSON.stringify(cue.mark) === JSON.stringify(why.mark),
-      `RT-05: ${name}: the verdict mark is the cue's`, `focus=${JSON.stringify(cue.mark)} why=${JSON.stringify(why.mark)}`);
-    const sum = why.calc.filter((item) => item.sum).at(-1);
-    assert(!sum || sum.v.replace(/\s+/g, " ").includes(cue.line1.match(/\d+(?:[.,]\d+)?/)[0]),
-      `RT-05: ${name}: the working's next-set row names the same load`, JSON.stringify(sum));
-    if (relabelled) {
-      assert(why.decision.startsWith(why.keys.before) || why.decision === "",
-        `RT-05: ${name}: the base recommendation is labelled as before this session`, why.decision);
-    }
-    await closeWhy(page);
-    return { cue, why };
-  };
-  const down = await sessionCase("session-down", { load: 50, reps: 2, rir: 0 });
-  assert(/47\.5/.test(down.why.target) && /^Drop/.test(down.why.target), "RT-05: session-down: the audit case reads \"Drop to 47.5 kg\"", down.why.target);
-  const up = await sessionCase("session-up", { load: 50, reps: 14, rir: 3 });
-  assert(/^Go up/.test(up.why.target), "RT-05: session-up: the headline raises the load", up.why.target);
-  const hold = await sessionCase("session-hold", { load: 50, reps: 7, rir: 1 });
-  assert(/^Hold/.test(hold.why.target), "RT-05: session-hold: the headline holds the load", hold.why.target);
-  await sessionCase("session-down (pt)", { load: 50, reps: 2, rir: 0 }, { lang: "pt" });
-  await sessionCase("rep_goal (non-range)", { load: 100, reps: 11, rir: 3 }, {
-    program: slots([{ min: 6, max: 12, progression: REP_GOAL }]),
-    log: rows([[7, [[100, 10, 2], [100, 10, 2], [100, 10, 2]]]]),
-  });
-  await sessionCase("correction", { load: 50, reps: 2, rir: 0 }, {
-    then: async () => {
-      await logSet(page, { load: 47.5, reps: 6, rir: 1 });
-      await page.locator("#workout .exercise.is-current [data-editex]").first().click();
-      await settle(page, 400);
-      return true;
-    },
-    relabelled: false,
-  });
+  // ------------------------------------------------------- RT-05, in-session
+  console.log("RT-05: logging set 1 moves the headline with the Focus cue");
+  await logSet(page, target.slotId, 1, { load: 110, reps: 8, rir: 3 });
+  await page.waitForFunction(() =>
+    (document.querySelector("#workout .exercise.is-current .fx-cue__l1")?.textContent || "").trim().length > 0,
+    undefined, { timeout: 8000 });
+  await settle(page, 300);
+  const cueAfter = await focusCue(page);
+  const whyAfter = await openWhy(page);
+  assert(cueAfter.line1.length > 0 && whyAfter.target === `${cueAfter.line1}, ${cueAfter.line2}`,
+    "RT-05: after logging set 1, the Why headline is still exactly the Focus cue",
+    `cue=${JSON.stringify(cueAfter)} why=${JSON.stringify(whyAfter.target)}`);
+  assert(whyAfter.target !== whyBefore.target || cueAfter.line1 !== cueBefore.line1,
+    "RT-05: the in-session set moved the cue (the case is not vacuous)",
+    `before=${JSON.stringify(whyBefore.target)} after=${JSON.stringify(whyAfter.target)}`);
+  await closeWhy(page);
 
-  // A tempered first set: three weak sets on a lift with the same muscles lower the next lift's first-set target.
-  {
-    const two = slots([{ id: "ex0" }, { id: "ex1", name: "Incline press" }]);
-    const strong = [...rows([[21, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]], [14, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]], [7, [[100, 8, 2], [100, 8, 2], [100, 8, 2]]]]),
-      ...rows([[21, [[80, 8, 2], [80, 8, 2], [80, 8, 2]]], [7, [[80, 8, 2], [80, 8, 2], [80, 8, 2]]]], { id: "ex1", name: "Incline press" })];
-    await boot(page, { program: two, log: strong });
-    for (let i = 0; i < 3; i++) await logSet(page, { load: 60, reps: 8, rir: 2 });
-    await page.locator("#workout .exercise.is-current [data-fnextrow]").first().click();
-    await page.waitForSelector('#workout .exercise.is-current[data-ex="ex1"]');
-    await settle(page, 600);
-    const tempered = await page.evaluate(() => {
-      const P = window.__repforgeProgression;
-      const ex = P.programSlot("ex1"), rec = P.recommendation(ex);
-      const sg = P.setSuggestion(ex, 1, rec, window.__repforgeWorkoutDraft.projection?.() || {}, null);
-      return { tempered: !!sg.tempered, base: rec.load };
-    });
-    const cue = await focusCue(page);
-    const why = await openWhy(page);
-    assert(tempered.tempered, "RT-05: tempered first set: the producer tempers the first set (the case is not vacuous)", JSON.stringify(tempered));
-    assert(why.target === `${cue.line1}, ${cue.line2}`, "RT-05: tempered first set: the Why headline is the Focus cue",
-      `focus=${JSON.stringify(cue)} why=${JSON.stringify(why.target)} ${JSON.stringify(tempered)}`);
-    await closeWhy(page);
-  }
-
-  // Before any set is logged the headline is still the base cue, unchanged.
-  await boot(page, { program: bench, log: history });
-  {
-    const cue = await focusCue(page);
-    const why = await openWhy(page);
-    assert(why.target === `${cue.line1}, ${cue.line2}`, "RT-05: before any set: the headline is the Focus cue", `focus=${JSON.stringify(cue)} why=${JSON.stringify(why.target)}`);
-    assert(!why.decision.startsWith(why.keys.before), "RT-05: before any set: the base recommendation is not relabelled", why.decision);
-    await closeWhy(page);
-  }
+  assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);
 } finally {
   await browser.close();
 }
