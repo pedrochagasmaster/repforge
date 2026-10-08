@@ -168,7 +168,7 @@
     if (!Number.isInteger(days)) return { choices: [] };
     return { choices: Object.entries(Compiler.SPLITS || {})
       .filter(([, split]) => split.compatibleDays.includes(days))
-      .map(([id], index) => ({ id, default: index === 0 })) };
+      .map(([id], index) => ({ id, default: index === 0, frequency: days })) };
   }
 
   function compatibleSplit(preference, days) {

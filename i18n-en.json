@@ -799,6 +799,8 @@
   "onb.review.restart": "Start over",
   "split.full_body": "Full body",
   "split.upper_lower": "Upper / lower",
+  "split.push_pull_legs_upper_lower": "Push / pull / legs + upper / lower",
+  "split.push_pull_legs": "Push / pull / legs",
   "split.machine_only": "Machine only",
   "split.ppl": "Push / pull / legs",
   "split.bro": "Bro split",

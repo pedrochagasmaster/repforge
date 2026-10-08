@@ -15294,12 +15294,15 @@ function renderPrioritiesStep(){
   const skip=!custom&&entryPrioritiesEmpty()?`<button type="button" class="btn btn--steel entry__skip" id="entrySkip">${esc(t("entry.priorities.skip"))}</button>`:"";
   return entryHeading(t(custom?"entry.priorities.custom_title":"entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
     `<p class="onb__explain">${esc(t(custom?"entry.priorities.custom_lede":"entry.priorities.lede_optional"))}</p>`+skip+entryPrioritiesBody()}
+/* The generator's authored splits are named by their id. */
+function splitDisplayName(choice){
+  const key=`split.${choice?.id}`,text=t(key);
+  return text===key?String(choice?.id||"").replace(/_/g," "):text}
 function entryCustomShapeBody(splits){
   const sole=splits.choices.length===1;
   return `<p class="entry__group-lab">${esc(t(sole?"entry.custom_shape.split_sole":"entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
     splits.choices.map(choice=>{
-      const name=isPt()?choice.namePt||choice.name:choice.name;
-      const label=t("entry.custom_shape.choice",{name,days:choice.frequency});
+      const label=t("entry.custom_shape.choice",{name:splitDisplayName(choice),days:choice.frequency});
       const estimates=(choice.days||[]).map(day=>day.estimateMinutes).filter(Number.isFinite);
       const summary=estimates.length?t("entry.custom_shape.summary",{
         days:choice.frequency,min:Math.min(...estimates),max:Math.max(...estimates)}):"";
@@ -15768,7 +15771,7 @@ function entryChipList(){
       .filter(Boolean).join(" · ")||t("entry.chip.prefs_none"));
     const splits=entryCustomSplitChoices(a);
     const choice=splits.choices.length>=2?splits.choices.find(item=>item.id===a.splitPreference):null;
-    if(choice)add("shape",t("entry.chip.shape",{name:t("entry.custom_shape.choice",{name:isPt()?choice.namePt||choice.name:choice.name,days:choice.frequency})}))}
+    if(choice)add("shape",t("entry.chip.shape",{name:t("entry.custom_shape.choice",{name:splitDisplayName(choice),days:choice.frequency})}))}
   return out}
 function entryEditorTitleText(kind){
   const custom=entryState.route==="custom";

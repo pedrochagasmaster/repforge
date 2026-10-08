@@ -799,6 +799,8 @@
   "onb.review.restart": "Começar de novo",
   "split.full_body": "Corpo todo",
   "split.upper_lower": "Superior / inferior",
+  "split.push_pull_legs_upper_lower": "Empurrar / puxar / pernas + superior / inferior",
+  "split.push_pull_legs": "Empurrar / puxar / pernas",
   "split.machine_only": "Só máquinas",
   "split.ppl": "Push / pull / legs",
   "split.bro": "Divisão bro",

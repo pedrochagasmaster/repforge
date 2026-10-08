@@ -1061,8 +1061,11 @@
           <details class="program-editor__more" data-role="more-details" data-id="${esc(exercise.id)}">
             <summary>${esc(label("details"))}</summary>
             <label><span>${esc(label("notes"))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="notes" value="${esc(exercise.notes || "")}"></label>
-            <label><span>${esc(label("primary"))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="primary" value="${esc(exercise.primary || "")}"${linked ? " readonly" : ""}></label>
-            <label><span>${esc(label("secondary"))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="secondary" value="${esc(exercise.secondary || "")}"${linked ? " readonly" : ""}></label>
+            ${["primary", "secondary"].map(field => linked
+              // A linked movement's muscles come from the catalog: shown read-only, and
+              // allowed to wrap, since a full attribution can outrun one input line.
+              ? `<label><span>${esc(label(field))}</span><textarea class="program-editor__muscles" rows="${Math.min(4, Math.max(1, Math.ceil(String(exercise[field] || "").length / 24)))}" readonly data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}">${esc(exercise[field] || "")}</textarea></label>`
+              : `<label><span>${esc(label(field))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}" value="${esc(exercise[field] || "")}"></label>`).join("")}
             <button type="button" data-role="alternates" data-id="${esc(exercise.id)}">${esc((exercise.alternates || []).join(", ") || label("chooseAlternates"))}</button>
           </details>
         </div>` : "";
