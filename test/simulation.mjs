@@ -8447,7 +8447,8 @@ async function main() {
       ...base,
       program,
       log,
-      programMeta: { ...(base.programMeta || {}), onboarded: true, started: date, mesocycleStatus: "active" },
+      // This program is the audit's whole program; the base canonical definition would plan other days.
+      programMeta: { ...(base.programMeta || {}), programDefinition: undefined, onboarded: true, started: date, mesocycleStatus: "active" },
       settings: { ...base.settings, lang, unit: "kg", hardRir: 4 },
     };
   };
@@ -8491,7 +8492,9 @@ async function main() {
         mkEx("hs-calves", "Calves", "Calf raise", 4, 3),
       ],
       log: [...mkSets("hs-chest", "Bench", "Chest", 4), ...mkSets("hs-calves", "Calf raise", "Calves", 12)],
-      programMeta: { ...(base.programMeta || {}), onboarded: true, started: date, mesocycleStatus: "active" },
+      // The rows above are this audit's whole program: drop the base program's
+      // canonical definition, which would otherwise plan its own (different) days.
+      programMeta: { ...(base.programMeta || {}), programDefinition: undefined, onboarded: true, started: date, mesocycleStatus: "active" },
       settings: { ...base.settings, lang, unit: "kg", hardRir: 4 },
     };
   };
