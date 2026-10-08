@@ -979,7 +979,10 @@ async function main() {
       .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0);
   });
   await page.locator(".ledgerline[data-editn]").nth(1).click();
-  await page.waitForFunction(() => window.__repforgeFocus.editing()?.n === 2, undefined, { timeout: 5000 });
+  // editing() flips on the tap itself; wait for the reopened set to render and
+  // take focus, which is what the assertions below read.
+  await page.waitForFunction(() => window.__repforgeFocus.editing()?.n === 2 &&
+    !!document.querySelector("#workout .exercise.is-current [data-fcancel]"), undefined, { timeout: 10000 });
   st = await cardState(page);
   assert(st.editing === 1 && st.open === 1, "the edited row stays in place and wears the open ring", JSON.stringify(st));
   assert(/set 2 of/i.test(st.cueL1),
@@ -1021,7 +1024,10 @@ async function main() {
     "Save on an edited set returns focus to its ledger row (R7 J-03)", JSON.stringify(afterSave));
   // …and cancelling puts the set back exactly as it was.
   await page.locator(".ledgerline[data-editn]").nth(1).click();
-  await page.waitForFunction(() => window.__repforgeFocus.editing()?.n === 2, undefined, { timeout: 5000 });
+  // editing() flips on the tap itself; wait for the reopened set to render and
+  // take focus, which is what the assertions below read.
+  await page.waitForFunction(() => window.__repforgeFocus.editing()?.n === 2 &&
+    !!document.querySelector("#workout .exercise.is-current [data-fcancel]"), undefined, { timeout: 10000 });
   await page.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${REPS}"]`).first().fill("2");
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator("[data-fcancel]").click();
