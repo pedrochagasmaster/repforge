@@ -948,6 +948,9 @@ function loadMatches(c, stored) {
   return Math.abs(+stored - c.kg) < 1e-6;
 }
 
+// Metric-path outcomes that differ from the flat History-edit rules: kg saved.
+const METRIC_ACCEPTS = new Map([["non-positive", 0], ["near-over-limit", 1000]]);
+
 function loadCases(unit) {
   return [
     { name: "empty", raw: "", reject: true, empty: true },
@@ -7898,40 +7901,46 @@ async function main() {
         // A metric-backed load field states the load metric's own rule for
         // every rejected entry, empty or malformed.
         const expectToast = METRIC_LOAD_TOAST[lang];
+        // A metric load accepts zero external load, and a pound or float value
+        // that rounds to the limit within a millionth of a kilo is the limit.
+        // Those two stay refusals only on the flat History-edit path below.
+        if (!METRIC_ACCEPTS.has(c.name)) {
 
-        await resetWorkoutDraft(page);
-        await nav(page, "log");
-        await selectDay(page, "Day 1");
-        await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, c.raw);
-        await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d88072bbf6d9ad3f16ea86"]`, "5");
-        await hideToast(page);
-        const beforeSet = await logJson(page);
-        await clickSaveSet(page, setKey);
-        const toastSet = await readToast(page);
-        const doneCls = await draftSetState(page, `${setKey}`);
-        assert(
-          toastSet === expectToast && !(doneCls || "").done && (await logJson(page)) === beforeSet,
-          `per-set ${lang}/${unit} ${c.name} rejects`,
-          `toast="${toastSet}" class="${doneCls}"`,
-          `Log → type ${c.raw || "(empty)"} → Save set`
-        );
+          await resetWorkoutDraft(page);
+          await nav(page, "log");
+          await selectDay(page, "Day 1");
+          await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, c.raw);
+          await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d88072bbf6d9ad3f16ea86"]`, "5");
+          await hideToast(page);
+          const beforeSet = await logJson(page);
+          await clickSaveSet(page, setKey);
+          const toastSet = await readToast(page);
+          const doneCls = await draftSetState(page, `${setKey}`);
+          assert(
+            toastSet === expectToast && !(doneCls || "").done && (await logJson(page)) === beforeSet,
+            `per-set ${lang}/${unit} ${c.name} rejects`,
+            `toast="${toastSet}" class="${doneCls}"`,
+            `Log → type ${c.raw || "(empty)"} → Save set`
+          );
 
-        await resetWorkoutDraft(page);
-        await nav(page, "log");
-        await selectDay(page, "Day 1");
-        await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, c.raw);
-        await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d88072bbf6d9ad3f16ea86"]`, "5");
-        await hideToast(page);
-        const beforeSave = await logJson(page);
-        // Only this set is touched, so the lifter finishes early; the load rule
-        // must still refuse the whole Finish.
-        const { toast: toastSave } = await finishEarlyOrRefused(page);
-        assert(
-          toastSave === expectToast && (await logJson(page)) === beforeSave,
-          `final-save ${lang}/${unit} ${c.name} aborts`,
-          `toast="${toastSave}"`,
-          `Log → type ${c.raw || "(empty)"} on a touched set → Save workout`
-        );
+          await resetWorkoutDraft(page);
+          await nav(page, "log");
+          await selectDay(page, "Day 1");
+          await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, c.raw);
+          await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d88072bbf6d9ad3f16ea86"]`, "5");
+          await hideToast(page);
+          const beforeSave = await logJson(page);
+          // Only this set is touched, so the lifter finishes early; the load rule
+          // must still refuse the whole Finish.
+          const { toast: toastSave } = await finishEarlyOrRefused(page);
+          assert(
+            toastSave === expectToast && (await logJson(page)) === beforeSave,
+            `final-save ${lang}/${unit} ${c.name} aborts`,
+            `toast="${toastSave}"`,
+            `Log → type ${c.raw || "(empty)"} on a touched set → Save workout`
+          );
+
+        }
 
         await openF7HistoryEdit(page);
         await fillNamed(page, '.session--edit [data-ek^="load|"]', c.raw);
@@ -7947,6 +7956,30 @@ async function main() {
           `history-edit ${lang}/${unit} ${c.name} aborts`,
           `reason="${reasonEdit}" load=${stillSeed?.load}`,
           `History → Edit → type ${c.raw || "(empty)"} → Save`
+        );
+      }
+
+      for (const c of cases.filter((x) => METRIC_ACCEPTS.has(x.name))) {
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, c.raw);
+        await fillNamed(page, `[data-k="${setKey}_metric_2555c6f170d88072bbf6d9ad3f16ea86"]`, "5");
+        await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
+        await hideToast(page);
+        await clickSaveSet(page, setKey);
+        await waitForSetDone(page, exId).catch(() => {});
+        const doneOk = (await draftSetState(page, `${setKey}`) || "").done;
+        const before = ((await getState(page)).log || []).length;
+        if (doneOk) await saveWorkout(page, { earlyFinish: true });
+        const after = (await getState(page)).log || [];
+        const saved = after.filter((r) => r.exerciseId === exId).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
+        const expectedKg = METRIC_ACCEPTS.get(c.name);
+        assert(
+          doneOk && after.length > before && Math.abs(+saved?.load - expectedKg) < 1e-6,
+          `per-set ${lang}/${unit} ${c.name} saves as ${expectedKg} kg on a metric set`,
+          `done=${doneOk} load=${saved?.load} len ${before}→${after.length}`,
+          `Log → type ${c.raw} → Save set → Save workout`
         );
       }
 
