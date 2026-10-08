@@ -617,7 +617,7 @@ const RETIRED_KEYS = [
   "focus.cue.now",
 ];
 /** What the captured import-review screen shows for the sample message: the counts differ by language. */
-const PASTE_COUNTS = { en: { linked: 1, review: 3 }, pt: { linked: 0, review: 4 } };
+const PASTE_COUNTS = { en: { linked: 2, review: 2 }, pt: { linked: 0, review: 4 } };
 const DEFAULT_WEEKS = (() => {
   const match = /mesocycleLengthWeeks:(\d+),mesocycleStatus:"active"/.exec(APP_SOURCE);
   return match ? Number(match[1]) : NaN;

@@ -17817,7 +17817,7 @@ function landingChartRows(){
  *  are measured from the live app by tools/capture-landing-proof.mjs. */
 const LANDING_SCENES=["focus","rest","actions","note"];
 const LANDING_SPOTS={
-  focus:{cue:[50,32.46,91.79,6.59],log:[50,90.88,91.79,6.4],last:[50,48.85,91.79,11.98]},
+  focus:{cue:[50,31.61,91.79,6.59],log:[50,90.88,91.79,6.4],last:[50,48,91.79,11.98]},
   rest:{dial:[50,32.66,91.79,6.98]},
   actions:{swap:[50,52.38,91.79,6.16]},
   note:{text:[50,64.93,91.28,2.94]}};
@@ -17834,7 +17834,7 @@ const LANDING_READ={
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
  *  into assets/brand/landing-proof-spots.json, which test/landing-variants.mjs compares. */
-const LANDING_PASTE_SHOT={dims:{en:[780,1242],pt:[780,1242]},counts:{en:{linked:1,review:3},pt:{linked:0,review:4}},exercise:"19f5c6f170d8808bb424e98de4472a7e"};
+const LANDING_PASTE_SHOT={dims:{en:[780,1138],pt:[780,1266]},counts:{en:{linked:2,review:2},pt:{linked:0,review:4}},exercise:"19f5c6f170d8808bb424e98de4472a7e"};
 const landingLang=()=>I18N?.getLang?.()==="pt"?"pt":"en";
 const landingNum=v=>{const s=fmtPlain(v);return landingLang()==="pt"?s.replace(".",","):s};
 const landingKg=v=>`${landingNum(v)} ${LANDING_UNIT}`;

@@ -31,9 +31,11 @@
  *
  * Every mode reads REPFORGE_URL (default http://localhost:8000/) and, when the pinned Chromium is not on
  * the default path, REPFORGE_CHROME. The Focus state is rebuilt from test/fixtures/landing-proof.json
- * (bench, 8-10 reps, last session 3 x 60 kg x 10 at RIR 2) and the tool asserts the real Focus inputs are
- * 62.5 kg x 8 before it captures, so a wrong recommendation fails here, not on the page. Safe-area insets
- * resolve to 59px / 34px (browser-layout emulation, not physical iPhone evidence). Hotspots are percentages
+ * (a canonical generated ProgramDefinition whose bench slot has an 8-10 rep target, RIR 1, and one logged
+ * session of 3 x 60 kg x 10 at RIR 2 — see tools/build-landing-proof-fixture.mjs). The tool reads the
+ * landing's own rendered "add" outcome (the real `landingEvaluate` result poured into the page, never a
+ * literal here) and asserts the real Focus inputs equal it before it captures, so a wrong recommendation,
+ * or a landing/Focus disagreement, fails here, not on the page. Safe-area insets
  * of the frame, [centre x, centre y, width, height], read from the selectors in SPOT_TARGETS, the one place
  * to edit when a surface changes. English and Portuguese must agree on every hotspot (they are stored once).
  *
@@ -73,6 +75,9 @@ export const CHART_LIFT = 'library:sq_bb';
 export const CHART_FRAME = {width: 320, scale: 2};
 export const CHART_MIN_SCALE = 0.75;
 export const CHART_FIGURES = {from: 92.5, to: 100, sessions: 4};
+/** The universal Weight + Reps metric IDs every such catalog movement shares (Plan 067 brief). */
+export const WEIGHT_METRIC_ID = '2555c6f170d8805cafa6d16d3fdddbaa';
+export const REPS_METRIC_ID = '2555c6f170d88072bbf6d9ad3f16ea86';
 const NOTE = {
   en: 'Bench on 4, grip one finger past the ring.',
   pt: 'Banco no 4, pegada um dedo além da marca.',
@@ -130,7 +135,7 @@ export const CHART_TARGETS = {
 
 /** Scene table: the runner name, the spots it owns, and what the frame must show. */
 export const PROOF_SCENES = [
-  {name: 'focus', spots: ['cue', 'log', 'last'], shows: 'Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, cue 62.5 x 8'},
+  {name: 'focus', spots: ['cue', 'log', 'last'], shows: "Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, cue at the engine's recommended load x reps"},
   {name: 'rest', spots: ['dial'], shows: 'Focus after Log set: the inline rest clock and drain bar in the cue slot, the next set cued'},
   {name: 'actions', spots: ['swap'], shows: 'the redrawn exercise-actions sheet'},
   {name: 'note', spots: ['text'], shows: 'the exercise-note sheet over Focus with a typed note'},
@@ -221,6 +226,33 @@ const QUIET_GUIDES = Object.fromEntries(GUIDE_DEFINITIONS.map(guide =>
 const fixture = JSON.parse(await readFile(new URL('test/fixtures/landing-proof.json', ROOT), 'utf8'));
 const base = process.env.REPFORGE_URL || 'http://localhost:8000/';
 
+/**
+ * The landing's own rendered "add" outcome (`landing.outcomes.target`: "{load} × {reps}"), read off a
+ * fresh, unseeded device so `landingEvaluate(LANDING_CASES.add)` in app.js renders it — never a literal
+ * copied here. Locale alone picks the language on a fresh device (no settings are seeded yet). Cached per
+ * language: the number does not depend on anything this tool seeds.
+ */
+const landingTargets = {};
+async function landingAddTarget(browser, lang) {
+  if (landingTargets[lang]) return landingTargets[lang];
+  const context = await browser.newContext({viewport: {width: 430, height: 932}, locale: lang === 'pt' ? 'pt-BR' : 'en-US'});
+  const page = await context.newPage();
+  try {
+    await page.clock.setFixedTime(new Date('2026-08-31T12:00:00Z'));
+    await page.goto(base);
+    await waitForAppBoot(page, {base});
+    const locator = page.locator('[data-landing-outcome="add"] [data-landing-next]');
+    await locator.waitFor({state: 'attached', timeout: 20000});
+    const text = (await locator.textContent()).trim();
+    const match = /^([\d.,]+)\s*kg\s*×\s*(\d+)$/.exec(text);
+    assert(match, `landing "add" outcome text does not match "<load> kg × <reps>": ${JSON.stringify(text)}`);
+    const target = {load: Number(match[1].replace(',', '.')), reps: Number(match[2])};
+    assert(Number.isFinite(target.load) && Number.isFinite(target.reps), `landing "add" outcome is unreadable: ${JSON.stringify(text)}`);
+    landingTargets[lang] = target;
+    return target;
+  } finally {await context.close();}
+}
+
 async function safeInsets(page) {
   await page.route('**/styles.css', async route => {
     const response = await route.fetch();
@@ -246,18 +278,9 @@ async function open(browser, {width = 430, height = 932, lang = 'en', theme = 'l
   await page.clock.setFixedTime(new Date('2026-08-31T12:00:00Z'));
   const state = structuredClone(seed || fixture);
   state.settings.lang = lang;
-  if (lang === 'pt' && !seed) {
-    state.programMeta.name = 'Programa de força';
-    for (const exercise of state.program) {
-      exercise.day = 'Superiores';
-      exercise.name = 'Supino reto com barra';
-    }
-    for (const row of state.log) {
-      row.day = 'Superiores';
-      row.name = 'Supino reto com barra';
-      row.session = '2026-08-28_Superiores_landing';
-    }
-  }
+  // The program row's name is the catalog's own English name (never a custom alias), so the app shows
+  // the catalog's namePt automatically when lang is 'pt' (app.js's stored-name-equals-catalog-name check);
+  // nothing needs renaming here.
   await page.addInitScript(({state, theme, program, seen, guideState, scale}) => {
     if (!sessionStorage.getItem('landing-proof-seeded')) {
       localStorage.setItem('repforge_ui_v1', JSON.stringify({theme, ...(seen ? {entryLandingSeen: true} : {}), ...(guideState ? {guideState} : {})}));
@@ -273,35 +296,48 @@ async function open(browser, {width = 430, height = 932, lang = 'en', theme = 'l
   return {page, context, state};
 }
 
-/** Enter the bench session in Focus and prove the recommendation the page will claim. */
-async function assertFocus(page, state, name) {
+/** The fixture's logged history for its bench slot, as the ledger's "last session" line shows it: [set, load, reps, rir]. */
+function fixtureLastSessionRows(state) {
+  const slotId = state.program[0].id;
+  return state.log.filter(row => row.exerciseId === slotId).sort((a, b) => a.set - b.set)
+    .map(row => [String(row.set), String(row.load), String(row.reps), String(row.rir)]);
+}
+
+/**
+ * Enter the bench session in Focus and prove the recommendation the page will claim: the metric inputs
+ * for set 1 must equal `target` (the landing's own rendered "add" outcome, read by `landingAddTarget`),
+ * not a number copied here.
+ */
+async function assertFocus(page, state, name, target) {
+  const slotId = state.program[0].id;
   await page.evaluate(day => window.__repforgeEnterWorkout({focus: true, day}), state.program[0].day);
   await settle(page);
-  const load = page.locator('#workout input[data-k="ex-bench_1_load"]');
-  const reps = page.locator('#workout input[data-k="ex-bench_1_reps"]');
-  assert.equal(Number((await load.inputValue()).replace(',', '.')), 62.5, `${name}: actual Focus next load`);
-  assert.equal(Number(await reps.inputValue()), 8, `${name}: actual Focus next reps`);
+  const load = page.locator(`#workout input[data-k="${slotId}_1_metric_${WEIGHT_METRIC_ID}"]`);
+  const reps = page.locator(`#workout input[data-k="${slotId}_1_metric_${REPS_METRIC_ID}"]`);
+  assert.equal(Number((await load.inputValue()).replace(',', '.')), target.load, `${name}: actual Focus next load`);
+  assert.equal(Number(await reps.inputValue()), target.reps, `${name}: actual Focus next reps`);
   // The previous session rides under each matching row as one line: "last 60 x 10 · RIR 2" / "antes 60 x 10 · RIR 2".
   const rows = await page.locator('#workout .exercise.is-current .ledgerline__prev').evaluateAll(lines =>
     lines.map((line, index) => {
       const match = line.textContent.match(/(\d+(?:[.,]\d+)?) \u00d7 (\d+) \u00b7 RIR (\d+)/);
       return match ? [String(index + 1), match[1], match[2], match[3]] : [line.textContent.trim()];
     }));
-  assert.deepEqual(rows, [['1', '60', '10', '2'], ['2', '60', '10', '2'], ['3', '60', '10', '2']],
-    `${name}: actual last-session ledger`);
+  assert.deepEqual(rows, fixtureLastSessionRows(state), `${name}: actual last-session ledger`);
   return rows;
 }
 
 async function captureSource(browser, output, report) {
   for (const lang of LANGS) for (const theme of ['light', 'dark']) {
     const name = `workout-${lang}-${theme}`;
+    const target = await landingAddTarget(browser, lang);
     const {page, context, state} = await open(browser, {lang, theme, source: true, insets: true});
     try {
-      const rows = await assertFocus(page, state, name);
+      const rows = await assertFocus(page, state, name, target);
       await page.screenshot({path: `${output}/${name}.png`});
       // The ledger under the cue lists every set of the exercise with its target; each upcoming row shows the same
       // engine answer, read off the live rows (the session list has no per-set inputs since R3c).
-      const ledgerRows = page.locator('#workout .exercise.is-current #ledger_ex-bench [data-lrow]');
+      const slotId = state.program[0].id;
+      const ledgerRows = page.locator(`#workout .exercise.is-current #ledger_${slotId} [data-lrow]`);
       assert.equal(await ledgerRows.count(), 3, `${name}: actual upcoming set count`);
       if (values['fault-next']) {
         await ledgerRows.nth(2).locator('[data-lv="load"]').evaluate(cell => {cell.textContent = '99';});
@@ -311,12 +347,12 @@ async function captureSource(browser, output, report) {
         const row = ledgerRows.nth(set - 1);
         const load = Number((await row.locator('[data-lv="load"]').textContent()).replace(',', '.'));
         const reps = Number(await row.locator('[data-lv="reps"]').textContent());
-        assert.equal(load, 62.5, `${name}: actual upcoming set ${set} load`);
-        assert.equal(reps, 8, `${name}: actual upcoming set ${set} reps`);
+        assert.equal(load, target.load, `${name}: actual upcoming set ${set} load`);
+        assert.equal(reps, target.reps, `${name}: actual upcoming set ${set} reps`);
         upcomingSets.push({set, load, reps});
       }
-      report.cases.push({name, nextLoad: 62.5, nextReps: 8, upcomingSets, lastSessionRows: rows.length});
-      console.log(`PASS ${name}: 3 × 60 kg × 10 @ RIR 2 → all 3 sets at 62.5 kg × 8`);
+      report.cases.push({name, nextLoad: target.load, nextReps: target.reps, upcomingSets, lastSessionRows: rows.length});
+      console.log(`PASS ${name}: 3 × 60 kg × 10 @ RIR 2 → all 3 sets at ${target.load} kg × ${target.reps}`);
     } finally {await context.close();}
   }
 }
@@ -432,10 +468,11 @@ async function encodeWebp(page, png) {
 
 async function captureScene(browser, scene, lang, {images}) {
   const name = `${scene}-${lang}`;
+  const target = await landingAddTarget(browser, lang);
   const {page, context, state} = await open(browser, {width: PROOF_FRAME.width, height: PROOF_FRAME.height, dpr: PROOF_FRAME.scale, lang, theme: 'dark',
     source: true, quiet: true, insets: true});
   try {
-    await assertFocus(page, state, name);
+    await assertFocus(page, state, name, target);
     const logLabel = (await catalog(lang))['today.log_set'];
     await RUNNERS[scene](page, {lang, logLabel});
     await settle(page);
