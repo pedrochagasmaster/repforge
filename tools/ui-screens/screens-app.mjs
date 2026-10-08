@@ -9,6 +9,7 @@
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
 export function stabilizeShareUrlForCapture(value) {
   const url = new URL(String(value));
@@ -340,11 +341,10 @@ export function appState(key, lang) {
     if (APP_ASOF[key]) drawn.log = drawn.log.filter((row) => row.date <= APP_ASOF[key]);
     return drawn;
   }
+  // catalogState()'s program rows already carry distinct real catalog
+  // movements (tools/build-seed-program-fixture.mjs), so program/share-*
+  // no longer needs to fabricate varied libraryIds onto a flat-row fixture.
   const state = catalogState();
-  if (key.startsWith("program/share-")) {
-    const libraryIds = ["sq_bb", "lc_mc", "pr_bb", "rw1_db", "dl_cb", "pd_bw", "dl_bb", "sp_cb", "cu_bb", "le_mc", "ci_mc", "tr_cb"];
-    state.program.forEach((exercise, index) => { exercise.libraryId = libraryIds[index] || "sq_bb"; });
-  }
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
     const seen = new Set();
     state.log = state.log.filter((row) => {
@@ -362,9 +362,14 @@ export function appState(key, lang) {
   // The editor reference is intentionally a compact two-exercise day, matching
   // the canonical installed-editor mockup. Other catalog surfaces keep the
   // richer fixture so their progress and volume evidence remains meaningful.
+  // The editor reads the canonical ProgramDefinition, not the flat `program`
+  // projection, so both have to be narrowed together to the same two slots.
   if (key === "program/progression-editor") {
-    state.program = state.program.filter((exercise) =>
-      exercise.day !== "Day 1" || exercise.id === "ex-sq" || exercise.id === "ex-curl");
+    const kept = new Set(["seed-ex-1", "seed-ex-2"]);
+    state.program = state.program.filter((exercise) => exercise.day !== "Day 1" || kept.has(exercise.id));
+    for (const day of state.programMeta.programDefinition.days) {
+      if (day.name === "Day 1") day.slots = day.slots.filter((slot) => kept.has(slot.id));
+    }
   }
   return localeState(state, lang);
 }
@@ -992,7 +997,7 @@ export const APP_SCENARIOS = {
     await resetSheetScroll(page, ".session-sheet__body");
   },
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
-  "today/draft-resume": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-k$='_load']").fill("80"); await page.click("#leaveWorkout"); },
+  "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
 
   "workout/stale-draft": async (page) => {
     await enterWorkout(page);
@@ -1015,8 +1020,7 @@ export const APP_SCENARIOS = {
         nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)),
       });
     });
-    const input = page.locator('#workout [data-k$="_1_load"]').first();
-    await input.fill("82.5");
+    await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "82.5");
     await page.waitForFunction(() => window.__repforgeWorkoutDraft.recovery()?.kind === "stale");
     await page.waitForFunction(() => {
       const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
@@ -1027,8 +1031,7 @@ export const APP_SCENARIOS = {
   "workout/persist-retry": async (page) => {
     await enterWorkout(page);
     await page.evaluate(() => { window.__repforgeDraftFault = "before-canonical-write"; });
-    const input = page.locator('#workout [data-k$="_1_load"]').first();
-    await input.fill("82.5");
+    await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "82.5");
     await page.waitForFunction(() => window.__repforgeWorkoutDraft.recovery()?.kind === "persist");
     await page.waitForFunction(() => {
       const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
@@ -1128,15 +1131,16 @@ export const APP_SCENARIOS = {
   "progress/overview-action": (page) => view(page, "stats"),
   "progress/exercise-chart": async (page) => {
     await view(page, "stats");
-    await page.evaluate(() => window.openExerciseView("library:sq_bb", "stats"));
+    const evkey = `library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sq_bb}`;
+    await page.evaluate((key) => window.openExerciseView(key, "stats"), evkey);
     await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 20000 });
     await sleep(page, 500);
   },
   "progress/strength": (page) => progressSegment(page, "strength"),
   "progress/strength-current-block": (page) => progressSegment(page, "strength"),
   "progress/strength-all-history": async (page) => { await progressSegment(page, "strength"); await page.click('#strengthScopeSeg [data-scope="all-history"]'); },
-  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const row = page.locator('#strengthDash [data-evkey="library:sq_bb"]'); await row.scrollIntoViewIfNeeded(); await row.click(); },
-  "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const row = page.locator('#strengthDash [data-evkey="library:sqk_mc"]'); await row.scrollIntoViewIfNeeded(); await row.click(); },
+  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const row = page.locator(`#strengthDash [data-evkey="library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sq_bb}"]`); await row.scrollIntoViewIfNeeded(); await row.click(); },
+  "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const row = page.locator(`#strengthDash [data-evkey="library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sqk_mc}"]`); await row.scrollIntoViewIfNeeded(); await row.click(); },
   "progress/volume": (page) => progressSegment(page, "volume"),
   "progress/volume-block": async (page) => { await progressSegment(page, "volume"); await page.click('#volumeScopeSeg [data-vscope="block-to-date"]'); },
   "progress/volume-drill-in": async (page) => { await progressSegment(page, "volume"); await page.locator("#volumeDash [data-volume-muscle]").first().click(); },
@@ -1182,15 +1186,17 @@ export const APP_SCENARIOS = {
   },
   "history/edit-dirty": async (page) => {
     await openHistoryEditor(page);
-    // The drawing: the first set's load changed to 105 and the squat's third set removed (struck
-    // through, with Undo). The load is filled last so the changed field keeps the ink ring.
+    // The drawing: the first set's load changed to 105 and a later set removed (struck through,
+    // with Undo). The load is filled last so the changed field keeps the ink ring. Every logged
+    // row is a source-metric row now, so the weight field is addressed by its metric id, not by
+    // the retired flat "load|" key.
     await page.locator('.session--edit [data-edrm="2"]').click();
-    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("105");
+    await page.locator(`.session--edit input[data-ek$="|${ADAPTIVE_WEIGHT_METRIC_ID}"]`).first().fill("105");
     await sleep(page, 500);
   },
   "history/edit-invalid": async (page) => {
     await openHistoryEditor(page);
-    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("x");
+    await page.locator(`.session--edit input[data-ek$="|${ADAPTIVE_WEIGHT_METRIC_ID}"]`).first().fill("x");
     await page.locator("[data-edsave]").click();
     await page.waitForSelector('.session--edit input[aria-invalid="true"]', { timeout: 20000 });
     // The reason stays under the row until the value is fixed, so the frame needs no toast timing.
@@ -1208,7 +1214,7 @@ export const APP_SCENARIOS = {
   },
   "history/conflict": async (page) => {
     await openHistoryEditor(page);
-    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("175");
+    await page.locator(`.session--edit input[data-ek$="|${ADAPTIVE_WEIGHT_METRIC_ID}"]`).first().fill("175");
     await page.evaluate(async () => {
       const next = structuredClone(JSON.parse(localStorage.getItem("repforge_v1") || "{}"));
       const session = document.querySelector(".session--edit")?.dataset.editing;
