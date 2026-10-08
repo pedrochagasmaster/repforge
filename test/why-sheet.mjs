@@ -111,8 +111,14 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }) {
   // with a running-rest preview of the same cue (a different surface for the
   // same facts, not the one RT-05 is about). Skip it so the card's normal cue
   // is what's on screen right after a save.
-  const skip = page.locator('#workout .exercise.is-current .focus-shelf [data-rest-act="skip"]');
-  if (await skip.count() && await skip.isVisible().catch(() => false)) await skip.click();
+  // The timer arms just after the completion lands (not every set rests):
+  // give it a moment to start, and end it if it did.
+  const resting = await page.waitForFunction(() => document.querySelector("#woRest")?.classList.contains("is-running"),
+    undefined, { timeout: 3000 }).then(() => true, () => false);
+  if (resting) {
+    await page.evaluate(() => window.stopRest());
+    await page.waitForFunction(() => !document.querySelector("#woRest")?.classList.contains("is-running"), undefined, { timeout: 10000 });
+  }
 }
 
 async function finishEarly(page) {
@@ -127,16 +133,22 @@ async function finishEarly(page) {
 
 const settle = (page, ms = 300) => page.evaluate((n) => new Promise((res) => setTimeout(res, n)), ms);
 
+// The card re-renders as a logged set settles; read the cue in the same tick
+// that finds it rendered, so a re-render between a wait and a read cannot
+// hand back an empty cue.
 async function focusCue(page) {
-  return page.evaluate(() => {
+  const handle = await page.waitForFunction(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const cue = card.querySelector(".fx-cue");
+    const cue = card?.querySelector(".fx-cue");
+    const line1 = cue?.querySelector(".fx-cue__l1")?.textContent?.trim() || "";
+    if (!line1) return null;
     return {
-      line1: cue?.querySelector(".fx-cue__l1")?.textContent?.trim() || "",
+      line1,
       line2: cue?.querySelector(".fx-cue__l2")?.textContent?.trim() || "",
       mark: [...(cue?.querySelectorAll(".fx-cue__mark .verdictmark") || [])].map((el) => el.className.replace(/.*verdictmark--/, "")),
     };
-  });
+  }, undefined, { timeout: 10000 });
+  return handle.jsonValue();
 }
 
 async function openWhy(page) {
