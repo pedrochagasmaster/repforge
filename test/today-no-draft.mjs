@@ -23,6 +23,8 @@ import { installSeedProgram } from "./fixtures/seed-program.mjs";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+/** The catalog Weight metric: the load field of a Weight+Reps movement. */
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
 
 const results = { passed: 0, failed: 0 };
 function assert(cond, name, detail) {
@@ -199,13 +201,14 @@ async function main() {
     /* ---- A matching draft relabels Start without Today writing ---- */
     phase("Coming back to Today with an open draft offers Continue and writes nothing");
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-    const loadInput = page.locator("#workout .exercise.is-current .focus-shelf input[data-k$='_load']");
-    if (await loadInput.count()) {
-      await loadInput.fill("40");
-      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-    }
+    const loadInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${WEIGHT}"]`);
+    await loadInput.waitFor({ state: "attached", timeout: 5000 });
+    if (await loadInput.getAttribute("aria-hidden") === "true")
+      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${WEIGHT}"]`).click();
+    await loadInput.fill("40");
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator("#leaveWorkout").click();
-    await page.waitForTimeout(150);
+    await page.waitForSelector("#log.view.active", { timeout: 5000 });
     const draftBefore = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
     const cta = await page.evaluate(() => document.querySelector("#startWorkout span")?.textContent?.trim());
     assert(/continue/i.test(cta || ""), "the start control offers to continue the open session", cta);

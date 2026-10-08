@@ -1844,7 +1844,8 @@ function flatProgramFromDefinition(definition,customDefinitions=customExercises(
       const minimum=typeof reps==="number"?reps:Number.isFinite(reps?.min)?reps.min:1;
       const maximum=typeof reps==="number"?reps:Number.isFinite(reps?.max)?reps.max:minimum;
       const row={id:slot.id,slotId:slot.id,day:day.name,dayId:day.id,order:slot.order||rows.length+1,
-        name:index?.name||custom?.name||raw?.name||slot.exerciseId,libraryId:slot.exerciseId,
+        // The lifter's alias is the slot's name, as it is for a stored row.
+        name:slot.displayName||index?.name||custom?.name||raw?.name||slot.exerciseId,libraryId:slot.exerciseId,
         sets:sets.length,hasRepTarget:reps!=null,
         displayName:slot.displayName||null,
         primary:slot.manualAttribution?.primary??sourceFeatureAttribution(raw?.primaryFeatureMuscle||[]),
@@ -1956,7 +1957,9 @@ class Exercise{
       // surfaces can fail closed and offer an explicit repair. Share owns the
       // diagnosis; no reader may silently turn this into a different movement.
       return this}
-    this.name=this.displayName||libraryName(entry);
+    // The stored name is the canonical one; display localizes it (RF-10), so
+    // switching language never rewrites a program or its fingerprint.
+    this.name=this.displayName||entry.name;
     this.primary=libraryMuscleAttribution(entry,"primary");
     this.secondary=libraryMuscleAttribution(entry,"secondary");
     return this}
@@ -2415,6 +2418,18 @@ function displayDraftText(field,value){
   if(field!=="load"&&field!=="bodyweight")return value;
   if(!/^\d+(?:\.\d+)?$/.test(String(value))||!(+value>0))return value;
   return fmtPlain(toDisplay(+value))}
+/* A metric-backed set keeps its values under edited.metrics. The ledger,
+   summaries and legacy readers see its load (any kg metric) and reps through
+   the same projected fields a flat set uses. */
+/* A DraftV2 set's programmed metric composition ({id, semantic, ...}). */
+const draftSetMetrics=set=>Array.isArray(set?.programmed?.metrics)?set.programmed.metrics:[];
+const METRIC_FIELD_SEMANTICS={load:["loadKg","loadPerSideKg","persistentLoadPerSideKg","assistanceKg"],reps:["reps","repsPerSide"]};
+function metricFieldValue(set,field){
+  const semantics=METRIC_FIELD_SEMANTICS[field],definitions=draftSetMetrics(set);
+  if(!semantics||!Array.isArray(definitions))return null;
+  const metric=definitions.find(item=>semantics.includes(item?.semantic));
+  const value=metric?set.edited?.metrics?.[metric.id]:null;
+  return value==null||value===""?null:value}
 function workoutDraftProjection(draft=activeWorkoutDraft){
   if(!draft)return{};
   const out={__day:draft.program.dayLabel,__date:draft.program.scheduleDate,
@@ -2429,7 +2444,10 @@ function workoutDraftProjection(draft=activeWorkoutDraft){
       if(ex.substitution.replacement.libraryId)out.__substitutedRef[exId]=ex.substitution.replacement.libraryId}
     out.__exnotes[exId]=ex.setupNotes;
     for(const setId of ex.setOrder){const set=ex.sets[setId],key=`${exId}_${set.ordinal}`;
-      for(const field of ["load","reps","rir","effort"]){const value=set.edited[field];
+      // A metric-backed set's own metrics are its load and reps; a flat field
+      // it still carries is a stale projection.
+      for(const field of ["load","reps","rir","effort"]){const fromMetric=draftSetMetrics(set).length&&METRIC_FIELD_SEMANTICS[field];
+        const value=fromMetric?metricFieldValue(set,field):set.edited[field];
         if(value!=null)out[`${key}_${field}`]=displayDraftText(field,value)}
       if(set.completion!=="pending"){out.__done.push(key);out.__lastCommitAt=Math.max(out.__lastCommitAt||0,Date.parse(set.completion.completedAt)||0)}
       if(draftSetTouched(set))out.__touched.push(key);
@@ -2675,8 +2693,21 @@ async function discardRecoveredWorkoutDraft(){
    WorkoutSession is measured the same way (Q616, Q618). */
 /** Q616: a working set matches when its load is within half of the lifter's
  *  minJump of the suggestion. Loads only; draft loads and minJump are canonical kg. */
-function setVsSuggestion(set){
-  const suggested=set?.programmed?.suggestedLoad,load=parseDec(set?.edited?.load);
+/* What the adaptive engine recommended for this set. A set's own result reads
+   only the sets before it, so it is the same after the set is completed. */
+function engineSuggestedLoad(set,exerciseInstanceId){
+  const ex=prog?.find?.(exerciseInstanceId);if(!ex)return null;
+  const rec=recommendation(ex),item=rec.targetSets?.find(entry=>entry.prescription?.setIndex===set.ordinal);
+  if(item?.status!=="recommended")return null;
+  const metric=(rec.metricDefinitions||[]).find(entry=>METRIC_FIELD_SEMANTICS.load.includes(entry.semantic));
+  const value=metric?item.targets?.[metric.semantic]:null;
+  return typeof value==="number"?value:null}
+function setVsSuggestion(set,exerciseInstanceId){
+  // A metric-backed set's typed load is its load metric, compared with the
+  // engine's recommendation rather than the flat history fallback.
+  const metricBacked=draftSetMetrics(set).length>0;
+  const suggested=metricBacked?engineSuggestedLoad(set,exerciseInstanceId):set?.programmed?.suggestedLoad;
+  const load=parseDec(metricBacked?metricFieldValue(set,"load"):set?.edited?.load);
   if(suggested==null||!Number.isFinite(+suggested)||!Number.isFinite(load))return"no_suggestion";
   const delta=load-+suggested,half=(+state.settings.minJump||2.5)/2;
   return Math.abs(delta)<half?"matched":delta>0?"raised":"lowered"}
@@ -2696,7 +2727,7 @@ function captureDraftCommandTelemetry(command,before,after,ui){
     if(command.type==="completeSet"){
       const set=after?.exercises?.[command.exerciseInstanceId]?.sets?.[command.setId];
       if(set&&set.role!=="warmup"&&!countedWorkingSets.keys.has(`${command.exerciseInstanceId}\u0000${command.setId}`))
-        captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set)})}
+        captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set,command.exerciseInstanceId)})}
     noteCommittedWorkingSets(after);
     // Q618: the lifter's own skips only; the bulk "skip flagged" offer opts out.
     if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"})}
@@ -5893,6 +5924,7 @@ function sessionFreshness(ex,draft){
  *  target would otherwise fall out of the bottom of the range. */
 function baseSuggestion(ex,rec,draft,old){
   if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
+  if(Array.isArray(rec.targetSets))return engineSetSuggestion(ex,1,rec,draft);
   const reps=rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min);
   if(rec.load==null||!(rec.cap>0))return{load:rec.load,reps,src:"base"};
   const factor=sessionFreshness(ex,draft);
@@ -5935,8 +5967,30 @@ function strategySuggestion(ex,n,rec,draft){
   return{load:set.load,reps:set.reps,src:result.status==="advance"?"session-up"
     :result.status==="reduce"||result.status==="recalibrate"?"session-down":"session-hold",
     drop:result.reasonCodes.some(code=>code.endsWith(".current_drop"))}}
+/* A canonical program's per-set target is the adaptive engine's own result for
+   that set: recommendation() already folds this session's completed sets in as
+   live anchors, so nothing is re-derived here. The source names how the target
+   moved from the last completed set this session. */
+function engineSetSuggestion(ex,n,rec,draft){
+  const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[n-1];
+  if(!item||item.status!=="recommended")return{load:null,reps:null,src:"manual"};
+  const definitions=rec.metricDefinitions||[];
+  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
+  const load=loadMetric?item.targets?.[loadMetric.semantic]??null:null;
+  const rawReps=repsMetric?item.targets?.[repsMetric.semantic]:null;
+  const reps=typeof rawReps==="number"?rawReps:rawReps?.min??null;
+  const done=new Set(draft?.__done||[]);
+  let previous=null;
+  for(let k=n-1;k>=1;k--)if(done.has(`${ex.id}_${k}`)){previous=+draft[`${ex.id}_${k}_load`];break}
+  if(!(previous>0)||load==null)return{load,reps,src:"base"};
+  // The projected draft field is display text; the engine's load is canonical kg.
+  const shown=Math.round(toDisplay(load)*100)/100,before=Math.round(previous*100)/100;
+  const src=shown>before?"session-up":shown<before?"session-down":"session-hold";
+  return{load,reps,src,drop:false}}
 function setSuggestion(ex,n,rec,draft,old){
   if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
+  if(Array.isArray(rec.targetSets))return engineSetSuggestion(ex,n,rec,draft);
   if(rec.strategy&&rec.strategy!=="range")return strategySuggestion(ex,n,rec,draft);
   const minJ=+state.settings.minJump||2.5;
   const sets=completedCurrentSets(ex,n,draft);
@@ -7567,9 +7621,15 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
+function metricPendingValue(exId,n,field){
+  const target=draftTargetFromKey(`${exId}_${n}`);
+  const set=target?activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]:null;
+  const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS[field]?.includes(item.semantic));
+  return metric?pendingFields.get(`${exId}_${n}_metric_${metric.id}`)?.value:undefined}
 function setFieldVals(ex,n,r,draft,prev){
   // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
-  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value;
+  // A metric-backed set's pending value sits under its metric input's key.
+  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value??metricPendingValue(ex.id,n,field);
   const old=prev.find(x=>x.set===n),draftKg=pending("load")??draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
   const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(r.status==="manual"?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
   const repsVal=pending("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
@@ -7823,7 +7883,12 @@ function focusExMeta(ex){
    ever, and the one action is the `.saveset` handler. Which field is selected,
    and whether it is a live input, is this transient state alone. */
 let shelfUi={key:"",field:"reps",editing:false};
-const shelfFor=(key,firstField="reps")=>shelfUi.key===key?shelfUi:{key,field:firstField,editing:false};
+/* A metric-backed set opens on its first metric; a flat set on reps. */
+function defaultShelfField(key){
+  const at=String(key).lastIndexOf("_"),exId=String(key).slice(0,at),n=+String(key).slice(at+1);
+  const metrics=at>0&&typeof focusMetricDefinitions==="function"?focusMetricDefinitions(exId,n):[];
+  return metrics?.[0]?`metric_${metrics[0].id}`:"reps"}
+const shelfFor=(key,firstField=defaultShelfField(key))=>shelfUi.key===key?shelfUi:{key,field:firstField,editing:false};
 const shelfSelect=(key,field,editing=false)=>{shelfUi={key,field,editing}};
 /** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
 const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):String(raw??"")};
@@ -8021,7 +8086,9 @@ function refreshShelf({focus=null}={}){
   // T1: where the selection outline is drawn now — or, if one is still in
   // flight, where it is on screen — so the next travel starts from there.
   const prevSel=old.querySelector(".shelf__field.is-sel"),liveRing=old.querySelector(".shelf__ring");
-  const prevField=prevSel?.dataset.field,prevSet=prevSel?.dataset.set;
+  // Metric fields share data-field="metric"; the metric id tells two of them apart.
+  const fieldIdentity=el=>el?`${el.dataset.field}:${el.dataset.metric||""}`:undefined;
+  const prevField=fieldIdentity(prevSel),prevSet=prevSel?.dataset.set;
   const fromRect=(liveRing||prevSel)?.getBoundingClientRect();
   const heldFocus=!focus&&old.contains(document.activeElement)?workoutFocusKey(document.activeElement):null;
   old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
@@ -8033,7 +8100,7 @@ function refreshShelf({focus=null}={}){
   {const padsNow=card.querySelector(".focus-shelf .shelf__pads");
     if(padsFrom&&padsNow&&padsNow.dataset.pads!==padsFrom.mode)crossfadeIn(padsNow,padsFrom.html,padsFrom.cls)}
   const nowSel=card.querySelector(".focus-shelf .shelf__field.is-sel");
-  if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||nowSel.dataset.field!==prevField))
+  if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||fieldIdentity(nowSel)!==prevField))
     travelOutline(nowSel,fromRect,"shelf");
   syncFocusFloor();
   // The first-set cue points at the shelf's action; the rebuilt action is the same control.
@@ -8109,13 +8176,16 @@ function liveEffortField(setKey){return $w("[data-effspin]").find(el=>el.dataset
 /** Keep the shelf and the open ledger row reading what a field now holds. */
 function syncShelfField(input,padDir=0){
   const field=input.closest(".shelf__field");if(!field)return;
-  const id=field.dataset.field;
+  // A metric field writes the ledger column its metric fills (load or reps).
+  const metricId=field.dataset.metric,metric=metricId?focusMetricDefinitions(...setKeyParts(field.dataset.set)).find(item=>item.id===metricId):null;
+  const id=metric?(METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?"reps":METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?"load":null):field.dataset.field;
   const text=id==="reps"?String(input.value||""):shelfText(input.value);
   const val=field.querySelector(".shelf__val");
   if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
   field.classList.remove("is-untouched");
-  const cell=input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`);
+  const cell=id?input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`):null;
   if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
+function setKeyParts(key){const text=String(key||""),at=text.lastIndexOf("_");return[text.slice(0,at),+text.slice(at+1)]}
 
 /** A field the draft flags must be seen, not just focused: bring its input into the shelf. */
 function shelfReveal(input){
@@ -8341,6 +8411,14 @@ function applyDraftIssue(issues){
   let el=field==="date"?$("#sessionDate"):field==="bodyweight"?$("#sessionBodyweight"):null;
   if(el)openSessionSheet();
   let loadErrorKey="validation.load";
+  // A metric issue names the metric: its input carries the metric id, and the
+  // message follows what the metric measures.
+  if(issue.code==="invalid-metric"&&issue.exerciseInstanceId&&issue.setId){
+    const set=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId]?.sets?.[issue.setId];
+    const input=set?$(`#workout [data-k="${issue.exerciseInstanceId}_${set.ordinal}_metric_${issue.field}"]`):null;
+    const metricKey=METRIC_FIELD_SEMANTICS.reps.includes(issue.metric)?"validation.reps":
+      METRIC_FIELD_SEMANTICS.load.includes(issue.metric)?"validation.load":"validation.metric";
+    return applyFieldError({ok:false,error:{key:metricKey},el:input})}
   if(!el&&issue.exerciseInstanceId&&issue.setId){const exercise=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId],
       set=exercise?.sets?.[issue.setId],key=set?`${issue.exerciseInstanceId}_${set.ordinal}_${field}`:null;
     if(key)el=$(`#workout [data-k="${key}"]`)||$(`#workout [data-effspin="${issue.exerciseInstanceId}_${set.ordinal}"]`)}
@@ -8482,8 +8560,10 @@ function bindWorkout(){
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
+      const editedSet=activeWorkoutDraft.exercises[exId].sets[target.setId];
       focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`],
-        completedAt:activeWorkoutDraft.exercises[exId].sets[target.setId].completion?.completedAt}};
+        metrics:draftSetMetrics(editedSet).length?cloneSnapshot(editedSet.edited?.metrics||{}):null,
+        completedAt:editedSet.completion?.completedAt}};
       const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
       if(result.status!=="applied"){focusEdit=null;return}
       renderWorkout();
@@ -8492,7 +8572,16 @@ function bindWorkout(){
       if(!focusEdit)return;
       const{exId,n,snap}=focusEdit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
-      for(const field of["load","reps","rir","effort"]){
+      // A metric-backed set restores each metric it held; only effort lives
+      // outside the metric composition.
+      const metricBacked=!!snap.metrics;
+      if(metricBacked){
+        const current=activeWorkoutDraft.exercises[exId].sets[target.setId].edited?.metrics||{};
+        for(const [metricId,value] of Object.entries(snap.metrics)){
+          if(current[metricId]===value)continue;
+          const result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:exId,setId:target.setId,metricId,value});
+          if(result.status!=="applied")return}}
+      for(const field of metricBacked?["rir","effort"]:["load","reps","rir","effort"]){
         if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
       const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
@@ -9627,8 +9716,20 @@ async function applyParsedCommand(parsed,context){
   if(parsed.unit&&parsed.unit!==state.settings.unit)loadDisp=toDisplay(fromDisplayUnit(parsed.load,parsed.unit));
   if(!activeWorkoutDraft)return;
   const target=draftTargetFromKey(key);if(!target)return;
-  const fields=[{field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
-    {field:"reps",value:String(parsed.reps)}];
+  const set=activeWorkoutDraft.exercises[target.exerciseInstanceId]?.sets?.[target.setId];
+  const definitions=draftSetMetrics(set);
+  const fields=[];
+  if(definitions.length){
+    // A metric-backed set takes the spoken load and reps as its own metrics; a
+    // composition without them cannot take "load x reps".
+    const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+    const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
+    if(!loadMetric||!repsMetric){toast(t("command.error.no_exercise_match"));return}
+    for(const [metric,value] of [[loadMetric,canonicalNumberText(fromDisplay(loadDisp))],[repsMetric,String(parsed.reps)]]){
+      const result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
+        setId:target.setId,metricId:metric.id,value});if(result.status!=="applied")return}
+  }else fields.push({field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
+    {field:"reps",value:String(parsed.reps)});
   if(isEffortMode())fields.push({field:"effort",value:parsed.effort||(parsed.rir!=null?effortForRir(parsed.rir):"hard")});
   else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
   for(const field of fields){const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
@@ -11095,7 +11196,9 @@ function createOnboardingProgramEditorAdapter(){
     formatNumber:(value)=>fmt(value),
     ...editorMetricAdapter({cycleIndex:()=>1}),
     context:()=>"",
-    status:()=>onboardingEditorStatus().message,
+    // A message already announced is rendered in place; a new one is left for
+    // updateOnboardingEditorActions to write, which is what announces it.
+    status:()=>{const message=onboardingEditorStatus().message;return message===onboardingEditorAnnounced?message:""},
     afterRender:()=>updateOnboardingEditorActions(),
     confirm:()=>true,
     reducedMotion:()=>reducedMotion(),
@@ -11125,14 +11228,18 @@ function updateOnboardingEditorActions(){
   if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
   const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
   status.id="entryEditorStatus";
-  status.textContent=message;
+  // Rewriting an unchanged live region announces it again.
+  if(status.textContent!==message)status.textContent=message;
+  onboardingEditorAnnounced=message;
   status.hidden=false;
   status.classList.toggle("is-error",issues.length>0);
   status.setAttribute("role",issues.length?"alert":"status");
   status.setAttribute("aria-live",issues.length?"assertive":"polite");
 }
+let onboardingEditorAnnounced=null;
 function mountOnboardingProgramEditor(){
   const host=$("#onbProgramEditor");if(!host||!window.mountProgramEditor)return null;
+  onboardingEditorAnnounced=null;
   onboardingProgramEditor?.dispose?.();
   onboardingProgramEditor=window.mountProgramEditor(host,createOnboardingProgramEditorAdapter());
   const status=host.querySelector('[data-role="editor-status"]');if(status)status.id="entryEditorStatus";
@@ -11940,9 +12047,11 @@ function reconcileLinkedProgramRows(rows,byId){
     const alias=nextAlias!==prevAlias?nextAlias
       :prev?(nextName!==prevName?nextName:prevAlias)
       :(nextAlias||nextName);
-    if(alias&&alias!==canonical)row.displayName=alias;else delete row.displayName;
+    // Either language's catalog name is the movement itself, not an alias.
+    const isAlias=alias&&alias!==canonical&&alias!==entry.name;
+    if(isAlias)row.displayName=alias;else delete row.displayName;
     if(text(row.primary)!==text(libraryMuscleAttribution(entry,"primary"))||text(row.secondary)!==text(libraryMuscleAttribution(entry,"secondary")))
-      ignoredMuscles.add(alias&&alias!==canonical?alias:canonical)}
+      ignoredMuscles.add(isAlias?alias:canonical)}
   return{ignoredMuscles:[...ignoredMuscles]}}
 
 async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);
@@ -13516,7 +13625,7 @@ function closeLibrary({toProgram=true}={}){
   if(!(back&&focusRoute(back)))focusRoute(routeHeading(returnToOnboarding?"onboarding":"program"));
   settle?.()}
 
-function renderLibrary(){
+function renderLibrary({through=null}={}){
   if(!libFlow)return;
   const configuring=libFlow.step==="configure";
   $("#libBrowse")?.classList.toggle("hidden",configuring);
@@ -13528,7 +13637,7 @@ function renderLibrary(){
     step.innerHTML=`<p class="libstep__lab">${esc(t("library.step",{n:configuring?2:1,total:2}))}</p>`+
       `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`+
       `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`}
-  if(configuring)renderLibraryConfigure();else renderLibraryBrowse();
+  if(configuring)renderLibraryConfigure();else renderLibraryBrowse({through});
   $("#libCustom")?.classList.toggle("hidden",!!libFlow.editorScope);
   renderLibraryBar()}
 
@@ -13563,22 +13672,40 @@ function renderLibraryFilters(){
     else libFlow.equipment=libFlow.equipment===b.dataset.val?null:b.dataset.val;
     renderLibrary()})}
 
-function renderLibraryBrowse(){
+function renderLibraryBrowse({through=null}={}){
   renderLibraryTabs();renderLibraryFilters();
   const list=$("#libList");if(!list)return;
   const source=libFlow.tab==="yours"?yourExercises():pickableExercises();
   const rows=source.filter(e=>exerciseMatches(e,libFlow.query,libFlow.muscle,libFlow.equipment))
     .sort((a,b)=>(a.rank??50)-(b.rank??50)||libraryName(a).localeCompare(libraryName(b)));
+  // The full catalog is over a thousand rows. The first screenfuls render now
+  // and the rest follow a chunk per frame; a newer render abandons the old one.
+  const render=++libraryRenderToken;
+  // A row that focus must return to renders in the first pass.
+  const needed=through?rows.findIndex(e=>e.id===through)+1:0;
+  const first=Math.max(LIBRARY_FIRST_ROWS,needed);
   list.innerHTML=rows.length
-    ?rows.map(e=>libraryRowHtml(e)).join("")
+    ?rows.slice(0,first).map(e=>libraryRowHtml(e)).join("")
     :`<p class="pick__empty">${esc(t("picker.empty",{q:libFlow.query}))}</p>`;
-  $$("#libList [data-lib-toggle]").forEach(b=>b.onclick=()=>toggleLibrarySelection(b.dataset.libToggle));
-  $$("#libList [data-lib-preview]").forEach(b=>b.onclick=()=>openExercisePreview(b.dataset.libPreview));
-  $$("#libList [data-lib-edit]").forEach(b=>b.onclick=()=>editCustomExercise(b.dataset.libEdit))}
+  let next=first;
+  const appendChunk=()=>{
+    if(!libFlow||render!==libraryRenderToken||!list.isConnected||next>=rows.length)return;
+    list.insertAdjacentHTML("beforeend",rows.slice(next,next+LIBRARY_CHUNK_ROWS).map(e=>libraryRowHtml(e)).join(""));
+    next+=LIBRARY_CHUNK_ROWS;requestAnimationFrame(appendChunk)};
+  // The rest waits until the view's push has settled, so it never competes
+  // with the transition for frames.
+  if(next<rows.length)setTimeout(()=>requestAnimationFrame(appendChunk),LIBRARY_DEFER_MS);
+  // One delegated handler serves every row, however many chunks arrive.
+  list.onclick=event=>{
+    const toggle=event.target.closest?.("[data-lib-toggle]");if(toggle)return toggleLibrarySelection(toggle.dataset.libToggle);
+    const preview=event.target.closest?.("[data-lib-preview]");if(preview)return openExercisePreview(preview.dataset.libPreview);
+    const edit=event.target.closest?.("[data-lib-edit]");if(edit)return editCustomExercise(edit.dataset.libEdit)}}
+const LIBRARY_FIRST_ROWS=40,LIBRARY_CHUNK_ROWS=80,LIBRARY_DEFER_MS=450;
+let libraryRenderToken=0;
 
 function libraryRowHtml(e){
   const on=libFlow.selected.has(e.id);
-  const mus=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean).slice(0,2).map(muscleLabel);
+  const mus=[libraryMuscleAttribution(e,"primary"),libraryMuscleAttribution(e,"secondary")].filter(Boolean).join(",").split(",").filter(Boolean).slice(0,2).map(muscleLabel);
   const eq=(e.equipment||[])[0];
   const meta=[mus.join(" · "),eq?t("picker.equipment."+eq):""].filter(Boolean).join(" · ");
   return `<div class="librow${on?" is-selected":""}" data-lib-row="${esc(e.id)}">`+
@@ -13599,7 +13726,15 @@ function toggleLibrarySelection(id){
   if(!libFlow)return;
   if(libFlow.selected.has(id))libFlow.selected.delete(id);
   else libFlow.selected.set(id,null);
-  renderLibrary()}
+  // A toggle changes one row and the bar; rebuilding the whole catalog would
+  // also drop the focus the lifter's tap just put on the checkbox.
+  const row=$(`#libList [data-lib-row="${CSS.escape(id)}"]`);
+  if(!row||libFlow.step==="configure")return renderLibrary();
+  const entry=libraryEntry(id),on=libFlow.selected.has(id),check=row.querySelector("[data-lib-toggle]");
+  row.classList.toggle("is-selected",on);
+  if(check){check.classList.toggle("is-on",on);check.setAttribute("aria-checked",on?"true":"false");
+    check.setAttribute("aria-label",t(on?"library.remove_aria":"library.add_aria",{name:libraryName(entry)}))}
+  renderLibraryBar()}
 
 function renderLibraryBar(){
   const bar=$("#libBar"),count=$("#libBarCount"),primary=$("#libPrimary");
@@ -13721,7 +13856,7 @@ function closeExercisePreview(){
   previewState=null;
   const settle=routePushBegin("out",{pushed:$("#exercisePreview"),under:routeViewEl(back==="library"&&libFlow?"library":"program")});
   document.body.classList.remove("is-preview");
-  if(back==="library"&&libFlow){$$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));renderLibrary();
+  if(back==="library"&&libFlow){$$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));renderLibrary({through:returnId});
     requestAnimationFrame(()=>{const target=$(`[data-lib-preview="${CSS.escape(returnId||"")}"]`);if(target)target.focus({preventScroll:true})})}
   else{document.body.classList.remove("is-library");returnToTab("program")}
   settle?.()}
@@ -16806,7 +16941,7 @@ function renderOnboarding(){
       const header=headerFocus&&sameScreen?$("#"+CSS.escape(headerFocus)):null;
       if(header&&!header.classList.contains("hidden")&&canTakeFocus(header))try{header.focus({preventScroll:true})}catch{}
       else{
-        const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
+        const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&(entryPreviewHasProgressionIssue()||entryNeedsMetricConfiguration());
         const target=resuming?$("#entryResumeTitle"):initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
         if(target)try{target.focus({preventScroll:true})}catch{}
         // The editor has no #entryHeading: on the render that opens it, focus takes its title (R7 J-05).

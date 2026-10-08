@@ -11,7 +11,7 @@
  * Every assertion here is about behavior:
  *   - opening the app is not choosing a program route;
  *   - onboarding the user did not ask for stays silent until they answer;
- *   - "beginner consistency" reports the program it actually built;
+ *   - Generate reports the program it actually built;
  *   - a setup flow reports its once_per_setup_flow events once, including
  *     across Start over;
  *   - nothing carries a workout value, an identifier, or free text.
@@ -22,6 +22,7 @@
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
 import { exerciseAction, finishEarly, selectExercise } from "./fixtures/focus-workout.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -70,7 +71,7 @@ const RECORDER = () => {
   });
 };
 
-async function openApp(browser, { seed, telemetryEnabled } = {}) {
+async function openApp(browser, { seed, telemetryEnabled, at } = {}) {
   const context = await browser.newContext();
   await context.addInitScript(RECORDER);
   if (seed) {
@@ -86,6 +87,7 @@ async function openApp(browser, { seed, telemetryEnabled } = {}) {
     );
   }
   const page = await context.newPage();
+  if (at) await page.clock.setFixedTime(new Date(at));
   await page.goto(BASE);
   await waitForAppBoot(page, { base: BASE });
   return { context, page };
@@ -96,29 +98,26 @@ const namesOf = (events) => events.map(([name]) => name);
 const countOf = (events, name) => events.filter(([n]) => n === name).length;
 const propsOf = (events, name) => events.find(([n]) => n === name)?.[1] || null;
 
-/** A two-lift day, already onboarded, so the log screen has sets to save. */
-function loggableProgram() {
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+
+/** The 18-slot seed program (a Build definition: manual, no suggested loads),
+ *  already onboarded, so the log screen has sets to save. */
+function loggableProgram(metaOverrides = {}) {
   return {
     settings: {
       jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 0, lastExport: "",
       unit: "kg", lang: "en", rirMode: "numeric", voiceInputEnabled: false,
       notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
     },
-    programMeta: {
-      id: "prog-telemetry", name: "Telemetry fixture", started: "2026-08-13",
-      created: "2026-07-01T00:00:00.000Z", updated: "2026-07-01T00:00:00.000Z",
-      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6,
-      goal: null, experience: null, daysPerWeek: 1, splitType: "full_body",
-      equipment: ["barbell"], priorityMuscles: [], sessionLength: "60", completedAt: null,
-    },
-    program: [
-      { id: "ex0", day: "Day 1", order: 1, name: "Bench press", sets: 2, min: 6, max: 10, primary: "Chest", secondary: "Triceps", notes: "", alternates: [] },
-      { id: "ex1", day: "Day 1", order: 2, name: "Barbell row", sets: 2, min: 6, max: 10, primary: "Mid/upper back", secondary: "Biceps", notes: "", alternates: [] },
-    ],
+    programMeta: seedProgramMeta(metaOverrides),
+    program: seedProgram(),
     log: [],
     programHistory: [],
   };
 }
+const SEED_A = "seed-ex-1";
+const SEED_B = "seed-ex-2";
 
 const dayIso = (daysAgo) => {
   const d = new Date();
@@ -126,47 +125,28 @@ const dayIso = (daysAgo) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-/** The loggable day with prior sessions, so every set has a suggestion to be
- *  measured against, and a block that started `startedDaysAgo` days ago. */
-function trustProgram({ startedDaysAgo = 3, sets = [3, 2], history = "steady" } = {}) {
-  const seed = loggableProgram();
-  seed.programMeta.started = dayIso(startedDaysAgo);
-  seed.program[0].sets = sets[0];
-  seed.program[1].sets = sets[1];
-  const sessions = history === "stalled" ? [28, 21, 14, 7] : [14, 7];
-  const reps = history === "stalled" ? 7 : 8;
-  const lifts = [["ex0", "Bench press", 60], ["ex1", "Barbell row", 50]];
-  if (history === "stalled") {
-    // The bulk "skip flagged" offer needs three lifts with two of them flagged.
-    seed.program.push({ id: "ex2", day: "Day 1", order: 3, name: "Overhead press", sets: 2, min: 6, max: 10, primary: "Front delts", secondary: "Triceps", notes: "", alternates: [] });
-    lifts.push(["ex2", "Overhead press", 40]);
-  }
-  for (const daysAgo of sessions) {
-    const date = dayIso(daysAgo);
-    for (const [exerciseId, name, load] of lifts) {
-      for (let i = 0; i < 3; i++) {
-        seed.log.push({
-          session: `${date}_Day 1_seed`, date, day: "Day 1", name, exerciseId, set: i + 1, load, reps, rir: 1,
-          notes: "", created: `${date}T12:00:0${i}.000Z`, primary: "Chest", secondary: "Triceps",
-        });
-      }
-    }
-  }
-  return seed;
-}
-
-async function enterWorkout(page) {
-  await page.evaluate(() => {
+async function enterWorkout(page, day) {
+  const entered = await page.evaluate((label) => {
     window.closeFirstRun?.();
-    window.__repforgeEnterWorkout({});
-  });
+    return window.__repforgeEnterWorkout(label ? { day: label } : {});
+  }, day);
+  if (entered === false) throw new Error(`could not enter workout ${day || ""}`);
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
 }
 
-const suggestedLoad = (page, exerciseId, ordinal) => page.evaluate(([id, n]) => {
-  const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
-  return Object.values(exercise.sets).find((row) => row.ordinal === n).programmed.suggestedLoad;
+const draftSet = (page, exerciseId, ordinal) => page.evaluate(([id, n]) => {
+  const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+  return Object.values(exercise?.sets || {}).find((row) => row.ordinal === n) || null;
 }, [exerciseId, ordinal]);
+
+/** The load the app recommends for a pending set: the adaptive engine's value
+ *  prefilled into the untouched weight metric. */
+async function suggestedLoad(page, exerciseId, ordinal) {
+  const set = await draftSet(page, exerciseId, ordinal);
+  if (!set || set.touched?.metrics?.[WEIGHT]) return null;
+  const value = set.edited?.metrics?.[WEIGHT];
+  return value == null || value === "" ? null : Number(value);
+}
 
 const setIsDone = (page, exerciseId, ordinal, done = true) => page.waitForFunction(([id, n, want]) => {
   const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
@@ -174,15 +154,85 @@ const setIsDone = (page, exerciseId, ordinal, done = true) => page.waitForFuncti
   return !!row && (row.completion !== "pending") === want;
 }, [exerciseId, ordinal, done], { timeout: 5000 });
 
-/** Type a load and save the set the way a lifter does. */
-async function saveSetByHand(page, exerciseId, ordinal, load) {
+/** Type into the Focus shelf the way a lifter does. */
+async function fillShelf(page, metricId, value) {
+  const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
+  await input.waitFor({ state: "attached", timeout: 5000 });
+  if (await input.getAttribute("aria-hidden") === "true")
+    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+  await input.fill(String(value));
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+async function fillRir(page, exerciseId, ordinal, value) {
+  const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${exerciseId}_${ordinal}_rir"]`);
+  if (await input.getAttribute("aria-hidden") === "true")
+    await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
+  await input.fill(String(value));
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
+/** Type a load, reps and RIR and save the set. */
+async function saveSetByHand(page, exerciseId, ordinal, load, { reps = 8, rir = 1 } = {}) {
   await selectExercise(page, exerciseId);
-  for (const [field, value] of [["load", load], ["reps", 8], ["rir", 1]]) {
-    await page.locator(`#workout .exercise.is-current [data-k="${exerciseId}_${ordinal}_${field}"]`).fill(String(value));
-    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-  }
+  await fillShelf(page, WEIGHT, load);
+  await fillShelf(page, REPS, reps);
+  await fillRir(page, exerciseId, ordinal, rir);
   await page.locator(`#workout .exercise.is-current [data-save="${exerciseId}_${ordinal}"]`).click();
   await setIsDone(page, exerciseId, ordinal);
+}
+
+/*
+ * A generated program with one logged session behind it, so its weighted
+ * movements carry adaptive recommendations. Built once through the production
+ * workout and reused as the seed of every trust phase.
+ */
+const TRUST_SESSION_1 = "2026-03-02T09:00:00.000Z";
+const TRUST_SESSION_2 = "2026-03-04T09:00:00.000Z";
+let trustFixture = null;
+async function trustProgram(browser) {
+  if (trustFixture) return structuredClone(trustFixture);
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.clock.setFixedTime(new Date(TRUST_SESSION_1));
+  await page.goto(BASE);
+  await waitForAppBoot(page, { base: BASE });
+  const target = await page.evaluate(async ([weight, reps]) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
+      environment: { kind: "commercial_gym" },
+    }, catalog).value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "telemetry").value;
+    const weighted = (slot) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
+      slot.prescriptionsByCycle[0].sets.length >= 3;
+    const day = definition.days.find((item) => item.kind === "training" &&
+      item.slots.length >= 2 && weighted(item.slots[0]) && weighted(item.slots[1]));
+    await window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition, name: "Telemetry trust", answers: {}, destination: "log", origin: "first-run",
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "telemetry" },
+    });
+    await window.__repforgeStorage.flush();
+    return day ? { day: day.name, a: day.slots[0].id, b: day.slots[1].id } : null;
+  }, [WEIGHT, REPS]);
+  if (!target) throw new Error("the generated program has no day with two weighted three-set slots");
+  await enterWorkout(page, target.day);
+  for (const [slot, load, reps] of [[target.a, 100, 8], [target.b, 80, 10]]) {
+    for (const ordinal of [1, 2, 3]) await saveSetByHand(page, slot, ordinal, load, { reps, rir: 2 });
+  }
+  await finishEarly(page);
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const state = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
+  await context.close();
+  trustFixture = { state, target };
+  return structuredClone(trustFixture);
+}
+
+/** Open the second session of the trust program on its day. */
+async function openTrustWorkout(browser, options = {}) {
+  const { state, target } = await trustProgram(browser);
+  const opened = await openApp(browser, { seed: state, at: TRUST_SESSION_2, ...options });
+  await enterWorkout(opened.page, target.day);
+  return { ...opened, target };
 }
 
 const ENVELOPE = ["telemetry_schema_version", "app_version", "release_channel"];
@@ -191,37 +241,26 @@ const eventsNamed = async (page, name) => (await captured(page))
   .filter(([n]) => n === name)
   .map(([, p]) => Object.fromEntries(Object.entries(p).filter(([key]) => !ENVELOPE.includes(key))));
 
-/** Drive Recommend from the entry hub through activation-ready preview. */
-async function driveOnboarding(page, { route = "recommend", foundation = false } = {}) {
-  if (route === "recommend") {
-    // Recommend's goal is asked on the hub: the tap answers it and opens the background step.
-    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-  } else {
-    await page.click(`[data-entry-route="${route}"]`);
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-    await page.click("#onbNext");
-  }
-  await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${foundation ? "first" : "6_to_24m"}"]`);
-  await page.click(`[data-entry-pick="recentConsistency"][data-entry-val="${foundation ? "few" : "most"}"]`);
+const entryStep = (page) => page.evaluate(() => window.__repforgeEntryState?.()?.step);
+
+/** Drive Generate from the entry hub through to its reviewable result. */
+async function driveOnboarding(page, { experience = "6_to_24m", days = 4 } = {}) {
+  // Generate's goal is asked on the hub: the tap answers it and opens the background step.
+  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
+  await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${experience}"]`);
   await page.click("#onbNext");
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
+  await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`);
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
   await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
-  // priorities are optional
-  await page.click("#onbNext");
-  if (route === "custom") {
-    const split = page.locator("[data-entry-pick='splitPreference']").first();
-    if (await split.count()) await split.click();
-    await page.click("#onbNext");
-  }
-  await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 10000 });
-  if (await page.locator("[data-entry-select-candidate]").count()) {
-    await page.locator("[data-entry-select-candidate]").first().click();
-  }
-  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
+  if (await entryStep(page) === "priorities") await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
+  await page.waitForSelector("#entryActivate", { timeout: 15000 });
   return true;
 }
 
@@ -295,12 +334,12 @@ try {
     await context.close();
   }
 
-  phase("Foundation recommend reports the program it actually built");
+  phase("A first-time lifter's Generate reports the program it actually built");
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    const drove = await driveOnboarding(page, { route: "recommend", foundation: true });
-    assert(drove, "the recommend flow reaches its preview step");
+    const drove = await driveOnboarding(page, { experience: "first", days: 3 });
+    assert(drove, "the Generate flow reaches its result step");
     let events = await captured(page);
     assert(
       countOf(events, "generator_completed") === 1,
@@ -320,13 +359,12 @@ try {
       "foundation recommend is not dropped from the funnel",
       `saw ${countOf(events, "generator_completed")}: ${namesOf(events).join(",")}`,
     );
-    assert(completed?.goal === "muscle_growth", "it reports the muscle-growth program it compiles to", JSON.stringify(completed));
-    assert(completed?.family === "foundation", "it reports the Foundation treatment", JSON.stringify(completed));
-    assert(
-      ["2", "3", "4", "5", "6"].includes(completed?.frequency),
-      "it reports a reviewed frequency",
-      JSON.stringify(completed),
-    );
+    assert(completed?.goal === "muscle_growth", "it reports the muscle-growth goal it was generated for", JSON.stringify(completed));
+    assert(completed?.family === "generated", "it reports the generated program family", JSON.stringify(completed));
+    const activeDays = await page.evaluate(() => window.__repforgeWorkoutDraft.state().programMeta.programDefinition
+      .days.filter((day) => day.kind === "training").length);
+    assert(completed?.frequency === "3" && activeDays === 3,
+      "it reports the frequency of the program it activated", JSON.stringify({ completed, activeDays }));
     assert(countOf(events, "program_activated") === 1, "activation reports once");
     assert(propsOf(events, "program_activated")?.route === "recommend", "activation reports the recommend route");
     assert(
@@ -341,7 +379,7 @@ try {
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    const reached = await driveOnboarding(page, { route: "recommend" });
+    const reached = await driveOnboarding(page);
     assert(reached, "the flow reaches the step that offers Start over");
     await page.click("#entryRestart");
     await page.click("#entryRestartConfirm");
@@ -352,33 +390,6 @@ try {
       "Start over does not open a second flow",
       `${countOf(events, "program_path_selected")}/${countOf(events, "generator_started")}`,
     );
-    await context.close();
-  }
-
-  phase("Browse selection telemetry remains once per setup flow across review changes");
-  {
-    const { context, page } = await openApp(browser);
-    await page.click("#firstRunCreate");
-    await page.click('[data-entry-route="browse"]');
-    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
-    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-    await page.click("#onbNext");
-    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-    await page.click("#onbNext");
-    await page.waitForSelector('[data-entry-catalogue="growth_2_v1"]', { timeout: 10000 });
-    await page.click('[data-entry-catalogue="growth_2_v1"]');
-    await page.waitForSelector("#entryActivate", { timeout: 10000 });
-    await page.click("#onbBack");
-    await page.waitForSelector('[data-entry-catalogue="growth_4_v1"]', { timeout: 5000 });
-    await page.click('[data-entry-catalogue="growth_4_v1"]');
-    await page.waitForSelector("#entryActivate", { timeout: 10000 });
-    const events = await captured(page);
-    assert(countOf(events, "program_path_selected") === 1 && propsOf(events, "program_path_selected")?.route === "browse",
-      "Browse emits one route-selection event for the setup flow", namesOf(events).join(","));
-    assert(countOf(events, "template_selected") === 1,
-      "changing the reviewed Browse card does not duplicate template selection", namesOf(events).join(","));
-    assert(countOf(events, "program_activated") === 0,
-      "Browse review remains silent until explicit activation", namesOf(events).join(","));
     await context.close();
   }
 
@@ -396,13 +407,23 @@ try {
         meta: { name: "Reviewed import" },
         exercises: [{
           id: "import-row", day: "Day 1", order: 1, name: "Assisted pull-up",
-          sets: 3, min: 8, max: 12, libraryId: "pd_bw",
+          sets: 3, min: 8, max: 12,
         }],
         customExercises: [],
       })),
     });
+    await page.waitForSelector("#importReview.active", { timeout: 10000 });
+    // The lifter settles the open row on its proposed movement.
+    const proposal = page.locator('#importRows .improw.is-open [data-imp-act="pick"][data-imp-idx="0"], #importRows .improw.is-open [data-imp-act="link"]').first();
+    assert(await proposal.count() === 1, "the free-named row opens for review with a proposed movement");
+    await proposal.click();
     await page.waitForSelector("#importCommit:not([disabled])", { timeout: 10000 });
     let events = await captured(page);
+    assert(
+      JSON.stringify(await eventsNamed(page, "program_import_row_resolved")) === JSON.stringify([{ method: "top_candidate", source: "file" }]),
+      "settling the row on its proposal reports one top-candidate file resolution",
+      JSON.stringify(await eventsNamed(page, "program_import_row_resolved")),
+    );
     assert(countOf(events, "program_path_selected") === 1,
       "opening Import review does not select the route twice", namesOf(events).join(","));
     assert(countOf(events, "program_activated") === 0,
@@ -429,55 +450,35 @@ try {
   phase("A logged session reports the session, not its contents");
   {
     const { context, page } = await openApp(browser, { seed: loggableProgram() });
-    await page.evaluate(() => {
-      window.closeFirstRun?.();
-      window.__repforgeEnterWorkout({});
-    });
-    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
+    await enterWorkout(page, "Day 1");
     for (const [exerciseId, set, load, reps] of [
-      ["ex0", 1, 60, 8],
-      ["ex0", 2, 60, 7],
-      ["ex1", 1, 50, 10],
-      ["ex1", 2, 50, 9],
+      [SEED_A, 1, 60, 8],
+      [SEED_A, 2, 60, 7],
+      [SEED_B, 1, 50, 10],
+      [SEED_B, 2, 50, 9],
     ]) {
-      await selectExercise(page, exerciseId);
-      for (const [field, value] of [["load", load], ["reps", reps], ["rir", 1]]) {
-        await page.locator(`#workout .exercise.is-current [data-k="${exerciseId}_${set}_${field}"]`).fill(String(value));
-        await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-      }
-      await page.locator(`#workout .exercise.is-current [data-save="${exerciseId}_${set}"]`).click();
-      await page.waitForFunction(
-        ({ exerciseId, set }) => {
-          const exercise = window.__repforgeWorkoutDraft?.current()?.exercises?.[exerciseId];
-          return Object.values(exercise?.sets || {}).some((row) => row.ordinal === set && row.completion !== "pending");
-        },
-        { exerciseId, set },
-        { timeout: 5000 },
-      );
+      await saveSetByHand(page, exerciseId, set, load, { reps });
     }
-    await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+    await finishEarly(page);
     await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_completed"), undefined, {
       timeout: 10000,
     });
     const events = await captured(page);
     const session = propsOf(events, "session_completed");
     assert(countOf(events, "session_completed") === 1, "a saved session reports once", namesOf(events).join(","));
-    assert(
-      ["0", "1_5", "6_10", "11_20", "21_plus"].includes(session?.set_count),
-      "the set count is a bucket, never a number",
-      JSON.stringify(session),
-    );
-    assert(
-      ["0", "1_3", "4_6", "7_plus"].includes(session?.exercise_count),
-      "the exercise count is a bucket",
-      JSON.stringify(session),
-    );
+    assert(session?.set_count === "1_5", "the set count is a bucket, never a number", JSON.stringify(session));
+    assert(session?.exercise_count === "1_3", "the exercise count is a bucket", JSON.stringify(session));
     assert(
       ["0_15", "16_30", "31_60", "61_90", "90_plus"].includes(session?.duration),
       "the duration is a bucket",
       JSON.stringify(session),
     );
     assert(countOf(events, "first_set_logged") === 1, "the first working set is a milestone, reported once");
+    assert(
+      JSON.stringify(await eventsNamed(page, "set_saved")) === JSON.stringify(Array(4).fill({ vs_suggestion: "no_suggestion" })),
+      "a manual program's saved sets report that no load was suggested",
+      JSON.stringify(await eventsNamed(page, "set_saved")),
+    );
     assert(
       countOf(events, "session_summary_viewed") <= 1,
       "the summary is reported once per session",
@@ -488,28 +489,28 @@ try {
 
   phase("A committed working set reports how it compared with its suggestion, once");
   {
-    const { context, page } = await openApp(browser, { seed: trustProgram() });
-    await enterWorkout(page);
-    const suggested = await suggestedLoad(page, "ex0", 1);
-    assert(typeof suggested === "number", "the seeded history gives the first set a suggestion", String(suggested));
-    await saveSetByHand(page, "ex0", 1, suggested);
+    const { context, page, target } = await openTrustWorkout(browser);
+    const { a, b } = target;
+    const suggested = await suggestedLoad(page, a, 1);
+    assert(typeof suggested === "number" && suggested > 0,
+      "the logged session gives the first set a recommended load", String(suggested));
+    await saveSetByHand(page, a, 1, suggested);
     assert(
       JSON.stringify(await eventsNamed(page, "set_saved")) === JSON.stringify([{ vs_suggestion: "matched" }]),
-      "saving the suggested load reports matched", JSON.stringify(await eventsNamed(page, "set_saved")),
+      "saving the recommended load reports matched", JSON.stringify(await eventsNamed(page, "set_saved")),
     );
-    await saveSetByHand(page, "ex0", 2, (await suggestedLoad(page, "ex0", 2)) + 2.5);
-    await saveSetByHand(page, "ex0", 3, (await suggestedLoad(page, "ex0", 3)) + 1);
-    const lowered = (await suggestedLoad(page, "ex1", 2)) - 2.5;
-    await selectExercise(page, "ex1");
-    await page.evaluate(() => {
+    await saveSetByHand(page, a, 2, (await suggestedLoad(page, a, 2)) + 2.5);
+    await saveSetByHand(page, a, 3, (await suggestedLoad(page, a, 3)) + 1);
+    await selectExercise(page, b);
+    await page.evaluate((id) => {
       const draft = window.__repforgeWorkoutDraft.current();
-      const set = Object.values(draft.exercises.ex1.sets).find((row) => row.ordinal === 1);
-      return window.__repforgeWorkoutDraft.dispatch("markWarmup", { exerciseInstanceId: "ex1", setId: set.setId });
-    });
-    await saveSetByHand(page, "ex1", 1, 40);
+      const set = Object.values(draft.exercises[id].sets).find((row) => row.ordinal === 1);
+      return window.__repforgeWorkoutDraft.dispatch("markWarmup", { exerciseInstanceId: id, setId: set.setId });
+    }, b);
+    await saveSetByHand(page, b, 1, 40);
     assert((await eventsNamed(page, "set_saved")).length === 3, "a warm-up set reports nothing",
       JSON.stringify(await eventsNamed(page, "set_saved")));
-    await saveSetByHand(page, "ex1", 2, lowered);
+    await saveSetByHand(page, b, 2, (await suggestedLoad(page, b, 2)) - 2.5);
     assert(
       JSON.stringify(await eventsNamed(page, "set_saved")) === JSON.stringify([
         { vs_suggestion: "matched" }, { vs_suggestion: "raised" }, { vs_suggestion: "matched" }, { vs_suggestion: "lowered" },
@@ -518,13 +519,12 @@ try {
       JSON.stringify(await eventsNamed(page, "set_saved")),
     );
     // Re-saving an edited set is not a second saved set.
-    await selectExercise(page, "ex0");
-    await page.locator('#workout .exercise.is-current [data-editex="ex0"][data-editn="1"]').click();
-    await setIsDone(page, "ex0", 1, false);
-    await page.locator('#workout .exercise.is-current [data-k="ex0_1_load"]').fill(String(suggested + 5));
-    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-    await page.locator('#workout .exercise.is-current [data-save="ex0_1"]').click();
-    await setIsDone(page, "ex0", 1);
+    await selectExercise(page, a);
+    await page.locator(`#workout .exercise.is-current [data-editex="${a}"][data-editn="1"]`).click();
+    await setIsDone(page, a, 1, false);
+    await fillShelf(page, WEIGHT, suggested + 5);
+    await page.locator(`#workout .exercise.is-current [data-save="${a}_1"]`).click();
+    await setIsDone(page, a, 1);
     assert((await eventsNamed(page, "set_saved")).length === 4, "re-saving an edited set does not count again",
       JSON.stringify(await eventsNamed(page, "set_saved")));
     await context.close();
@@ -532,42 +532,40 @@ try {
 
   phase("The saved-set report belongs to the draft commit, not to a control");
   {
-    const { context, page } = await openApp(browser, { seed: trustProgram() });
-    await enterWorkout(page);
-    const result = await page.evaluate(async () => {
+    const { context, page, target } = await openTrustWorkout(browser);
+    const result = await page.evaluate(async (id) => {
       const api = window.__repforgeWorkoutDraft;
-      const set = Object.values(api.current().exercises.ex0.sets).find((row) => row.ordinal === 1);
-      const target = { exerciseInstanceId: "ex0", setId: set.setId };
+      const set = Object.values(api.current().exercises[id].sets).find((row) => row.ordinal === 1);
+      const target = { exerciseInstanceId: id, setId: set.setId };
       const statuses = [];
       statuses.push((await api.dispatch("completeSet", target)).status);
       statuses.push((await api.dispatch("uncommitSet", target)).status);
       statuses.push((await api.dispatch("completeSet", target)).status);
       return statuses;
-    });
+    }, target.a);
     const events = await eventsNamed(page, "set_saved");
     assert(result.every((status) => status === "applied"), "the lifecycle interface applied all three commands", result.join(","));
     assert(events.length === 1 && events[0].vs_suggestion === "matched",
-      "completing, uncommitting and recompleting through the lifecycle interface reports one set",
+      "completing, uncommitting and recompleting the recommended set reports one matched set",
       JSON.stringify(events));
     await context.close();
   }
 
   phase("A set restored from the stored draft is not counted again when it is edited");
   {
-    const { context, page } = await openApp(browser, { seed: trustProgram() });
-    await enterWorkout(page);
-    await saveSetByHand(page, "ex0", 1, await suggestedLoad(page, "ex0", 1));
+    const { context, page, target } = await openTrustWorkout(browser);
+    await saveSetByHand(page, target.a, 1, await suggestedLoad(page, target.a, 1));
     assert((await eventsNamed(page, "set_saved")).length === 1, "the set was counted when it was first saved");
     await page.reload();
     await waitForAppBoot(page, { base: BASE });
     await page.waitForFunction(() => window.__repforgeWorkoutDraft?.current(), undefined, { timeout: 8000 });
-    const outcome = await page.evaluate(async () => {
+    const outcome = await page.evaluate(async (id) => {
       const api = window.__repforgeWorkoutDraft;
-      const set = Object.values(api.current().exercises.ex0.sets).find((row) => row.ordinal === 1);
-      const target = { exerciseInstanceId: "ex0", setId: set.setId };
+      const set = Object.values(api.current().exercises[id].sets).find((row) => row.ordinal === 1);
+      const target = { exerciseInstanceId: id, setId: set.setId };
       const statuses = [(await api.dispatch("uncommitSet", target)).status, (await api.dispatch("completeSet", target)).status];
       return { statuses, saved: window.__captured.filter(([name]) => name === "set_saved").length };
-    });
+    }, target.a);
     assert(outcome.statuses.every((status) => status === "applied") && outcome.saved === 0,
       "the reloaded app reports no second set for an edited, re-saved set", JSON.stringify(outcome));
     await context.close();
@@ -575,18 +573,17 @@ try {
 
   phase("Opening the explanation reports the surface it was opened from");
   {
-    const { context, page } = await openApp(browser, { seed: trustProgram() });
-    await enterWorkout(page);
-    await selectExercise(page, "ex0");
+    const { context, page, target } = await openTrustWorkout(browser);
+    await selectExercise(page, target.a);
     assert((await eventsNamed(page, "recommendation_explained")).length === 0, "showing a card does not explain anything");
-    await page.locator("#workout .exercise.is-current [data-why]").click();
+    await page.locator("#workout .exercise.is-current [data-why]").first().click();
     await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
     assert(
       JSON.stringify(await eventsNamed(page, "recommendation_explained")) === JSON.stringify([{ surface: "focus" }]),
       "the Focus card reports the focus surface", JSON.stringify(await eventsNamed(page, "recommendation_explained")),
     );
     await page.locator("#whyClose").click();
-    await page.evaluate(() => window.openExerciseView("ex0", "log"));
+    await page.evaluate((id) => window.openExerciseView(id, "log"), target.a);
     await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
     await page.locator("#exDetail [data-why]").first().click();
     assert(
@@ -598,40 +595,24 @@ try {
 
   phase("Skipping an exercise is reported once; restoring it is not a skip");
   {
-    const { context, page } = await openApp(browser, { seed: trustProgram() });
-    await enterWorkout(page);
-    await exerciseAction(page, "ex1", "#exActionSkipBtn");
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    await exerciseAction(page, SEED_B, "#exActionSkipBtn");
     assert(
       JSON.stringify(await eventsNamed(page, "exercise_skipped")) === JSON.stringify([{ context: "planned_session" }]),
       "an individual skip reports a planned-session skip", JSON.stringify(await eventsNamed(page, "exercise_skipped")),
     );
-    await exerciseAction(page, "ex1", "#exActionSkipBtn");
+    await exerciseAction(page, SEED_B, "#exActionSkipBtn");
     assert((await eventsNamed(page, "exercise_skipped")).length === 1, "restoring the exercise reports nothing more",
       JSON.stringify(await eventsNamed(page, "exercise_skipped")));
     await context.close();
   }
 
-  phase("The bulk skip of flagged exercises is not an exercise skip");
-  {
-    const { context, page } = await openApp(browser, { seed: trustProgram({ history: "stalled" }) });
-    await enterWorkout(page);
-    const trim = page.locator("#fatigue .fatigue__trim");
-    assert(await trim.count() > 0, "stalled history flags exercises and offers the bulk skip");
-    if (await trim.count()) {
-      await trim.click();
-      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-      const skippedNow = await page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises).filter((e) => e.status === "skipped").length);
-      assert(skippedNow > 0, "accepting the bulk action skips the flagged exercises", String(skippedNow));
-      assert((await eventsNamed(page, "exercise_skipped")).length === 0, "accepting it reports no exercise skip",
-        JSON.stringify(await eventsNamed(page, "exercise_skipped")));
-    }
-    await context.close();
-  }
-
   phase("Opening the block review reports its completion; background renders do not");
   {
-    for (const [startedDaysAgo, completion] of [[3, "early"], [24, "partial"], [38, "complete"], [52, "extended"]]) {
-      const { context, page } = await openApp(browser, { seed: trustProgram({ startedDaysAgo }) });
+    // The seed block runs seven weeks: week 4 is halfway, week 7 is the last.
+    for (const [startedDaysAgo, completion] of [[3, "early"], [24, "partial"], [45, "complete"], [52, "extended"]]) {
+      const { context, page } = await openApp(browser, { seed: loggableProgram({ started: dayIso(startedDaysAgo) }) });
       await page.evaluate(() => window.closeFirstRun?.());
       await page.click('nav button[data-view="stats"]');
       await page.waitForSelector("#stats.view.active", { timeout: 5000 });
@@ -660,23 +641,8 @@ try {
   {
     const { context, page } = await openApp(browser, { seed: loggableProgram(), telemetryEnabled: false });
     assert((await captured(page)).length === 0, "opted-out boot reaches no adapter event");
-    await page.evaluate(() => {
-      window.closeFirstRun?.();
-      window.__repforgeEnterWorkout({});
-    });
-    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
-    await selectExercise(page, "ex0");
-    for (const [field, value] of [["load", 60], ["reps", 8], ["rir", 1]]) {
-      await page.locator(`#workout .exercise.is-current [data-k="ex0_1_${field}"]`).fill(String(value));
-      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-    }
-    await page.locator('#workout .exercise.is-current [data-save="ex0_1"]').click();
-    await page.waitForFunction(
-      () => Object.values(window.__repforgeWorkoutDraft.current()?.exercises?.ex0?.sets || {})
-        .some((row) => row.ordinal === 1 && row.completion !== "pending"),
-      undefined,
-      { timeout: 5000 },
-    );
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 60);
     await finishEarly(page);
     await page.waitForFunction(
       key => JSON.parse(window.localStorage.getItem(key) || "{}").log?.length > 0,
@@ -713,9 +679,11 @@ try {
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    await driveOnboarding(page, { route: "recommend" });
-    await page.click("#entryActivate").catch(() => {});
-    await page.waitForTimeout(500);
+    await driveOnboarding(page);
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "program_activated"), undefined, {
+      timeout: 10000,
+    });
     const events = await captured(page);
     const offenders = [];
     for (const [name, properties] of events) {

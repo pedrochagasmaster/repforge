@@ -4,6 +4,8 @@ import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
 import { runProgramEntryA11y } from "./program-entry-a11y.mjs";
 import { MINIMAL_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import {
   APP_INDEX,
   encodeSharedPayload,
@@ -19,6 +21,8 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const DB = "repforge";
 const STORE = "kv";
+const WEIGHT_METRIC = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS_METRIC = "2555c6f170d88072bbf6d9ad3f16ea86";
 
 const results = { passed: 0, failed: 0, failures: [] };
 
@@ -90,24 +94,33 @@ async function idbPut(page, blob) {
   );
 }
 
+/*
+ * The device's program is the 18-slot seed program (a canonical Build
+ * definition): a flat row list no longer makes a program. "ex1" names its first
+ * Day 1 slot, so a suite can address it without knowing the fixture's ids.
+ */
+const SEED_ROWS = seedProgram();
+const EX1 = SEED_ROWS[0].id;
+const EX1_NAME = SEED_ROWS[0].name;
+const ILLUSTRATED_ROW = SEED_ROWS.find((row) => row.name === "Leg extension");
+
+/** One committed Weight+Reps set on the first seed slot, as the app writes it. */
+function ex1LogRow(meta, { session = "s1", date = "2026-01-02", set = 1, load = 60, reps = 10, rir = 1, created } = {}) {
+  return metricLogRow(meta, SEED_ROWS[0], { session, date, day: "Day 1", set, load, reps, rir, created: created ?? `${date}T00:00:00.000Z` });
+}
+
 function sampleState(overrides = {}) {
-  const log = overrides.log || [
-    {
-      session: "s1",
-      date: "2026-01-02",
-      day: "Day 1",
-      name: "Press",
-      exerciseId: "ex1",
-      set: 1,
-      load: 60,
-      reps: 10,
-      rir: 1,
-      notes: "",
-      created: "2026-01-02T00:00:00.000Z",
-      primary: "Chest",
-      secondary: "",
-    },
-  ];
+  const programMeta = seedProgramMeta({
+    id: overrides.programId || "prog-a",
+    name: overrides.name || "Alpha",
+    started: "2026-01-01",
+    created: "2026-01-01T00:00:00.000Z",
+    updated: "2026-01-01T00:00:00.000Z",
+    onboarded: true,
+    mesocycleStatus: "active",
+    completedAt: null,
+  });
+  const log = overrides.log || [ex1LogRow(programMeta)];
   return {
     settings: {
       jumpPct: 2.5,
@@ -122,37 +135,8 @@ function sampleState(overrides = {}) {
       voiceInputEnabled: false,
       notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
     },
-    programMeta: {
-      id: overrides.programId || "prog-a",
-      name: overrides.name || "Alpha",
-      started: "2026-01-01",
-      created: "2026-01-01T00:00:00.000Z",
-      updated: "2026-01-01T00:00:00.000Z",
-      onboarded: true,
-      mesocycleStatus: "active",
-      mesocycleLengthWeeks: 6,
-      goal: null,
-      experience: null,
-      daysPerWeek: 3,
-      splitType: "full_body",
-      equipment: ["machines"],
-      priorityMuscles: [],
-      sessionLength: "45",
-      completedAt: null,
-    },
-    program: [
-      {
-        id: "ex1",
-        name: "Press",
-        day: "Day 1",
-        order: 0,
-        sets: 3,
-        min: 8,
-        max: 12,
-        primary: "Chest",
-        secondary: "",
-      },
-    ],
+    programMeta,
+    program: seedProgram(),
     log,
     programHistory: overrides.programHistory || [],
   };
@@ -380,22 +364,30 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
   await page.waitForSelector("#workoutShell:not(.hidden)");
 
 
-  const load = page.locator('#workout input[data-k$="_load"]').first();
+  // The current card's first set: its Weight and Reps metrics and its RIR.
+  const load = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${WEIGHT_METRIC}"]`);
   const loadKey = await load.getAttribute("data-k");
-  const setKey = loadKey?.replace(/_load$/, "");
-  const reps = page.locator(`[data-k="${setKey}_reps"]`);
-  const rir = page.locator(`[data-k="${setKey}_rir"]`);
+  const setKey = loadKey?.replace(`_metric_${WEIGHT_METRIC}`, "");
+  const repsKey = `${setKey}_metric_${REPS_METRIC}`;
+  const shelfFill = async (selector, field, value) => {
+    const input = page.locator(`#workout .exercise.is-current .focus-shelf ${selector}`);
+    if (await input.getAttribute("aria-hidden") === "true")
+      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`).click();
+    await input.fill(value);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  };
 
-  await load.fill("60");
-  await reps.fill("8");
-  await reps.fill("");
-  await rir.fill("1");
+  await shelfFill(`input[data-k="${loadKey}"]`, `metric_${WEIGHT_METRIC}`, "60");
+  await shelfFill(`input[data-k="${repsKey}"]`, `metric_${REPS_METRIC}`, "8");
+  await shelfFill(`input[data-k="${repsKey}"]`, `metric_${REPS_METRIC}`, "");
+  await shelfFill(`input[data-k="${setKey}_rir"]`, "rir", "1");
 
   await page.locator("#sessionSheetBtn").click();
   await page.locator("#sessionEarlyFinish").click();
   const finish = page.locator("#sessionEarlyConfirm");
   await finish.focus();
   await page.keyboard.press("Enter");
+  // A rejection that marks no field is itself the failure the check below reports.
   await page.waitForFunction(() => {
     const form = document.querySelector("#logForm");
     return (
@@ -403,7 +395,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
       !form.inert &&
       form.getAttribute("aria-busy") !== "true"
     );
-  });
+  }, undefined, { timeout: 10000 }).catch(() => {});
 
   const rejected = await page.evaluate((expectedKey) => {
     const form = document.querySelector("#logForm");
@@ -419,8 +411,9 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
       formInert: !!form.inert,
       formBusy: form.getAttribute("aria-busy"),
       finishDisabled: !!finishButton?.disabled,
+      toast: document.querySelector("#toast")?.textContent || null,
     };
-  }, `${setKey}_reps`);
+  }, repsKey);
   await page.keyboard.type("8");
   const afterEdit = await page.evaluate((expectedKey) => {
     const repsInput = document.querySelector(`[data-k="${expectedKey}"]`);
@@ -428,7 +421,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
       activeKey: document.activeElement?.dataset?.k || document.activeElement?.id || null,
       repsValue: repsInput?.value ?? null,
     };
-  }, `${setKey}_reps`);
+  }, repsKey);
 
   check(
     rejected.firstInvalidKey === rejected.expectedKey &&
@@ -1536,23 +1529,7 @@ async function installVisualHooks(context) {
 async function seedLangUnit(page, lang, unit, populated, rirMode = "numeric") {
   const blob = sampleState({
     log: populated
-      ? sampleState().log.concat([
-          {
-            session: "s2",
-            date: "2026-01-09",
-            day: "Day 1",
-            name: "Press",
-            exerciseId: "ex1",
-            set: 1,
-            load: 65,
-            reps: 9,
-            rir: 1,
-            notes: "",
-            created: "2026-01-09T00:00:00.000Z",
-            primary: "Chest",
-            secondary: "",
-          },
-        ])
+      ? sampleState().log.concat([ex1LogRow(sampleState().programMeta, { session: "s2", date: "2026-01-09", load: 65, reps: 9 })])
       : [],
   });
   blob.settings.lang = lang;
@@ -1595,22 +1572,9 @@ async function showView(page, view) {
 
 /** Seeds a program whose first slot links to a movement with licensed art. */
 async function seedIllustratedProgram(page, lang) {
+  // Leg extension is one of the movements with a licensed illustration.
   const blob = sampleState({ log: [] });
   blob.settings.lang = lang;
-  blob.program = [
-    {
-      id: "ex1",
-      name: "Hack squat machine",
-      day: "Day 1",
-      order: 0,
-      sets: 3,
-      min: 4,
-      max: 8,
-      primary: "Quads",
-      secondary: "Glutes",
-      libraryId: "sqk_mc",
-    },
-  ];
   await page.evaluate(
     async ({ k, blob }) => {
       localStorage.setItem(k, JSON.stringify(blob));
@@ -1632,7 +1596,7 @@ async function seedIllustratedProgram(page, lang) {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await page.evaluate(() => openExerciseView("ex1", "log"));
+  await page.evaluate((id) => openExerciseView(id, "log"), ILLUSTRATED_ROW.id);
   await page.waitForSelector("#exercise.view.active", { timeout: 8000 });
   await page.waitForFunction(() => {
     const img = document.querySelector(".exdet-art__img");
@@ -1838,7 +1802,8 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
     }));
     check(tail.deleteBottom <= tail.barTop, `Delete session stays reachable above the pinned bar at the end of the page (${lang})`, JSON.stringify(tail));
 
-    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("101");
+    // Seeded sessions are metric rows: the editor's load field is the Weight metric.
+    await page.locator(`.session--edit input[data-ek^="metric|"][data-ek$="|${WEIGHT_METRIC}"]`).first().fill("101");
     await page.locator("[data-edcancel]").click();
     await page.waitForSelector("#historyDiscardSheet.is-open");
     await settleAnimations(page);
@@ -1861,11 +1826,11 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
       `the discard sheet starts on Keep editing and the page behind it is inert (${lang})`, JSON.stringify(sheet));
     await page.keyboard.press("Escape");
     await page.waitForSelector("#historyDiscardSheet", { state: "hidden" });
-    const kept = await page.evaluate(() => ({
+    const kept = await page.evaluate((weight) => ({
       editing: !!document.querySelector(".session--edit"),
-      value: document.querySelector('.session--edit input[data-ek^="load|"]')?.value,
+      value: document.querySelector(`.session--edit input[data-ek^="metric|"][data-ek$="|${weight}"]`)?.value,
       focus: document.activeElement?.matches("[data-edcancel]"),
-    }));
+    }), WEIGHT_METRIC);
     check(kept.editing && kept.value === "101" && kept.focus,
       `Escape on the discard question keeps editing and returns focus to Cancel (${lang})`, JSON.stringify(kept));
     await page.locator("[data-edcancel]").click();
@@ -1947,7 +1912,7 @@ async function runTouchTarget320Regression(browser) {
       document.getAnimations().forEach((animation) => animation.finish())
     );
 
-    const layout = await page.evaluate((rirMode) => {
+    const layout = await page.evaluate(({ rirMode, metrics }) => {
       const round = (value) => +value.toFixed(2);
       const rectOf = (element) => {
         const rect = element.getBoundingClientRect();
@@ -1986,8 +1951,8 @@ async function runTouchTarget320Regression(browser) {
         targetCount: targets.length,
         targets,
         violations,
-        hasLoad: !!card.querySelector("input[data-k$=\"_load\"]"),
-        hasReps: !!card.querySelector("input[data-k$=\"_reps\"]"),
+        hasLoad: !!card.querySelector(`input[data-metric-id="${metrics.weight}"]`),
+        hasReps: !!card.querySelector(`input[data-metric-id="${metrics.reps}"]`),
         hasRirOrEffort: rirMode === "numeric" ? !!card.querySelector("input[data-k$=\"_rir\"]") : !!card.querySelector("[data-effspin]"),
         overflow: {
           document: { client: root.clientWidth, scroll: root.scrollWidth },
@@ -1997,7 +1962,7 @@ async function runTouchTarget320Regression(browser) {
           },
         },
       };
-    }, mode);
+    }, { rirMode: mode, metrics: { weight: WEIGHT_METRIC, reps: REPS_METRIC } });
 
     assert(
       layout.hasLoad && layout.hasReps && layout.hasRirOrEffort,
@@ -2051,17 +2016,9 @@ async function runDimmedStateAccessibility(browser) {
   await clearState(page);
 
   for (const lang of ["en", "pt"]) {
-    const first = sampleState().log[0];
+    const meta = sampleState().programMeta;
     const blob = sampleState({
-      log: [
-        first,
-        {
-          ...first,
-          set: 2,
-          load: 55,
-          reps: 11,
-        },
-      ],
+      log: [ex1LogRow(meta), ex1LogRow(meta, { set: 2, load: 55, reps: 11 })],
     });
     blob.settings.lang = lang;
     await page.evaluate((draftKey) => {
@@ -2551,7 +2508,7 @@ console.log("\nShared setup gate accessibility");
     });
   });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.goto(`${APP_INDEX}?shared-a11y=invalid#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${APP_INDEX}?shared-a11y=invalid#setup=v4.not+base64`, { waitUntil: "domcontentloaded" });
   await waitForFirstRun(page);
   const invalid = await page.evaluate(sharedGateSnapshot);
   assert(invalid.errorRole === "status", "invalid shared link: error is a status live region", JSON.stringify(invalid));
@@ -2726,7 +2683,7 @@ async function main() {
     await runDimmedStateAccessibility(browser);
     await runVisualAccessibility(browser);
     await runSharedSetupAccessibility(browser);
-    await runProgramEntryA11y(browser);
+    await runProgramEntryA11y(browser, assert);
   }
   await browser.close();
   console.log(`\n${results.passed} passed, ${results.failed} failed`);

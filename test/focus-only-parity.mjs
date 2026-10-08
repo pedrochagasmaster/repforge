@@ -18,10 +18,15 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 const DRAFT_KEY = "repforge_draft_v1";
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+/** The seed program's sets are metric-backed: weight and reps are metric fields, RIR its own. */
+const FIELD_SUFFIX = { _load: `_metric_${WEIGHT}`, _reps: `_metric_${REPS}`, _rir: "_rir" };
 
 const results = { passed: 0, failed: 0, gaps: 0 };
 function assert(cond, name, detail = "") {
@@ -38,7 +43,7 @@ const flushDraft = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.f
 /** One visible edit must reach the acknowledged DraftV2 without a second input. */
 async function liveField(page,keySuffix,value){
   await flushDraft(page);
-  const live=page.locator(`#workout .exercise.is-current:not(.is-peek) [data-k$="${keySuffix}"]`).first();
+  const live=page.locator(`#workout .exercise.is-current:not(.is-peek) [data-k$="${FIELD_SUFFIX[keySuffix]||keySuffix}"]`).first();
   await live.waitFor({state:"visible",timeout:5000});
   const key=await live.getAttribute("data-k");
   // Dispatch one browser input event and wait for the visible control's async
@@ -53,7 +58,9 @@ async function liveField(page,keySuffix,value){
     await page.waitForFunction(({key,value})=>{
       const target=window.__repforgeWorkoutDraft.target(key);
       const draft=window.__repforgeWorkoutDraft.current();
-      return target && String(draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.edited?.[target.field]??"")===String(value);
+      const edited=draft?.exercises?.[target?.exerciseInstanceId]?.sets?.[target?.setId]?.edited;
+      const held=target?.metricId?edited?.metrics?.[target.metricId]:edited?.[target?.field];
+      return target && String(held??"")===String(value);
     },{key,value},{timeout:5000});
   } catch (error) {
     const diagnostic = await page.evaluate(({ key, value }) => {
@@ -86,12 +93,6 @@ async function openActions(page) {
 }
 async function currentCard(page) {
   return page.locator("#workout .exercise.is-current:not(.is-peek)").first();
-}
-
-function isoDaysAgo(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
 }
 
 async function waitForBoot(page) {
@@ -146,22 +147,32 @@ async function boot(page, { lang = "en", rirMode = "numeric", restSec = 60 } = {
   await clearDraftStorage(page);
   const program = seedProgram();
   const first = program[0];
-  const previousDate = isoDaysAgo(7);
-  const previousRows = [
-    { set: 1, load: 50, reps: 10, rir: 2 },
-    { set: 2, load: 52.5, reps: 8, rir: 1 },
-  ].map((set) => ({
-    session: `${previousDate}_${first.day}_seed`, date: previousDate, day: first.day,
-    name: first.name, exerciseId: first.id, ...set, notes: "",
-    created: `${previousDate}T12:00:00.000Z`, primary: first.primary, secondary: first.secondary,
-  }));
   await persist(page, `
     s.settings = { ...(s.settings || {}), voiceInputEnabled: true, lang: ${JSON.stringify(lang)}, rirMode: ${JSON.stringify(rirMode)}, restSec: ${restSec} };
     s.program = ${JSON.stringify(program)};
     s.programMeta = ${JSON.stringify(seedProgramMeta())};
-    s.log = ${JSON.stringify(previousRows)};`);
+    s.log = [];`);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForBoot(page);
+  // The previous session is logged and finished through the product, so its
+  // history rows are the canonical metric-backed rows Focus reads back.
+  await page.evaluate(async ({ id, weight, reps }) => {
+    await window.__repforgeEnterWorkout({ day: "Day 1" });
+    const api = window.__repforgeWorkoutDraft, exercise = api.current().exercises[id];
+    for (const [index, [load, count, rir]] of [["50", "10", "2"], ["52.5", "8", "1"]].entries()) {
+      const setId = exercise.setOrder[index];
+      await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: weight, value: load });
+      await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: reps, value: count });
+      await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "rir", value: rir });
+      await api.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
+    }
+    await api.flush();
+  }, { id: first.id, weight: WEIGHT, reps: REPS });
+  const previous = await finishEarly(page);
+  if (previous?.committed !== true) throw new Error(`previous session did not save: ${JSON.stringify(previous)}`);
+  await page.evaluate(() => window.closeSessionSummary?.());
+  await clearDraftStorage(page);
+  await reload(page);
 }
 
 async function reload(page) {
@@ -172,11 +183,12 @@ async function reload(page) {
 /** Enter Focus through the production entry path and park on a card. */
 async function enterFocus(page, index = 0) {
   await page.evaluate(async (i) => {
-    await window.__repforgeEnterWorkout({});
+    await window.__repforgeEnterWorkout({ day: "Day 1" });
     window.__repforgeFocus.to(i);
   }, index);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
-  await page.waitForTimeout(140);
+  await page.waitForFunction((i) => window.__repforgeFocus.at() === i &&
+    document.querySelector("#workout .exercise.is-current")?.dataset.ex === window.__repforgeFocus.list()[i]?.id, index, { timeout: 5000 });
 }
 
 /** One completion click must acknowledge the exact active set. */
@@ -184,7 +196,7 @@ async function commitActiveSet(page,{load=60,reps=8,rir=2}={}){
   await liveField(page,"_load",load);
   await liveField(page,"_reps",reps);
   await liveField(page,"_rir",rir);
-  const key=await page.locator("#workout .exercise.is-current .focus-shelf [data-k$='_load']").getAttribute("data-k");
+  const key=await page.locator(`#workout .exercise.is-current .focus-shelf [data-k$="_metric_${WEIGHT}"]`).getAttribute("data-k");
   await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
   await flushDraft(page);
   await page.waitForFunction(key=>{
@@ -196,7 +208,7 @@ async function commitActiveSet(page,{load=60,reps=8,rir=2}={}){
 }
 
 /** The acknowledged DraftV2 facts for one exercise, read from the projection. */
-const exerciseFacts = (page, id) => page.evaluate((exId) => {
+const exerciseFacts = (page, id) => page.evaluate(({ exId, weight, reps }) => {
   const draft = window.__repforgeWorkoutDraft.current();
   const ex = draft?.exercises?.[exId];
   if (!ex) return null;
@@ -213,10 +225,10 @@ const exerciseFacts = (page, id) => page.evaluate((exId) => {
     sets: ex.setOrder.map((setId) => {
       const set = ex.sets[setId];
       return { ordinal: set.ordinal, role: set.role, completion: set.completion === "pending" ? "pending" : "done",
-        load: set.edited.load, reps: set.edited.reps, rir: set.edited.rir, effort: set.edited.effort };
+        load: set.edited.metrics?.[weight] ?? null, reps: set.edited.metrics?.[reps] ?? null, rir: set.edited.rir, effort: set.edited.effort };
     }),
   };
-}, id);
+}, { exId: id, weight: WEIGHT, reps: REPS });
 
 async function main() {
   const browser = await launchChromium();
@@ -293,17 +305,17 @@ async function main() {
     const typed = await exerciseFacts(page, first.id);
     assert(typed.sets[0].load === "62.5" && typed.sets[0].reps === "9" && typed.sets[0].rir === "3",
       "typed field values land in the DraftV2 projection", JSON.stringify({ before, typed }));
-    const loadStep = await page.evaluate(() => {
+    const loadStep = await page.evaluate((weight) => {
       const card = document.querySelector("#workout .exercise.is-current:not(.is-peek)");
       // A first tap selects the load field (rebuilding the shelf), and the pads follow it.
-      card.querySelector("[data-shelf-field='load']").click();
-      const input = card.querySelector("[data-k$='_load']");
+      card.querySelector(`[data-shelf-field='metric_${weight}']`).click();
+      const input = card.querySelector(`[data-k$='_metric_${weight}']`);
       const before = input.value;
       card.querySelector(".shelf__pad[data-dir='1']").click();
-      return { before, after: card.querySelector("[data-k$='_load']").value,
-        unit: card.querySelector(".shelf__field[data-field='load'] .shelf__lab")?.textContent?.trim() };
-    });
-    assert(loadStep.after !== loadStep.before && /kg$/.test(loadStep.unit || ""),
+      return { before, after: card.querySelector(`[data-k$='_metric_${weight}']`).value,
+        unit: card.querySelector(`.shelf__field[data-metric='${weight}'] .shelf__lab`)?.textContent?.trim() };
+    }, WEIGHT);
+    assert(loadStep.after !== loadStep.before && /\bkg\b/.test(loadStep.unit || ""),
       "the visible load pad nudges the live field and the unit is named", JSON.stringify(loadStep));
     const invalid = await (async () => {
       await liveField(page, "_reps", "abc");
@@ -372,11 +384,14 @@ async function main() {
       "day context, target text, and the Why control are all visible on the card", JSON.stringify(contextFacts.head));
     await page.locator("#workout .exercise.is-current [data-why]").click();
     await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    // The seed program is manual: no engine target, and the sheet says the program owns the load.
     const why = await page.evaluate(() => ({
-      target: document.querySelector("#whyTarget")?.textContent?.trim(),
-      body: document.querySelector("#whyBody")?.textContent?.trim().length,
+      targetHidden: document.querySelector("#whyTarget")?.classList.contains("hidden"),
+      body: document.querySelector("#whyBody")?.textContent?.trim(),
+      manual: window.RepForgeI18n.t("why.manual"),
     }));
-    assert(why.target && why.body > 0, "Why this weight? opens with the engine's facts and copy", JSON.stringify(why));
+    assert(why.targetHidden && why.body?.includes(why.manual),
+      "Why this weight? opens on a manual program with no invented target and the manual explanation", JSON.stringify(why));
     await page.evaluate(() => window.closeWhySheet?.());
     await page.waitForSelector("#whySheet", { state: "hidden", timeout: 5000 });
 
@@ -454,18 +469,18 @@ async function main() {
     // Complete all preceding exercises so the final exercise completes the workout
     for (let i = 0; i < dayExercises.length - 1; i++) {
       const ex = dayExercises[i];
-      await page.evaluate(async (exId) => {
+      await page.evaluate(async ({ exId, weight, reps }) => {
         const draft = window.__repforgeWorkoutDraft.current();
         const exercise = draft?.exercises?.[exId];
         if (!exercise) return;
         for (const setId of exercise.setOrder) {
-          await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "load", value: "50" });
-          await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "reps", value: "10" });
+          await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { exerciseInstanceId: exId, setId, metricId: weight, value: "50" });
+          await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { exerciseInstanceId: exId, setId, metricId: reps, value: "10" });
           await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "rir", value: "2" });
           await window.__repforgeWorkoutDraft.dispatch("completeSet", { exerciseInstanceId: exId, setId, completedAt: new Date().toISOString() });
         }
         await window.__repforgeWorkoutDraft.flush();
-      }, ex.id);
+      }, { exId: ex.id, weight: WEIGHT, reps: REPS });
     }
     await enterFocus(page, dayExercises.length - 1);
     const lastId = lastOfDay.id;
@@ -513,7 +528,8 @@ async function main() {
     await page.evaluate(() => window.__voiceTest.onresult({ results: [[{ transcript: "80 x 8 @2" }]] }));
     await flushDraft(page);
     const spoken = await exerciseFacts(page, second.id);
-    assert(spoken.sets[0].load === "80" && spoken.sets[0].reps === "8", "recognized voice edits the active exercise through DraftV2");
+    assert(spoken.sets[0].load === "80" && spoken.sets[0].reps === "8",
+      "recognized voice edits the active exercise's weight and reps through DraftV2", JSON.stringify(spoken.sets[0]));
 
     /* ---- Mode-route absence (055-P7) ---- */
     phase("Mode route absence: no mode toggle/switch exists; active workouts always Focus");

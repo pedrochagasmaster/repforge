@@ -5,6 +5,8 @@ import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 const stateKey = "repforge_v1";
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
 
 async function waitForApp(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 15000 });
@@ -22,17 +24,18 @@ async function freshWorkout(browser) {
 }
 
 async function completeSet(page, exerciseInstanceId, setId) {
-  await page.evaluate(async ({ exerciseInstanceId, setId }) => {
-    for (const [field, value] of [["load", "62.5"], ["reps", "8"], ["rir", "2"]]) {
-      await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId, setId, field, value });
+  await page.evaluate(async ({ exerciseInstanceId, setId, weight, reps }) => {
+    for (const [metricId, value] of [[weight, "62.5"], [reps, "8"]]) {
+      await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { exerciseInstanceId, setId, metricId, value });
     }
+    await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId, setId, field: "rir", value: "2" });
     await window.__repforgeWorkoutDraft.dispatch("completeSet", {
       exerciseInstanceId,
       setId,
       completedAt: new Date().toISOString(),
     });
     await window.__repforgeWorkoutDraft.flush();
-  }, { exerciseInstanceId, setId });
+  }, { exerciseInstanceId, setId, weight: WEIGHT, reps: REPS });
 }
 
 async function draftTargets(page) {
@@ -50,7 +53,7 @@ try {
     const [first] = await draftTargets(page);
     await completeSet(page, first.exerciseInstanceId, first.setId);
     await page.evaluate(() => window.__repforgeFocus.to(0));
-    const reps = page.locator("#workout .exercise.is-current:not(.is-peek) [data-k$='_reps']").first();
+    const reps = page.locator(`#workout .exercise.is-current:not(.is-peek) [data-metric-id="${REPS}"]`).first();
     await reps.focus();
     await reps.press("Enter");
     await page.waitForFunction(() => {

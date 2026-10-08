@@ -161,6 +161,8 @@ async function main() {
     await settle(page);
 
     // ---- artwork contract ----
+    // The catalog's 1,345 rows arrive in chunks after the first screenfuls.
+    await page.waitForFunction(() => document.querySelectorAll("#libList .librow").length >= 1345, undefined, { timeout: 15000 });
     const media = await page.evaluate(() => ({
       rows: document.querySelectorAll("#libList .librow").length,
       images: document.querySelectorAll("#libList img.exthumb").length,

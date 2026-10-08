@@ -942,13 +942,17 @@ body.is-focus-wo .restbar{display:none!important}
 /* Exercise progress: one segment per exercise, each a button into that exercise.
    The bar is drawn inside a 44px target. */
 #woProgress{margin:0}
-.segbar--ex{gap:var(--space-8);margin:0}
+/* Targets touch; the gap between segments is drawn by insetting each bar, so a
+   six-exercise day still gives every segment a full 44px target at 320px. A
+   longer day scrolls rather than shrinking its targets. */
+.segbar--ex{gap:0;margin:0;overflow-x:auto;scrollbar-width:none}
+.segbar--ex::-webkit-scrollbar{display:none}
 #woProgress .segbar__seg{
-  position:relative;flex:1 1 0;min-width:0;height:var(--control-target);margin:0;padding:0;border:0;border-radius:var(--radius-none);
+  position:relative;flex:1 0 var(--control-target);min-width:var(--control-target);height:var(--control-target);margin:0;padding:0;border:0;border-radius:var(--radius-none);
   background:var(--control-quiet-bg);cursor:pointer;
 }
 #woProgress .segbar__bar{
-  position:absolute;left:0;right:0;top:50%;height:5px;margin-top:-2px;border-radius:var(--radius-compact);background:var(--boundary-required);
+  position:absolute;left:var(--space-4);right:var(--space-4);top:50%;height:5px;margin-top:-2px;border-radius:var(--radius-compact);background:var(--boundary-required);
 }
 #woProgress .segbar__seg.is-done .segbar__bar{background:var(--color-ink)}
 #woProgress .segbar__seg.is-current .segbar__bar{background:var(--color-action)}

@@ -26,7 +26,7 @@
  *   table and search; Progress overview, Strength, Volume drill-down, records,
  *   block review and the exercise chart; the exercise page; the Program
  *   overview, text export and editor labels; the entry previews (recommend,
- *   custom, browse, import review and import preview) and the shared-link preview.
+ *   custom, import review and import preview) and the shared-link preview.
  * What it must never touch is held to the byte: the stored program and log, the
  * setup link, telemetry properties, and the name field of the program editor.
  *
@@ -40,6 +40,7 @@
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -61,33 +62,42 @@ function assert(cond, name, detail) {
 }
 const phase = (n) => console.log(`\n${n}`);
 
-/** Library movements with their stored (English) and displayed (Portuguese) names. */
+/**
+ * Catalog movements with their stored (English) and displayed (Portuguese) names. Each is a
+ * Weight+Reps movement, so its history is the metric rows a finished workout commits. The
+ * catalog ids are resolved by exact canonical name when the fixture is built.
+ */
 const LIB = {
-  sq: { id: "sq_bb", en: "Barbell back squat", pt: "Agachamento livre com barra" },
-  pr: { id: "pr_bb", en: "Barbell bench press", pt: "Supino com barra" },
-  pd: { id: "pd_bw", en: "Assisted pull-up", pt: "Barra fixa assistida" },
-  dl: { id: "dl_bb", en: "Barbell deadlift", pt: "Levantamento terra com barra" },
-  le: { id: "le_mc", en: "Leg extension", pt: "Cadeira extensora" },
-  lr: { id: "lr_db", en: "Dumbbell lateral raise", pt: "Elevação lateral com halteres" },
+  sq: { id: null, en: "Barbell back squat", pt: "Agachamento livre com barra" },
+  pr: { id: null, en: "Barbell bench press", pt: "Supino reto com barra" },
+  pd: { id: null, en: "Dual handle cable lat pulldown", pt: "Puxada frontal na polia com pegadores separados" },
+  dl: { id: null, en: "Barbell Romanian deadlift", pt: "Levantamento terra romeno com barra" },
+  le: { id: null, en: "Leg extension", pt: "Cadeira extensora" },
+  lr: { id: null, en: "Band lateral raise", pt: "Elevação lateral com elástico" },
 };
 const LINKED = Object.keys(LIB);
 /** The lifter renamed this one: its stored name is an alias, never the library's. */
-const RENAMED = { id: "cu_bb", stored: "Rosca do Joao", libraryEn: "Barbell curl", libraryPt: "Rosca com barra" };
+const RENAMED = { id: null, stored: "Rosca do Joao", libraryEn: "Barbell biceps curl", libraryPt: "Rosca com barra" };
 /** A custom exercise with its own Portuguese name: one name on every surface (R7 J-07). */
 const CUSTOM = { id: "custom:sled-push", stored: "Sled push", pt: "Empurrar treno" };
-/** Unlinked: no library id, so nothing resolves it, even though the library has a movement of this very name. */
-const UNLINKED = { stored: "Seated leg curl", libraryPt: "Cadeira flexora" };
 
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+const WEIGHT_REPS = [
+  { id: WEIGHT, sourceName: "Weight", semantic: "loadKg", unit: "kg" },
+  { id: REPS, sourceName: "Reps", semantic: "reps", unit: "reps" },
+];
+
+// [slot id, stored name, catalog movement (English canonical name) or custom id]
 const SLOTS = [
-  ["sq", LIB.sq.en, LIB.sq.id, "Quads", "Glutes"],
-  ["pr", LIB.pr.en, LIB.pr.id, "Chest", "Triceps"],
-  ["lc", UNLINKED.stored, null, "Hamstrings", ""],
-  ["pd", LIB.pd.en, LIB.pd.id, "Lats", "Biceps"],
-  ["dl", LIB.dl.en, LIB.dl.id, "Hamstrings", "Glutes"],
-  ["cu", RENAMED.stored, RENAMED.id, "Biceps", ""],
-  ["sl", CUSTOM.stored, CUSTOM.id, "Quads", ""],
-  ["le", LIB.le.en, LIB.le.id, "Quads", ""],
-  ["lr", LIB.lr.en, LIB.lr.id, "Side delts", ""],
+  ["sq", LIB.sq.en, LIB.sq.en],
+  ["pr", LIB.pr.en, LIB.pr.en],
+  ["pd", LIB.pd.en, LIB.pd.en],
+  ["dl", LIB.dl.en, LIB.dl.en],
+  ["cu", RENAMED.stored, RENAMED.libraryEn],
+  ["sl", CUSTOM.stored, CUSTOM.id],
+  ["le", LIB.le.en, LIB.le.en],
+  ["lr", LIB.lr.en, LIB.lr.en],
 ];
 
 function isoDaysAgo(n) {
@@ -96,30 +106,60 @@ function isoDaysAgo(n) {
   return d.toISOString().slice(0, 10);
 }
 
-/** The unlinked exercise cannot be shared (a link names movements by identity), so the setup-link phase leaves it out. */
-let withUnlinked = true;
+/** The canonical program, its rows and the custom movement, built once by the app's own Build definition. */
+let BUILT = null;
 
-function program() {
-  return SLOTS.filter(([id]) => withUnlinked || id !== "lc").map(([id, name, libraryId, primary, secondary], i) => ({
-    id, day: "Day 1", order: i + 1, name, sets: 2, min: 6, max: 10, primary, secondary, notes: "", alternates: [],
-    ...(libraryId ? { libraryId } : {}),
-    ...(id === "cu" ? { displayName: RENAMED.stored } : {}),
-  }));
+async function buildProgram(browser) {
+  const { context, page } = await openApp(browser, "en", { seeded: false });
+  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.(), undefined, { timeout: 15000 });
+  BUILT = await page.evaluate(({ slots, custom, metrics, started }) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const byName = new Map(catalog.exercises.map((entry) => [entry.name, entry]));
+    const customs = [{
+      id: custom.id, name: custom.stored, namePt: custom.pt, archived: false, equipment: ["machine"],
+      primary: "Quads", secondary: "", notes: "", created: "2026-07-01T00:00:00.000Z",
+      metricIds: metrics.map((metric) => metric.id), metricDefinitions: metrics,
+    }];
+    const ids = {};
+    const rows = slots.map(([id, name, movement], index) => {
+      const libraryId = movement.startsWith("custom:") ? movement : byName.get(movement)?.id;
+      if (!libraryId) throw new Error(`catalog has no movement named ${movement}`);
+      ids[movement] = libraryId;
+      return { id, day: "Day 1", order: index + 1, name, ...(name !== movement ? { displayName: name } : {}),
+        libraryId, sets: 2, min: 6, max: 10, notes: "" };
+    });
+    const definition = manualProgramDefinitionFromRows(rows, ["Day 1"], customs);
+    if (!definition) throw new Error("the app rejected the display-name program");
+    const programMeta = {
+      id: "prog-display-names", name: "Display names", started,
+      created: "2026-07-01T00:00:00.000Z", updated: "2026-07-01T00:00:00.000Z",
+      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: definition.cycles, goal: null, experience: null,
+      daysPerWeek: 1, splitType: null, equipment: [], priorityMuscles: [], sessionLength: null, completedAt: null,
+      progressionRelations: [], progressionModifiers: [], progressionIncompatibilities: [], entrySource: null,
+      programDefinition: definition,
+    };
+    return { ids, program: durableProgramRows(definition, customs, programMeta), programMeta, customExercises: customs };
+  }, { slots: SLOTS, custom: CUSTOM, metrics: WEIGHT_REPS, started: isoDaysAgo(21) });
+  for (const lib of Object.values(LIB)) lib.id = BUILT.ids[lib.en];
+  RENAMED.id = BUILT.ids[RENAMED.libraryEn];
+  await context.close();
 }
 
-/** Four past sessions of the one day, written the way an English install wrote them. */
+function program() {
+  return structuredClone(BUILT.program);
+}
+
+/** Four past sessions of the one day, written the way an English install commits them. */
 function logRows() {
   const rows = [];
   [14, 10, 7, 3].forEach((ago, si) => {
     const date = isoDaysAgo(ago), session = `${date}_Day 1_seed${si}`;
     for (const slot of program()) {
       for (let set = 1; set <= 2; set++) {
-        rows.push({
-          session, date, day: "Day 1", name: slot.name, exerciseId: slot.id, set,
-          load: 40 + si * 5 + slot.order * 5, reps: 8, rir: 2, notes: "", created: `${date}T12:00:00.000Z`,
-          primary: slot.primary, secondary: slot.secondary, performedName: slot.name,
-          ...(slot.libraryId ? { performedLibraryId: slot.libraryId } : {}),
-        });
+        rows.push(metricLogRow(BUILT.programMeta, slot, {
+          session, date, day: "Day 1", set, load: 40 + si * 5 + slot.order * 5, reps: 8, rir: 2,
+          created: `${date}T12:00:00.000Z`,
+        }));
       }
     }
   });
@@ -133,20 +173,11 @@ function fixture(lang) {
       rirMode: "numeric", voiceInputEnabled: false,
       notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
     },
-    programMeta: {
-      id: "prog-display-names", name: "Display names", started: isoDaysAgo(21),
-      created: "2026-07-01T00:00:00.000Z", updated: "2026-07-01T00:00:00.000Z",
-      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6, goal: null, experience: null,
-      daysPerWeek: 3, splitType: "full_body", equipment: ["barbell"], priorityMuscles: [],
-      sessionLength: "60", completedAt: null,
-    },
+    programMeta: structuredClone(BUILT.programMeta),
     program: program(),
     log: logRows(),
     programHistory: [],
-    customExercises: [{
-      id: CUSTOM.id, name: CUSTOM.stored, namePt: CUSTOM.pt, archived: false, equipment: ["machine"],
-      primary: "Quads", secondary: "", notes: "", created: "2026-07-01T00:00:00.000Z",
-    }],
+    customExercises: structuredClone(BUILT.customExercises),
   };
 }
 
@@ -260,8 +291,8 @@ const ptGone = (ids = LINKED) => ids.map((id) => LIB[id].en);
 const customShown = (pt) => (pt ? CUSTOM.pt : CUSTOM.stored);
 const customGone = (pt) => (pt ? [CUSTOM.stored] : []);
 /** The names that must never be touched, wherever they appear. */
-const kept = () => [RENAMED.stored, ...(withUnlinked ? [UNLINKED.stored] : [])];
-const never = () => [RENAMED.libraryPt, RENAMED.libraryEn, ...(withUnlinked ? [UNLINKED.libraryPt] : [])];
+const kept = () => [RENAMED.stored];
+const never = () => [RENAMED.libraryPt, RENAMED.libraryEn];
 
 /** Wrap the telemetry boundary with a recording adapter: every event the app emits lands here. */
 async function recordTelemetry(page) {
@@ -353,8 +384,11 @@ async function visitFocus(page, { pt, label }) {
 
 async function logSet(page, exId, n, load, reps, rir) {
   const card = `#workout .exercise.is-current`;
-  for (const [field, value] of [["load", load], ["reps", reps], ["rir", rir]]) {
-    await page.locator(`${card} [data-k="${exId}_${n}_${field}"]`).fill(String(value));
+  for (const [field, value] of [[`metric_${WEIGHT}`, load], [`metric_${REPS}`, reps], ["rir", rir]]) {
+    const input = page.locator(`${card} [data-k="${exId}_${n}_${field}"]`);
+    if (await input.getAttribute("aria-hidden") === "true")
+      await page.locator(`${card} .focus-shelf [data-shelf-field="${field}"]`).click();
+    await input.fill(String(value));
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
   await page.locator(`${card} [data-save="${exId}_${n}"]`).click();
@@ -449,7 +483,7 @@ async function visitProgress(page, { pt, label }) {
   const review = await joined(page, ".review__outcomes");
   expectNames(`${label} Progress block review outcomes`, review, { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
   await page.locator('#statsSeg [data-seg="overview"]').click();
-  await page.locator('#overviewStrength button[data-ovkey="library:sq_bb"]').click();
+  await page.locator(`#overviewStrength button[data-ovkey="library:${LIB.sq.id}"]`).click();
   await page.waitForSelector("#exercise.view.active .exchart__title");
   const chartTitle = await joined(page, "#exDetail .exchart__title");
   const chartAria = (await attrs(page, "#exDetail .exchart__plot", "aria-label")).join(" | ");
@@ -518,52 +552,49 @@ async function checkPreviewReadsPortuguese(page, label, { expectLinked = 1 } = {
   assert(before === after, `${label}: reading the preview leaves the staged data byte-identical`);
 }
 
+const entryStep = (page) => page.evaluate(() => window.__repforgeEntryState?.()?.step);
+const waitStep = (page, steps) => page.waitForFunction((wanted) => wanted.includes(window.__repforgeEntryState?.()?.step), steps, { timeout: 15000 });
+
+/** Generate: goal on the hub, then experience, schedule and environment; the priorities step keeps its defaults. */
 async function walkRecommend(page) {
   await page.click("#firstRunCreate");
   await page.click('[data-entry-route="recommend"][data-entry-goal="balanced"]');
+  await waitStep(page, ["background"]);
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
+  await waitStep(page, ["schedule"]);
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
   await page.click("#onbNext");
+  await waitStep(page, ["environment"]);
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
-  await page.click("#onbNext");
+  await waitStep(page, ["priorities", "result"]);
+  if (await entryStep(page) === "priorities") await page.click("#onbNext");
+  await waitStep(page, ["result"]);
 }
 
 async function walkCustom(page) {
   await page.click("#firstRunCreate");
   await page.click('[data-entry-route="custom"]');
+  await waitStep(page, ["desired_result"]);
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
   await page.click("#onbNext");
+  await waitStep(page, ["background"]);
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
+  await waitStep(page, ["schedule"]);
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
   await page.click("#onbNext");
+  await waitStep(page, ["environment"]);
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
   // The remaining custom questions are optional: take the default answer to each until the review opens.
-  for (let step = 0; step < 8 && !(await page.locator("#entryActivate").count()); step++) {
+  for (let step = await entryStep(page); step !== "result"; step = await entryStep(page)) {
     await page.click("#onbNext");
-    await page.waitForTimeout(250);
+    await page.waitForFunction((from) => window.__repforgeEntryState?.()?.step !== from, step, { timeout: 15000 });
   }
-}
-
-async function walkBrowse(page) {
-  await page.click("#firstRunCreate");
-  await page.click('[data-entry-route="browse"]');
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await page.waitForSelector('[data-entry-catalogue="growth_4_v1"]', { timeout: 15000 });
-  await page.click('[data-entry-catalogue="growth_4_v1"]');
 }
 
 async function walkImport(page) {
@@ -582,6 +613,7 @@ async function walkImport(page) {
 async function run() {
   const browser = await launchChromium();
   try {
+    await buildProgram(browser);
     phase("Portuguese: stored English names, English log. The lifter reads the library's Portuguese names");
     {
       const { context, page, pageErrors } = await openApp(browser, "pt");
@@ -605,7 +637,7 @@ async function run() {
       assert(before.local === after.local && before.idb === after.idb,
         "the stored program and log are byte-identical before and after visiting every surface");
       const storedNow = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
-      const keptStored = storedNow.log.filter((row) => row.performedLibraryId === "sq_bb").every((row) => row.name === LIB.sq.en && row.performedName === LIB.sq.en);
+      const keptStored = storedNow.log.filter((row) => row.performedLibraryId === LIB.sq.id).every((row) => row.name === LIB.sq.en && row.performedName === LIB.sq.en);
       assert(keptStored, "no log row was rewritten into Portuguese");
       assert(storedNow.program.find((e) => e.id === "cu").name === RENAMED.stored, "the renamed exercise keeps its stored name");
 
@@ -622,7 +654,7 @@ async function run() {
       }), "the session just logged stores the slot's own stored name: display never writes a name of its own");
 
       const events = await page.evaluate(() => window.__rf10Events);
-      const everyPt = [...Object.values(LIB).map((m) => m.pt), RENAMED.libraryPt, UNLINKED.libraryPt, CUSTOM.pt];
+      const everyPt = [...Object.values(LIB).map((m) => m.pt), RENAMED.libraryPt, CUSTOM.pt];
       assert(events.length > 0, "telemetry was observed while the surfaces were visited", `events=${events.length}`);
       const leaked = events.filter((entry) => everyPt.some((name) => JSON.stringify(entry).includes(name)));
       assert(leaked.length === 0, "no telemetry property carries a Portuguese exercise name", JSON.stringify(leaked.slice(0, 2)));
@@ -643,7 +675,7 @@ async function run() {
         }
         render();
       }, LIB);
-      const held = await page.evaluate(() => state.program.filter((e) => e.libraryId === "sq_bb").map((e) => e.name));
+      const held = await page.evaluate((sq) => state.program.filter((e) => e.libraryId === sq).map((e) => e.name), LIB.sq.id);
       assert(held[0] === LIB.sq.en, "the program holds the English stored name", JSON.stringify(held));
       await page.waitForTimeout(300);
       await visitToday(page, { pt: true, label: "PT (English stored)" });
@@ -676,7 +708,6 @@ async function run() {
 
     phase("The setup link is the same before and after the lifter visits every surface");
     {
-      withUnlinked = false;
       quiet = true;
       for (const lang of ["pt", "en"]) {
         const { context, page } = await openApp(browser, lang);
@@ -697,7 +728,6 @@ async function run() {
         quiet = true;
         await context.close();
       }
-      withUnlinked = true;
       quiet = false;
     }
 
@@ -742,7 +772,7 @@ async function run() {
     }
 
     phase("Portuguese: the entry previews read the library's Portuguese names, and the staged data stays English");
-    for (const [route, walk] of [["recommend", walkRecommend], ["custom", walkCustom], ["browse", walkBrowse]]) {
+    for (const [route, walk] of [["recommend", walkRecommend], ["custom", walkCustom]]) {
       const { context, page } = await openApp(browser, "pt", { seeded: false });
       await walk(page);
       await checkPreviewReadsPortuguese(page, `PT ${route} preview`);
@@ -761,11 +791,9 @@ async function run() {
     }
     {
       // A link made in a Portuguese session opens a Portuguese shared preview.
-      withUnlinked = false;
       const maker = await openApp(browser, "pt");
       const link = await shareLink(maker.page);
       await maker.context.close();
-      withUnlinked = true;
       const { context, page } = await openApp(browser, "pt", { seeded: false });
       const hash = new URL(link).hash;
       await page.goto(`${BASE}${hash}`, { waitUntil: "domcontentloaded" });
