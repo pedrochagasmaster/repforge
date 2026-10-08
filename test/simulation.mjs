@@ -7760,6 +7760,9 @@ async function main() {
     await pwaContext.setOffline(true);
 
     const offlineNav = await pwaPage.goto(origin, { waitUntil: "domcontentloaded" });
+    // The offline boot reads the catalog detail asset from the cache before the
+    // app is usable; navigation probes wait for that boot like every other load.
+    await waitForApp(pwaPage);
     assert(
       !!offlineNav && offlineNav.fromServiceWorker(),
       "Offline navigation is served from the service worker",
