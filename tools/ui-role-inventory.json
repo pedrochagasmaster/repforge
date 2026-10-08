@@ -93,11 +93,6 @@
       "content": "flat",
       "scenario": "Environment shortcuts with the capability correction disclosure closed."
     },
-    "onboarding-recommend/environment-correction": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "The capability correction disclosure open."
-    },
     "onboarding-recommend/priorities": {
       "owner": "plan-054",
       "content": "flat",
@@ -162,26 +157,6 @@
       "owner": "plan-054",
       "content": "flat",
       "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation."
-    },
-    "onboarding-browse/schedule": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Days per week and session length, the only questions Browse asks."
-    },
-    "onboarding-browse/environment": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Environment shortcuts before the catalogue is filtered."
-    },
-    "onboarding-browse/catalogue": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Released, complete, tested programs with purpose, frequency and mismatches."
-    },
-    "onboarding-browse/preview": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "The common review surface for a catalogue program."
     },
     "onboarding-build/setup": {
       "owner": "plan-054",
@@ -298,11 +273,6 @@
       "content": "flat",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
     },
-    "today/mixed-strategies": {
-      "owner": "plan-064/r3b",
-      "content": "flat",
-      "scenario": "The Direction D mixed day: anchor and back-off, rep goal, fixed effort, a manual slot in soft ink with no mark, a custom exercise and a lift with a set logged without RIR."
-    },
     "today/rest-bar": {
       "owner": "plan-058",
       "content": "flat",
@@ -368,16 +338,6 @@
       "content": "flat",
       "scenario": "Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set."
     },
-    "workout/why-rep-goal": {
-      "owner": "plan-064/r3g",
-      "content": "flat",
-      "scenario": "Rep goal: the total, the effort gate and how the reps split."
-    },
-    "workout/why-anchor": {
-      "owner": "plan-064/r3g",
-      "content": "flat",
-      "scenario": "Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets."
-    },
     "workout/why-manual": {
       "owner": "plan-064/r3g",
       "content": "flat",
@@ -402,11 +362,6 @@
       "owner": "plan-064/r3h",
       "content": "flat",
       "scenario": "Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine."
-    },
-    "session/summary-mixed": {
-      "owner": "plan-064/r3h",
-      "content": "flat",
-      "scenario": "The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records."
     },
     "progress/overview": {
       "owner": "plan-056",
@@ -653,16 +608,6 @@
       "content": "flat",
       "scenario": "The setup-link share sheet."
     },
-    "program/share-one-blocker": {
-      "owner": "plan-057",
-      "content": "flat",
-      "scenario": "The share sheet names one unresolved exercise and keeps copy/share unavailable."
-    },
-    "program/share-repair-return": {
-      "owner": "plan-057",
-      "content": "flat",
-      "scenario": "The custom repair path has been cancelled and returns directly to the blocked Share sheet."
-    },
     "program/share-ready": {
       "owner": "plan-057",
       "content": "flat",
@@ -842,6 +787,16 @@
       "owner": "plan-064/r4b",
       "content": "flat",
       "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers."
+    },
+    "catalog-recovery/unavailable": {
+      "owner": "plan-067",
+      "content": "flat",
+      "scenario": "The required offline exercise catalog fails to load. Saved data remains in place and a blocking retry dialog explains what happened."
+    },
+    "catalog-recovery/retry-failed": {
+      "owner": "plan-067",
+      "content": "flat",
+      "scenario": "The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available."
     }
   },
   "components": [
@@ -913,8 +868,7 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ]
     },
     {
@@ -1159,7 +1113,6 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/preview",
         "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
@@ -1235,7 +1188,6 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/preview",
         "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
@@ -1799,7 +1751,6 @@
       "rationale": "Discards the staged program proposal and returns to the entry start.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/preview",
         "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
@@ -3640,10 +3591,6 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/catalogue",
-        "onboarding-browse/environment",
-        "onboarding-browse/preview",
-        "onboarding-browse/schedule",
         "onboarding-build/setup",
         "onboarding-custom/background",
         "onboarding-custom/desired-result",
@@ -3666,7 +3613,6 @@
         "onboarding-recommend/background",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
@@ -3706,7 +3652,6 @@
         "onboarding-recommend/background",
         "onboarding-recommend/schedule",
         "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
         "onboarding-recommend/avoidance-pain",
         "onboarding-recommend/result",
@@ -3720,10 +3665,6 @@
         "onboarding-custom/priorities",
         "onboarding-custom/exercise-preferences",
         "onboarding-custom/result",
-        "onboarding-browse/schedule",
-        "onboarding-browse/environment",
-        "onboarding-browse/catalogue",
-        "onboarding-browse/preview",
         "onboarding-build/setup",
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
@@ -3767,8 +3708,6 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/environment",
-        "onboarding-browse/schedule",
         "onboarding-build/setup",
         "onboarding-custom/background",
         "onboarding-custom/desired-result",
@@ -3780,7 +3719,6 @@
         "onboarding-recommend/background",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
         "onboarding-recommend/schedule",
         "onboarding-recovery/rules-drift",
@@ -3804,10 +3742,6 @@
       "rationale": "Progress dimension task; scope: entry route and step.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/catalogue",
-        "onboarding-browse/environment",
-        "onboarding-browse/preview",
-        "onboarding-browse/schedule",
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
@@ -3834,7 +3768,6 @@
         "onboarding-recommend/background",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
@@ -3877,8 +3810,7 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ]
     },
     {
@@ -4101,9 +4033,7 @@
         "program/no-program",
         "program/overview",
         "program/progression-editor",
-        "program/share-one-blocker",
         "program/share-ready",
-        "program/share-repair-return",
         "program/share-setup",
         "program/text-export"
       ],
@@ -4890,7 +4820,6 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed",
         "session/summary-first"
       ]
     },
@@ -4914,7 +4843,6 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed",
         "session/summary-first"
       ],
       "progressScopes": {
@@ -4939,7 +4867,6 @@
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed",
         "session/summary-first"
       ]
     },
@@ -5009,9 +4936,7 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/share-one-blocker",
         "program/share-ready",
-        "program/share-repair-return",
         "program/share-setup"
       ]
     },
@@ -5073,9 +4998,7 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/share-one-blocker",
         "program/share-ready",
-        "program/share-repair-return",
         "program/share-setup"
       ]
     },
@@ -5093,9 +5016,7 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/share-one-blocker",
         "program/share-ready",
-        "program/share-repair-return",
         "program/share-setup"
       ]
     },
@@ -5123,8 +5044,7 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ]
     },
     {
@@ -5203,7 +5123,6 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed",
         "session/summary-first"
       ]
     },
@@ -5228,7 +5147,6 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed",
         "session/summary-first"
       ]
     },
@@ -5327,8 +5245,7 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -5379,8 +5296,7 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -5435,8 +5351,7 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ]
     },
     {
@@ -5519,8 +5434,6 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "workout/why-manual"
       ]
     },
@@ -5540,8 +5453,6 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "workout/why-manual"
       ]
     },
@@ -5561,8 +5472,6 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "workout/why-manual"
       ]
     },
@@ -5628,8 +5537,6 @@
         "workout/warmup-actions",
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "workout/why-manual",
         "workout/rest-running",
         "workout/rest-done"
@@ -5831,8 +5738,6 @@
         "onboarding-custom/result",
         "onboarding-import/freeform-stage2",
         "program/progression-editor",
-        "program/share-one-blocker",
-        "program/share-repair-return",
         "progress/guided-repair",
         "progress/recovery-ineligible",
         "progress/recovery-preview",
@@ -5851,7 +5756,6 @@
         "workout/substituted-actions",
         "workout/warmup-actions",
         "onboarding-recommend/result-avoided",
-        "onboarding-browse/catalogue",
         "history/session"
       ]
     },
@@ -5977,27 +5881,6 @@
         "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
         "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entry-prog-not-id",
-      "selector": ".entry-prog:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-browse/catalogue"
       ]
     },
     {
@@ -6701,8 +6584,6 @@
       "rationale": "Changes a chosen value, active option, or reversible status.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-browse/environment",
-        "onboarding-browse/schedule",
         "onboarding-build/setup",
         "onboarding-custom/background",
         "onboarding-custom/desired-result",
@@ -6714,7 +6595,6 @@
         "onboarding-recommend/background",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
         "onboarding-recommend/schedule",
         "onboarding-recovery/rules-drift",
@@ -6906,7 +6786,6 @@
         "session/summary",
         "session/summary-declined",
         "session/summary-maintained",
-        "session/summary-mixed",
         "session/summary-first"
       ]
     },
@@ -7158,8 +7037,7 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ]
     },
     {
@@ -7219,8 +7097,7 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ]
     },
     {
@@ -7289,8 +7166,7 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft",
-        "today/mixed-strategies"
+        "workout/invalid-draft"
       ]
     },
     {
@@ -7313,13 +7189,11 @@
       "owner": "plan-058",
       "catalogStates": [
         "history/list",
-        "onboarding-browse/preview",
         "onboarding-custom/result",
         "onboarding-import/freeform-stage2",
         "onboarding-import/preview",
         "onboarding-import/review",
         "onboarding-recommend/activation-conflict",
-        "onboarding-recommend/environment-correction",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
@@ -7369,19 +7243,15 @@
         "today/ready",
         "history/session",
         "program/overview",
-        "today/mixed-strategies",
         "today/rest-bar",
         "today/day-picker",
         "install/banner",
         "workout/invalid-draft",
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed",
         "session/summary-first",
         "progress/overview",
         "progress/overview-action",
@@ -7437,9 +7307,7 @@
         "program/custom-exercise-recovery",
         "program/custom-exercise-saving",
         "program/exercise-picker",
-        "program/share-one-blocker",
         "program/share-ready",
-        "program/share-repair-return",
         "program/share-setup",
         "program/text-export",
         "settings/privacy-disclosure",
@@ -7452,10 +7320,8 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/warmup-actions",
-        "workout/why-anchor",
         "workout/why-in-session",
         "workout/why-manual",
-        "workout/why-rep-goal",
         "workout/why-this-weight"
       ]
     },
@@ -7482,8 +7348,6 @@
         "today/day-picker",
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "workout/why-manual"
       ]
     },
@@ -7536,7 +7400,6 @@
         "today/rest-bar",
         "today/day-picker",
         "today/draft-resume",
-        "today/mixed-strategies",
         "workout/invalid-draft",
         "install/banner",
         "program/overview"
@@ -8120,7 +7983,6 @@
         "onboarding-recommend/background",
         "onboarding-recommend/schedule",
         "onboarding-recommend/environment",
-        "onboarding-recommend/environment-correction",
         "onboarding-recommend/priorities",
         "onboarding-recommend/avoidance-pain",
         "onboarding-custom/background",
@@ -8376,8 +8238,6 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "workout/why-manual"
       ]
     },
@@ -8401,9 +8261,7 @@
       "owner": "plan-064/r3g",
       "catalogStates": [
         "workout/why-this-weight",
-        "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor"
+        "workout/why-in-session"
       ]
     },
     {
@@ -8428,7 +8286,6 @@
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed",
         "session/summary-first"
       ]
     },
@@ -8874,8 +8731,6 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "workout/why-manual",
         "workout/rest-running",
         "workout/rest-done"
@@ -8943,8 +8798,7 @@
         "program/overview",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume",
-        "today/mixed-strategies"
+        "today/draft-resume"
       ]
     },
     {
@@ -9000,7 +8854,6 @@
         "session/summary",
         "session/summary-maintained",
         "session/summary-declined",
-        "session/summary-mixed",
         "session/summary-first"
       ]
     },
@@ -9223,9 +9076,7 @@
         "program/custom-exercise-recovery",
         "program/custom-exercise-saving",
         "program/exercise-picker",
-        "program/share-one-blocker",
         "program/share-ready",
-        "program/share-repair-return",
         "program/share-setup",
         "program/text-export",
         "settings/privacy-disclosure",
@@ -9240,8 +9091,6 @@
         "workout/warmup-actions",
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-rep-goal",
-        "workout/why-anchor",
         "workout/why-manual"
       ]
     },
@@ -9315,8 +9164,7 @@
         "program/overview",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume",
-        "today/mixed-strategies"
+        "today/draft-resume"
       ]
     },
     {
@@ -9372,8 +9220,7 @@
         "program/overview",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume",
-        "today/mixed-strategies"
+        "today/draft-resume"
       ]
     },
     {

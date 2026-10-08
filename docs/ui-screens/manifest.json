@@ -374,10 +374,6 @@
       "label": "Onboarding — Generate a custom program"
     },
     {
-      "id": "onboarding-browse",
-      "label": "Onboarding — Browse Taurifer programs"
-    },
-    {
       "id": "onboarding-build",
       "label": "Onboarding — Build my own"
     },
@@ -537,14 +533,14 @@
       "id": "background",
       "flow": "onboarding-recommend",
       "label": "Recommend 2 — training background",
-      "scenario": "The carried goal with Change, then structured-program experience and recent six-week consistency.",
+      "scenario": "The carried goal with Change, then structured-program experience.",
       "variants": "localized"
     },
     {
       "id": "schedule",
       "flow": "onboarding-recommend",
       "label": "Recommend 3 — real week",
-      "scenario": "Days per week, session-minute ceiling, preferred rest.",
+      "scenario": "Days per week and the session-minute ceiling.",
       "variants": "localized"
     },
     {
@@ -553,13 +549,6 @@
       "label": "Recommend 4 — environment",
       "scenario": "Environment shortcuts with the capability correction disclosure closed.",
       "variants": "localized"
-    },
-    {
-      "id": "environment-correction",
-      "flow": "onboarding-recommend",
-      "label": "Recommend 4 — equipment correction",
-      "scenario": "The capability correction disclosure open.",
-      "variants": "accessibility"
     },
     {
       "id": "priorities",
@@ -635,14 +624,14 @@
       "id": "background",
       "flow": "onboarding-custom",
       "label": "Custom 2 — training background",
-      "scenario": "Structured-program experience and recent consistency in the custom route.",
+      "scenario": "Structured-program experience in the custom route.",
       "variants": "customAccessibility"
     },
     {
       "id": "schedule",
       "flow": "onboarding-custom",
       "label": "Custom 3 — real week",
-      "scenario": "Days per week, session ceiling and preferred rest in the custom route.",
+      "scenario": "Days per week and the session ceiling in the custom route.",
       "variants": "demandingText"
     },
     {
@@ -679,34 +668,6 @@
       "label": "Custom — generated program and review",
       "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation.",
       "variants": "customAccessibility"
-    },
-    {
-      "id": "schedule",
-      "flow": "onboarding-browse",
-      "label": "Browse 1 — real week",
-      "scenario": "Days per week and session length, the only questions Browse asks.",
-      "variants": "accessibility"
-    },
-    {
-      "id": "environment",
-      "flow": "onboarding-browse",
-      "label": "Browse 2 — environment",
-      "scenario": "Environment shortcuts before the catalogue is filtered.",
-      "variants": "accessibility"
-    },
-    {
-      "id": "catalogue",
-      "flow": "onboarding-browse",
-      "label": "Browse — catalogue",
-      "scenario": "Released, complete, tested programs with purpose, frequency and mismatches.",
-      "variants": "accessibility"
-    },
-    {
-      "id": "preview",
-      "flow": "onboarding-browse",
-      "label": "Browse — review",
-      "scenario": "The common review surface for a catalogue program.",
-      "variants": "accessibility"
     },
     {
       "id": "setup",
@@ -870,13 +831,6 @@
       "variants": "demandingDockText"
     },
     {
-      "id": "mixed-strategies",
-      "flow": "today",
-      "label": "Today — mixed strategies",
-      "scenario": "The Direction D mixed day: anchor and back-off, rep goal, fixed effort, a manual slot in soft ink with no mark, a custom exercise and a lift with a set logged without RIR.",
-      "variants": "demandingDockText"
-    },
-    {
       "id": "rest-bar",
       "flow": "today",
       "label": "Today — running rest bar",
@@ -968,20 +922,6 @@
       "variants": "demandingText"
     },
     {
-      "id": "why-rep-goal",
-      "flow": "workout",
-      "label": "Workout — why this weight, rep goal",
-      "scenario": "Rep goal: the total, the effort gate and how the reps split.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "why-anchor",
-      "flow": "workout",
-      "label": "Workout — why this weight, anchor and back-off",
-      "scenario": "Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets.",
-      "variants": "demandingText"
-    },
-    {
       "id": "why-manual",
       "flow": "workout",
       "label": "Workout — why this weight, manual",
@@ -1007,13 +947,6 @@
       "flow": "session",
       "label": "Session summary — declined",
       "scenario": "A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "summary-mixed",
-      "flow": "session",
-      "label": "Session summary — mixed strategies",
-      "scenario": "The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records.",
       "variants": "demandingText"
     },
     {
@@ -1364,20 +1297,6 @@
       "flow": "program",
       "label": "Program — share setup link",
       "scenario": "The setup-link share sheet.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "share-one-blocker",
-      "flow": "program",
-      "label": "Program — share with one blocker",
-      "scenario": "The share sheet names one unresolved exercise and keeps copy/share unavailable.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "share-repair-return",
-      "flow": "program",
-      "label": "Program — repair returns to Share",
-      "scenario": "The custom repair path has been cancelled and returns directly to the blocked Share sheet.",
       "variants": "demandingText"
     },
     {

@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 167 screens,
-1051 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 158 screens,
+970 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -67,10 +67,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Recommend 1 — desired result](screens/onboarding-recommend/desired-result__phone-390-light-en.png) | 3 | Route header, Cancel, progress 1 of 5, three desired-result choices. |
-| [Recommend 2 — training background](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | The carried goal with Change, then structured-program experience and recent six-week consistency. |
-| [Recommend 3 — real week](screens/onboarding-recommend/schedule__phone-390-light-en.png) | 3 | Days per week, session-minute ceiling, preferred rest. |
+| [Recommend 2 — training background](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | The carried goal with Change, then structured-program experience. |
+| [Recommend 3 — real week](screens/onboarding-recommend/schedule__phone-390-light-en.png) | 3 | Days per week and the session-minute ceiling. |
 | [Recommend 4 — environment](screens/onboarding-recommend/environment__phone-390-light-en.png) | 3 | Environment shortcuts with the capability correction disclosure closed. |
-| [Recommend 4 — equipment correction](screens/onboarding-recommend/environment-correction__phone-390-light-en.png) | 7 | The capability correction disclosure open. |
 | [Recommend 5 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
 | [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
 | [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation. |
@@ -86,22 +85,13 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Custom 1 — desired result](screens/onboarding-custom/desired-result__phone-390-light-en.png) | 4 | The custom route's own header and step count, not Recommend's. |
-| [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 4 | Structured-program experience and recent consistency in the custom route. |
-| [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 8 | Days per week, session ceiling and preferred rest in the custom route. |
+| [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 4 | Structured-program experience in the custom route. |
+| [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 8 | Days per week and the session ceiling in the custom route. |
 | [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
 | [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
 | [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
 | [Custom 6b — weekly structure](screens/onboarding-custom/shape__phone-390-light-en.png) | 4 | Two compatible weekly structures to choose from; shown only when more than one fits the answers. |
 | [Custom — generated program and review](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation. |
-
-### Onboarding — Browse Taurifer programs
-
-| Screen | Frames | What it shows |
-| --- | --- | --- |
-| [Browse 1 — real week](screens/onboarding-browse/schedule__phone-390-light-en.png) | 7 | Days per week and session length, the only questions Browse asks. |
-| [Browse 2 — environment](screens/onboarding-browse/environment__phone-390-light-en.png) | 7 | Environment shortcuts before the catalogue is filtered. |
-| [Browse — catalogue](screens/onboarding-browse/catalogue__phone-390-light-en.png) | 7 | Released, complete, tested programs with purpose, frequency and mismatches. |
-| [Browse — review](screens/onboarding-browse/preview__phone-390-light-en.png) | 7 | The common review surface for a catalogue program. |
 
 ### Onboarding — Build my own
 
@@ -150,7 +140,6 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
 | [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 12 | The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it. |
-| [Today — mixed strategies](screens/today/mixed-strategies__phone-390-light-en.png) | 12 | The Direction D mixed day: anchor and back-off, rep goal, fixed effort, a manual slot in soft ink with no mark, a custom exercise and a lift with a set logged without RIR. |
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | The rest countdown remains visible after leaving the active workout. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
@@ -170,8 +159,6 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
 | [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. |
 | [Workout — why this weight, mid-session](screens/workout/why-in-session__phone-390-light-en.png) | 8 | Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set. |
-| [Workout — why this weight, rep goal](screens/workout/why-rep-goal__phone-390-light-en.png) | 8 | Rep goal: the total, the effort gate and how the reps split. |
-| [Workout — why this weight, anchor and back-off](screens/workout/why-anchor__phone-390-light-en.png) | 8 | Anchor and back-off: the performed top set, the rule, and the percentage that sets the lighter sets. |
 | [Workout — why this weight, manual](screens/workout/why-manual__phone-390-light-en.png) | 8 | Manual: one sentence; the program sets the load and the engine does not change it. |
 | [Session details and map](screens/workout/session__phone-390-light-en.png) | 8 | Session details and map through production controls. |
 | [Early finish confirmation](screens/workout/early-finish__phone-390-light-en.png) | 8 | Early finish confirmation through production controls. |
@@ -189,7 +176,6 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Session summary](screens/session/summary__phone-390-light-en.png) | 8 | The Direction D lifter's Day 1 summary: an outcome word per lift, the sets, records in green and the next target as the strongest line. |
 | [Session summary — maintained](screens/session/summary-maintained__phone-390-light-en.png) | 8 | A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and a record. |
 | [Session summary — declined](screens/session/summary-declined__phone-390-light-en.png) | 8 | A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription. |
-| [Session summary — mixed strategies](screens/session/summary-mixed__phone-390-light-en.png) | 8 | The Direction D mixed day finished: anchor and back-off, rep goal, fixed effort, a manual lift and a custom exercise, with improved and maintained words, a lift without RIR and its records. |
 | [Session summary — first session](screens/session/summary-first__phone-390-light-en.png) | 8 | Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine. |
 
 ### Progress
@@ -260,8 +246,6 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — archiving a custom exercise](screens/program/custom-exercise-archiving__phone-390-light-en.png) | 3 | A custom movement referenced by a performedMovementId-only history row is archiving; the action names archive and preserves its history identity. |
 | [Program — recovering a custom exercise change](screens/program/custom-exercise-recovery__phone-390-light-en.png) | 3 | A partial archive stays visibly unresolved with recovery status, Retry recovery, and Reload actions. |
 | [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 8 | The setup-link share sheet. |
-| [Program — share with one blocker](screens/program/share-one-blocker__phone-390-light-en.png) | 8 | The share sheet names one unresolved exercise and keeps copy/share unavailable. |
-| [Program — repair returns to Share](screens/program/share-repair-return__phone-390-light-en.png) | 8 | The custom repair path has been cancelled and returns directly to the blocked Share sheet. |
 | [Program — share link ready](screens/program/share-ready__phone-390-light-en.png) | 8 | A valid setup link is ready for copy or system sharing. |
 | [Program — text export](screens/program/text-export__phone-390-light-en.png) | 3 | The plain-text program export sheet. |
 
@@ -295,3 +279,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Install transfer — interrupted import](screens/install/transfer-interrupted__phone-390-light-en.png) | 8 | A recoverable installed import failure offers an explicit retry. |
 | [Install transfer — unknown outcome](screens/install/transfer-unknown__phone-390-light-en.png) | 8 | An indeterminate source outcome remains frozen until explicit divergence confirmation. |
 | [Install transfer — claimed then expired](screens/install/transfer-claimed-expired__phone-390-light-en.png) | 8 | Claimed-expired recovery remains frozen until explicit divergence confirmation. |
+
+### Exercise catalog recovery
+
+| Screen | Frames | What it shows |
+| --- | --- | --- |
+| [Exercise catalog unavailable](screens/catalog-recovery/unavailable__phone-390-light-en.png) | 3 | The required offline exercise catalog fails to load. Saved data remains in place and a blocking retry dialog explains what happened. |
+| [Exercise catalog retry failed](screens/catalog-recovery/retry-failed__phone-390-light-en.png) | 3 | The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available. |

@@ -7,7 +7,8 @@
  * poisoned every frame after it.
  */
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
-import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, sleep } from "./session.mjs";
+import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, seed, sleep } from "./session.mjs";
+import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 
 export function stabilizeShareUrlForCapture(value) {
   const url = new URL(String(value));
@@ -273,8 +274,8 @@ const D_FIXTURE_STATES = new Set([
  * states draw it), so Today's states read the log as it stood that morning.
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
-  "today/ready", "today/day-picker", "today/rest-bar", "today/mixed-strategies", "today/draft-resume",
-  "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
+  "today/ready", "today/day-picker", "today/rest-bar", "today/draft-resume",
+  "workout/why-this-weight", "workout/why-in-session", "workout/why-manual",
   "workout/rest-running", "workout/rest-done",
 ]);
 function directionDBeforeSession() {
@@ -293,7 +294,6 @@ export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary": "dd-2026-08-31-day1",
   "session/summary-maintained": "dd-2026-08-26-day2",
   "session/summary-declined": "dd-2026-08-28-day3",
-  "session/summary-mixed": "dd-2026-08-26-day2-mixed",
   "session/summary-first": "dd-2026-08-12-day2-mixed",
 });
 function directionDThroughSession(sessionId) {
@@ -344,9 +344,6 @@ export function appState(key, lang) {
   if (key.startsWith("program/share-")) {
     const libraryIds = ["sq_bb", "lc_mc", "pr_bb", "rw1_db", "dl_cb", "pd_bw", "dl_bb", "sp_cb", "cu_bb", "le_mc", "ci_mc", "tr_cb"];
     state.program.forEach((exercise, index) => { exercise.libraryId = libraryIds[index] || "sq_bb"; });
-    if (key === "program/share-one-blocker" || key === "program/share-repair-return") {
-      state.program[0].libraryId = "";
-    }
   }
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
     const seen = new Set();
@@ -485,21 +482,24 @@ async function progressSegment(page, segment) {
 }
 
 async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
+  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
+    typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
   await page.evaluate(async ({ days, minutes }) => {
-    const services = window.__repforgeOnboarding.services();
-    const compiled = services.compile({ mode: "recommend", answers: {
-      desiredResult: "balanced", structuredExperience: "6_to_24m", recentConsistency: "most",
-      daysPerWeek: days, sessionMinutes: minutes, preferredRestSeconds: 90,
-      environment: { kind: "commercial_gym" }, primaryMuscles: [], deEmphasizedMuscles: [],
-      ignoredMuscles: [], priorityMovements: [], mustHaveExercises: [], exerciseConstraints: [],
-    }, versions: services.currentVersions() });
-    if (!compiled.ok) throw new Error(`catalog compiler failed: ${compiled.code}`);
+    // Plan 067: the legacy services.compile()/programStructure/compilerContext path is
+    // retired. A canonical ProgramDefinition now comes from the same generator the
+    // Recommend route itself drives, finalized the same way `__repforgeFinalizeProgramSetup` expects.
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      desiredResult: "balanced", structuredExperience: "6_to_24m", daysPerWeek: days, sessionMinutes: minutes,
+      environment: { kind: "commercial_gym" },
+    }, catalog).value;
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog, "catalog-transition");
+    if (!generated.ok) throw new Error(`catalog compiler failed: ${JSON.stringify(generated.conflicts || generated)}`);
     const finalized = await window.__repforgeFinalizeProgramSetup({
-      exercises: compiled.preview.program, name: "Catalog transition program",
-      answers: { goal: "strength_hypertrophy", experience: "intermediate", sessionLength: String(minutes), daysPerWeek: days }, destination: "log", origin: "first-run",
-      draftConfirmed: true, telemetryRoute: "recommend", entryTelemetry: compiled.telemetry,
-      entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
-      programStructure: compiled.preview.programStructure, compilerContext: compiled.compilerContext,
+      programDefinition: generated.value, name: "Catalog transition program",
+      answers: {}, destination: "log", origin: "first-run",
+      draftConfirmed: true, telemetryRoute: "recommend",
+      entrySource: { route: "recommend", fingerprint: "catalog-transition" },
     });
     if (!(finalized?.localOk || finalized?.idbOk)) throw new Error("catalog finalize failed");
     const state = JSON.parse(localStorage.getItem("repforge_v1"));
@@ -692,6 +692,66 @@ async function expectWhyLeads(page, leads) {
   }
 }
 
+// Weight+Reps metric ids (plan067-engine-replacement brief), reused by the
+// adaptive Why fixture below.
+const ADAPTIVE_WEIGHT_METRIC_ID = "2555c6f170d8805cafa6d16d3fdddbaa";
+const ADAPTIVE_REPS_METRIC_ID = "2555c6f170d88072bbf6d9ad3f16ea86";
+
+async function fillAdaptiveShelf(page, metricId, value) {
+  const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
+  await input.waitFor({ state: "attached", timeout: 10000 });
+  if (await input.getAttribute("aria-hidden") === "true") {
+    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+  }
+  await input.fill(String(value));
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
+/** Log one set of the current exercise through the real metric shelf (test/why-sheet.mjs's pattern). */
+async function logAdaptiveSet(page, slotId, ordinal, { load, reps, rir }) {
+  await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, load);
+  await fillAdaptiveShelf(page, ADAPTIVE_REPS_METRIC_ID, reps);
+  const rirInput = page.locator(`#workout .exercise.is-current input[data-k="${slotId}_${ordinal}_rir"]`);
+  if (await rirInput.getAttribute("aria-hidden") === "true") {
+    await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
+  }
+  await rirInput.fill(String(rir));
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  await page.locator(`#workout .exercise.is-current [data-save="${slotId}_${ordinal}"]`).click();
+  await sleep(page, 500);
+  const skip = page.locator('#workout .exercise.is-current .focus-shelf [data-rest-act="skip"]');
+  if (await skip.count() && await skip.isVisible().catch(() => false)) await skip.click();
+}
+
+/**
+ * A real generated program (muscle growth, 4 days, commercial gym) with one
+ * prior logged session on its first day's first Weight+Reps slot, so the
+ * adaptive engine has comparable history to recommend from. Plan 067 retired
+ * the old range-engine Why leads ("top"/"load"/"reps"/"set1"/"set2"); on a
+ * generated program the sheet is built by engineWhyModel/engineWhyRows and
+ * always leads with "engine-anchor", "engine-target" and "engine-assumptions".
+ */
+async function adaptiveWhyFixture(page) {
+  const state = await installGeneratedProgram(page, { name: "Why sheet proof", seed: "why-sheet-ui" });
+  const day = state.program[0]?.day;
+  const row = state.program.find((candidate) => candidate.day === day && isWeightRepsSlot(definitionSlot(state.programMeta, candidate)));
+  if (!row) throw new Error("adaptive Why fixture: no Weight+Reps slot on the generated program's first day");
+  const past = new Date(Date.parse(CAPTURE_NOW));
+  past.setUTCDate(past.getUTCDate() - 7);
+  const pastDate = past.toISOString().slice(0, 10);
+  state.log = [
+    metricLogRow(state.programMeta, row, { session: "why-history", date: pastDate, set: 1, load: 40, reps: 8, rir: 2 }),
+    metricLogRow(state.programMeta, row, { session: "why-history", date: pastDate, set: 2, load: 40, reps: 7, rir: 1 }),
+  ];
+  // A plain localStorage overwrite leaves IndexedDB on the finalize's own
+  // revision, and recovery against the mismatched replica hangs boot; seed()
+  // (the fixture harness's own reset) writes both replicas and reloads.
+  await seed(page, state);
+  await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), day);
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 15000 });
+  return row;
+}
+
 /** The Why sheet for one lift of the Direction D mixed day, opened from its Focus card. */
 function whyOnMixedDay(exerciseId, leads) {
   return async (page) => {
@@ -763,21 +823,6 @@ export const APP_SCENARIOS = {
       await assertDockFitsExternalTextScale(page);
       await assertTodayExerciseFitsExternalTextScale(page);
     }
-  },
-  "today/mixed-strategies": async (page) => {
-    await dismissChrome(page);
-    // The fixture's mixed day is the second day of the split; Today leads with Day 1.
-    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 2 · mixed" }); });
-    await sleep(page, 500);
-    // Opening the day made an untouched draft; clear it so Today offers Start, not Continue.
-    // Leaving through the hook hands focus to Today's leading control (R5) with no
-    // pointer input behind it, so Chromium would ring it; this state is Today at rest.
-    await page.evaluate(async () => { window.__repforgeLeaveWorkout(); await window.__repforgeWorkoutDraft.clear(); await Promise.resolve(); document.activeElement?.blur(); });
-    await page.evaluate(() => document.querySelector('nav [data-view="log"]')?.click());
-    const rows = page.locator("#todayExList .rxrow");
-    await rows.first().waitFor({ state: "visible", timeout: 20000 });
-    if ((await rows.count()) !== 6) throw new Error("Today's mixed day shows its six exercises");
-    await sleep(page, 300);
   },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
@@ -1045,23 +1090,20 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "workout/why-this-weight": async (page) => {
-    await enterWorkout(page);
+    await adaptiveWhyFixture(page);
     await page.click("#workout [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["top", "load", "reps"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
   },
-  // Set 1 of the squat logged at 102.5 x 8 with RIR 1: the sheet reads what the set showed, then the next target.
   "workout/why-in-session": async (page) => {
-    await enterWorkout(page);
-    await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
+    const row = await adaptiveWhyFixture(page);
+    await logAdaptiveSet(page, row.slotId || row.id, 1, { load: 45, reps: 8, rir: 2 });
     await page.click("#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
-    await expectWhyLeads(page, ["set1", "set2"]);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
   },
-  "workout/why-rep-goal": whyOnMixedDay("ex-ht", ["goal", "effort", "spread"]),
-  "workout/why-anchor": whyOnMixedDay("ex-dl", ["anchor", "rule", "backoff"]),
   "workout/why-manual": whyOnMixedDay("ex-cp", ["manual"]),
 
   "session/summary": async (page) => {
@@ -1075,11 +1117,6 @@ export const APP_SCENARIOS = {
   "session/summary-declined": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-declined"]);
     await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
-  },
-  "session/summary-mixed": async (page) => {
-    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-mixed"]);
-    await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
-    await page.waitForSelector('.sum-outcome[data-outcome="maintained"]', { timeout: 20000 });
   },
   "session/summary-first": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-first"]);
@@ -1388,49 +1425,6 @@ export const APP_SCENARIOS = {
     await page.waitForSelector("#shareSetupSheet.is-open", { timeout: 10000 });
     await stabilizeShareLink(page);
     await sleep(page, 500);
-  },
-  "program/share-one-blocker": async (page) => {
-    await openShare(page);
-    await page.waitForSelector("#shareSetupBlockers:not(.hidden)", { timeout: 20000 });
-    await sleep(page, 400);
-  },
-  "program/share-repair-return": async (page) => {
-    await openShare(page);
-    await page.waitForSelector("#shareSetupBlockers:not(.hidden)", { timeout: 20000 });
-    await page.locator("[data-share-repair]").click();
-    await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });
-    await page.locator("#exPickCustom").click();
-    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 20000 });
-    await page.locator("#exCustomCancel").click();
-    await page.waitForFunction(() => {
-      const visible = (selector) => {
-        const node = document.querySelector(selector);
-        return !!node && !node.classList.contains("hidden") && !node.hidden;
-      };
-      const repairFocus = document.activeElement?.matches("#shareSetupBlockers [data-share-repair]") ||
-        document.activeElement?.id === "shareSetupBlockerSummary";
-      return document.querySelector("#shareSetupSheet.is-open") && visible("#shareSetupBlockers") &&
-        visible("#shareSetupBlockers [data-share-repair]") && !visible("#exPickSheet") &&
-        !visible("#exCustomSheet") && repairFocus;
-    }, undefined, { timeout: 20000 });
-    await sleep(page, 400);
-    const scrollReturn = await page.evaluate(() => {
-      const body = document.querySelector("#shareSetupSheet .sheet__body");
-      const target = document.activeElement;
-      if (!body || !target?.matches("[data-share-repair]")) return null;
-      const bodyRect = body.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const bodyTop = bodyRect.top + body.clientTop;
-      const bodyBottom = bodyTop + body.clientHeight;
-      return {
-        scrollTop: body.scrollTop,
-        maxScroll: Math.max(0, body.scrollHeight - body.clientHeight),
-        repairVisible: targetRect.top >= bodyTop && targetRect.bottom <= bodyBottom,
-      };
-    });
-    if (!scrollReturn || scrollReturn.scrollTop !== scrollReturn.maxScroll || !scrollReturn.repairVisible) {
-      throw new Error(`Share repair return should keep its focused blocker visible at the sheet body's end: ${JSON.stringify(scrollReturn)}`);
-    }
   },
   "program/share-ready": async (page) => {
     await page.evaluate(() => Object.defineProperty(navigator, "share", {
