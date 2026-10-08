@@ -1,252 +1,157 @@
 #!/usr/bin/env node
-/** Plan 056/P7: permanent volume reduction and closed recovery-policy UI seam. */
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
-import { assertServingApp } from "./browser.mjs";
+/**
+ * Plan 067: Progress planned volume follows the per-cycle ProgramDefinition
+ * across a recovery week.
+ *
+ * A generated program reaches the end of its block and the lifter answers Yes
+ * to a recovery week. The committed successor inserts a deload cycle at the
+ * start of the new block. The workout schedule and every Progress denominator
+ * must read the same cycle: week one plans the halved deload prescription,
+ * week two returns to the full prescription, and block-to-date totals keep the
+ * deload week's own sets instead of re-projecting the current week backwards.
+ * The predecessor block's planned volume never leaks into the successor.
+ */
+import { readFileSync } from "node:fs";
+import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const policyText = fs.readFileSync(path.join(root, "docs/recovery-week-policy.md"), "utf8");
-const policyMatch = policyText.match(/```json\n([\s\S]*?)\n```/);
-assert.ok(policyMatch, "the closed policy document carries its executable JSON object");
-const documentedPolicy = JSON.parse(policyMatch[1]);
-assert.equal(documentedPolicy.policyVersion, 2);
-
-const base = process.env.REPFORGE_URL || "http://127.0.0.1:8000/";
-await assertServingApp(base);
-const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-const page = await context.newPage();
-const pageErrors = [];
-page.on("pageerror", error => pageErrors.push(String(error)));
-
-async function bootFresh() {
-  await page.goto(base, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
-  await page.evaluate(async () => {
-    const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
-    for (const reg of regs) await reg.unregister();
-    for (const key of await caches?.keys?.() || []) await caches.delete(key);
-    localStorage.clear();
-  });
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
-}
-
-async function seedCompiledProgram() {
-  const result = await page.evaluate(async () => {
-    const services = window.__repforgeOnboarding.services();
-    const compiled = services.compile({
-      mode: "recommend",
-      answers: {
-        desiredResult: "balanced", structuredExperience: "6_to_24m", recentConsistency: "most",
-        daysPerWeek: 4, sessionMinutes: 90, preferredRestSeconds: 90,
-        environment: { kind: "commercial_gym" }, primaryMuscles: [], deEmphasizedMuscles: [],
-        ignoredMuscles: [], priorityMovements: [], mustHaveExercises: [], exerciseConstraints: [],
-      },
-      versions: services.currentVersions(),
-    });
-    if (!compiled.ok) return compiled;
-    const finalized = await window.__repforgeFinalizeProgramSetup({
-      exercises: compiled.preview.program, name: "Progress transition oracle",
-      answers: { goal: "balanced", daysPerWeek: 4 }, destination: "log", origin: "first-run",
-      draftConfirmed: true, telemetryRoute: "recommend", entryTelemetry: compiled.telemetry,
-      entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
-      programStructure: compiled.preview.programStructure, compilerContext: compiled.compilerContext,
-    });
-    await window.__repforgeStorage.flush();
-    return { ok: !!(finalized?.localOk || finalized?.idbOk) };
-  });
-  assert.equal(result.ok, true, JSON.stringify(result));
-}
-
-const state = () => page.evaluate(() => window.__repforgeWorkoutDraft.state());
-const adapterCall = (method, value) => page.evaluate(async ({ method, value }) =>
-  window.__repforgeProgramTransition[method](value), { method, value });
-
-await bootFresh();
-await seedCompiledProgram();
-
-const runtimePolicy = await page.evaluate(() => window.RepForgeProgramTransition.approvedRecoveryPolicy());
-assert.deepEqual(runtimePolicy, documentedPolicy, "runtime recovery policy is exactly documented policy version 2");
-
-const source = await state();
-assert.ok(source.programMeta.blockId && source.programMeta.blockId !== source.programMeta.id,
-  "the source is a modern identified block");
-
-// Seed a predecessor total so a recovery transition proves that a new overlay
-// block starts its own history rather than inheriting the source block's
-// block-to-date denominator.
-const seededSourceHistory = await page.evaluate(async () => {
-  const next = window.__repforgeWorkoutDraft.state();
-  next.programMeta.plannedVolumeHistory = {
-    schemaVersion: 1,
-    throughWeek: 1,
-    plannedSessions: 9,
-    plannedWorkingSets: 99,
-    muscles: { direct: { Chest: 99 }, secondary: { Triceps: 9 } },
-  };
-  const result = await window.__repforgeCommitProposedState(next);
-  await window.__repforgeStorage.flush();
-  return result;
-});
-assert.equal(seededSourceHistory.localOk, true, "the predecessor aggregate seed commits");
-assert.equal((await state()).programMeta.plannedVolumeHistory.plannedWorkingSets, 99,
-  "the predecessor carries a distinct historical total before recovery");
-
-for (const [name, evidence, code] of [
-  ["missing patterns", { outcomesByPattern: {}, checkpointAnswer: "Yes" }, "insufficient_qualifying_patterns"],
-  ["improved evidence", { outcomesByPattern: { "knee-dominant": "improved", "horizontal press": "improved" }, checkpointAnswer: "Yes" }, "insufficient_qualifying_patterns"],
-  ["No checkpoint", { outcomesByPattern: { "knee-dominant": "maintained", "horizontal press": "declined" }, checkpointAnswer: "No" }, "checkpoint_not_yes"],
-  ["Not sure checkpoint", { outcomesByPattern: { "knee-dominant": "maintained", "horizontal press": "declined" }, checkpointAnswer: "Not sure" }, "checkpoint_not_yes"],
-]) {
-  const result = await adapterCall("proposeRecoveryWeek", { evidence, transitionId: `ineligible-${name}` });
-  assert.equal(result.ok, false, `${name} cannot mint recovery`);
-  assert.equal(result.code, code, `${name} returns the closed policy reason`);
-}
-
-const recoveryEvidence = {
-  outcomesByPattern: { "knee-dominant": "maintained", "horizontal press": "declined", "hip/hinge": "improved" },
-  checkpointAnswer: "Yes",
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
+const DATA = new URL("../plans/067/data/", import.meta.url);
+const gym = JSON.parse(readFileSync(new URL("gym.json", DATA), "utf8"));
+const observations = JSON.parse(readFileSync(new URL("programs.json", DATA), "utf8"));
+const catalog = JSON.parse(readFileSync(new URL("app_file.json", DATA), "utf8"));
+const observedIds = [...new Set(Object.values(observations).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+const REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
+  },
+  movementConfirmations: Object.fromEntries(observedIds.map((id) =>
+    [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
 };
-const recovery = await adapterCall("proposeRecoveryWeek", { evidence: recoveryEvidence, transitionId: "progress-recovery-v2" });
-assert.equal(recovery.ok, true, recovery.code);
-assert.equal(recovery.proposal.derivation.policyVersions.recoveryWeek, 2);
-assert.deepEqual(recovery.proposal.diff.recoveryWeek.eligibilityEvidence.qualifyingPatterns,
-  ["knee-dominant", "horizontal press"]);
-assert.equal(recovery.proposal.diff.recoveryWeek.reassessmentOutcome, null);
-assert.equal(await page.evaluate(p => window.RepForgeProgramTransition.hashProposal(p), recovery.proposal),
-  recovery.proposal.proposalHash, "preview hash is the exact confirmation commitment");
-for (const entry of recovery.proposal.diff.recoveryWeek.entries) {
-  assert.ok(entry.effectiveWorkingSets >= 0 && entry.effectiveWorkingSets <= entry.baseWorkingSets);
-  if (entry.reason === "optional-removed") assert.equal(entry.effectiveWorkingSets, 0);
-  if (entry.reason === "protected-ceil") assert.equal(entry.effectiveWorkingSets, Math.ceil(entry.baseWorkingSets / 2));
-  if (entry.reason === "reducible-floor") assert.equal(entry.effectiveWorkingSets, Math.floor(entry.baseWorkingSets / 2));
+const DAY = 86400000;
+
+const failures = [];
+let passed = 0;
+function check(condition, message, detail) {
+  if (condition) { passed++; console.log(`  ✓ ${message}`); return; }
+  failures.push(message);
+  console.error(`  ✗ ${message}`);
+  if (detail !== undefined) console.error(`    ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)}`);
 }
 
-const confirmedAt = new Date().toISOString();
-const recoveryCommit = await adapterCall("confirmTransition", {
-  proposal: recovery.proposal, proposalHash: recovery.proposal.proposalHash,
-  transitionId: recovery.proposal.transitionId, confirmedAt,
-  reassessmentDueAt: new Date(Date.parse(confirmedAt) + 7 * 86400000).toISOString(),
-  acknowledgedDraftRaw: null,
-});
-assert.equal(recoveryCommit.committed, true, JSON.stringify(recoveryCommit));
-await page.evaluate(() => window.__repforgeStorage.flush());
-const recoveryState = await state();
-assert.equal(recoveryState.programMeta.started, confirmedAt.slice(0, 10), "recovery confirmation starts week one");
-assert.equal(recoveryState.programMeta.mesocycleStatus, "active");
-assert.equal(recoveryState.programMeta.id, source.programMeta.id, "recovery keeps program identity");
-assert.equal((recoveryState.programHistory || []).length, (source.programHistory || []).length,
-  "recovery creates no archive");
-assert.equal(recoveryState.programMeta.blockId, recovery.proposal.diff.recoveryWeek.blockId);
-assert.equal(recoveryState.recoveryTransitions.records.at(-1).proposalHash, recovery.proposal.proposalHash,
-  "commit retains the preview hash");
+const training = (definition) => definition.days.filter((day) => day.kind === "training");
+/** Working sets one numbered week (cycle) of the definition prescribes. */
+const cycleSets = (definition, cycle) => training(definition).flatMap((day) => day.slots)
+  .reduce((total, slot) => total + (slot.prescriptionsByCycle.find((entry) => entry.cycleIndex === cycle)?.sets.length ?? 0), 0);
+const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state());
 
-await page.reload({ waitUntil: "domcontentloaded" });
-await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
-const weekOne = await page.evaluate(() => ({
-  active: window.__repforgeProgressReview.activeRecovery(),
-  rows: window.__repforgeProgressReview.scheduledProgram(),
-  canonical: window.__repforgeWorkoutDraft.state().program,
-  volume: window.__repforgeProgressEvidence.volume("block-to-date"),
-}));
-assert.ok(weekOne.active, "week one restores the validated recovery marker after reload");
-assert.ok(weekOne.rows.some((row, index) => row.sets !== weekOne.canonical[index]?.sets),
-  "week one applies the approved recovery overlay");
-const recoveryWeekSets = recovery.proposal.diff.recoveryWeek.entries.reduce((total, entry) => total + entry.effectiveWorkingSets, 0);
-assert.equal(weekOne.volume.plannedWorkingSets, recoveryWeekSets,
-  "week-one block volume starts from the applied recovery prescription, not the predecessor total");
-
-await page.evaluate(async () => {
-  const next = window.__repforgeWorkoutDraft.state();
-  const d = new Date(`${next.programMeta.started}T12:00:00`);d.setDate(d.getDate() - 8);
-  next.programMeta.started = d.toISOString().slice(0, 10);
-  await window.__repforgeCommitProposedState(next);
-  await window.__repforgeStorage.flush();
-});
-await page.reload({ waitUntil: "domcontentloaded" });
-await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
-const weekTwo = await page.evaluate(() => {
-  const snapshot = window.__repforgeWorkoutDraft.state();
-  const elapsed = 2;
-  const canonical = window.RepForgeProgramCompiler.projectProgramForWeek(
-    snapshot.program, snapshot.programMeta.programStructure, elapsed);
-  return { scheduled: window.__repforgeProgressReview.scheduledProgram(), canonical,
-    volume: window.__repforgeProgressEvidence.volume("block-to-date"),
-    record: window.__repforgeProgressReview.activeRecovery(), revision: snapshot._storageRevision };
-});
-assert.deepEqual(weekTwo.scheduled, weekTwo.canonical, "week two restores the canonical prescription exactly");
-const canonicalWeekSets = recoveryState.program.reduce((total, row) => total + row.sets, 0);
-assert.equal(weekTwo.volume.plannedWorkingSets, recoveryWeekSets + canonicalWeekSets,
-  "the week after recovery retains recovery volume and adds the canonical week");
-
-const beforeReassessment = structuredClone(weekTwo.record);
-const reassessed = await adapterCall("reassessRecovery", {
-  expectedRevision: weekTwo.revision, blockId: weekTwo.record.diff.recoveryWeek.blockId,
-  transitionId: weekTwo.record.transitionId, proposalHash: weekTwo.record.proposalHash,
-  acknowledgedRecord: weekTwo.record, outcome: "About the same",
-});
-assert.equal(reassessed.committed, true, JSON.stringify(reassessed));
-const afterReassessment = await page.evaluate(() => window.__repforgeWorkoutDraft.state().recoveryTransitions.records.at(-1));
-const expectedReassessment = structuredClone(beforeReassessment);
-expectedReassessment.diff.recoveryWeek.reassessmentOutcome = "About the same";
-assert.deepEqual(afterReassessment, expectedReassessment, "reassessment changes only the closed outcome field");
-assert.equal(afterReassessment.proposalHash, recovery.proposal.proposalHash, "reassessment preserves proposal hash");
-
-await page.evaluate(async () => {
-  const next = window.__repforgeWorkoutDraft.state();
-  const d = new Date(`${next.programMeta.started}T12:00:00`);d.setDate(d.getDate() - 14);
-  next.programMeta.started = d.toISOString().slice(0, 10);
-  await window.__repforgeCommitProposedState(next);
-  await window.__repforgeStorage.flush();
-});
-await page.reload({ waitUntil: "domcontentloaded" });
-await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
-const laterVolume = await page.evaluate(() => window.__repforgeProgressEvidence.volume("block-to-date"));
-assert.equal(laterVolume.period.elapsedNumberedWeeks, 4);
-assert.equal(laterVolume.plannedWorkingSets, recoveryWeekSets + canonicalWeekSets * 3,
-  "later block-to-date totals preserve the historical recovery-week prescription");
-
-await bootFresh();
-await seedCompiledProgram();
-const volumeBefore = await state();
-const volume = await adapterCall("proposeVolumeReduction", {
-  diagnosis: { kind: "reduce_training_volume", answers: { confirmed: true },
-    eligibleEvidenceIds: ["explicit_volume_reduction"], insufficientEvidenceReasons: [] },
-  transitionId: "progress-volume-reduction", successorProgramId: "progress-volume-successor",
-});
-assert.equal(volume.ok, true, volume.code);
-assert.equal(volume.proposal.kind, "reduce_training_volume");
-assert.equal(await page.evaluate(p => window.RepForgeProgramTransition.hashProposal(p), volume.proposal),
-  volume.proposal.proposalHash);
-for (const change of volume.proposal.diff.prescriptions) {
-  if (!change.before || !change.after) continue;
-  assert.ok(change.after.sets <= change.before.sets, "permanent reduction never raises sets");
+async function at(page, time) {
+  await page.clock.setFixedTime(new Date(time));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
 }
-for (const before of volumeBefore.program) {
-  const after = volume.successorInstance.program.find(row => row.slotId === before.slotId);
-  if (after) assert.ok(after.sets >= before.minSets,
-    `${before.slotId} retains its compiler-authored minimum`);
-}
-const volumeCommit = await adapterCall("confirmTransition", {
-  proposal: volume.proposal, proposalHash: volume.proposal.proposalHash,
-  transitionId: volume.proposal.transitionId, successorProgramId: volume.proposal.successor.programId,
-  confirmedAt: new Date().toISOString(), acknowledgedDraftRaw: null,
-});
-assert.equal(volumeCommit.committed, true, JSON.stringify(volumeCommit));
-const volumeAfter = await state();
-assert.equal(volumeAfter.programHistory.length, (volumeBefore.programHistory || []).length + 1,
-  "permanent reduction archives the exact predecessor once");
-assert.equal(volumeAfter.programHistory.at(-1).id, volumeBefore.programMeta.id);
-assert.equal(volumeAfter.programMeta.transitionIn.proposalHash, volume.proposal.proposalHash,
-  "activated program retains exact proposal provenance");
-assert.equal(volumeAfter.programMeta.started, new Date().toISOString().slice(0, 10));
-assert.equal(volumeAfter.programMeta.mesocycleStatus, "active");
 
-assert.deepEqual(pageErrors, [], "no page errors during recovery and volume lifecycle proof");
-await context.close();
-await browser.close();
-console.log("PASS: protected volume reduction and recovery policy v2 lifecycle");
+async function readWeek(page) {
+  return page.evaluate(() => ({
+    scheduled: window.__repforgeProgressReview.scheduledProgram().reduce((total, row) => total + row.sets, 0),
+    week: window.__repforgeProgressEvidence.volume("this-week"),
+    block: window.__repforgeProgressEvidence.volume("block-to-date"),
+  }));
+}
+
+async function main() {
+  console.log("P067 Progress volume across a recovery week");
+  const browser = await launchChromium();
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+  try {
+    const start = Date.parse("2026-03-02T09:00:00.000Z");
+    await page.clock.setFixedTime(new Date(start));
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const seeded = await page.evaluate(async (request) => {
+      const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "progress-recovery-067");
+      if (!generated.ok) return { ok: false, generated };
+      const finalized = await window.__repforgeFinalizeProgramSetup({
+        programDefinition: generated.value, name: "Recovery volume", answers: {}, destination: "log", origin: "first-run",
+        draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "progress-recovery-067" },
+      });
+      await window.__repforgeStorage.flush();
+      return { ok: !!(finalized?.localOk || finalized?.idbOk) };
+    }, REQUEST);
+    if (!seeded.ok) throw new Error(`seeding failed: ${JSON.stringify(seeded).slice(0, 1500)}`);
+
+    const source = await state(page);
+    const full = cycleSets(source.programMeta.programDefinition, 1);
+    const firstWeek = await readWeek(page);
+    check(firstWeek.week.plannedWorkingSets === full && firstWeek.scheduled === full,
+      "before the transition, this week's planned volume is the definition's first cycle", { full, firstWeek });
+
+    // The block ends; the lifter schedules a recovery week through Review.
+    const end = Date.parse(`${source.programMeta.started}T09:00:00.000Z`) + (source.programMeta.mesocycleLengthWeeks * 7 + 1) * DAY;
+    await at(page, end);
+    await page.locator('nav button[data-view="stats"]').click();
+    await page.locator('#statsSeg [data-seg="review"]').click();
+    await page.locator('[data-review-action="recovery-week"]').click();
+    await page.locator('[data-recovery-answer="Yes"]').click();
+    await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("[data-preview-confirm]").click();
+    await page.waitForFunction((id) => window.__repforgeWorkoutDraft.state()?.programMeta?.id !== id ||
+      document.querySelector("#reviewPanel .review__error"), source.programMeta.id, { timeout: 30000 });
+    check(!await page.locator("#reviewPanel .review__error").count(), "the recovery week commits",
+      await page.evaluate(() => JSON.stringify(window.__repforgeProgressReview.flow())));
+    await page.evaluate(() => window.__repforgeStorage.flush());
+
+    const recovered = await state(page);
+    const definition = recovered.programMeta.programDefinition;
+    const deload = cycleSets(definition, 1), normal = cycleSets(definition, 2);
+    check(definition.deloadCycles?.[0] === 1 && deload < normal && normal === full,
+      "the successor's first cycle is a deload and its second returns to the full prescription", { deload, normal, full });
+    check(!recovered.programMeta.plannedVolumeHistory,
+      "the successor block starts with no planned-volume history of its own", recovered.programMeta.plannedVolumeHistory);
+
+    // Week one: the deload is what the workout schedules and what Progress plans.
+    await at(page, Date.parse(`${recovered.programMeta.started}T12:00:00.000Z`));
+    const weekOne = await readWeek(page);
+    check(weekOne.scheduled === deload, "week one schedules the deload prescription", weekOne.scheduled);
+    check(weekOne.week.plannedWorkingSets === deload,
+      "week one's this-week planned volume is the deload prescription", weekOne.week.plannedWorkingSets);
+    check(weekOne.block.period.elapsedNumberedWeeks === 1 && weekOne.block.plannedWorkingSets === deload,
+      "week one's block-to-date planned volume is the deload week alone, not the predecessor total", weekOne.block);
+
+    // Week two: back to the full cycle; block-to-date keeps the deload week.
+    await at(page, Date.parse(`${recovered.programMeta.started}T12:00:00.000Z`) + 7 * DAY);
+    const weekTwo = await readWeek(page);
+    check(weekTwo.scheduled === normal, "week two schedules the full prescription again", weekTwo.scheduled);
+    check(weekTwo.week.plannedWorkingSets === normal,
+      "week two's this-week planned volume is the full prescription", weekTwo.week.plannedWorkingSets);
+    check(weekTwo.block.plannedWorkingSets === deload + normal,
+      "week two's block-to-date keeps the deload week and adds the full week", { expected: deload + normal, got: weekTwo.block.plannedWorkingSets });
+
+    // Later in the block the deload week is still counted once, at its own size.
+    await at(page, Date.parse(`${recovered.programMeta.started}T12:00:00.000Z`) + 21 * DAY);
+    const weekFour = await readWeek(page);
+    const expected = [1, 2, 3, 4].reduce((total, cycle) => total + cycleSets(definition, cycle), 0);
+    check(weekFour.block.period.elapsedNumberedWeeks === 4 && weekFour.block.plannedWorkingSets === expected,
+      "week four's block-to-date sums each cycle's own prescription", { expected, got: weekFour.block });
+
+    check(errors.length === 0, "no page errors during the recovery-volume journey", errors);
+  } catch (error) {
+    failures.push(String(error?.stack || error));
+    console.error(error?.stack || error);
+    if (errors.length) console.error(errors.join("\n"));
+  } finally {
+    await browser.close();
+  }
+  console.log(`\nP067 recovery volume result: ${passed} passed, ${failures.length} failed`);
+  if (failures.length) process.exit(1);
+}
+
+await main();

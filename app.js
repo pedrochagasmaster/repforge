@@ -5832,9 +5832,18 @@ function recommendation(ex){
   const repTarget=repMetric?authored[repMetric.semantic]:null,repValue=firstActual?.targets?.[repMetric?.semantic];
   const manual=result?.status!=="recommended";
   const newLift=result?.reasonCodes?.includes("no_comparable_history")&&!result?.reasonCodes?.includes("configuration_required");
-  return{status:manual?(newLift?"new":"manual"):"hold",engineStatus:result?.status||"manual",
+  const load=!manual&&loadMetric?firstActual.targets?.[loadMetric.semantic]??null:null;
+  // The verdict is the engine's own move: the first set's load against the load
+  // of the set it is anchored on. Every surface (cue, Why, Today, attention)
+  // reads this one direction.
+  const anchorLoad=result?.historyAnchor?.displayLoadKg;
+  const direction=manual||load==null||!Number.isFinite(anchorLoad)?"hold"
+    :load>anchorLoad+1e-9?"add":load<anchorLoad-1e-9?"reduce":"hold";
+  const status=manual?(newLift?"new":"manual"):direction;
+  return{status,engineStatus:result?.status||"manual",
     reason:result?.reasonCodes?.[0]||"manual_prescription",reasonCodes:result?.reasonCodes||[],
-    label:manual?"":t("today.recommendation"),text:"",load:!manual&&loadMetric?firstActual.targets?.[loadMetric.semantic]??null:null,
+    label:manual?"":t(status==="add"?"rec.add.label":status==="reduce"?"rec.reduce.label":"rec.hold.label"),text:"",load,
+    lastLoad:Number.isFinite(anchorLoad)?anchorLoad:null,
     reps:typeof repValue==="number"?repValue:repValue?.min??(typeof repTarget==="number"?repTarget:repTarget?.min??null),
     targetSets,engineResults:results,metricDefinitions:definitions,slotId:matched.slot.id,
     stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
@@ -6081,6 +6090,7 @@ function explainRecommendation(ex){
   if(!ex)return rows;
   const rec=recommendation(ex),u=unitLabel();
   if(rec.status==="manual")return rows;
+  if(Array.isArray(rec.targetSets))return rec.status==="new"?rows:engineWhyRows(ex,rec);
   // A new lift can still explain an adjustment from sets logged in this session.
   if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[whyRow("session",{label:t("why.session"),text:note})]:rows}
   if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
@@ -7683,8 +7693,13 @@ function focusCue(ex,n,r,draft,prev,editing){
     return{kind:"manual",move:"",headHtml:esc(head),sub:t("focus.cue.reps",{reps:`${ex.min}–${ex.max}`})}}
   if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
     return{kind:"start",move:"",headHtml:esc(head),sub:""}}
-  const ref=focusRefLoad(ex,n,draft,prev);
-  const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
+  // A canonical target's move is the engine's: against this session's last set
+  // once one is logged, else the recommendation's own verdict.
+  const ref=Array.isArray(r.targetSets)?null:focusRefLoad(ex,n,draft,prev);
+  const move=Array.isArray(r.targetSets)
+    ?(sg.src==="session-up"?"up":sg.src==="session-down"?"down":sg.src==="session-hold"?"hold":
+      r.status==="add"?"up":r.status==="reduce"?"down":"hold")
+    :ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
   const reps=sg.reps!=null?sg.reps:ex.min;
   // The load rides in the sentence as a token so the figure can be set in Mono.
   const sentence=t(`focus.cue.${move}`,{load:"\u0000",unit});
@@ -7912,8 +7927,11 @@ function canonicalMetricInput(metric,raw){
   const text=String(raw??"");if(text.trim()==="")return"";
   const parsed=parseDec(text);if(!Number.isFinite(parsed))return text;
   const value=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
-    ?fromDisplay(parsed):parsed;
+    ?metricKgFromDisplay(parsed):parsed;
   return canonicalNumberText(value)}
+/* A pound value converted to kilograms is rounded to a millionth of a kilo, so
+   the exact pound equivalent of a limit does not land a hair over it. */
+const metricKgFromDisplay=value=>Math.round(fromDisplay(value)*1e6)/1e6;
 function metricTargetText(target){
   if(target==null)return"";
   const show=value=>fmt(value);
@@ -7951,12 +7969,12 @@ function metricDisplayUnit(metric){
   return""}
 function parseHistoryMetricInput(metric,raw){
   const semantics={reps:"validation.reps",repsPerSide:"validation.reps",
-    loadKg:"validation.load",assistanceKg:"validation.load",loadPerSideKg:"validation.load",
-    persistentLoadPerSideKg:"validation.load"};
+    loadKg:"validation.load_metric",assistanceKg:"validation.load_metric",loadPerSideKg:"validation.load_metric",
+    persistentLoadPerSideKg:"validation.load_metric"};
   const key=semantics[metric?.semantic]||"validation.metric";
   const displayed=parseDec(raw);
   if(!Number.isFinite(displayed))return{field:"metric",key};
-  const value=metric?.unit==="kg"?fromDisplay(displayed):displayed;
+  const value=metric?.unit==="kg"?metricKgFromDisplay(displayed):displayed;
   const checked=ExerciseMetrics?.parseMetricValue?.(metric,value);
   return checked?.ok?{value:checked.value}:{field:"metric",key};}
 function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek}){
@@ -8417,7 +8435,7 @@ function applyDraftIssue(issues){
     const set=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId]?.sets?.[issue.setId];
     const input=set?$(`#workout [data-k="${issue.exerciseInstanceId}_${set.ordinal}_metric_${issue.field}"]`):null;
     const metricKey=METRIC_FIELD_SEMANTICS.reps.includes(issue.metric)?"validation.reps":
-      METRIC_FIELD_SEMANTICS.load.includes(issue.metric)?"validation.load":"validation.metric";
+      METRIC_FIELD_SEMANTICS.load.includes(issue.metric)?"validation.load_metric":"validation.metric";
     return applyFieldError({ok:false,error:{key:metricKey},el:input})}
   if(!el&&issue.exerciseInstanceId&&issue.setId){const exercise=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId],
       set=exercise?.sets?.[issue.setId],key=set?`${issue.exerciseInstanceId}_${set.ordinal}_${field}`:null;
@@ -10037,6 +10055,15 @@ function recoveryReceiptForWeek(receipt,record){
       ?{...slot,sets:bySlot.get(String(slot.slotId))}:slot)}))}}
 function progressWeekPrescriptions(){
   const weeks=Math.max(1,Number(state.programMeta?.mesocycleLengthWeeks)||6);
+  // A canonical program plans each week from that cycle's own prescription (a
+  // recovery week is cycle 1's deload, not the whole block's shape).
+  const definition=state.programMeta?.programDefinition;
+  if(definition&&Array.isArray(definition.days)){
+    const cycles=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
+    const customs=Array.isArray(state.customExercises)?state.customExercises:[];
+    return Array.from({length:weeks},(_,index)=>{
+      const rows=flatProgramFromDefinition(definition,customs,Math.min(cycles,index+1));
+      return prescriptionForReceipt(plannedPrescriptionForProgram(rows,index+1,null),rows)})}
   const record=activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null;
   const structure=state.programMeta?.programStructure;
   const receipts=Array.isArray(structure?.weekPrescriptions)?structure.weekPrescriptions:[];
@@ -18655,6 +18682,48 @@ function whyHeadline(ex,rec,surface){
 function whyCueSet(ex){
   for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
   return 0}
+/* The Why sheet for an adaptive recommendation says only what the engine
+   reported: the set it is anchored on and the strength that set shows, the
+   effort and reps the target aims at, and the assumptions it loaded with (the
+   load steps and any bodyweight it counted). Nothing is recomputed here. */
+function engineWhyRows(ex,rec,n=1){
+  const u=unitLabel(),rows=[];
+  const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[0];
+  const result=item?.result;if(!result||item.status!=="recommended")return rows;
+  const anchor=result.historyAnchor||{},assumptions=result.loadingAssumptions||{};
+  const cap=Number.isFinite(anchor.capacityKg)?fmtLoad(Math.round(anchor.capacityKg*2)/2):null;
+  if(anchor.source==="current_session")rows.push(whyRow("anchor",{text:t("why.engine.anchor_session",
+    {set:(anchor.setIndex??0)+1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
+  else if(cap)rows.push(whyRow("anchor",{text:t("why.engine.anchor_history",
+    {n:(anchor.sessionIds||[]).length||1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
+  const projected=result.fatigue?.projectedCapacityKg;
+  if(n>1&&Number.isFinite(projected)&&Number.isFinite(anchor.capacityKg)&&Math.abs(projected-anchor.capacityKg)>0.25)
+    rows.push(whyRow("fatigue",{text:t("why.engine.fatigue",{cap:fmtLoad(Math.round(projected*2)/2),unit:u})}));
+  const definitions=rec.metricDefinitions||[];
+  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
+  const load=loadMetric?result.targets?.[loadMetric.semantic]:null,rawReps=repsMetric?result.targets?.[repsMetric.semantic]:null;
+  const reps=typeof rawReps==="number"?rawReps:rawReps?.min;
+  const rir=item.prescription?.rir;
+  if(load!=null&&reps!=null)rows.push(whyRow("target",{text:t(rir!=null?"why.engine.target":"why.engine.target_norir",
+    {rir:fmt(rir),reps,load:fmtLoad(load),unit:u})}));
+  const loads=(assumptions.availableLoadsKg||[]).slice().sort((a,b)=>a-b);
+  const steps=loads.slice(1).map((value,index)=>Math.round((value-loads[index])*1000)/1000).filter(step=>step>0);
+  if(steps.length)rows.push(whyRow("step",{text:t("why.engine.step",{step:fmtLoad(Math.min(...steps)),unit:u})}));
+  if(assumptions.bodyweightContributionEnabled&&assumptions.bodyweightContributionKg>0)
+    rows.push(whyRow("bodyweight",{text:t("why.engine.bodyweight",{bw:fmtLoad(assumptions.bodyweightContributionKg),unit:u})}));
+  return rows}
+function engineWhyModel(ex,rec,model,head){
+  const n=head.inSession&&head.set?head.set.n:1,rows=engineWhyRows(ex,rec,n),take=kind=>rows.find(row=>row.kind===kind);
+  const prev=last(ex).filter(x=>+x.load>0),u=unitLabel(),performed=whyPerformedText(prev,u);
+  const block=(leadKey,lead,text)=>{if(text)model.blocks.push({leadKey,lead,text})};
+  block("engine-anchor",t("why.lead.engine_anchor"),[performed,take("anchor")?.text,take("fatigue")?.text].filter(Boolean).join(" "));
+  block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
+  block("engine-assumptions",t("why.lead.engine_assumptions"),[take("step")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
+  if(prev.length){model.calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});
+    prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
+    model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)})}
+  return model}
 function whySheetModel(ex,surface="focus"){
   const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
   const head=whyHeadline(ex,rec,surface),glyph=head.glyph;
@@ -18664,6 +18733,7 @@ function whySheetModel(ex,surface="focus"){
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
   if(rec.status==="manual"){block("manual",t("why.lead.manual"),t("why.manual"));return model}
+  if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
   const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
   const lastGroup=()=>{if(prev.length){calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});setRows(prev)}};
