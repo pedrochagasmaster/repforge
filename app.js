@@ -1848,8 +1848,11 @@ function flatProgramFromDefinition(definition,customDefinitions=customExercises(
         name:slot.displayName||index?.name||custom?.name||raw?.name||slot.exerciseId,libraryId:slot.exerciseId,
         sets:sets.length,hasRepTarget:reps!=null,
         displayName:slot.displayName||null,
-        primary:slot.manualAttribution?.primary??sourceFeatureAttribution(raw?.primaryFeatureMuscle||[]),
-        secondary:slot.manualAttribution?.secondary??sourceFeatureAttribution(raw?.secondaryFeatureMuscle||[]),
+        // A custom movement's muscles are its own definition's, as a stored row
+        // resolves them; a catalog movement's come from the catalog; only an
+        // unlinked slot falls back to its per-slot attribution.
+        primary:custom?String(custom.primary||""):raw?sourceFeatureAttribution(raw.primaryFeatureMuscle||[]):String(slot.manualAttribution?.primary||""),
+        secondary:custom?String(custom.secondary||""):raw?sourceFeatureAttribution(raw.secondaryFeatureMuscle||[]):String(slot.manualAttribution?.secondary||""),
         notes:String(slot.setupNotes||"")};
       if(reps!=null){row.min=minimum;row.max=maximum}
       rows.push(row)}}
@@ -7730,9 +7733,10 @@ function canonicalMetricInput(metric,raw){
   const value=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
     ?metricKgFromDisplay(parsed):parsed;
   return canonicalNumberText(value)}
-/* A pound value converted to kilograms is rounded to a millionth of a kilo, so
-   the exact pound equivalent of a limit does not land a hair over it. */
-const metricKgFromDisplay=value=>Math.round(fromDisplay(value)*1e6)/1e6;
+/* A pound value converts to kilograms at full precision; only the float
+   overshoot of the exact pound equivalent of the 1000 kg limit is snapped back
+   onto the limit, so that entry is not refused for a rounding hair. */
+const metricKgFromDisplay=value=>{const kg=fromDisplay(value);return kg>1000&&kg-1000<1e-9?1000:kg};
 function metricTargetText(target){
   if(target==null)return"";
   const show=value=>fmt(value);
