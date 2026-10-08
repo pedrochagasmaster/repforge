@@ -1220,7 +1220,11 @@ export const APP_SCENARIOS = {
       const session = document.querySelector(".session--edit")?.dataset.editing;
       const target = next.log?.find((row) => row.session === session);
       if (!target) throw new Error("history conflict fixture has no log row");
+      // Another tab's edit to a metric-schema row moves its weight metric and
+      // its load projection together; a row whose two disagree is refused as damaged.
       target.load = Number(target.load) + 7.5;
+      const weight = (target.metricValues || []).find((entry) => entry.metricId === "2555c6f170d8805cafa6d16d3fdddbaa");
+      if (weight) weight.value = Number(weight.value) + 7.5;
       const result = await window.__repforgeCommitProposedState(next);
       if (!(result?.committed === true && result?.settled === true)) throw new Error("history conflict commit failed");
       await window.__repforgeStorage.flush();

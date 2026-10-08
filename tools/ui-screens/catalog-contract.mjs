@@ -101,7 +101,9 @@ export function collectCatalogEvidence(config = {}) {
     const directText = [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || "").join("").trim();
     if (directText) text.push({ locator: stableLocator(element), text: directText });
     if (element.hasAttribute("aria-label")) text.push({ locator: stableLocator(element), text: element.getAttribute("aria-label") || "" });
-    if (element.matches("input, textarea")) {
+    // The raw program editor shows the lifter's own JSON (nulls and braces
+    // included); it is data the lifter edits, not interface copy.
+    if (element.matches("input, textarea") && !element.matches("#programJson")) {
       const displayed = element.value || element.getAttribute("placeholder") || "";
       if (displayed) text.push({ locator: stableLocator(element), text: displayed });
     }
