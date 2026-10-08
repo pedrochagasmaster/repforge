@@ -231,8 +231,6 @@ Totals by owning slice (screens): R2 3, R3 77, R4 42, R6 26.
 | `program/custom-exercise-archiving` | 3 | rules only | `rules only` | I-03 | R3 |  |
 | `program/custom-exercise-recovery` | 3 | rules only | `rules only` | I-03 | R3 |  |
 | `program/share-setup` | 8 | rules only | `rules only` | I-03 | R3 |  |
-| `program/share-one-blocker` | 8 | rules only | `rules only` | I-03 | R3 |  |
-| `program/share-repair-return` | 8 | rules only | `rules only` | I-03 | R3 |  |
 | `program/share-ready` | 8 | rules only | `rules only` | I-03 | R3 |  |
 | `program/readiness` | 7 | retired | `retire` | C-07, D §3, OG-5 | R3 |  |
 | `program/text-export` | 3 | rules only | `rules only` | I-03 | R3 |  |
@@ -1470,7 +1468,7 @@ Recorded on [#295](https://github.com/pedrochagasmaster/repforge/pull/295#issuec
 
 ## R6 rules-only sweep
 
-The 64 states the treatment table classes `rules only` (397 frames) keep their layouts and follow the shared rules of Plan 064 section 8 and nothing else. `tools/check-rules-only.mjs` (self-test `test/rules-only-gate.mjs`, `workout` lane) renders every one in PT and EN at 360 and checks four things, reusing the Direction D gate's `gatherEvidence`, `checkOrange`, `checkTargets` and `checkOverflow`:
+The 62 states the treatment table classes `rules only` keep their layouts and follow the shared rules of Plan 064 section 8 and nothing else. `tools/check-rules-only.mjs` (self-test `test/rules-only-gate.mjs`, `workout` lane) renders every one in PT and EN at 360 and checks four things, reusing the Direction D gate's `gatherEvidence`, `checkOrange`, `checkTargets` and `checkOverflow`:
 
 - **Orange budget:** the accent appears only in the five budget uses. The rules-only allowlist is the D list (`ORANGE_ALLOWLIST`) plus `RULES_ONLY_EXTRA_ALLOWLIST`, which is empty: no rules-only surface needed a new entry.
 - **Targets:** every control is at least 44 by 44.
@@ -1525,8 +1523,6 @@ The focused control's focus ring, halo and field border are painted from `--colo
 | `program/custom-exercise-recovery` | The head was the old grab and three-slot head with Cancel and an accent "Save". "Reload" was accent text. | The sheet is headed by `.sheetband` (title, close as Cancel); "Save" is the foot action (`btn--cta`); the "Reload" link is underlined ink. |
 | `program/share-setup` | The head was the old grab and three-slot head with a text Close. | The sheet is headed by `.sheetband` (title, subtitle, icon close). |
 | `program/share-ready` | The head was the old grab and three-slot head with a text Close. | The sheet is headed by `.sheetband` (title, subtitle, icon close). |
-| `program/share-one-blocker` | The head was the old three-slot head, and the blocker summary used `--color-warning` (the accent). | The sheet is headed by `.sheetband`; the summary is `--color-ink` (semibold, as before). |
-| `program/share-repair-return` | The head was the old three-slot head, and the blocker summary used `--color-warning` (the accent). | The sheet is headed by `.sheetband`; the summary is `--color-ink` (semibold, as before). |
 | `program/text-export` | The head was the old three-slot head with an accent "Copy" and an ellipsised subtitle. | The sheet is headed by `.sheetband` (the subtitle wraps); "Copy" joins "Share or save" in the foot as a `btn--steel` pair. |
 | `settings/main` | Back was accent text, the guide cue sat on the accent wash, and the "on" track of the switches was the accent. | Back is `--control-quiet-ink`; the cue is `--well`; the on track is `--boundary-selected-quiet` (ink). The storage warning line is ink. |
 | `settings/appearance` | Back was accent text, the guide cue sat on the accent wash, and the "on" track of the switches was the accent. | Back is `--control-quiet-ink`; the cue is `--well`; the on track is `--boundary-selected-quiet` (ink). The storage warning line is ink. |

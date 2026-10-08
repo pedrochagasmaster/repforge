@@ -775,7 +775,11 @@ export const APP_SCENARIOS = {
   "catalog-recovery/retry-failed": async page => {
     await reloadWithUnavailableExerciseCatalog(page);
     await page.click("#retryExerciseCatalog");
-    await page.waitForFunction(() => !!document.querySelector("#exerciseCatalogRecoveryStatus")?.textContent.trim(), undefined, { timeout: 10000 });
+    // The click first disables the button and shows a transient "retrying…"
+    // status (non-empty text) before the retry resolves; waiting on mere
+    // non-empty status text raced that transient state. Wait for the retry
+    // to actually conclude (the button re-enabled) before reading the outcome.
+    await page.waitForFunction(() => document.querySelector("#retryExerciseCatalog")?.disabled === false, undefined, { timeout: 10000 });
     const state = await page.evaluate(() => ({
       open: document.querySelector("#exerciseCatalogRecovery")?.open === true,
       retryEnabled: document.querySelector("#retryExerciseCatalog")?.disabled === false,

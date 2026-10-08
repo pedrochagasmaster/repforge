@@ -20,7 +20,7 @@
  * says names wrap and are never ellipsized, on every surface.
  *
  * Usage:
- *   node tools/check-rules-only.mjs                        all 64 states, PT and EN
+ *   node tools/check-rules-only.mjs                        all 62 states, PT and EN
  *   node tools/check-rules-only.mjs --state settings/main  one state
  *   node tools/check-rules-only.mjs --onboarding            the accent budget over every onboarding-* state (R7 V-12)
  *   options: --locale pt|en  --theme light|dark  --evidence <file.json>  --verbose
@@ -36,7 +36,7 @@ import {
   ORANGE_ALLOWLIST, ORANGE_CATEGORIES, OVERFLOW_EXCEPTIONS, checkOrange, checkOverflow, checkTargets, gateManifest, gatherEvidence, validateGateConfig,
 } from "./check-direction-d.mjs";
 
-/** The 64 screens whose treatment is `rules only` in the "Surface treatment table" (397 frames). */
+/** The 62 screens whose treatment is `rules only` in the "Surface treatment table". */
 export const RULES_ONLY_STATES = Object.freeze([
   "today/no-program",
   "workout/stale-draft", "workout/persist-retry", "workout/invalid-draft",

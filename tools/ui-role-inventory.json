@@ -864,6 +864,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
+        "catalog-recovery/retry-failed",
+        "catalog-recovery/unavailable",
         "install/banner",
         "today/draft-resume",
         "today/ready",
@@ -3804,6 +3806,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
+        "catalog-recovery/retry-failed",
+        "catalog-recovery/unavailable",
         "install/banner",
         "today/done",
         "today/draft-resume",
@@ -5040,6 +5044,8 @@
       "rationale": "Advances the current task with the strongest action weight. It stays in reach while the prescription scrolls: sticky in the flow, floating on the existing floating elevation a gap above the dock (from --nav), and back in place above Choose another day at the end of Today (#303).",
       "owner": "plan-058",
       "catalogStates": [
+        "catalog-recovery/retry-failed",
+        "catalog-recovery/unavailable",
         "install/banner",
         "today/draft-resume",
         "today/ready",
@@ -6994,6 +7000,8 @@
       "rationale": "The dock keeps navigation available; Program edit uses a flush shallow variant.",
       "owner": "plan-058",
       "catalogStates": [
+        "catalog-recovery/retry-failed",
+        "catalog-recovery/unavailable",
         "history/conflict",
         "history/delete-confirm",
         "history/edit-dirty",
@@ -7054,6 +7062,8 @@
       "rationale": "The one lens the script mounts in the dock (N1): it is the selected destination's pill, sits behind the buttons and travels between them. It is aria-hidden and takes no input; the destination button stays the control and keeps the selected state. In the Program edit bar the button keeps painting its own selected paint at rest and the lens is visible only while it travels.",
       "owner": "plan-064/r6",
       "catalogStates": [
+        "catalog-recovery/retry-failed",
+        "catalog-recovery/unavailable",
         "history/conflict",
         "history/delete-confirm",
         "history/edit-dirty",
@@ -7123,6 +7133,8 @@
       "neverDisabledReason": "The five top-level destinations remain available; missing program content has its own reachable state instead of disabling navigation.",
       "owner": "plan-058",
       "catalogStates": [
+        "catalog-recovery/retry-failed",
+        "catalog-recovery/unavailable",
         "history/conflict",
         "history/delete-confirm",
         "history/edit-dirty",
@@ -7189,6 +7201,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "history/list",
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
         "onboarding-custom/result",
         "onboarding-import/freeform-stage2",
         "onboarding-import/preview",
@@ -7807,6 +7821,47 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recovery/cancel-confirm",
         "onboarding-recovery/restart-confirm"
+      ]
+    },
+    {
+      "id": "exercisecatalogrecovery",
+      "selector": "#exerciseCatalogRecovery",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "centered-dialog",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the entire shell behind it with dialog semantics while the required offline exercise catalog is unavailable; the lifter's saved program and workout data are untouched and only Retry is offered.",
+      "owner": "plan-067",
+      "catalogStates": [
+        "catalog-recovery/unavailable",
+        "catalog-recovery/retry-failed"
+      ]
+    },
+    {
+      "id": "retryexercisecatalog",
+      "selector": "#retryExerciseCatalog",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "The sole recovery action for the blocking exercise-catalog dialog; disabled and the status line updates while a retry is in flight.",
+      "owner": "plan-067",
+      "catalogStates": [
+        "catalog-recovery/unavailable",
+        "catalog-recovery/retry-failed"
       ]
     },
     {
