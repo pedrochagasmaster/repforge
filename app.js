@@ -15526,9 +15526,17 @@ function sharedPreviewDays(program,structure,settings){
     return out;
   });
 }
+/* A canonical preview's day length is the generator's own estimate of that
+   day's prescription; a flat preview may carry its own estimate instead. */
+function previewDayMinutes(preview,day){
+  if(+day?.estimateMinutes>0)return +day.estimateMinutes;
+  const canonical=preview?.programDefinition?.days?.find?.(item=>item.id===day?.dayId||item.name===day?.label);
+  if(!canonical||typeof ProgramCompiler?.estimateDaySeconds!=="function")return null;
+  try{const seconds=ProgramCompiler.estimateDaySeconds(canonical);return seconds>0?Math.ceil(seconds/60):null}
+  catch{return null}}
 function entryPreviewFacts(preview){
   const program=Array.isArray(preview?.program)?preview.program:[];
-  const estimates=(preview?.days||[]).map(day=>+day.estimateMinutes||0).filter(Boolean);
+  const estimates=(preview?.days||[]).map(day=>previewDayMinutes(preview,day)||0).filter(Boolean);
   return{
     exercises:program.length,
     sets:sum(program.map(exercise=>+exercise.sets||0)),
@@ -16286,11 +16294,11 @@ function renderPreviewStep({merged=false}={}){
 function renderEntryWeek(preview){
   const added=new Set(entryChangeNow()?.added||[]);
   return (preview.days||[]).map((day,index)=>{
-    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
+    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0)),minutes=previewDayMinutes(preview,day);
     const dayName=previewDayLabel(day,index,preview.programStructure);
     const open=index===0||exercises.some(exercise=>added.has(exercise.id));
     return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
-    `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`)}</span></summary>`+
+    `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${minutes?` · ${t("entry.preview.minutes",{n:minutes})}`:""}`)}</span></summary>`+
     exercises.map(ex=>{const isNew=added.has(ex.id),summary=ex.hasRepTarget===false?programPrescriptionSummary(ex):`${ex.sets}×${ex.min}–${ex.max}`;
       return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${esc(summary)}`:""}</div>`}).join("")+
     (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
