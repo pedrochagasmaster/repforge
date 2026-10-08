@@ -1800,7 +1800,10 @@ async function main() {
   assert(loggedOnDay2, "Day 2 has log history before rename test", "No Day 2 log rows", "Phase 1 should log Day 2 sessions");
   const day2 = page.locator('#programEditor [data-role="day"][data-day="Day 2"]');
   if (!(await day2.locator('[data-role="day-body"]').isVisible())) await day2.locator('[data-role="toggle-day"]').click();
-  const targetInput = page.locator(`#programEditor [data-role="exercise-field"][data-field="name"][value="${loggedOnDay2.name.replace(/"/g, '\\"')}"]`).first();
+  // The name field is a wrapping textarea, so match it by its current value.
+  const nameFields = page.locator('#programEditor [data-role="exercise-field"][data-field="name"]');
+  const targetIndex = await nameFields.evaluateAll((fields, name) => fields.findIndex((field) => field.value === name), loggedOnDay2.name);
+  const targetInput = nameFields.nth(Math.max(0, targetIndex));
   const oldName = await targetInput.inputValue();
   const newName = "Custom Leg Press";
   await targetInput.fill(newName);

@@ -10045,8 +10045,9 @@ function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.open
   window.scrollTo({top:0});render();
   // Back puts focus on the row that opened the page (found again by its key: the render replaced it).
   const sel=openKey?[`data-exopen`,`data-ovkey`,`data-action-lift`].map(a=>`#${back} [${a}="${CSS.escape(openKey)}"]`).join(","):null;
-  focusRoute((sel&&$(sel))||routeHeading(back));
-  settle?.()}
+  // Ending a push in that is still arriving clears the inert page beneath first.
+  settle?.();
+  focusRoute((sel&&$(sel))||routeHeading(back))}
 function openSettingsView(){showSettings()}
 
 function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
@@ -13311,9 +13312,12 @@ function closeLibrary({toProgram=true}={}){
   if(toProgram){
     if(returnToOnboarding){showOnboardingView();renderOnboarding()}
     else returnToTab("program")}
+  // Starting the push out first ends any push in still running, which keeps
+  // the page beneath inert; a Back pressed mid-arrival would otherwise find
+  // nothing it could focus and leave focus on the hidden library.
+  settle?.();
   // Back lands on the control that opened the library, or else on the heading of the page it returns to.
-  if(!(back&&focusRoute(back)))focusRoute(routeHeading(returnToOnboarding?"onboarding":"program"));
-  settle?.()}
+  if(!(back&&focusRoute(back)))focusRoute(routeHeading(returnToOnboarding?"onboarding":"program"))}
 
 function renderLibrary({through=null}={}){
   if(!libFlow)return;

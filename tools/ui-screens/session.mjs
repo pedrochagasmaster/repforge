@@ -125,6 +125,20 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
       static now() { return fixedTime; }
     }
     globalThis.Date = CaptureDate;
+    // The generator seeds a program from its setup draft's random id, so a
+    // capture pins those ids as it pins the clock: the sequence restarts with
+    // each capture's fresh tab and continues across its reloads (ids stay
+    // unique), so generated programs are the same every run.
+    if (globalThis.crypto?.randomUUID) {
+      const key = "__repforge_capture_uuid";
+      const pinned = () => {
+        let counter = 0;
+        try { counter = Number(sessionStorage.getItem(key)) || 0; sessionStorage.setItem(key, String(counter + 1)); } catch {}
+        return `00000000-0000-4000-8000-${String(counter + 1).padStart(12, "0")}`;
+      };
+      try { Object.defineProperty(globalThis.crypto, "randomUUID", { value: pinned, configurable: true }); }
+      catch { globalThis.crypto.randomUUID = pinned; }
+    }
   }, options.now || CAPTURE_NOW);
   // The enlarged-text state is an inline style on <html>, which a navigation
   // destroys — and several scenarios reach their surface through a real

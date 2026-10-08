@@ -1658,7 +1658,7 @@ async function scenarioConcurrentExerciseFieldEdits(browser) {
     await holdStorageLock(locker);
 
     await renamer
-      .locator('#programEditor input[data-id="audit-press"][data-field="name"]')
+      .locator('#programEditor [data-role="exercise-field"][data-id="audit-press"][data-field="name"]')
       .fill("Audit press renamed");
     await counter
       .locator('#programEditor [data-role="adjust"][data-id="audit-press"][data-field="sets"][data-delta="1"]')
