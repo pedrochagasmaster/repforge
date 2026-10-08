@@ -428,9 +428,15 @@ export function collectGateEvidence(options = {}) {
     if (typeof value === "string") into.add(value.trim());
     else if (depth < 6 && value && typeof value === "object") for (const item of Object.values(value)) leaves(item, into, depth + 1);
   };
-  const data = new Set();
-  for (const part of ["program", "programMeta", "log", "programHistory", "customExercises"]) leaves(durable[part], data);
-  leaves(window.__repforgeExerciseLibrary, data);
+  const raw = new Set();
+  for (const part of ["program", "programMeta", "log", "programHistory", "customExercises"]) leaves(durable[part], raw);
+  // Only the movements this device's data names can appear as data on screen:
+  // the full catalog is thousands of names and would make the data pattern
+  // unusable. Identifiers are never displayed text.
+  const library = Array.isArray(window.__repforgeExerciseLibrary) ? window.__repforgeExerciseLibrary : [];
+  for (const entry of library) if (raw.has(entry.id)) for (const label of [entry.name, entry.namePt, ...(entry.aliases || [])]) leaves(label, raw);
+  const data = new Set([...raw].filter((value) => value && /\p{L}/u.test(value) && !/^[0-9a-f]{32}$/.test(value) &&
+    !/^custom:/.test(value) && value.length <= 200));
   const language = (i18n?.getLang?.() === "pt" ? "pt-BR" : "en");
   const names = [];
   for (const width of ["long", "short", "narrow"]) {

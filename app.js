@@ -2071,8 +2071,6 @@ class Program{
    ProgramDefinitions carry their own ordered slots; keep this empty value only
    for old display-only paths that still ask for a day type during migration. */
 const DAY_TYPES=Object.freeze({});
-const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
-const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
 /* The exercise library. exercises.js is generated (see tools/README.md) and
    loads before this file; the fallback keeps app.js parseable and the app
    usable if that script is ever missing, rather than throwing at boot. */
@@ -2172,49 +2170,8 @@ function dayTypeHasPrimary(dayType,equipment,experience){
   return fillable*2>=slots.length}
 function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
   return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
-function repScheme(experience,goal,slot){
-  let sets=experience==="beginner"?2:3,min=experience==="beginner"?8:6,max=experience==="beginner"?12:10;
-  if(goal==="strength"){min=4;max=6;sets=experience==="beginner"?3:4}
-  const iso=["lateral_raise","rear_delt","chest_iso","curl","triceps","calves","leg_curl","leg_extension","adduction","delts","arms"];
-  if(goal!=="strength"&&iso.includes(slot)){min=Math.max(min,8);max=Math.max(max,12)}
-  return{sets,min,max}}
 function muscleHit(ex,muscle){const m=muscle.toLowerCase();
   return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
-function applyPriorityMuscles(program,priorityMuscles,equipment,experience){
-  if(!priorityMuscles?.length)return;
-  for(const ex of program){
-    if(priorityMuscles.some(m=>muscleHit(ex,m)))ex.sets=Math.min(ex.sets+1,5)}
-  for(const muscle of priorityMuscles){
-    if(program.some(ex=>muscleHit(ex,muscle)))continue;
-    const day=program[0]?.day||"Day 1";
-    const slot=muscle.includes("Quad")?"leg_extension":muscle.includes("Chest")?"chest_iso":muscle.includes("Bicep")?"curl":
-      muscle.includes("Tricep")?"triceps":muscle.includes("Ham")?"leg_curl":muscle.includes("Glute")?"hinge":
-      muscle.includes("Lat")||muscle.includes("Back")?"row":muscle.includes("delt")?"lateral_raise":"curl";
-    const entry=chooseExercise(slot,equipment,experience,new Set(program.map(e=>e.libraryId)));
-    if(!entry)continue;
-    const rs=repScheme("intermediate","hypertrophy",slot);
-    program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
-      primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary"),notes:entry.notes||"",libraryId:entry.id})}}
-function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
-  const have=new Set(dayExs.map(e=>e.libraryId));
-  for(const slot of FILLER_SLOTS){
-    const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]),occurrence);
-    if(!entry||have.has(entry.id))continue;
-    const rs=repScheme(experience,"hypertrophy",slot);
-    return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
-      primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary"),notes:entry.notes||"",libraryId:entry.id}}
-  return null}
-function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
-  const [lo,hi]=SESSION_BOUNDS[sessionLength]||SESSION_BOUNDS.normal,out=[];
-  const days=[...new Set(program.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-  for(const day of days){
-    let list=program.filter(e=>e.day===day).sort((a,b)=>a.order-b.order);
-    if(list.length>hi)list=list.slice(0,hi);
-    const used=new Set(list.map(e=>e.libraryId));
-    const occ=dayOcc?.[day]||0;
-    while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
-    list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
-  program.length=0;program.push(...out)}
 let state,prog,day,installPrompt=null,saving=false;
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
@@ -5566,13 +5523,6 @@ window.__repforgeProgressReview={
   scheduledProgram:()=>scheduledProgramRows(),
 };
 
-// Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
-// sessions inside the current block. Only tempers aggressiveness / rep targets.
-// The regression itself now lives in progression-engine.js and reaches here as
-// facts.blockTrend; this file keeps only the sentence it turns into.
-function blockTrendNote(trend){
-  if(!trend||!trend.dir||trend.sessions<3)return"";
-  return t(`rec.block.${trend.dir}`,{sessions:trend.sessions})}
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 // Primary signal is the previous session; the block trend nudges it weakly.
 /* ---- Progression adapter (Plan 046) ----
@@ -5598,108 +5548,6 @@ function progressionHistory(ex){
   return[...m.values()]
     .sort(compareLogChronology)
     .map(s=>({sessionId:s.sessionId,date:s.date,sets:s.sets}))}
-/** The engine's closed input. Settings are the lifter's own grid and jump;
- *  context carries only the block, never a family or a program identity. */
-function progressionInput(ex,currentSession,freshnessFactor){
-  const context={weekNumber:1,blockLength:+state.programMeta?.mesocycleLengthWeeks||6,
-    blockStart:state.programMeta?.started||null};
-  if(freshnessFactor!=null&&freshnessFactor<1)context.freshnessFactor=freshnessFactor;
-  return{engineVersion:1,
-    prescription:progressionForExercise(ex),
-    relation:null,modifiers:[],
-    settings:{minLoadIncrement:(()=>{const raw=+state.settings.minJump;return Number.isFinite(raw)&&raw>0?raw:2.5})(),
-      jumpPercent:+state.settings.jumpPct||0,
-      hardRir:+state.settings.hardRir||DEFAULTS.hardRir},
-    history:progressionHistory(ex),
-    currentSession:currentSession||[],
-    context}}
-/* One engine reason code, one UI status. The heats and copy keys are the
-   product's, not the engine's — that is the whole point of the split. */
-const RANGE_REASON_UI={
-  "range.no_history":{status:"new",reason:"new",heat:.12},
-  "range.capacity_top_double":{status:"add2",reason:"cap_top2",heat:1},
-  "range.performed_top":{status:"add",reason:"top",heat:.82},
-  "range.capacity_top":{status:"add",reason:"cap_top",heat:.82},
-  "range.below_floor":{status:"reduce",reason:"below_range",heat:.18},
-  "range.stalled":{status:"reduce",reason:"stalled",heat:.3},
-  "range.recovery":{status:"hold",reason:"recover",heat:.42},
-  "range.capacity_room":{status:"hold",reason:"push_reps",heat:.6},
-  "range.room_in_range":{status:"hold",reason:"hold",heat:.48}};
-function rangeCopy(ex,reason){
-  if(reason==="cap_top2")return{label:t("rec.add2.label"),text:t("rec.add2.text")};
-  if(reason==="top"||reason==="cap_top")return{label:t("rec.add.label"),text:t("rec.add.text")};
-  if(reason==="below_range")return{label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min})};
-  if(reason==="stalled")return{label:t("rec.stalled.label"),text:t("rec.stalled.text")};
-  if(reason==="recover")return{label:t("rec.recover.label"),text:t("rec.recover.text")};
-  if(reason==="push_reps")return{label:t("rec.push_reps.label"),text:t("rec.push_reps.text")};
-  return{label:t("rec.hold_add_reps.label"),
-    text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text")}}
-/* The strategies approved in the Plan 046 numeric gate. Their copy is the
-   product's, exactly as range@1's is: the engine hands over a status, a set of
-   codes and its own facts, and this table turns them into plain sentences.
-   A strategy id is never shown to the lifter. */
-function strategySets(result){return result?.target?.sets||[]}
-function repGoalCopy(ex,result){
-  const f=result.facts,codes=result.reasonCodes,sets=strategySets(result);
-  if(codes.includes("rep_goal.no_history"))
-    return{status:"new",heat:.12,label:t("rec.repgoal.new.label"),
-      text:t("rec.repgoal.new.text",{floor:ex.min,ceiling:ex.max,goal:f.repGoal})};
-  if(codes.includes("rep_goal.current_progress")||codes.includes("rep_goal.goal_met")&&f.completedReps!=null){
-    if(!sets.length)return{status:"hold",heat:.48,label:t("rec.repgoal.session.done.label"),
-      text:t("rec.repgoal.session.done.text",{sets:ex.sets,done:f.completedReps,goal:f.repGoal})};
-    return{status:"hold",heat:.6,label:t("rec.repgoal.session.label"),
-      text:t("rec.repgoal.session.text",{done:f.completedReps,goal:f.repGoal,reps:sets[0].reps})}}
-  if(codes.includes("rep_goal.advance"))
-    return codes.includes("rep_goal.rebuild_after_advance")
-      ?{status:"add",heat:.82,label:t("rec.repgoal.rebuild.label"),
-        text:t("rec.repgoal.rebuild.text",{goal:f.repGoal,reps:sets[0]?.reps})}
-      :{status:"add",heat:.82,label:t("rec.repgoal.advance.label"),
-        text:t("rec.repgoal.advance.text",{goal:f.repGoal})};
-  if(codes.includes("rep_goal.effort_too_high"))
-    return{status:"hold",heat:.42,label:t("rec.repgoal.effort.label"),
-      text:t("rec.repgoal.effort.text",{goal:f.repGoal})};
-  if(codes.includes("rep_goal.capacity_below_floor"))
-    return{status:"reduce",heat:.18,label:t("rec.repgoal.reduce.label"),
-      text:t("rec.repgoal.reduce.text",{floor:ex.min})};
-  return{status:"hold",heat:.48,label:t("rec.repgoal.progress.label"),
-    text:t("rec.repgoal.progress.text",{done:f.performedTotal,goal:f.repGoal})}}
-function anchorCopy(ex,result,params){
-  const f=result.facts,codes=result.reasonCodes,sets=strategySets(result),u=unitLabel();
-  const min=params.anchorRepMin,max=params.anchorRepMax;
-  if(result.kind==="insufficient_evidence")
-    return{status:"hold",heat:.3,label:t("rec.anchor.insufficient.label"),text:t("rec.anchor.insufficient.text")};
-  if(codes.includes("anchor_backoff.no_history"))
-    return{status:"new",heat:.12,label:t("rec.anchor.new.label"),
-      text:t("rec.anchor.new.text",{min,max,backoffs:params.backoffSets})};
-  if(codes.includes("anchor_backoff.current_anchor")){
-    if(!sets.length)return{status:"hold",heat:.48,label:t("rec.anchor.session.done.label"),text:t("rec.anchor.session.done.text")};
-    if(result.status==="recalibrate")return{status:"reduce",heat:.3,label:t("rec.anchor.recalibrate.label"),
-      text:t("rec.anchor.recalibrate.text",{min})};
-    return{status:"hold",heat:.6,label:t("rec.anchor.session.label"),
-      text:t("rec.anchor.session.text",{load:fmtLoad(f.backoffLoad),unit:u,reps:f.backoffReps})}}
-  if(codes.includes("anchor_backoff.anchor_advance"))
-    return{status:"add",heat:.82,label:t("rec.anchor.advance.label"),text:t("rec.anchor.advance.text",{max})};
-  if(codes.includes("anchor_backoff.anchor_below_floor"))
-    return{status:"reduce",heat:.18,label:t("rec.anchor.reduce.label"),text:t("rec.anchor.reduce.text",{min})};
-  return{status:"hold",heat:.48,label:t("rec.anchor.hold.label"),text:t("rec.anchor.hold.text",{min,max})}}
-function effortTargetCopy(result){
-  const f=result.facts,codes=result.reasonCodes;
-  if(codes.includes("effort_target.no_history"))
-    return{status:"new",heat:.12,label:t("rec.effort.new.label"),
-      text:t("rec.effort.new.text",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})};
-  if(codes.includes("effort_target.no_rir_evidence"))
-    return{status:"hold",heat:.42,label:t("rec.effort.no_rir.label"),text:t("rec.effort.no_rir.text")};
-  if(codes.includes("effort_target.too_easy"))
-    return{status:"add",heat:.82,label:t("rec.effort.advance.label"),
-      text:t("rec.effort.advance.text",{reps:f.targetReps,max:fmt(f.targetRirMax)})};
-  if(codes.includes("effort_target.rep_miss"))
-    return{status:"reduce",heat:.18,label:t("rec.effort.reduce.label"),
-      text:t("rec.effort.rep_miss.text",{reps:f.targetReps})};
-  if(codes.includes("effort_target.too_hard"))
-    return{status:"reduce",heat:.18,label:t("rec.effort.reduce.label"),
-      text:t("rec.effort.too_hard.text",{min:fmt(f.targetRirMin)})};
-  return{status:"hold",heat:.48,label:t("rec.effort.hold.label"),
-    text:t("rec.effort.hold.text",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})}}
 
 /* Legacy progression markers are compatibility data, not a formula switch.
  * This is the complete alias table: the old double-progression marker is the
@@ -5716,19 +5564,6 @@ function progressionForExercise(ex){
   return rangeProgressionProjection(ex||{});
 }
 const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
-/* One engine call, one rendered recommendation, for every strategy. range@1
-   keeps its released mapping untouched; the strategies approved in the numeric
-   gate read their own facts off the same result object. */
-function strategyRecommendation(ex,result,id){
-  const params=progressionForExercise(ex)?.strategy?.params||{};
-  const copy=id==="rep_goal"?repGoalCopy(ex,result)
-    :id==="effort_target"?effortTargetCopy(result):anchorCopy(ex,result,params);
-  const sets=strategySets(result);
-  return{...copy,load:sets[0]?.load??result.facts.targetLoad??null,
-    stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
-    reason:result.reasonCodes[0],strategy:id,engineSets:sets,
-    cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,
-    lastLoad:result.facts.latestLoad??result.facts.representativeLoad}}
 function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefinition){
   if(!definition||!Array.isArray(definition.days))return null;
   const id=String(ex?.slotId||ex?.id||"");
@@ -5962,20 +5797,6 @@ function completedCurrentSets(ex,n,draft){
     else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=preserveMissingRir?null:1}
     sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
   return sets}
-/* The approved strategies have no second arithmetic here: their in-session
-   target is the engine's own current-session result for the sets logged so
-   far, and their base target is the nth set of the engine's distribution. */
-function strategySuggestion(ex,n,rec,draft){
-  const done=completedCurrentSets(ex,n,draft);
-  if(!done.length){const set=rec.engineSets[n-1]||rec.engineSets.at(-1);
-    return set?{load:set.load,reps:set.reps,src:"base"}:{load:null,reps:null,src:"manual"}}
-  const result=RepForgeProgression.evaluateProgression(
-    progressionInput(ex,done.map(s=>({load:s.load,reps:s.reps,rir:s.rir}))));
-  const set=strategySets(result)[0];
-  if(!set)return{load:null,reps:null,src:"manual"};
-  return{load:set.load,reps:set.reps,src:result.status==="advance"?"session-up"
-    :result.status==="reduce"||result.status==="recalibrate"?"session-down":"session-hold",
-    drop:result.reasonCodes.some(code=>code.endsWith(".current_drop"))}}
 /* A canonical program's per-set target is the adaptive engine's own result for
    that set: recommendation() already folds this session's completed sets in as
    live anchors, so nothing is re-derived here. The source names how the target
@@ -6000,7 +5821,6 @@ function engineSetSuggestion(ex,n,rec,draft){
 function setSuggestion(ex,n,rec,draft,old){
   if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
   if(Array.isArray(rec.targetSets))return engineSetSuggestion(ex,n,rec,draft);
-  if(rec.strategy&&rec.strategy!=="range")return strategySuggestion(ex,n,rec,draft);
   const minJ=+state.settings.minJump||2.5;
   const sets=completedCurrentSets(ex,n,draft);
   if(!sets.length)return baseSuggestion(ex,rec,draft,old);
@@ -6042,45 +5862,6 @@ function inSessionNote(ex,draft){
     if((rec.status==="add"||rec.status==="add2")&&sg.load!=null&&sg.reps>ex.min)
       return t("log.insession.reentry",{load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
   return""}
-/* The same sheet for the strategies approved in the numeric gate. Every number
-   is a fact the engine attached to its own result; nothing is re-derived. */
-function explainStrategy(ex,rec,u){
-  const rows=[],params=progressionForExercise(ex)?.strategy?.params||{};
-  const prev=last(ex).filter(x=>+x.load>0);
-  if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
-  const input=progressionInput(ex),result=RepForgeProgression.evaluateProgression(input),f=result.facts;
-  if(rec.strategy==="rep_goal"){
-    if(f.performedTotal!=null)rows.push(whyRow("rg-total",{text:t("why.repgoal.total",
-      {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})}));
-    if(f.medianTrustedRir!=null)rows.push(whyRow("rg-effort",{text:t("why.repgoal.effort",
-      {rir:fmt(f.medianTrustedRir),min:fmt(params.targetRirMin)})}));
-    if(result.reasonCodes.includes("rep_goal.rebuild_after_advance"))
-      rows.push(whyRow("rg-rebuild",{text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})}));
-    if(f.completedReps!=null)rows.push(whyRow("rg-distribution",{text:t("why.repgoal.distribution")}))}
-  else if(rec.strategy==="effort_target"){
-    if(f.representativeLoad!=null)rows.push(whyRow("ef-evidence",{text:t("why.effort.evidence",{
-      load:fmtLoad(f.representativeLoad),unit:u,reps:fmt(f.representativeReps),rir:f.representativeRir==null?t("why.effort.missing"):fmt(f.representativeRir)})}));
-    rows.push(whyRow("ef-target",{text:t("why.effort.target",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})}));
-    if(result.reasonCodes.includes("effort_target.grid_rounded"))
-      rows.push(whyRow("ef-grid",{text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})}))}
-  else{
-    // Name the top set the lifter logged, not the capacity the engine read from it:
-    // today's anchor when one is logged, otherwise the latest session's first set.
-    const cur=input.currentSession||[],explicit=cur.findIndex(x=>x.role==="anchor"),
-      idx=explicit>=0?explicit:cur.some(x=>x.role!=null)?-1:0,
-      top=cur.length&&idx>=0?cur[idx]:input.history.at(-1)?.sets?.[0];
-    if(f.anchorLoad!=null&&top&&sameLoad(+top.load,f.anchorLoad)){
-      rows.push(whyRow("an-top",{text:t("why.anchor.top",{load:fmtLoad(f.anchorLoad),unit:u,reps:+top.reps})}));
-      if(top.rir!=null&&top.rir!==""&&Number.isFinite(+top.rir))rows.push(whyRow("an-toprir",{text:t("why.anchor.top_rir",{rir:fmt(+top.rir)})}))}
-    if(f.backoffLoad!=null)rows.push(whyRow("an-backoff",{text:t("why.anchor.backoff",
-      {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})}));
-    if(result.reasonCodes.includes("anchor_backoff.backoff_recalculated"))
-      rows.push(whyRow("an-untouched",{text:t("why.anchor.untouched")}))}
-  if(rec.text)rows.push(whyRow("text",{text:rec.text}));
-  const note=inSessionNote(ex,loadDraft());
-  if(note)rows.push(whyRow("session",{label:t("why.session"),text:note}));
-  return rows}
 // On-demand arithmetic behind one recommendation (plan 043). Built at tap time only,
 // never during renderWorkout: the Log tab's render path stays free of this work.
 // One brain — every number here is a field the engine attached to its own result;
@@ -6093,7 +5874,6 @@ function explainRecommendation(ex){
   if(Array.isArray(rec.targetSets))return rec.status==="new"?rows:engineWhyRows(ex,rec);
   // A new lift can still explain an adjustment from sets logged in this session.
   if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[whyRow("session",{label:t("why.session"),text:note})]:rows}
-  if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
     text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
@@ -7139,8 +6919,9 @@ function rxSetsLine(sets,withUnit){
     :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
-  const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
   if(rec.status==="manual")return `${ex.sets} × ${ex.min}–${ex.max}`;
+  if(Array.isArray(rec.targetSets)){const first=setSuggestion(ex,1,rec,{},null);return `${ex.sets} × ${first.reps??ex.min}`}
+  const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
   if(strategy==="rep_goal")return t("today.target.total",{n:params.repGoal});
   if(strategy==="anchor_backoff")return t("today.target.anchor",{n:params.backoffSets});
   if(strategy==="effort_target")return `${params.workingSets||ex.sets} × ${params.targetReps}`;
@@ -7805,8 +7586,21 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
 /** The effort window a set that has not been logged is aimed at. These are the
  *  program's own parameters and the lifter's RIR ceiling, formatted — the same
  *  figures the exercise line above shows. */
+/* What a canonical slot's current cycle prescribes: whether the adaptive engine
+   owns its targets, and the RIR its sets aim at. Null for a flat legacy row. */
+function canonicalSlotFacts(ex){
+  const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
+  if(!matched)return null;
+  const cycles=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
+  const index=Math.min(cycles,Math.max(1,mesocycleLifecycle(state.programMeta).current||1));
+  const cycle=matched.slot.prescriptionsByCycle?.find(item=>item.cycleIndex===index)||matched.slot.prescriptionsByCycle?.[0];
+  const sets=cycle?.sets||[],rirs=sets.map(set=>set.rir).filter(value=>Number.isFinite(value));
+  return{adaptive:sets.some(set=>set.status==="ready"),
+    rirMin:rirs.length?Math.min(...rirs):null,rirMax:rirs.length?Math.max(...rirs):null}}
 function focusTargetEffort(ex){
   if(isEffortMode())return effortLabel(targetEffort());
+  const facts=canonicalSlotFacts(ex);
+  if(facts)return facts.rirMin==null?"—":facts.rirMin===facts.rirMax?fmt(facts.rirMin):`${fmt(facts.rirMin)}–${fmt(facts.rirMax)}`;
   const p=progressionForExercise(ex)?.strategy?.params||{};
   const lo=p.targetRirMin!=null?p.targetRirMin:p.anchorTargetRirMin!=null?p.anchorTargetRirMin:0;
   const hi=p.targetRirMax!=null?p.targetRirMax:p.anchorTargetRirMax!=null?p.anchorTargetRirMax:state.settings.rirHigh;
@@ -7876,6 +7670,13 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
  *  envelope; a slot with none is the range it always was. */
 function focusExMeta(ex){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
+  // A canonical slot is adaptive or manual; its RIR comes from its own sets.
+  const facts=canonicalSlotFacts(ex);
+  if(facts){
+    const name=t(facts.adaptive?"program.progression.adaptive":"program.progression.strategy.manual");
+    const line=facts.rirMin==null?t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max})
+      :t("focus.exmeta.range",{sets:+ex.sets||1,min:ex.min,max:ex.max,rmin:fmt(facts.rirMin),rmax:fmt(facts.rirMax)});
+    return `${line} · ${name}`}
   const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
   const sets=+p.workingSets||+ex.sets||1;
   const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
@@ -11711,61 +11512,8 @@ function dayCard(d){
   `</div>`;
 }
 
-const PROGRESSION_EDITOR_STRATEGIES=Object.freeze(["range","rep_goal","effort_target","anchor_backoff","manual"]);
 const progressionNumber=(name,label,value,{min=0,max=100,step="1"}={})=>
   `<label class="pstrategy__field"><span>${esc(label)}</span><input type="number" inputmode="decimal" name="${name}" value="${esc(value)}" min="${min}" max="${max}" step="${step}" required></label>`;
-function progressionEditorParams(e,strategy){
-  const current=progressionForExercise(e),same=current?.strategy?.id===strategy;
-  const p=same?current.strategy.params:{};
-  const increment=+p.minLoadIncrement||+state.settings.minJump||2.5;
-  const jump=Number.isFinite(+p.jumpPercent)?+p.jumpPercent:+state.settings.jumpPct||2.5;
-  if(strategy==="range")return `<div class="pstrategy__grid">`+
-    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
-    progressionNumber("repMin",t("program.progression.rep_min"),+p.repMin||e.min,{min:1,max:100})+
-    progressionNumber("repMax",t("program.progression.rep_max"),+p.repMax||e.max,{min:1,max:100})+`</div>`;
-  if(strategy==="rep_goal")return `<div class="pstrategy__grid">`+
-    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
-    progressionNumber("repGoal",t("program.progression.total_reps"),+p.repGoal||Math.max(e.sets*e.max,e.sets*e.min),{min:1,max:200})+
-    progressionNumber("repMin",t("program.progression.rep_floor"),+p.repFloor||e.min,{min:1,max:100})+
-    progressionNumber("repMax",t("program.progression.rep_ceiling"),+p.repCeiling||e.max,{min:1,max:100})+
-    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.targetRirMin)?+p.targetRirMin:1,{min:0,max:10,step:"0.5"})+
-    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
-    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
-    progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
-  if(strategy==="effort_target")return `<div class="pstrategy__grid">`+
-    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
-    progressionNumber("targetReps",t("program.progression.target_reps"),+p.targetReps||e.min,{min:1,max:100})+
-    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.targetRirMin)?+p.targetRirMin:2,{min:0,max:10,step:"0.5"})+
-    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
-    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+`</div>`;
-  if(strategy==="anchor_backoff")return `<div class="pstrategy__grid">`+
-    progressionNumber("anchorRepMin",t("program.progression.anchor_rep_min"),+p.anchorRepMin||Math.min(e.min,5),{min:1,max:100})+
-    progressionNumber("anchorRepMax",t("program.progression.anchor_rep_max"),+p.anchorRepMax||Math.min(Math.max(e.min,5),e.max),{min:1,max:100})+
-    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.anchorTargetRirMin)?+p.anchorTargetRirMin:1,{min:0,max:10,step:"0.5"})+
-    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.anchorTargetRirMax)?+p.anchorTargetRirMax:3,{min:0,max:10,step:"0.5"})+
-    progressionNumber("backoffSets",t("program.progression.backoff_sets"),+p.backoffSets||Math.max(1,e.sets-1),{min:1,max:20})+
-    progressionNumber("backoffRepMin",t("program.progression.backoff_rep_min"),+p.backoffRepMin||Math.max(e.min,6),{min:1,max:100})+
-    progressionNumber("backoffRepMax",t("program.progression.backoff_rep_max"),+p.backoffRepMax||Math.max(e.max,10),{min:1,max:100})+
-    progressionNumber("backoffPercent",t("program.progression.backoff_percent"),Number.isFinite(+p.backoffPercent)?Math.round(+p.backoffPercent*100):80,{min:70,max:95,step:"1"})+
-    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
-    progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
-  return `<p class="pstrategy__manual">${esc(t("program.progression.manual_help"))}</p>`;
-}
-function progressionEditorCard(e){
-  const unsupported=!!e.progressionIncompatibility;
-  const current=unsupported?"unsupported":strategyIdFor(e);
-  const options=(unsupported?[`<option value="unsupported">${esc(t("program.progression.unsupported"))}</option>`]:[])
-    .concat(PROGRESSION_EDITOR_STRATEGIES.map(id=>`<option value="${id}"${id===current?" selected":""}>${esc(t(`program.progression.strategy.${id}`))}</option>`)).join("");
-  return `<details class="pstrategy" data-progression-editor="${esc(e.id)}">`+
-    `<summary>${esc(t("program.progression.summary"))}<span>${esc(t(`program.progression.strategy.${current}`))}</span></summary>`+
-    `<div class="pstrategy__body"><label class="pstrategy__select"><span>${esc(t("program.progression.method"))}</span>`+
-      `<select data-progression-strategy aria-describedby="progression_help_${esc(e.id)}">${options}</select></label>`+
-    `<p class="pstrategy__help" id="progression_help_${esc(e.id)}">${esc(t(unsupported?"program.progression.unsupported_help":"program.progression.help"))}</p>`+
-    `<form data-progression-form data-id="${esc(e.id)}"><div data-progression-fields>${unsupported?"":progressionEditorParams(e,current)}</div>`+
-      `<p class="pstrategy__error" data-progression-error role="alert" aria-live="assertive"></p>`+
-      `<button class="btn btn--steel pstrategy__save" type="submit"${unsupported?" disabled":""}>${esc(t("program.progression.save"))}</button>`+
-    `</form></div></details>`;
-}
 
 function exCard(e,i,n){
   const progressionOwnsShape=!!e.progression&&["range","rep_goal","effort_target","anchor_backoff"].includes(e.progression.strategy?.id);
@@ -11797,7 +11545,6 @@ function exCard(e,i,n){
         `${esc((e.alternates||[]).join(", ")||t("program.exercise.alternates_empty"))}`+
       `</button>`+
     `</div>`+
-    progressionEditorCard(e)+
   `</div>`;
 }
 
@@ -11816,35 +11563,6 @@ function commitEditorField(id,field,value,effect){
   return commitProgramEditorProposal(proposal,storageIO,{effect})}
 
 const progressionFormNumber=(data,name)=>Number(data.get(name));
-function authoredProgressionFromForm(strategy,data,e){
-  let params={};
-  if(strategy==="range")params={workingSets:progressionFormNumber(data,"sets"),repMin:progressionFormNumber(data,"repMin"),repMax:progressionFormNumber(data,"repMax")};
-  else if(strategy==="rep_goal")params={
-    workingSets:progressionFormNumber(data,"sets"),repGoal:progressionFormNumber(data,"repGoal"),
-    repFloor:progressionFormNumber(data,"repMin"),repCeiling:progressionFormNumber(data,"repMax"),
-    targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
-    minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump"),
-    distributionPolicy:"balanced_frontload_v1"};
-  else if(strategy==="effort_target")params={
-    workingSets:progressionFormNumber(data,"sets"),targetReps:progressionFormNumber(data,"targetReps"),
-    targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
-    minLoadIncrement:progressionFormNumber(data,"increment")};
-  else if(strategy==="anchor_backoff")params={
-    anchorRepMin:progressionFormNumber(data,"anchorRepMin"),anchorRepMax:progressionFormNumber(data,"anchorRepMax"),
-    anchorTargetRirMin:progressionFormNumber(data,"rirMin"),anchorTargetRirMax:progressionFormNumber(data,"rirMax"),
-    backoffSets:progressionFormNumber(data,"backoffSets"),backoffRepMin:progressionFormNumber(data,"backoffRepMin"),
-    backoffRepMax:progressionFormNumber(data,"backoffRepMax"),backoffPercent:progressionFormNumber(data,"backoffPercent")/100,
-    minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump")};
-  else if(strategy==="manual"){
-    const existing=progressionForExercise(e);
-    params=existing?.strategy?.id==="manual"&&!e.progressionIncompatibility?cloneSnapshot(existing.strategy.params):{}}
-  return{schemaVersion:1,strategy:{id:strategy,version:1,params},modifiers:[]}}
-function progressionAuthoredShape(strategy,params,e){
-  if(strategy==="rep_goal")return{sets:params.workingSets,min:params.repFloor,max:params.repCeiling};
-  if(strategy==="effort_target")return{sets:params.workingSets,min:params.targetReps,max:params.targetReps};
-  if(strategy==="anchor_backoff")return{sets:1+params.backoffSets,min:Math.min(params.anchorRepMin,params.backoffRepMin),max:Math.max(params.anchorRepMax,params.backoffRepMax)};
-  if(strategy==="range")return{sets:params.workingSets,min:params.repMin,max:params.repMax};
-  return{sets:e.sets,min:e.min,max:e.max}}
 function progressionPairCompatible(id,prescription,program){
   const relations=programEditorSnapshot().programMeta?.progressionRelations;
   if(!Array.isArray(relations))return true;
@@ -11855,35 +11573,6 @@ function progressionPairCompatible(id,prescription,program){
     const selected=member.exerciseId===id?prescription:progressionForExercise(slot);
     byRole[member.role]=`${selected?.strategy?.id}@${selected?.strategy?.version}`}
   return RepForgeProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
-async function saveProgressionEditor(form){
-  const model=programEditorProgram(),id=form.dataset.id,e=model.find(id),error=form.querySelector("[data-progression-error]");if(!e)return;
-  error.textContent="";
-  if(!form.reportValidity())return;
-  const select=form.closest("[data-progression-editor]")?.querySelector("[data-progression-strategy]");
-  const strategy=select?.value;
-  if(!PROGRESSION_EDITOR_STRATEGIES.includes(strategy)){error.textContent=t("program.progression.error.unsupported");return}
-  const prescription=authoredProgressionFromForm(strategy,new FormData(form),e);
-  const checked=RepForgeProgression.validatePrescription(prescription);
-  if(!checked.ok){error.textContent=t("program.progression.error.invalid");return}
-  const executable=RepForgeProgression.evaluateProgression({
-    ...progressionInput(e),prescription:checked.value,history:[],currentSession:[]});
-  if(executable.kind==="invalid"||executable.kind==="incompatible"){
-    error.textContent=t("program.progression.error.invalid");return}
-  const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta),next=nextProgram.find(id);
-  if(!progressionPairCompatible(id,checked.value,nextProgram)){error.textContent=t("program.progression.error.paired");return}
-  const shape=progressionAuthoredShape(strategy,checked.value.strategy.params,next);
-  let effect=null;
-  if(!setupEditorOpen&&shape.sets<next.sets){const draftRaw=readDraftRaw();let draft={};
-    try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
-    if(draftHasProgressInRemovedSets(id,shape.sets,next.sets,draft)){error.textContent=t("program.progression.error.active_sets");return}
-    effect=draftPreservationEffect(draftRaw);
-    if(effect.status!==DRAFT_EFFECT_VALID){error.textContent=t("program.progression.error.active_sets");return}}
-  next.progression=cloneSnapshot(checked.value);delete next.progressionIncompatibility;
-  next.sets=shape.sets;next.min=shape.min;next.max=shape.max;
-  proposal.program=nextProgram.toJSON();
-  const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
-  if(!(result.localOk||result.idbOk)){error.textContent=t("program.progression.error.save");return}
-  render();toast(t("program.progression.saved"))}
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
@@ -11958,15 +11647,6 @@ function bindEditor(){
       renameCollapsedDay(old,next);
       if(!setupEditorOpen&&day===old)day=next;
       render();toast(t("toast.day_renamed"))};
-  });
-  $$("#programEditor [data-progression-editor]").forEach(editor=>{
-    const e=programEditorProgram().find(editor.dataset.progressionEditor),select=editor.querySelector("[data-progression-strategy]");
-    const form=editor.querySelector("[data-progression-form]"),fields=editor.querySelector("[data-progression-fields]");
-    select.onchange=()=>{const strategy=select.value;
-      fields.innerHTML=PROGRESSION_EDITOR_STRATEGIES.includes(strategy)?progressionEditorParams(e,strategy):"";
-      form.querySelector("[data-progression-error]").textContent="";
-      form.querySelector('button[type="submit"]').disabled=!PROGRESSION_EDITOR_STRATEGIES.includes(strategy)};
-    form.onsubmit=event=>{event.preventDefault();saveProgressionEditor(form)};
   });
   $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
 }
@@ -15937,6 +15617,14 @@ function entryDurationLabel(preview){
 /* Collapse a min/max pair to the exact form when both ends agree. */
 function entryRangeLabel(min,max,rangeKey,exactKey){
   return min===max?t(exactKey,{n:min}):t(rangeKey,{min,max})}
+/* A canonical preview adapts where the generator wrote ready prescriptions;
+   otherwise the lifter sets the numbers. */
+function entryProgressionSentence(preview){
+  const definition=preview?.programDefinition;
+  if(definition&&Array.isArray(definition.days)){
+    const statuses=definition.days.flatMap(day=>day.slots||[]).flatMap(slot=>(slot.prescriptionsByCycle?.[0]?.sets||[]).map(set=>set.status));
+    return t(statuses.includes("ready")?"entry.result.why_progression_adaptive":"entry.result.why_progression_manual")}
+  return t("entry.result.why_progression",{progression:entryProgressionLabel(preview)})}
 function entryProgressionLabel(preview){
   const ids=[...new Set((preview?.program||[]).map(exercise=>exercise.progression?.strategy?.id).filter(Boolean))];
   const labels={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
@@ -16293,7 +15981,7 @@ function renderResultStep(){
     entryEquipmentLabel()?{icon:"dumbbell",text:t("entry.result.why_equipment",{equipment:entryEquipmentLabel()})}:null,
     (entryPriorityLabel()!==t("entry.preview.priorities_none"))?{icon:"target",text:t("entry.result.why_priorities",{priorities:entryPriorityLabel()})}:null,
     custom&&exercisePreferences!==t("entry.preview.exercise_preferences_none")?{icon:"dumbbell",text:t("entry.result.why_exercise_preferences",{preferences:exercisePreferences})}:null,
-    {icon:"trend",text:t("entry.result.why_progression",{progression:entryProgressionLabel(preview)})},
+    {icon:"trend",text:entryProgressionSentence(preview)},
     (preview.reductions||[]).length?{icon:"scale",text:t("entry.result.why_reductions",{n:preview.reductions.length})}:null,
     (preview.limitations||[]).length?{icon:"scale",text:t("entry.result.why_compromises",{n:preview.limitations.length})}:null,
     explanation.recentConsistency==="about_half"&&preview.programStructure?.weekPrescriptions?.length
@@ -18741,7 +18429,7 @@ function whySheetModel(ex,surface="focus"){
   // Once the session has moved the target, the working ends on the set the headline speaks for; the base target above it stays labelled Today.
   const setRow=()=>{if(head.inSession&&head.set)calc.push({sum:true,k:t("why.calc.set",{n:head.set.n}),v:`${fmtLoad(head.set.load)} ${u} × ${head.set.reps}`})};
   if(prev.length)model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)});
-  const isRange=!rec.strategy||rec.strategy==="range";
+  const isRange=true;
   // The first unlogged working set, as the in-session note names it.
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
   let nextSet=null;
@@ -18780,42 +18468,6 @@ function whySheetModel(ex,surface="focus"){
     if(!sameLoad(rec.load,rec.lastLoad)&&load?.facts)calc.push({k:t("why.calc.new_load"),v:whyLoadMove(load.facts.from,load.facts.to,load.facts.raw?{pct:load.facts.pctValue}:{step:load.facts.stepValue})});
     if(rec.reenterReps&&reps?.facts)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:reps.facts.capacity,pred:reps.facts.pred,rir:reps.facts.rirValue,reps:reps.facts.reps,min:reps.facts.min,max:reps.facts.max})});
     const blockRow=take("block");if(blockRow)calc.push({k:t("why.calc.block"),v:blockRow.text,text:true});
-    todayRow();setRow();
-  }
-  else if(rec.strategy==="rep_goal"){
-    const total=take("rg-total"),effort=take("rg-effort"),rebuild=take("rg-rebuild");
-    if(total)block("goal",t("why.lead.goal"),[performed,total.text].filter(Boolean).join(" "));
-    if(effort)block("effort",t("why.lead.effort"),effort.text);
-    const sets=rec.engineSets||[];
-    if(rebuild)block("spread",t("why.lead.spread"),rebuild.text);
-    else if(sets.length)block("spread",t("why.lead.spread"),t("why.split",{total:sum(sets.map(s=>s.reps)),reps:whyList(sets.map(s=>s.reps))}));
-    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts;
-    lastGroup();
-    calc.push({group:t("why.calc.working")});
-    if(f.performedTotal!=null)calc.push({k:t("why.calc.goal"),v:`${f.performedTotal} / ${f.repGoal}`});
-    if(sets.length)calc.push({k:t("why.calc.split"),v:`${sets.map(s=>s.reps).join(" + ")} = ${sum(sets.map(s=>s.reps))}`});
-    todayRow();setRow();
-  }
-  else if(rec.strategy==="anchor_backoff"){
-    const top=take("an-top"),topRir=take("an-toprir"),backoff=take("an-backoff"),text=take("text");
-    if(top)block("anchor",t("why.lead.anchor"),[top.text,topRir?.text].filter(Boolean).join(" "));
-    if(text)block("rule",t("why.lead.rule"),text.text);
-    if(backoff)block("backoff",t("rec.anchor.session.label"),backoff.text);
-    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts,params=progressionForExercise(ex)?.strategy?.params||{};
-    lastGroup();
-    calc.push({group:t("why.calc.working")});
-    if(f.capacityReps!=null&&f.anchorLoad!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(f.capacityReps),load:fmtLoad(f.anchorLoad),unit:u})});
-    if(f.targetLoad!=null&&f.anchorLoad!=null&&!sameLoad(f.targetLoad,f.anchorLoad))calc.push({k:t("why.calc.new_load"),v:whyLoadMove(f.anchorLoad,f.targetLoad,{pct:+params.jumpPercent})});
-    if(f.backoffLoad!=null&&params.backoffPercent!=null)calc.push({k:t("rec.anchor.session.label"),v:`${fmtLoad(f.targetLoad??f.anchorLoad)} × ${fmt(Math.round(params.backoffPercent*100))}% → ${fmtLoad(f.backoffLoad)}`});
-    todayRow();setRow();
-  }
-  else if(rec.strategy==="effort_target"){
-    const evidence=take("ef-evidence"),target=take("ef-target"),grid=take("ef-grid"),text=take("text");
-    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts;
-    if(evidence)block("effort",t("why.lead.effort"),[evidence.text,text?.text].filter(Boolean).join(" "));
-    if(target)block("reps",t("why.lead.reps",{n:f.targetReps}),target.text);
-    if(grid)block("load",t("why.lead.load"),grid.text);
-    lastGroup();
     todayRow();setRow();
   }
   // Rows that are not placed as a sentence stay readable in the working, so nothing the producer says is lost.
