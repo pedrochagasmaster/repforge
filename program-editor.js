@@ -1071,7 +1071,7 @@
         </div>` : "";
       return `<article class="program-editor__exercise pex${open ? " is-expanded" : " is-collapsed"}${settleMoveId === exercise.id ? " is-settling" : ""}" data-role="exercise" data-id="${esc(exercise.id)}" data-day="${esc(day)}">
         <header class="program-editor__exercise-head pex__head">
-          <input class="program-editor__exercise-name pex__name" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" value="${esc(name)}" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">
+          <textarea class="program-editor__exercise-name pex__name" rows="1" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">${esc(name)}</textarea>
           <span class="program-editor__summary" data-role="exercise-summary">${esc(summary(exercise))}</span>
           <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${shownName}`))}" title="${esc(label("move"))}">≡</button>
           <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(label(open ? "collapseExercise" : "expandExercise", { name: shownName }))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
@@ -1167,7 +1167,9 @@
       host.querySelectorAll('[data-role="exercise-field"]').forEach(input => {
         input.addEventListener("focus", () => { input.dataset.editorFocusValue = input.value; });
         const handler = () => {
-          const field = input.dataset.field, raw = String(input.value || "");
+          // The name wraps in a one-row textarea; it is still one line of text.
+          const field = input.dataset.field, text = String(input.value || "");
+          const raw = field === "name" ? text.replace(/\s*\n\s*/g, " ") : text;
           // A blank exercise name is useful while the lifter is editing, but
           // leaving the field blank is an abandoned rename. Restore the value
           // captured on focus instead of manufacturing the model's fallback.
@@ -1177,6 +1179,10 @@
           return setExerciseField(input.dataset.id, field, input.value);
         };
         input.addEventListener("change", handler);
+        // Enter commits a name the way it did when the name was a text input.
+        if (input.dataset.field === "name") input.addEventListener("keydown", event => {
+          if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); input.blur(); }
+        });
         if (input.dataset.field === "name" || input.dataset.field === "notes") {
           input.addEventListener("input", () => setExerciseField(input.dataset.id, input.dataset.field, input.value, { redraw: false }));
           input.addEventListener("blur", handler);

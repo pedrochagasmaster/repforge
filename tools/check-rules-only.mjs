@@ -49,7 +49,7 @@ export const RULES_ONLY_STATES = Object.freeze([
   "library/list", "library/list-selected", "library/exercise-preview", "library/exercise-detail", "library/exercise-detail-glossary",
   "program/no-program", "program/progression-editor", "program/exercise-picker", "program/custom-exercise",
   "program/custom-exercise-saving", "program/custom-exercise-deleting", "program/custom-exercise-archiving",
-  "program/custom-exercise-recovery", "program/share-setup", "program/share-one-blocker", "program/share-repair-return",
+  "program/custom-exercise-recovery", "program/share-setup",
   "program/share-ready", "program/text-export",
   "settings/main", "settings/appearance", "settings/guides", "settings/guides-replay", "settings/privacy", "settings/privacy-disclosure",
   "install/banner", "install/ios-sheet", "install/transfer-eligible", "install/transfer-creating", "install/transfer-ready",
