@@ -189,6 +189,25 @@ test("UI-system shard reports merge into the catalog-wide never-rendered rule", 
   const gateMerge = mergeUiSystemReports(root, { inventory, manifest: realManifest });
   assert.equal(gateMerge.shards, UI_SYSTEM_SHARDS, "the gate requires the complete declared sweep");
   assert.equal(gateMerge.problems.some((p) => /never rendered/.test(p)), false);
+
+  // CI artifacts are named shard-<job index>-<run attempt>, and the gate downloads
+  // every attempt. Re-running a failed job must replace its earlier report, not
+  // count twice; a re-run that wrote no report must not fall back to the stale one.
+  const attempts = scratch(t);
+  const writeAttempt = (job, attempt, report) => {
+    const dir = join(attempts, `shard-${job}-${attempt}`, "workout", `x-${job}`, "initial");
+    mkdirSync(dir, { recursive: true });
+    if (report) writeFileSync(join(dir, "ui-system-shard.json"), JSON.stringify(report));
+  };
+  for (const [index, report] of perShard.entries()) writeAttempt(index * 2, 1, { ...report, problems: index === 0 ? 3 : 0 });
+  writeAttempt(0, 2, perShard[0]);
+  const rerun = mergeUiSystemReports(attempts, { inventory, manifest: realManifest });
+  const mergeProblems = (problems) => problems.filter((p) => /duplicates capture key|reported \d+ time|expected \d+ reports|catalog states, expected|reported role problems/.test(p));
+  assert.deepEqual(mergeProblems(rerun.problems), [], "a re-run job's report replaces its earlier attempt");
+  assert.equal(rerun.shards, UI_SYSTEM_SHARDS);
+  writeAttempt(2, 2, null);
+  assert.match(mergeUiSystemReports(attempts, { inventory, manifest: realManifest }).problems.join("\n"), /expected \d+ reports, got \d+/,
+    "a re-run that wrote no report leaves its shard missing instead of reviving the stale report");
 });
 
 test("verify mode compares a staged capture with the committed catalog and keeps evidence for failures", (t) => {
