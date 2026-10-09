@@ -318,6 +318,40 @@ node tools/build-clone-fixture.mjs
 node tools/canonical-clone-hash.mjs --check   # always verify after regenerating
 ```
 
+## review-pt-names-server.mjs (owner-only, issue #315)
+
+Run this from a checkout containing Plan 067's complete catalog:
+
+```bash
+node tools/review-pt-names-server.mjs
+# Open http://127.0.0.1:8765/
+```
+
+Optional port: `node tools/review-pt-names-server.mjs 8766`. The server binds **only**
+to `127.0.0.1` and accepts same-origin writes; it is not part of the PWA, CI
+preview, service worker, or public Pages deployment. Do not expose this port
+through a public tunnel or reverse proxy.
+
+The local page presents one pending Portuguese name at a time, grouped by
+equipment and muscle using the raw source UUID references. Filter or search,
+compare established reviewed names, and approve without editing (right arrow
+or swipe right), edit the name and newline-separated aliases (`E`, then
+Save), or skip for the current session (down arrow/swipe down). Skipped entries
+remain drafts. `Rever pulados` returns them to this session's feed. An approval
+removes the UUID from `exercise-names-pt-draft.json`, creates a reviewed entry
+in `exercise-catalog-curation.json`, and runs `build-exercises.mjs` to
+regenerate `exercises.js` and `assets/exercise-catalog.json`. The server
+rejects stale, duplicate, or malformed approvals and restores the original
+input/generated files if the build fails. No approval is automatically made
+by starting the server. Edits are local Git changes: review the diff before
+committing them.
+
+```bash
+node --test test/review-pt-names.mjs
+node tools/build-exercises.mjs --check
+node test/exercise-library.mjs
+```
+
 ## build-exercises.mjs
 
 Generates the compact synchronous picker index in `exercises.js` and the full
