@@ -816,5 +816,84 @@ assert(Draft.isPristine(apply(fresh(), "beginFinish", {})) === false, "starting 
 assert(Draft.isPristine(apply(apply(fresh(), "beginFinish", {}), "cancelFinish", {})) === true, "cancelling the finish flow restores pristine state");
 assert(Draft.isPristine(null) === false && Draft.isPristine({}) === false, "pristine rejects non-aggregates closed");
 
+console.log("\nIssue #320: a pre-Plan-067 programmed target RIR above 4 clamps and resumes");
+for (const legacyTargetRir of [5, 6]) {
+  const draft = fresh();
+  const setId = draft.exercises["slot-squat"].setOrder[0];
+  const rawDraft = JSON.parse(JSON.stringify(Draft.serialize(draft)));
+  // Before Plan 067, validation only rejected a negative/non-finite/non-numeric
+  // target, so a draft written then could carry any non-negative target RIR.
+  rawDraft.exercises["slot-squat"].sets[setId].programmed.targetRir = legacyTargetRir;
+  rawDraft.exercises["slot-squat"].sets[setId].edited.load = "61.5";
+  rawDraft.exercises["slot-squat"].sets[setId].edited.reps = "7";
+  // The lifter's own typed/logged RIR has never had an upper bound (it still
+  // doesn't), so a value above 4 here must resume untouched.
+  rawDraft.exercises["slot-squat"].sets[setId].edited.rir = "8";
+
+  const parsed = Draft.parse(JSON.stringify(rawDraft));
+  assert(parsed.kind === "valid", `a stored draft with programmed target RIR ${legacyTargetRir} parses as valid, not invalid-schema`);
+  const parsedSet = parsed.kind === "valid" ? parsed.draft.exercises["slot-squat"].sets[setId] : null;
+  assert(parsedSet?.programmed.targetRir === 4, `programmed target RIR ${legacyTargetRir} clamps down to 4`);
+  assert(parsedSet?.programmed.targetRirClamped === true, `the clamp from ${legacyTargetRir} is recorded as programmed.targetRirClamped`);
+  assert(parsedSet?.edited.load === "61.5" && parsedSet?.edited.reps === "7",
+    "the lifter's typed load and reps resume intact alongside the clamp");
+  assert(parsedSet?.edited.rir === "8",
+    "the lifter's own logged RIR, unbounded before and after Plan 067, resumes untouched by the clamp");
+
+  const resaved = parsed.kind === "valid" ? Draft.serialize(parsed.draft) : null;
+  assert(resaved?.exercises["slot-squat"].sets[setId].programmed.targetRir === 4 &&
+    resaved?.exercises["slot-squat"].sets[setId].programmed.targetRirClamped === true,
+    "the draft saves back out with the clamped target and its marker intact");
+}
+
+console.log("\nIssue #320: the clamp still rejects values that were never valid");
+{
+  const draft = fresh();
+  const setId = draft.exercises["slot-squat"].setOrder[0];
+  const malformed = {
+    "negative": -1,
+    "non-numeric": "6",
+    "absurd (above the legacy clamp ceiling, likely corruption)": 500,
+  };
+  for (const [label, badTargetRir] of Object.entries(malformed)) {
+    const rawDraft = JSON.parse(JSON.stringify(Draft.serialize(draft)));
+    rawDraft.exercises["slot-squat"].sets[setId].programmed.targetRir = badTargetRir;
+    const parsed = Draft.parse(JSON.stringify(rawDraft));
+    assert(parsed.kind === "invalid" && parsed.code === "invalid-schema",
+      `a ${label} programmed target RIR (${JSON.stringify(badTargetRir)}) is still rejected, not clamped`);
+  }
+  // A JSON-serialized draft can never carry NaN or Infinity (JSON.stringify
+  // coerces both to null), so exercise the in-memory object form directly.
+  const nonFiniteDraft = JSON.parse(JSON.stringify(Draft.serialize(draft)));
+  nonFiniteDraft.exercises["slot-squat"].sets[setId].programmed.targetRir = Number.NaN;
+  assert(!Draft.validate(nonFiniteDraft).ok, "a non-finite programmed target RIR is still rejected, not clamped");
+}
+
+console.log("\nIssue #320: create() clamps a target RIR that falls back to the lifter's own unbounded historical logged RIR");
+{
+  const context = programContext();
+  context.exercises[0].targetRir = null;
+  context.exercises[0].programmedSets = context.exercises[0].programmedSets.map(({ targetRir, ...rest }) => rest);
+  const created = Draft.create(context, sessionSelection(), {
+    "slot-squat": {
+      exerciseInstanceId: "slot-squat",
+      setupNotes: "",
+      sets: [
+        { ordinal: 1, load: 47.5, reps: 9, rir: 6 },
+        { ordinal: 2, load: 47.5, reps: 8, rir: 1 },
+      ],
+    },
+  });
+  assert(!Draft.isDomainError(created), "create() does not fail closed when the only available target RIR is a historical 6 above the ceiling",
+    Draft.isDomainError(created) ? JSON.stringify(created) : "");
+  if (!Draft.isDomainError(created)) {
+    const setId = created.exercises["slot-squat"].setOrder[0];
+    const set = created.exercises["slot-squat"].sets[setId];
+    assert(set.programmed.targetRir === 4, "the historical RIR 6 fallback clamps to 4 on creation");
+    assert(set.programmed.targetRirClamped === true, "the clamp on creation is recorded as programmed.targetRirClamped");
+    assert(Draft.validate(created).ok, "the freshly created draft with the clamped target still validates");
+  }
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;
