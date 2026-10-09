@@ -2565,6 +2565,12 @@ function restoreDraftFocus(identity){
     if(el.matches(".shelf__input")&&!el.closest(".shelf__field.is-editing"))el=shelfReveal(el)||el;
     try{el.focus();if(identity.start!=null&&typeof el.setSelectionRange==="function")el.setSelectionRange(identity.start,identity.end??identity.start)}catch{}})}
 function draftRecoveryMessageKind(status,initialization=false){
+  // A legacy flat draft that cannot migrate against the current program
+  // (metric composition, identity, or any other structural mismatch the
+  // migrator refuses to guess at) reads the same "earlier program" notice as
+  // a stale V2 draft: the lifter's program moved on, and the typed values
+  // stay in recovery until they choose export or clear.
+  if(status==="invalid-migrated-draft")return"program";
   if(status==="stale")return initialization?"program":"stale";
   if(status==="lock-unavailable"||status==="read-failed"||status==="checkpoint-unreadable"||
     status==="checkpoint-missing"||status==="checkpoint-conflict")return"unavailable";
@@ -2613,11 +2619,20 @@ function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,r
     copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false};
   renderDraftRecovery();focusDraftRecovery()}
 function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,contextTouched=null}={}){
-  const kind=draftRecoveryMessageKind(result?.status,true),raw=result?.raw??workoutDraftRecovery?.raw??null,
+  // migrateLegacy's specific reason (e.g. invalid-migrated-draft) is the
+  // signal the copy map keys off; initializeWorkoutDraft only ever widens it
+  // to the generic "migration-error" status, so recover the exact code here.
+  const reason=result?.status==="migration-error"?result?.error?.code:result?.status;
+  const kind=draftRecoveryMessageKind(reason,true),raw=result?.raw??workoutDraftRecovery?.raw??null,
     parsed=WorkoutDraft?.parse(raw),identity=parsed?.kind==="valid"?
       {draftId:parsed.draft.draftId,revision:parsed.draft.revision}:null;
+  // A legacy flat raw has no V2 identity to CAS on; it can still be cleared by
+  // its exact raw bytes through DraftStore.removeLegacy (never a fuzzy match,
+  // never a guess at which program it belonged to).
+  const discardRaw=!identity&&raw!=null&&parsed?.kind!=="valid"?raw:null;
   draftUiRecovery={kind,status:result?.status,attempt:null,pendingValue:null,copyValue:raw,copyKind:"data",
-    focus:null,retry:true,retryMode,label,contextTouched,discardIdentity:identity,discard:kind==="program"&&!!identity};
+    focus:null,retry:true,retryMode,label,contextTouched,discardIdentity:identity,discardRaw,
+    discard:kind==="program"&&(!!identity||!!discardRaw)};
   renderDraftRecovery();focusDraftRecovery()}
 function clearDraftUiRecovery(){draftUiRecovery=null;renderDraftRecovery()}
 async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
@@ -2659,11 +2674,13 @@ async function reloadLatestWorkoutDraft(){
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});clearDraftUiRecovery();renderTabs();renderWorkout();renderToday();
   restoreDraftFocus(recovery?.focus);return loaded}
 async function discardRecoveredWorkoutDraft(){
-  const captured=draftUiRecovery?.discardIdentity;
-  if(!captured)return false;
+  const recovery=draftUiRecovery,identity=recovery?.discardIdentity,rawToClear=recovery?.discardRaw;
+  if(!identity&&!rawToClear)return false;
   if(!confirm(t("confirm.discard_draft")))return false;
-  const removed=await DraftStore.removeV2({expectedDraftId:captured.draftId,expectedRevision:captured.revision,
-    operationId:`discard-${uid()}`});
+  const removed=identity
+    ?await DraftStore.removeV2({expectedDraftId:identity.draftId,expectedRevision:identity.revision,
+      operationId:`discard-${uid()}`})
+    :await DraftStore.removeLegacy({expectedRaw:rawToClear,operationId:`discard-${uid()}`});
   if(removed.status!=="applied"){showDraftInitializationRecovery(removed);return false}
   resetDraftSessionState();clearDraftUiRecovery();renderToday();return true}
 /* Alpha trust telemetry for the Workout lifecycle attaches to an applied DraftV2

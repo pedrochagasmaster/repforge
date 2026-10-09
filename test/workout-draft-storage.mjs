@@ -1436,6 +1436,58 @@ async function main() {
       invalidUi.copyVisible && !invalidUi.discardVisible,
     "invalid legacy bytes remain untouched with a non-destructive copy action", invalidUi);
 
+    // Issue 321: a well-formed legacy flat draft whose exercise still exists, but
+    // whose __touched marker cannot be expressed against the current canonical
+    // program's per-metric composition, must not open an empty workout screen
+    // with no notice. It reuses the stale-program recovery banner and offers
+    // both actions: export (copy) and clear and start fresh (discard).
+    await reset(page);
+    const metricExercise = seedProgram()[0];
+    const unmigratableLegacyDraft = {
+      [`${metricExercise.id}_1_load`]: "60",
+      [`${metricExercise.id}_1_reps`]: "8",
+      [`${metricExercise.id}_1_rir`]: "2",
+      __touched: [`${metricExercise.id}_1`],
+      __day: "Day 1",
+    };
+    await page.evaluate(({ draftKey, checkpointKey, draft }) => {
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      localStorage.removeItem(checkpointKey);
+    }, { draftKey: DRAFT, checkpointKey: CHECKPOINT, draft: unmigratableLegacyDraft });
+    await page.reload({ waitUntil: "domcontentloaded" });await waitForBoot(page);
+    await page.waitForSelector("#draftRecovery:not(.hidden)");
+    const invalidMigratedRaw = JSON.stringify(unmigratableLegacyDraft);
+    const invalidMigratedUi = await page.evaluate((draftKey) => ({ raw: localStorage.getItem(draftKey),
+      title: document.querySelector("#draftRecoveryTitle")?.textContent,
+      body: document.querySelector("#draftRecoveryBody")?.textContent,
+      copyVisible: !document.querySelector("#draftRecoveryCopy")?.classList.contains("hidden"),
+      discardVisible: !document.querySelector("#draftRecoveryDiscard")?.classList.contains("hidden"),
+    }), DRAFT);
+    check(invalidMigratedUi.raw === invalidMigratedRaw && /earlier program/i.test(invalidMigratedUi.title) &&
+      invalidMigratedUi.copyVisible && invalidMigratedUi.discardVisible,
+    "a legacy draft that cannot migrate against the current metric-backed program shows the earlier-program notice with export and clear",
+    invalidMigratedUi);
+    await page.evaluate(() => {
+      window.__draftRecoveryCopied = null;
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+        writeText(value) { window.__draftRecoveryCopied = value; return Promise.resolve(); },
+      } });
+    });
+    await page.locator("#draftRecoveryCopy").click();
+    await page.waitForFunction((expected) => window.__draftRecoveryCopied === expected, invalidMigratedRaw);
+    check(true, "export (keep in recovery) copies the exact unmigrated raw bytes, never a repaired or guessed draft");
+    await page.evaluate(() => { window.confirm = () => true; });
+    await page.locator("#draftRecoveryDiscard").click();
+    await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) === null &&
+      document.querySelector("#draftRecovery")?.classList.contains("hidden"), DRAFT);
+    const enteredAfterDiscard = await page.evaluate((label) => window.__repforgeEnterWorkout({ day: label }), "Day 1");
+    await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
+    const freshAfterDiscard = JSON.parse((await rawState(page)).raw || "null");
+    check(enteredAfterDiscard !== false && freshAfterDiscard?.schemaVersion === 2 &&
+      freshAfterDiscard.draftId !== unmigratableLegacyDraft.draftId,
+    "clear and start fresh removes the unmigratable legacy draft and opens an ordinary new DraftV2 workout",
+    freshAfterDiscard);
+
     check(errors.length === 0, "the production storage/DOM journey emits no page or console errors", errors);
   } finally {
     await context.close();
