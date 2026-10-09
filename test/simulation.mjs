@@ -500,16 +500,6 @@ async function applyProgramEditor(page) {
   await page.evaluate(() => window.__repforgeStorage?.flush?.());
 }
 
-async function revealProgramExerciseDetails(page, id) {
-  const day = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`).locator('xpath=ancestor::*[@data-role="day"]');
-  await day.locator('[data-role="day-menu"]').click();
-  await day.locator('[data-role="toggle-reorder"]').click();
-  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`);
-  await row.locator('[data-role="exercise-menu"]').click();
-  await row.locator('[data-role="more-details"][role="menuitem"]').click();
-  return row.locator('details[data-role="more-details"]');
-}
-
 async function selectDay(page,dayName){
   await page.evaluate(day=>window.__repforgeEnterWorkout({day}),dayName);
   await page.waitForFunction(day=>window.__repforgeWorkoutDraft.current()?.program.dayLabel===day,dayName,{timeout:5000});
@@ -3047,7 +3037,7 @@ async function main() {
   // test/progression-engine-plan067.mjs and test/adaptive-workout-browser.mjs.
   beginPhase("Phase: exercise substitution");
   // The program import above replaced the seed program with an imported copy;
-  // the substitution walk needs the seed's own slots and their alternates back.
+  // the substitution walk needs the seed's own slots back.
   await clearDraftFixture(page);
   await installSeedProgram(page, { waitFor: (p) => waitForApp(p) });
   await nav(page, "program");
@@ -3066,34 +3056,11 @@ async function main() {
       return true;
     }, name);
   };
-  // Alternates are picked from the library now, not typed as a comma string.
-  // This slot ships with "Leg press" (a library movement) and "Pendulum squat"
-  // (which the library has no row for) — both must come back preselected, or
-  // opening the picker would quietly delete whichever it could not match.
-  const altsBefore = (subState.program.find((e) => e.id === d1First.id)?.alternates || []).slice();
-  await revealProgramExerciseDetails(page, d1First.id);
-  await page.click(`#programEditor [data-role="alternates"][data-id="${d1First.id}"]`);
-  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-  const preselected = await page.evaluate(() => (window.__repforgePickerSelection?.() || []).length);
-  assert(
-    preselected === altsBefore.length && altsBefore.length >= 2,
-    "Existing alternates come back preselected, library-matched or not",
-    `preselected=${preselected} existing=${JSON.stringify(altsBefore)}`,
-    "Program tab → alternates row"
-  );
-  const altPicked = await pickExact("Pec deck fly");
-  await page.click("#exPickDone");
-  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  // The editor's own Alternates row was removed (#317 option B: the Focus
+  // swap picker never read it, so the control only stored a note the
+  // canonical program then dropped). This phase now goes straight to the
+  // mid-session substitute, which is the real swap path.
   await applyProgramEditor(page);
-  subState = await getState(page);
-  const altRow = subState.program.find((e) => e.id === d1First.id);
-  assert(
-    altPicked && (altRow?.alternates || []).includes("Pec deck fly") &&
-      altsBefore.every((n) => (altRow?.alternates || []).includes(n)),
-    "Adding an alternate keeps the ones already there",
-    `alternates=${JSON.stringify(altRow?.alternates)} before=${JSON.stringify(altsBefore)}`,
-    "Program tab → alternates row → search 'Pec deck fly' → Done"
-  );
   await nav(page, "log");
   const subDay = d1First.day;
   await selectDay(page, subDay);

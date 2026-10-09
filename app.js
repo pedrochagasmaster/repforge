@@ -2326,7 +2326,8 @@ function substitutionProgram(id,libraryRef){
     return{metricDefinitions,targets,restSeconds:programmed.restSeconds??null,targetRir:programmed.targetRir??null,
       minReps:reps?repTarget?.min??repTarget:null,maxReps:reps?repTarget?.max??repTarget:null,
       suggestedReps:reps?repTarget?.min??repTarget:null,previousMetrics:[]}});
-  return{sourceLibraryId:libraryRef,metricOrigin:"source_catalog",metricIds:metricDefinitions.map(metric=>metric.id),
+  return{sourceLibraryId:libraryRef,metricOrigin:custom?"user_defined":"source_catalog",
+    metricIds:metricDefinitions.map(metric=>metric.id),
     metricDefinitions,loadingModel,loadingConvention,loadingContext:{loadingConvention,bodyweightKg:null,...loadingContext},
     equipmentId:null,programmedSets}}
 function workoutProgramContext(label=day){
@@ -10414,7 +10415,7 @@ function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}
 function editorChooseExercise(request){
   return new Promise(resolve=>{
-    const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternates"?t("picker.title_alternates"):t("picker.add_to",{day:dayLabel(request?.day)}),
+    const options={title:request?.mode==="replace"?t("picker.title_change"):t("picker.add_to",{day:dayLabel(request?.day)}),
       subtitle:request?.exercise?exerciseDisplayName(request.exercise):"",exclude:request?.exclude||[],onPick:async entry=>{
         // Share repair applies as soon as the picker has handed back a valid
         // replacement. Wait for the picker's own close transition first: the
@@ -10428,15 +10429,6 @@ function editorChooseExercise(request){
         }else resolve(entry)},
       ...(request?.repair?{onCancel:()=>resolve(null),stageOnly:true,repairSeed:request.exercise}:{}),
       ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
-    if(request?.mode==="alternates"){
-      options.mode="multi";
-      const byName=new Map(pickableExercises().map(entry=>[foldSearch(libraryName(entry)),entry.id]));
-      const selected=[],extras=[];
-      for(const name of request.exercise?.alternates||[]){
-        const match=byName.get(foldSearch(name));
-        if(match){selected.push(match);continue}
-        const extra=nameOnlyEntry(name);extras.push(extra);selected.push(extra.id)}
-      options.selected=selected;options.extras=extras}
     openExercisePicker(options)})}
 function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
 function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
@@ -10465,7 +10457,6 @@ function editorDraftExerciseIds(draft){
   for(const id of [...(draft?.__skipped||[]),...Object.keys(draft?.__substituted||{})])if(id)ids.add(String(id));
   return ids}
 function editorIntentValue(exercise,field){
-  if(field==="alternates")return cloneSnapshot(exercise?.alternates||[]);
   return exercise?.[field]}
 function applyInstalledEditorIntent(document,edit,{check=true}={}){
   const kind=edit?.kind;
@@ -10494,7 +10485,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     kind==="prescription"&&edit.field==="sets"){
     return syncEditorCanonicalIntent(document,document,edit,{cycleIndex:Number(edit.cycleIndex)||1})
       ?{ok:true}:{conflict:true,code:"invalid_canonical_prescription"}}
-  if(kind==="exercise_field"||kind==="prescription"||kind==="alternates"){
+  if(kind==="exercise_field"||kind==="prescription"){
     const exercise=document.program?.find(item=>item.id===edit.targetId);
     if(!exercise)return{conflict:true};
     const current=editorIntentValue(exercise,edit.field);
@@ -11544,12 +11535,6 @@ function exCard(e,i,n){
     (linked?`<p class="pex__linked">${esc(t("program.exercise.linked",{name:libraryName(linked)}))} `+
       `<button type="button" class="pex__detach" data-act="detachEx" data-id="${esc(e.id)}">${esc(t("program.exercise.detach"))}</button></p>`:"")+
     `<label class="pex__mus">${esc(t("program.exercise.setup_notes"))}<input data-id="${esc(e.id)}" data-field="notes" value="${esc(e.notes)}" placeholder="${esc(t("program.exercise.setup_notes_placeholder"))}"></label>`+
-    `<div class="pex__alts">`+
-      `<span class="pex__altlab">${esc(t("program.exercise.alternates"))}</span>`+
-      `<button type="button" class="pex__altpick" data-act="pickAlternates" data-id="${esc(e.id)}">`+
-        `${esc((e.alternates||[]).join(", ")||t("program.exercise.alternates_empty"))}`+
-      `</button>`+
-    `</div>`+
   `</div>`;
 }
 
@@ -11557,11 +11542,9 @@ function exCard(e,i,n){
    (trimmed, split on commas), so the stored string routinely differs from what
    is legitimately half-typed in the box — mirroring the model back mid-edit
    would eat trailing spaces and re-fill a field the lifter is still clearing.
-   These echo on blur instead; see bindEditor. Alternates are no longer typed —
-   they are picked — so they are committed whole and are not in this set,
-   though Program.update still parses the string form for imported programs. */
+   These echo on blur instead; see bindEditor. */
 const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes"]);
-const editorFieldText=(e,field)=>field==="alternates"?(e.alternates||[]).join(", "):String(e[field]??"");
+const editorFieldText=(e,field)=>String(e[field]??"");
 function commitEditorField(id,field,value,effect){
   const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
@@ -11622,8 +11605,7 @@ function bindEditor(){
       // abandoned edit, not a rename to a fragment.
       let onFocusText=null;
       inp.onfocus=()=>{const e=programEditorProgram().find(inp.dataset.id);onFocusText=e?editorFieldText(e,field):null};
-      // Blur is where the box catches up with the model: stray whitespace goes and
-      // alternates regain their ", " spacing.
+      // Blur is where the box catches up with the model: stray whitespace goes.
       inp.onchange=async()=>{
         if(field==="name"&&!inp.value.trim()&&onFocusText){
           // Backspacing leaves a keystroke commit per character still in flight, and
@@ -11692,22 +11674,6 @@ async function editorAction(act,ds){
     proposal.program=nextProgram.toJSON();
     const result=await commitProgramEditorProposal(proposal);
     if(result.localOk||result.idbOk){render();toast(t("toast.exercise_detached"))}}
-  else if(act==="pickAlternates"){
-    const ex=programEditorProgram().find(ds.id);if(!ex)return;
-    // Alternates were a comma-separated string of whatever got typed. They are
-    // still stored as names, so older programs keep working, but they are now
-    // chosen from the library — which is what makes a one-tap swap possible.
-    const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e.id]));
-    const extras=[],preselected=[];
-    for(const n of ex.alternates||[]){
-      const hit=byName.get(foldSearch(n));
-      if(hit){preselected.push(hit);continue}
-      const extra=nameOnlyEntry(n);extras.push(extra);preselected.push(extra.id)}
-    openExercisePicker({title:t("picker.title_alternates"),subtitle:exerciseDisplayName(ex),mode:"multi",
-      selected:preselected,extras,exclude:[ex.libraryId].filter(Boolean),
-      onPick:async entries=>{
-        const result=await commitEditorField(ds.id,"alternates",entries.map(libraryName).join(", "));
-        if(result.localOk||result.idbOk){render();toast(t("toast.alternates_saved"))}}})}
   else if(act==="delEx"){const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
@@ -12235,8 +12201,8 @@ async function shareSetupLinkNow(){
   catch{return false}}
 /* ============================================================
    Exercise picker
-   One sheet, four callers: the program editor's add and change
-   paths, the alternates field, and the log-tab substitution.
+   One sheet, three callers: the program editor's add and change
+   paths, and the log-tab substitution.
    Callers hand it a mode and a callback and get library entries
    back — they never touch the library themselves, so a movement
    arrives in a program slot the same way from every surface.
@@ -12404,13 +12370,6 @@ async function choosePicked(id){
 
 /* mode "single" fires onPick with one entry and closes; "multi" collects and
    fires once on Done with the entries in selection order. */
-/* Pseudo-entries for names that exist only in somebody's program — a legacy or
-   imported alternate the library has no row for. They are listed and selectable
-   like anything else, so opening the picker can neither drop them silently nor
-   strand them as something the lifter can see but not remove. */
-const NAME_ONLY_PREFIX="name:";
-const nameOnlyEntry=name=>({id:`${NAME_ONLY_PREFIX}${foldSearch(name)}`,name,namePt:name,
-  equipment:[],primary:"",secondary:"",patterns:[],nameOnly:true});
 function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
   onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null}={}){
   const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
@@ -13217,8 +13176,8 @@ function importDraftCustomDefinitions(draft){
    One controller behind three surfaces: the quick-add sheet on a
    training day, the full browse page it opens into, and the
    configuration step that follows a multi-selection. The picker
-   sheet keeps serving the single-pick jobs (change, substitute,
-   alternates) — this is the "add to my program" path, where
+   sheet keeps serving the single-pick jobs (change, substitute)
+   — this is the "add to my program" path, where
    choosing several at once and setting their sets afterwards is
    what a lifter actually does.
    ============================================================ */

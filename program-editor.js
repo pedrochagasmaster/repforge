@@ -16,7 +16,7 @@
   const PROGRAM_EDITOR_INTENTS = Object.freeze([
     "program_name", "day_name", "day_add", "exercise_field", "prescription",
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
-    "alternates", "exercise_move", "metric_target", "metric_composition",
+    "exercise_move", "metric_target", "metric_composition",
     "prescription_field", "load_step", "save_draft", "apply", "apply_discard_workout",
   ]);
   const INTENT_SET = new Set(PROGRAM_EDITOR_INTENTS);
@@ -45,8 +45,6 @@
     notes: "Setup notes",
     primary: "Primary",
     secondary: "Secondary",
-    alternates: "Alternates",
-    chooseAlternates: "Choose alternates",
     move: "Reorder exercise",
     moveUp: "Move up",
     moveDown: "Move down",
@@ -90,7 +88,7 @@
     addExercise: "program.editor.add_exercise", replaceExercise: "program.editor.replace_exercise",
     removeExercise: "program.editor.remove_exercise", removeDay: "program.editor.remove_day",
     details: "program.editor.details", notes: "program.editor.notes", primary: "program.editor.primary",
-    secondary: "program.editor.secondary", alternates: "program.editor.alternates", chooseAlternates: "program.editor.choose_alternates",
+    secondary: "program.editor.secondary",
     move: "program.editor.move", moveUp: "program.editor.move_up", moveDown: "program.editor.move_down",
     moveOther: "program.editor.move_other", moved: "program.editor.moved", undo: "program.editor.undo",
     exerciseAdded: "toast.exercise_added", exerciseChanged: "toast.exercise_changed", exerciseRemoved: "toast.exercise_removed",
@@ -394,7 +392,6 @@
     if (field === "sets") return Math.max(1, Math.min(100, positiveInt(value, positiveInt(exercise.sets, 1))));
     if (field === "min") return positiveInt(value, positiveInt(exercise.min, 1));
     if (field === "max") return positiveInt(value, positiveInt(exercise.max, 1));
-    if (field === "alternates") return Array.isArray(value) ? value.map(String).filter(Boolean) : String(value || "").split(",").map(item => item.trim()).filter(Boolean);
     return String(value ?? "").trim();
   }
   function entryFields(entry, day, order) {
@@ -402,7 +399,6 @@
       id: uid(), day, order, name: String(entry?.name || entry?.namePt || "Exercise"),
       sets: positiveInt(entry?.sets, 3), min: positiveInt(entry?.min, 6), max: positiveInt(entry?.max, 10),
       primary: String(entry?.primary || ""), secondary: String(entry?.secondary || ""), notes: String(entry?.notes || ""),
-      alternates: Array.isArray(entry?.alternates) ? clone(entry.alternates) : [],
       ...(entry?.id ? { libraryId: String(entry.id), movementId: `library:${String(entry.id)}` } : {}),
     };
   }
@@ -414,7 +410,7 @@
   function replaceExercise(document, id, entry) {
     const exercise = (document.program || []).find(item => item.id === id);
     if (!exercise || !entry) return false;
-    const old = { id: exercise.id, day: exercise.day, order: exercise.order, notes: exercise.notes, alternates: exercise.alternates };
+    const old = { id: exercise.id, day: exercise.day, order: exercise.order, notes: exercise.notes };
     const replacement = entryFields(entry, old.day, old.order);
     // A replacement repoints the slot's movement identity but keeps its
     // authored prescription and notes. Leaving the old movementId behind
@@ -423,7 +419,7 @@
     Object.assign(exercise, {
       name: replacement.name, primary: replacement.primary, secondary: replacement.secondary,
       ...(replacement.libraryId ? { libraryId: replacement.libraryId, movementId: replacement.movementId } : {}),
-      notes: old.notes, alternates: old.alternates,
+      notes: old.notes,
     });
     return true;
   }
@@ -560,8 +556,7 @@
         ? requestedIndex : metricCycleIndex(adapter, document);
       const slot = field === "sets" ? definitionSlot(next, exercise.slotId || exercise.id) : null;
       const cycle = slot ? definitionCycle(slot, cycleIndex) : null;
-      const previous = field === "alternates" ? clone(exercise.alternates || [])
-        : field === "sets" && cycle ? cycle.sets.length : exercise[field];
+      const previous = field === "sets" && cycle ? cycle.sets.length : exercise[field];
       const normalized = fieldValue(exercise, field, value);
       if (equal(previous, normalized)) return Promise.resolve({ ok: true, unchanged: true });
       if (field === "sets" && cycle) {
@@ -593,7 +588,7 @@
         if (normalized) exercise.displayName = normalized;
         else delete exercise.displayName;
       }
-      return stage(next, { kind: field === "sets" || field === "min" || field === "max" ? "prescription" : field === "alternates" ? "alternates" : "exercise_field", targetId: id, field, before: previous, after: normalized }, { redraw });
+      return stage(next, { kind: field === "sets" || field === "min" || field === "max" ? "prescription" : "exercise_field", targetId: id, field, before: previous, after: normalized }, { redraw });
     };
     const toggleExercise = id => { expandedExercises.has(id) ? expandedExercises.delete(id) : expandedExercises.add(id); scheduleRender(); };
     const toggleDay = day => { collapsedDays.has(day) ? collapsedDays.delete(day) : collapsedDays.add(day); scheduleRender(); };
@@ -1066,7 +1061,6 @@
               // allowed to wrap, since a full attribution can outrun one input line.
               ? `<label><span>${esc(label(field))}</span><textarea class="program-editor__muscles" rows="${Math.min(4, Math.max(1, Math.ceil(String(exercise[field] || "").length / 24)))}" readonly data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}">${esc(exercise[field] || "")}</textarea></label>`
               : `<label><span>${esc(label(field))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}" value="${esc(exercise[field] || "")}"></label>`).join("")}
-            <button type="button" data-role="alternates" data-id="${esc(exercise.id)}">${esc((exercise.alternates || []).join(", ") || label("chooseAlternates"))}</button>
           </details>
         </div>` : "";
       return `<article class="program-editor__exercise pex${open ? " is-expanded" : " is-collapsed"}${settleMoveId === exercise.id ? " is-settling" : ""}" data-role="exercise" data-id="${esc(exercise.id)}" data-day="${esc(day)}">
@@ -1233,10 +1227,6 @@
       }));
       host.querySelectorAll('[data-role="replace"]').forEach(button => button.addEventListener("click", () => replaceForExercise(button.dataset.id)));
       host.querySelectorAll('[data-role="remove-exercise"]').forEach(button => button.addEventListener("click", () => removeExercise(button.dataset.id)));
-      host.querySelectorAll('[data-role="alternates"]').forEach(button => button.addEventListener("click", () => chooseExercise({ mode: "alternates", exercise: clone(document.program?.find(item => item.id === button.dataset.id)) }).then(entries => {
-        if (!Array.isArray(entries)) return;
-        setExerciseField(button.dataset.id, "alternates", entries.map(entry => entry.name || entry.namePt || entry.id));
-      })));
       host.querySelectorAll('[data-role="exercise-menu"]').forEach(button => button.addEventListener("click", () => {
         const menu = host.querySelector(`[data-role="move-menu"][data-id="${cssEscape(button.dataset.id)}"]`); if (!menu) return;
         const open = menu.hidden; host.querySelectorAll('[data-role="move-menu"]').forEach(item => { item.hidden = true; });

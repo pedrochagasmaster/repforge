@@ -20,21 +20,9 @@ import { readFileSync } from "node:fs";
  */
 const FIXTURE = JSON.parse(readFileSync(new URL("./seed-program-v067.json", import.meta.url), "utf8"));
 
-/**
- * One slot carries alternates on purpose, and carries two kinds: "Leg press" is
- * a seed movement, "Pendulum squat" is not. A picker that only kept the ones
- * it could match would quietly drop the second, so the substitution walk needs
- * both present to notice.
- */
-const ALTERNATES = { "Hack squat": ["Leg press", "Pendulum squat"] };
-
 /** The program rows. Stable ids, so a suite can address one across a reload. */
 export function seedProgram() {
-  return FIXTURE.program.map((source) => {
-    const row = structuredClone(source);
-    if (ALTERNATES[row.name]) row.alternates = ALTERNATES[row.name].slice();
-    return row;
-  });
+  return FIXTURE.program.map((source) => structuredClone(source));
 }
 
 /** Its metadata: onboarded, so the app treats it as the lifter's own program. */

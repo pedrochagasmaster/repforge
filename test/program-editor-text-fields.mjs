@@ -3,8 +3,8 @@
  * Focused regression for the program editor's free-text fields.
  *
  * The editor commits on every keystroke and the model normalises what it stores
- * (names are trimmed, a blank one falls back to "Exercise", alternates are split
- * on commas). Echoing that normalised value straight back into the focused input
+ * (names are trimmed, a blank one falls back to "Exercise"). Echoing that
+ * normalised value straight back into the focused input
  * swallowed spaces and re-filled a name the lifter was still clearing. These
  * checks type character by character — `fill()` dispatches a single input event
  * and hides the bug.
@@ -20,7 +20,6 @@ const DRAFT = "repforge_draft_v1";
 const DB = "repforge";
 const STORE = "kv";
 const EXERCISE_ID = "seed-ex-3";
-const ALTERNATE = "Pec deck fly";
 const failures = [];
 let passed = 0;
 
@@ -294,37 +293,17 @@ async function main() {
     );
     await openExerciseDetails(page);
 
-    // 7. Alternates are no longer typed: the row is a button onto the picker,
-    //    so it reads back the stored list rather than holding a half-typed one.
-    const altBtn = page.locator(`#programEditor [data-role="alternates"][data-id="${EXERCISE_ID}"]`);
-    check(await altBtn.count() === 1, "alternates are a picker control, not a text box", {
-      count: await altBtn.count(),
-      leftoverInput: await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count(),
-    });
-    await altBtn.click();
-    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-    await page.fill("#exPickSearch", ALTERNATE);
-    const alternateRow = page.locator("#exPickList .pickrow").filter({
-      has: page.locator(".pickrow__name", { hasText: new RegExp(`^\\s*${ALTERNATE}\\s*$`) }),
-    });
-    await alternateRow.first().click();
-    await page.click("#exPickDone");
-    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-    await page.waitForFunction(async (id) => {
-      const debug = await window.__debugProgramEditor?.();
-      return (debug?.session?.document?.program?.find((entry) => entry.id === id)?.alternates || []).length > 0;
-    }, EXERCISE_ID, { timeout: 5000 }).catch(() => {});
-    const stored = await stagedExercise(page);
-    check(
-      JSON.stringify(stored?.alternates) === JSON.stringify([ALTERNATE]),
-      "picked alternates are stored as names",
-      { stored: stored?.alternates }
-    );
-    check(
-      ((await altBtn.textContent()) || "").trim() === ALTERNATE,
-      "the alternates control reads back what is stored",
-      { label: (await altBtn.textContent() || "").trim() }
-    );
+    // 7. #317 option B: the Alternates row is gone. The Focus swap picker never
+    //    read it, so the control only stored a note the canonical program then
+    //    dropped on the floor — removed rather than wired up.
+    check(await page.locator(`#programEditor [data-role="alternates"][data-id="${EXERCISE_ID}"]`).count() === 0,
+      "the alternates picker control is gone", {
+        altButton: await page.locator(`#programEditor [data-role="alternates"][data-id="${EXERCISE_ID}"]`).count(),
+      });
+    check(await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count() === 0,
+      "no leftover alternates text box took its place", {
+        leftoverInput: await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count(),
+      });
 
     await page.click("#programEditToggle");
     await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
@@ -334,8 +313,7 @@ async function main() {
     await waitForApp(page);
     const reloaded = await storedExercise(page);
     check(
-      reloaded?.name === "Seated row" && reloaded?.notes === "Seat on 4" &&
-        JSON.stringify(reloaded?.alternates) === JSON.stringify([ALTERNATE]),
+      reloaded?.name === "Seated row" && reloaded?.notes === "Seat on 4",
       "edited text fields survive a reload",
       { reloaded }
     );

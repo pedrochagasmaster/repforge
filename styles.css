@@ -1570,13 +1570,6 @@ body.is-sheet-open{overflow:hidden}
 /* A slot with no library link is the one worth pointing at: it came from an
    import or predates the picker, and one tap adopts a real movement. */
 .pex__swap.is-unlinked{color:var(--accent-deep)}
-.pex__alts{display:flex;align-items:baseline;gap:8px;margin:10px 0 0}
-.pex__altlab{flex:none;font-size:var(--font-size-caption);font-weight:600;color:var(--ink-soft)}
-.pex__altpick{
-  flex:1;min-width:0;padding:7px 10px;border:1px dashed var(--rule-strong);border-radius:var(--radius-control);
-  background:none;font:inherit;font-size:var(--font-size-control);color:var(--ink);text-align:left;cursor:pointer;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
 
 /* A linked slot states what it follows and offers the way out, rather than
    letting a muscle edit quietly disagree with the id the row carries. */
