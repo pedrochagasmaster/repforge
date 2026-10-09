@@ -46,9 +46,14 @@ function exerciseContext(exercise, index, mediaId) {
     ...(exercise.primaryMuscle || []),
     ...(exercise.secondaryMuscle || [])
   ], index);
+  const names = ids => (Array.isArray(ids) ? ids : [ids])
+    .map(id => index[id]?.name?.trim()).filter(Boolean);
   return {
     equipment,
     muscles,
+    pattern: names(exercise.movementPattern),
+    alternatives: names(exercise.alternativeName),
+    laterality: names(exercise.laterality),
     media: mediaId ? "/assets/exercises/" + mediaId + ".webp" : null
   };
 }
@@ -144,7 +149,7 @@ function defaultRebuild(root) {
       (result.error?.message || result.stderr || result.stdout || "unknown error").slice(0, 1200));
 }
 
-function acceptReview(root, rebuild, body) {
+function acceptReview(root, rebuild, body, history = new Map()) {
   const { id, namePt, aliases } = validateReview(body);
   const source = readJson(join(root, SOURCE));
   const rawExercise = source.exercises.find(item => item.id === id);
@@ -163,6 +168,8 @@ function acceptReview(root, rebuild, body) {
       curation.source !== SOURCE || draft.source !== SOURCE || draft.status !== "draft-for-review")
     throw Object.assign(new Error("Catalog metadata changed; review aborted."), { status: 409 });
 
+  const keys = Object.keys(draft.entries);
+  const previousDraft = { entry: structuredClone(entry), after: keys[keys.indexOf(id) - 1] ?? null };
   // Never copy a mediaId from a draft. Existing reviewed artwork assignments stay intact.
   delete draft.entries[id];
   curation.entries[id] = { sourceName: rawExercise.name, namePt, aliases };
@@ -185,10 +192,40 @@ function acceptReview(root, rebuild, body) {
     }
     throw error;
   }
+  history.set(id, previousDraft);
   return {
     id, reviewed: Object.keys(curation.entries).length,
     remaining: Object.keys(draft.entries).length
   };
+}
+
+// Session-only undo: moves an entry approved by this server process back to the draft.
+function undoReview(root, rebuild, body, history) {
+  const id = body?.id;
+  const previous = typeof id === "string" ? history.get(id) : null;
+  if (!previous) throw Object.assign(new Error("Only approvals from this session can be undone."), { status: 409 });
+  const paths = [join(root, CURATION), join(root, DRAFT), ...GENERATED.map(name => join(root, name))];
+  const originals = paths.map(path => existsSync(path) ? readFileSync(path, "utf8") : null);
+  const curation = JSON.parse(originals[0]);
+  const draft = JSON.parse(originals[1]);
+  if (!Object.hasOwn(curation.entries, id) || Object.hasOwn(draft.entries, id))
+    throw Object.assign(new Error("Entry changed outside this session; undo aborted."), { status: 409 });
+  delete curation.entries[id];
+  // Reinsert at the original position so an approve+undo leaves no diff.
+  const entries = Object.entries(draft.entries);
+  const at = previous.after === null ? 0 : entries.findIndex(([key]) => key === previous.after) + 1;
+  entries.splice(at > 0 || previous.after === null ? at : entries.length, 0, [id, previous.entry]);
+  draft.entries = Object.fromEntries(entries);
+  try {
+    atomicWrite(paths[0], renderJsonLikeOriginal(originals[0], curation));
+    atomicWrite(paths[1], renderJsonLikeOriginal(originals[1], draft));
+    rebuild(root);
+  } catch (error) {
+    paths.forEach((path, i) => { if (originals[i] !== null) atomicWrite(path, originals[i]); });
+    throw error;
+  }
+  history.delete(id);
+  return { id, reviewed: Object.keys(curation.entries).length, remaining: Object.keys(draft.entries).length };
 }
 
 function send(res, status, body, type = "application/json; charset=utf-8") {
@@ -216,6 +253,7 @@ async function requestJson(req) {
 export function createReviewServer({ root = DEFAULT_ROOT, rebuild = defaultRebuild } = {}) {
   root = resolve(root);
   let writeQueue = Promise.resolve();
+  const history = new Map();
   const server = createServer(async (req, res) => {
     const port = server.address()?.port;
     const hosts = new Set(["127.0.0.1:" + port, "localhost:" + port]);
@@ -236,16 +274,17 @@ export function createReviewServer({ root = DEFAULT_ROOT, rebuild = defaultRebui
         const path = join(root, "assets/exercises", filename);
         if (!existsSync(path)) { send(res, 404, { error: "Not found" }); return; }
         send(res, 200, readFileSync(path), "image/webp");
-      } else if (pathname === "/api/review" && req.method !== "POST") {
+      } else if ((pathname === "/api/review" || pathname === "/api/undo") && req.method !== "POST") {
         send(res, 405, { error: "Method not allowed." });
-      } else if (pathname === "/api/review") {
+      } else if (pathname === "/api/review" || pathname === "/api/undo") {
         const acceptedOrigins = new Set(["http://127.0.0.1:" + port, "http://localhost:" + port]);
         if (!acceptedOrigins.has(req.headers.origin)) { send(res, 403, { error: "Local origin required." }); return; }
         if (req.headers["content-type"]?.split(";")[0]?.trim() !== "application/json") {
           send(res, 415, { error: "Expected application/json." }); return;
         }
         const body = await requestJson(req);
-        const commit = writeQueue.then(() => acceptReview(root, rebuild, body));
+        const commit = writeQueue.then(() => pathname === "/api/undo"
+          ? undoReview(root, rebuild, body, history) : acceptReview(root, rebuild, body, history));
         writeQueue = commit.catch(() => {});
         send(res, 200, await commit);
       } else send(res, 404, { error: "Not found" });

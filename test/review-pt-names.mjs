@@ -71,7 +71,7 @@ test("feed lists only drafts and resolves equipment/muscles from UUID references
   assert.equal(state.remaining, 1);
   assert.deepEqual(state.pending.map(x => x.id), [A]);
   assert.deepEqual(state.pending[0].equipment, ["Barbell"]);
-  assert.deepEqual(state.pending[0].muscles, ["Quadriceps", "Glutes"]);
+  assert.deepEqual(state.pending[0].muscles, ["Glutes", "Quadriceps"]);
   assert.equal(state.pending[0].draftName, "Agachamento com barra");
   assert.deepEqual(state.pending[0].aliases, ["Agachamento livre"]);
   assert.equal(state.pending[0].media, null);

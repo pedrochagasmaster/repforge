@@ -332,12 +332,13 @@ to `127.0.0.1` and accepts same-origin writes; it is not part of the PWA, CI
 preview, service worker, or public Pages deployment. Do not expose this port
 through a public tunnel or reverse proxy.
 
-The local page presents one pending Portuguese name at a time, grouped by
-equipment and muscle using the raw source UUID references. Filter or search,
-compare established reviewed names, and approve without editing (right arrow
-or swipe right), edit the name and newline-separated aliases (`E`, then
-Save), or skip for the current session (down arrow/swipe down). Skipped entries
-remain drafts. `Rever pulados` returns them to this session's feed. An approval
+The local page shows the queue grouped by equipment on the left, the current
+exercise in the middle, and similar reviewed names and draft variants on the
+right so terminology stays consistent. The Portuguese name is edited in place
+and aliases are chips. `Enter` approves, with any edits, including from inside
+the name field. `S` skips, `←` goes back, `Z` undoes an approval made in this
+session, and `?` lists every shortcut. On a phone, swipe right to approve or
+left to skip. Skipped entries remain drafts. An approval
 removes the UUID from `exercise-names-pt-draft.json`, creates a reviewed entry
 in `exercise-catalog-curation.json`, and runs `build-exercises.mjs` to
 regenerate `exercises.js` and `assets/exercise-catalog.json`. The server
