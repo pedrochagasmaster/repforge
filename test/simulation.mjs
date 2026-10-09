@@ -5975,10 +5975,9 @@ async function main() {
     el.dispatchEvent(new Event("input", { bubbles: true }));
   }, "82.5");
   await setLogDate(page, nonToday);
-  await fillExerciseSets(page, draftExB.id, 1, 40, 8, 1);
   await exerciseAction(page, `${draftExSkip.id}`, "#exActionSkipBtn");
-  // Swap from the library before logging into it: a library swap never
-  // reprograms sets the lifter has already typed into.
+  // Swap before logging into it: no swap, library or custom, reprograms sets
+  // the lifter has already typed into.
   await exerciseAction(page, `${draftExA.id}`, "#exActionSubstBtn");
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   const altName = await page.evaluate(() => {
@@ -6017,6 +6016,9 @@ async function main() {
     `prefilled="${customPrefilled}" stored=${JSON.stringify(savedCustom.map((e) => e.name))}`,
     "Log → swap → search a name the library lacks → + Create custom exercise → Save"
   );
+  // The new movement has no composition of its own, so it records what the
+  // slot records and takes the same values.
+  await fillExerciseSets(page, draftExB.id, 1, 40, 8, 1);
   await page.waitForTimeout(80);
   await flushDraftWork(page);
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());

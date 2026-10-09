@@ -83,7 +83,8 @@ const SUBSTITUTE_SECONDARY = "Triceps,Front delts";
 // reprograms the slot from the movement's own metric composition rather than
 // the library's. One ships configured (reps-only, deliberately not the
 // seed's own load+reps, so a successful swap is unmistakable); the other
-// ships with no composition at all, which must refuse the swap outright.
+// ships with no composition, like one created mid-workout, and records what
+// the slot already records.
 const CUSTOM_CONFIGURED_ID = "custom:parity-reps-only";
 const CUSTOM_CONFIGURED_NAME = "Custom reps-only fly";
 const CUSTOM_UNCONFIGURED_ID = "custom:parity-unconfigured";
@@ -514,6 +515,10 @@ async function main() {
 
     // Typed pending values refuse a custom-movement swap exactly like a
     // library one: the picker never gets to apply over them.
+    const sixthMetricIds = await page.evaluate((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      return exercise.sets[exercise.setOrder[0]].programmed.metricIds;
+    }, sixth.id);
     await selectExercise(page, fifth.id);
     await fillShelf(page, "load", 20);
     await fillShelf(page, "reps", 15);
@@ -530,22 +535,38 @@ async function main() {
     assert(JSON.stringify(await setValues(page, fifth.id, 1)) === JSON.stringify(["20", "15", "2"]),
       "the refused custom swap leaves the typed values in place");
 
-    // A custom movement with no configured composition cannot be
-    // reprogrammed at all, so the swap is refused outright, regardless of
-    // the slot's touched state.
+    // A custom movement with no composition of its own is held to the same
+    // rule over typed values.
+    await page.evaluate(() => { document.querySelector("#toast").textContent = ""; });
     await exerciseAction(page, fifth.id, "#exActionSubstBtn");
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await pickExactRow(page, CUSTOM_UNCONFIGURED_NAME);
-    await page.waitForFunction(() => /measurements/i.test(document.querySelector("#toast")?.textContent || ""));
+    await page.waitForFunction(() => /remaining sets/i.test(document.querySelector("#toast")?.textContent || ""));
     const unconfiguredRefused = await page.evaluate(
       (id) => window.__repforgeWorkoutDraft.current().exercises[id].substitution, fifth.id);
     assert(unconfiguredRefused === null,
-      "a custom movement with no configured composition refuses the swap and says to configure it",
+      "a swap to an unconfigured custom movement over filled pending sets is refused too",
       JSON.stringify(unconfiguredRefused));
 
-    // An untouched pending set accepts a custom movement's own composition,
-    // not the original slot's — proof that #322's replacementProgram now
-    // reaches custom ids too.
+    // Over untouched sets, an unconfigured custom movement (one created
+    // mid-workout has no composition yet) records what the slot records.
+    await exerciseAction(page, sixth.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await pickExactRow(page, CUSTOM_UNCONFIGURED_NAME);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const inherited = await page.evaluate((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      const set = exercise.sets[exercise.setOrder[0]];
+      return { displayName: exercise.substitution?.replacement?.displayName,
+        metricIds: set.programmed.metricIds, metricOrigin: set.programmed.metricOrigin };
+    }, sixth.id);
+    assert(inherited.displayName === CUSTOM_UNCONFIGURED_NAME && inherited.metricOrigin === "user_defined" &&
+      JSON.stringify(inherited.metricIds) === JSON.stringify(sixthMetricIds),
+      "an unconfigured custom movement swapped over untouched sets records the slot's own metrics",
+      JSON.stringify({ inherited, sixthMetricIds }));
+
+    // An untouched pending set accepts a configured custom movement's own
+    // composition, not the slot's: #322's replacementProgram reaches custom ids.
     await exerciseAction(page, sixth.id, "#exActionSubstBtn");
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     assert(await pickExactRow(page, CUSTOM_CONFIGURED_NAME),

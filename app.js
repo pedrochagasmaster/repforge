@@ -2318,17 +2318,20 @@ function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
    both movements share; the rest stay for the lifter to enter. A custom
    movement has no catalog row, so its composition comes from the movement's
    own metricIds/metricDefinitions (set by the "metric composition" editor
-   intent) rather than from the static catalog. One with no composition
-   configured yet cannot be reprogrammed — the caller must refuse the swap
-   rather than apply it over a metric-less replacement; that case returns the
-   "unconfigured" sentinel instead of null (null means "not a metric swap"). */
+   intent) rather than from the static catalog. One created mid-session has
+   no composition yet, so it records what the slot already records. Only when
+   the slot records nothing either is there nothing to program: that case
+   returns the "unconfigured" sentinel (null means "not a metric swap"). */
 function substitutionProgram(id,libraryRef){
   const draftExercise=activeWorkoutDraft?.exercises?.[id];
   if(!draftExercise?.programmed?.metricOrigin||!libraryRef)return null;
   const custom=isCustomLibraryId(libraryRef)?libraryEntry(libraryRef):null;
   const source=custom||rawExercise(libraryRef);
   if(!source)return null;
-  const metricDefinitions=custom?(Array.isArray(custom.metricDefinitions)?custom.metricDefinitions:[]):rawMetricDefinitions(libraryRef);
+  const slotMetrics=draftExercise.sets?.[draftExercise.setOrder?.[0]]?.programmed?.metrics;
+  const metricDefinitions=!custom?rawMetricDefinitions(libraryRef)
+    :Array.isArray(custom.metricDefinitions)&&custom.metricDefinitions.length?custom.metricDefinitions
+    :Array.isArray(slotMetrics)?slotMetrics.map(cloneSnapshot):[];
   if(!metricDefinitions)return null;
   if(custom&&!metricDefinitions.length)return"unconfigured";
   const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,source);
@@ -2952,9 +2955,8 @@ async function applyCustomSub(id,raw,libraryRef=null){
   const restore=!name||name===progName,type=restore?"restoreOriginalExercise":"substituteExercise";
   const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString();
     const program=substitutionProgram(id,libraryRef);
-    // A custom movement with no configured composition cannot be swapped to
-    // mid-session: applying it anyway would skip the metric reprogramming
-    // silently (see substitutionProgram), so this refuses instead.
+    // Neither the custom movement nor the slot records anything, so there is
+    // no composition to program; applying would skip the touched-set check.
     if(program==="unconfigured"){toast(t("entry.preview.metrics_required"));return false}
     if(program)payload.replacementProgram=program}
   const result=await WorkoutSession.dispatch(type,payload);
